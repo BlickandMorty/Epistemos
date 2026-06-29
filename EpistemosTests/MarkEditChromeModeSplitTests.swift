@@ -17,7 +17,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
         #expect(codeSurface.contains("MarkEditCodeEditorRepresentable("))
         #expect(!codeSurface.contains("WebKitCodeEditorView("))
-        #expect(codeSurface.contains("SourceEditor("))
+        #expect(!codeSurface.contains("SourceEditor("))
 
         #expect(source.contains("showLivePreview.toggle()"))
         #expect(livePreview.contains("HTMLWorkspacePreviewView("))

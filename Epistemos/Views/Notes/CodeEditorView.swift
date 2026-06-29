@@ -1,178 +1,16 @@
 // CodeEditorView.swift
 //
-// Native code editor surface for Epistemos. CodeEditSourceEditor owns the
-// live TextKit/AppKit editing canvas; Epistemos layers outline navigation,
-// code ask, and related-note/insight sidecars around its native gutter,
-// folding, whitespace, and syntax affordances. Live syntax stays close to the
-// Swift/AppKit range model while heavier code intelligence remains a
-// background/LSP concern.
+// Native code editor chrome for Epistemos. Markdown documents use MarkEdit's
+// verbatim chrome; code documents keep the Epistemos top bar, search, outline,
+// semantic sidecars, and live preview while sharing MarkEdit CoreEditor as the
+// editing engine.
 //
 // 2026-04-06.
 
 import AppKit
-@preconcurrency import CodeEditSourceEditor
-@preconcurrency import CodeEditLanguages
-import os.signpost
 import SwiftUI
 import SwiftData
 import Accelerate
-
-// MARK: - Native Epistemos Code Themes
-// Syntax stays native and readable: code deserves semantic color, while the
-// surrounding chrome still follows Epistemos' quiet note-canvas surfaces.
-extension EditorTheme {
-    private static func normalized(_ color: NSColor) -> NSColor {
-        color.rgbSafeForCodeEditorTheme()
-    }
-
-    /// Light editor theme with Xcode-like semantic contrast.
-    /// Text and subtle colors default to the neutral grays tuned for the
-    /// base light theme, but callers should pass the active EpistemosTheme's
-    /// foreground + mutedForeground so syntax colors track the app theme
-    /// instead of fighting it.
-    static func flatLight(
-        accent: NSColor,
-        background: NSColor,
-        text: NSColor? = nil,
-        subtle: NSColor? = nil
-    ) -> EditorTheme {
-        let accent = normalized(accent)
-        let background = normalized(background)
-        let textColor = normalized(text ?? NSColor(hex: "1C1C1E"))
-        let subtleColor = normalized(subtle ?? NSColor(hex: "6B6B6B"))
-        let lineHighlightColor = normalized(
-            background.blended(withFraction: 0.05, of: .black) ?? NSColor(hex: "F5F5F7")
-        )
-        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.28))
-
-        return EditorTheme(
-            text: .init(color: textColor),
-            insertionPoint: accent,
-            invisibles: .init(color: normalized(NSColor(hex: "D1D1D6"))),
-            background: background,
-            lineHighlight: lineHighlightColor,
-            selection: selectionColor,
-            keywords: .init(color: normalized(NSColor(hex: "AD3DA4")), bold: true),
-            commands: .init(color: normalized(NSColor(hex: "326D74"))),
-            types: .init(color: normalized(NSColor(hex: "0B4F79"))),
-            attributes: .init(color: normalized(NSColor(hex: "815F03"))),
-            variables: .init(color: normalized(NSColor(hex: "0F68A0"))),
-            values: .init(color: normalized(NSColor(hex: "6432A8"))),
-            numbers: .init(color: normalized(NSColor(hex: "1C00CF"))),
-            strings: .init(color: normalized(NSColor(hex: "C41A16"))),
-            characters: .init(color: normalized(NSColor(hex: "1C00CF"))),
-            comments: .init(color: subtleColor, italic: true)
-        )
-    }
-    
-    /// Dark editor theme with readable native token contrast.
-    /// Text and subtle colors default to the neutral grays tuned for the
-    /// base dark theme, but callers should pass the active EpistemosTheme's
-    /// foreground + mutedForeground so syntax colors track the app theme
-    /// instead of fighting it.
-    static func flatDark(
-        accent: NSColor,
-        background: NSColor,
-        text: NSColor? = nil,
-        subtle: NSColor? = nil
-    ) -> EditorTheme {
-        let accent = normalized(accent)
-        let background = normalized(background)
-        let textColor = normalized(text ?? NSColor(hex: "DFDFE0"))
-        let subtleColor = normalized(subtle ?? NSColor(hex: "8A8A8A"))
-        let lineHighlightColor = normalized(
-            background.blended(withFraction: 0.07, of: .white) ?? NSColor(hex: "2C2C2E")
-        )
-        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.22))
-        
-        return EditorTheme(
-            text: .init(color: textColor),
-            insertionPoint: accent,
-            invisibles: .init(color: normalized(NSColor(hex: "535353"))),
-            background: background,
-            lineHighlight: lineHighlightColor,
-            selection: selectionColor,
-            keywords: .init(color: normalized(NSColor(hex: "FF7AB2")), bold: true),
-            commands: .init(color: normalized(NSColor(hex: "78C2B3"))),
-            types: .init(color: normalized(NSColor(hex: "6BDFFF"))),
-            attributes: .init(color: normalized(NSColor(hex: "CC9768"))),
-            variables: .init(color: normalized(NSColor(hex: "4EB0CC"))),
-            values: .init(color: normalized(NSColor(hex: "B281EB"))),
-            numbers: .init(color: normalized(NSColor(hex: "D9C97C"))),
-            strings: .init(color: normalized(NSColor(hex: "FF8170"))),
-            characters: .init(color: normalized(NSColor(hex: "D9C97C"))),
-            comments: .init(color: subtleColor, italic: true)
-        )
-    }
-    
-    /// Ultra-minimal: no syntax highlighting at all (everything same color).
-    /// Text color defaults to the base light tone; pass the app theme's
-    /// foreground when you want the editor to move with the theme.
-    static func minimalLight(
-        accent: NSColor,
-        background: NSColor,
-        text: NSColor? = nil
-    ) -> EditorTheme {
-        let accent = normalized(accent)
-        let background = normalized(background)
-        let textColor = normalized(text ?? NSColor(hex: "1C1C1E"))
-        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.28))
-        
-        return EditorTheme(
-            text: .init(color: textColor),
-            insertionPoint: accent,
-            invisibles: .init(color: normalized(textColor.withAlphaComponent(0.3))),
-            background: background,
-            lineHighlight: normalized(.clear),  // No line highlight
-            selection: selectionColor,
-            // Everything same color - truly no syntax highlighting
-            keywords: .init(color: textColor),
-            commands: .init(color: textColor),
-            types: .init(color: textColor),
-            attributes: .init(color: textColor),
-            variables: .init(color: textColor),
-            values: .init(color: textColor),
-            numbers: .init(color: textColor),
-            strings: .init(color: textColor),
-            characters: .init(color: textColor),
-            comments: .init(color: normalized(textColor.withAlphaComponent(0.6)))
-        )
-    }
-    
-    /// Ultra-minimal dark: no syntax highlighting at all.
-    /// Text color defaults to the base dark tone; pass the app theme's
-    /// foreground when you want the editor to move with the theme.
-    static func minimalDark(
-        accent: NSColor,
-        background: NSColor,
-        text: NSColor? = nil
-    ) -> EditorTheme {
-        let accent = normalized(accent)
-        let background = normalized(background)
-        let textColor = normalized(text ?? NSColor(hex: "DFDFE0"))
-        let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.22))
-        
-        return EditorTheme(
-            text: .init(color: textColor),
-            insertionPoint: accent,
-            invisibles: .init(color: normalized(textColor.withAlphaComponent(0.3))),
-            background: background,
-            lineHighlight: normalized(.clear),  // No line highlight
-            selection: selectionColor,
-            // Everything same color - truly no syntax highlighting
-            keywords: .init(color: textColor),
-            commands: .init(color: textColor),
-            types: .init(color: textColor),
-            attributes: .init(color: textColor),
-            variables: .init(color: textColor),
-            values: .init(color: textColor),
-            numbers: .init(color: textColor),
-            strings: .init(color: textColor),
-            characters: .init(color: textColor),
-            comments: .init(color: normalized(textColor.withAlphaComponent(0.6)))
-        )
-    }
-}
 
 // Helper extension for hex color initialization
 extension NSColor {
@@ -337,42 +175,6 @@ enum CodeEditorScrollConfigurator {
         updateTextKitDocumentWidth(textView: textView, scrollView: scrollView)
     }
 
-    @MainActor
-    static func allowCodeEditTwoAxisScrolling(controller: TextViewController) {
-        configureAlwaysVisibleScrollers(controller.scrollView)
-        configureNestedScrollViews(in: controller.scrollView)
-        refreshCodeEditDocumentWidth(controller: controller)
-    }
-
-    @MainActor
-    static func refreshCodeEditDocumentWidth(controller: TextViewController) {
-        guard let textView = controller.textView else { return }
-        guard let scrollView = textView.enclosingScrollView ?? controller.scrollView else { return }
-        configureAlwaysVisibleScrollers(scrollView)
-        _ = textView.updateFrameIfNeeded()
-
-        guard !textView.wrapLines else {
-            scrollView.reflectScrolledClipView(scrollView.contentView)
-            return
-        }
-
-        let targetWidth = estimatedDocumentWidth(
-            text: textView.string,
-            font: textView.font,
-            visibleWidth: visibleWidth(for: scrollView),
-            horizontalInset: textView.textInsets.horizontal
-        )
-        if abs(textView.frame.width - targetWidth) > 1 {
-            textView.setFrameSize(NSSize(
-                width: targetWidth,
-                height: max(textView.frame.height, scrollView.contentSize.height)
-            ))
-            textView.needsLayout = true
-            textView.needsDisplay = true
-        }
-        scrollView.reflectScrolledClipView(scrollView.contentView)
-    }
-
     private static func configureAlwaysVisibleScrollers(_ scrollView: NSScrollView) {
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
@@ -381,19 +183,6 @@ enum CodeEditorScrollConfigurator {
         scrollView.horizontalScrollElasticity = .allowed
         scrollView.verticalScrollElasticity = .allowed
         scrollView.contentView.postsBoundsChangedNotifications = true
-    }
-
-    private static func configureNestedScrollViews(in view: NSView) {
-        if let scrollView = view as? NSScrollView {
-            configureAlwaysVisibleScrollers(scrollView)
-        }
-        if let textView = view as? NSTextView,
-           let scrollView = textView.enclosingScrollView {
-            allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
-        }
-        for subview in view.subviews {
-            configureNestedScrollViews(in: subview)
-        }
     }
 
     private static func updateTextKitDocumentWidth(textView: NSTextView, scrollView: NSScrollView) {
@@ -1007,12 +796,6 @@ private enum CodeEditorLivePreviewKind: String {
 }
 
 // MARK: - CodeEditorView (SwiftUI)
-
-// NOTE: NSTextStorage path was reverted — CodeEditSourceEditor's internal MultiStorageDelegate
-// overwrites custom delegates on setTextStorage(), breaking tree-sitter highlighting.
-// Using Binding<String> path instead, which the upstream coordinator handles correctly.
-// The Binding<String> O(n) cost is acceptable at <100KB file sizes; for larger files,
-// the NSTextStorage path would need upstream changes to support addDelegate pattern.
 
 // MARK: - Metal Compute Engine (GPU-Accelerated)
 
@@ -1814,14 +1597,12 @@ struct CodeEditorView: View {
     @ScaledMetric(relativeTo: .body) private var toolbarMenuWidth: CGFloat = 20
 
     @State private var text: String
-    @State private var editorState: SourceEditorState = .init()
     @State private var cursorLine: Int = 1
     @State private var cursorCol: Int = 1
     @State private var totalLines: Int
     @State private var outlineRefreshTask: Task<Void, Never>?
     @State private var semanticRefreshTask: Task<Void, Never>?
     @State private var semanticLookupTask: Task<Void, Never>?
-    @State private var sourceEditorCoordinator: EpistemosEditorCoordinator?
     @State private var contentDebouncer: CodeEditorContentDebouncer?
     @State private var webKitSelectionRequest: WebKitCodeEditorSelectionRequest?
     
@@ -1836,14 +1617,8 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
-    // Native CodeEditSourceEditor gutter. Default ON: this is the real
-    // left-side IDE line-number gutter, not the old right-edge overlay.
     @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
-    @AppStorage("epistemos.codeEditor.showFoldingRibbon") private var showFoldingRibbon = true
-    @AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true
-    @AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback") private var useNativeSourceEditorFallback = false
 
-    private var usesWebKitEditor: Bool { true }
     private var isMarkdownDocument: Bool {
         CodeLanguage.isMarkdownDocument(filePath: filePath, language: language)
     }
@@ -1913,11 +1688,9 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
-                normalizeCodeEditorPreferences()
-                ensureEditorCoordinator()
+                _ = ensureContentDebouncer()
                 showSemanticSidebar = false
                 livePreviewText = text
-                applyGutterPreferences()
             }
             .onDisappear {
                 outlineRefreshTask?.cancel()
@@ -1928,17 +1701,13 @@ struct CodeEditorView: View {
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
-                sourceEditorCoordinator?.destroy()
-                sourceEditorCoordinator = nil
             }
             .onChange(of: text) { _, newText in
                 activeSearchRange = nil
                 semanticLookupTask?.cancel()
                 semanticStatusMessage = nil
                 semanticStatusIsLoading = false
-                if usesWebKitEditor {
-                    ensureContentDebouncer().enqueue(newText)
-                }
+                ensureContentDebouncer().enqueue(newText)
                 if showOutlineNavigator {
                     scheduleOutlineRefresh(for: newText)
                 }
@@ -1957,28 +1726,6 @@ struct CodeEditorView: View {
             }
             .onChange(of: cursorLine) { _, newLine in
                 updateBreadcrumbs()
-            }
-            .onChange(of: showLineGutter) { _, enabled in
-                // The native SourceEditor gutter handles visible line
-                // numbers. Keep Epistemos' old right-edge fallback dormant
-                // so users do not see two independent gutter systems.
-                sourceEditorCoordinator?.setLineGutterEnabled(false)
-            }
-            .onChange(of: fontSize) { _, _ in
-                applyGutterPreferences()
-            }
-            .onChange(of: tabWidth) { _, _ in
-                applyGutterPreferences()
-            }
-            .onChange(of: showIndentationGuides) { _, _ in
-                applyGutterPreferences()
-            }
-            .onChange(of: ui.theme) { _, _ in
-                applyGutterPreferences()
-            }
-            .onChange(of: useNativeSourceEditorFallback) { _, _ in
-                activeSearchRange = nil
-                webKitSelectionRequest = nil
             }
             .onChange(of: showLivePreview) { _, enabled in
                 if enabled {
@@ -2002,54 +1749,6 @@ struct CodeEditorView: View {
                     outlineItems = []
                 }
             }
-    }
-
-    /// Pushes gutter visibility, theme tokens, and font into the AppKit
-    /// coordinator. Cheap; called on appear and whenever a relevant
-    /// preference changes.
-    private func applyGutterPreferences() {
-        guard let coordinator = sourceEditorCoordinator else { return }
-        // Native SourceEditor gutter/folding is the live surface. The custom
-        // right-edge gutter remains as fallback scaffold but is not shown.
-        coordinator.setLineGutterEnabled(false)
-        coordinator.applyGutterTokens(ui.theme.editorGutterTokens())
-        let editorFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        coordinator.applyEditorBodyFont(editorFont)
-        coordinator.setIndentationGuidesEnabled(showIndentationGuides)
-        coordinator.reassertTwoAxisScrolling()
-        coordinator.applyIndentationGuideMetrics(font: editorFont, tabWidth: tabWidth)
-        coordinator.applyLineGutterState(totalLines: totalLines, cursorLine: cursorLine)
-    }
-
-    private func normalizeCodeEditorPreferences() {
-        // The CodeEditSourceEditor path remains compiled as an emergency
-        // fallback, but product code-file notes should always open on the
-        // WebKit editor surface. Self-heal older user defaults that kept the
-        // old native editor enabled.
-        if useNativeSourceEditorFallback {
-            useNativeSourceEditorFallback = false
-        }
-
-        // Preserve the user's saved code font. The WebKit editor path should
-        // inherit the native code editor's scale instead of silently compacting
-        // existing installs.
-    }
-
-    private func ensureEditorCoordinator() {
-        let debouncer = ensureContentDebouncer()
-        guard !usesWebKitEditor else { return }
-        guard sourceEditorCoordinator == nil else { return }
-
-        let coordinator = EpistemosEditorCoordinator(
-            cursorLine: $cursorLine,
-            cursorCol: $cursorCol,
-            totalLines: $totalLines,
-            enqueueContentChange: { [weak debouncer] newText in
-                debouncer?.enqueue(newText)
-            }
-        )
-        coordinator.setLineGutterEnabled(false)
-        sourceEditorCoordinator = coordinator
     }
 
     @discardableResult
@@ -2105,6 +1804,9 @@ struct CodeEditorView: View {
                 fontSize: fontSize,
                 wrapLines: wrapLines,
                 showLineNumbers: showLineGutter,
+                showInvisibles: showInvisibles,
+                useSpaces: useSpaces,
+                tabWidth: tabWidth,
                 selectionRequest: webKitSelectionRequest
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2334,16 +2036,12 @@ struct CodeEditorView: View {
     }
     
     private func navigateToLine(_ line: Int) {
-        if usesWebKitEditor {
-            let starts = CodeEditorLineMetrics.lineStartUTF16Offsets(in: text)
-            let index = min(max(line - 1, 0), max(starts.count - 1, 0))
-            let location = starts.isEmpty ? 0 : starts[index]
-            webKitSelectionRequest = WebKitCodeEditorSelectionRequest(
-                range: NSRange(location: location, length: 0)
-            )
-        } else {
-            editorState.cursorPositions = [CursorPosition(line: line, column: 1)]
-        }
+        let starts = CodeEditorLineMetrics.lineStartUTF16Offsets(in: text)
+        let index = min(max(line - 1, 0), max(starts.count - 1, 0))
+        let location = starts.isEmpty ? 0 : starts[index]
+        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(
+            range: NSRange(location: location, length: 0)
+        )
     }
     
     private var editorWithSearch: some View {
@@ -2369,38 +2067,21 @@ struct CodeEditorView: View {
 
     @ViewBuilder
     private var codeEditorSurface: some View {
-        if usesWebKitEditor {
-            MarkEditCodeEditorRepresentable(
-                text: $text,
-                cursorLine: $cursorLine,
-                cursorColumn: $cursorCol,
-                totalLines: $totalLines,
-                language: language,
-                theme: ui.theme,
-                fontSize: fontSize,
-                wrapLines: wrapLines,
-                showLineNumbers: showLineGutter,
-                selectionRequest: webKitSelectionRequest
-            )
-        } else {
-            SourceEditor(
-                $text,
-                language: codeEditLanguage,
-                configuration: editorConfiguration,
-                state: $editorState,
-                coordinators: sourceEditorCoordinator.map { [$0] } ?? []
-            )
-            // Wave 4.5 / Patch 6a — SUPERSEDED by W9.6 canonical
-            // (`Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift`).
-            // Per `epistemos_code_verdict.md` §1, live syntax stays in
-            // Swift via direct C bindings to tree-sitter, NOT through
-            // CodeEditSourceEditor's HighlightProviding protocol. The
-            // W9.6 canonical highlighter binds tree_sitter_<lang>() C
-            // symbols via @_silgen_name to CodeLanguagesContainer, no
-            // FFI hop, no Sendable mismatch. Removed the
-            // SyntaxCoreHighlightProvider class + its test as dead
-            // code on 2026-04-26 (audit agent verdict OBSOLETE).
-        }
+        MarkEditCodeEditorRepresentable(
+            text: $text,
+            cursorLine: $cursorLine,
+            cursorColumn: $cursorCol,
+            totalLines: $totalLines,
+            language: language,
+            theme: ui.theme,
+            fontSize: fontSize,
+            wrapLines: wrapLines,
+            showLineNumbers: showLineGutter,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth,
+            selectionRequest: webKitSelectionRequest
+        )
     }
 
     private var codeLivePreview: some View {
@@ -2836,7 +2517,14 @@ struct CodeEditorView: View {
     
     private func performSearch(direction: CodeEditorSearchDirection) {
         guard !searchQuery.isEmpty else { return }
-        let currentRange = activeSearchRange ?? editorState.cursorPositions?.first?.range
+        let cursorOffset = CodeEditorSemanticLSP.utf16Offset(
+            in: text,
+            line: cursorLine - 1,
+            character: cursorCol - 1
+        )
+        let currentRange = activeSearchRange ?? cursorOffset.map {
+            NSRange(location: $0, length: 0)
+        }
         guard let match = CodeEditorSearchEngine.find(
             in: text,
             query: searchQuery,
@@ -2850,12 +2538,7 @@ struct CodeEditorView: View {
         }
 
         activeSearchRange = match
-        if usesWebKitEditor {
-            webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: match)
-        } else {
-            editorState.cursorPositions = [CursorPosition(range: match)]
-            sourceEditorCoordinator?.select(range: match, scrollToVisible: true)
-        }
+        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: match)
     }
 
     // MARK: - Semantic LSP Lookup
@@ -2950,8 +2633,7 @@ struct CodeEditorView: View {
                     if definition.uri == documentURI,
                        let definitionRange = CodeEditorSemanticLSP.nsRange(for: definition.range, in: textSnapshot) {
                         activeSearchRange = nil
-                        editorState.cursorPositions = [CursorPosition(range: definitionRange)]
-                        sourceEditorCoordinator?.select(range: definitionRange, scrollToVisible: true)
+                        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: definitionRange)
                         cursorLine = lineNumber
                         cursorCol = definition.range.start.character + 1
                         semanticStatusMessage = "Definition selected at line \(lineNumber)."
@@ -3033,8 +2715,7 @@ struct CodeEditorView: View {
             Section("View") {
                 Toggle("Word Wrap", isOn: $wrapLines)
                 Toggle("Show Line Numbers", isOn: $showLineGutter)
-                Toggle("Folding Arrows", isOn: $showFoldingRibbon)
-                Toggle("Indent Guides", isOn: $showIndentationGuides)
+                Toggle("Show Invisibles", isOn: $showInvisibles)
             }
 
         } label: {
@@ -3146,612 +2827,11 @@ struct CodeEditorView: View {
         }
     }
 
-    // MARK: - Language Mapping (tree-sitter, 20+ languages)
-
-    private var codeEditLanguage: CodeEditLanguages.CodeLanguage {
-        switch language {
-        case "swift":      return .swift
-        case "rust":       return .rust
-        case "python":     return .python
-        case "javascript": return .javascript
-        case "typescript":  return .typescript
-        case "json":       return .json
-        case "html":       return .html
-        case "css":        return .css
-        case "bash":       return .bash
-        case "go":         return .go
-        case "c":          return .c
-        case "cpp":        return .cpp
-        case "yaml":       return .yaml
-        case "toml":       return .toml
-        case "lua":        return .lua
-        case "ruby":       return .ruby
-        case "java":       return .java
-        case "sql":        return .sql
-        case "zig":        return .zig
-        default:           return .default
-        }
-    }
-
-    // MARK: - Editor Configuration
-
-    private var editorConfiguration: SourceEditorConfiguration {
-        return SourceEditorConfiguration(
-            appearance: .init(
-                theme: editorTheme,
-                useThemeBackground: true,
-                font: .monospacedSystemFont(ofSize: fontSize, weight: .regular),
-                lineHeightMultiple: 1.35,
-                wrapLines: wrapLines,
-                tabWidth: tabWidth,
-                bracketPairEmphasis: .flash
-            ),
-            behavior: .init(
-                indentOption: useSpaces ? .spaces(count: tabWidth) : .tab
-            ),
-            peripherals: .init(
-                showGutter: showLineGutter,
-                showMinimap: false,
-                showFoldingRibbon: showLineGutter && showFoldingRibbon,
-                invisibleCharactersConfiguration: invisibleCharactersConfiguration
-            )
-        )
-    }
-
-    private var invisibleCharactersConfiguration: InvisibleCharactersConfiguration {
-        showInvisibles
-            ? InvisibleCharactersConfiguration(showSpaces: true, showTabs: true, showLineEndings: true)
-            : .empty
-    }
-
-    // MARK: - Theme Selection
-    // The semantic theme is live by default. The minimal theme remains as an
-    // explicit fallback for accessibility or debugging, not the canonical look.
-
-    private let useMinimalTheme = false  // Set to true for no syntax highlighting at all
-
-    @MainActor private var editorTheme: EditorTheme {
-        let resolved = ui.theme.resolved
-        let accent = resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
-        // Reuse the shared note canvas color so the code editor sits on
-        // the same surface as prose/markdown instead of inventing a
-        // competing background tone.
-        let background = MarkdownPreviewSurfaceStyle
-            .canvasNSColor(for: ui.theme)
-            .rgbSafeForCodeEditorTheme()
-        let text = resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
-        let subtle = resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
-        if useMinimalTheme {
-            return ui.theme.isDark
-                ? .minimalDark(accent: accent, background: background, text: text)
-                : .minimalLight(accent: accent, background: background, text: text)
-        } else {
-            return ui.theme.isDark
-                ? .flatDark(accent: accent, background: background, text: text, subtle: subtle)
-                : .flatLight(accent: accent, background: background, text: text, subtle: subtle)
-        }
-    }
-}
-
-// Segmented indentation guide implementation is in SegmentedIndentationGuideView.swift
-
-// MARK: - Editor Coordinator (cursor tracking + content change + indent guides)
-
-/// Optimized editor coordinator with throttled UI updates, efficient line counting, and VS Code-style indent guides
-final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
-    @Binding var cursorLine: Int
-    @Binding var cursorCol: Int
-    @Binding var totalLines: Int
-    private let enqueueContentChange: @MainActor (String) -> Void
-    
-    // Throttled UI update state
-    private var pendingCursorUpdate: (line: Int, col: Int)?
-    private var cursorUpdateTask: Task<Void, Never>?
-    private var lastCursorUpdate = Date()
-    private let cursorUpdateThrottle: TimeInterval = 0.016  // ~60fps
-    
-    // Performance instrumentation
-    private static let perfLog = OSLog(subsystem: "app.epistemos", category: "CodeEditor")
-    
-    // Indentation guide view
-    private weak var indentGuideView: SegmentedIndentationGuideView?
-    private weak var textController: TextViewController?
-    private var lastText: String = ""
-    private var lastTextLineStartUTF16Offsets: [Int] = [0]
-    private var indentationGuideRefreshTask: Task<Void, Never>?
-    private var horizontalGeometryRefreshTask: Task<Void, Never>?
-
-    // Dormant fallback line-number gutter (right-side, theme-aware). The live
-    // user surface is CodeEditSourceEditor's native left gutter; this scaffold
-    // stays hidden unless we deliberately need a fallback during future audits.
-    private weak var gutterView: CodeLineGutterView?
-    private var showGutter: Bool = true
-    private var gutterTokens: CodeLineGutterTokens = CodeLineGutterTokens(
-        foreground: NSColor.tertiaryLabelColor,
-        activeForeground: NSColor.labelColor,
-        background: .clear,
-        separator: NSColor.separatorColor
-    )
-    private var gutterDigitCount: Int = 2
-    private var lastTotalLines: Int = 0
-
-    // Selection tracking for code explanation
-    var onSelectionChange: ((String) -> Void)?
-
-    init(
-        cursorLine: Binding<Int>,
-        cursorCol: Binding<Int>,
-        totalLines: Binding<Int>,
-        enqueueContentChange: @escaping @MainActor (String) -> Void
-    ) {
-        self._cursorLine = cursorLine
-        self._cursorCol = cursorCol
-        self._totalLines = totalLines
-        self.enqueueContentChange = enqueueContentChange
-        super.init()
-    }
-
-    func prepareCoordinator(controller: TextViewController) {
-        setupIndentationGuides(controller: controller)
-        setupLineGutter(controller: controller)
-        forceHorizontalScrollerVisibility(controller: controller)
-    }
-
-    /// Per user direction 2026-05-15: long-line files (`.jsonl`,
-    /// minified `.json`, single-line `.csv` rows) overflow the
-    /// viewport but `CodeEditSourceEditor` styles the scrollers as
-    /// `.overlay` — they auto-hide and most users never discover
-    /// the horizontal scroll exists. Forcing `.legacy` keeps both
-    /// scrollers always-visible so the horizontal-overflow signal
-    /// is immediately obvious.
-    ///
-    /// The library also sets `hasHorizontalScroller = !wrapLines`
-    /// inside `SourceEditorConfiguration+Appearance.apply`, but only
-    /// when wrapLines CHANGES — re-asserting `true` here is harmless
-    /// and protects against the initial-config branch missing it.
-    private func forceHorizontalScrollerVisibility(controller: TextViewController) {
-        CodeEditorScrollConfigurator.allowCodeEditTwoAxisScrolling(controller: controller)
-    }
-
-    func reassertTwoAxisScrolling() {
-        guard let controller = textController else { return }
-        forceHorizontalScrollerVisibility(controller: controller)
-    }
-
-    private func scheduleHorizontalScrollGeometryRefresh(immediate: Bool = false) {
-        horizontalGeometryRefreshTask?.cancel()
-        horizontalGeometryRefreshTask = Task { @MainActor [weak self] in
-            if !immediate {
-                try? await Task.sleep(for: CodeEditorPerformancePolicy.horizontalScrollGeometryRefreshDelay)
-            }
-            guard !Task.isCancelled, let self, let controller = self.textController else { return }
-            CodeEditorScrollConfigurator.refreshCodeEditDocumentWidth(controller: controller)
-            self.updateGutterScrollOffset()
-        }
-    }
-
-    /// Installs the dormant right-side fallback gutter. Mirrors the
-    /// indent-guide setup so both views share the same scroll bridge.
-    private func setupLineGutter(controller: TextViewController) {
-        guard let tv = controller.textView else { return }
-
-        let gutter = CodeLineGutterView()
-        let bodyPointSize = tv.font.pointSize
-        gutter.lineHeight = bodyPointSize * 1.35
-        gutter.applyFont(.monospacedDigitSystemFont(
-            ofSize: CodeLineGutterPolicy.gutterFontSize(forBodyPointSize: bodyPointSize),
-            weight: .regular
-        ))
-        gutter.applyTokens(gutterTokens)
-        gutter.gutterWidth = CodeLineGutterView.preferredWidth(
-            digitCount: gutterDigitCount,
-            font: gutter.font
-        )
-        gutter.autoresizingMask = [.minXMargin, .height]
-        gutter.frame = NSRect(
-            x: tv.bounds.maxX - gutter.gutterWidth,
-            y: tv.bounds.minY,
-            width: gutter.gutterWidth,
-            height: tv.bounds.height
-        )
-        gutter.isHidden = !showGutter
-
-        tv.addSubview(gutter)
-        gutter.layer?.zPosition = 500  // above text background, below carets
-        self.gutterView = gutter
-
-        // Initial population. The dormant fallback gutter is usually hidden;
-        // keep its line-number cache cold until it is deliberately enabled.
-        if showGutter {
-            gutter.updateLineCount(lastTotalLines)
-        }
-        gutter.updateActiveLine(cursorLine)
-    }
-
-    /// Called from the SwiftUI view whenever the toggle changes. Cheap.
-    func setLineGutterEnabled(_ enabled: Bool) {
-        guard showGutter != enabled else { return }
-        showGutter = enabled
-        gutterView?.isHidden = !enabled
-        if enabled, let tv = textController?.textView {
-            updateGutterLineCount(lastTotalLines)
-            gutterView?.frame = gutterFrame(in: tv)
-            updateGutterScrollOffset()
-        }
-    }
-
-    /// Re-applies the gutter color tokens. Call when the active theme
-    /// changes; cheap (one redraw, no allocation).
-    func applyGutterTokens(_ next: CodeLineGutterTokens) {
-        gutterTokens = next
-        gutterView?.applyTokens(next)
-    }
-
-    /// Re-applies the body font. Resizes the gutter accordingly.
-    func applyEditorBodyFont(_ next: NSFont) {
-        guard let gutter = gutterView else { return }
-        gutter.lineHeight = next.pointSize * 1.35
-        let gutterFont = NSFont.monospacedDigitSystemFont(
-            ofSize: CodeLineGutterPolicy.gutterFontSize(forBodyPointSize: next.pointSize),
-            weight: .regular
-        )
-        gutter.applyFont(gutterFont)
-        gutter.gutterWidth = CodeLineGutterView.preferredWidth(
-            digitCount: gutterDigitCount,
-            font: gutterFont
-        )
-        if let tv = textController?.textView {
-            gutter.frame = gutterFrame(in: tv)
-        }
-    }
-
-    func setIndentationGuidesEnabled(_ enabled: Bool) {
-        guard indentGuideView?.isHidden == enabled else { return }
-        indentGuideView?.isHidden = !enabled
-        if enabled {
-            scheduleIndentationGuideRefresh(for: lastText, immediate: true)
-        }
-    }
-
-    func applyIndentationGuideMetrics(font: NSFont, tabWidth: Int) {
-        guard let guideView = indentGuideView,
-              let textView = textController?.textView else { return }
-        guideView.applyEditorMetrics(
-            font: font,
-            tabWidth: tabWidth,
-            leadingTextInset: textView.textInsets.left
-        )
-        if !guideView.isHidden {
-            scheduleIndentationGuideRefresh(for: lastText, immediate: true)
-        }
-    }
-
-    private func gutterFrame(in tv: NSView) -> NSRect {
-        let width = gutterView?.gutterWidth ?? 28
-        return NSRect(
-            x: tv.bounds.maxX - width,
-            y: tv.bounds.minY,
-            width: width,
-            height: tv.bounds.height
-        )
-    }
-
-    private func updateGutterScrollOffset() {
-        guard let gutter = gutterView,
-              let tv = textController?.textView,
-              !gutter.isHidden else { return }
-        let scrollOffset: CGFloat
-        if let scrollView = tv.enclosingScrollView {
-            scrollOffset = -scrollView.documentVisibleRect.origin.y
-        } else {
-            scrollOffset = 0
-        }
-        // Keep the gutter pinned to the right edge as the textView width
-        // changes (e.g. window resize, wrap toggle).
-        gutter.frame = gutterFrame(in: tv)
-        gutter.updateScrollOffset(scrollOffset)
-    }
-
-    private func updateGutterLineCount(_ count: Int) {
-        lastTotalLines = count
-        guard let gutter = gutterView, !gutter.isHidden else { return }
-        gutter.updateLineCount(count)
-        let nextDigits = CodeLineGutterPolicy.digitCount(for: count)
-        if nextDigits != gutterDigitCount {
-            gutterDigitCount = nextDigits
-            gutter.gutterWidth = CodeLineGutterView.preferredWidth(
-                digitCount: nextDigits,
-                font: gutter.font
-            )
-            if let tv = textController?.textView {
-                gutter.frame = gutterFrame(in: tv)
-            }
-        }
-    }
-
-    func applyLineGutterState(totalLines: Int, cursorLine: Int) {
-        updateGutterLineCount(totalLines)
-        gutterView?.updateActiveLine(cursorLine)
-    }
-
-    func select(range: NSRange, scrollToVisible: Bool) {
-        textController?.setCursorPositions([CursorPosition(range: range)], scrollToVisible: scrollToVisible)
-    }
-    
-    /// Sets up VS Code-style segmented indentation guide overlay
-    private func setupIndentationGuides(controller: TextViewController) {
-        guard let tv = controller.textView else { return }
-        self.textController = controller
-        lastText = tv.string
-        lastTextLineStartUTF16Offsets = CodeEditorLineMetrics.lineStartUTF16Offsets(in: lastText)
-        
-        // Use the new segmented indentation guide
-        let guideView = SegmentedIndentationGuideView()
-        guideView.applyEditorMetrics(
-            font: tv.font,
-            tabWidth: Self.visibleIndentColumnCount(
-                for: controller.configuration.behavior.indentOption
-            ),
-            leadingTextInset: tv.textInsets.left
-        )
-        guideView.autoresizingMask = [.width, .height]
-        guideView.frame = tv.bounds
-        
-        // Add as subview of textView
-        tv.addSubview(guideView)
-        
-        // Position at back so text renders on top
-        guideView.layer?.zPosition = -1000
-        
-        self.indentGuideView = guideView
-        
-        // Set up scroll notification with debouncing
-        if let scrollView = tv.enclosingScrollView {
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(textViewDidScroll),
-                name: NSView.boundsDidChangeNotification,
-                object: scrollView.contentView
-            )
-        }
-
-        scheduleIndentationGuideRefresh(for: lastText, immediate: true)
-    }
-
-    private static func visibleIndentColumnCount(for option: IndentOption) -> Int {
-        switch option {
-        case .spaces(let count):
-            max(1, count)
-        case .tab:
-            4
-        }
-    }
-    
-    private var scrollDebounceTask: Task<Void, Never>?
-    
-    @objc private func textViewDidScroll() {
-        // Gutter must follow scroll without debounce — line numbers feel
-        // broken if they lag the cursor. Cheap (one needsDisplay).
-        updateGutterScrollOffset()
-        scheduleHorizontalScrollGeometryRefresh()
-
-        scrollDebounceTask?.cancel()
-        scrollDebounceTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: CodeEditorPerformancePolicy.scrollGuideRefreshDelay)
-            guard !Task.isCancelled else { return }
-            self?.updateIndentationGuideScrollOffset()
-        }
-    }
-
-    private func updateIndentationGuides() {
-        guard let controller = textController,
-              let textView = controller.textView,
-              let guideView = indentGuideView,
-              !guideView.isHidden else { return }
-
-        os_signpost(.begin, log: Self.perfLog, name: "indentGuidesRefresh")
-        defer { os_signpost(.end, log: Self.perfLog, name: "indentGuidesRefresh") }
-        
-        // Update frame to match parent
-        guideView.frame = textView.bounds
-        
-        let text = lastText
-        let lineCount = totalLines > 0 ? totalLines : CodeEditorLineMetrics.lineCount(text)
-        let characterCount = (text as NSString).length
-        
-        // Get scroll offset for proper positioning
-        var scrollOffset: CGFloat = 0
-        if let scrollView = textView.enclosingScrollView {
-            scrollOffset = -scrollView.documentVisibleRect.origin.y
-        }
-
-        let lineRange = indentationGuideLineRange(
-            textView: textView,
-            characterCount: characterCount,
-            lineCount: lineCount,
-            guideView: guideView
-        )
-        let guidePayload: (text: String, lineRange: ClosedRange<Int>?, baseLineNumber: Int)
-        if let lineRange,
-           CodeEditorLargeFilePolicy.usesViewportScopedIndentGuides(
-               characterCount: characterCount,
-               lineCount: lineCount
-           ),
-           let window = CodeEditorLineMetrics.textWindow(
-               in: text,
-               lineRange: lineRange,
-               lineStartUTF16Offsets: lastTextLineStartUTF16Offsets
-           ) {
-            guidePayload = (window.text, nil, window.baseLineNumber)
-        } else {
-            guidePayload = (text, lineRange, 1)
-        }
-        
-        // Update the segmented guide with current text and cursor position
-        // For large files, parse only the visible viewport window plus
-        // overscan so typing/scrolling does not rebuild a whole-buffer guide.
-        guideView.updateFromText(
-            guidePayload.text,
-            cursorLine: cursorLine,
-            scrollOffset: scrollOffset,
-            lineRange: guidePayload.lineRange,
-            baseLineNumber: guidePayload.baseLineNumber
-        )
-    }
-
-    private func scheduleIndentationGuideRefresh(for text: String, immediate: Bool = false) {
-        indentationGuideRefreshTask?.cancel()
-        let delay = CodeEditorPerformancePolicy.indentationGuideRefreshDelay(characterCount: (text as NSString).length)
-        indentationGuideRefreshTask = Task { @MainActor [weak self] in
-            if !immediate {
-                try? await Task.sleep(for: delay)
-            }
-            guard !Task.isCancelled else { return }
-            self?.updateIndentationGuides()
-        }
-    }
-
-    private func updateIndentationGuideScrollOffset() {
-        guard let controller = textController,
-              let textView = controller.textView,
-              let guideView = indentGuideView,
-              !guideView.isHidden else { return }
-
-        if CodeEditorLargeFilePolicy.usesViewportScopedIndentGuides(
-            characterCount: 0,
-            lineCount: totalLines
-        ) {
-            updateIndentationGuides()
-            return
-        }
-
-        let scrollOffset: CGFloat
-        if let scrollView = textView.enclosingScrollView {
-            scrollOffset = -scrollView.documentVisibleRect.origin.y
-        } else {
-            scrollOffset = 0
-        }
-        guideView.frame = textView.bounds
-        guideView.updateScrollOffset(scrollOffset)
-    }
-
-    private func indentationGuideLineRange(
-        textView: NSView,
-        characterCount: Int,
-        lineCount: Int,
-        guideView: SegmentedIndentationGuideView
-    ) -> ClosedRange<Int>? {
-        guard CodeEditorLargeFilePolicy.usesViewportScopedIndentGuides(
-            characterCount: characterCount,
-            lineCount: lineCount
-        ) else { return nil }
-
-        guard let scrollView = textView.enclosingScrollView else {
-            return 1...min(lineCount, CodeEditorLargeFilePolicy.maximumIndentGuideWindowLines)
-        }
-
-        return CodeEditorLargeFilePolicy.visibleLineRange(
-            visibleRect: scrollView.documentVisibleRect,
-            lineHeight: guideView.lineHeight,
-            lineCount: lineCount
-        )
-    }
-
-    private func updateActiveIndentationGuideLevel() {
-        indentGuideView?.setActiveLine(cursorLine)
-    }
-
-    func textViewDidChangeSelection(controller: TextViewController, newPositions: [CursorPosition]) {
-        os_signpost(.event, log: Self.perfLog, name: "selectionChanged")
-        
-        guard let pos = newPositions.first else { return }
-        
-        // Throttle cursor updates to ~60fps
-        let now = Date()
-        if now.timeIntervalSince(lastCursorUpdate) >= cursorUpdateThrottle {
-            // Immediate update if enough time passed
-            cursorLine = pos.start.line
-            cursorCol = pos.start.column
-            lastCursorUpdate = now
-            pendingCursorUpdate = nil
-        } else {
-            // Queue update
-            pendingCursorUpdate = (pos.start.line, pos.start.column)
-            cursorUpdateTask?.cancel()
-            cursorUpdateTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(self?.cursorUpdateThrottle ?? 0.016 * 1_000_000_000))
-                guard !Task.isCancelled, let self = self else { return }
-                await MainActor.run {
-                    if let pending = self.pendingCursorUpdate {
-                        self.cursorLine = pending.line
-                        self.cursorCol = pending.col
-                        self.pendingCursorUpdate = nil
-                    }
-                }
-            }
-        }
-        
-        // Track selected text for explanation feature
-        if let textView = controller.textView {
-            let selection = textView.selectedRange()
-            let selectedTextSource = lastText
-            if selection.length > 0,
-               let selectedRange = Range(selection, in: selectedTextSource) {
-                onSelectionChange?(String(selectedTextSource[selectedRange]))
-            } else {
-                onSelectionChange?("")
-            }
-        }
-        
-        // Cursor moves should only retarget the active guide, not reparse the document.
-        updateActiveIndentationGuideLevel()
-        gutterView?.updateActiveLine(cursorLine)
-    }
-
-    func textViewDidChangeText(controller: TextViewController) {
-        os_signpost(.begin, log: Self.perfLog, name: "textDidChange")
-
-        let newText = controller.textView.string
-        lastText = newText
-        lastTextLineStartUTF16Offsets = CodeEditorLineMetrics.lineStartUTF16Offsets(in: newText)
-        Task { @MainActor in
-            AppBootstrap.shared?.activityTracker.recordInAppActivity()
-        }
-
-        // Fast line counting without array allocation.
-        let lineCount = CodeEditorLineMetrics.lineCount(newText)
-        totalLines = lineCount
-        updateGutterLineCount(lineCount)
-
-        // Phase-S content debouncer coalesces rapid typing before
-        // downstream save/index/semantic work runs.
-        Task { @MainActor [enqueueContentChange] in
-            enqueueContentChange(newText)
-        }
-
-        scheduleIndentationGuideRefresh(for: newText)
-        scheduleHorizontalScrollGeometryRefresh()
-
-        os_signpost(.end, log: Self.perfLog, name: "textDidChange")
-    }
-    
-    func destroy() {
-        cursorUpdateTask?.cancel()
-        scrollDebounceTask?.cancel()
-        indentationGuideRefreshTask?.cancel()
-        horizontalGeometryRefreshTask?.cancel()
-        NotificationCenter.default.removeObserver(self)
-        indentGuideView?.removeFromSuperview()
-        gutterView?.removeFromSuperview()
-    }
 }
 
 // MARK: - Code Inspector Views (Graph Node Preview)
 // Lightweight syntax-highlighted views for the graph inspector panel.
 // No minimap, no line numbers — just clean colored code.
-
-// NOTE: Older bespoke TextKit editor shells were removed. The live editor is
-// CodeEditSourceEditor plus the small Epistemos coordinator/sidecar layer above.
 
 // ──── DEAD CODE REMOVED (736 lines) ────
 // Removed: CodeEditorRepresentable, Coordinator, CodeTextView, LineNumberGutter, MinimapView

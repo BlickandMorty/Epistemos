@@ -267,27 +267,29 @@ struct NoteEditorLayoutTests {
         )
     }
 
-    @Test("code editor defaults to MarkEdit CoreEditor while keeping legacy fallbacks")
-    func codeEditorDefaultsToMarkEditCoreEditorWhileKeepingLegacyFallbacks() throws {
+    @Test("code editor uses MarkEdit CoreEditor without native SourceEditor fallback")
+    func codeEditorUsesMarkEditCoreEditorWithoutNativeSourceEditorFallback() throws {
         let codeEditorSource = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let markEditSource = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
         let webKitSource = try loadRepoTextFile("Epistemos/Views/Notes/WebKitCodeEditorView.swift")
         let html = WebKitCodeEditorDocument.html
 
-        #expect(codeEditorSource.contains(#"@AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback")"#))
-        #expect(codeEditorSource.contains("private var useNativeSourceEditorFallback = false"))
-        #expect(codeEditorSource.contains("private var usesWebKitEditor: Bool { true }"))
+        #expect(!codeEditorSource.contains("CodeEditSourceEditor"))
+        #expect(!codeEditorSource.contains("SourceEditor("))
+        #expect(!codeEditorSource.contains("SourceEditorConfiguration("))
+        #expect(!codeEditorSource.contains("useNativeSourceEditorFallback"))
+        #expect(!codeEditorSource.contains("usesWebKitEditor"))
+        #expect(!codeEditorSource.contains("EpistemosEditorCoordinator"))
         #expect(codeEditorSource.contains("private var isMarkdownDocument"))
-        #expect(codeEditorSource.contains("if useNativeSourceEditorFallback"))
         #expect(!codeEditorSource.contains("preferWebKitEditor"))
         #expect(!codeEditorSource.contains("useWebKitBeta"))
         #expect(codeEditorSource.contains("MarkEditCodeEditorRepresentable("))
         #expect(codeEditorSource.contains("MarkEditMarkdownEditorRepresentable("))
-        #expect(codeEditorSource.contains("SourceEditor("))
         #expect(codeEditorSource.contains("showLivePreview"))
         #expect(codeEditorSource.contains("HTMLWorkspacePreviewView("))
         #expect(codeEditorSource.contains("CodeEditorLivePreviewKind"))
         #expect(codeEditorSource.contains("scheduleLivePreviewUpdate(for:"))
+        #expect(codeEditorSource.contains(#"Toggle("Show Invisibles", isOn: $showInvisibles)"#))
 
         #expect(webKitSource.contains("struct WebKitCodeEditorView"))
         #expect(webKitSource.contains("WKWebsiteDataStore.nonPersistent()"))
@@ -307,6 +309,9 @@ struct NoteEditorLayoutTests {
         #expect(markEditSource.contains("MarkEditCoreEditorBridge"))
         #expect(markEditSource.contains("MarkEditCoreEditorChunkLoader"))
         #expect(markEditSource.contains("webModules.core.resetEditor"))
+        #expect(markEditSource.contains(#"invisiblesBehavior: showInvisibles ? "always" : "never""#))
+        #expect(markEditSource.contains("indentUnit: indentUnit"))
+        #expect(markEditSource.contains("tabKeyBehavior: tabKeyBehavior"))
         #expect(markEditSource.contains("{{EDITOR_CONFIG}}"))
         #expect(markEditSource.contains("chunk-loader"))
         #expect(html.contains("Content-Security-Policy"))

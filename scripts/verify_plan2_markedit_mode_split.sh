@@ -53,6 +53,9 @@ require_contains "${code_editor}" "MarkEditCodeEditorRepresentable("
 require_contains "${code_editor}" "HTMLWorkspacePreviewView("
 require_contains "${code_editor}" "showLivePreview.toggle()"
 require_not_contains "${code_editor}" "WebKitCodeEditorView("
+require_not_contains "${code_editor}" "CodeEditSourceEditor"
+require_not_contains "${code_editor}" "SourceEditor("
+require_not_contains "${code_editor}" "useNativeSourceEditorFallback"
 
 require_contains "${adapter}" "struct MarkEditCodeEditorRepresentable"
 require_contains "${adapter}" "struct MarkEditMarkdownEditorRepresentable"
@@ -61,6 +64,9 @@ require_contains "${adapter}" "makeNSViewController(context: Context) -> EditorV
 require_contains "${adapter}" "MarkEditCoreEditorChunkLoader"
 require_contains "${adapter}" "Bundle.main.url(forResource: filename, withExtension: nil)"
 require_contains "${adapter}" "Bundle.main.url(forResource: \"index\", withExtension: \"html\")"
+require_contains "${adapter}" "invisiblesBehavior: showInvisibles ? \"always\" : \"never\""
+require_contains "${adapter}" "tabKeyBehavior: tabKeyBehavior"
+require_contains "${adapter}" "indentUnit: indentUnit"
 require_contains "${legacy_webkit}" "struct WebKitCodeEditorView"
 
 if [ -d "${APP_RESOURCES_DIR}" ]; then

@@ -23,6 +23,9 @@ struct MarkEditCodeEditorRepresentable: View {
     var fontSize: Double
     var wrapLines: Bool
     var showLineNumbers: Bool
+    var showInvisibles: Bool
+    var useSpaces: Bool
+    var tabWidth: Int
     var selectionRequest: WebKitCodeEditorSelectionRequest?
 
     var body: some View {
@@ -36,6 +39,9 @@ struct MarkEditCodeEditorRepresentable: View {
             fontSize: fontSize,
             wrapLines: wrapLines,
             showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth,
             selectionRequest: selectionRequest
         )
     }
@@ -51,6 +57,9 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var fontSize: Double
     var wrapLines: Bool
     var showLineNumbers: Bool
+    var showInvisibles: Bool
+    var useSpaces: Bool
+    var tabWidth: Int
     var selectionRequest: WebKitCodeEditorSelectionRequest?
 
     var body: some View {
@@ -72,6 +81,9 @@ struct MarkEditMarkdownEditorRepresentable: View {
             fontSize: fontSize,
             wrapLines: wrapLines,
             showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth,
             selectionRequest: selectionRequest
         )
         #endif
@@ -233,6 +245,9 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
     var fontSize: Double
     var wrapLines: Bool
     var showLineNumbers: Bool
+    var showInvisibles: Bool
+    var useSpaces: Bool
+    var tabWidth: Int
     var selectionRequest: WebKitCodeEditorSelectionRequest?
 
     func makeCoordinator() -> MarkEditCoreEditorCoordinator {
@@ -290,7 +305,10 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
             themeName: theme.isDark ? "github-dark" : "github-light",
             fontSize: max(8, min(fontSize, 32)),
             wrapLines: wrapLines,
-            showLineNumbers: showLineNumbers
+            showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth
         )
     }
 }
@@ -534,6 +552,9 @@ private struct MarkEditCoreEditorState: Equatable {
     let fontSize: Double
     let wrapLines: Bool
     let showLineNumbers: Bool
+    let showInvisibles: Bool
+    let useSpaces: Bool
+    let tabWidth: Int
 
     var resetMessageJSON: String? {
         MarkEditCoreEditorResetMessage(
@@ -551,7 +572,7 @@ private struct MarkEditCoreEditorState: Equatable {
             fontSize: fontSize,
             showLineNumbers: showLineNumbers,
             showActiveLineIndicator: true,
-            invisiblesBehavior: "never",
+            invisiblesBehavior: showInvisibles ? "always" : "never",
             readOnlyMode: false,
             typewriterMode: false,
             focusMode: false,
@@ -561,8 +582,8 @@ private struct MarkEditCoreEditorState: Equatable {
             standardDirectories: [:],
             runtimeInfo: .current,
             defaultLineBreak: "\n",
-            tabKeyBehavior: 0,
-            indentUnit: "    ",
+            tabKeyBehavior: tabKeyBehavior,
+            indentUnit: indentUnit,
             localizable: nil,
             autoCharacterPairs: true,
             indentBehavior: "line",
@@ -580,7 +601,10 @@ private struct MarkEditCoreEditorState: Equatable {
             themeName: themeName,
             fontSize: fontSize,
             wrapLines: wrapLines,
-            showLineNumbers: showLineNumbers
+            showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth
         )
     }
 
@@ -589,7 +613,30 @@ private struct MarkEditCoreEditorState: Equatable {
             themeName != other.themeName ||
             fontSize != other.fontSize ||
             wrapLines != other.wrapLines ||
-            showLineNumbers != other.showLineNumbers
+            showLineNumbers != other.showLineNumbers ||
+            showInvisibles != other.showInvisibles ||
+            useSpaces != other.useSpaces ||
+            clampedTabWidth != other.clampedTabWidth
+    }
+
+    private var clampedTabWidth: Int {
+        max(1, min(tabWidth, 8))
+    }
+
+    private var indentUnit: String {
+        useSpaces ? String(repeating: " ", count: clampedTabWidth) : "\t"
+    }
+
+    private var tabKeyBehavior: Int {
+        guard useSpaces else { return 0 }
+        switch clampedTabWidth {
+        case 2:
+            return 1
+        case 4:
+            return 2
+        default:
+            return 3
+        }
     }
 }
 

@@ -8,8 +8,9 @@ import Foundation
 /// + `epistemos_code_verdict.md` §1 + §3):
 ///
 /// 1. The production live code editor (`Epistemos/Views/Notes/CodeEditorView.swift`)
-///    uses `CodeEditSourceEditor`'s built-in tree-sitter highlight path,
-///    which supports every language `CodeArtifactKind` exports.
+///    now routes code files through the MarkEdit CoreEditor adapter while this
+///    guard continues to ensure the partial local highlighter scaffolds are not
+///    exposed as selectable production paths.
 /// 2. `SyntaxCoreLiveHighlighter` (Rust-FFI) and `SwiftTreeSitterLiveHighlighter`
 ///    (Swift-direct) are TWO **non-production** alternative implementations
 ///    kept in the source tree as scaffolding for the W9.6 follow-up.

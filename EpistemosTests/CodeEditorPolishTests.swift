@@ -148,41 +148,34 @@ nonisolated struct CodeEditorPolishTests {
 
         #expect(source.contains("@State private var contentDebouncer: CodeEditorContentDebouncer?"),
                 "CodeEditorView must retain the Phase-S debouncer instead of leaving it as standalone scaffold.")
-        #expect(source.contains("let debouncer = ensureContentDebouncer()"),
-                "CodeEditorView should construct the canonical debouncer in its coordinator setup path.")
-        #expect(source.contains("ensureContentDebouncer().enqueue(newText)")
-                && source.contains("debouncer?.enqueue(newText)"),
+        #expect(source.contains("_ = ensureContentDebouncer()"),
+                "CodeEditorView should construct the canonical debouncer when the editor appears.")
+        #expect(source.contains("ensureContentDebouncer().enqueue(newText)"),
                 "Text changes must enqueue into CodeEditorContentDebouncer, not bypass it with a local Task debounce.")
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(500))"),
                 "The old ad-hoc 500ms content-change debounce should not remain in the editor text-change path.")
     }
 
-    @Test("CodeEditorView uses native SourceEditor affordances for line numbers, invisibles, and indentation")
-    func codeEditorViewUsesNativeSourceEditorAffordances() throws {
+    @Test("CodeEditorView feeds live preferences into MarkEdit CoreEditor")
+    func codeEditorViewFeedsLivePreferencesIntoMarkEditCoreEditor() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
 
-        #expect(source.contains("showGutter: showLineGutter"),
-                "Line numbers should use CodeEditSourceEditor's native left gutter, not a permanently disabled SourceEditor gutter.")
-        #expect(source.contains("showFoldingRibbon: showLineGutter && showFoldingRibbon"),
-                "Folding arrows should use the native SourceEditor ribbon and stay gated by the line-number gutter.")
-        #expect(source.contains("private var invisibleCharactersConfiguration"),
-                "The existing Show Invisibles toggle must feed a real SourceEditor invisible-character configuration.")
-        #expect(source.contains("invisibleCharactersConfiguration: invisibleCharactersConfiguration"),
-                "SourceEditorConfiguration must consume the Show Invisibles preference.")
-        #expect(source.contains("indentOption: useSpaces ? .spaces(count: tabWidth) : .tab"),
-                "The existing Use Spaces preference must drive CodeEditSourceEditor's tab insertion behavior.")
-        #expect(source.contains(#"Toggle("Folding Arrows", isOn: $showFoldingRibbon)"#),
-                "The native folding ribbon should be user-toggleable from the editor view menu.")
-        #expect(source.contains(#"@AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true"#),
-                "Indent guides should be a first-class code-editor preference, not an always-on fake overlay.")
-        #expect(source.contains(#"Toggle("Indent Guides", isOn: $showIndentationGuides)"#),
-                "The user must be able to toggle VS Code-style indentation guides from the editor view menu.")
-        #expect(source.contains("coordinator.applyIndentationGuideMetrics(font: editorFont, tabWidth: tabWidth)"),
-                "Indent guides must align to the live font metrics and tab width preference.")
-        #expect(source.contains("Self.visibleIndentColumnCount("),
-                "Initial indent-guide metrics must derive from the public SourceEditor indentation option.")
-        #expect(source.contains("case .spaces(let count):"),
-                "Indent guide setup should inspect SourceEditor's public spaces-count case instead of package-internal fields.")
+        #expect(source.contains("showLineNumbers: showLineGutter"),
+                "Line numbers must be passed to MarkEdit CoreEditor from Epistemos chrome.")
+        #expect(source.contains("showInvisibles: showInvisibles"),
+                "The existing Show Invisibles preference must feed the CoreEditor config.")
+        #expect(source.contains("useSpaces: useSpaces"),
+                "The existing Use Spaces preference must feed the CoreEditor config.")
+        #expect(source.contains("tabWidth: tabWidth"),
+                "The existing Tab Width preference must feed the CoreEditor config.")
+        #expect(source.contains(#"Toggle("Show Invisibles", isOn: $showInvisibles)"#),
+                "The user must be able to toggle invisibles from the editor view menu.")
+        #expect(!source.contains("SourceEditor("),
+                "The old native SourceEditor fallback must not remain in the production code surface.")
+        #expect(adapter.contains(#"invisiblesBehavior: showInvisibles ? "always" : "never""#))
+        #expect(adapter.contains("indentUnit: indentUnit"))
+        #expect(adapter.contains("tabKeyBehavior: tabKeyBehavior"))
     }
 
     @Test("Segmented indentation guides align to real editor metrics, not fixed decorative offsets")
@@ -390,8 +383,8 @@ nonisolated struct CodeEditorPolishTests {
 
         #expect(source.contains("CodeEditorSearchEngine.find("),
                 "The visible find bar must execute a real wrapped search instead of only accepting query text.")
-        #expect(source.contains("sourceEditorCoordinator?.select(range: match, scrollToVisible: true)"),
-                "Search results must be selected through the live CodeEditSourceEditor controller.")
+        #expect(source.contains("webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: match)"),
+                "Search results must be selected through the shared CoreEditor bridge.")
         #expect(source.contains("activeSearchRange = nil"),
                 "Changing text/query/case should invalidate the stale search anchor.")
         #expect(!source.contains("_ = direction"),
@@ -539,8 +532,8 @@ nonisolated struct CodeEditorPolishTests {
                 "The verified LSP definition substrate should be reachable through an explicit user action.")
         #expect(source.contains("try await client.definition("),
                 "Definition lookup must call the real LSP definition request.")
-        #expect(source.contains("sourceEditorCoordinator?.select(range: definitionRange, scrollToVisible: true)"),
-                "Same-file definitions must select and scroll to the real definition range.")
+        #expect(source.contains("webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: definitionRange)"),
+                "Same-file definitions must select the real definition range through the CoreEditor bridge.")
     }
 
     @Test("Code editor large-file affordances are viewport scoped")
