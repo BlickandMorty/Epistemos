@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import Network
 import SwiftUI
@@ -80,6 +81,74 @@ struct BrowserUseWebUIViewTests {
         #expect(webView.url?.host == fixtureURL.host)
     }
 
+    @Test("WKWebView smoke loads real Gradio shell controls without submitting")
+    @MainActor
+    func wkWebViewLoadsRealGradioShellControlsWithoutSubmitting() async throws {
+        let port = try await freeLoopbackPort()
+        let smoke = try BrowserUseGradioWebUISmokeProcess(
+            repoRoot: repositoryRoot(),
+            port: port
+        )
+        try smoke.start()
+        defer { smoke.stop() }
+        try await smoke.waitUntilReady()
+
+        var blockedURL: URL?
+        let hostingView = NSHostingView(
+            rootView: BrowserUseLoopbackWebView(url: smoke.loopbackURL) { url in
+                blockedURL = url
+            }
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 960, height: 720)
+
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        defer { window.close() }
+
+        let webView = try await waitForWebView(in: hostingView)
+        #expect(!webView.configuration.websiteDataStore.isPersistent)
+
+        let bodyText = try await waitForBodyText(
+            in: webView,
+            containing: "Browser Use WebUI",
+            attempts: 400
+        )
+        #expect(bodyText.contains("Control your browser with AI assistance"))
+
+        let controlsText = try await waitForGradioRunAgentControls(in: webView)
+        #expect(controlsText.contains("Your Task or Response"))
+        #expect(controlsText.contains("Submit Task"))
+
+        let taskText = "Open a local dry-run fixture without submitting."
+        let filledTask = try await evaluateString(
+            """
+            (() => {
+              const task = '\(taskText)';
+              const textarea = document.querySelector('#user_input textarea') || document.querySelector('textarea');
+              if (!textarea) { return 'missing textarea'; }
+              const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+              setter.call(textarea, task);
+              textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: task }));
+              textarea.dispatchEvent(new Event('change', { bubbles: true }));
+              return textarea.value || '';
+            })()
+            """,
+            in: webView
+        )
+        #expect(filledTask == taskText)
+
+        let remoteURL = try #require(URL(string: "http://example.com:7788/browser-use-gradio-webview-smoke"))
+        webView.load(URLRequest(url: remoteURL))
+        try await waitUntil { blockedURL?.host == "example.com" }
+        #expect(blockedURL == remoteURL)
+        #expect(webView.url?.host == "127.0.0.1")
+    }
+
     @Test("web UI shell source keeps native Browser, Goose, Agent, and editor boundaries")
     func webUIShellSourceKeepsBoundaries() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift")
@@ -140,6 +209,10 @@ struct BrowserUseWebUIViewTests {
         case webViewMissing
         case bodyTextTimedOut(String)
         case conditionTimedOut
+        case repositoryRootMissing
+        case gradioSmokeMissingArtifact(String)
+        case gradioSmokeProcessExited(String)
+        case gradioSmokeTimedOut(String)
 
         var description: String {
             switch self {
@@ -151,6 +224,14 @@ struct BrowserUseWebUIViewTests {
                 return "browser-use loopback WKWebView body text never matched marker; last=\(lastText)"
             case .conditionTimedOut:
                 return "browser-use loopback WKWebView condition timed out"
+            case .repositoryRootMissing:
+                return "browser-use test could not find the repository root"
+            case .gradioSmokeMissingArtifact(let message):
+                return message
+            case .gradioSmokeProcessExited(let log):
+                return "browser-use Gradio process exited before readiness: \(log)"
+            case .gradioSmokeTimedOut(let log):
+                return "browser-use Gradio process did not become ready: \(log)"
             }
         }
     }
@@ -181,15 +262,72 @@ struct BrowserUseWebUIViewTests {
     }
 
     @MainActor
-    private func waitForBodyText(in webView: WKWebView, containing marker: String) async throws -> String {
+    private func waitForBodyText(
+        in webView: WKWebView,
+        containing marker: String,
+        attempts: Int = 160
+    ) async throws -> String {
         var lastText = ""
-        for _ in 0..<160 {
+        for _ in 0..<attempts {
             if let text = try? await evaluateString(
                 "document.body ? document.body.innerText : ''",
                 in: webView
             ) {
                 lastText = text
                 if text.contains(marker) {
+                    return text
+                }
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        throw TestError.bodyTextTimedOut(lastText)
+    }
+
+    @MainActor
+    private func waitForGradioRunAgentControls(in webView: WKWebView) async throws -> String {
+        var lastText = ""
+        for _ in 0..<400 {
+            _ = try? await evaluateString(
+                """
+                (() => {
+                  const textFor = (element) => (element.innerText || element.textContent || '').replace(/\\s+/g, ' ').trim();
+                  const visible = (element) => !element.closest('.visually-hidden')
+                    && element.getClientRects().length > 0
+                    && getComputedStyle(element).visibility !== 'hidden';
+                  const candidates = Array.from(document.querySelectorAll('button, [role="tab"], label, span, div'))
+                    .filter((element) => {
+                      const text = textFor(element);
+                      return visible(element) && text.endsWith('Run Agent') && !text.includes('Agent Settings') && text.length <= 40;
+                    })
+                    .sort((left, right) => {
+                      const leftRole = left.getAttribute('role') === 'tab' ? 1 : 0;
+                      const rightRole = right.getAttribute('role') === 'tab' ? 1 : 0;
+                      return rightRole - leftRole || left.childElementCount - right.childElementCount;
+                    });
+                  const tabLabel = candidates[0];
+                  const tab = tabLabel ? (tabLabel.closest('button, [role="tab"], label, [tabindex]') || tabLabel) : null;
+                  const click = (element) => {
+                    element.scrollIntoView({ block: 'center', inline: 'center' });
+                    element.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
+                    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                    element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                    element.click();
+                  };
+                  if (tabLabel) { click(tabLabel); }
+                  if (tab && tab !== tabLabel) { click(tab); }
+                  return document.body ? document.body.innerText : '';
+                })()
+                """,
+                in: webView
+            )
+
+            if let text = try? await evaluateString(
+                "document.body ? document.body.innerText : ''",
+                in: webView
+            ) {
+                lastText = text
+                if text.contains("Your Task or Response"), text.contains("Submit Task") {
                     return text
                 }
             }
@@ -220,6 +358,174 @@ struct BrowserUseWebUIViewTests {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         throw TestError.conditionTimedOut
+    }
+
+    private func freeLoopbackPort() async throws -> Int {
+        let server = BrowserUseLoopbackFixtureServer()
+        let url = try await server.startAndAwait()
+        server.stop()
+        return try #require(url.port)
+    }
+
+    private func repositoryRoot() throws -> URL {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+        let candidates = [
+            sourceURL.deletingLastPathComponent(),
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true),
+        ]
+
+        for candidate in candidates {
+            if let root = findRepositoryRoot(startingAt: candidate) {
+                return root
+            }
+        }
+        throw TestError.repositoryRootMissing
+    }
+
+    private func findRepositoryRoot(startingAt startURL: URL) -> URL? {
+        let fileManager = FileManager.default
+        var current = startURL
+        while true {
+            let project = current.appendingPathComponent("Epistemos.xcodeproj", isDirectory: true)
+            let webui = current.appendingPathComponent("agent_core/vendor/browser-use/web-ui/webui.py")
+            if fileManager.fileExists(atPath: project.path),
+               fileManager.fileExists(atPath: webui.path) {
+                return current
+            }
+
+            let parent = current.deletingLastPathComponent()
+            if parent.path == current.path {
+                return nil
+            }
+            current = parent
+        }
+    }
+}
+
+private nonisolated final class BrowserUseGradioWebUISmokeProcess: @unchecked Sendable {
+    let loopbackURL: URL
+
+    private let process: Process
+    private let logHandle: FileHandle
+    private let logURL: URL
+    private let stateRoot: URL
+
+    init(repoRoot: URL, port: Int) throws {
+        let fileManager = FileManager.default
+        let vendorRoot = repoRoot.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
+        let python = repoRoot.appendingPathComponent("build/browser-use-pro/.venv/bin/python")
+        let webui = vendorRoot.appendingPathComponent("web-ui/webui.py")
+        let manifest = vendorRoot.appendingPathComponent("BUILD_MANIFEST.json")
+        let playwright = vendorRoot.appendingPathComponent("playwright", isDirectory: true)
+        let wheels = vendorRoot.appendingPathComponent("wheels", isDirectory: true)
+
+        guard fileManager.isExecutableFile(atPath: python.path) else {
+            throw BrowserUseWebUIViewTests.TestError.gradioSmokeMissingArtifact(
+                "Missing executable staged Python at \(python.path)"
+            )
+        }
+        for file in [webui, manifest] where !fileManager.fileExists(atPath: file.path) {
+            throw BrowserUseWebUIViewTests.TestError.gradioSmokeMissingArtifact(
+                "Missing browser-use smoke artifact at \(file.path)"
+            )
+        }
+        for directory in [playwright, wheels] {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw BrowserUseWebUIViewTests.TestError.gradioSmokeMissingArtifact(
+                    "Missing browser-use smoke directory at \(directory.path)"
+                )
+            }
+        }
+
+        stateRoot = fileManager.temporaryDirectory.appendingPathComponent(
+            "epistemos-browser-use-gradio-webview-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try fileManager.createDirectory(
+            at: stateRoot.appendingPathComponent("home", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(
+            at: stateRoot.appendingPathComponent("browser-use-home", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        logURL = stateRoot.appendingPathComponent("webui.log")
+        fileManager.createFile(atPath: logURL.path, contents: nil)
+        logHandle = try FileHandle(forWritingTo: logURL)
+        loopbackURL = try #require(URL(string: "http://127.0.0.1:\(port)/"))
+
+        process = Process()
+        process.executableURL = python
+        process.arguments = [webui.path, "--ip", "127.0.0.1", "--port", "\(port)", "--theme", "Ocean"]
+        process.currentDirectoryURL = stateRoot
+        process.standardOutput = logHandle
+        process.standardError = logHandle
+        process.environment = [
+            "HOME": stateRoot.appendingPathComponent("home", isDirectory: true).path,
+            "BROWSER_USE_HOME": stateRoot.appendingPathComponent("browser-use-home", isDirectory: true).path,
+            "PLAYWRIGHT_BROWSERS_PATH": playwright.path,
+            "PYTHON_DOTENV_DISABLED": "true",
+            "ANONYMIZED_TELEMETRY": "false",
+            "BROWSER_USE_CLOUD_SYNC": "false",
+            "BROWSER_USE_VERSION_CHECK": "false",
+            "GRADIO_ANALYTICS_ENABLED": "False",
+            "PYTHONUNBUFFERED": "1",
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": fileManager.temporaryDirectory.path,
+        ]
+    }
+
+    func start() throws {
+        try process.run()
+    }
+
+    func waitUntilReady() async throws {
+        let deadline = Date().addingTimeInterval(60)
+        while Date() < deadline {
+            if !process.isRunning {
+                throw BrowserUseWebUIViewTests.TestError.gradioSmokeProcessExited(logExcerpt())
+            }
+
+            var request = URLRequest(url: loopbackURL)
+            request.timeoutInterval = 2
+            if let (data, response) = try? await URLSession.shared.data(for: request),
+               let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode == 200,
+               String(data: data, encoding: .utf8)?.localizedCaseInsensitiveContains("gradio") == true {
+                return
+            }
+
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+        throw BrowserUseWebUIViewTests.TestError.gradioSmokeTimedOut(logExcerpt())
+    }
+
+    func stop() {
+        if process.isRunning {
+            process.terminate()
+            let deadline = Date().addingTimeInterval(3)
+            while process.isRunning, Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                process.waitUntilExit()
+            }
+        }
+        try? logHandle.close()
+        try? FileManager.default.removeItem(at: stateRoot)
+    }
+
+    private func logExcerpt() -> String {
+        guard let data = try? Data(contentsOf: logURL),
+              let text = String(data: data, encoding: .utf8),
+              !text.isEmpty else {
+            return "<empty webui.log>"
+        }
+        return String(text.suffix(4_000))
     }
 }
 
