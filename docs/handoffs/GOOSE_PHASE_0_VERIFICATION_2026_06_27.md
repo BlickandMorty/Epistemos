@@ -1498,14 +1498,14 @@ Round-2 findings + disposition:
 | R2-L2 | LOW | `GooseACPSourceType` had no forward-compat case → one new source type throws the WHOLE `sources/list` | **FIXED** `6569255e4` — `.unknown` case + lenient entry decode |
 | R2-M1 | MED | generic `get/setSetting` + imported apps use localStorage in a `.nonPersistent()` store → ephemeral across relaunch; ledger over-labeled `getSetting`/`setSetting` `.implementedNative` | **FIXED (honesty)** — relabeled `.implementedRuntime` + documented; FUNCTIONAL native-persistence (M1b) = named, deferred parity gap |
 | R2-L4 | LOW | elicitation panel Submit always enabled (no required-field validation); empty number → `.string("")` | **FIXED** — Submit gated on required(*) fields; empty optionals omitted |
-| R2-L1 | LOW | `jsonLiteral` returns `"{}"` on serialize failure (silent empty bridge) — unreachable today | TRACKED (loud-failure follow-up) |
-| R2-L3 | LOW | Models view 20s timeout flips the view but doesn't cancel the in-flight ACP request; Retry parks tasks | TRACKED — real fix is a request-level timeout in the ACP client (moderate; untestable while suite blocked) |
-| R2-L5 | LOW | traced-WS `get` trap re-binds function props (identity break) — low impact | TRACKED |
+| R2-L1 | LOW | `jsonLiteral` returns `"{}"` on serialize failure (silent empty bridge) — unreachable today | **FIXED** `758202ed2` — assertion + JS bootstrap throw instead of silent `{}` |
+| R2-L3 | LOW | Models view 20s timeout flips the view but doesn't cancel the in-flight ACP request; Retry parks tasks | **FIXED** `95f875546` — request-level ACP timeout + late-response abandonment |
+| R2-L5 | LOW | traced-WS `get` trap re-binds function props (identity break) — low impact | **FIXED** `3c357c744` — cached traced/bound methods preserve identity |
 
 ### Commits this loop (all app-target build-validated on isolated DD `~/.epistemos-isoloop-dd`)
 `e09513737` (A-HIGH-1/2, A-MED-1/3, C-HIGH-1, B-HIGH-1, C-M1) · `5d6140bb4` (B-M1 -32602) ·
 `3e642b45b` (A-LOW-2/C-L1/B-L1) · `d5f98ac45` (C-M3 frame guard) · `442e2e653` (doc) ·
-`6569255e4` (R2-M2/L2) · [R2-M1a/L4 pending this iteration's build].
+`6569255e4` (R2-M2/L2) · `95f875546` (R2-L3) · `758202ed2` (R2-L1) · `3c357c744` (R2-L5; app build blocked by unrelated dirty HTMLWorkspaceDataFeed batch).
 
 ### Honest standing
 Two adversarial thermonuclear passes over the entire Goose surface now find **0 HIGH outstanding**;
