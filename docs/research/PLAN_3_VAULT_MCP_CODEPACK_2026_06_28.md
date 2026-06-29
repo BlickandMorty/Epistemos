@@ -25,8 +25,10 @@ Mirrors `WorkToolMCPCore` but: `tools/list` advertises ONLY `readToolNames` (`va
 the 6 graph reads); `tools/call` **canonicalizes aliases through `AgentToolNameAliases.canonical` then rejects anything not on the allowlist with
 `-32601 "read-only vault server"`** (enforced at the core — even a full-tier executor can't be coerced into a write);
 `resources/list` enumerates path-contained `.md` notes as `vault:///<rel>` in a detached utility worker, and
-`resources/read` reads only path-contained Markdown through the same detached resource path. Tool calls still go through
-the read-only executor allowlist. Empty vault → honest-empty (`resources:[]`, real empty search/list payloads). Pure
+`resources/read` reads only path-contained Markdown through the same detached resource path; final reads reopen the
+resolved note with `O_NOFOLLOW`, verify a regular file with `fstat`, enforce the byte cap on the descriptor, and reject
+invalid UTF-8. Tool calls still go through the read-only executor allowlist. Empty vault → honest-empty (`resources:[]`,
+real empty search/list payloads). Pure
 helpers (`successResponse`/`errorResponse`/`toolCallResult`/`argumentsJSON`/`markdownRelPaths`/`noteText`) testable with
 a stub executor, no network/FFI in the file.
 

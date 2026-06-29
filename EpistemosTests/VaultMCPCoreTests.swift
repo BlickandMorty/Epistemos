@@ -334,6 +334,23 @@ struct VaultMCPCoreTests {
         #expect((error["message"] as? String)?.contains("too large") == true)
     }
 
+    @Test("resources/read rejects invalid UTF-8 markdown")
+    func resourcesReadRejectsInvalidUTF8Markdown() async throws {
+        let root = try Self.makeVaultRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let invalid = root.appendingPathComponent("Invalid.md")
+        try Data([0xff, 0xfe, 0xfd]).write(to: invalid, options: .atomic)
+
+        let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
+        let response = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":14,"method":"resources/read","params":{"uri":"vault:///Invalid.md"}}"#)
+        let object = try Self.jsonObject(response)
+        let error = try #require(object["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == -32602)
+        #expect((error["message"] as? String)?.contains("valid UTF-8") == true)
+    }
+
     @Test("markdown resource enumeration is capped and sorted")
     func markdownResourceEnumerationIsCappedAndSorted() throws {
         let root = try Self.makeVaultRoot()
@@ -364,6 +381,9 @@ struct VaultMCPCoreTests {
         #expect(source.contains("vaultURI(for:"))
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))
+        #expect(source.contains("readMarkdownFile"))
+        #expect(source.contains("O_NOFOLLOW"))
+        #expect(source.contains("fstat"))
         #expect(source.contains("Task.detached(priority: .utility)"))
         #expect(source.contains("ResourceReadResult"))
         #expect(!source.contains("Process("))

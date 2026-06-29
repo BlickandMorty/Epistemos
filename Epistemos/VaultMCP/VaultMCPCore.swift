@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 nonisolated struct VaultMCPCore {
@@ -288,14 +289,42 @@ nonisolated struct VaultMCPCore {
 
     static func noteText(vaultRoot: URL?, relativePath: String) throws -> String {
         let url = try containedMarkdownURL(vaultRoot: vaultRoot, relativePath: relativePath)
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard values.isRegularFile == true else {
+        return try readMarkdownFile(at: url)
+    }
+
+    private static func readMarkdownFile(at url: URL) throws -> String {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
             throw VaultMCPPathError.notRegularFile
         }
-        if let fileSize = values.fileSize, fileSize > maxResourceReadBytes {
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw VaultMCPPathError.notRegularFile
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw VaultMCPPathError.notRegularFile
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxResourceReadBytes) else {
+            close(fd)
             throw VaultMCPPathError.tooLarge
         }
-        return try String(contentsOf: url, encoding: .utf8)
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        let data = try handle.readToEnd() ?? Data()
+        guard data.count <= maxResourceReadBytes else {
+            throw VaultMCPPathError.tooLarge
+        }
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw VaultMCPPathError.invalidEncoding
+        }
+        return text
     }
 
     static func argumentsJSON(from arguments: Any?) -> String {
@@ -507,6 +536,8 @@ nonisolated struct VaultMCPCore {
             "markdown resource is too large"
         case .hiddenPath:
             "hidden vault resources cannot be read"
+        case .invalidEncoding:
+            "markdown resource is not valid UTF-8"
         case .none:
             "read failed"
         }
@@ -538,4 +569,5 @@ private enum VaultMCPPathError: Error, Sendable {
     case notRegularFile
     case tooLarge
     case hiddenPath
+    case invalidEncoding
 }
