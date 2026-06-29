@@ -63,6 +63,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("does not re-interpolate Keychain-rendered values"))
         #expect(codepack.contains("Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("rejects pre-existing symlink paths for those private browser directories"))
+        #expect(codepack.contains("non-current-user ownership for those private browser directories"))
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("AGENT_BROWSER_SOCKET_DIR overrides any ambient `BROWSER_USE_HOME`"))

@@ -10,7 +10,7 @@ use std::env;
 use std::fs;
 use std::io::Read;
 #[cfg(unix)]
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
@@ -699,6 +699,9 @@ fn create_private_browser_dir(path: &Path) -> Result<(), ToolError> {
     reject_browser_dir_symlink(path)?;
 
     #[cfg(unix)]
+    validate_private_browser_dir_owner(path)?;
+
+    #[cfg(unix)]
     {
         let mut permissions = fs::metadata(path)
             .map_err(|e| {
@@ -737,6 +740,24 @@ fn reject_browser_dir_symlink(path: &Path) -> Result<(), ToolError> {
             path.display()
         ))),
     }
+}
+
+#[cfg(unix)]
+fn validate_private_browser_dir_owner(path: &Path) -> Result<(), ToolError> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "inspect private browser directory '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let current_uid = unsafe { libc::geteuid() };
+    if metadata.uid() != current_uid {
+        return Err(ToolError::ExecutionFailed(format!(
+            "private browser directory '{}' must be owned by the current user",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn extended_path() -> String {
