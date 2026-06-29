@@ -923,6 +923,22 @@ decode path (`GooseACPClient` + `GooseACPEventBridge`); WebView nav gate
 security/honesty + no-silent-ACP-drops gates are now confirmed at the code level
 across every security-critical Goose Swift file.
 
+### Recursive proof — deterministic layer: THREE consecutive clean passes
+
+The directive's recursive proof ("two more repeat passes with no code changes = three
+consecutive clean passes") is COMPLETE for the layer that doesn't require a live
+`goose serve`. The focused Goose unit/staging/security suites (53 tests / 6 suites)
+ran green three times in a row via `test-without-building` on the cached isolated-DD
+build, with ZERO Goose code changes between passes (only docs committed):
+- Pass 1: 53/53 green (`scratchpad/goose-unit-suites.log` + staging).
+- Pass 2: 53/53 green, 20.8s (`scratchpad/goose-unit-pass2.log`).
+- Pass 3: 53/53 green, 23.1s (`scratchpad/goose-unit-pass3.log`).
+Deterministic and flake-free across all three. The ONLY part of the recursive proof
+still outstanding is the combined LIVE sweep, which is environment-blocked (another
+agent's continuous build/test-host churn + a long-running second Epistemos.app on the
+machine) — documented above as spawn/load contention, NOT a Goose failure. It will be
+run to its own three-pass bar in a quiet window (no other Epistemos.app + low load).
+
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
 -derivedDataPath <iso_dd> -clonedSourcePackagesDirPath <iso_sp>
