@@ -1053,10 +1053,25 @@ secret values anywhere in the file (leak-check empty); and a repo-wide grep find
 ZERO `UserDefaults`/`@AppStorage` secret storage across the entire `Epistemos/Goose/`
 surface. `candidateKeychainKeys` only computes key *names*, never stores plaintext.
 
+Adversarial review of the WebView→native bridge
+(`GooseWebNativeAffordanceBridge`, 1024 lines — untrusted WebView content invoking
+native affordances incl. file read/write/ensureDirectory/listFiles), the highest-risk
+remaining surface, **no defects**: every message is type-validated (`body as
+[String:Any]`, `name`/`args` guarded, `stringArgument`/`dictionaryArgument`/`boolArgument`);
+file paths are `standardizingPath` + symlink-resolved BEFORE the allowlist check (so
+`../` traversal can't bypass it); `isPathAllowed` requires BOTH the normalized AND the
+symlink-resolved path to sit inside a scoped root; `isPathAllowedForWrite` additionally
+REJECTS symlinks outright. Scoped roots are injected at construction (NOT all-of-$HOME)
+plus their resolved-symlink variants. The containment helper is boundary-safe:
+`path == root || path.hasPrefix(root + "/")` — the trailing slash prevents the classic
+prefix-confusion bug (`/foo/barbaz` does NOT match root `/foo/bar`). A compromised
+WebView therefore cannot read/write outside the scoped roots.
+
 **STEP-2 coverage this loop (all reviewed, NO defects):** grafts (toolsCache +
 AlertBox); subprocess/secret/env-hardening (`GooseRuntimeSupervisor`); no-silent-drops
 decode path (`GooseACPClient` + `GooseACPEventBridge`); WebView nav gate
-(`GooseWebSurfaceView`); Keychain secret bridge (`GooseProviderKeyBridge`). The §7
+(`GooseWebSurfaceView`); Keychain secret bridge (`GooseProviderKeyBridge`); WebView→
+native file/affordance bridge (`GooseWebNativeAffordanceBridge` — path sandbox). The §7
 security/honesty + no-silent-ACP-drops gates are now confirmed at the code level
 across every security-critical Goose Swift file.
 
