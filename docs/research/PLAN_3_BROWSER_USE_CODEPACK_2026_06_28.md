@@ -73,7 +73,7 @@ binding, and non-secret JSON round-trip behavior.
 the browser-use gate plus staged payload artifacts, builds the exact `web-ui/webui.py --ip 127.0.0.1 --port 7788
 --theme Ocean` loopback plan, rejects non-executable Python, file/directory artifact shape mismatches, and runtime
 artifact symlink escapes before launch planning, writes the Keychain-combined launch `.env` under Application Support
-with owner-only permissions, and compiles the actual `Process()` launch only in
+with owner-only permissions while rejecting symlinked env directories/files before secrets are written, and compiles the actual `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
 Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload when present, then falls back to the
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.

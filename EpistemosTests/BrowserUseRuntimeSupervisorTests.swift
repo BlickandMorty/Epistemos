@@ -185,6 +185,44 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(fileMode == 0o600)
     }
 
+    @Test("environment file writer rejects symlinked launch env paths")
+    func environmentFileWriterRejectsSymlinkedLaunchEnvPaths() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-env-symlink-\(UUID().uuidString)", isDirectory: true)
+        let realDirectory = root.appendingPathComponent("real", isDirectory: true)
+        let symlinkDirectory = root.appendingPathComponent("state-link", isDirectory: true)
+        let safeDirectory = root.appendingPathComponent("safe", isDirectory: true)
+        let outsideFile = root.appendingPathComponent("outside.env", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: realDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: safeDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: symlinkDirectory, withDestinationURL: realDirectory)
+        try Data("OPENAI_API_KEY=outside\n".utf8).write(to: outsideFile)
+
+        do {
+            try BrowserUseEnvironmentFileWriter.write(
+                "OPENAI_API_KEY=sk-test\n",
+                to: symlinkDirectory.appendingPathComponent(".env", isDirectory: false)
+            )
+            Issue.record("Expected symlinked browser-use env directory to be rejected")
+        } catch let error as BrowserUseRuntimeSupervisorError {
+            #expect(error.errorDescription?.contains("environment directory must not be a symlink") == true)
+        }
+
+        let symlinkFile = safeDirectory.appendingPathComponent(".env", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: symlinkFile, withDestinationURL: outsideFile)
+        do {
+            try BrowserUseEnvironmentFileWriter.write("OPENAI_API_KEY=sk-test\n", to: symlinkFile)
+            Issue.record("Expected symlinked browser-use env file to be rejected")
+        } catch let error as BrowserUseRuntimeSupervisorError {
+            #expect(error.errorDescription?.contains("environment file must not be a symlink") == true)
+        }
+
+        let outsideContents = try String(contentsOf: outsideFile, encoding: .utf8)
+        #expect(outsideContents == "OPENAI_API_KEY=outside\n")
+    }
+
     @Test("start terminates the existing Pro runtime before relaunch")
     func startTerminatesExistingProRuntimeBeforeRelaunch() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -283,6 +321,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "private let lifecycleLock = NSLock()",
             "shouldCancel: @Sendable () -> Bool",
             "throw CancellationError()",
+            "rejectEnvironmentSymlink",
+            "browser-use environment \\(label) must not be a symlink",
             "stop()",
             "stopLocked()",
             "process = try launchProcess(plan)",
