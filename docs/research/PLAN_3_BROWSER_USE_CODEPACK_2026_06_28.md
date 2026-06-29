@@ -176,7 +176,8 @@ validated before runtime import and must be loopback-only with no URL credential
   valid PNG bytes into the confined path, and screenshot size metadata is normalized to numeric width/height only. It
   also rejects multiple screenshot output paths before runtime import. More generally, command-specific
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
-  `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Extra positional
+  `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Rust bounds refs
+  to short safe tokens before adapter execution. Extra positional
   arguments and unexpected console/error flags are rejected before daemon startup without echoing rejected values. The console/errors compatibility
   stubs avoid browser-use runtime import until upstream exposes matching stream actions; they only accept optional
   `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. The adapter

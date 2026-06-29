@@ -23,8 +23,9 @@ struct ArxivPlan3Tests {
     @Test("search rejects redirected non-arXiv Atom responses")
     func searchRejectsRedirectedAtomResponses() async throws {
         let client = ArxivClient { _ in
+            let responseURL = try #require(URL(string: "https://example.com/api/query"))
             let response = try #require(HTTPURLResponse(
-                url: try #require(URL(string: "https://example.com/api/query")),
+                url: responseURL,
                 statusCode: 200,
                 httpVersion: nil,
                 headerFields: nil
@@ -101,8 +102,9 @@ struct ArxivPlan3Tests {
 
         let tempPDF = root.appendingPathComponent("CFNetworkDownload_http.tmp")
         try Data("%PDF-1.7\n".utf8).write(to: tempPDF)
+        let responseURL = try #require(URL(string: "http://arxiv.org/pdf/2401.12345v2"))
         let response = try #require(HTTPURLResponse(
-            url: try #require(URL(string: "http://arxiv.org/pdf/2401.12345v2")),
+            url: responseURL,
             statusCode: 200,
             httpVersion: nil,
             headerFields: nil
@@ -511,10 +513,11 @@ struct ArxivPlan3Tests {
     }
 
     private static func paper() throws -> ArxivPaper {
-        try #require(try ArxivClient.parseSearchResponse(Data(atomFixture.utf8)).first)
+        let papers = try ArxivClient.parseSearchResponse(Data(atomFixture.utf8))
+        return try #require(papers.first)
     }
 
-    private static let atomFixture = """
+    private nonisolated static let atomFixture = """
     <?xml version="1.0" encoding="UTF-8"?>
     <feed xmlns="http://www.w3.org/2005/Atom">
       <entry>
@@ -590,10 +593,10 @@ private final class CopyingArxivDownloader: ArxivPDFDownloading, @unchecked Send
     }
 
     func download(from _: URL) async throws -> URL {
-        lock.lock()
-        nextIndex += 1
-        let index = nextIndex
-        lock.unlock()
+        let index = lock.withLock {
+            nextIndex += 1
+            return nextIndex
+        }
 
         let copy = outputDirectory.appendingPathComponent("download-\(index).pdf")
         try FileManager.default.copyItem(at: sourcePDF, to: copy)

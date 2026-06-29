@@ -3,6 +3,7 @@ use serde_json::Value;
 use super::registry::ToolError;
 
 const SNAPSHOT_CHAR_CAP: usize = 8_000;
+const MAX_BROWSER_REF_CHARS: usize = 64;
 
 pub(crate) fn optional_bool_field(input: &Value, field: &str) -> Result<Option<bool>, ToolError> {
     let Some(value) = input.get(field) else {
@@ -31,6 +32,16 @@ pub(crate) fn normalize_ref(raw_ref: &str) -> Result<String, ToolError> {
     let trimmed = raw_ref.trim();
     if trimmed.is_empty() {
         return Err(ToolError::InvalidArguments("ref cannot be empty".into()));
+    }
+    let value = trimmed.strip_prefix('@').unwrap_or(trimmed);
+    if value.is_empty() || value.len() > MAX_BROWSER_REF_CHARS {
+        return Err(ToolError::InvalidArguments("invalid ref".into()));
+    }
+    if !value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        return Err(ToolError::InvalidArguments("invalid ref".into()));
     }
     if trimmed.starts_with('@') {
         Ok(trimmed.to_string())
@@ -61,6 +72,12 @@ mod tests {
         assert_eq!(normalize_ref("e1").unwrap(), "@e1");
         assert_eq!(normalize_ref(" @e2 ").unwrap(), "@e2");
         assert!(format!("{}", normalize_ref("   ").unwrap_err()).contains("ref cannot be empty"));
+        assert!(format!("{}", normalize_ref("../secret").unwrap_err()).contains("invalid ref"));
+        assert!(format!(
+            "{}",
+            normalize_ref(&"a".repeat(MAX_BROWSER_REF_CHARS + 1)).unwrap_err()
+        )
+        .contains("invalid ref"));
 
         let (short, short_truncated) = truncate_snapshot("hello");
         assert_eq!(short, "hello");

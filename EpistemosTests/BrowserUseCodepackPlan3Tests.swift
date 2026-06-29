@@ -97,6 +97,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("screenshot size metadata is normalized to numeric width/height only"))
         #expect(codepack.contains("rejects multiple screenshot output paths before runtime import"))
         #expect(codepack.contains("command-specific argument validation runs before browser-use daemon startup"))
+        #expect(codepack.contains("Rust bounds refs to short safe tokens before adapter execution"))
         #expect(codepack.contains("unexpected console/error flags are rejected before daemon startup without echoing rejected values"))
         #expect(codepack.contains("console/errors compatibility stubs avoid browser-use runtime import"))
         #expect(codepack.contains("Command arguments after `--json <command>` are preserved even when they begin with `--`"))

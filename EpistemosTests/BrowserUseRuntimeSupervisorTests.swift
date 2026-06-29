@@ -667,7 +667,7 @@ private final class FakeBrowserUseRuntimeProcess {
     }
 }
 
-private final class RotatingBrowserUseSecretHarness: @unchecked Sendable {
+private nonisolated final class RotatingBrowserUseSecretHarness: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
 

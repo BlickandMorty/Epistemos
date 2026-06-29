@@ -242,6 +242,8 @@ struct BrowserUseWebUIViewTests {
         ] {
             #expect(source.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
+        #expect(source.contains("supervisor.stop()\n                    loadedURL = nil"),
+                "The startRuntime non-loopback failure branch already has an unwrapped supervisor; optional chaining there does not compile.")
         #expect(!source.contains("loadOrDefault()"))
 
         #expect(policy.contains("normalizedAllowedHost("))
