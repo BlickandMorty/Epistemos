@@ -53,6 +53,37 @@ struct BrowserUseSettingsStoreTests {
         #expect(!environment.contains("first\r\nsecond"))
     }
 
+    @Test("settings validation keeps browser debugging and CDP loopback-only")
+    func settingsValidationKeepsBrowserDebuggingAndCDPLoopbackOnly() {
+        var allowed = BrowserUseSettings.default
+        allowed.browser.debuggingHost = "[::1]"
+        allowed.browser.browserCDP = "ws://127.0.0.1:9222/devtools/browser/session"
+        #expect(BrowserUseSettingsValidation.problem(in: allowed) == nil)
+
+        let rejected: [((inout BrowserUseSettings) -> Void, String)] = [
+            ({ (settings: inout BrowserUseSettings) in
+                settings.browser.debuggingHost = "0.0.0.0"
+            }, "browser debugging host"),
+            ({ (settings: inout BrowserUseSettings) in
+                settings.browser.browserCDP = "ws://example.com:9222/devtools/browser/session"
+            }, "browser CDP URL must point"),
+            ({ (settings: inout BrowserUseSettings) in
+                settings.browser.browserCDP = "ws://user:pass@127.0.0.1:9222/devtools/browser/session"
+            }, "username or password"),
+            ({ (settings: inout BrowserUseSettings) in
+                settings.browser.browserCDP = "ws://127.0.0.1:9222/devtools/browser/session?token=secret"
+            }, "URL query"),
+            ({ (settings: inout BrowserUseSettings) in
+                settings.browser.browserCDP = "ws://127.0.0.1:9222/devtools/browser/session#token"
+            }, "URL fragment"),
+        ]
+        for (mutate, expected) in rejected {
+            var settings = BrowserUseSettings.default
+            mutate(&settings)
+            #expect(BrowserUseSettingsValidation.problem(in: settings)?.contains(expected) == true)
+        }
+    }
+
     @Test("secret store saves values by environment-key binding")
     func secretStoreSavesValuesByEnvironmentKeyBinding() {
         let harness = SecretHarness()

@@ -42,6 +42,10 @@ nonisolated enum BrowserUseLoopbackPolicy {
         return components.url
     }
 
+    static func allowsHost(_ host: String) -> Bool {
+        normalizedAllowedHost(host) != nil
+    }
+
     private static func normalizedAllowedHost(_ host: String) -> String? {
         guard let normalized = normalize(host),
               normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1" else {

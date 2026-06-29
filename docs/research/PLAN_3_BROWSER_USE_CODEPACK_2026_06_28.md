@@ -261,7 +261,8 @@ tree. Default telemetry/cloud sync should be off unless the user explicitly enab
 **Landed settings contract `[VERIFIED-CODE]`:** `BrowserUseSettingsStore.swift` preserves the non-secret web-ui and
 browser-use environment shape as typed Codable settings and renders a launch-time `.env` by combining those values with
 `BrowserUseSecretBinding` values loaded from Keychain. It covers `DEFAULT_LLM`, provider endpoints, own-browser/CDP,
-resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. It does not
+resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. Browser debugging
+host and non-empty CDP URLs are loopback-constrained and reject URL credentials, queries, and fragments. It does not
 launch Python, Chromium, Playwright, or `webui.py`. The `.env` renderer quotes and escapes multiline/CRLF values before
 writing the launch file.
 
@@ -317,8 +318,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   package wheels with `--no-deps`, installs Playwright Chromium into the Pro staging directory, writes only non-secret
   `BUILD_MANIFEST.json`, and says it is not for MAS/App Store build phases.
 - Settings contract test: `BrowserUseSettingsStore.swift` includes typed non-secret provider/browser/runtime settings,
-  a launch-time environment renderer, Keychain-backed secret bindings for provider/cloud/proxy/AWS/VNC values, privacy
-  defaults with telemetry/cloud/version checks off, and no runtime launch seam.
+  loopback-only browser debugging/CDP validation, a launch-time environment renderer, Keychain-backed secret bindings
+  for provider/cloud/proxy/AWS/VNC values, privacy defaults with telemetry/cloud/version checks off, and no runtime launch seam.
 - Behavior test: `BrowserUseSettingsStoreTests.swift` renders defaults without secret keys, appends only non-empty
   injected Keychain secrets, deletes empty secret values, and proves the JSON store omits API/proxy/VNC secret names.
 - Runtime launch contract test: `BrowserUseRuntimeSupervisorTests.swift` keeps unpackaged payloads inactive, proves the

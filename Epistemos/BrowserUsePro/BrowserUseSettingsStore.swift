@@ -250,12 +250,44 @@ nonisolated enum BrowserUseSettingsValidation {
         guard (1...65535).contains(browser.debuggingPort) else {
             return "browser debugging port must be between 1 and 65535"
         }
+        guard BrowserUseLoopbackPolicy.allowsHost(browser.debuggingHost) else {
+            return "browser debugging host must be localhost, 127.0.0.1, or [::1]"
+        }
+        if let browserCDPProblem = browserCDPProblem(browser.browserCDP) {
+            return browserCDPProblem
+        }
         guard (1...16_384).contains(browser.resolutionWidth),
               (1...16_384).contains(browser.resolutionHeight) else {
             return "browser resolution must be between 1 and 16384 pixels per side"
         }
         guard (1...128).contains(browser.resolutionDepth) else {
             return "browser resolution depth must be between 1 and 128"
+        }
+        return nil
+    }
+
+    private static func browserCDPProblem(_ rawValue: String) -> String? {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            return nil
+        }
+        guard let components = URLComponents(string: value),
+              let scheme = components.scheme?.lowercased(),
+              ["http", "https", "ws", "wss"].contains(scheme),
+              let host = components.host else {
+            return "browser CDP URL must be http, https, ws, or wss loopback URL"
+        }
+        guard BrowserUseLoopbackPolicy.allowsHost(host) else {
+            return "browser CDP URL must point at localhost, 127.0.0.1, or [::1]"
+        }
+        if components.user != nil || components.password != nil {
+            return "browser CDP URL must not include username or password credentials"
+        }
+        if components.query != nil {
+            return "browser CDP URL must not include a URL query"
+        }
+        if components.fragment != nil {
+            return "browser CDP URL must not include a URL fragment"
         }
         return nil
     }
