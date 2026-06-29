@@ -105,6 +105,8 @@ struct BrowserUseAdapterPlan3Tests {
             "permissions.set_mode(0o700)",
             "not an executable file",
             "PYTHON_DOTENV_DISABLED",
+            "path_resolves_inside",
+            "browser screenshot resolved outside private screenshot directory",
             "agent-browser CLI not found",
             "browser_private_directories_are_owner_only",
             "browser_use_agent_browser_override_wins_before_path_search",

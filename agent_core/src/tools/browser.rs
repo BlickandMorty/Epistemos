@@ -378,6 +378,9 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
     let provider = optional_string_field(input, "provider")?.unwrap_or("claude");
     let annotate = optional_bool_field(input, "annotate")?.unwrap_or(false);
     let screenshot_path = next_screenshot_path()?;
+    let screenshot_directory = screenshot_path.parent().ok_or_else(|| {
+        ToolError::ExecutionFailed("browser screenshot path missing private directory".into())
+    })?;
     let mut args = Vec::new();
     if annotate {
         args.push("--annotate".to_string());
@@ -396,6 +399,12 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
     if !actual_path.exists() {
         return Err(ToolError::ExecutionFailed(format!(
             "browser screenshot was not created at '{}'",
+            actual_path.display()
+        )));
+    }
+    if !path_resolves_inside(&actual_path, screenshot_directory) {
+        return Err(ToolError::ExecutionFailed(format!(
+            "browser screenshot resolved outside private screenshot directory at '{}'",
             actual_path.display()
         )));
     }
@@ -957,6 +966,16 @@ fn next_screenshot_path() -> Result<PathBuf, ToolError> {
     };
     create_private_browser_dir(&directory)?;
     Ok(directory.join(format!("browser-{}.png", Uuid::new_v4().simple())))
+}
+
+fn path_resolves_inside(path: &Path, root: &Path) -> bool {
+    let Ok(resolved_path) = fs::canonicalize(path) else {
+        return false;
+    };
+    let Ok(resolved_root) = fs::canonicalize(root) else {
+        return false;
+    };
+    resolved_path == resolved_root || resolved_path.starts_with(&resolved_root)
 }
 
 pub fn browser_navigate_schema() -> crate::types::ToolSchema {
@@ -1596,6 +1615,27 @@ esac
             "vision must not screenshot before cloud ack"
         );
         assert!(lines[0].contains("open"));
+    }
+
+    #[test]
+    fn browser_vision_screenshot_paths_must_resolve_inside_private_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("screenshots");
+        let outside = temp.path().join("outside.png");
+        let inside = root.join("inside.png");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&inside, b"inside").unwrap();
+        fs::write(&outside, b"outside").unwrap();
+
+        assert!(path_resolves_inside(&inside, &root));
+        assert!(!path_resolves_inside(&outside, &root));
+
+        #[cfg(unix)]
+        {
+            let symlink = root.join("escape.png");
+            std::os::unix::fs::symlink(&outside, &symlink).unwrap();
+            assert!(!path_resolves_inside(&symlink, &root));
+        }
     }
 
     #[tokio::test]
