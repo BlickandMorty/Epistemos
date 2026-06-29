@@ -1,6 +1,8 @@
 use std::env;
 use std::fs;
 use std::io::Read;
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -205,6 +207,10 @@ fn decode_limited_browser_output(
 }
 
 pub(crate) fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
+    if !cleanup_socket_dir_is_private(socket_dir) {
+        return;
+    }
+
     #[cfg(unix)]
     {
         let pid_file = socket_dir.join(format!("{session_name}.pid"));
@@ -217,6 +223,24 @@ pub(crate) fn cleanup_local_daemon(session_name: &str, socket_dir: &Path) {
         }
     }
     let _ = fs::remove_dir_all(socket_dir);
+}
+
+fn cleanup_socket_dir_is_private(socket_dir: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        let Ok(metadata) = fs::symlink_metadata(socket_dir) else {
+            return false;
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return false;
+        }
+        metadata.uid() == unsafe { libc::geteuid() }
+    }
+
+    #[cfg(not(unix))]
+    {
+        socket_dir.is_dir()
+    }
 }
 
 #[cfg(test)]
@@ -240,5 +264,34 @@ mod tests {
         let decoded = decode_limited_browser_output(&bytes, true, "stdout").unwrap();
         assert_eq!(decoded.len(), MAX_BROWSER_OUTPUT_BYTES - 1);
         assert!(decoded.bytes().all(|byte| byte == b'a'));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_cleanup_ignores_symlinked_socket_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("target");
+        let link = temp.path().join("socket-link");
+        fs::create_dir_all(&target).unwrap();
+        fs::write(target.join("session.pid"), b"not-a-pid").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        cleanup_local_daemon("session", &link);
+
+        assert!(link.exists());
+        assert!(target.join("session.pid").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_cleanup_removes_private_socket_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let socket_dir = temp.path().join("socket");
+        fs::create_dir_all(&socket_dir).unwrap();
+        fs::write(socket_dir.join("session.pid"), b"not-a-pid").unwrap();
+
+        cleanup_local_daemon("session", &socket_dir);
+
+        assert!(!socket_dir.exists());
     }
 }

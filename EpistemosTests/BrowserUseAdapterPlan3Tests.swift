@@ -179,6 +179,9 @@ struct BrowserUseAdapterPlan3Tests {
             "agent-browser returned non-JSON output",
             "agent-browser '{command_name}' failed",
             "cleanup_local_daemon",
+            "cleanup_socket_dir_is_private",
+            "browser_cleanup_ignores_symlinked_socket_directory",
+            "browser_cleanup_removes_private_socket_directory",
         ] {
             #expect(browserCommand.contains(required), "Missing Rust browser-use command runner string: \(required)")
         }
