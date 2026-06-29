@@ -74,6 +74,38 @@ need a live extension-filter check. So the residual is **bounded and named, not 
 unknown "things are silently missing"** — the surface is feature-complete for
 everything ACP can express.
 
+### 2026-06-28 evening — Path-A grafting exhausted + Path-B gating risk cleared
+
+Closing out the "Both: graft ACP gaps now, plan Path B" decision:
+
+- **toolsCache (#1) shipped + gate-locked** (`listAcpSessionTools` via
+  `toolsList_unstable` with a full-list fallback so a tool-name casing mismatch can
+  never be worse than the silent-null REST it replaces; +7 parity-gate assertions).
+- **PermissionModal (#3) — deliberately NOT half-grafted (verify-then-fix).** Its
+  tool-LOAD is ACP-graftable, but per-tool SAVE (`upsertPermissions`) has no ACP
+  method. A LOAD-only graft would make the modal LOOK functional while silently
+  discarding saves — a NEW silent failure, strictly worse than today's honest
+  load-error. It is both-halves-or-nothing → Path B.
+- **Path-A graft work is now EXHAUSTED of safe, non-throwaway items.** Every residual
+  gap is Path-B (#3 Permission-save, #5 MCP-app, #6 Prompts), a no-op (#2 Extension
+  env_keys are references not secrets), or a "don't rush" native-vs-graft call
+  (#4 Dictation — Epistemos has native voice).
+- **Path-B gating risk RESOLVED, verdict FAVORABLE.** Source-level check: `goosed
+  agent`'s tunnel/gateway tasks are network-only (zero subprocess spawning → same
+  launched-server shape as the already-accepted `goose serve`, no new sidecar vs
+  CLAUDE.md's no-subprocess rule); the two entitlements it needs (`network.client`
+  + `network.server`) already ship. Caveats named (wider network surface for MAS
+  review; the shared "is a launched goose binary MAS-distributable at all" question
+  is unchanged, not regressed). See `GOOSE_PATH_B_FULL_GOOSED_MIGRATION_PLAN...md`.
+
+**→ OWNER DECISION NEEDED to make further automated progress:** start Path-B
+*implementation* (bundle `goosed`, swap the supervisor to `goosed agent` behind a
+build flag, Path A stays default until proven) — which makes Prompts / Permission-
+save / MCP-app work natively — **or** stay Path-A and have me honest-gate (hide) the
+no-ACP-method controls so nothing looks functional-but-silently-broken. Until you
+pick, and until the shared Swift test bundle unblocks (another agent's
+`CodeEditorPolishTests`), no further safe Goose code work remains this loop.
+
 ---
 
 ## OWNER — manual app pass (please click through and confirm)
