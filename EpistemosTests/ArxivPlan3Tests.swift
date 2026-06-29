@@ -20,6 +20,26 @@ struct ArxivPlan3Tests {
         #expect(items["max_results"] == "50")
     }
 
+    @Test("search rejects redirected non-arXiv Atom responses")
+    func searchRejectsRedirectedAtomResponses() async throws {
+        let client = ArxivClient { _ in
+            let response = try #require(HTTPURLResponse(
+                url: try #require(URL(string: "https://example.com/api/query")),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            ))
+            return (Data(Self.atomFixture.utf8), response)
+        }
+
+        do {
+            _ = try await client.search(query: "retrieval augmented generation")
+            Issue.record("Expected redirected arXiv Atom response to be rejected")
+        } catch let error as ArxivClientError {
+            #expect(error == .invalidResponse)
+        }
+    }
+
     @Test("Atom parser extracts paper metadata and PDF link")
     func parsesAtom() throws {
         let papers = try ArxivClient.parseSearchResponse(Data(Self.atomFixture.utf8))

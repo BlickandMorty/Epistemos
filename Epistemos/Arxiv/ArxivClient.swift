@@ -90,10 +90,7 @@ nonisolated struct ArxivClient: Sendable {
         let request = try Self.searchRequest(query: query, maxResults: maxResults)
         do {
             let (data, response) = try await fetch(request)
-            if let http = response as? HTTPURLResponse,
-               !(200..<300).contains(http.statusCode) {
-                throw ArxivClientError.invalidResponse
-            }
+            try Self.validateSearchResponse(response)
             return try Self.parseSearchResponse(data)
         } catch is CancellationError {
             throw CancellationError()
@@ -122,6 +119,25 @@ nonisolated struct ArxivClient: Sendable {
         request.timeoutInterval = 15
         request.setValue("Epistemos/Plan3-ArxivPull", forHTTPHeaderField: "User-Agent")
         return request
+    }
+
+    static func validateSearchResponse(_ response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let finalURL = http.url,
+              isAllowedSearchResponseURL(finalURL) else {
+            throw ArxivClientError.invalidResponse
+        }
+    }
+
+    static func isAllowedSearchResponseURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "https",
+              let host = url.host?.lowercased(),
+              host == "export.arxiv.org" else {
+            return false
+        }
+        return url.path == "/api/query"
     }
 
     static func parseSearchResponse(_ data: Data) throws -> [ArxivPaper] {
