@@ -399,20 +399,28 @@ enum GooseWebBootShim {
               socket.addEventListener('close', (event) => acpTrace.traceSocket('close', event?.code ?? null));
               socket.addEventListener('error', () => acpTrace.traceSocket('error'));
               socket.addEventListener('message', (event) => acpTrace.traceIncoming(event.data));
+              const tracedSend = (data) => {
+                acpTrace.traceOutgoing(data);
+                return socket.send(data);
+              };
+              const boundMethods = new Map();
+              const boundMethod = (target, property, value) => {
+                const cached = boundMethods.get(property);
+                if (cached?.source === value) return cached.bound;
+                const bound = value.bind(target);
+                boundMethods.set(property, { source: value, bound });
+                return bound;
+              };
               return new Proxy(socket, {
                 get(target, property) {
                   if (property === 'send') {
-                    return (data) => {
-                      acpTrace.traceOutgoing(data);
-                      return target.send(data);
-                    };
+                    return tracedSend;
                   }
-                  const value = target[property];
-                  return typeof value === 'function' ? value.bind(target) : value;
+                  const value = Reflect.get(target, property, target);
+                  return typeof value === 'function' ? boundMethod(target, property, value) : value;
                 },
                 set(target, property, value) {
-                  target[property] = value;
-                  return true;
+                  return Reflect.set(target, property, value, target);
                 }
               });
             };

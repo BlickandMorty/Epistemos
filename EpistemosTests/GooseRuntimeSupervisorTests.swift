@@ -1020,6 +1020,16 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains(#"throw new Error("Epistemos failed to serialize the Goose Web boot payload.")"#))
     }
 
+    @Test("traced WebSocket proxy keeps method identity stable")
+    func tracedWebSocketMethodIdentityIsStable() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebBootShim.swift")
+        #expect(source.contains("const tracedSend = (data) =>"))
+        #expect(source.contains("const boundMethods = new Map();"))
+        #expect(source.contains("cached?.source === value"))
+        #expect(source.contains("Reflect.get(target, property, target)"))
+        #expect(!source.contains("value.bind(target) : value"))
+    }
+
     @Test("Goose Web UI loads through the hash route used by the Electron renderer")
     func gooseWebUIBootURLUsesHashRoute() {
         let index = URL(fileURLWithPath: "/tmp/goose-web-ui/index.html")
