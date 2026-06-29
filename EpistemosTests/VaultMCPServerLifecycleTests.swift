@@ -5,6 +5,9 @@ import Testing
 @Suite("Vault MCP Server Lifecycle")
 struct VaultMCPServerLifecycleTests {
     private let token = "secret-token-abc123"
+    private let storedToken = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
+    private let mintedToken = "abcdefghijklmnopqrstuvwxyz123456"
+    private let rotatedToken = "0123456789abcdefghijklmnopqrstuv"
 
     private enum TestError: Error {
         case didNotStart
@@ -52,26 +55,48 @@ struct VaultMCPServerLifecycleTests {
 
     @Test("token store loads existing token, mints missing token, and rotates through Keychain closures")
     func tokenStorePersistenceAndRotation() {
-        let keychain = MemoryKeychain(values: [VaultMCPTokenStore.keychainKey: " existing-token "])
-        let firstFactory = TokenFactory(["unused-token"])
+        let keychain = MemoryKeychain(values: [VaultMCPTokenStore.keychainKey: " \(storedToken) "])
+        let firstFactory = TokenFactory([mintedToken])
         let existingStore = VaultMCPTokenStore(
             load: keychain.load,
             save: keychain.save,
             makeToken: firstFactory.next)
-        #expect(existingStore.currentToken() == "existing-token")
+        #expect(existingStore.currentToken() == storedToken)
 
         let emptyKeychain = MemoryKeychain()
-        let factory = TokenFactory(["minted-token", "rotated-token"])
+        let factory = TokenFactory([mintedToken, rotatedToken])
         let store = VaultMCPTokenStore(
             load: emptyKeychain.load,
             save: emptyKeychain.save,
             makeToken: factory.next)
-        #expect(store.currentToken() == "minted-token")
-        #expect(emptyKeychain.load(VaultMCPTokenStore.keychainKey) == "minted-token")
-        #expect(store.rotateToken() == "rotated-token")
-        #expect(emptyKeychain.load(VaultMCPTokenStore.keychainKey) == "rotated-token")
+        #expect(store.currentToken() == mintedToken)
+        #expect(emptyKeychain.load(VaultMCPTokenStore.keychainKey) == mintedToken)
+        #expect(store.rotateToken() == rotatedToken)
+        #expect(emptyKeychain.load(VaultMCPTokenStore.keychainKey) == rotatedToken)
         #expect(VaultMCPTokenStore.masked("abcd1234wxyz") == "abcd...wxyz")
         #expect(VaultMCPTokenStore.masked("short") == "****")
+    }
+
+    @Test("token store rejects weak stored and generated token values")
+    func tokenStoreRejectsWeakTokenValues() {
+        let replacementToken = mintedToken
+        let weakStoredKeychain = MemoryKeychain(values: [VaultMCPTokenStore.keychainKey: "short"])
+        let replacementStore = VaultMCPTokenStore(
+            load: weakStoredKeychain.load,
+            save: weakStoredKeychain.save,
+            makeToken: { replacementToken })
+        #expect(replacementStore.currentToken() == replacementToken)
+        #expect(weakStoredKeychain.load(VaultMCPTokenStore.keychainKey) == replacementToken)
+
+        let generatedKeychain = MemoryKeychain()
+        let invalidGeneratedStore = VaultMCPTokenStore(
+            load: generatedKeychain.load,
+            save: generatedKeychain.save,
+            makeToken: { "bad\nbearer" })
+        let fallback = invalidGeneratedStore.currentToken()
+        #expect(fallback != "bad\nbearer")
+        #expect(fallback.count >= 24)
+        #expect(generatedKeychain.load(VaultMCPTokenStore.keychainKey) == fallback)
     }
 
     @Test("authorized POST dispatches to the read-only vault core over loopback HTTP")
@@ -172,6 +197,9 @@ struct VaultMCPServerLifecycleTests {
         #expect(tokenStore.contains("Keychain.load"))
         #expect(tokenStore.contains("Keychain.save"))
         #expect(tokenStore.contains("vault_mcp_bearer"))
+        #expect(tokenStore.contains("minimumTokenLength"))
+        #expect(tokenStore.contains("usableToken"))
+        #expect(tokenStore.contains("uuidFallbackToken"))
         #expect(!tokenStore.contains("UserDefaults"))
 
         let host = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPHost.swift")

@@ -40,8 +40,10 @@ helpers (one audited copy of the security logic). Difference from `WorkNativeMCP
 
 ## 3. `VaultMCPTokenStore.swift` [DELIVERED]
 `currentToken()` returns the stored token or mints+persists one (`WorkNativeMCPServer.randomToken()` CSPRNG, 24-byte
-base64) via `Keychain.save(_, for: "vault_mcp_bearer")` — **never UserDefaults** (CLAUDE.md). `rotateToken()` re-mints
-(invalidates old client configs). `masked(_)` → `abcd…wxyz` for display.
+base64) via `Keychain.save(_, for: "vault_mcp_bearer")` — **never UserDefaults** (CLAUDE.md). Stored/generated bearer
+values must be printable ASCII and at least 24 characters; weak or control-character values are discarded and replaced
+with a fresh fallback token. `rotateToken()` re-mints (invalidates old client configs). `masked(_)` → `abcd…wxyz` for
+display.
 
 ## 4. `VaultMCPHost.swift` [DELIVERED]
 `@MainActor`, idempotent-per-vault `ensureServer`, async `start(vaultRoot:)` polling `.ready`, `stop()`,
