@@ -898,9 +898,30 @@ Adversarial review of the ACP decode/dispatch path (`GooseACPClient.swift` +
   -32601 for requests) and never fatal to the connection. §7 "no silent ACP drops"
   gate confirmed at the code level.
 
-**STEP-2 coverage so far this loop:** grafts (toolsCache + AlertBox), the
-subprocess/secret surface (`GooseRuntimeSupervisor`), and the no-silent-drops decode
-path (`GooseACPClient` + `GooseACPEventBridge`) — all reviewed, no defects.
+Adversarial review of the WebView nav gate (`GooseWebSurfaceView.GooseNavigationDecider`)
+— the §7 navigation-security surface, **no defects**: deny-by-default (`guard…else
+.cancel`, `default: .cancel`); only `about` + the custom Goose UI scheme allowed;
+`http/https/ws/wss` allowed ONLY for an **exact** loopback host
+(`== 127.0.0.1 | localhost | ::1`), which blocks subdomain spoofing
+(`127.0.0.1.evil.com` → cancel) and userinfo tricks (`http://localhost@evil.com` →
+`url.host` is `evil.com` → cancel); `file:` / `javascript:` / `data:` all hit
+`default` → cancel; scheme+host both lowercased. Matches the passing nav-gate unit
+test. (Minor over-strictness, not a flaw: expanded IPv6 `0:0:0:0:0:0:0:1` wouldn't
+match `::1` and would be denied — safe direction.)
+
+Review of the Keychain secret bridge (`GooseProviderKeyBridge`) — the "keys in
+Keychain, never UserDefaults" non-negotiable, **no defects**: secrets load via
+`Keychain.load(for:)` (SecItem-backed); NO `print`/`os_log`/`Logger`/`NSLog` of
+secret values anywhere in the file (leak-check empty); and a repo-wide grep finds
+ZERO `UserDefaults`/`@AppStorage` secret storage across the entire `Epistemos/Goose/`
+surface. `candidateKeychainKeys` only computes key *names*, never stores plaintext.
+
+**STEP-2 coverage this loop (all reviewed, NO defects):** grafts (toolsCache +
+AlertBox); subprocess/secret/env-hardening (`GooseRuntimeSupervisor`); no-silent-drops
+decode path (`GooseACPClient` + `GooseACPEventBridge`); WebView nav gate
+(`GooseWebSurfaceView`); Keychain secret bridge (`GooseProviderKeyBridge`). The §7
+security/honesty + no-silent-ACP-drops gates are now confirmed at the code level
+across every security-critical Goose Swift file.
 
 Re-runnable command (cached bundle, ~0.3s test phase):
 `xcodebuild test-without-building -scheme Epistemos -destination platform=macOS
