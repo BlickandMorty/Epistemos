@@ -494,14 +494,26 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
-        process.arguments = ["-C", expandedPath, "worktree", "list", "--porcelain"]
+        // review LOW-2: this runs git on a WEB-CHOSEN directory, so neutralize attacker-controlled git
+        // config that could run code. `-c core.fsmonitor=false` blocks a malicious repo `.git/config`
+        // from spawning an fsmonitor command; `-c protocol.allow=never` blocks any sub-fetch.
+        process.arguments = [
+            "-c", "core.fsmonitor=false",
+            "-c", "protocol.allow=never",
+            "-C", expandedPath, "worktree", "list", "--porcelain",
+        ]
         // SECURITY (deep-hardening 2026-06-29 #23): set an explicit minimal environment instead of
         // inheriting the full process env (which carries DYLD_*/LD_*/Malloc*/NODE_*/PYTHON* etc.).
+        // review LOW-2: also ignore SYSTEM + GLOBAL git config (~/.gitconfig can carry tokens/pagers/
+        // hooks); only the repo config git needs for `worktree list` is consulted.
         let gitDir = URL(fileURLWithPath: git, isDirectory: false).deletingLastPathComponent().path
         process.environment = [
             "PATH": "\(gitDir):/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
             "HOME": fileManager.homeDirectoryForCurrentUser.path,
             "LANG": "en_US.UTF-8",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_TERMINAL_PROMPT": "0",
         ]
         let stdout = Pipe()
         process.standardOutput = stdout

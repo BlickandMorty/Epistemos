@@ -632,7 +632,11 @@ struct GooseWebSurfaceView: View {
         if !absolute.hasSuffix("/") {
             absolute += "/"
         }
-        return URL(string: "\(absolute)?v=\(gooseUISurfaceCacheToken)#\(normalizedRoute)")!
+        // review C-L1: percent-encode the route fragment (a future route with stray chars must not be
+        // able to make URL(string:) return nil) and fall back to the always-valid baseURL instead of
+        // force-unwrapping.
+        let fragment = normalizedRoute.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? ""
+        return URL(string: "\(absolute)?v=\(gooseUISurfaceCacheToken)#\(fragment)") ?? baseURL
     }
 
     nonisolated static func gooseStaticCompatibilityRoutes() -> [WorkSPAStaticRoute] {
@@ -646,7 +650,12 @@ struct GooseWebSurfaceView: View {
     }
 
     nonisolated private static func surfaceURL(hashRoute: String) -> URL {
-        URL(string: "\(gooseUISchemeName)://\(gooseUISurfaceHost)\(gooseUISurfaceVirtualBasePath)/?v=\(gooseUISurfaceCacheToken)#\(hashRoute)")!
+        // review C-L1: percent-encode the route fragment and degrade to the route-less surface URL
+        // instead of force-unwrapping; the final fileURL fallback is unreachable (the base is built
+        // from known-valid constants) but keeps this non-force-unwrapping.
+        let base = "\(gooseUISchemeName)://\(gooseUISurfaceHost)\(gooseUISurfaceVirtualBasePath)/?v=\(gooseUISurfaceCacheToken)"
+        let fragment = hashRoute.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? ""
+        return URL(string: "\(base)#\(fragment)") ?? URL(string: base) ?? URL(fileURLWithPath: "/")
     }
 
     private func loadGooseUIWhenReady(_ server: WorkSPAServer, route: String, acpURL: String) async {

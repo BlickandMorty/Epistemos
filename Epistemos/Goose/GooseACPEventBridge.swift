@@ -257,6 +257,10 @@ final class GooseACPEventBridge {
                     // restart. Scoped to the terminal path (not shared fail()) so
                     // transient permission/elicitation send errors don't reset it.
                     connectionKey = nil
+                    // review B-L1: drop the now-closed client so live routes report a clean
+                    // .notConnected instead of re-throwing the terminal transport error (the
+                    // .failed-status-with-non-nil-client state was inconsistent).
+                    self.client = nil
                     fail(error)
                     return
                 }
