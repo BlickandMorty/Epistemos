@@ -19,13 +19,14 @@ Run each `Check` from repo root; the Pass condition is what a consistent canon r
 | 6 | **Graph = DO NOT TOUCH** (already full AppKit/Metal) | `grep -rc "GRAPH = .*DO NOT TOUCH\|graph.*DO NOT TOUCH" docs/` | present in doctrine + 3 prompts | ✅ |
 | 7 | **Lens model** Note(Epdoc)/Source(MarkEdit)/Prose(TK2); **old code editor KEPT as v1 legacy** (no deletion); MD-nav = Note default→Prose→Source-button→full-MarkEdit | `grep -rniE "delete the 3 old\|old code-editor files were deleted" docs/research/EDITOR_CANONICAL*.md docs/research/MARKEDIT_EMBED*.md \| grep -viE "SUPERSEDES\|PRESERVED\|KEEP\|legacy"` | empty (the only hit is the line ENFORCING "v1 PRESERVED", excluded) | ✅ |
 | 8 | **Retheme-not-replace** (Goose's existing shadcn/Radix/Tailwind/framer-motion) | doctrine + reskin + Plan-1 prompt say "retheme … do NOT replace" | present | ✅ |
-| 9 | **Only paste = `PROMPT_PLAN_1/2/3`**; every other "prompt"-named doc is bannered/not-the-paste | `grep -rl "prompt" docs/handoffs/*PROMPT*.md` → each must have a banner or "DO NOT PASTE" | bannered | ✅ |
+| 9 | **Only paste = `PROMPT_PLAN_1/2/3`**; every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty | empty (every handoff *PROMPT* doc carries a banner) | ✅ (CLAUDE_IMPLEMENTATION_PROMPT_FULL_CLONE_INFUSION_2026_06_24 caught unbannered + bannered this cycle) |
 | 10 | **Accent #0066cc · SF Pro · radius 11** consistent | `grep -rohE "#0066cc" docs/ \| wc -l` (>0, no rival accent) | consistent | ✅ |
 
 ## Stale docs that are BANNERED (mitigated, kept for nuance — do NOT delete)
 GOOSE_AGENT_APPKIT_FOLLOWON_PLAN · GOOSE_MASTER_BUILD_PROMPT · GOOSE_PHASE_0_STATUS_AUDIT · GOOSE_PHASE_0_VERIFICATION ·
 GOOSE_PHASE_0_OWNER_SIGNOFF_CHECKLIST · GOOSE_PHASE_0_CONTINUATION_PROMPT · GOOSE_NATIVE_NEW_SURFACE_RESEARCH_ROUND1/2 ·
-GOOSE_APPKIT_SURFACE_MAPPING — each has a top SUPERSEDED-2026-06-29 banner; their bodies are HISTORICAL.
+GOOSE_APPKIT_SURFACE_MAPPING · CLAUDE_IMPLEMENTATION_PROMPT_FULL_CLONE_INFUSION_2026_06_24 (stale 06-24 full-clone/Osaurus
+paste-prompt; bannered 2026-06-29) — each has a top SUPERSEDED-2026-06-29 banner; their bodies are HISTORICAL.
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
 - _(none as of 2026-06-29)_

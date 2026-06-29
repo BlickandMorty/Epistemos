@@ -1,5 +1,12 @@
 # Claude Implementation Prompt - Full Clone Infusion And Pruning Overhaul - 2026-06-24
 
+> 🛑 **SUPERSEDED 2026-06-29 — DO NOT PASTE THIS.** This is a stale 2026-06-24 paste-prompt; its authority chain
+> (full-clone infusion / Osaurus Act engine / native-shell-with-donor-engines) is entirely 06-24 docs and has been
+> overtaken by later canon: the **2026-06-28 Goose-only scope lock** and the **2026-06-29 Option 1** (no native chat)
+> + **editor lens model**. The ONLY prompts to paste are `docs/prompts/PROMPT_PLAN_{1_GOOSE,2_EDITOR,3_CAPABILITIES}.md`.
+> Canon that wins on conflict: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` +
+> `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`. Everything below is HISTORICAL — kept for nuance, do not act on it.
+
 Use this prompt to start the actual implementation cycle.
 
 ```text
