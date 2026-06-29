@@ -76,5 +76,13 @@ nonisolated struct MarkEditFullChromeWiringTests {
         #expect(script.contains(#"rsync -a --delete dist/ "$DEST/""#))
         #expect(script.contains(#"rsync -a --delete dist/chunks/ "$ROOT_CHUNKS_DEST/""#))
         #expect(markEditChunkLoader.contains(#"Bundle.main.url(forResource: "\(host)/\(url.path())", withExtension: nil)"#))
+        #expect(markEditChunkLoader.contains("url.lastPathComponent"))
+
+        let project = try loadMirroredSourceTextFile("project.yml")
+        let epistemosChunkLoader = try loadMirroredSourceTextFile("Epistemos/Views/Notes/WebKitCodeEditorView.swift")
+        #expect(project.contains("CoreEditor/chunks/**"))
+        #expect(project.contains("Resources/CoreEditor/chunks/**"))
+        #expect(epistemosChunkLoader.contains("Bundle.main.url(forResource: filename, withExtension: nil)"))
+        #expect(epistemosChunkLoader.contains(#"Bundle.main.url(forResource: "index", withExtension: "html")"#))
     }
 }

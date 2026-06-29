@@ -19,7 +19,8 @@ final class EditorChunkLoader: NSObject, WKURLSchemeHandler {
       return Logger.assertFail("Invalid url scheme task: \(urlSchemeTask)")
     }
 
-    guard let fileURL = Bundle.main.url(forResource: "\(host)/\(url.path())", withExtension: nil) else {
+    guard let fileURL = Bundle.main.url(forResource: "\(host)/\(url.path())", withExtension: nil)
+      ?? Bundle.main.url(forResource: url.lastPathComponent, withExtension: nil) else {
       return Logger.assertFail("Invalid request url: \(url)")
     }
 

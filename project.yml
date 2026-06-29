@@ -48,6 +48,7 @@ targets:
           - Engine/ClaudeManagedRuntime.swift
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
+          - Resources/CoreEditor/chunks/**
           - Vault/KnowledgeGraphService.swift
       - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: syncedFolder
@@ -65,6 +66,7 @@ targets:
     resources:
       - path: Epistemos/Resources
         excludes:
+          - CoreEditor/chunks/**
           - LaunchAgents/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: LocalPackages/MarkEdit/MarkEditMac/Resources
@@ -185,6 +187,7 @@ targets:
           - Engine/ClaudeManagedRuntime.swift
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
+          - Resources/CoreEditor/chunks/**
           - Vault/KnowledgeGraphService.swift
       - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: syncedFolder
@@ -203,6 +206,8 @@ targets:
           - omega_ax.swift
     resources:
       - path: Epistemos/Resources
+        excludes:
+          - CoreEditor/chunks/**
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
       - path: LocalPackages/MarkEdit/MarkEditMac/Resources
         excludes:

@@ -702,6 +702,11 @@ private enum MarkEditCoreEditorDocument {
             return html
         }
 
+        if let url = Bundle.main.url(forResource: "index", withExtension: "html"),
+           let html = try? String(contentsOf: url, encoding: .utf8) {
+            return html
+        }
+
         let repoURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("Epistemos/Resources")
             .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath)
@@ -760,13 +765,20 @@ private final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler 
     }
 
     private static func fileURL(relativePath: String) -> URL? {
+        let filename = URL(fileURLWithPath: relativePath).lastPathComponent
         let candidates = [
             Bundle.main.resourceURL?
                 .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath, isDirectory: true)
                 .appendingPathComponent(relativePath),
+            Bundle.main.resourceURL?
+                .appendingPathComponent(relativePath),
+            Bundle.main.url(forResource: filename, withExtension: nil),
             URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
                 .appendingPathComponent("Epistemos/Resources")
                 .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath)
+                .appendingPathComponent(relativePath),
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                .appendingPathComponent("Epistemos/Resources")
                 .appendingPathComponent(relativePath),
         ].compactMap { $0 }
         return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
