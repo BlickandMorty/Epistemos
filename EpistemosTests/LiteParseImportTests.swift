@@ -352,6 +352,45 @@ struct LiteParseImportTests {
         #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("paper.md").path))
         #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("paper.pdf").path))
     }
+
+    @MainActor
+    @Test("cancelled import controller does not materialize a vault note")
+    func importControllerCancellationDoesNotMaterializeVaultNote() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-cancel-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let sourcePDF = root.appendingPathComponent("paper.pdf")
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let task = Task { @MainActor in
+            await LiteParsePDFImportController.importPage(
+                pdfPath: sourcePDF.path,
+                vaultURL: vault,
+                modelContext: context,
+                graphState: nil,
+                importer: SlowLiteParseImporter(delay: 0.12)
+            )
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        task.cancel()
+
+        let outcome = await task.value
+        guard case .rejected(.failed(let message)) = outcome else {
+            Issue.record("Expected cancelled import to be rejected, got \(String(describing: outcome))")
+            return
+        }
+
+        #expect(message.localizedCaseInsensitiveContains("cancelled"))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(LiteParsePDFImportController.importDirectory).path))
+    }
 }
 
 private struct FakeLiteParseImporter: LiteParsePDFImporter {
@@ -385,5 +424,14 @@ private final class BarrierLiteParseImporter: LiteParsePDFImporter, @unchecked S
         }
         _ = release.wait(timeout: .now() + .seconds(2))
         return .markdown("# Parsed\n\nConverted body.")
+    }
+}
+
+private struct SlowLiteParseImporter: LiteParsePDFImporter {
+    let delay: TimeInterval
+
+    func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
+        Thread.sleep(forTimeInterval: delay)
+        return .markdown("# Parsed\n\nConverted after cancellation.")
     }
 }

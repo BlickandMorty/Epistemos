@@ -145,6 +145,7 @@ nonisolated enum Plan3ImportFileIO {
         var candidateBaseName = safe
         var counter = 2
         while true {
+            try Task.checkCancellation()
             let noteURL = directory.appendingPathComponent("\(candidateBaseName).md")
             let pdfURL = directory.appendingPathComponent("\(candidateBaseName).pdf")
             if try reserveEmptyFile(at: noteURL) {

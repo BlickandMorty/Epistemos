@@ -11,6 +11,7 @@ import SwiftData
 @MainActor
 enum LiteParsePDFImportController {
     nonisolated static let importDirectory = "Imported PDFs"
+    nonisolated private static let cancelledMessage = "PDF import was cancelled."
 
     enum Outcome: Equatable {
         case imported(pageID: String, title: String)
@@ -29,18 +30,33 @@ enum LiteParsePDFImportController {
             return .rejected(.failed("PDF parsing is disabled in Settings. The original PDF was not converted."))
         }
 
-        let preparedImport = await Task.detached(priority: .userInitiated) {
-            materializeImportedFiles(
-                pdfPath: pdfPath,
-                vaultURL: vaultURL,
-                importer: importer
-            )
-        }.value
+        let preparedImport: PreparedPDFImport
+        do {
+            try Task.checkCancellation()
+            preparedImport = try await runDetachedCancellable {
+                try materializeImportedFiles(
+                    pdfPath: pdfPath,
+                    vaultURL: vaultURL,
+                    importer: importer
+                )
+            }
+        } catch is CancellationError {
+            return .rejected(.failed(Self.cancelledMessage))
+        } catch {
+            return .rejected(.failed("PDF import failed: \(error.localizedDescription)"))
+        }
         guard case let .materialized(files) = preparedImport else {
             if case let .rejected(result) = preparedImport {
                 return .rejected(result) // honest — no note created
             }
             return .rejected(.failed("PDF import failed."))
+        }
+
+        do {
+            try Task.checkCancellation()
+        } catch {
+            removeMaterializedFiles(files)
+            return .rejected(.failed(Self.cancelledMessage))
         }
 
         let page = SDPage(title: files.noteURL.deletingPathExtension().lastPathComponent, emoji: "📄")
@@ -59,13 +75,18 @@ enum LiteParsePDFImportController {
 
         modelContext.insert(page)
         do {
+            try Task.checkCancellation()
             try modelContext.save()
             graphState?.needsRefresh = true
             return .imported(pageID: page.id, title: page.title)
+        } catch is CancellationError {
+            modelContext.delete(page)
+            removeMaterializedFiles(files)
+            NoteFileStorage.deleteBody(pageId: page.id)
+            return .rejected(.failed(Self.cancelledMessage))
         } catch {
             modelContext.delete(page)
-            try? FileManager.default.removeItem(at: files.noteURL)
-            try? FileManager.default.removeItem(at: files.pdfURL)
+            removeMaterializedFiles(files)
             NoteFileStorage.deleteBody(pageId: page.id)
             return .rejected(.failed("Couldn't save the imported note: \(error.localizedDescription)"))
         }
@@ -75,8 +96,10 @@ enum LiteParsePDFImportController {
         pdfPath: String,
         vaultURL: URL,
         importer: LiteParsePDFImporter
-    ) -> PreparedPDFImport {
+    ) throws -> PreparedPDFImport {
+        try Task.checkCancellation()
         let result = importer.importToMarkdown(pdfPath: pdfPath)
+        try Task.checkCancellation()
         guard case let .markdown(markdown) = result else {
             return .rejected(result)
         }
@@ -85,12 +108,20 @@ enum LiteParsePDFImportController {
         let title = baseName.isEmpty ? "Imported PDF" : baseName
         let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
         var selectedURLs: (noteURL: URL, pdfURL: URL)?
+        var keepMaterializedFiles = false
+        defer {
+            if !keepMaterializedFiles, let selectedURLs {
+                removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
+            }
+        }
 
         do {
+            try Task.checkCancellation()
             try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
             guard Plan3VaultPath.resolvesInsideVault(dirURL, in: vaultURL) else {
                 return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
             }
+            try Task.checkCancellation()
             let urls = try Plan3ImportFileIO.reservePairedFileURLs(directory: dirURL, baseName: title)
             selectedURLs = urls
             guard
@@ -100,8 +131,12 @@ enum LiteParsePDFImportController {
             else {
                 return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
             }
+            try Task.checkCancellation()
             try Plan3ImportFileIO.copyFileContents(from: URL(fileURLWithPath: pdfPath), toReservedFile: urls.pdfURL)
+            try Task.checkCancellation()
             try Data(markdown.utf8).write(to: urls.noteURL, options: .atomic)
+            try Task.checkCancellation()
+            keepMaterializedFiles = true
             return .materialized(
                 LiteParseMaterializedImportFiles(
                     markdown: markdown,
@@ -110,13 +145,34 @@ enum LiteParsePDFImportController {
                     sourcePDFRelativePath: sourcePDFRelativePath
                 )
             )
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            if let selectedURLs {
-                try? FileManager.default.removeItem(at: selectedURLs.noteURL)
-                try? FileManager.default.removeItem(at: selectedURLs.pdfURL)
-            }
             return .rejected(.failed("Couldn't write the note file: \(error.localizedDescription)"))
         }
+    }
+
+    nonisolated private static func runDetachedCancellable<Value: Sendable>(
+        priority: TaskPriority = .userInitiated,
+        operation: @escaping @Sendable () throws -> Value
+    ) async throws -> Value {
+        let task = Task.detached(priority: priority) {
+            try operation()
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    nonisolated private static func removeMaterializedFiles(_ files: LiteParseMaterializedImportFiles) {
+        removeMaterializedURLs(noteURL: files.noteURL, pdfURL: files.pdfURL)
+    }
+
+    nonisolated private static func removeMaterializedURLs(noteURL: URL, pdfURL: URL) {
+        try? FileManager.default.removeItem(at: noteURL)
+        try? FileManager.default.removeItem(at: pdfURL)
     }
 
 }
