@@ -348,10 +348,16 @@ struct BrowserUseCodepackPlan3Tests {
     @Test("browser-use vendor root is excluded from SourceMirror source of truth")
     func browserUseVendorRootIsExcludedFromSourceMirrorSourceOfTruth() throws {
         let projectSpec = try Self.loadSource("project.yml")
+        let mirroredVendorRoot = try sourceMirrorRootURL()
+            .appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
 
         #expect(projectSpec.contains("Bundle Test Source Mirror"))
         #expect(projectSpec.contains("copy_tree \"agent_core\""))
         #expect(projectSpec.contains("--exclude='vendor/browser-use/'"))
+        #expect(
+            !FileManager.default.fileExists(atPath: mirroredVendorRoot.path),
+            "browser-use Pro vendor payload must stay out of SourceMirror resources"
+        )
     }
 
     @Test("browser-use vendor manifest matches the staged full source trees")
