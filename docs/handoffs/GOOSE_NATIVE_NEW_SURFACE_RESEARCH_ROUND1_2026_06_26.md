@@ -1,5 +1,11 @@
 # Goose Native New Surface — Deep Research Round 1
 
+> 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 GREEN-LIT; Plan 1 on Phase 1. **NO native chat, NO
+> Gate-7 flip, NO `useNativeChatPath`, NO native transcript/hub/composer** — chat + every Goose feature stays in
+> the **reskinned WebView, PERMANENTLY** (native = frame + Models picker only). Everything below describing native
+> chat / Gates 0–7 as a build plan is **HISTORICAL — do not build it.** Canon:
+> `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 **Date:** 2026-06-26
 **Branch context:** `feat/goose-surface` (uncommitted Goose module + `EpistemosApp` menu wiring)
 **Mandate:** Exhaustive research only — **no product code changes in this pass.**

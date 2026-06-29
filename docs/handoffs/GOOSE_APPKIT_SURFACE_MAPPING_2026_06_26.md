@@ -1,5 +1,10 @@
 # Goose → AppKit Surface Mapping
 
+> 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 GREEN-LIT; Plan 1 on Phase 1. The chat path is **NOT**
+> native after any gate — chat + every Goose feature stays in the reskinned WebView, PERMANENTLY (native = frame +
+> Models picker only). Any "chat path must be native / Gate 7" mapping below is **HISTORICAL — do not build it.**
+> Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 **Date:** 2026-06-26
 **Mandate:** Whole new **Agent** surface — 1:1 screen-by-screen, component-by-component mapping from Goose Electron/React to native AppKit/SwiftUI.
 **Source inventory:** `.research-clones/work/goose/ui/desktop/src/App.tsx` (HashRouter)

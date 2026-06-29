@@ -1,5 +1,10 @@
 # Goose Native New Surface — Deep Research Round 2
 
+> 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 GREEN-LIT; Plan 1 on Phase 1. **NO native chat / Gate-7
+> flip / `useNativeChatPath` / native transcript** — chat + every Goose feature stays in the reskinned WebView,
+> PERMANENTLY (native = frame + Models picker only). Native-chat build steps below are **HISTORICAL — do not build.**
+> Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 **Date:** 2026-06-26
 **Branch context:** `feat/goose-surface` (Goose module + interim WebView; native Agent surface not started)
 **Mandate:** Research only — **no product code** (this pass is doc-only).

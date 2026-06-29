@@ -1,5 +1,9 @@
 # Goose Phase 0 — Continuation + Verification Prompt (2026-06-27)
 
+> 🛑 **SUPERSEDED 2026-06-29 — DO NOT PASTE THIS.** §7 is GREEN-LIT; Plan 1 is on Phase 1, Option 1 (no native
+> chat). The only loop prompt to paste is `docs/prompts/PROMPT_PLAN_1_GOOSE.md`. "STILL ON PHASE 0 / wait for §7 /
+> produce a sign-off checklist" below is HISTORICAL. Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`.
+
 **Purpose:** paste-ready prompt to resume the Codex agent after it stopped mid-Phase-0. It does NOT
 hand over the hybrid/AppKit plan — Codex is still on Phase 0 and is forbidden from starting
 `Epistemos/Agent/*` until the owner signs the §7 proof gate. Step 1 forces an independent

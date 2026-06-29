@@ -1,5 +1,9 @@
 # Goose Phase 0 — Owner §7 Sign-Off Checklist (2026-06-28)
 
+> 🛑 **SUPERSEDED 2026-06-29: §7 is GREEN-LIT — this checklist is HISTORICAL.** Plan 1 is ON Phase 1; there is NO
+> pending sign-off. Do NOT treat the items below as a blocking gate. (Keep the 5 proofs green as ongoing
+> verification.) Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`.
+
 Branch: `feat/goose-surface`. Prepared by the Claude deep-hardening loop.
 **Phase 0 is NOT signed off.** This checklist is the §7 gate: the items only
 *you* (owner) can verify, plus the one OAuth login the automated proofs cannot
