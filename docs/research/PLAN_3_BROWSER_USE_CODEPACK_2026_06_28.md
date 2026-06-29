@@ -97,7 +97,8 @@ screenshot/console/errors` to browser-use's `skill_cli` daemon, keeps session fi
 via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a no-runtime `contract` check
 for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME` after validating that it is an
 absolute existing directory, so direct adapter invocation cannot redirect browser-use session files away from the
-private socket root. Rust `find_agent_browser()` now discovers the bundled executable through
+private socket root; session names are capped at 64 safe characters before browser-use derives daemon/socket files.
+Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
 `agent-browser`; live fixture smoke opened `https://example.com`, captured an `Example Domain` snapshot, and closed the
 isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload; adapter argument errors remain

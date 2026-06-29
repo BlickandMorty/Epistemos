@@ -63,6 +63,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("AGENT_BROWSER_SOCKET_DIR overrides any ambient `BROWSER_USE_HOME`"))
+        #expect(codepack.contains("session names are capped at 64 safe characters"))
         #expect(codepack.contains("adapter argument errors remain JSON-bounded before runtime import"))
         #expect(codepack.contains("adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`"))
         #expect(codepack.contains("rejects requested or returned screenshot paths that resolve outside"))

@@ -47,6 +47,8 @@ struct BrowserUseAdapterPlan3Tests {
             "runtime._probe_session",
             "AGENT_BROWSER_SOCKET_DIR",
             "BROWSER_USE_HOME",
+            "MAX_SESSION_NAME_LENGTH = 64",
+            "invalid session name: at most 64 characters are allowed",
             "os.environ[\"BROWSER_USE_HOME\"]",
             "resolve_private_runtime_directory",
             "AGENT_BROWSER_SOCKET_DIR must be an absolute path",
