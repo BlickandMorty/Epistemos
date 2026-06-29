@@ -4,7 +4,7 @@
 > - **Plan 1 = Goose surface** (`GOOSE_MASTER_BUILD_PROMPT_2026_06_27.md` etc.) — untouched.
 > - **Plan 2 = Editor canonical** (`EDITOR_CANONICAL_PLAN_2026_06_27.md`) — owns markdown-truth, Tolaria-supersede,
 >   code-editor v2, HTML workspace, web clipper, wikilinks, PDF *viewer*. Untouched.
-> - **Plan 3 = THIS** — five capabilities the owner explicitly chose to keep, grounded fresh in the real code.
+> - **Plan 3 = THIS** — the owner-final capability set below, grounded fresh in the real code.
 >   Does NOT reuse the 4,498-line ledger; the ledger is curated/closed in `LEDGER_CURATION_2026_06_28.md`.
 >
 > **Scope (owner-FINAL, 2026-06-28):** Fast PDF→MD · Provenance moat · Extensibility (skill/MCP install + best-of preset
@@ -14,11 +14,12 @@
 > ~~three-engine Chat/Act/Work + Osaurus~~ (Goose-only). HTML Workspace / web clipper / wikilinks / PDF *viewer* = Plan 2.
 > Tags: `[VERIFIED-CODE]` read this pass · `[WEB]` web-validated · `[INFERRED]` proposed.
 >
-> **★ CLONE-READY CODE PACKS:** (Pass 3) `PLAN_3_EDGEPARSE_CODEPACK` (§1 PDF→md vendoring + coexistence) ·
+> **★ PLAN 3 CODEPACK STATUS:** shipped/staged codepacks are tracked in the `_2026_06_28.md` files:
+> (Pass 3 shipped) `PLAN_3_EDGEPARSE_CODEPACK` (§1 PDF→md vendoring + coexistence) ·
 > `PLAN_3_PROVENANCE_CODEPACK` (§4 honest-chip fix + hover-lineage moat) · `PLAN_3_VAULT_MCP_CODEPACK` (§5c
-> vault-as-MCP-server). (Pass 4) `PLAN_3_OBSCURA_TIER1_CODEPACK` (§2 usable in-app browser) ·
+> vault-as-MCP-server). (Pass 4 shipped) `PLAN_3_OBSCURA_TIER1_CODEPACK` (§2 usable in-app browser) ·
 > `PLAN_3_EXTENSIBILITY_CODEPACK` (§5a install UI + §5b best-of preset) · `PLAN_3_APPLE_NATIVE_CODEPACK` (§6 QuickLook/
-> VisionKit/thumbnails). All `_2026_06_28.md`. Real code + integration/flip checklists.
+> VisionKit/thumbnails). (Pass 7 staged Pro) `PLAN_3_BROWSER_USE_CODEPACK`. All real code + integration/flip checklists.
 
 ---
 
