@@ -6,8 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 17:42 CDT (loop cycle 11) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. **Owner introduced 2 NEW plans** (`PROMPT_PLAN_4_ICONS`, `PROMPT_PLAN_5_COMPANION`) — both SAVED/NOT-ACTIVE, read in full, auditor-verified canon-compliant (Plan-5 mini-Goose-chat is **reskinned WebView, NOT native chat** = Option 1; Plan-4 enforces two-token-sources + graph-untouched). Recorded in new "NEW PLANS" §; invariant #9 reworded (active paste still 1/2/3) + a SAVED-gate sub-check added. Plan-3 browser-use codepack scanned = no canon content. #0066cc 18→19. HEAD at pass: `bc46be6d4`.
-<br>_Recent: cycle 10 (17:26) verified lens-model substance. cycle 8 (17:06) STRENGTHENED check #4 to guard all 4 springs. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
+**Last auditor pass:** 2026-06-29 17:51 CDT (loop cycle 12) — **10/10 ✅**, 0 locked-canon drift, **1 new OWNER REVIEW item**. Plan-5 was EXPANDED (`a807e9253`) to 2 surfaces (note companion + landing-Farm companions) — re-read: still Option-1 (both reskinned WebView, NOT native chat), graph untouched. It carries a **flagged, gated doctrine evolution** (Companion v1.6 cosmetic-only → gated chat) that is OUTSIDE the 10 invariants & doesn't touch the locked canon docs; cross-doctrine tension with ~10 archival docs PARKED for owner (did not banner). LOST_ITEMS_RECON + Plan-3 codepacks scanned = no canon drift. HEAD at pass: `d0eb0a934`.
+<br>_Recent: cycle 11 (17:42) tracked NEW Plans 4 & 5 (canon-compliant) + reworded #9. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs. cycle 2 (16:17) made #6/#8 greps honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
 
@@ -42,13 +42,28 @@ locked invariants, no relitigation:
   Compliance: two-token-sources EXPLICIT ("icon tokens in EpistemosTheme.swift + Goose theme-tokens.ts, no third source";
   additive-only, coordinate on shared theme files) · color = theme token, never hardcoded #000/#fff (no rival accent) ·
   GRAPH DO-NOT-TOUCH · no fork/restructure of spine or GooseNativeModelsView (retheme-not-replace) · no runtime npm (MAS).
-- **PROMPT_PLAN_5_COMPANION** (embedded note-scoped mini-Goose-chat in the Epdoc editor; closes the seam between Plan 1's
-  main Goose surface and Plan 2's note-context plumbing). Compliance: **Option 1 — the companion IS the reskinned Goose
-  WebView, NOT a native chat UI** (stated 4×, incl. a HARD GATE forbidding a separate native chat surface; the historical
-  native MiniChatViewModel is mined for session/context SEMANTICS only) · GRAPH DO-NOT-TOUCH · transparent-over-glass +
-  unified tokens/springs (reskin, don't restyle Goose logic) · STREAM EVERYTHING / PRESERVE THINKING BLOCKS / no MAS subprocess.
+- **PROMPT_PLAN_5_COMPANION** — EXPANDED cycle 12 (`a807e9253`) to **TWO surfaces, one panel core**: (A) note-scoped
+  mini-Goose-chat embedded in Epdoc; (B) landing "Farm" companions wired from cosmetic mascots → selectable/chattable
+  personas (create/manage/select-and-chat; mascot icon on top, compact chat below). Compliance (re-verified): **Option 1 —
+  BOTH surfaces are reskinned Goose WebView panels scoped by context, NOT native chat UIs** (stated explicitly; HARD GATE
+  forbids a separate native chat surface) · GRAPH DO-NOT-TOUCH · reskin-not-restyle · unified tokens/springs · STREAM /
+  PRESERVE THINKING / no MAS subprocess. **NOTE — flagged doctrine evolution (OUTSIDE the 10 invariants):** surface (B)
+  deliberately extends the *CompanionModel v1.6 "cosmetic-only / no authority"* doctrine to allow a **gated chat binding**
+  (still no silent tool/MCP/approval/runtime authority; honest MAS gate). Owner-directed + explicitly flagged in the plan;
+  does NOT touch the locked canon docs. Cross-doctrine tension parked → OWNER REVIEW.
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
+- **2026-06-29 cycle 12 (Auditor) — Companion v1.6 "cosmetic-only" doctrine vs Plan-5 chat extension (NOT a locked-canon
+  violation; not a fleet blocker — Plan 5 is SAVED/not-active).** Plan-5 surface (B) deliberately evolves the CompanionModel
+  v1.6 "cosmetic-only, NO model/prompt/tool/MCP/runtime authority" doctrine to allow a **gated chat binding**. That v1.6
+  rule is still asserted (as absolute) in ~10 **archival** docs — e.g. `LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23`,
+  `CANONICAL_CHRONICLE_2026_05_23`, `MASTER_FUSION_NO_COMPROMISE_2026_05_13`, `fusion/UAS_ACS_CANONICAL_ARCHITECTURE_2026_05_16`,
+  `fusion/V1_SHIP_LEDGER_2026_05_16`, `fusion/AGENT_EVENT_VARIANTS_V16_2026_05_04`. **Auditor did NOT banner them** —
+  (a) outside the 10 locked invariants (Companion authority ≠ Option-1/lens/springs/tokens/graph), (b) archival, (c) the
+  evolution is owner-directed + explicitly flagged in Plan 5 ("READ the v1.6 doctrine before changing authority; state the
+  change in code + model"), and (d) Plan 5 is not active. **Owner decision when Plan-5 activates:** point me at the CANONICAL
+  v1.6 source doc and I'll add a "🛑 EVOLVED 2026-06-29 (Plan 5: gated chat)" marker pointing to Plan 5, so agents reading
+  the old cosmetic-only rule don't contradict it. Until then: parked, no edit.
 - **2026-06-29 (Auditor) — historical paste-prompt corpus (NOT a fleet blocker).** A broadened content-scan
   (`paste this` / `use this prompt`) found ~50 paste-prompt-style docs corpus-wide beyond the current handoff prompts.
   Triage: the vast majority are **archival** (`docs/_consolidated/**` research corpus, `docs/fusion/research/**`,
