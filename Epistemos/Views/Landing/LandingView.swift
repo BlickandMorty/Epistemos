@@ -638,8 +638,10 @@ struct LandingView: View {
             runLandingPDFImport()
         case .arxiv:
             showingArxivSearch = true
-        case .provenance, .extensions, .vaultMCP:
-            UtilityWindowManager.shared.show(.settings)
+        case .provenance:
+            UtilityWindowManager.shared.showSettings(section: .provenance)
+        case .extensions, .vaultMCP:
+            UtilityWindowManager.shared.showSettings(section: .skills)
         case .voice:
             UtilityWindowManager.shared.showSettings(section: .voice)
         case .browser:

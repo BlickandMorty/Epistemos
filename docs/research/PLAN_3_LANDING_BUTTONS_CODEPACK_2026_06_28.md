@@ -11,7 +11,7 @@
 - Tile component `PixelLandingCommandTile` (`PixelSurfaceComponents.swift:668`); glyphs `PixelGlyphKind` (`:80-108`);
   haptics `HomeCommandHapticStyle` (`TypewriterMarkdown.swift:58-68`).
 - **Existing Plan 3 summon mechanisms to reuse (no new windowing):** `UtilityWindowManager.shared.show(_:)` (`:219`,
-  panels `.settings/.browser/.meetingNote`), `UtilityWindowManager.shared.showSettings(section: .voice)`,
+  panels `.settings/.browser/.meetingNote`), `UtilityWindowManager.shared.showSettings(section:)`,
   `ArxivSearchView()` via the landing sheet, and `LiteParsePDFImportController.importPage` through the landing PDF import flow. Settings deep-links:
   `SettingsSection.provenance` (`SettingsView.swift:101`→`ProvenanceConsoleView` `:331`), `.skills` Pro-gated (`:114`).
   Do not route landing feature buttons through Goose or Work window controllers; those are outside Plan 3 ownership.
@@ -30,14 +30,15 @@
 - **`performFeatureButton(_:)`** single dispatch — honest gate first (`guard isAvailableInThisBuild else { showToast("…
   available in Epistemos Pro"); return }`), then summon the VERIFIED Plan 3 entry point:
   `.browser`→`UtilityWindowManager.shared.show(.browser)`, `.meetingNote`→`UtilityWindowManager.shared.show(.meetingNote)`,
+  `.provenance`→`UtilityWindowManager.shared.showSettings(section: .provenance)`,
+  `.extensions/.vaultMCP`→`UtilityWindowManager.shared.showSettings(section: .skills)`,
   `.voice`→`UtilityWindowManager.shared.showSettings(section: .voice)`, `.arxiv`→`showingArxivSearch = true`,
-  `.extensions/.vaultMCP/.provenance`→`UtilityWindowManager.shared.show(.settings)`,
   `.pdfImport`→`runLandingPDFImport()` (lift `LiteParsePDFImportButton.runImport()` body — env already present in `LandingView`).
 
 ## Notes
-- **Deep-link refinement `[INFERRED]`:** add `initialSection: SettingsSection?` to `SettingsView.init` + a
-  `show(.settings, section:)` overload so `.provenance`/`.extensions` land directly on their pane (works without it,
-  just one click away).
+- **Deep-link refinement `[VERIFIED-CODE]`:** `SettingsView.init(initialSelection:)` +
+  `UtilityWindowManager.shared.showSettings(section:)` now land `.provenance`, `.extensions/.vaultMCP`, and `.voice`
+  directly on their panes.
 - **MAS-safe + no clash:** pure UI; every action summons an already-shipping surface; only `.extensions` is Pro-gated
   (lock pill + toast in MAS). Reusing the pixel tile inherits theme treatments + hover motion automatically.
 - **Browser button → Browser:** points at the in-app WKWebView Browser utility panel. The browser-use Chromium robot
