@@ -57,8 +57,11 @@ struct ProvenanceConsoleSourceGuardTests {
         let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_PROVENANCE_CODEPACK_2026_06_28.md")
 
         #expect(source.contains("func snapshot(limit: Int = 40) -> ProvenanceConsoleSnapshot"))
-        #expect(source.contains("eventStore.recentAgentEvents(limit: limit)"))
-        #expect(source.contains("eventStore.recentGraphEvents(limit: limit)"))
+        #expect(source.contains("private static let projectionLimitMaximum = 200"))
+        #expect(source.contains("let boundedLimit = Self.boundedProjectionLimit(limit)"))
+        #expect(source.contains("eventStore.recentAgentEvents(limit: boundedLimit)"))
+        #expect(source.contains("eventStore.recentGraphEvents(limit: boundedLimit)"))
+        #expect(source.contains("subscribeRetractionEvents(afterSequence: 0, limit: boundedLimit)"))
         #expect(source.contains("func subscribeRetractionEvents("))
         #expect(source.contains("RetractionPropagatedProjection"))
         #expect(source.contains("GenUIPayload.provenanceTrace("))
@@ -81,6 +84,29 @@ struct ProvenanceConsoleSourceGuardTests {
             in: source,
             label: "ProvenanceConsoleProjectionService"
         )
+    }
+
+    @Test("Provenance Console clamps projection limits at the service boundary")
+    func projectionLimitsAreClampedAtServiceBoundary() {
+        let service = ProvenanceConsoleProjectionService(
+            eventStoreProvider: { nil },
+            retractionEventProvider: { _, limit in
+                (0..<(limit + 25)).map { index in
+                    RetractionPropagatedProjection(
+                        sequence: UInt64(index),
+                        triggerKind: "claim",
+                        triggeredBy: "claim-\(index)",
+                        claimsMarkedAtRisk: 1,
+                        maxDepthReached: 1,
+                        depthCapped: false
+                    )
+                }
+            }
+        )
+
+        #expect(service.subscribeRetractionEvents(limit: 10_000).count == 200)
+        #expect(service.subscribeRetractionEvents(limit: -10).isEmpty)
+        #expect(service.subscribeRetractionEvents(limit: 3).map(\.sequence) == [0, 1, 2])
     }
 
     @Test("Settings mounts a read-only Provenance Console routed through GenUIDispatcher")

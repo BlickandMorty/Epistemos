@@ -53,6 +53,8 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     typealias EventStoreProvider = @Sendable () -> EventStore?
     typealias RetractionEventProvider = @Sendable (_ afterSequence: UInt64, _ limit: Int) -> [RetractionPropagatedProjection]
 
+    private static let projectionLimitMaximum = 200
+
     private let eventStoreProvider: EventStoreProvider
     private let retractionEventProvider: RetractionEventProvider
 
@@ -69,12 +71,13 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
             return .empty
         }
 
+        let boundedLimit = Self.boundedProjectionLimit(limit)
         let agentDiagnostics = eventStore.agentEventDiagnostics()
         let graphDiagnostics = eventStore.graphEventDiagnostics()
         let outboxDiagnostics = eventStore.mutationProjectionOutboxDiagnostics()
-        let agentEvents = eventStore.recentAgentEvents(limit: limit)
-        let graphEvents = eventStore.recentGraphEvents(limit: limit)
-        let retractionEvents = subscribeRetractionEvents(afterSequence: 0, limit: limit)
+        let agentEvents = eventStore.recentAgentEvents(limit: boundedLimit)
+        let graphEvents = eventStore.recentGraphEvents(limit: boundedLimit)
+        let retractionEvents = subscribeRetractionEvents(afterSequence: 0, limit: boundedLimit)
         let rustLedgerSummary = RustProvenanceLedgerClient.summary()
         let cognitiveDagStats = RustCognitiveDagClient.stats()
 
@@ -114,9 +117,13 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
         afterSequence: UInt64 = 0,
         limit: Int = 40
     ) -> [RetractionPropagatedProjection] {
-        let boundedLimit = max(0, min(limit, 200))
+        let boundedLimit = Self.boundedProjectionLimit(limit)
         guard boundedLimit > 0 else { return [] }
         return Array(retractionEventProvider(afterSequence, boundedLimit).prefix(boundedLimit))
+    }
+
+    private static func boundedProjectionLimit(_ limit: Int) -> Int {
+        max(0, min(limit, projectionLimitMaximum))
     }
 
     private static func summaryPayload(
