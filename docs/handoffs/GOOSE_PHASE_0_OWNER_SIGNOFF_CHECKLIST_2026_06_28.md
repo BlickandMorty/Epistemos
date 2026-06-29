@@ -7,6 +7,49 @@ perform. Nothing here starts Phase 1 / `Epistemos/Agent/*` / Paseo §15.
 
 ---
 
+## ★ 2026-06-29 ADDENDUM — post-green-light progress (Steps 1-3)
+
+You green-lit **NATIVE EPISTEMOS UI + goosed backend** and the ordered plan
+(finish hardening → goosed swap → per-route parity-gated native migration). The
+"OWNER DECISION NEEDED" above (start Path-B) is therefore RESOLVED and executed.
+Status of your three ordered steps:
+
+- **STEP 1 (finish hardening) — DONE.** Every adversarially-confirmed,
+  backend-independent bug from the deep-hardening pass is fixed and committed
+  separately, WebView surface kept green: C1 (addRecentDir self-scope),
+  H1 (nav-gate pins OUR ports not any loopback), false-green ready language,
+  #3 (superseded ACP client closed), #4 (null-id error contained), #11 (Stop/steer
+  bypass the ACP FIFO), #13/#24/#23/#14 (openExternal allowlist + git env-harden +
+  launchApp guest nav-gate), #7/#20 (graft hard-fail on upstream drift),
+  #9/#17/#28 (golden-rule roster guard now catches hardcoded MODEL ids). Residual
+  bugs are documented as deferred-with-rationale (`GOOSE_DEEP_HARDENING_REPORT...`,
+  commit `360d06e75`).
+
+- **STEP 2 (goosed backend, Option B) — DONE + PROVEN.** Swap implemented behind
+  `EPISTEMOS_GOOSE_BACKEND` (default `.serve`, single-point rollback), bundler
+  stages both binaries, `** BUILD SUCCEEDED **`. End-to-end live re-prove on goosed
+  (`scripts/goosed-live-reprove.sh`, re-runnable): the FULL ACP surface is
+  byte-identical (106 providers live-enumerated, Auth 65, Extensions 11, full
+  session lifecycle, prompt→stream→end_turn) AND the **3 previously-unbackable
+  features are now live REST** (`/config/prompts` 200, `/config/permissions` 405,
+  `/mcp-app-proxy` 400). Source-verified parity SUPERSET (same `check_acp_token`
+  auth + `developer` builtin; goosed ADDS `GooseDesktop` identity + real scheduler).
+  → This is what closes your "feature-completeness 100%" gate: **0 unbackable on
+  goosed** (was 2 on lean serve). Details: `GOOSE_STEP2_GOOSED_PROOF_2026_06_29.md`.
+  - Honest remainders: (a) flipping the runtime DEFAULT to goosed needs an in-app
+    smoke test (the iso-DD test host is degraded; protocol-level proof is complete).
+    (b) TLS stays opt-in — http loopback is the proven, zero-regression posture; the
+    cert-pin delegate is scoped-deferred until an MCP guest is shown to need https.
+
+- **STEP 3 (router + native Models slice) — IN PROGRESS.** Per-route router that
+  defaults EVERY route to the WebView (the oracle) and promotes a route to native
+  only when its parity test passes; native Models picker is the safe first slice
+  (live-enumerated catalog; GOLDEN RULE intact). WebView stays default + oracle.
+
+The manual app pass + OAuth login below remain the owner-only §7 gate.
+
+---
+
 ## What the automated proofs already established (re-runnable)
 
 Built on an isolated DerivedData (CoW-cloned SourcePackages) to avoid the
