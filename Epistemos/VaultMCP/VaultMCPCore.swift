@@ -27,6 +27,9 @@ nonisolated struct VaultMCPCore {
     private static let pathOptionalReadToolNameSet = Set([
         "vault.backlinks",
     ])
+    private static let folderPathOptionalReadToolNameSet = Set([
+        "vault.list",
+    ])
 
     private static let readAliasMap: [String: String] = [
         "file.search": "vault.search",
@@ -109,6 +112,10 @@ nonisolated struct VaultMCPCore {
     }
 
     private func validatedArgumentsJSON(for toolName: String, rawArguments: Any?) -> ToolArgumentsValidationResult {
+        if Self.folderPathOptionalReadToolNameSet.contains(toolName) {
+            return validatedFolderPathArgumentsJSON(rawArguments)
+        }
+
         let requiresPath = Self.pathRequiredReadToolNameSet.contains(toolName)
         let acceptsOptionalPath = Self.pathOptionalReadToolNameSet.contains(toolName)
         guard requiresPath || acceptsOptionalPath else {
@@ -134,6 +141,27 @@ nonisolated struct VaultMCPCore {
             _ = try Self.containedMarkdownURL(vaultRoot: vaultRoot, relativePath: path)
         } catch {
             return .failure(Self.errorMessage(for: error))
+        }
+        return .success(Self.argumentsJSON(from: rawArguments))
+    }
+
+    private func validatedFolderPathArgumentsJSON(_ rawArguments: Any?) -> ToolArgumentsValidationResult {
+        guard let arguments = Self.argumentsObject(from: rawArguments) else {
+            return .success(Self.argumentsJSON(from: rawArguments))
+        }
+
+        for key in ["path", "path_prefix", "prefix"] {
+            guard let rawPath = arguments[key] as? String else { continue }
+            let path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !path.isEmpty else { continue }
+            do {
+                _ = try Self.containedVaultURL(
+                    vaultRoot: vaultRoot,
+                    relativePath: path,
+                    allowCurrentDirectory: true)
+            } catch {
+                return .failure(Self.errorMessage(for: error))
+            }
         }
         return .success(Self.argumentsJSON(from: rawArguments))
     }
@@ -378,28 +406,67 @@ nonisolated struct VaultMCPCore {
     }
 
     private static func containedMarkdownURL(vaultRoot: URL?, relativePath: String) throws -> URL {
+        guard relativePath.replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .hasSuffix(".md") else {
+            throw VaultMCPPathError.notMarkdown
+        }
+        let url = try containedVaultURL(
+            vaultRoot: vaultRoot,
+            relativePath: relativePath,
+            allowCurrentDirectory: false)
+        guard url.pathExtension.lowercased() == "md" else {
+            throw VaultMCPPathError.notMarkdown
+        }
+        return url
+    }
+
+    private static func containedVaultURL(
+        vaultRoot: URL?,
+        relativePath: String,
+        allowCurrentDirectory: Bool
+    ) throws -> URL {
         guard let vaultRoot else { throw VaultMCPPathError.noVaultRoot }
-        let normalizedPath = relativePath.replacingOccurrences(of: "\\", with: "/")
+        let normalizedPath = relativePath
+            .replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if allowCurrentDirectory && normalizedPath == "." {
+            return vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
+        }
         guard !normalizedPath.isEmpty,
               !normalizedPath.hasPrefix("/"),
               normalizedPath.split(separator: "/").allSatisfy({ $0 != "." && $0 != ".." }) else {
             throw VaultMCPPathError.pathTraversal
-        }
-        guard normalizedPath.lowercased().hasSuffix(".md") else {
-            throw VaultMCPPathError.notMarkdown
         }
 
         let root = vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
         let candidate = root
             .appendingPathComponent(normalizedPath, isDirectory: false)
             .standardizedFileURL
-            .resolvingSymlinksInPath()
+        let resolvedCandidate = resolvedURLForContainment(candidate)
         let rootPath = root.path
-        let candidatePath = candidate.path
+        let candidatePath = resolvedCandidate.path
         guard candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/") else {
             throw VaultMCPPathError.pathTraversal
         }
-        return candidate
+        return resolvedCandidate
+    }
+
+    private static func resolvedURLForContainment(_ url: URL) -> URL {
+        var existing = url.standardizedFileURL
+        var missingPathComponents: [String] = []
+
+        while !FileManager.default.fileExists(atPath: existing.path) {
+            let parent = existing.deletingLastPathComponent()
+            guard parent.path != existing.path else { break }
+            missingPathComponents.insert(existing.lastPathComponent, at: 0)
+            existing = parent
+        }
+
+        return missingPathComponents.reduce(existing.resolvingSymlinksInPath()) { partial, component in
+            partial.appendingPathComponent(component, isDirectory: false)
+        }.standardizedFileURL
     }
 
     private static func relativePath(for url: URL, under root: URL) -> String? {

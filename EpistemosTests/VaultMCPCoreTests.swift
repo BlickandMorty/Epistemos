@@ -106,6 +106,40 @@ struct VaultMCPCoreTests {
         #expect(calls.isEmpty)
     }
 
+    @Test("tools/call rejects vault list path escapes before executor")
+    func toolsCallRejectsVaultListPathEscapesBeforeExecutor() async throws {
+        let root = try Self.makeVaultRoot()
+        let outside = try Self.makeVaultRoot()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outside)
+        }
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("LinkedFolder", isDirectory: true),
+            withDestinationURL: outside)
+
+        let recorder = CallRecorder()
+        let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
+            await recorder.record(name: name, argumentsJSON: argumentsJSON)
+            return LocalToolResult(toolName: name, resultJson: #"{"called":true}"#, isError: false)
+        })
+
+        for payload in [
+            #"{"name":"vault.list","arguments":{"path":"../"}}"#,
+            #"{"name":"file.list","arguments":{"path_prefix":"/tmp"}}"#,
+            #"{"name":"vault.list","arguments":{"prefix":"LinkedFolder"}}"#,
+        ] {
+            let response = await core.handle(
+                requestJSON: #"{"jsonrpc":"2.0","id":23,"method":"tools/call","params":\#(payload)}"#)
+            let object = try Self.jsonObject(response)
+            let error = try #require(object["error"] as? [String: Any])
+            #expect(error["code"] as? Int == -32602)
+        }
+
+        let calls = await recorder.snapshot()
+        #expect(calls.isEmpty)
+    }
+
     @Test("tools/call rejects write and patch aliases before the executor")
     func toolsCallRejectsWriteAliases() async throws {
         let recorder = CallRecorder()
@@ -170,6 +204,11 @@ struct VaultMCPCoreTests {
         try FileManager.default.createSymbolicLink(
             at: root.appendingPathComponent("LinkedOutside.md"),
             withDestinationURL: outsideNote)
+        let json = root.appendingPathComponent("Data.json")
+        try #"{"not":"markdown"}"#.write(to: json, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("LinkedJSON.md"),
+            withDestinationURL: json)
 
         let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
         let response = await core.handle(requestJSON: #"{"jsonrpc":"2.0","id":5,"method":"resources/list"}"#)
@@ -198,6 +237,11 @@ struct VaultMCPCoreTests {
             to: folder.appendingPathComponent("Space #1.md"),
             atomically: true,
             encoding: .utf8)
+        let json = folder.appendingPathComponent("Data.json")
+        try #"{"not":"markdown"}"#.write(to: json, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: folder.appendingPathComponent("LinkedJSON.md"),
+            withDestinationURL: json)
 
         let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
         let read = await core.handle(
@@ -222,6 +266,15 @@ struct VaultMCPCoreTests {
         let error = try #require(traversalObject["error"] as? [String: Any])
         #expect(error["code"] as? Int == -32602)
         #expect((error["message"] as? String)?.contains("path traversal") == true)
+
+        let nonMarkdownTarget = await core.handle(
+            requestJSON: #"""
+            {"jsonrpc":"2.0","id":10,"method":"resources/read","params":{"uri":"vault:///Folder/LinkedJSON.md"}}
+            """#)
+        let nonMarkdownObject = try Self.jsonObject(nonMarkdownTarget)
+        let nonMarkdownError = try #require(nonMarkdownObject["error"] as? [String: Any])
+        #expect(nonMarkdownError["code"] as? Int == -32602)
+        #expect((nonMarkdownError["message"] as? String)?.contains("only markdown") == true)
     }
 
     @Test("resources/read rejects oversized markdown before loading it")
