@@ -315,6 +315,8 @@ nonisolated struct BrowserUseSecretStore: Sendable {
 }
 
 nonisolated struct BrowserUseSettingsStore: Sendable {
+    static let maxSettingsBytes = 256 * 1024
+
     let settingsURL: URL
 
     init(settingsURL: URL = Self.defaultSettingsURL()) {
@@ -341,8 +343,22 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         let directory = settingsURL.deletingLastPathComponent()
         try Self.rejectSettingsSymlinkPath(at: directory, label: "directory")
         try Self.rejectSettingsSymlinkPath(at: settingsURL, label: "file")
-        guard FileManager.default.fileExists(atPath: settingsURL.path) else {
+        var isDirectory = ObjCBool(false)
+        guard FileManager.default.fileExists(atPath: settingsURL.path, isDirectory: &isDirectory) else {
             return .default
+        }
+        guard !isDirectory.boolValue else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file is a directory at \(settingsURL.path)"
+            )
+        }
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: settingsURL.path)
+        if let size = attributes[.size] as? NSNumber,
+           size.intValue > Self.maxSettingsBytes {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file exceeds \(Self.maxSettingsBytes) bytes"
+            )
         }
 
         let data = try Data(contentsOf: settingsURL)
@@ -359,6 +375,11 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(settings)
+        guard data.count <= Self.maxSettingsBytes else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file exceeds \(Self.maxSettingsBytes) bytes"
+            )
+        }
         let temporaryURL = directory.appendingPathComponent("settings.\(UUID().uuidString).tmp", isDirectory: false)
         do {
             try Self.rejectSettingsSymlinkPath(at: temporaryURL, label: "temporary file")
@@ -398,10 +419,13 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
 
 nonisolated enum BrowserUseSettingsStoreError: Error, Equatable, LocalizedError {
     case unsafePath(String)
+    case invalidFile(String)
 
     var errorDescription: String? {
         switch self {
         case .unsafePath(let message):
+            return message
+        case .invalidFile(let message):
             return message
         }
     }

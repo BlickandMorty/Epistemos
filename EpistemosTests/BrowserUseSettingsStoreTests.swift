@@ -101,6 +101,27 @@ struct BrowserUseSettingsStoreTests {
         #expect(!json.contains("VNC_PASSWORD"))
     }
 
+    @Test("settings store rejects oversized JSON before loading")
+    func settingsStoreRejectsOversizedJSONBeforeLoading() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-huge-\(UUID().uuidString)", isDirectory: true)
+        let url = directory.appendingPathComponent("settings.json", isDirectory: false)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data(repeating: UInt8(ascii: "{"), count: BrowserUseSettingsStore.maxSettingsBytes + 1)
+            .write(to: url, options: .atomic)
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: url).load()
+            Issue.record("Expected oversized browser-use settings JSON to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("exceeds \(BrowserUseSettingsStore.maxSettingsBytes) bytes") == true)
+        }
+    }
+
     @Test("settings store rejects symlinked JSON paths before reading or writing")
     func settingsStoreRejectsSymlinkedJSONPathsBeforeReadingOrWriting() throws {
         let root = FileManager.default.temporaryDirectory
