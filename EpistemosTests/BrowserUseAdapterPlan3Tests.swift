@@ -141,6 +141,7 @@ struct BrowserUseAdapterPlan3Tests {
     @Test("Rust browser tools discover the bundled browser-use adapter before PATH fallback")
     func rustBrowserToolsDiscoverBundledAdapterBeforePathFallback() throws {
         let browserTool = try loadMirroredSourceTextFile("agent_core/src/tools/browser.rs")
+        let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
         let registry = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
 
         for required in [
@@ -149,9 +150,7 @@ struct BrowserUseAdapterPlan3Tests {
             "epistemos_agent_browser.py",
             "resolve_agent_browser(",
             "require_executable_browser(",
-            "DirBuilderExt",
             "create_private_browser_dir(",
-            "permissions.set_mode(0o700)",
             "not an executable file",
             "PYTHON_DOTENV_DISABLED",
             "AGENT_BROWSER_SCREENSHOT_DIR",
@@ -160,6 +159,18 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_screenshot_exports_private_root_to_adapter",
             "path_resolves_inside",
             "browser screenshot resolved outside private screenshot directory",
+            "agent-browser CLI not found",
+            "browser_use_agent_browser_override_wins_before_path_search",
+            "browser_use_vendor_root_discovers_bundled_adapter",
+            "browser_use_explicit_adapter_rejects_non_executable_without_fallback",
+        ] {
+            #expect(browserTool.contains(required), "Missing Rust browser-use discovery string: \(required)")
+        }
+
+        for required in [
+            "DirBuilderExt",
+            "create_private_browser_dir(",
+            "permissions.set_mode(0o700)",
             "reject_browser_dir_symlink",
             "private browser directory",
             "must not be a symlink",
@@ -167,14 +178,10 @@ struct BrowserUseAdapterPlan3Tests {
             "MetadataExt",
             "libc::geteuid",
             "must be owned by the current user",
-            "agent-browser CLI not found",
             "browser_private_directories_are_owner_only",
             "browser_private_directories_reject_symlink_targets",
-            "browser_use_agent_browser_override_wins_before_path_search",
-            "browser_use_vendor_root_discovers_bundled_adapter",
-            "browser_use_explicit_adapter_rejects_non_executable_without_fallback",
         ] {
-            #expect(browserTool.contains(required), "Missing Rust browser-use discovery string: \(required)")
+            #expect(browserPrivate.contains(required), "Missing browser private-dir policy string: \(required)")
         }
 
         let adapterIndex = try #require(browserTool.range(of: "browser_use_adapter")?.lowerBound)
