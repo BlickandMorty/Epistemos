@@ -1272,3 +1272,21 @@ execution awaits that external Plan-3 fix.
 - Shared `build-for-testing` still blocked solely by Plan-3 `ArxivPlan3Tests.swift:531` (the async
   `download(from:)` still calls `lock.lock()`; the other agent's `b805c9e90` refactor didn't fix it).
   Not my lane (NO-COLLISION). All app + Goose files compile clean (`** BUILD SUCCEEDED **`).
+
+---
+
+## 2026-06-29 — Web UI re-staged (was stale; lacked the #11 dead-Stop fix)
+
+The staged Web UI at `~/Library/Application Support/Epistemos/GooseWebUI` was generated Jun 29 00:30
+— BEFORE `stage-goose-web-ui.sh` was modified by this session's Step-1 grafts (`e6b0a4751` #11
+Stop/cancel + steer bypass the ACP serialization FIFO — a HIGH dead-Stop fix; `e473049ac` #7/#20
+useFileDrop hard-fail). So the owner's app was loading a Web UI WITHOUT the #11 fix. Re-staged
+(`./stage-goose-web-ui.sh "$HOME/Library/Application Support/Epistemos/GooseWebUI"`, built in 42.7s,
+exit 0 — all grafts applied, no anchor drift). Verified: all 10 bundler-required ACP markers present
+(`providers*_unstable`, `shared-getAcpClient-provider-inventory`, `__epistemosGooseACPRequestSerialization`,
+`__epistemosGooseProvider{Inventory,Catalog}Events`, `provider-catalog-template-choice`,
+`local-acp-config-GOOSE_TELEMETRY_ENABLED`) + `acpMode:true`.
+
+IMPORTANT owner note: the Web UI loads from App Support at LAUNCH, so a RELAUNCH of the current app
+now picks up the #11/#7/#20 Web-UI fixes WITHOUT a rebuild. The Swift-side fixes (H1/H2/H3 lifecycle,
+native Models, goosed backend) still require a REBUILD (DerivedData is healthy — no repair needed).

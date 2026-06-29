@@ -70,6 +70,22 @@ struct VRMLabelHonestLabelTests {
         #expect(VRMLabel.honestLabel(for: packet) == .plausibleButUnverified)
     }
 
+    @Test("ACS anchors must be bound to the rendered packet before Verified appears")
+    func acsAnchorsMustBeBoundToRenderedPacket() {
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [
+            Self.claim(kind: .empirical, status: .active, acsAnchored: true, activePacketId: nil)
+        ])) == .plausibleButUnverified)
+
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [
+            Self.claim(
+                kind: .empirical,
+                status: .active,
+                acsAnchored: true,
+                activePacketId: "borrowed-packet"
+            )
+        ])) == .plausibleButUnverified)
+    }
+
     @Test("unanchored speculative active claims render speculative")
     func unanchoredSpeculativeClaimsRenderSpeculative() {
         let packet = Self.packet(claims: [
@@ -108,6 +124,8 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains("LatestAnswerPacketSink.shared.packet(for: packetID)"))
         #expect(source.contains("message.answerPacketId"))
         #expect(source.contains("VRMLineageExport.make("))
+        #expect(source.contains("ClaimLineageRow(claim: claim, packetID: packet.id)"))
+        #expect(source.contains("claim.isVerifiedByAnchor(forPacketID: packetID)"))
         #expect(source.contains("NSPasteboard.general.setString(export.encodedJSONString(), forType: .string)"))
         #expect(source.contains("encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]"))
         #expect(source.contains("Copy lineage JSON"))
@@ -228,6 +246,7 @@ struct VRMLabelHonestLabelTests {
         status: ClaimStatus,
         acsAnchored: Bool = false,
         uasAddressed: Bool = false,
+        activePacketId: String? = "pkt-test",
         createdAtMs: Int64 = 1_783_000_000_000
     ) -> Claim {
         Claim(
@@ -246,6 +265,7 @@ struct VRMLabelHonestLabelTests {
                 theoremId: "E1",
                 plane: .episodic,
                 residency: .verifiedFloor,
+                activePacketId: activePacketId,
                 salience: 0.7
             ) : nil
         )

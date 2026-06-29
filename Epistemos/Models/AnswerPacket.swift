@@ -198,14 +198,14 @@ nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseItera
     ///
     /// A stored `AnswerPacket.uiLabel` is legacy wire data and must never by
     /// itself authorize a visible "Verified" chip. Verification requires an
-    /// active, verifiable claim with a real ACS verification anchor. UAS is
-    /// stable address identity, not evidence by itself. Empty packets render
-    /// no chip.
+    /// active, verifiable claim with a real ACS verification anchor bound to
+    /// this packet. UAS is stable address identity, not evidence by itself.
+    /// Empty packets render no chip.
     public static func honestLabel(for packet: AnswerPacket) -> VRMLabel? {
         let activeClaims = packet.activeClaims
         guard !activeClaims.isEmpty else { return nil }
 
-        if activeClaims.contains(where: { $0.isAnchoredVerifiableClaim }) {
+        if activeClaims.contains(where: { $0.isVerifiedByAnchor(forPacketID: packet.id) }) {
             return .verified
         }
 
@@ -363,8 +363,11 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
         }
     }
 
-    public var isAnchoredVerifiableClaim: Bool {
-        status == .active && isVerifiableKind && hasVerificationAnchor
+    public func isVerifiedByAnchor(forPacketID packetID: String) -> Bool {
+        status == .active
+            && isVerifiableKind
+            && hasVerificationAnchor
+            && acsAnchor?.activePacketId == packetID
     }
 }
 

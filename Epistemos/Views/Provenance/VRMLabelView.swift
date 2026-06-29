@@ -239,7 +239,7 @@ private struct VRMLineageCard: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(packet.activeClaims, id: \.id) { claim in
-                        ClaimLineageRow(claim: claim)
+                        ClaimLineageRow(claim: claim, packetID: packet.id)
                     }
                 }
             }
@@ -297,6 +297,7 @@ private struct VRMLineageCard: View {
 
 private struct ClaimLineageRow: View {
     let claim: Claim
+    let packetID: String
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -310,11 +311,11 @@ private struct ClaimLineageRow: View {
                     Text(claim.status.rawValue)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    if claim.hasVerificationAnchor {
+                    if claim.isVerifiedByAnchor(forPacketID: packetID) {
                         Image(systemName: "link")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                            .accessibilityLabel("Verification anchor")
+                            .accessibilityLabel("Packet-bound verification anchor")
                     } else if claim.hasUasAddress {
                         Image(systemName: "number")
                             .font(.caption2)
