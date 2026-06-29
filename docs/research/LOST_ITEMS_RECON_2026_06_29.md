@@ -54,11 +54,17 @@
   - **PLAN 6 — Quick Capture surfacing** (items 1,2,3,4,10,20): the Rust substrate is BUILT; this is the missing Swift UX. Highest leverage in the list — the hard part is done. *Strong candidate for its own plan.*
   - **PLAN 7 — Stability, Privacy & Sync** (items 5,6,13,17): the dark/light crash + crash recorder + iCloud sync + recurring nuclear gate. *Could be its own plan OR the crash/recorder folded into a hardening pass + sync deferred (high blast radius).*
 
-## OWNER DECISION (what the owner needs to choose)
-1. **Quick Capture (items 1-4,10,20):** spin up **Plan 6** to build the Swift UX over the existing Rust substrate? (Recommended — built capability sitting invisible.)
-2. **Stability/Privacy (items 5,6,13,17):** **Plan 7**, or fold the two crashes into a near-term hardening pass + defer sync?
-3. **The Plan-1/2/3/4 fold-ins:** which to actually add to the live plan scopes (and when — they're building now)?
-4. **Online validation:** run a primary-source pass on the top external-dependency items (the OpenAI redaction model, bitcrush DSP, Camoufox/nodriver stealth engines, iCloud ubiquity sync) before committing them?
+## DISPOSITIONS (owner-decided 2026-06-29)
+- ✅ **Plan 6 — Quick Capture surfacing** DRAFTED + SAVED → `docs/prompts/PROMPT_PLAN_6_QUICKCAPTURE.md` (items 1,2,3,4,10,20). Substrate verified present: agent_core/src/{route,effect,undo,canon,nightbrain,heal,format,grammar}.
+- ✅ **Plan 7 — Sync + Quality Gate** DRAFTED + SAVED → `docs/prompts/PROMPT_PLAN_7_SYNC.md` (items 13,17 = iCloud sync + recurring nuclear gate).
+- ✅ **Crashes FIX-NOW** (items 5,6: dark/light crash + crash recorder) ROUTED to the LIVE Plan 2 agent as PRIORITY-0 §0 (it owns the editor WebViews where the crash lives) — `docs/prompts/PROMPT_PLAN_2_EDITOR.md`.
+- ⏳ **Plan-1/2/3/4 fold-ins** (PII redaction, vault-as-AI-memory, richer voice, context-launcher, stealth, MCP connectors, cockpit, per-model profile, llama template, logo-ingest) — still owner-confirm before redirecting the live agents; held in this ledger.
+
+## ONLINE VALIDATION (primary sources, 2026-06-29 — all CONFIRMED real + viable)
+- **PII redaction = OpenAI "Privacy Filter"** — released 2026-04-22, **Apache-2.0**, 1.5B params / 50M active, 128k ctx, **runs on-device** (data never leaves the machine), 96% F1 on PII-Masking-300k, 8 categories. HuggingFace + GitHub. → clean license + MAS-safe + fits the M2-Pro-16GB budget. STRONG GO for the Plan 3 privacy fold-in.
+- **Stealth browsing = Camoufox + nodriver** — Camoufox = Firefox fork w/ C++-level stealth, 0% headless detection, **Playwright-compatible API** (slots into browser-use's Playwright lane); nodriver = CDP-driven Chrome (no behavioral faking). Pro/Dev-ID only (Chromium/Firefox automation ≠ MAS). → Plan 3 Browser Pro lane.
+- **iCloud vault sync** — Apple-sanctioned + sandbox-safe via the ubiquity container + iCloud entitlement; ALL IO through NSFileCoordinator + a registered NSFilePresenter; temp-write+hard-link-swap; explicit NSFileVersion conflict resolution (no silent last-writer-wins). → baked into Plan 7's hard gates.
+- **Bitcrush DSP** — trivially real: an AVAudioUnit/AVAudioEngine effect over any TTS voice; MAS-safe. → Plan 3 voice fold-in.
 
 > **Auditor note:** this ledger is now canonical. When the owner picks restorations, route each item into its plan
 > doc + (if Plan 6/7 are created) draft their prompts to the same strictness as Plans 1-5. Until then, every item is
