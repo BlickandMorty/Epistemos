@@ -34,6 +34,12 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private var appWindowDelegates: [String: GooseWebNativeAppWindowDelegate] = [:]
     private var appGuestNavDelegates: [String: GooseWebNativeAppGuestNavigationDelegate] = [:]
     private var wakelockAssertionID: IOPMAssertionID = 0
+    /// Registered loopback origins (the goose/goosed server + UI server ports) shared with the main
+    /// surface's `GooseTrustedLoopbackOrigins`. Set by the host view. When present, app-launch URIs
+    /// and guest top-frame navigations are pinned to these EXACT registered ports (review M1/M3) —
+    /// not merely "any loopback host", which would let an MCP app pivot to another local service.
+    /// nil only in tests / before wiring → callers fall back to host-only loopback.
+    var trustedLoopbackOrigins: GooseTrustedLoopbackOrigins?
 
     init(
         handlers: [String: Handler] = [:],
@@ -368,7 +374,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
               isDirectory.boolValue else {
             return false
         }
-        return NSWorkspace.shared.open(URL(fileURLWithPath: expandedPath, isDirectory: true))
+        // Security (review H1): this is WEB-DRIVEN, so NEVER hand the path to NSWorkspace.open — a
+        // `.app` (or `.workflow`/`.scptd`/document-package) bundle IS a directory, so `open` would
+        // LAUNCH it, reopening exactly the LSOpen handler-launch threat the openExternal allowlist
+        // (#13/#24) closed. Confine to a consented scope, reject bundles, and REVEAL in Finder
+        // (`selectFile` opens a Finder window and never launches anything).
+        guard isPathAllowed(expandedPath) else { return false }
+        let url = URL(fileURLWithPath: expandedPath, isDirectory: true)
+        if let values = try? url.resourceValues(forKeys: [.isApplicationKey, .isPackageKey]),
+           values.isApplication == true || values.isPackage == true {
+            return false
+        }
+        return NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: expandedPath)
     }
 
     private func resolveBinaryPath(_ binaryName: String) -> String {
@@ -578,35 +595,69 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
+    private enum GuestAppLoad {
+        case html(String)
+        case uri(URL)
+    }
+
+    /// An MCP-app `uri` / guest top-frame navigation is allowed only to a REGISTERED loopback origin
+    /// (exact port) when the registered set is wired (review M1/M3) — not merely "any loopback host",
+    /// which would let an app pivot to another local service. Falls back to host-only loopback when
+    /// the set is absent (tests / pre-wiring).
+    private func isAllowedAppOrigin(_ url: URL) -> Bool {
+        if let trustedLoopbackOrigins {
+            return trustedLoopbackOrigins.isAllowed(url)
+        }
+        return GooseTrustedLoopbackOrigins.isLoopback(url.host)
+    }
+
     private func launchApp(_ app: [String: Any]) throws {
         let name = try appName(from: app)
-        if let existingWindow = appWindows[name], existingWindow.isVisible {
+        // L2: reuse an existing window even when MINIMIZED (`isVisible` is false for a miniaturized
+        // window, which previously built a duplicate and orphaned the prior webview).
+        if let existingWindow = appWindows[name] {
+            if existingWindow.isMiniaturized { existingWindow.deminiaturize(nil) }
             existingWindow.makeKeyAndOrderFront(nil)
             appWebViews[name]?.reload()
             return
         }
 
-        // SECURITY (deep-hardening 2026-06-29 #14): the guest webview renders attacker-influenced
-        // HTML. Use a non-persistent data store and a navigation delegate that denies navigating
-        // the top frame off the rendered widget (no external http, no arbitrary file:, no
-        // javascript:/app-deeplink). Only the app-support render root + loopback + about: pass.
+        // Resolve the content SOURCE before creating any webview/window, so a rejected uri (review M3)
+        // throws an honest error with NOTHING created or leaked — instead of building a window the
+        // guest nav delegate then silently blanks (the owner's "Apps loading failures" dead window).
+        let guestLoad: GuestAppLoad
+        if let html = htmlContent(from: app) {
+            guestLoad = .html(html)
+        } else if let rawURI = app["uri"] as? String,
+                  let url = URL(string: rawURI),
+                  Self.shouldOpenBrowserURL(rawURI),
+                  isAllowedAppOrigin(url) {
+            guestLoad = .uri(url)
+        } else {
+            throw GooseWebNativeAffordanceBridgeError.missingAppContent(name)
+        }
+
+        // SECURITY (deep-hardening 2026-06-29 #14 + review M1): the guest webview renders
+        // attacker-influenced HTML. Non-persistent store, NO script handlers, and a nav delegate that
+        // pins the top frame to the app-support render root + about: + REGISTERED loopback ports only
+        // (not any loopback host — review M1), denying external / file-traversal / dangerous schemes.
         let guestConfiguration = WKWebViewConfiguration()
         guestConfiguration.websiteDataStore = .nonPersistent()
         let webView = WKWebView(
             frame: .zero,
             configuration: guestConfiguration
         )
-        let guestNavDelegate = GooseWebNativeAppGuestNavigationDelegate(allowedFileRoot: applicationSupportRoot)
+        let guestNavDelegate = GooseWebNativeAppGuestNavigationDelegate(
+            allowedFileRoot: applicationSupportRoot,
+            trustedLoopbackOrigins: trustedLoopbackOrigins
+        )
         webView.navigationDelegate = guestNavDelegate
         appGuestNavDelegates[name] = guestNavDelegate
-        if let html = htmlContent(from: app) {
+        switch guestLoad {
+        case .html(let html):
             webView.loadHTMLString(html, baseURL: applicationSupportRoot)
-        } else if let rawURI = app["uri"] as? String,
-                  let url = URL(string: rawURI),
-                  Self.shouldOpenBrowserURL(rawURI) {
+        case .uri(let url):
             webView.load(URLRequest(url: url))
-        } else {
-            throw GooseWebNativeAffordanceBridgeError.missingAppContent(name)
         }
 
         let width = CGFloat(numberArgument(app["width"]) ?? 800)
@@ -646,6 +697,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         appWindows.removeValue(forKey: name)
         appWebViews.removeValue(forKey: name)
         appWindowDelegates.removeValue(forKey: name)
+        appGuestNavDelegates.removeValue(forKey: name)   // L1: was leaked (relied on windowWillClose)
     }
 
     /// Closes every launched MCP-app window and clears the registries. Invoked on
@@ -659,6 +711,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         appWindows.removeAll()
         appWebViews.removeAll()
         appWindowDelegates.removeAll()
+        appGuestNavDelegates.removeAll()   // L1: was leaked here too
         for window in windows {
             window.close()
         }
@@ -1053,9 +1106,11 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 /// navigation is denied.
 private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNavigationDelegate {
     private let allowedFileRoot: String
+    private let trustedLoopbackOrigins: GooseTrustedLoopbackOrigins?
 
-    init(allowedFileRoot: URL?) {
+    init(allowedFileRoot: URL?, trustedLoopbackOrigins: GooseTrustedLoopbackOrigins?) {
         self.allowedFileRoot = allowedFileRoot?.standardizedFileURL.path ?? ""
+        self.trustedLoopbackOrigins = trustedLoopbackOrigins
     }
 
     func webView(
@@ -1076,7 +1131,17 @@ private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNaviga
                 && (path == allowedFileRoot || path.hasPrefix(allowedFileRoot + "/"))
             decisionHandler(allowed ? .allow : .cancel)
         case "http", "https", "ws", "wss":
-            decisionHandler(GooseTrustedLoopbackOrigins.isLoopback(url.host) ? .allow : .cancel)
+            // review M1: pin to the REGISTERED loopback ports (the goose/goosed + UI servers), NOT
+            // any loopback host — otherwise an MCP app could navigate its top frame to another local
+            // service (a local model server / notebook-with-token / an admin panel) as a same-origin
+            // SSRF pivot. Fall back to host-only loopback only when the registered set isn't wired.
+            let allowed: Bool
+            if let trustedLoopbackOrigins {
+                allowed = trustedLoopbackOrigins.isAllowed(url)
+            } else {
+                allowed = GooseTrustedLoopbackOrigins.isLoopback(url.host)
+            }
+            decisionHandler(allowed ? .allow : .cancel)
         default:
             decisionHandler(.cancel)
         }

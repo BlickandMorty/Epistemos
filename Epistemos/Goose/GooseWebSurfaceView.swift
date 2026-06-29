@@ -372,6 +372,10 @@ struct GooseWebSurfaceView: View {
     }
 
     private func startSurface() async {
+        // Share the SAME registered-origin set with the affordance bridge so MCP-app launch URIs and
+        // guest navigations are pinned to OUR server's exact loopback ports (review M1/M3), not any
+        // loopback host. The reference is shared, so ports registered later (loadGooseUI) are visible.
+        nativeAffordanceBridge.trustedLoopbackOrigins = trustedOrigins
         // Reset the per-connection drive guards: a reappear (.task re-runs) restarts the supervisor,
         // often on the SAME port/baseURL, so the new connection's key would otherwise match the stale
         // guard and driveSurface would skip the load. Resetting here re-drives every (re)appear.
