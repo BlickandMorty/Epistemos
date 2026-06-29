@@ -172,4 +172,62 @@ struct BestOfPresetPlan3Tests {
         #expect(servers.first { $0.name == "context7" }?.url == "https://custom.example.com/mcp")
         #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
     }
+
+    @Test("receipt store ignores oversized receipt files")
+    func receiptStoreIgnoresOversizedFiles() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-oversized-receipt-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        let receiptURL = BestOfPresetReceiptStore.receiptURL(home: home)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(
+            at: receiptURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(repeating: UInt8(ascii: "{"), count: 70 * 1024).write(to: receiptURL)
+
+        #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
+    }
+
+    @Test("receipt store does not read or overwrite a symlinked receipt")
+    func receiptStoreRejectsSymlinkedReceiptPath() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-symlink-receipt-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        let receiptURL = BestOfPresetReceiptStore.receiptURL(home: home)
+        let outsideURL = root.appendingPathComponent("outside.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(
+            at: receiptURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"remoteMCPServerNames":["context7"]}"#.write(to: outsideURL, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: receiptURL, withDestinationURL: outsideURL)
+
+        #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
+
+        BestOfPresetReceiptStore.save(
+            BestOfPresetReceipt(remoteMCPServerNames: ["context7"]),
+            home: home
+        )
+
+        let outside = try String(contentsOf: outsideURL, encoding: .utf8)
+        #expect(outside == #"{"remoteMCPServerNames":["context7"]}"#)
+        #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: receiptURL.path)) != nil)
+    }
+
+    @Test("receipt store source keeps bounded non-symlink file contract")
+    func receiptStoreSourceGuard() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Omega/BestOfPreset.swift")
+        for required in [
+            "maxReceiptBytes",
+            "destinationOfSymbolicLink",
+            "attributesOfItem",
+            "data.count <= maxReceiptBytes",
+        ] {
+            #expect(source.contains(required), "BestOfPreset receipt store missing hardening marker: \(required)")
+        }
+    }
 }

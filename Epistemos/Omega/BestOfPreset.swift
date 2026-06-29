@@ -334,6 +334,8 @@ nonisolated struct BestOfPresetReceipt: Codable, Equatable, Sendable {
 }
 
 nonisolated enum BestOfPresetReceiptStore {
+    private static let maxReceiptBytes = 64 * 1024
+
     static func receiptURL(home: URL) -> URL {
         home.appendingPathComponent(".config")
             .appendingPathComponent("mcp")
@@ -342,7 +344,13 @@ nonisolated enum BestOfPresetReceiptStore {
 
     static func load(home: URL) -> BestOfPresetReceipt {
         let url = receiptURL(home: home)
-        guard let data = try? Data(contentsOf: url),
+        guard !isSymbolicLink(url),
+              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              attributes[.type] as? FileAttributeType == .typeRegular,
+              let size = attributes[.size] as? NSNumber,
+              size.intValue <= maxReceiptBytes,
+              let data = try? Data(contentsOf: url),
+              data.count <= maxReceiptBytes,
               let receipt = try? JSONDecoder().decode(BestOfPresetReceipt.self, from: data) else {
             return BestOfPresetReceipt(remoteMCPServerNames: [])
         }
@@ -352,16 +360,22 @@ nonisolated enum BestOfPresetReceiptStore {
     static func save(_ receipt: BestOfPresetReceipt, home: URL) {
         let url = receiptURL(home: home)
         do {
+            guard !isSymbolicLink(url) else { return }
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
             let data = try JSONEncoder.bestOfPresetEncoder.encode(receipt)
+            guard data.count <= maxReceiptBytes else { return }
             try data.write(to: url, options: [.atomic])
         } catch {
             // Receipt persistence should not make the install path fail; a
             // missing receipt only makes later revert conservative.
         }
+    }
+
+    private static func isSymbolicLink(_ url: URL) -> Bool {
+        (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil
     }
 }
 

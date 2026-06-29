@@ -47,8 +47,9 @@ capabilities (eidos.query/vault.search/web.search/web.fetch/think/graph.query/gr
 `.alreadyEnabled` (honest — no fake surface), remoteMCP → §2 writer, skillRepo → `skill_manage install_from_github` (Pro).
 Honest per-row gating: rows above the build's distribution return `.proLocked` ("unlocks in Pro"), never silently enabled.
 `revert()` removes only the remoteMCP rows it added (built-ins are policy not state; skill-repo removal is destructive →
-manual). `BestOfPresetCard` = one-tap UI with per-row status pills; the UI invokes apply/revert from detached utility
-workers so config writes do not block Settings. Install-target URLs isolated in `installTarget(for:)`.
+manual). Receipt persistence is conservative: regular receipt files only, bounded JSON, and no final symlink read/write.
+`BestOfPresetCard` = one-tap UI with per-row status pills; the UI invokes apply/revert from detached utility workers so
+config writes do not block Settings. Install-target URLs isolated in `installTarget(for:)`.
 
 ## 5. MAS/Pro split
 | Capability | MAS | Pro | Gate |
