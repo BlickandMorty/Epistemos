@@ -2107,6 +2107,53 @@ for (const snippet of ['getAcpProviders', 'USE_ACP_CHAT', 'epistemos-acp-onboard
 fs.writeFileSync(path, source);
 NODE
 
+ALERT_BOX="$WORK_ROOT/ui/desktop/src/components/alerts/AlertBox.tsx"
+node - "$ALERT_BOX" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+// epistemos-acp-alertbox-threshold: saving an edited auto-compact threshold used the
+// dead REST upsertConfig directly, which throws in ACP mode ("Failed to save
+// threshold"). The component already reads via useConfig(); route the SAVE through
+// the same already-ACP-wired ConfigContext.upsert, which persists
+// GOOSE_AUTO_COMPACT_THRESHOLD through the live preferences path. Correct in both
+// ACP and non-ACP modes; drop the now-unused dead-REST import.
+const useConfigAnchor = 'const { read } = useConfig();';
+if (source.includes(useConfigAnchor) && !source.includes('const { read, upsert } = useConfig();')) {
+  source = source.replace(useConfigAnchor, 'const { read, upsert } = useConfig();');
+}
+
+const upsertAnchor = `await upsertConfig({
+        body: {
+          key: 'GOOSE_AUTO_COMPACT_THRESHOLD',
+          value: newThreshold,
+          is_secret: false,
+        },
+      });`;
+const upsertReplacement = `await upsert('GOOSE_AUTO_COMPACT_THRESHOLD', newThreshold, false); // epistemos-acp-alertbox-threshold`;
+if (!source.includes('epistemos-acp-alertbox-threshold')) {
+  if (!source.includes(upsertAnchor)) {
+    throw new Error('AlertBox threshold upsertConfig anchor not found');
+  }
+  source = source.replace(upsertAnchor, upsertReplacement);
+}
+
+// Remove the now-unused dead-REST import so tsc stays clean.
+source = source.replace("import { upsertConfig } from '../../api';\n", '');
+
+for (const snippet of ['const { read, upsert } = useConfig();', 'epistemos-acp-alertbox-threshold']) {
+  if (!source.includes(snippet)) {
+    throw new Error(`AlertBox staged source missing required snippet: ${snippet}`);
+  }
+}
+if (source.includes("import { upsertConfig }")) {
+  throw new Error('AlertBox unused upsertConfig import was not removed');
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 AUTH_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
 node - "$AUTH_SETTINGS_SECTION" <<'NODE'
 const fs = require('fs');

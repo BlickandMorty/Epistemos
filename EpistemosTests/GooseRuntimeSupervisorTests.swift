@@ -882,6 +882,13 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("ProviderConfigurationModal OAuth ACP anchor not found"))
         #expect(script.contains("ProviderConfigurationModal delete-cleanup ACP anchor not found"))
         #expect(script.contains("ProviderConfigForm onboarding OAuth ACP anchor not found"))
+        // Missing-feature audit gap #7: AlertBox auto-compact threshold SAVE routed
+        // off the dead REST upsertConfig onto the ACP-wired ConfigContext.upsert (so
+        // it persists via preferences instead of throwing "Failed to save threshold").
+        #expect(script.contains("epistemos-acp-alertbox-threshold"))
+        #expect(script.contains("const { read, upsert } = useConfig();"))
+        #expect(script.contains("await upsert('GOOSE_AUTO_COMPACT_THRESHOLD', newThreshold, false)"))
+        #expect(script.contains("AlertBox threshold upsertConfig anchor not found"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")
