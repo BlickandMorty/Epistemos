@@ -72,6 +72,29 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("resetFailureMessage(result: scriptResult, error: scriptError)"))
     }
 
+    @Test("MarkEdit markdown chrome applies reset state only after async success")
+    func markEditMarkdownChromeAppliesResetStateOnlyAfterAsyncSuccess() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+
+        #expect(source.contains("private var applyingText: String?"))
+        #expect(source.contains("private var applyTask: Task<Void, Never>?"))
+        #expect(source.contains("applyTask?.cancel()"))
+        #expect(source.contains("defer {\n                if generation == self.applyGeneration {"))
+        #expect(source.contains("self.lastAppliedText = nextText"))
+        #expect(!source.contains("lastAppliedText = nextText\n        updateLineCount(for: nextText)"))
+    }
+
+    @Test("CoreEditor WebView navigation allows only local bootstrap and chunk resources")
+    func markEditCoreEditorWebViewNavigationAllowsOnlyLocalBootstrapAndChunks() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+
+        #expect(source.contains("private static func isAllowedNavigation(_ navigationAction: WKNavigationAction) -> Bool"))
+        #expect(source.contains("case MarkEditCoreEditorBridge.chunkScheme:"))
+        #expect(source.contains(#"return url.host == "chunks""#))
+        #expect(source.contains(#"return host == "localhost" || host == "127.0.0.1" || host == "::1""#))
+        #expect(!source.contains("if navigationAction.navigationType == .other {\n            decisionHandler(.allow)"))
+    }
+
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
     func markEditCoreEditorChunkLoaderRejectsTraversalAndNonChunkHosts() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")

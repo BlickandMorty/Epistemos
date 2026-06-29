@@ -144,7 +144,10 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
 
     private weak var viewController: EditorViewController?
     private var lastAppliedText: String?
+    private var applyingText: String?
     private var isApplyingFromSwift = false
+    private var applyTask: Task<Void, Never>?
+    private var applyGeneration = 0
     private var pollingTask: Task<Void, Never>?
 
     init(
@@ -167,15 +170,20 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
 
     func update(viewController: EditorViewController, externalText: String) {
         self.viewController = viewController
-        guard externalText != lastAppliedText else { return }
+        guard externalText != lastAppliedText,
+              externalText != applyingText else { return }
         apply(text: externalText, to: viewController, documentChanged: false)
     }
 
     func detach() {
+        applyGeneration += 1
+        applyTask?.cancel()
+        applyTask = nil
         pollingTask?.cancel()
         pollingTask = nil
         viewController = nil
         lastAppliedText = nil
+        applyingText = nil
         isApplyingFromSwift = false
     }
 
@@ -184,18 +192,38 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         to viewController: EditorViewController,
         documentChanged: Bool
     ) {
-        lastAppliedText = nextText
+        applyGeneration += 1
+        let generation = applyGeneration
+        applyTask?.cancel()
+        applyingText = nextText
         updateLineCount(for: nextText)
         isApplyingFromSwift = true
-        Task { @MainActor [weak self, weak viewController] in
-            guard let self, let viewController else { return }
+        applyTask = Task { @MainActor [weak self, weak viewController] in
+            guard let self else { return }
+            defer {
+                if generation == self.applyGeneration {
+                    self.isApplyingFromSwift = false
+                    self.applyingText = nil
+                    self.applyTask = nil
+                }
+            }
+
+            guard let viewController, !Task.isCancelled else { return }
             await viewController.waitUntilLoaded()
-            _ = try? await viewController.bridge.core.resetEditor(
-                text: nextText,
-                selectionRange: nil,
-                documentChanged: documentChanged
-            )
-            self.isApplyingFromSwift = false
+            guard !Task.isCancelled else { return }
+
+            do {
+                _ = try await viewController.bridge.core.resetEditor(
+                    text: nextText,
+                    selectionRange: nil,
+                    documentChanged: documentChanged
+                )
+                guard generation == self.applyGeneration, !Task.isCancelled else { return }
+                self.lastAppliedText = nextText
+            } catch {
+                guard generation == self.applyGeneration else { return }
+                self.lastAppliedText = nil
+            }
         }
     }
 
@@ -638,16 +666,26 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
-        let scheme = navigationAction.request.url?.scheme
-        if scheme == "about" || scheme == MarkEditCoreEditorBridge.chunkScheme {
-            decisionHandler(.allow)
-            return
+        decisionHandler(Self.isAllowedNavigation(navigationAction) ? .allow : .cancel)
+    }
+
+    private static func isAllowedNavigation(_ navigationAction: WKNavigationAction) -> Bool {
+        guard let url = navigationAction.request.url else {
+            return navigationAction.navigationType == .other
         }
-        if navigationAction.navigationType == .other {
-            decisionHandler(.allow)
-            return
+        guard let scheme = url.scheme?.lowercased() else { return false }
+
+        switch scheme {
+        case "about":
+            return true
+        case MarkEditCoreEditorBridge.chunkScheme:
+            return url.host == "chunks"
+        case "http", "https":
+            guard let host = url.host?.lowercased() else { return false }
+            return host == "localhost" || host == "127.0.0.1" || host == "::1"
+        default:
+            return false
         }
-        decisionHandler(.cancel)
     }
 
     func userContentController(
