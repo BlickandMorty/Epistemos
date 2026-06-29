@@ -3,20 +3,22 @@ import Testing
 
 @Suite("MarkEdit L3-CHROME mode split guards (Plan 2)")
 nonisolated struct MarkEditChromeModeSplitTests {
-    @Test("CodeEditorView selects markdown versus code chrome with one isMarkdownDocument seam")
-    func codeEditorViewSelectsMarkdownVersusCodeChromeWithOneSeam() throws {
+    @Test("CodeEditorView selects markdown chrome, default code chrome, and legacy v1 fallback")
+    func codeEditorViewSelectsMarkdownCodeAndLegacyFallback() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let editorContent = try Self.extractBlock(named: "editorContent", from: source)
         let codeSurface = try Self.extractBlock(named: "codeEditorSurface", from: source)
         let livePreview = try Self.extractBlock(named: "codeLivePreview", from: source)
 
         #expect(source.contains("private var isMarkdownDocument"))
+        #expect(source.contains(#"@AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false"#))
+        #expect(source.contains("useLegacyV1Editor && !isMarkdownDocument"))
         #expect(editorContent.contains("if isMarkdownDocument"))
         #expect(editorContent.contains("MarkEditMarkdownEditorRepresentable("))
         #expect(editorContent.contains("codeEditorChromeContent"))
 
         #expect(codeSurface.contains("MarkEditCodeEditorRepresentable("))
-        #expect(!codeSurface.contains("WebKitCodeEditorView("))
+        #expect(codeSurface.contains("WebKitCodeEditorView("))
         #expect(!codeSurface.contains("SourceEditor("))
 
         #expect(source.contains("showLivePreview.toggle()"))

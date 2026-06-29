@@ -17,8 +17,10 @@ public extension EditorConfig {
 extension EditorConfig {
   /// index.html built by CoreEditor.
   private static let indexHtml: String? = {
-    guard let path = Bundle.main.url(forResource: "index", withExtension: "html") else {
-      fatalError("Missing dist/index.html to set up the editor. In the wiki, see Building CoreEditor.")
+    guard let path = Bundle.main.url(forResource: "index", withExtension: "html")
+      ?? Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "CoreEditor") else {
+      assertionFailure("Missing dist/index.html to set up the editor. In the wiki, see Building CoreEditor.")
+      return nil
     }
 
     return try? Data(contentsOf: path).toString()

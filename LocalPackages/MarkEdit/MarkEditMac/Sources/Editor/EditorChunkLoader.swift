@@ -15,21 +15,21 @@ final class EditorChunkLoader: NSObject, WKURLSchemeHandler {
   static let scheme = "chunk-loader"
 
   func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
-    guard let url = urlSchemeTask.request.url, let host = url.host(), host == "chunks" else {
-      return Logger.assertFail("Invalid url scheme task: \(urlSchemeTask)")
-    }
-
-    guard let fileURL = Bundle.main.url(forResource: "\(host)/\(url.path())", withExtension: nil)
-      ?? Bundle.main.url(forResource: url.lastPathComponent, withExtension: nil) else {
-      return Logger.assertFail("Invalid request url: \(url)")
+    guard let url = urlSchemeTask.request.url,
+          let relativePath = Self.relativePath(for: url),
+          let fileURL = Self.fileURL(relativePath: relativePath, lastPathComponent: url.lastPathComponent) else {
+      urlSchemeTask.didFailWithError(Self.error(for: urlSchemeTask.request.url))
+      return
     }
 
     guard let fileData = try? Data(contentsOf: fileURL) else {
-      return Logger.assertFail("Invalid file url: \(fileURL)")
+      urlSchemeTask.didFailWithError(Self.error(for: url))
+      return
     }
 
     guard let contentType = Self.mimeTypes[url.pathExtension] else {
-      return Logger.assertFail("Invalid content type: \(url.pathExtension)")
+      urlSchemeTask.didFailWithError(Self.error(for: url))
+      return
     }
 
     let headerFields = Self.accessControl.merging(["Content-Type": contentType]) { current, _ in
@@ -62,6 +62,50 @@ final class EditorChunkLoader: NSObject, WKURLSchemeHandler {
 // MARK: - Private
 
 private extension EditorChunkLoader {
+  static func relativePath(for url: URL) -> String? {
+    guard let host = url.host(), host == "chunks" else { return nil }
+    let pathComponents = url.pathComponents.filter { $0 != "/" }
+    guard !pathComponents.isEmpty,
+          pathComponents.allSatisfy(isSafeRelativePathComponent) else { return nil }
+    return ([host] + pathComponents).joined(separator: "/")
+  }
+
+  static func fileURL(relativePath: String, lastPathComponent: String) -> URL? {
+    let candidates = [
+      Bundle.main.url(forResource: relativePath, withExtension: nil),
+      Bundle.main.url(forResource: lastPathComponent, withExtension: nil),
+      Bundle.main.resourceURL?
+        .appendingPathComponent("CoreEditor", isDirectory: true)
+        .appendingPathComponent(relativePath),
+      Bundle.main.resourceURL?
+        .appendingPathComponent("CoreEditor", isDirectory: true)
+        .appendingPathComponent(lastPathComponent),
+      Bundle.main.resourceURL?.appendingPathComponent(relativePath),
+      Bundle.main.resourceURL?.appendingPathComponent(lastPathComponent),
+    ].compactMap { $0?.resolvingSymlinksInPath().standardizedFileURL }
+
+    return candidates.first(where: isRegularFile)
+  }
+
+  static func isSafeRelativePathComponent(_ component: String) -> Bool {
+    !component.isEmpty &&
+      component != "." &&
+      component != ".." &&
+      !component.contains("\\")
+  }
+
+  static func isRegularFile(_ url: URL) -> Bool {
+    (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+  }
+
+  static func error(for url: URL?) -> NSError {
+    NSError(
+      domain: "EditorChunkLoader",
+      code: 1,
+      userInfo: [NSURLErrorKey: url?.absoluteString ?? ""]
+    )
+  }
+
   static let mimeTypes = [
     "js": "text/javascript",
     "css": "text/css",

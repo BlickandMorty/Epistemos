@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@Suite("Plan 2 live highlighter scaffold deletion guard")
+@Suite("Plan 2 live highlighter scaffold legacy guard")
 struct LiveHighlighterVerdictGuardTests {
     private var repoRootURL: URL {
         URL(fileURLWithPath: #filePath)
@@ -15,11 +15,11 @@ struct LiveHighlighterVerdictGuardTests {
         )
     }
 
-    @Test("unused live editor controller and highlighter scaffold files stay deleted")
-    func unusedLiveEditorControllerAndHighlighterScaffoldFilesStayDeleted() {
-        #expect(!repoFileExists("Epistemos/Engine/LiveCodeEditorController.swift"))
-        #expect(!repoFileExists("Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift"))
-        #expect(!repoFileExists("Epistemos/Engine/SyntaxCoreLiveHighlighter.swift"))
+    @Test("unused live editor controller and highlighter scaffold files stay legacy-only")
+    func unusedLiveEditorControllerAndHighlighterScaffoldFilesStayLegacyOnly() {
+        #expect(repoFileExists("Epistemos/Engine/LiveCodeEditorController.swift"))
+        #expect(repoFileExists("Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift"))
+        #expect(repoFileExists("Epistemos/Engine/SyntaxCoreLiveHighlighter.swift"))
         #expect(!repoFileExists("EpistemosTests/LiveCodeEditorControllerTests.swift"))
         #expect(!repoFileExists("EpistemosTests/SwiftTreeSitterLiveHighlighterTests.swift"))
         #expect(!repoFileExists("EpistemosTests/SyntaxCoreLiveHighlighterTests.swift"))
@@ -36,6 +36,8 @@ struct LiveHighlighterVerdictGuardTests {
         #expect(!source.contains("LiveCodeEditorController("))
         #expect(!source.contains("SwiftTreeSitterLiveHighlighter"))
         #expect(!source.contains("SyntaxCoreLiveHighlighter"))
+        #expect(source.contains(#"@AppStorage("codeEditor.useLegacyV1Editor")"#))
+        #expect(source.contains("WebKitCodeEditorView("))
         #expect(adapter.contains("MarkEditCoreEditorBridge"))
     }
 }

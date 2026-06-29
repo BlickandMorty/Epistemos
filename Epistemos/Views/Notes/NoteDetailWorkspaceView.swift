@@ -32,6 +32,43 @@ private struct CodeFileBodySnapshot: Equatable, Sendable {
     }
 }
 
+enum MarkdownDocumentLens: String, CaseIterable, Hashable {
+    case note
+    case source
+
+    var label: String {
+        switch self {
+        case .note:
+            "Note"
+        case .source:
+            "Source"
+        }
+    }
+}
+
+@MainActor
+private enum MarkdownDocumentLensPreferences {
+    static func key(pageId: String, filePath: String?) -> String {
+        let pathKey = filePath?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stablePath = pathKey?.isEmpty == false ? pathKey! : "inline"
+        return "epistemos.markdownLens.\(pageId).\(stablePath)"
+    }
+
+    static func lens(pageId: String, filePath: String?) -> MarkdownDocumentLens {
+        let value = UserDefaults.standard.string(forKey: key(pageId: pageId, filePath: filePath))
+        return value.flatMap(MarkdownDocumentLens.init(rawValue:)) ?? .note
+    }
+
+    static func set(_ lens: MarkdownDocumentLens, pageId: String, filePath: String?) {
+        UserDefaults.standard.set(lens.rawValue, forKey: key(pageId: pageId, filePath: filePath))
+    }
+}
+
+private struct SourceEditorRoute {
+    let filePath: String
+    let language: String
+}
+
 enum NoteEditorViewFinder {
     static func findEditorTextView(for pageId: String? = nil) -> NSTextView? {
         if let tv = noteEditorTextView(
@@ -600,6 +637,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
+    @State private var markdownLensOverrides: [String: MarkdownDocumentLens] = [:]
     @State private var persistedBody: String
     @State private var showLegacyRecoverySheet = false
     @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
@@ -1078,12 +1116,11 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    /// Whether the current page is routed to CodeEditorView (code chrome or MarkEdit markdown chrome).
+    /// Whether the current page is routed to the Source editor (code files always,
+    /// markdown files only when their per-document lens is Source).
     private var isCodeFile: Bool {
-        guard let page = pages.first,
-              let path = page.filePath,
-              CodeLanguage.detectEditorLanguage(from: path) != nil else { return false }
-        return true
+        guard let page = pages.first else { return false }
+        return sourceEditorRoute(for: page) != nil
     }
 
     private var noteFooter: some View {
@@ -1142,8 +1179,8 @@ struct NoteDetailWorkspaceView: View {
 
     private var codeFileLineCount: Int {
         guard let page = pages.first,
-              let path = page.filePath else { return 0 }
-        let content = cachedCodeFileContent(page: page, filePath: path)
+              let route = sourceEditorRoute(for: page) else { return 0 }
+        let content = cachedCodeFileContent(page: page, filePath: route.filePath)
         return content.components(separatedBy: "\n").count
     }
 
@@ -1178,21 +1215,20 @@ struct NoteDetailWorkspaceView: View {
     @ViewBuilder
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
         Group {
-            if let path = page.filePath,
-               let lang = CodeLanguage.detectEditorLanguage(from: path) {
+            if let route = sourceEditorRoute(for: page) {
                 CodeEditorView(
-                    content: cachedCodeFileContent(page: page, filePath: path),
-                    language: lang,
-                    filePath: path,
+                    content: cachedCodeFileContent(page: page, filePath: route.filePath),
+                    language: route.language,
+                    filePath: route.filePath,
                     onContentChange: { newContent in
-                        saveCodeFileContent(page: page, filePath: path, content: newContent)
+                        saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
                     },
                     // SS-GC: in the embedded home graph, give the code editor the same
                     // landing-variant theme the prose branch gets, so its top bar paints the
                     // graph backdrop instead of a white card. nil elsewhere = unchanged.
                     themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
                 )
-                .id("\(page.id)::\(path)")
+                .id("\(page.id)::\(route.filePath)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
                 let initialBodyOverride = currentModeBodySnapshot(for: page.id)
@@ -1307,6 +1343,8 @@ struct NoteDetailWorkspaceView: View {
         .help(showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)")
 
         if let page = pages.first {
+            markdownLensPicker(for: page)
+
             ViewOriginalPDFAffordance(
                 page: page,
                 vaultURL: vaultSync.vaultURL,
@@ -1317,6 +1355,26 @@ struct NoteDetailWorkspaceView: View {
         }
 
         moreMenu
+    }
+
+    @ViewBuilder
+    private func markdownLensPicker(for page: SDPage) -> some View {
+        if isMarkdownDocument(page) {
+            Picker(
+                "Markdown Lens",
+                selection: Binding(
+                    get: { markdownLens(for: page) },
+                    set: { setMarkdownLens($0, for: page) }
+                )
+            ) {
+                ForEach(MarkdownDocumentLens.allCases, id: \.self) { lens in
+                    Text(lens.label).tag(lens)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 142)
+            .help("Switch Markdown lens")
+        }
     }
 
     private var graphToolbarNavigationControls: some View {
@@ -1665,15 +1723,55 @@ struct NoteDetailWorkspaceView: View {
         return page.body
     }
 
+    private func isMarkdownDocument(_ page: SDPage) -> Bool {
+        CodeLanguage.isMarkdownDocument(path: page.filePath)
+    }
+
+    private func markdownLensKey(for page: SDPage) -> String {
+        MarkdownDocumentLensPreferences.key(pageId: page.id, filePath: page.filePath)
+    }
+
+    private func markdownLens(for page: SDPage) -> MarkdownDocumentLens {
+        guard isMarkdownDocument(page) else { return .source }
+        let key = markdownLensKey(for: page)
+        if let override = markdownLensOverrides[key] {
+            return override
+        }
+        return MarkdownDocumentLensPreferences.lens(pageId: page.id, filePath: page.filePath)
+    }
+
+    private func setMarkdownLens(_ lens: MarkdownDocumentLens, for page: SDPage) {
+        guard isMarkdownDocument(page) else { return }
+        flushCurrentEditor()
+        let key = markdownLensKey(for: page)
+        markdownLensOverrides[key] = lens
+        MarkdownDocumentLensPreferences.set(lens, pageId: page.id, filePath: page.filePath)
+        showPreview = false
+        scheduleCodeFileBodyRefresh(for: page)
+    }
+
+    private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute? {
+        guard let path = page.filePath,
+              !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        if CodeLanguage.isMarkdownDocument(path: path) {
+            guard markdownLens(for: page) == .source else { return nil }
+            return SourceEditorRoute(filePath: path, language: "markdown")
+        }
+        guard let language = CodeLanguage.detect(from: path) else { return nil }
+        return SourceEditorRoute(filePath: path, language: language)
+    }
+
     private func scheduleCodeFileBodyRefresh(for page: SDPage?) {
         codeFileLoadTask?.cancel()
         guard let page,
-              let filePath = page.filePath,
-              CodeLanguage.detectEditorLanguage(from: filePath) != nil else {
+              let route = sourceEditorRoute(for: page) else {
             codeFileBodySnapshot = nil
             return
         }
 
+        let filePath = route.filePath
         guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
                 "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .public)"

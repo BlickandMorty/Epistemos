@@ -29,8 +29,11 @@ nonisolated struct CodeEditorPolishTests {
         #expect(!CodeLanguage.isMarkdownDocument(filePath: "/tmp/Package.swift", language: "swift"))
 
         let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
-        #expect(workspaceSource.contains("let lang = CodeLanguage.detectEditorLanguage(from: path)"))
-        #expect(workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
+        #expect(workspaceSource.contains("private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute?"))
+        #expect(workspaceSource.contains("guard markdownLens(for: page) == .source else { return nil }"))
+        #expect(workspaceSource.contains(#"return SourceEditorRoute(filePath: path, language: "markdown")"#))
+        #expect(!workspaceSource.contains("let lang = CodeLanguage.detectEditorLanguage(from: path)"))
+        #expect(!workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
     }
 
     // MARK: - OutlineParserCache (item 3)
@@ -156,6 +159,26 @@ nonisolated struct CodeEditorPolishTests {
                 "after detach() the closure must never fire — got \(deliveries)")
     }
 
+    @Test("flush delivers the latest text before a lens switch detaches the debouncer")
+    @MainActor
+    func debouncerFlushesBeforeDetach() async throws {
+        let window: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(200)
+        var deliveries: [String] = []
+        let debouncer = CodeEditorContentDebouncer(
+            quietWindow: window
+        ) { latest in
+            deliveries.append(latest)
+        }
+
+        debouncer.enqueue("stale")
+        debouncer.flush("latest")
+        debouncer.detach()
+        try await Task.sleep(for: .milliseconds(260))
+
+        #expect(deliveries == ["latest"],
+                "flush must synchronously save the visible editor text before detach drops pending debounce work.")
+    }
+
     @Test("default quiet window is 300 ms (matches CODE_EDITOR_POLISH_SCOPE.md)")
     func defaultQuietWindowIs300() {
         #expect(CodeEditorContentDebouncer.defaultQuietWindowMs == 300)
@@ -219,7 +242,7 @@ nonisolated struct CodeEditorPolishTests {
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
 
         #expect(source.contains("MarkEditCodeEditorRepresentable("),
-                "Code files must render through MarkEdit CoreEditor, not the deleted native highlighter.")
+                "Code files must render through MarkEdit CoreEditor by default, with v1 kept as an explicit fallback.")
         #expect(source.contains("theme: ui.theme"),
                 "Epistemos theme changes must feed the CoreEditor adapter.")
         #expect(adapter.contains(#"themeName: theme.isDark ? "github-dark" : "github-light""#),
@@ -231,7 +254,7 @@ nonisolated struct CodeEditorPolishTests {
         #expect(adapter.contains("lineWrapping: wrapLines"),
                 "The existing code-editor wrap preference must reach CoreEditor.")
         #expect(!source.contains("private let useMinimalTheme = false"),
-                "The deleted native minimal-theme switch must not be the code syntax gate anymore.")
+                "The old native minimal-theme switch must not be the default code syntax gate anymore.")
     }
 
     @Test("Code editor search engine finds forward matches and wraps")
@@ -409,8 +432,10 @@ nonisolated struct CodeEditorPolishTests {
 
         #expect(source.contains("CodeEditorSearchEngine.find("),
                 "The visible find bar must execute a real wrapped search instead of only accepting query text.")
-        #expect(source.contains("coreEditorSelectionRequest = CoreEditorSelectionRequest(range: match)"),
-                "Search results must be selected through the shared CoreEditor bridge.")
+        #expect(source.contains("requestEditorSelection(match)"),
+                "Search results must be selected through the active editor bridge.")
+        #expect(source.contains("webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: range)"),
+                "The v1 fallback must receive the same explicit selection requests as CoreEditor.")
         #expect(source.contains("activeSearchRange = nil"),
                 "Changing text/query/case should invalidate the stale search anchor.")
         #expect(!source.contains("_ = direction"),
@@ -558,8 +583,8 @@ nonisolated struct CodeEditorPolishTests {
                 "The verified LSP definition substrate should be reachable through an explicit user action.")
         #expect(source.contains("try await client.definition("),
                 "Definition lookup must call the real LSP definition request.")
-        #expect(source.contains("coreEditorSelectionRequest = CoreEditorSelectionRequest(range: definitionRange)"),
-                "Same-file definitions must select the real definition range through the CoreEditor bridge.")
+        #expect(source.contains("requestEditorSelection(definitionRange)"),
+                "Same-file definitions must select the real definition range through the active editor bridge.")
     }
 
     @Test("Code editor large-file affordances stay on CoreEditor")
@@ -572,7 +597,7 @@ nonisolated struct CodeEditorPolishTests {
         #expect(editor.contains("enum CodeEditorLargeFilePolicy"),
                 "The editor needs a named large-file policy instead of scattered magic thresholds.")
         #expect(editor.contains("MarkEditCodeEditorRepresentable("),
-                "Large code files should use the MarkEdit CoreEditor engine instead of reviving the native fallback.")
+                "Large code files should use the MarkEdit CoreEditor engine by default, with v1 only behind the legacy toggle.")
         #expect(editor.contains("showLineNumbers: showLineGutter"),
                 "The Epistemos line-number toggle must route into CoreEditor config.")
         #expect(adapter.contains("const lineCount = state.doc.lines"),
@@ -582,7 +607,7 @@ nonisolated struct CodeEditorPolishTests {
         #expect(adapter.contains("document.addEventListener(\"selectionchange\", scheduleSnapshot, true)"),
                 "Cursor/selection tracking should come from the CoreEditor bridge.")
         #expect(!editor.contains("textController?.textView"),
-                "CodeEditorView must not depend on the deleted native text controller after the MarkEdit swap.")
+                "CodeEditorView must not depend on the old native text controller for the default MarkEdit surface.")
         #expect(!editor.contains("gutterView"),
                 "The dormant fallback gutter must not be mounted on the production code path.")
         #expect(!editor.contains("CodeEditorLineMetrics.textWindow("),

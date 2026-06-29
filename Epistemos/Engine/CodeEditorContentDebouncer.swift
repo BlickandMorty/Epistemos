@@ -42,6 +42,7 @@ public final class CodeEditorContentDebouncer {
     nonisolated public static let defaultQuietWindowMs: Int = 300
 
     private let subject = PassthroughSubject<String, Never>()
+    private let process: @Sendable @MainActor (String) -> Void
     private var subscription: AnyCancellable?
 
     /// Build a debouncer with a 300 ms quiet window by default.
@@ -52,11 +53,13 @@ public final class CodeEditorContentDebouncer {
             .milliseconds(CodeEditorContentDebouncer.defaultQuietWindowMs),
         process: @escaping @Sendable @MainActor (String) -> Void
     ) {
+        self.process = process
         self.subscription = subject
             .debounce(for: quietWindow, scheduler: DispatchQueue.main)
-            .sink { latest in
+            .sink { [weak self] latest in
+                guard let self else { return }
                 MainActor.assumeIsolated {
-                    process(latest)
+                    self.process(latest)
                 }
             }
     }
@@ -66,6 +69,12 @@ public final class CodeEditorContentDebouncer {
     /// `process` closure.
     public func enqueue(_ latest: String) {
         subject.send(latest)
+    }
+
+    /// Deliver the current text immediately before a view teardown or lens
+    /// switch can cancel the pending debounce.
+    public func flush(_ latest: String) {
+        process(latest)
     }
 
     /// Tear down the Combine subscription. The deinit handles this

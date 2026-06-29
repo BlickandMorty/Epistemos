@@ -1614,6 +1614,7 @@ struct CodeEditorView: View {
     @State private var semanticLookupTask: Task<Void, Never>?
     @State private var contentDebouncer: CodeEditorContentDebouncer?
     @State private var coreEditorSelectionRequest: CoreEditorSelectionRequest?
+    @State private var webKitSelectionRequest: WebKitCodeEditorSelectionRequest?
     
     // MARK: - Editor Preferences (persisted via AppStorage)
     
@@ -1626,10 +1627,15 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
+    @AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false
     @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
 
     private var isMarkdownDocument: Bool {
         CodeLanguage.isMarkdownDocument(filePath: filePath, language: language)
+    }
+
+    private var usesLegacyV1Editor: Bool {
+        useLegacyV1Editor && !isMarkdownDocument
     }
     
     // MARK: - UI State
@@ -1707,6 +1713,7 @@ struct CodeEditorView: View {
                 semanticLookupTask?.cancel()
                 livePreviewTask?.cancel()
                 livePreviewTask = nil
+                contentDebouncer?.flush(text)
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
@@ -2048,9 +2055,12 @@ struct CodeEditorView: View {
         let starts = CodeEditorLineMetrics.lineStartUTF16Offsets(in: text)
         let index = min(max(line - 1, 0), max(starts.count - 1, 0))
         let location = starts.isEmpty ? 0 : starts[index]
-        coreEditorSelectionRequest = CoreEditorSelectionRequest(
-            range: NSRange(location: location, length: 0)
-        )
+        requestEditorSelection(NSRange(location: location, length: 0))
+    }
+
+    private func requestEditorSelection(_ range: NSRange) {
+        coreEditorSelectionRequest = CoreEditorSelectionRequest(range: range)
+        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: range)
     }
     
     private var editorWithSearch: some View {
@@ -2076,21 +2086,36 @@ struct CodeEditorView: View {
 
     @ViewBuilder
     private var codeEditorSurface: some View {
-        MarkEditCodeEditorRepresentable(
-            text: $text,
-            cursorLine: $cursorLine,
-            cursorColumn: $cursorCol,
-            totalLines: $totalLines,
-            language: language,
-            theme: ui.theme,
-            fontSize: fontSize,
-            wrapLines: wrapLines,
-            showLineNumbers: showLineGutter,
-            showInvisibles: showInvisibles,
-            useSpaces: useSpaces,
-            tabWidth: tabWidth,
-            selectionRequest: coreEditorSelectionRequest
-        )
+        if usesLegacyV1Editor {
+            WebKitCodeEditorView(
+                text: $text,
+                cursorLine: $cursorLine,
+                cursorColumn: $cursorCol,
+                totalLines: $totalLines,
+                language: language,
+                theme: ui.theme,
+                fontSize: fontSize,
+                wrapLines: wrapLines,
+                showLineNumbers: showLineGutter,
+                selectionRequest: webKitSelectionRequest
+            )
+        } else {
+            MarkEditCodeEditorRepresentable(
+                text: $text,
+                cursorLine: $cursorLine,
+                cursorColumn: $cursorCol,
+                totalLines: $totalLines,
+                language: language,
+                theme: ui.theme,
+                fontSize: fontSize,
+                wrapLines: wrapLines,
+                showLineNumbers: showLineGutter,
+                showInvisibles: showInvisibles,
+                useSpaces: useSpaces,
+                tabWidth: tabWidth,
+                selectionRequest: coreEditorSelectionRequest
+            )
+        }
     }
 
     private var codeLivePreview: some View {
@@ -2544,7 +2569,7 @@ struct CodeEditorView: View {
         }
 
         activeSearchRange = match
-        coreEditorSelectionRequest = CoreEditorSelectionRequest(range: match)
+        requestEditorSelection(match)
     }
 
     // MARK: - Semantic LSP Lookup
@@ -2639,7 +2664,7 @@ struct CodeEditorView: View {
                     if definition.uri == documentURI,
                        let definitionRange = CodeEditorSemanticLSP.nsRange(for: definition.range, in: textSnapshot) {
                         activeSearchRange = nil
-                        coreEditorSelectionRequest = CoreEditorSelectionRequest(range: definitionRange)
+                        requestEditorSelection(definitionRange)
                         cursorLine = lineNumber
                         cursorCol = definition.range.start.character + 1
                         semanticStatusMessage = "Definition selected at line \(lineNumber)."
@@ -2670,6 +2695,10 @@ struct CodeEditorView: View {
                 showGoToLineSheet = true
             } label: {
                 Label("Go to Line", systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+
+            Section("Legacy") {
+                Toggle("Use v1 Legacy Editor", isOn: $useLegacyV1Editor)
             }
 
             // Indentation settings
