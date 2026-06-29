@@ -108,13 +108,14 @@ struct WorkNativeMCPServerTests {
         #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "Bearer "]) == nil)
     }
 
-    @Test("isAllowedOrigin: absent/null/loopback allowed, routable refused")
+    @Test("isAllowedOrigin: absent/loopback allowed, opaque/routable refused")
     func originRules() {
         #expect(WorkNativeMCPServer.isAllowedOrigin(headers: [:]))
-        #expect(WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "null"]))
+        #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "null"]))
         #expect(WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://localhost:3000"]))
         #expect(WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://127.0.0.1:9"]))
         #expect(WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://[::1]:3000"]))
+        #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "file://localhost/private.html"]))
         #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "https://app.evil.com"]))
     }
 

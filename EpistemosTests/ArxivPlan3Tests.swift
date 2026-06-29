@@ -119,6 +119,24 @@ struct ArxivPlan3Tests {
         #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
     }
 
+    @Test("PDF URL policy rejects non-canonical arXiv download links")
+    func rejectsNonCanonicalPDFLinks() throws {
+        for href in [
+            "https://token@arxiv.org/pdf/2401.12345v2",
+            "https://arxiv.org/pdf/2401.12345v2?download=1",
+            "https://arxiv.org/pdf/2401.12345v2#page=1",
+            "https://arxiv.org/pdf/",
+        ] {
+            let url = try #require(URL(string: href))
+            #expect(ArxivPDFURLPolicy.normalizedAllowedURL(url) == nil)
+
+            let atom = Self.atomFixture.replacingOccurrences(
+                of: "https://arxiv.org/pdf/2401.12345v2",
+                with: href)
+            #expect(try ArxivClient.parseSearchResponse(Data(atom.utf8)).isEmpty)
+        }
+    }
+
     @Test("gate defaults on and honors explicit kill switch")
     func gateStatus() {
         #expect(ArxivPullGateStatus.status(environment: [:]).isActive)

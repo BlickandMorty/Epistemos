@@ -229,11 +229,15 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
     /// Non-browser clients (OpenCode/Bun) send no Origin → allow. A browser-set Origin must be loopback.
     static func isAllowedOrigin(headers: [String: String]) -> Bool {
         guard let origin = headers["origin"], !origin.isEmpty else { return true }  // non-browser client → no Origin
-        if origin == "null" { return true }
         // Parse the Origin's HOST and EXACT-match loopback. A substring check would wrongly allow
         // `http://127.0.0.1.evil.com` / `http://localhost.evil.com` (DNS-rebinding-style host spoof). Fail
         // closed on an unparseable Origin. (Defense-in-depth; the per-launch bearer token is the primary gate.)
-        guard let host = URLComponents(string: origin)?.host else { return false }
+        guard let components = URLComponents(string: origin),
+              let scheme = components.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = components.host?.lowercased() else {
+            return false
+        }
         return host == "127.0.0.1" || host == "localhost" || host == "::1" || host == "[::1]"
     }
 

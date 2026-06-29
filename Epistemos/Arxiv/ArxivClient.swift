@@ -65,7 +65,15 @@ nonisolated enum ArxivPDFURLPolicy {
               host == "arxiv.org" || host == "export.arxiv.org" else {
             return nil
         }
-        guard url.path.lowercased().hasPrefix("/pdf/") else {
+        guard components.user == nil,
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil else {
+            return nil
+        }
+        let path = components.percentEncodedPath
+        guard path.lowercased().hasPrefix("/pdf/"),
+              path.count > "/pdf/".count else {
             return nil
         }
         components.scheme = "https"
