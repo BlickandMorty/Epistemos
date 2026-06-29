@@ -31,13 +31,38 @@ struct VoiceCodepackPlan3Tests {
         let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_VOICE_CODEPACK_2026_06_28.md")
 
         for stale in [
+            "clone-ready",
+            "[INFERRED]",
             "One Settings toggle is still inert",
             "Composer STT is currently disabled",
             "Live macOS 26 STT exists but is orphaned",
             "still renders a mic affordance over that stub",
-            "no user-facing composer/meeting surface calls it"
+            "no user-facing composer/meeting surface calls it",
+            "runs summary through existing chat engines"
         ] {
             #expect(!plan.contains(stale), "Voice codepack kept stale contradiction: \(stale)")
+        }
+    }
+
+    @Test("voice codepack and rollup mark shipped state honestly")
+    func voiceCodepackAndRollupMarkShippedStateHonestly() throws {
+        let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_VOICE_CODEPACK_2026_06_28.md")
+        let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+
+        #expect(plan.contains("shipped code"))
+        #expect(plan.contains("## Shipped state"))
+        #expect(plan.contains("## Delivered MAS-safe fixes"))
+        #expect(plan.contains("## Pro Kokoro lane `[STATUS GATE DELIVERED; RUNTIME DEFERRED]`"))
+        #expect(plan.contains("## Delivery order"))
+        #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
+        #expect(capabilities.contains("Kokoro-82M is Pro-only status-gated"))
+        #expect(capabilities.contains("no model asset, picker row, neural runtime, Python, or"))
+
+        for stale in [
+            "Research/code in a later pass",
+            "Kokoro-82M Pro voice + SSML",
+        ] where capabilities.contains(stale) {
+            Issue.record("Plan 3 capabilities still contains stale Voice phrase: \(stale)")
         }
     }
 

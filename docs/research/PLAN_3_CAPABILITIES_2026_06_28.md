@@ -330,9 +330,11 @@ Owner flagged that Plan 3 got narrowed and dropped items they wanted to research
 
 ## 11. Recovered additions (owner-confirmed 2026-06-28)
 Folded in as clean Plan-3 capabilities:
-- **Voice** — premium Apple voice default + fix the macOS-26 voice-by-language regression + Kokoro-82M Pro voice + SSML
-  prosody + granular auto-read/STT toggles. Fully on-device (Apple Speech/AVSpeech, no cloud STT), MAS-safe; sits beside
-  §6 Apple-native. (Research/code in a later pass.)
+- **Voice — SHIPPED (Pass 8):** Apple AVSpeech TTS wrapper, quality-first preferred voice resolution, global voice
+  picker, premium-download hint, SSML/prosody fallback, consumer-backed Auto/Manual toggles, and live Apple STT facade
+  through `LiveVoiceInputService` are wired. `VoiceInputButton` consumes the live facade and no longer points at the
+  removed composer stub. Kokoro-82M is Pro-only status-gated; no model asset, picker row, neural runtime, Python, or
+  subprocess enters the MAS path.
 - **Whole-app brand-logo coverage** — the non-model pass (engines/integrations/MCP/marketplace/tools + an every-button
   audit), building on the already-shipped model-logo work. Cross-cutting UI polish.
 

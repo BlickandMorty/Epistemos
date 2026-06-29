@@ -1,11 +1,10 @@
-# Plan 3 — Voice codepack (clone-ready, Pass 8)
+# Plan 3 — Voice codepack (shipped code, Pass 8)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §11`. Scope: Apple-native voice polish first, then Pro neural voice.
 > This codepack is grounded in current source and supersedes older broad voice notes where they conflict. Plan 3 owns
-> voice engines/settings/shared controls; Plan 2 editor surfaces are integration consumers only. `[VERIFIED-CODE]`/
-> `[INFERRED]` tagged.
+> voice engines/settings/shared controls; Plan 2 editor surfaces are integration consumers only.
 
-## Current state `[VERIFIED-CODE]`
+## Shipped state `[VERIFIED-CODE]`
 - **TTS is real and MAS-safe:** `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` wraps `AVSpeechSynthesizer` as
   `@MainActor @Observable`, supports speak/pause/resume/stop, per-range progress, voice catalogue, global default voice
   identifier, and honest `voiceQualityHint()`.
@@ -31,7 +30,7 @@
   requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps AVSpeech as the
   runtime. There is still no Kokoro model asset, picker row, or neural runtime.
 
-## Immediate MAS-safe fixes
+## Delivered MAS-safe fixes
 1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
    Premium > Enhanced > Default, with current locale only as a tie-breaker.
 2. **Add SSML/prosody fallback path.** `[DONE]` `speak(..., prosody:)` tries
@@ -48,10 +47,10 @@
 Meeting/lecture note should get its own codepack, but Voice provides the reusable live STT facade:
 - `LiveVoiceInputService` owns start/stop/readiness, maps `EpistemosSpeechAnalyzer.LiveResult` to UI-friendly partial/final
   text, and exposes explicit unavailable states.
-- Meeting capture builds on that facade, materializes transcript into a note, and runs summary through existing chat
-  engines. It must not couple directly to the composer mic button.
+- Meeting capture builds on that facade, materializes transcript into a note, and saves through the deterministic
+  `TextCapturePipeline` path. It must not couple directly to the composer mic button.
 
-## Pro Kokoro lane `[INFERRED]`
+## Pro Kokoro lane `[STATUS GATE DELIVERED; RUNTIME DEFERRED]`
 Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `[DONE]` Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.ready`.
 - Store model assets outside MAS target resources; never commit model weights.
@@ -59,7 +58,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - Picker row must say "Pro neural voice" and fall back to AVSpeech instantly when missing.
 - Do not add Python/subprocess inference on the MAS path.
 
-## Files to touch first
+## Shipped files / source guards
 - `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — preferred voice floor + utterance builder/SSML fallback.
 - `Epistemos/Engine/VoicePreferences.swift` — keep keys, but only expose keys with consumers.
 - `Epistemos/Views/Settings/VoicePreferencesSection.swift` — remove or honestly gate `agentResponseTTS` until wired.
@@ -82,7 +81,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
 - MAS boundary guard proves no Kokoro weights, Python, subprocess, or Chromium-like runtime enters the App Store target.
 
-## Build order
+## Delivery order
 1. [DONE] Patch the AVSpeech preferred voice floor and add tests.
 2. [DONE] Wire or remove `agentResponseTTS`; add a source guard so it cannot regress to a visible no-op.
 3. [DONE] Add `LiveVoiceInputService` over `EpistemosSpeechAnalyzer`.
