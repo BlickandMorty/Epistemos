@@ -129,6 +129,20 @@ nonisolated enum BrowserUseRuntimeSupervisorError: Error, Equatable, LocalizedEr
     }
 }
 
+nonisolated struct BrowserUseRuntimeProcessHandle {
+    private let terminateProcess: () -> Void
+
+    init(terminate: @escaping () -> Void) {
+        self.terminateProcess = terminate
+    }
+
+    func terminate() {
+        terminateProcess()
+    }
+}
+
+typealias BrowserUseRuntimeProcessLauncher = (BrowserUseRuntimeLaunchPlan) throws -> BrowserUseRuntimeProcessHandle
+
 nonisolated enum BrowserUseEnvironmentFileWriter {
     static func write(
         _ contents: String,
@@ -159,15 +173,17 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private let paths: BrowserUseRuntimePaths
     private let secretStore: BrowserUseSecretStore
     private let fileManager: FileManager
+    private let launchProcess: BrowserUseRuntimeProcessLauncher
 
     #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-    private var process: Process?
+    private var process: BrowserUseRuntimeProcessHandle?
     #endif
 
     init?(
         paths: BrowserUseRuntimePaths? = BrowserUseRuntimePaths.defaultPaths(),
         secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        launchProcess: @escaping BrowserUseRuntimeProcessLauncher = BrowserUseRuntimeSupervisor.defaultLaunchProcess
     ) {
         guard let paths else {
             return nil
@@ -175,16 +191,19 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         self.paths = paths
         self.secretStore = secretStore
         self.fileManager = fileManager
+        self.launchProcess = launchProcess
     }
 
     init(
         paths: BrowserUseRuntimePaths,
         secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        launchProcess: @escaping BrowserUseRuntimeProcessLauncher = BrowserUseRuntimeSupervisor.defaultLaunchProcess
     ) {
         self.paths = paths
         self.secretStore = secretStore
         self.fileManager = fileManager
+        self.launchProcess = launchProcess
     }
 
     func readiness(
@@ -233,13 +252,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             throw BrowserUseRuntimeSupervisorError.appStoreBuild
             #else
-            let runtime = Process()
-            runtime.executableURL = plan.pythonExecutableURL
-            runtime.arguments = plan.arguments
-            runtime.currentDirectoryURL = plan.workingDirectoryURL
-            runtime.environment = plan.environment
-            try runtime.run()
-            process = runtime
+            stop()
+            process = try launchProcess(plan)
             return plan
             #endif
         }
@@ -249,6 +263,22 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         process?.terminate()
         process = nil
+        #endif
+    }
+
+    private static func defaultLaunchProcess(_ plan: BrowserUseRuntimeLaunchPlan) throws -> BrowserUseRuntimeProcessHandle {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        throw BrowserUseRuntimeSupervisorError.appStoreBuild
+        #else
+        let runtime = Process()
+        runtime.executableURL = plan.pythonExecutableURL
+        runtime.arguments = plan.arguments
+        runtime.currentDirectoryURL = plan.workingDirectoryURL
+        runtime.environment = plan.environment
+        try runtime.run()
+        return BrowserUseRuntimeProcessHandle {
+            runtime.terminate()
+        }
         #endif
     }
 

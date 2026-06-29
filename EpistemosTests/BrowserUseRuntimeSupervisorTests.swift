@@ -108,6 +108,43 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(fileMode == 0o600)
     }
 
+    @Test("start terminates the existing Pro runtime before relaunch")
+    func startTerminatesExistingProRuntimeBeforeRelaunch() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        let firstProcess = FakeBrowserUseRuntimeProcess()
+        let secondProcess = FakeBrowserUseRuntimeProcess()
+        var pendingProcesses: [FakeBrowserUseRuntimeProcess] = [firstProcess, secondProcess]
+        var launchedPlans: [BrowserUseRuntimeLaunchPlan] = []
+        let supervisor = BrowserUseRuntimeSupervisor(
+            paths: paths,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            launchProcess: { plan in
+                launchedPlans.append(plan)
+                let process = pendingProcesses.removeFirst()
+                return BrowserUseRuntimeProcessHandle {
+                    process.terminate()
+                }
+            }
+        )
+
+        try supervisor.start(processEnvironment: [BrowserUseProGateStatus.flagName: "1"])
+        #expect(firstProcess.terminationCount == 0)
+
+        try supervisor.start(processEnvironment: [BrowserUseProGateStatus.flagName: "1"])
+        #expect(firstProcess.terminationCount == 1)
+        #expect(secondProcess.terminationCount == 0)
+        #expect(launchedPlans.count == 2)
+
+        supervisor.stop()
+        #expect(secondProcess.terminationCount == 1)
+        #else
+        #expect(true)
+        #endif
+    }
+
     @Test("runtime supervisor source keeps subprocess launch out of MAS branch and browser boundary")
     func runtimeSupervisorSourceKeepsSubprocessLaunchOutOfMASBranchAndBrowserBoundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift")
@@ -120,12 +157,10 @@ struct BrowserUseRuntimeSupervisorTests {
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
             "BrowserUseLoopbackPolicy.loopbackURL",
-            """
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            throw BrowserUseRuntimeSupervisorError.appStoreBuild
-            #else
-            let runtime = Process()
-            """,
+            "stop()",
+            "process = try launchProcess(plan)",
+            "private static func defaultLaunchProcess",
+            "let runtime = Process()",
             "runtime.executableURL = plan.pythonExecutableURL",
             "web-ui entrypoint",
             "Playwright Chromium payload",
@@ -269,5 +304,13 @@ struct BrowserUseRuntimeSupervisorTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         try? FileManager.default.removeItem(at: root)
+    }
+}
+
+private final class FakeBrowserUseRuntimeProcess {
+    private(set) var terminationCount = 0
+
+    func terminate() {
+        terminationCount += 1
     }
 }
