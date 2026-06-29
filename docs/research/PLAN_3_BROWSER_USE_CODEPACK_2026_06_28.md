@@ -114,8 +114,9 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
 - Agent browser tools: `agent_core/src/tools/browser.rs` shells out to the bundled browser-use adapter when
   `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` is set, otherwise to a user-installed
   `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, SSRF/private URL
-  blocking, credential-assignment redaction for token/api-key/password/secret variants, owner-only browser
-  daemon/socket/screenshot directories, and `PYTHON_DOTENV_DISABLED=true` for the subprocess environment. The private
+  blocking, credential-assignment redaction for token/api-key/password/secret variants plus auth-scheme follower
+  tokens, owner-only browser daemon/socket/screenshot directories, and `PYTHON_DOTENV_DISABLED=true` for the subprocess
+  environment. The private
   directory policy is isolated in `agent_core/src/tools/browser_private.rs`: Rust rejects pre-existing symlink paths
   and non-current-user ownership for those private browser directories before launch or chmod, so
   session/socket/screenshot roots cannot be redirected through `/tmp` symlinks or hostile pre-created

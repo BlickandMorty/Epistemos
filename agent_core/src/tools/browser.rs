@@ -887,9 +887,19 @@ fn read_limited_browser_output(path: &Path, stream: &str) -> Result<String, Tool
 }
 
 fn redact_browser_error_detail(raw: &str) -> String {
+    let mut redact_next = false;
     let collapsed = raw
         .split_whitespace()
-        .map(redact_browser_error_token)
+        .map(|token| {
+            let lower = token.to_ascii_lowercase();
+            let should_redact = redact_next;
+            redact_next = redacts_following_auth_value(&lower);
+            if should_redact {
+                "[redacted]".to_string()
+            } else {
+                redact_browser_error_token(token)
+            }
+        })
         .collect::<Vec<_>>()
         .join(" ");
     let mut limited: String = collapsed.chars().take(MAX_BROWSER_ERROR_CHARS).collect();
@@ -942,6 +952,28 @@ fn contains_secret_assignment(lower_token: &str, key: &str) -> bool {
     ["=", ":", "%3d", "%3a"]
         .iter()
         .any(|separator| lower_token.contains(&format!("{key}{separator}")))
+}
+
+fn redacts_following_auth_value(lower_token: &str) -> bool {
+    let token = lower_token.trim_matches(|value: char| {
+        matches!(value, '"' | '\'' | ',' | ';' | '[' | ']' | '(' | ')')
+    });
+    matches!(
+        token,
+        "authorization:"
+            | "proxy-authorization:"
+            | "bearer"
+            | "basic"
+            | "token:"
+            | "access_token:"
+            | "refresh_token:"
+            | "api-key:"
+            | "x-api-key:"
+            | "api_key:"
+            | "apikey:"
+            | "password:"
+            | "secret:"
+    )
 }
 
 fn extract_screenshot_path(text: &str) -> Option<String> {
@@ -1501,7 +1533,8 @@ esac
     #[test]
     fn browser_error_redaction_covers_secret_assignment_variants() {
         let detail = redact_browser_error_detail(
-            "Authorization: Bearer abc access_token:tok refresh_token=refresh \
+            "Authorization: Bearer opaqueBearerValue Proxy-Authorization: Basic basic-secret \
+             Api-Key: split-key access_token:tok refresh_token=refresh \
              api-key=key x-api-key:key api_key%3Dencoded password:pw secret%3Ahidden \
              https://user:pass@example.com/path",
         );
@@ -1517,6 +1550,9 @@ esac
             "password",
             "secret",
             "user:pass",
+            "opaqueBearerValue",
+            "basic-secret",
+            "split-key",
             "tok",
             "refresh",
             "hidden",
