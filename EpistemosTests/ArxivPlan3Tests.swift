@@ -121,10 +121,17 @@ struct ArxivPlan3Tests {
 
     @Test("PDF URL policy rejects non-canonical arXiv download links")
     func rejectsNonCanonicalPDFLinks() throws {
+        let oldStylePDF = try #require(URL(string: "https://arxiv.org/pdf/hep-th/9901001v2"))
+        #expect(ArxivPDFURLPolicy.normalizedAllowedURL(oldStylePDF)?.absoluteString == "https://arxiv.org/pdf/hep-th/9901001v2")
+
         for href in [
             "https://token@arxiv.org/pdf/2401.12345v2",
             "https://arxiv.org/pdf/2401.12345v2?download=1",
             "https://arxiv.org/pdf/2401.12345v2#page=1",
+            "https://arxiv.org/pdf/../../abs/2401.12345",
+            "https://arxiv.org/pdf/2401.12345v2/extra",
+            "https://arxiv.org/pdf/2401.12345%2Fsecret",
+            "https://arxiv.org/pdf/not-an-arxiv-id",
             "https://arxiv.org/pdf/",
         ] {
             let url = try #require(URL(string: href))
@@ -149,6 +156,7 @@ struct ArxivPlan3Tests {
         let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_ARXIV_CODEPACK_2026_06_28.md")
         let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let client = try loadMirroredSourceTextFile("Epistemos/Arxiv/ArxivClient.swift")
         let ingest = try loadMirroredSourceTextFile("Epistemos/Arxiv/ArxivIngestService.swift")
 
         #expect(codepack.contains("shipped code"))
@@ -160,6 +168,9 @@ struct ArxivPlan3Tests {
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
+        #expect(client.contains("isCanonicalPDFPath"))
+        #expect(client.contains("newStyleIDPattern"))
+        #expect(client.contains("oldStyleIDPattern"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))

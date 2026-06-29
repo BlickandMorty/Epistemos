@@ -15,7 +15,9 @@
 - **`Epistemos/Arxiv/ArxivClient.swift` [DELIVERED]** — `search(query,maxResults)` against
   `https://export.arxiv.org/api/query?search_query=…&sortBy=submittedDate` → Atom XML parsed by an `XMLParser`
   delegate (`ArxivAtomParser`) into `ArxivPaper{id,title,authors,summary,published,pdfURL,categories}` (+ `shortID`).
-  Defaults plain text to `all:`; honest errors. Networking only.
+  PDF links normalize to HTTPS only for canonical new-style or old-style `/pdf/<arxiv-id>` paths; credentials, queries,
+  fragments, encoded path tricks, traversal suffixes, and arbitrary non-ID paths are rejected before download. Defaults
+  plain text to `all:`; honest errors. Networking only.
 - **`Epistemos/Arxiv/ArxivIngestService.swift` [DELIVERED]** — `ingest(paper,vaultURL,modelContext,graphState,importer)`:
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI
   (off `@MainActor` via `Task.detached` — never block main); (3) create the paired PDF/Markdown files in a detached

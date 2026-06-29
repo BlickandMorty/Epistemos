@@ -44,6 +44,10 @@ nonisolated enum ArxivClientError: LocalizedError, Equatable, Sendable {
 nonisolated enum ArxivPDFURLPolicy {
     static let rejectedMessage = "unsupported arXiv PDF URL"
     static let rejectedFinalURLMessage = "final response URL is not an allowed HTTPS arXiv PDF URL"
+    private static let pdfPathPrefix = "/pdf/"
+    private static let maxArxivIDLength = 80
+    private static let newStyleIDPattern = #"^\d{4}\.\d{4,5}(v\d+)?$"#
+    private static let oldStyleIDPattern = #"^[A-Za-z-]+(\.[A-Za-z]{2})?/\d{7}(v\d+)?$"#
 
     static func isAllowed(_ url: URL) -> Bool {
         normalizedAllowedURL(url) != nil
@@ -71,14 +75,30 @@ nonisolated enum ArxivPDFURLPolicy {
               components.fragment == nil else {
             return nil
         }
-        let path = components.percentEncodedPath
-        guard path.lowercased().hasPrefix("/pdf/"),
-              path.count > "/pdf/".count else {
+        guard components.percentEncodedPath == components.path,
+              isCanonicalPDFPath(components.path) else {
             return nil
         }
         components.scheme = "https"
         components.host = host
         return components.url
+    }
+
+    private static func isCanonicalPDFPath(_ path: String) -> Bool {
+        guard path.hasPrefix(pdfPathPrefix) else {
+            return false
+        }
+        let id = String(path.dropFirst(pdfPathPrefix.count))
+        guard !id.isEmpty,
+              id.count <= maxArxivIDLength else {
+            return false
+        }
+        return isCanonicalArxivID(id)
+    }
+
+    private static func isCanonicalArxivID(_ id: String) -> Bool {
+        id.range(of: newStyleIDPattern, options: .regularExpression) != nil
+            || id.range(of: oldStyleIDPattern, options: .regularExpression) != nil
     }
 }
 
