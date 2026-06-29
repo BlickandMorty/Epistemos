@@ -248,7 +248,8 @@ nonisolated struct VaultMCPCore {
             guard url.pathExtension.lowercased() == "md" else { continue }
             let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
             guard values?.isRegularFile == true,
-                  let relativePath = relativePath(for: url, under: root) else {
+                  let relativePath = relativePath(for: url, under: root),
+                  (try? containedMarkdownURL(vaultRoot: root, relativePath: relativePath)) != nil else {
                 continue
             }
             paths.append(relativePath)

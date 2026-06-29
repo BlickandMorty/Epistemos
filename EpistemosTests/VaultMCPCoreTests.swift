@@ -142,7 +142,12 @@ struct VaultMCPCoreTests {
     @Test("resources/list exposes markdown notes as vault URIs and skips hidden/non-markdown files")
     func resourcesListExposesMarkdownNotes() async throws {
         let root = try Self.makeVaultRoot()
-        defer { try? FileManager.default.removeItem(at: root) }
+        let outside = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-vault-mcp-outside-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outside)
+        }
         try "Top".write(to: root.appendingPathComponent("Top.md"), atomically: true, encoding: .utf8)
         try "Needs encoding".write(
             to: root.appendingPathComponent("Space #1.md"),
@@ -159,6 +164,12 @@ struct VaultMCPCoreTests {
             to: root.appendingPathComponent(".hidden").appendingPathComponent("Hidden.md"),
             atomically: true,
             encoding: .utf8)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        let outsideNote = outside.appendingPathComponent("Outside.md")
+        try "Outside".write(to: outsideNote, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("LinkedOutside.md"),
+            withDestinationURL: outsideNote)
 
         let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
         let response = await core.handle(requestJSON: #"{"jsonrpc":"2.0","id":5,"method":"resources/list"}"#)
