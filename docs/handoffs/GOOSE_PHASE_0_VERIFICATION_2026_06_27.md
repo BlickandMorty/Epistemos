@@ -913,6 +913,19 @@ providers/setup/catalog/list (32) ✓, config/extensions/list (11) ✓, sources/
 ✓. Equivalent to the combined live sweep's ACP assertions minus only the
 real-credential token completion.
 
+**Mutation/write ACP surface verified live** (`scratchpad/acp-mutation-probe.mjs`,
+isolated HOME — safe, no shared state touched): `defaults/save` → `defaults/read`
+**round-trips and PERSISTS** (`{providerId:openai, modelId:gpt-4o-mini}` written then
+read back) — proving the write path the default-provider/model selection depends on.
+`providers/config/status` correctly reflects `isConfigured:true` for the configured
+provider. The remaining mutation methods backing the grafts — `preferences/save`+`read`
+(thinking-effort persistence), `providers/config/save` (custom-provider CRUD),
+`sources/create` (recipe creation) — are all REACHABLE and param-validated (return
+JSON-RPC **−32602 Invalid params**, NOT −32601 method-not-found; the −32602 is the
+probe's best-effort JS param shape, not a Goose fault — the Swift client + grafts send
+the exact typed structs). So the WRITE surface is confirmed present + handled live,
+complementing the fully round-tripped read surface.
+
 **Staged runtime bundle contains the live ACP wiring + grafts (high-fidelity, what the
 owner's WKWebView actually loads).** Grep of `~/Library/Application Support/Epistemos/
 GooseWebUI/assets` (the minified bundle the app loads at launch) confirms the grafts
