@@ -907,11 +907,15 @@ fn redact_browser_error_token(token: &str) -> String {
     let lower = token.to_ascii_lowercase();
     if lower.contains("authorization")
         || lower.contains("cookie")
-        || lower.contains("token=")
-        || lower.contains("api_key=")
-        || lower.contains("apikey=")
-        || lower.contains("password=")
-        || lower.contains("secret=")
+        || contains_secret_assignment(&lower, "token")
+        || contains_secret_assignment(&lower, "access_token")
+        || contains_secret_assignment(&lower, "refresh_token")
+        || contains_secret_assignment(&lower, "api_key")
+        || contains_secret_assignment(&lower, "api-key")
+        || contains_secret_assignment(&lower, "apikey")
+        || contains_secret_assignment(&lower, "x-api-key")
+        || contains_secret_assignment(&lower, "password")
+        || contains_secret_assignment(&lower, "secret")
         || lower.contains("bearer")
         || lower.contains("sk-")
         || lower.contains("ghp_")
@@ -932,6 +936,12 @@ fn redact_browser_error_token(token: &str) -> String {
     }
 
     token.to_string()
+}
+
+fn contains_secret_assignment(lower_token: &str, key: &str) -> bool {
+    ["=", ":", "%3d", "%3a"]
+        .iter()
+        .any(|separator| lower_token.contains(&format!("{key}{separator}")))
 }
 
 fn extract_screenshot_path(text: &str) -> Option<String> {
@@ -1486,6 +1496,36 @@ esac
         assert!(message.contains("[redacted]"));
         assert!(!message.contains("sk-secret-token"));
         assert!(!message.contains("user:pass"));
+    }
+
+    #[test]
+    fn browser_error_redaction_covers_secret_assignment_variants() {
+        let detail = redact_browser_error_detail(
+            "Authorization: Bearer abc access_token:tok refresh_token=refresh \
+             api-key=key x-api-key:key api_key%3Dencoded password:pw secret%3Ahidden \
+             https://user:pass@example.com/path",
+        );
+
+        assert!(detail.contains("[redacted]"));
+        for leaked in [
+            "Bearer",
+            "access_token",
+            "refresh_token",
+            "api-key",
+            "x-api-key",
+            "api_key",
+            "password",
+            "secret",
+            "user:pass",
+            "tok",
+            "refresh",
+            "hidden",
+        ] {
+            assert!(
+                !detail.contains(leaked),
+                "browser error detail leaked {leaked}: {detail}"
+            );
+        }
     }
 
     #[tokio::test]
