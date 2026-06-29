@@ -913,6 +913,15 @@ providers/setup/catalog/list (32) ✓, config/extensions/list (11) ✓, sources/
 ✓. Equivalent to the combined live sweep's ACP assertions minus only the
 real-credential token completion.
 
+**Live ACP surface recursive proof — THREE consecutive clean passes.** Ran the
+comprehensive read-only probe 3× back-to-back against one `goose serve`: every pass
+returned `SURFACE_REACHABLE 7/7` with `providers/catalog/list count=106` — identical,
+deterministic, flake-free. Combined with the deterministic layer's 53/53 × 3, BOTH
+automatable layers now meet the directive's three-consecutive-clean-passes bar. The
+recursive proof is complete for everything an agent can run; only the owner-only
+real-credential prompt + manual §7 pass remain outside it. Probe scripts
+(`scratchpad/acp-probe*.mjs`) are re-runnable against any `goose serve`.
+
 ### STEP-2 code-quality review of THIS loop's grafts (toolsCache + AlertBox)
 
 Manual quality pass over the new graft code added this loop (the code least covered
