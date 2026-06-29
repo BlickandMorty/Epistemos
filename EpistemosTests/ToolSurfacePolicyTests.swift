@@ -199,6 +199,45 @@ struct ToolSurfacePolicyTests {
         }
     }
 
+    @Test @MainActor func readOnlyTierRequiresExplicitAllowlistBeforeBindings() async {
+        let noAllowlist = ToolTierBridge(
+            vaultPath: "/tmp/epistemos-tool-readonly-test-vault",
+            tier: .readOnly
+        ).toolExecutor()
+        let deniedWithoutAllowlist = await noAllowlist(
+            "vault.search",
+            #"{"query":"notes"}"#
+        )
+        #expect(deniedWithoutAllowlist.isError)
+        #expect(deniedWithoutAllowlist.resultJson.contains("Tool not found: vault.search"))
+        #expect(!deniedWithoutAllowlist.resultJson.contains("agent_core bindings unavailable"))
+
+        let vaultOnly = ToolTierBridge(
+            vaultPath: "/tmp/epistemos-tool-readonly-test-vault",
+            tier: .readOnly,
+            allowedToolNames: ["vault.search"]
+        ).toolExecutor()
+        let deniedWrite = await vaultOnly(
+            "vault.write",
+            #"{"path":"Note.md","content":"x"}"#
+        )
+        #expect(deniedWrite.isError)
+        #expect(deniedWrite.resultJson.contains("Tool not found: vault.write"))
+        #expect(!deniedWrite.resultJson.contains("agent_core bindings unavailable"))
+    }
+
+    @Test func readOnlyTierSourceGuardKeepsVaultMCPOnAllowlistedExecutor() throws {
+        let bridge = try loadMirroredSourceTextFile("Epistemos/Bridge/ToolTierBridge.swift")
+        let host = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPHost.swift")
+
+        #expect(bridge.contains("case readOnly = \"read_only\""))
+        #expect(bridge.contains("case .readOnly:"))
+        #expect(bridge.contains("allowedToolNames ?? []"))
+        #expect(bridge.contains("private nonisolated static func allowedToolNameDenial"))
+        #expect(host.contains("tier: .readOnly"))
+        #expect(host.contains("allowedToolNames: Set(VaultMCPCore.readToolNames)"))
+    }
+
     @Test @MainActor func toolExecutionPolicyPreservesAllowedAndProResearchPaths() {
         #expect(ToolTierBridge.executionPolicyDenial(
             toolName: "vault.search",

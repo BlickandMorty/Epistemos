@@ -65,7 +65,7 @@ final class VaultMCPHost {
         server?.stop()
         let readOnlyExecutor = ToolTierBridge(
             vaultPath: vaultPath,
-            tier: .full,
+            tier: .readOnly,
             allowedToolNames: Set(VaultMCPCore.readToolNames)
         ).toolExecutor()
         let newServer = VaultMCPServer(

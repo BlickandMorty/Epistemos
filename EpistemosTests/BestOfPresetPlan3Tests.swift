@@ -44,7 +44,7 @@ struct BestOfPresetPlan3Tests {
             "VaultMCPHost.swift` [DELIVERED]",
             "VaultMCPServerSettingsRow.swift` [DELIVERED]",
             "AgentToolNameAliases.canonical",
-            "ToolTierBridge.Tier.readOnly",
+            "ChatToolTier.readOnly",
         ] {
             #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")
         }

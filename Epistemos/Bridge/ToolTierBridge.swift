@@ -363,10 +363,20 @@ nonisolated enum ToolTierBridgeError: LocalizedError, Sendable {
 /// registry.
 nonisolated enum ChatToolTier: String, Sendable, CaseIterable {
     case none
+    case readOnly = "read_only"
     case chatLite = "chat_lite"
     case chatPro = "chat_pro"
     case agent
     case full
+
+    var ffiTierName: String {
+        switch self {
+        case .readOnly:
+            "full"
+        default:
+            rawValue
+        }
+    }
 
     /// Derive the tier to use for a given operating mode. This is the
     /// mapping PipelineService uses when building tools for the active
@@ -398,6 +408,15 @@ final class ToolTierBridge {
         ).path
     }
 
+    private var effectiveAllowedToolNames: Set<String>? {
+        switch tier {
+        case .readOnly:
+            allowedToolNames ?? []
+        default:
+            allowedToolNames
+        }
+    }
+
     init(
         vaultPath: String,
         tier: ChatToolTier,
@@ -423,14 +442,14 @@ final class ToolTierBridge {
         #if canImport(agent_coreFFI)
         do {
             let schemas: [ToolSchemaFfi]
-            if let allowedToolNames {
+            if let allowedToolNames = effectiveAllowedToolNames {
                 schemas = try listToolsForTierFiltered(
                     vaultPath: resolvedVaultPath,
-                    tier: tier.rawValue,
+                    tier: tier.ffiTierName,
                     allowedToolNames: Array(allowedToolNames).sorted()
                 )
             } else {
-                schemas = try listToolsForTier(vaultPath: resolvedVaultPath, tier: tier.rawValue)
+                schemas = try listToolsForTier(vaultPath: resolvedVaultPath, tier: tier.ffiTierName)
             }
             let tools = schemas.map { schema in
                 let riskLevel = schema.riskLevel.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -483,8 +502,8 @@ final class ToolTierBridge {
     /// wraps the result as a `LocalToolResult`.
     func toolExecutor() -> LocalAgentToolExecutor {
         let path = self.resolvedVaultPath
-        let tierRaw = self.tier.rawValue
-        let allowlist = self.allowedToolNames.map { Array($0).sorted() }
+        let tierRaw = self.tier.ffiTierName
+        let allowlist = self.effectiveAllowedToolNames.map { Array($0).sorted() }
         let distribution = self.distribution
         return { @Sendable name, argumentsJson in
             await Self.executeToolCallBridged(
@@ -594,6 +613,12 @@ final class ToolTierBridge {
         if let denial = executionPolicyDenial(
             toolName: toolName,
             distribution: distribution
+        ) {
+            return denial
+        }
+        if let denial = allowedToolNameDenial(
+            toolName: toolName,
+            allowedToolNames: allowedToolNames
         ) {
             return denial
         }
@@ -760,6 +785,23 @@ final class ToolTierBridge {
             resultJson: errorToJson("Tool '\(canonicalName)' requires a non-empty \(searchTermKey)."),
             isError: true
         )
+    }
+
+    private nonisolated static func allowedToolNameDenial(
+        toolName: String,
+        allowedToolNames: [String]?
+    ) -> LocalToolResult? {
+        guard let allowedToolNames else { return nil }
+        let allowed = Set(allowedToolNames.map(AgentToolNameAliases.canonical))
+        let canonicalName = AgentToolNameAliases.canonical(toolName)
+        guard allowed.contains(canonicalName) else {
+            return LocalToolResult(
+                toolName: toolName,
+                resultJson: errorToJson("Tool not found: \(toolName)"),
+                isError: true
+            )
+        }
+        return nil
     }
 
     nonisolated static func appFirstVaultSearchInputForFileSearch(

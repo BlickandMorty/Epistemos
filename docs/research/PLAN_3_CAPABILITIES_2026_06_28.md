@@ -208,7 +208,7 @@ Pro-only skill rows show `.proLocked` instead of silently enabling.
 **5c — Vault-as-MCP-server (the moat, outward-facing).** Shipped: `VaultMCPCore` (read-only tools/resources allowlist),
 `VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent
 Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), and `VaultMCPServerSettingsRow` (masked token +
-copy client config). The host constrains `ToolTierBridge(... tier:.full ...)` with
+copy client config). The host uses `ChatToolTier.readOnly` plus
 `allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch.
 
 **MAS/Pro split:**
@@ -222,8 +222,7 @@ copy client config). The host constrains `ToolTierBridge(... tier:.full ...)` wi
 | Best-of preset | ✅ MAS subset | ✅ full |
 | Vault-as-MCP-server | compiled; **gated/hidden for review safety** | ✅ primary home |
 
-Effort remaining: add `ToolTierBridge.Tier.readOnly` as a tighter executor tier and optionally bind the Rust
-`MCPDispatcher.dispatch()` over UniFFI for byte-parity with the stdio server.
+Effort remaining: optionally bind the Rust `MCPDispatcher.dispatch()` over UniFFI for byte-parity with the stdio server.
 
 ---
 
@@ -347,7 +346,7 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI).
 2. **Provenance moat follow-up** (LOW-MED) → EventStore edit-retraction demo; Rust write FFI only with owner sign-off.
-3. **Extensibility follow-up** (LOW-MED) → `ToolTierBridge.Tier.readOnly` + optional Rust dispatcher byte-parity; UI/MCP install, Best-of, and vault-MCP server are shipped.
+3. **Extensibility follow-up** (LOW-MED) → optional Rust dispatcher byte-parity; UI/MCP install, Best-of, and vault-MCP server are shipped.
 4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
 5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot
    (Pro, vendor codepack and payload now exist; continue Pro UI/MCP hardening without touching MAS).

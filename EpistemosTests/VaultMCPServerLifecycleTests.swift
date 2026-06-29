@@ -148,6 +148,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(!tokenStore.contains("UserDefaults"))
 
         let host = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPHost.swift")
+        #expect(host.contains("tier: .readOnly"))
         #expect(host.contains("allowedToolNames: Set(VaultMCPCore.readToolNames)"))
         #expect(host.contains("rotateTokenAndRestart"))
         #expect(!host.contains("AppBootstrap"))

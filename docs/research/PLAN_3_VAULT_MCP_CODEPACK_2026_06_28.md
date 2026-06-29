@@ -43,8 +43,9 @@ base64) via `Keychain.save(_, for: "vault_mcp_bearer")` — **never UserDefaults
 ## 4. `VaultMCPHost.swift` [DELIVERED]
 `@MainActor`, idempotent-per-vault `ensureServer`, async `start(vaultRoot:)` polling `.ready`, `stop()`,
 `rotateTokenAndRestart(vaultRoot:)`. **OFF BY DEFAULT** — nothing calls `start()` at bootstrap; only the Settings toggle
-does. Executor currently uses `ToolTierBridge(vaultPath:, tier:.full, allowedToolNames: Set(VaultMCPCore.readToolNames))`;
-the core's allowlist still enforces read-only.
+does. Executor uses `ToolTierBridge(vaultPath:, tier:.readOnly, allowedToolNames: Set(VaultMCPCore.readToolNames))`;
+`ChatToolTier.readOnly` maps to the Rust full tier only with an explicit allowlist, and the core's allowlist still
+enforces read-only.
 
 ## 5. `VaultMCPServerSettingsRow.swift` [DELIVERED]
 Toggle start/stop; shows `http://127.0.0.1:<port>/mcp` + masked token + **Rotate** + **"Copy MCP client config"** →
@@ -59,6 +60,5 @@ in-repo OpenCode config writer). Surfaces "Running (vault empty)" honestly.
   Keychain + constant-time compare + loopback bind + Origin allowlist all inherited from the audited transport.
 
 ## Remaining optional hardening (flagged, not guessed)
-1. Add a real `ToolTierBridge.Tier.readOnly` case so the executor tier matches the already-enforced allowlist.
-2. Optional Pro increment: bind the Rust `MCPDispatcher.dispatch()` (`dispatcher.rs:235`, already serves resources) over
+1. Optional Pro increment: bind the Rust `MCPDispatcher.dispatch()` (`dispatcher.rs:235`, already serves resources) over
    a UniFFI seam for byte-parity with the stdio server (no Swift re-enumeration).
