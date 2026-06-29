@@ -470,11 +470,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 return
             }
 
-            if (200..<500).contains(httpResponse.statusCode) {
-                result.store(problem: nil)
-            } else {
-                result.store(problem: "HTTP \(httpResponse.statusCode)")
-            }
+            result.store(problem: loopbackHTTPStatusProblem(httpResponse.statusCode))
         }
         task.resume()
 
@@ -486,6 +482,13 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
         session.finishTasksAndInvalidate()
         return result.loadProblem()
+    }
+
+    static func loopbackHTTPStatusProblem(_ statusCode: Int) -> String? {
+        if (200..<400).contains(statusCode) {
+            return nil
+        }
+        return "HTTP \(statusCode)"
     }
 
     static func readiness(

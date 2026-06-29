@@ -322,6 +322,17 @@ struct BrowserUseRuntimeSupervisorTests {
         #endif
     }
 
+    @Test("loopback health rejects client and server errors")
+    func loopbackHealthRejectsClientAndServerErrors() {
+        for statusCode in [200, 204, 302] {
+            #expect(BrowserUseRuntimeSupervisor.loopbackHTTPStatusProblem(statusCode) == nil)
+        }
+
+        for statusCode in [400, 404, 500, 503] {
+            #expect(BrowserUseRuntimeSupervisor.loopbackHTTPStatusProblem(statusCode) == "HTTP \(statusCode)")
+        }
+    }
+
     @Test("start honors cancellation before launching Pro runtime")
     func startHonorsCancellationBeforeLaunchingProRuntime() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
