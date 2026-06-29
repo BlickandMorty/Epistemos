@@ -409,6 +409,11 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(wheelhouse["file_count"] as? Int == 177)
         #expect(playwrightChromium["status"] as? String == "staged")
         #expect(playwrightChromium["chromium_revision"] as? String == "1223")
+        let adapterURL = try Self.sourceURL("agent_core/vendor/browser-use/epistemos_agent_browser.py")
+        let adapterMode = try #require(
+            FileManager.default.attributesOfItem(atPath: adapterURL.path)[.posixPermissions] as? NSNumber
+        ).intValue
+        #expect(adapterMode & 0o111 != 0)
 
         let generatedManifest = try Self.loadData("agent_core/vendor/browser-use/BUILD_MANIFEST.json")
         let generated = try #require(try JSONSerialization.jsonObject(with: generatedManifest) as? [String: Any])
