@@ -47,6 +47,9 @@ struct BrowserUseAdapterPlan3Tests {
             "runtime._probe_session",
             "AGENT_BROWSER_SOCKET_DIR",
             "BROWSER_USE_HOME",
+            "os.environ[\"BROWSER_USE_HOME\"]",
+            "resolve_private_runtime_directory",
+            "AGENT_BROWSER_SOCKET_DIR must be an absolute path",
             "AGENT_BROWSER_SCREENSHOT_DIR",
             "confine_screenshot_path",
             "screenshot path resolved outside private screenshot directory",
@@ -61,6 +64,7 @@ struct BrowserUseAdapterPlan3Tests {
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
         }
+        #expect(!source.contains("setdefault(\"BROWSER_USE_HOME\""))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
         let prepareIndex = try #require(source.range(of: "prepare_runtime_environment()")?.lowerBound)
