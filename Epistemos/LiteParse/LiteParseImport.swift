@@ -77,6 +77,52 @@ nonisolated enum PDFMagicCheck: Equatable, Sendable {
     case unreadable(String)
 }
 
+nonisolated enum Plan3VaultPath {
+    static let outsideVaultMessage = "Import destination resolves outside the vault."
+
+    static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String? {
+        let lexicalVault = vaultURL.standardizedFileURL
+        let lexicalFile = fileURL.standardizedFileURL
+        let lexicalVaultPath = directoryPrefix(for: lexicalVault)
+        guard lexicalFile.path.hasPrefix(lexicalVaultPath) else {
+            return nil
+        }
+
+        let resolvedVault = lexicalVault.resolvingSymlinksInPath()
+        let resolvedFile = resolvedURLForContainment(lexicalFile)
+        let resolvedVaultPath = directoryPrefix(for: resolvedVault)
+        guard resolvedFile.path.hasPrefix(resolvedVaultPath) else {
+            return nil
+        }
+
+        return String(lexicalFile.path.dropFirst(lexicalVaultPath.count))
+    }
+
+    static func resolvesInsideVault(_ fileURL: URL, in vaultURL: URL) -> Bool {
+        vaultRelativePath(for: fileURL, in: vaultURL) != nil
+    }
+
+    private static func directoryPrefix(for url: URL) -> String {
+        url.path.hasSuffix("/") ? url.path : url.path + "/"
+    }
+
+    private static func resolvedURLForContainment(_ url: URL) -> URL {
+        var existing = url.standardizedFileURL
+        var missingPathComponents: [String] = []
+
+        while !FileManager.default.fileExists(atPath: existing.path) {
+            let parent = existing.deletingLastPathComponent()
+            guard parent.path != existing.path else { break }
+            missingPathComponents.insert(existing.lastPathComponent, at: 0)
+            existing = parent
+        }
+
+        return missingPathComponents.reduce(existing.resolvingSymlinksInPath()) { partial, component in
+            partial.appendingPathComponent(component, isDirectory: false)
+        }.standardizedFileURL
+    }
+}
+
 /// Converts a local PDF to Markdown. An implementation NEVER returns a fabricated note —
 /// only a real conversion or an honest failure result.
 nonisolated protocol LiteParsePDFImporter: Sendable {

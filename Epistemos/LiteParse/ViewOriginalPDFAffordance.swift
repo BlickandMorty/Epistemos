@@ -22,27 +22,14 @@ nonisolated enum LiteParseSourcePDFLink {
             return nil
         }
 
-        let lexicalVault = vaultURL.standardizedFileURL
-        let lexicalCandidate = lexicalVault
+        let candidate = vaultURL.standardizedFileURL
             .appendingPathComponent(relativePath, isDirectory: false)
             .standardizedFileURL
-        let lexicalVaultPath = directoryPrefix(for: lexicalVault)
-        guard lexicalCandidate.path.hasPrefix(lexicalVaultPath),
-              fileExists(lexicalCandidate.path) else {
+        guard Plan3VaultPath.vaultRelativePath(for: candidate, in: vaultURL) != nil,
+              fileExists(candidate.path) else {
             return nil
         }
-
-        let resolvedVault = lexicalVault.resolvingSymlinksInPath()
-        let resolvedCandidate = lexicalCandidate.resolvingSymlinksInPath()
-        let resolvedVaultPath = directoryPrefix(for: resolvedVault)
-        guard resolvedCandidate.path.hasPrefix(resolvedVaultPath) else {
-            return nil
-        }
-        return resolvedCandidate
-    }
-
-    private static func directoryPrefix(for url: URL) -> String {
-        url.path.hasSuffix("/") ? url.path : url.path + "/"
+        return candidate.resolvingSymlinksInPath()
     }
 }
 

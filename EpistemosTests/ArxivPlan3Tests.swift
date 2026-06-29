@@ -212,6 +212,43 @@ struct ArxivPlan3Tests {
     }
 
     @MainActor
+    @Test("ingest rejects a symlinked arXiv import directory")
+    func ingestRejectsSymlinkedImportDirectory() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-symlink-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let outside = root.appendingPathComponent("Outside", isDirectory: true)
+        let importLink = vault.appendingPathComponent(ArxivIngestService.importDirectory, isDirectory: true)
+        let sourcePDF = root.appendingPathComponent("download.pdf")
+        let paper = try Self.paper()
+        let baseName = ArxivNoteDraft(paper: paper, parsedMarkdown: "").safeBaseName
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: importLink, withDestinationURL: outside)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await ArxivIngestService.ingest(
+            paper: paper,
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeArxivImporter(result: .markdown("Converted full text.")),
+            downloader: FakeArxivDownloader(fileURL: sourcePDF)
+        )
+
+        #expect(outcome == .rejected(.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("\(baseName).md").path))
+        #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("\(baseName).pdf").path))
+    }
+
+    @MainActor
     @Test("ingest rejects parser failure without writing a vault note")
     func ingestRejectsParserFailureWithoutVaultNote() async throws {
         let root = FileManager.default.temporaryDirectory

@@ -88,8 +88,17 @@ enum LiteParsePDFImportController {
 
         do {
             try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+            guard Plan3VaultPath.resolvesInsideVault(dirURL, in: vaultURL) else {
+                return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
+            }
             let urls = uniquePairedFileURLs(directory: dirURL, baseName: title)
             selectedURLs = urls
+            guard
+                let sourcePDFRelativePath = Plan3VaultPath.vaultRelativePath(for: urls.pdfURL, in: vaultURL),
+                Plan3VaultPath.resolvesInsideVault(urls.noteURL, in: vaultURL)
+            else {
+                return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
+            }
             try FileManager.default.copyItem(at: URL(fileURLWithPath: pdfPath), to: urls.pdfURL)
             try Data(markdown.utf8).write(to: urls.noteURL, options: .atomic)
             return .materialized(
@@ -97,7 +106,7 @@ enum LiteParsePDFImportController {
                     markdown: markdown,
                     noteURL: urls.noteURL,
                     pdfURL: urls.pdfURL,
-                    sourcePDFRelativePath: vaultRelativePath(for: urls.pdfURL, in: vaultURL)
+                    sourcePDFRelativePath: sourcePDFRelativePath
                 )
             )
         } catch {
@@ -125,13 +134,6 @@ enum LiteParsePDFImportController {
         )
     }
 
-    nonisolated private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
-        let vaultPath = vaultURL.standardizedFileURL.path
-        let filePath = fileURL.standardizedFileURL.path
-        let prefix = vaultPath.hasSuffix("/") ? vaultPath : vaultPath + "/"
-        guard filePath.hasPrefix(prefix) else { return fileURL.lastPathComponent }
-        return String(filePath.dropFirst(prefix.count))
-    }
 }
 
 private enum PreparedPDFImport: Sendable {

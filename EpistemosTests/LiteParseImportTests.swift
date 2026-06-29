@@ -100,7 +100,7 @@ struct LiteParseImportTests {
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
         #expect(src.contains("materializeImportedFiles"))
         #expect(src.contains("uniquePairedFileURLs"))
-        #expect(src.contains("vaultRelativePath(for: urls.pdfURL"))
+        #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
     }
 
     @Test("Plan 3 EdgeParse docs describe the shipped parser state")
@@ -234,6 +234,45 @@ struct LiteParseImportTests {
         #expect(noteText.contains("Converted body."))
         #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("paper 2.md").path))
         #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("paper 2.pdf").path))
+    }
+
+    @MainActor
+    @Test("import controller rejects a symlinked import directory")
+    func importControllerRejectsSymlinkedImportDirectory() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-symlink-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let outside = root.appendingPathComponent("Outside", isDirectory: true)
+        let importLink = vault.appendingPathComponent(LiteParsePDFImportController.importDirectory, isDirectory: true)
+        let sourcePDF = root.appendingPathComponent("paper.pdf")
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: importLink, withDestinationURL: outside)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await LiteParsePDFImportController.importPage(
+            pdfPath: sourcePDF.path,
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeLiteParseImporter(result: .markdown("# Parsed\n\nConverted body."))
+        )
+
+        guard case .rejected(.failed(let message)) = outcome else {
+            Issue.record("Expected symlinked import directory to be rejected, got \(String(describing: outcome))")
+            return
+        }
+
+        #expect(message.contains(Plan3VaultPath.outsideVaultMessage))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("paper.md").path))
+        #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("paper.pdf").path))
     }
 }
 

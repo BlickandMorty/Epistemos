@@ -158,23 +158,40 @@ enum ArxivIngestService {
     ) async throws -> MaterializedImportFiles {
         try await Task.detached(priority: .userInitiated) {
             let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
-            let urls = uniquePairedFileURLs(directory: dirURL, baseName: note.safeBaseName)
-            let sourcePDFRelativePath = vaultRelativePath(for: urls.pdfURL, in: vaultURL)
+            var selectedURLs: (noteURL: URL, pdfURL: URL)?
 
             do {
                 try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+                guard Plan3VaultPath.resolvesInsideVault(dirURL, in: vaultURL) else {
+                    throw ArxivIngestError.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)
+                }
+                let urls = uniquePairedFileURLs(directory: dirURL, baseName: note.safeBaseName)
+                selectedURLs = urls
+                guard
+                    let sourcePDFRelativePath = Plan3VaultPath.vaultRelativePath(for: urls.pdfURL, in: vaultURL),
+                    Plan3VaultPath.resolvesInsideVault(urls.noteURL, in: vaultURL)
+                else {
+                    throw ArxivIngestError.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)
+                }
                 try FileManager.default.copyItem(at: downloadedPDF, to: urls.pdfURL)
                 try Data(note.markdownBody.utf8).write(to: urls.noteURL, options: .atomic)
+                return MaterializedImportFiles(
+                    noteURL: urls.noteURL,
+                    pdfURL: urls.pdfURL,
+                    sourcePDFRelativePath: sourcePDFRelativePath)
+            } catch let error as ArxivIngestError {
+                if let selectedURLs {
+                    try? FileManager.default.removeItem(at: selectedURLs.noteURL)
+                    try? FileManager.default.removeItem(at: selectedURLs.pdfURL)
+                }
+                throw error
             } catch {
-                try? FileManager.default.removeItem(at: urls.noteURL)
-                try? FileManager.default.removeItem(at: urls.pdfURL)
+                if let selectedURLs {
+                    try? FileManager.default.removeItem(at: selectedURLs.noteURL)
+                    try? FileManager.default.removeItem(at: selectedURLs.pdfURL)
+                }
                 throw ArxivIngestError.fileWriteFailed(error.localizedDescription)
             }
-
-            return MaterializedImportFiles(
-                noteURL: urls.noteURL,
-                pdfURL: urls.pdfURL,
-                sourcePDFRelativePath: sourcePDFRelativePath)
         }.value
     }
 
@@ -193,13 +210,6 @@ enum ArxivIngestService {
         )
     }
 
-    nonisolated private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String {
-        let vaultPath = vaultURL.standardizedFileURL.path
-        let filePath = fileURL.standardizedFileURL.path
-        let prefix = vaultPath.hasSuffix("/") ? vaultPath : vaultPath + "/"
-        guard filePath.hasPrefix(prefix) else { return fileURL.lastPathComponent }
-        return String(filePath.dropFirst(prefix.count))
-    }
 }
 
 private struct MaterializedImportFiles: Sendable {
