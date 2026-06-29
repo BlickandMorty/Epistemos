@@ -169,7 +169,11 @@ actor GooseACPClient {
     /// enumeration that could hang, and it includes the built-in providers the template catalog omits.
     func listGooseProviderInventory() async throws -> [GooseACPProviderInventoryEntry] {
         let response = try await listGooseProviders()
-        return try response.entries.map { try $0.decoded(GooseACPProviderInventoryEntry.self) }
+        // Tolerant per-entry decode: an entry that fails to decode (e.g. a future Goose drops the
+        // required providerId) is unusable in a picker anyway — skip it so ONE malformed entry can
+        // never blank the entire list. This matches the WebView oracle, which degrades per-entry
+        // rather than failing wholesale. The transport call above still throws on a hard failure.
+        return response.entries.compactMap { try? $0.decoded(GooseACPProviderInventoryEntry.self) }
     }
 
     func listGooseProviderSupportedModels(

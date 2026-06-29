@@ -343,7 +343,18 @@ nonisolated struct GooseACPProviderInventoryEntry: Decodable, Equatable, Sendabl
         providerName = try container.decodeIfPresent(String.self, forKey: .providerName) ?? providerId
         configured = try container.decodeIfPresent(Bool.self, forKey: .configured) ?? false
         defaultModel = try container.decodeIfPresent(String.self, forKey: .defaultModel)
-        models = try container.decodeIfPresent([GooseACPProviderInventoryModel].self, forKey: .models) ?? []
+        // Lenient per-element model decode: a single malformed model element (shape/type drift in a
+        // future Goose — element missing `id`, `id` non-string, or `models` shaped as bare strings)
+        // must NOT drop the whole provider. Decode the raw array and keep the elements that decode,
+        // so a usable provider (it has a providerId) always survives — matching the WebView oracle's
+        // per-entry degradation and this type's own "never breaks the picker" contract.
+        let rawModels: [JSONValue]
+        if let decoded = try? container.decodeIfPresent([JSONValue].self, forKey: .models) {
+            rawModels = decoded ?? []
+        } else {
+            rawModels = []
+        }
+        models = rawModels.compactMap { try? $0.decoded(GooseACPProviderInventoryModel.self) }
     }
 }
 
