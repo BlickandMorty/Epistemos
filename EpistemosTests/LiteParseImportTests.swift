@@ -81,6 +81,41 @@ struct LiteParseImportTests {
         #expect(src.contains("vaultRelativePath(for: sourcePDFURL"))
     }
 
+    @Test("Plan 3 EdgeParse docs describe the shipped parser state")
+    func plan3EdgeParseDocsDescribeShippedParserState() throws {
+        let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_EDGEPARSE_CODEPACK_2026_06_28.md")
+        let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+        let cargo = try loadMirroredSourceTextFile("agent_core/Cargo.toml")
+        let rust = try loadMirroredSourceTextFile("agent_core/src/liteparse.rs")
+
+        #expect(codepack.contains("shipped code"))
+        #expect(codepack.contains("agent_core/src/liteparse.rs"))
+        #expect(codepack.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
+        #expect(codepack.contains("source_pdf=<vault-relative path>"))
+        #expect(capabilities.contains("PDF→Markdown import now has a real Plan 3 parser path"))
+        #expect(capabilities.contains("test-linking condition, not the shipped MAS parser state"))
+        #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
+        #expect(rust.contains("doc.source_path = None"))
+        #expect(rust.contains("unpdf::Unpdf::new()"))
+
+        for stale in [
+            "clone-ready code",
+            "[INFERRED] = bind at vendor time",
+            "new `agent_core/src/pdf_parse.rs`",
+            "mas-build=[]",
+            "EdgeParse public API symbols are the integration seam",
+        ] where codepack.contains(stale) {
+            Issue.record("EdgeParse codepack still contains stale phrase: \(stale)")
+        }
+        for stale in [
+            "you CANNOT parse a PDF→md",
+            "NOT in `default`",
+            "hidden behind\n`EPISTEMOS_LITEPARSE_PDF_V0`",
+        ] where capabilities.contains(stale) {
+            Issue.record("Plan 3 capabilities still contains stale phrase: \(stale)")
+        }
+    }
+
     @Test("PDF import preferences default to parse parsed-note flow")
     func importSettingsDefaults() {
         let suiteName = "LiteParseImportSettingsTests.\(UUID().uuidString)"

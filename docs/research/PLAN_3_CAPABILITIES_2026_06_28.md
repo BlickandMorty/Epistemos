@@ -45,13 +45,12 @@ must obey it, and the build prompt (`docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md`
 
 ## 1. Fast PDF→Markdown  ★ (answers "the super-fast one")
 
-**★ TRUTH (Pass-1 verified — you were right, you have NEITHER today) `[VERIFIED-CODE]`:** you CANNOT parse a PDF→md
-in the shipped app. `liteparse` source IS vendored and the whole Swift import UI IS wired, but it's dead three ways:
-the `liteparse-pdf` Cargo feature is **NOT in `default`** (engine returns `EngineNotWired`), **no `libpdfium.dylib` is
-bundled** (zero `pdfium` hits in `project.yml`/build scripts), and the import button is hidden behind
-`EPISTEMOS_LITEPARSE_PDF_V0` (**OFF**). Built honest-inert — never fakes a note. **And there is NO PDF viewer at all**
-(zero `PDFView`/`QuickLook`; PDFKit appears once as a headless extractor in `VaultParser.swift`). So your instinct was
-correct on both counts.
+**★ SHIPPED (Pass-3 verified) `[VERIFIED-CODE]`:** PDF→Markdown import now has a real Plan 3 parser path. The
+existing Swift import UI still calls the preserved `liteparse_pdf_to_markdown` FFI envelope, but the default MAS Rust
+feature set is now `mas-build = ["edgeparse-pdf", "parser-unpdf"]`: EdgeParse is the primary in-process parser and
+unpdf is the fallback. `EPISTEMOS_LITEPARSE_PDF_V0=0` remains an emergency kill switch, not the default state. Swift
+unit-test hosts that do not link `agent_coreFFI` still see the honest `.notWired` fallback for PDFs; that is a
+test-linking condition, not the shipped MAS parser state.
 
 **Best clone targets (Pass-1b, deep) — vendor a primary + 2 complementary `[WEB]`:**
 
@@ -63,30 +62,30 @@ correct on both counts.
 | liteparse (run-llama) | Rust core + **PDFium+Tesseract C++ blobs** | ⚠️ notarization risk | ~0.2–0.8 s | heuristic + turnkey OCR | **Pro-first** only |
 | ~~pdf_oxide~~ | Rust | ✅ | 0.8 ms | thin md layer | skip for md (great extractor, not fidelity-md) |
 
-**Build (reuse the entire existing UI — swap the engine behind the same FFI envelope):**
-1. Vendor **EdgeParse** (`agent_core/vendor/edgeparse/`, Rust core only) → ProvenanceGate `direct_import`. Cargo feature
-   `edgeparse-pdf` **ON for MAS** (no dylib, nothing to sign). Keep envelope `{"ok":true,"markdown":…}` → the wired Swift
-   import UI + tests work unchanged. Flip the UI flag `EPISTEMOS_LITEPARSE_PDF_V0` on.
-2. Vendor **unpdf** (`agent_core/vendor/unpdf/`, feature `parser-unpdf`) as the CJK/RTL/multilingual fallback.
-3. **Scanned lane = Apple Vision/PDFKit** (Swift `ScannedPdfMarkdownService` — `VNRecognizeTextRequest` over page
-   rasters, reuse EdgeParse geometry for block order). Keep **liteparse Pro-first** only (PDFium+Tesseract = notarization proof needed).
+**Delivered build:**
+1. **EdgeParse vendored** at `agent_core/vendor/edgeparse/` with `edgeparse-core` as the MAS primary parser
+   (`edgeparse-pdf`). The render path clears `source_path` before Markdown output so optional external helpers are not
+   used on the MAS path.
+2. **unpdf vendored** at `agent_core/vendor/unpdf/` and compiled through `parser-unpdf` as the fallback for failed or
+   non-substantive EdgeParse output.
+3. **Same FFI envelope preserved:** Swift decodes `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}` from
+   `liteparse_pdf_to_markdown`, so the import button, Settings row, and controller did not need a new UI contract.
+4. **PDF-only scope enforced:** Office/image inputs are rejected before FFI on Swift and as `UnsupportedFormat` in Rust;
+   no subprocess/sidecar fallback is introduced.
 
-**★ PDF viewer + md COEXISTENCE (your exact idea — keep BOTH the original PDF and a parsed `.md`) `[INFERRED]`:**
-- **Data model, ZERO migration:** on import, write the **original `.pdf`** verbatim into `<vault>/Imported PDFs/` AND a
-  **parsed `.md` sibling**; the `.md` is the `SDPage` (file-first, as today); link them via the note's existing
-  `frontMatterData` JSON → `source_pdf: "Imported PDFs/<name>.pdf"`, `source_kind: "pdf"` (front-matter is already
-  arbitrary KV → no schema change). The `.md` = **edit + search truth** (flows into FTS/RRF/Spotlight/graph/editor);
-  the `.pdf` = **view truth** (immutable provenance, always re-renderable/re-parseable). They never fight.
-- **Default (pdf→md ON):** import → parse → **parsed note opens** + a persistent **"View original PDF"** button mounts
-  the native viewer on `source_pdf` (round-trips back to the note).
-- **2 settings:** `parsePDFOnImport` (default ON — OFF keeps only the viewable original, no `.md`) ·
-  `defaultOpenForImportedPDF` `{ parsedNote (default) | originalPDF }`.
-- **★ Plan boundary (no clash):** **Plan 2 (editor canonical) owns the PDF *VIEWER*** (PDFKit `PDFView`). **Plan 3 owns
-  the PARSE engine + this link/storage contract.** Plan 2 only *consumes* the resolved `source_pdf` URL to mount
-  `PDFView`; it must NOT invent its own PDF-import storage.
+**★ PDF viewer + md COEXISTENCE (keep BOTH the original PDF and a parsed `.md`) `[VERIFIED-CODE]`:**
+- **Data model, ZERO migration:** on import, Plan 3 writes the **original `.pdf`** into `<vault>/Imported PDFs/` and a
+  parsed `.md` SDPage sibling, linked through existing `frontMatterData` keys `source_pdf: "Imported PDFs/<name>.pdf"`
+  and `source_kind: "pdf"`. The `.md` remains edit/search truth; the `.pdf` remains view/provenance truth.
+- **Default (pdf→md ON):** import → parse → parsed note opens; the Plan 3 affordance exposes a "View original PDF"
+  action only when `source_pdf` resolves inside the current vault.
+- **2 settings:** `parsePDFOnImport` defaults ON; `defaultOpenForImportedPDF` defaults to `parsedNote`.
+- **★ Plan boundary (no clash):** **Plan 2 (editor canonical) owns the PDF *VIEWER***. **Plan 3 owns the parse engine
+  plus `source_pdf` storage/link contract.** Plan 2 should only consume the resolved `source_pdf` URL.
 
-**MAS/Pro:** EdgeParse + unpdf + Apple Vision/PDFKit = **MAS-safe, on by default**; liteparse = Pro-first. Effort:
-parser swap **LOW** (UI exists); coexistence **LOW** (one front-matter field + the "View original" button); viewer = Plan 2.
+**MAS/Pro:** EdgeParse + unpdf are **MAS-safe and on by default**; run-llama/liteparse remains Pro/dev-only
+(`liteparse-pdf`) because its PDFium/Tesseract lane needs separate notarization proof. Scanned/OCR lane remains future
+Apple Vision/PDFKit work.
 
 ---
 
