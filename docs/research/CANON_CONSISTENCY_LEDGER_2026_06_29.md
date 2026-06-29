@@ -6,8 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 17:26 CDT (loop cycle 10) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. Deep-pass (ultracode): verified invariant #7's SUBSTANCE (lens assignments Note=Epdoc/TipTap · Source=MarkEdit · Prose=TK2 · code=Source-only · old editor KEPT as v1 legacy) consistent across doctrine+Plan-2 — no wrong-pairings (kept #7's narrow tripwire grep; a wrong-pairing grep false-positives on "token source"). 2 new Plan-3 codepacks (`ARXIV`,`EDGEPARSE`) scanned = no canon content. #0066cc 17→18 (new correct accent use, rival scan clean). HEAD at pass: `9043b1e68`.
-<br>_Recent: cycle 8 (17:06) STRENGTHENED check #4 to guard all 4 springs. cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
+**Last auditor pass:** 2026-06-29 17:42 CDT (loop cycle 11) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. **Owner introduced 2 NEW plans** (`PROMPT_PLAN_4_ICONS`, `PROMPT_PLAN_5_COMPANION`) — both SAVED/NOT-ACTIVE, read in full, auditor-verified canon-compliant (Plan-5 mini-Goose-chat is **reskinned WebView, NOT native chat** = Option 1; Plan-4 enforces two-token-sources + graph-untouched). Recorded in new "NEW PLANS" §; invariant #9 reworded (active paste still 1/2/3) + a SAVED-gate sub-check added. Plan-3 browser-use codepack scanned = no canon content. #0066cc 18→19. HEAD at pass: `bc46be6d4`.
+<br>_Recent: cycle 10 (17:26) verified lens-model substance. cycle 8 (17:06) STRENGTHENED check #4 to guard all 4 springs. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
 
@@ -24,7 +24,7 @@ Run each `Check` from repo root; the Pass condition is what a consistent canon r
 | 6 | **Graph = DO NOT TOUCH** (already full AppKit/Metal) | `grep -liE "graph.{0,60}do not touch" docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md docs/prompts/PROMPT_PLAN_1_GOOSE.md docs/prompts/PROMPT_PLAN_2_EDITOR.md docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md` | all 4 files (doctrine + 3 prompts) listed | ✅ (cycle 2: doctrine carries it at lines 22 + 95; switched to case-insensitive grep — the old case-sensitive `GRAPH`/`graph` pattern false-negatived the doctrine's "Graph =", though the rule was present all along) |
 | 7 | **Lens model** Note(Epdoc)/Source(MarkEdit)/Prose(TK2); **old code editor KEPT as v1 legacy** (no deletion); MD-nav = Note default→Prose→Source-button→full-MarkEdit | `grep -rniE "delete the 3 old\|old code-editor files were deleted" docs/research/EDITOR_CANONICAL*.md docs/research/MARKEDIT_EMBED*.md \| grep -viE "SUPERSEDES\|PRESERVED\|KEEP\|legacy"` | empty (the only hit is the line ENFORCING "v1 PRESERVED", excluded) | ✅ |
 | 8 | **Retheme-not-replace** (Goose's existing shadcn/Radix/Tailwind/framer-motion) | `grep -liE -e 'retheme' -e "don'?t replace" -e 'do not replace' docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md docs/research/GOOSE_NATIVE_WEB_RESKIN_2026_06_29.md docs/prompts/PROMPT_PLAN_1_GOOSE.md` | all 3 files (doctrine + reskin + Plan-1) listed | ✅ (cycle 2: doctrine carries it at line 82 "retheme … + tune" + line 85 "blend, don't replace"; replaced the prose check with a concrete grep that surfaces all 3) |
-| 9 | **Only paste = `PROMPT_PLAN_1/2/3`**; every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty | empty (every handoff *PROMPT* doc carries a banner) | ✅ ledger-scope green (CLONE_INFUSION + PRACTICAL_FULL_PORT_06-24 bannered). Broadened corpus-wide paste-prompt scan → ~50 archival/different-purpose hits parked in OWNER REVIEW (not a fleet-launch risk) |
+| 9 | **Active fleet paste = `PROMPT_PLAN_1/2/3`** (Plan 4/5 SAVED-not-active); every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty · AND `for f in docs/prompts/PROMPT_PLAN_[45]_*.md; do grep -qiE "SAVED\|NOT YET ACTIVE" "$f" \|\| echo "UNGATED: $f"; done` → empty | both empty (handoff PROMPT docs bannered; new Plan-4/5 carry SAVED/NOT-ACTIVE gates) | ✅ cycle 11: owner introduced `PROMPT_PLAN_4_ICONS` + `PROMPT_PLAN_5_COMPANION` (docs/prompts/) — both gated SAVED/NOT-ACTIVE, drafted to 1/2/3 strictness, auditor-verified Option-1/two-token/graph/retheme compliant (see "NEW PLANS" §). ACTIVE paste set unchanged = 1/2/3. (Prior: ~50 archival paste-prompt hits parked in OWNER REVIEW, not a fleet risk.) |
 | 10 | **Accent #0066cc · SF Pro · radius 11** consistent | `grep -rohE "#0066cc" docs/ \| wc -l` (>0, no rival accent) | consistent | ✅ |
 
 ## Stale docs that are BANNERED (mitigated, kept for nuance — do NOT delete)
@@ -32,6 +32,21 @@ GOOSE_AGENT_APPKIT_FOLLOWON_PLAN · GOOSE_MASTER_BUILD_PROMPT · GOOSE_PHASE_0_S
 GOOSE_PHASE_0_OWNER_SIGNOFF_CHECKLIST · GOOSE_PHASE_0_CONTINUATION_PROMPT · GOOSE_NATIVE_NEW_SURFACE_RESEARCH_ROUND1/2 ·
 GOOSE_APPKIT_SURFACE_MAPPING · CLAUDE_IMPLEMENTATION_PROMPT_FULL_CLONE_INFUSION_2026_06_24 (stale 06-24 full-clone/Osaurus
 paste-prompt; bannered 2026-06-29) — each has a top SUPERSEDED-2026-06-29 banner; their bodies are HISTORICAL.
+
+## NEW PLANS 4 & 5 (owner-saved 2026-06-29, NOT active — auditor-tracked, canon-compliant)
+The owner drafted two further plans to the same strictness as 1/2/3 and **parked them** (commits `a6681941a`, `e240a6cc9`).
+Both carry a top "🛑 SAVED / NOT YET ACTIVE — do NOT launch until owner says go" banner. **They do NOT change the active
+fleet (still 1/2/3); paste them only on owner go.** Auditor read both prompts in full (cycle 11) — they ENFORCE the
+locked invariants, no relitigation:
+- **PROMPT_PLAN_4_ICONS** (theme-canonical monochrome iconography; upgrades Plan-3's brand-logo spine, does not fork it).
+  Compliance: two-token-sources EXPLICIT ("icon tokens in EpistemosTheme.swift + Goose theme-tokens.ts, no third source";
+  additive-only, coordinate on shared theme files) · color = theme token, never hardcoded #000/#fff (no rival accent) ·
+  GRAPH DO-NOT-TOUCH · no fork/restructure of spine or GooseNativeModelsView (retheme-not-replace) · no runtime npm (MAS).
+- **PROMPT_PLAN_5_COMPANION** (embedded note-scoped mini-Goose-chat in the Epdoc editor; closes the seam between Plan 1's
+  main Goose surface and Plan 2's note-context plumbing). Compliance: **Option 1 — the companion IS the reskinned Goose
+  WebView, NOT a native chat UI** (stated 4×, incl. a HARD GATE forbidding a separate native chat surface; the historical
+  native MiniChatViewModel is mined for session/context SEMANTICS only) · GRAPH DO-NOT-TOUCH · transparent-over-glass +
+  unified tokens/springs (reskin, don't restyle Goose logic) · STREAM EVERYTHING / PRESERVE THINKING BLOCKS / no MAS subprocess.
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
 - **2026-06-29 (Auditor) — historical paste-prompt corpus (NOT a fleet blocker).** A broadened content-scan
