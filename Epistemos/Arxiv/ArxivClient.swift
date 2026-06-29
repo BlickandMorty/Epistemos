@@ -76,6 +76,7 @@ nonisolated enum ArxivPDFURLPolicy {
 
 nonisolated struct ArxivClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    static let maxSearchResponseBytes = 5 * 1024 * 1024
 
     private let fetch: Fetch
 
@@ -124,6 +125,12 @@ nonisolated struct ArxivClient: Sendable {
     }
 
     static func parseSearchResponse(_ data: Data) throws -> [ArxivPaper] {
+        guard data.count <= maxSearchResponseBytes else {
+            throw ArxivClientError.parseFailed("Atom response exceeds 5 MiB limit.")
+        }
+        guard !data.isEmpty else {
+            throw ArxivClientError.parseFailed("Atom response was empty.")
+        }
         let parser = XMLParser(data: data)
         let delegate = ArxivAtomParser()
         parser.delegate = delegate

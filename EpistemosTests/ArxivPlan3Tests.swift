@@ -35,6 +35,17 @@ struct ArxivPlan3Tests {
         #expect(paper.published != nil)
     }
 
+    @Test("Atom parser rejects oversized responses before XML parsing")
+    func rejectsOversizedAtomResponse() throws {
+        let oversized = Data(repeating: 0x20, count: ArxivClient.maxSearchResponseBytes + 1)
+        do {
+            _ = try ArxivClient.parseSearchResponse(oversized)
+            Issue.record("Expected oversized arXiv Atom response to be rejected")
+        } catch let error as ArxivClientError {
+            #expect(error == .parseFailed("Atom response exceeds 5 MiB limit."))
+        }
+    }
+
     @Test("rejects non-arXiv PDF URLs before download")
     func rejectsNonArxivPDFURLs() async throws {
         for href in [
