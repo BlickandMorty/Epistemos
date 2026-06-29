@@ -43,6 +43,15 @@ struct BrowserPlan3Tests {
         #expect(!source.contains("WebKitBrowserEngine"))
     }
 
+    @Test("navigation cancellation is not surfaced as a browser error")
+    func navigationCancellationIsNotSurfacedAsError() {
+        let cancelled = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
+        #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: cancelled) == nil)
+
+        let timedOut = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
+        #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: timedOut) != nil)
+    }
+
     @Test("browser is reachable through utility window, menu, and landing button")
     func browserIsReachableFromPlan3Surfaces() throws {
         let utility = try loadMirroredSourceTextFile("Epistemos/App/UtilityWindowManager.swift")

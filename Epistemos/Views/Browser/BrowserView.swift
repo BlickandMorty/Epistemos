@@ -93,6 +93,17 @@ nonisolated enum BrowserURLGuard {
     }
 }
 
+nonisolated enum BrowserNavigationErrorPolicy {
+    static func userVisibleMessage(for error: Error) -> String? {
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain,
+           nsError.code == NSURLErrorCancelled {
+            return nil
+        }
+        return error.localizedDescription
+    }
+}
+
 @MainActor @Observable
 final class BrowserTab {
     var address = "https://www.apple.com"
@@ -434,11 +445,18 @@ private struct BrowserWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            tab?.lastError = error.localizedDescription
+            recordNavigationFailure(error)
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            tab?.lastError = error.localizedDescription
+            recordNavigationFailure(error)
+        }
+
+        private func recordNavigationFailure(_ error: Error) {
+            guard let message = BrowserNavigationErrorPolicy.userVisibleMessage(for: error) else {
+                return
+            }
+            tab?.lastError = message
         }
     }
 }
