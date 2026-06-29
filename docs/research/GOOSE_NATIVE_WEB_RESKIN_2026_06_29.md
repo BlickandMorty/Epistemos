@@ -14,43 +14,64 @@
 - MIT/Apache/BSD/ISC only. NO runtime npm — vendor at BUILD time (build-tiptap-bundle.sh model →
   Resources → WKURLSchemeHandler). Real verified repos only; `[VERIFIED]` needs a real source + WebKit check.
 
-## RECOMMENDED STACK — Round 1 (preliminary; verify/expand each round)
-| Layer | Candidate | License | Provenance verdict | Status |
+## ★★ R2 PIVOTAL FINDING — Goose's stack = RETHEME, not REPLACE
+Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`):
+- **React 19.2.4** + **shadcn/ui** (`components.json` `$schema=ui.shadcn.com`, style `new-york`, `cssVariables:true`,
+  baseColor neutral) + **Radix UI** (accordion/avatar/dialog/popover/radio/scroll-area/select/slot/tabs/themes) +
+  **Tailwind CSS v4.2.1** + **class-variance-authority** + clsx + tailwind-merge + **framer-motion v12.34.3** (= MIT
+  "Motion", already verified R1) + **lucide-react** icons + tailwindcss-animate + tw-animate-css.
+- shadcn primitives present in `src/components/ui/`: button, card, collapsible, dialog, dropdown-menu, input,
+  scroll-area, separator, sheet, skeleton, switch, tabs, Select, Tooltip, Pill, BaseModal, ConfirmationModal, …
+- ⇒ **THE STRATEGY: do NOT introduce a new component library. RETHEME Goose's EXISTING shadcn/Radix/Tailwind
+  components via the Tailwind config + CSS variables (shadcn theming layer) + tune the EXISTING framer-motion
+  springs to macOS curves.** Nothing is swapped → nothing breaks (safest possible path; honors "nothing lost").
+- ⇒ **LiqUIdify / Framework7 / Konsta = research_only/reference** (adopting them would REPLACE Goose's components
+  = risk). Lift HIG *patterns/values* only.
+- ⇒ **shadcn Apple Design System tokens drop in NATIVELY** — it's a shadcn theme (SF Pro, Action Blue #0066cc,
+  DESIGN.md token set) applied to the SAME shadcn primitives Goose already uses.
+- ⇒ **Motion is already present** (framer-motion v12, MIT) — calibrate its spring values to macOS
+  (CocoaSprings/Advance), don't add a lib. **lucide-react** is the icon set → map/retheme to feel native (SF
+  Symbols licensing = open gap).
+
+## RECOMMENDED STACK — R2 (retheme-the-existing-shadcn)
+| Layer | Decision | License | Provenance | Status |
 |---|---|---|---|---|
-| **Motion engine** | **Motion** (motion.dev / motiondivision/motion) | **MIT** | lift + build-vendor (vanilla `animate()`, no React lock-in) | ✅ [VERIFIED repo] — MIT, vanilla API, spring, hybrid WAAPI/GPU 120fps |
-| Motion (React alt) | react-spring (pmndrs) | MIT | adapter if Goose UI is React | ✅ [VERIFIED repo] — spring-first, active v10.1.2 (2026-06-24, 29.1k★) |
-| Pure-CSS motion | native CSS `linear()` spring easing | n/a (platform) | direct | ⏳ confirm WebKit support next round |
-| **Component base** | LiqUIdify (HIG React) **vs** shadcn/ui + Apple tokens | LiqUIdify=? · shadcn=MIT | TBD | ⏳ [GAP] verify LiqUIdify license + WebKit; pick base |
-| Design tokens | shadcn **Apple Design System** (SF Pro, Action Blue #0066cc, machine-readable DESIGN.md) | verify | reference/lift tokens | ⏳ [GAP] confirm terms |
-| Glass (native) | `NSVisualEffectView` / macOS 26 Liquid Glass | Apple | platform | ✅ doctrine |
-| Glass (web fallback) | frost+tint+specular CSS (NOT refraction) | n/a | clean-room CSS | ✅ refraction Chromium-only [VERIFIED prior] |
-| Mobile-ish kits | Framework7 (MIT), Konsta UI | MIT | reference | ⏳ [GAP] iOS-leaning — assess macOS fit |
+| **Component base** | Goose's EXISTING shadcn/ui + Radix (retheme, don't replace) | MIT (shadcn/Radix) | in-place retheme | ✅ [VERIFIED source] |
+| **Theme** | shadcn **Apple Design System** tokens → Goose's Tailwind/CSS vars | verify terms | lift tokens | ⏳ pull DESIGN.md next round |
+| **Motion** | Goose's EXISTING **framer-motion v12** (MIT) — tune springs to macOS | MIT | in-place calibrate | ✅ [VERIFIED source+repo] |
+| Spring calibration ref | CocoaSprings / Advance (native feel-match values) | MIT | reference | ⏳ extract spring values |
+| Pure-CSS motion | native CSS `linear()` springs where no JS needed | platform | direct | ⏳ confirm WebKit |
+| Icons | Goose's **lucide-react** → retheme; map key glyphs to SF Symbols | MIT (lucide) | retheme | ⏳ SF Symbols licensing |
+| Glass (native) | `NSVisualEffectView` / macOS 26 | Apple | platform | ✅ doctrine |
+| Glass (web fallback) | frost+tint+specular CSS (NOT refraction) | n/a | clean-room CSS | ✅ refraction Chromium-only |
+| ~~LiqUIdify / Framework7 / Konsta~~ | reference HIG patterns ONLY (do not adopt as base) | — | research_only | ✅ demoted (would replace Goose) |
 
-**Round-1 lead:** Motion is the confirmed motion engine (MIT, vanilla, spring, 120fps GPU). Component
-base is the open decision — LiqUIdify (purpose-built HIG) is the front-runner but its **license is
-unverified** (homepage only showed the title); shadcn/ui (MIT) + the Apple-token set is the safe fallback.
-
-## COMPONENT MAPPING TABLE (skeleton — fill as Goose's live inventory is enumerated)
-Status legend: ✅ VERIFIED (source + WebKit + A/B pixel-diff) · ⏳ GAP.
-| Goose component | best web alt | license/provenance | WebKit | match recipe | spring values | A/B | status |
-|---|---|---|---|---|---|---|---|
-| Buttons | (LiqUIdify/shadcn) | — | — | SF Pro, 22–28px height, 6px radius, accent fill | press spring | — | ⏳ |
-| Inputs / text fields | — | — | — | focus ring = system accent | — | — | ⏳ |
-| Selects / dropdowns | — | — | — | macOS popup-button shape | present spring | — | ⏳ |
-| Toggles / switches | — | — | — | macOS switch geometry | flip spring | — | ⏳ |
-| Sliders | — | — | — | — | — | — | ⏳ |
-| Tabs / segmented | — | — | — | macOS segmented control | slide spring | — | ⏳ |
-| Sidebar / nav list | — | — | — | vibrancy blend | — | — | ⏳ |
-| Chat bubbles | — | — | — | — | — | — | ⏳ |
-| Message composer | — | — | — | — | — | — | ⏳ |
-| Model/provider picker | (native exists — match it) | — | — | match the native Models picker | — | — | ⏳ |
-| Modals / sheets | — | — | — | sheet present-dismiss | sheet spring | — | ⏳ |
-| Popovers / tooltips / context menus | — | — | — | — | — | — | ⏳ |
-| Toasts | — | — | — | — | slide+fade spring | — | ⏳ |
-| Progress / spinners | — | — | — | — | — | — | ⏳ |
-| Code blocks / tables | — | — | — | SF Mono | — | — | ⏳ |
-| Settings forms | — | — | — | calm/fluid blended (not native) | — | — | ⏳ |
-| Scroll areas | — | — | — | native momentum scrollbars | — | — | ⏳ |
+## COMPONENT MAPPING TABLE — Goose's REAL components → RETHEME recipe (R2)
+"Best web alt" = retheme Goose's OWN shadcn/Radix primitive (no replacement). Status: ✅ needs source+WebKit+A/B pixel-diff · ⏳ GAP.
+| Goose component (file) | retheme target | macOS recipe | spring | status |
+|---|---|---|---|---|
+| `ui/button.tsx` | retheme | SF Pro, push/accent geometry (~22–28px h, 6px radius), Action Blue fill | press scale spring | ⏳ |
+| `ui/input.tsx` | retheme | macOS text field, system-accent focus ring, 1px inset border | — | ⏳ |
+| `ui/Select.tsx` + radix select | retheme | macOS popup-button + chevron, vibrancy menu | present spring | ⏳ |
+| `ui/switch.tsx` | retheme | macOS switch geometry/colors | knob flip spring | ⏳ |
+| `ui/tabs.tsx` | retheme | macOS segmented control | slide spring | ⏳ |
+| `ui/dialog.tsx` · `ui/sheet.tsx` · `BaseModal` · `ConfirmationModal` | retheme | macOS sheet (slide-down) / centered modal, vibrancy | sheet present-dismiss spring | ⏳ |
+| `ui/dropdown-menu.tsx` | retheme | macOS menu, vibrancy, item highlight = accent | present spring | ⏳ |
+| `ui/Tooltip.tsx` | retheme | macOS tooltip (delay/style) | fade spring | ⏳ |
+| `ui/scroll-area.tsx` (radix) | retheme | native momentum + overlay scrollbars | — | ⏳ |
+| `ui/card.tsx` · `Pill.tsx` | retheme | vibrancy surface / macOS token pill | — | ⏳ |
+| `ui/collapsible.tsx` · `Expand.tsx` | retheme | — | height/opacity spring | ⏳ |
+| `ui/separator.tsx` | retheme | hairline divider (system) | — | ⏳ |
+| `ui/skeleton.tsx` | retheme | macOS shimmer | shimmer | ⏳ |
+| `BaseChat` · `GooseMessage` · `ProgressiveMessageList` · `MarkdownContent` · `ThinkingContent` | retheme + virtualize | chat bubbles, SF Pro, SF Mono code, virtualized transcript | message insert spring | ⏳ |
+| `ChatInput` · `ChatInputCard` · `MentionPopover` | retheme | macOS composer, focus ring, mention popover vibrancy | — | ⏳ |
+| `Hub.tsx` · `LauncherView.tsx` | retheme | hub/launcher on glass | route transition spring | ⏳ |
+| `GooseSidebar/` · `Layout/` | retheme | sidebar vibrancy blend (matches native nav-rail) | — | ⏳ |
+| `ElicitationRequest` · `ParameterInputModal` · `JsonSchemaForm` · `ExtensionInstallModal` | retheme | macOS form controls/sheets | sheet spring | ⏳ |
+| `ChatSessionsContainer` · `SessionActionsHeader` · `SessionIndicators` | retheme | macOS list rows | reorder spring | ⏳ |
+| toasts (`GroupedExtensionLoadingToast`) · `LoadingGoose/Epistemos` · `Spinner` | retheme | macOS toast/progress | slide+fade spring | ⏳ |
+| `icons.tsx` / lucide-react | retheme | match SF Symbols weight/scale (or map key glyphs) | — | ⏳ (SF Symbols license) |
+| Settings (`settings` routes) | calm/fluid blended (not native) | per doctrine — unseen = blended web | — | ⏳ |
 
 ## MOTION + PERF FINDINGS (Round 1)
 - **Motion engine = Motion (MIT).** Vanilla `animate()` (framework-agnostic — works regardless of Goose's
@@ -61,22 +82,25 @@ Status legend: ✅ VERIFIED (source + WebKit + A/B pixel-diff) · ⏳ GAP.
 - Perf budget (from doctrine): 60/120fps, animate transform/opacity ONLY (never layout props), virtualize the
   chat transcript + sessions list, bounded webview live-set + listener teardown. Instrument fps + input latency.
 
-## VENDORING DECISIONS (ProvenanceGate — Round 1)
-- Motion → **lift + build-vendor** (MIT, vanilla; vendor the `animate` core via the build-time bundle).
-- shadcn tokens → **reference/lift** the DESIGN.md token values (colors/typography), our own CSS.
-- Liquid Glass web libs → **clean-room CSS** (the frost+specular fallback; do NOT adopt the Chromium-only refraction).
-- Native glass → platform (`NSVisualEffectView`/macOS 26).
-- Component base → **DECISION DEFERRED** to Round 2 (pending LiqUIdify license + WebKit + Goose-framework check).
+## VENDORING DECISIONS (ProvenanceGate — R2, pivoted)
+- Component base → **IN-PLACE RETHEME** of Goose's existing shadcn/ui + Radix (no new lib, no vendoring — theme via Tailwind/CSS vars). Safest.
+- Motion → **IN-PLACE CALIBRATE** Goose's existing framer-motion v12 (MIT, already bundled) — tune spring values to macOS; no new motion lib.
+- shadcn Apple tokens → **lift** the DESIGN.md token values into Goose's Tailwind config + CSS vars (our theme).
+- Liquid Glass web libs → **clean-room CSS** (frost+specular fallback; never the Chromium-only refraction).
+- Native glass → platform (`NSVisualEffectView`/macOS 26) behind the transparent webview.
+- LiqUIdify / Framework7 / Konsta → **research_only** (reference HIG patterns; adopting them would REPLACE Goose's components).
+- lucide-react → **retheme in place**; SF Symbols mapping pending licensing.
 
 ## GAP LIST → next rounds
-1. **Enumerate Goose's LIVE component inventory** from the real Goose web-UI source (fill the table).
-2. **Verify LiqUIdify license + WebKit + component list** (homepage was thin → fetch the repo/README).
-3. Confirm **Goose UI framework** (React?) → decides LiqUIdify vs shadcn vs react-spring vs vanilla Motion.
-4. Confirm shadcn Apple Design System terms + Framework7/Konsta macOS fit.
-5. Verify **CSS `linear()` spring** WebKit support + Motion bundle size + interruptibility.
-6. Connect + use the **HIG / SF Symbols / design-system MCP servers** (apple-dev-mcp, SF Symbols MCP).
-7. **SF Symbols licensing** path (Apple-restricted) — system access vs SVG export vs MIT icon alt.
-8. Build the **A/B pixel-diff harness** (native control vs web control) — required for any `[VERIFIED]`.
+1. ✅ CLOSED (R2) — Goose inventory + framework = React 19 + shadcn/ui + Radix + Tailwind v4 + framer-motion v12 + lucide.
+2. ✅ CLOSED (R2) — component base decided: RETHEME Goose's existing shadcn (LiqUIdify/Framework7/Konsta demoted to reference-only).
+3. Pull the **shadcn Apple Design System DESIGN.md token values** (colors/type/spacing) → wire into Goose's Tailwind config + CSS vars (`cssVariables:true`, baseColor neutral).
+4. Extract **macOS native spring values** from CocoaSprings/Advance → calibrate Goose's framer-motion springs (press/sheet/menu/toast/transition).
+5. Verify **CSS `linear()` spring** + Tailwind v4 + Radix behavior in **WebKit/WKWebView**.
+6. **SF Symbols licensing** path (Apple-restricted) + lucide↔SF-Symbols glyph mapping for native feel.
+7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols.
+8. **Transparent-webview-over-glass** WebKit recipe: `drawsBackground=false` + native `NSVisualEffectView` behind — verify + prototype the seam.
+9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
 
 ## INTEGRATION NOTES
 - Build-time vendor via `build-tiptap-bundle.sh` model → `Resources/` → served via `WKURLSchemeHandler`. No runtime npm.
@@ -86,3 +110,9 @@ Status legend: ✅ VERIFIED (source + WebKit + A/B pixel-diff) · ⏳ GAP.
 ## CHANGELOG
 - 2026-06-29 R1: created. Verified Motion + react-spring (MIT, spring, active). Stack skeleton + gap list seeded.
   Component base + Goose inventory deferred to R2. (Goose plan change owned by the Plan-1 agent — not edited here.)
+- 2026-06-29 R2: ★ PIVOT. Verified from Goose source: React 19 + shadcn/ui (new-york, cssVariables) + Radix +
+  Tailwind v4 + framer-motion v12 (MIT) + lucide. Strategy = RETHEME the existing shadcn (no replacement) +
+  calibrate the existing framer-motion → safest, nothing breaks. LiqUIdify/Framework7/Konsta demoted to
+  reference-only. Filled the component mapping table with Goose's REAL components → retheme recipes. Closed gaps
+  #1 (inventory) + #2 (base decision). New gaps: pull shadcn Apple DESIGN.md tokens, extract macOS spring values,
+  WebKit verify (linear()/Tailwind v4/Radix), SF Symbols licensing, transparent-over-glass recipe, A/B harness.
