@@ -56,6 +56,7 @@ struct BrowserUseAdapterPlan3Tests {
             "confine_screenshot_path",
             "screenshot path resolved outside private screenshot directory",
             "screenshot returned non-string path",
+            "screenshot accepts only one output path",
             "add_vendor_source_path(\"browser-use\")",
             "add_vendor_source_path(\"cdp-use\")",
             "browser-use adapter payload is not staged",
