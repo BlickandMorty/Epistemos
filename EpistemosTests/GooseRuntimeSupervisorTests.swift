@@ -889,6 +889,17 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("const { read, upsert } = useConfig();"))
         #expect(script.contains("await upsert('GOOSE_AUTO_COMPACT_THRESHOLD', newThreshold, false)"))
         #expect(script.contains("AlertBox threshold upsertConfig anchor not found"))
+        // Missing-feature audit gap #1: tool list (MCP-apps + tool-call rendering)
+        // routed off the dead REST getTools onto the live toolsList_unstable via
+        // listAcpSessionTools (extension-prefix scope + full-list fallback so it can
+        // never be worse than the REST path it replaces).
+        #expect(script.contains("epistemos-acp-session-tools"))
+        #expect(script.contains("export async function listAcpSessionTools"))
+        #expect(script.contains("client.goose.toolsList_unstable({ sessionId })"))
+        #expect(script.contains("scoped.length > 0 ? scoped : all"))
+        #expect(script.contains("epistemos-acp-tools-cache"))
+        #expect(script.contains("listAcpSessionTools(sessionId, extensionName)"))
+        #expect(script.contains("toolsCache getTools call anchor not found"))
     }
 
     @Test("Goose Swift surface does not carry a provider or model roster")
