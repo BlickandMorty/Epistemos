@@ -19,7 +19,7 @@ Run each `Check` from repo root; the Pass condition is what a consistent canon r
 | 6 | **Graph = DO NOT TOUCH** (already full AppKit/Metal) | `grep -rc "GRAPH = .*DO NOT TOUCH\|graph.*DO NOT TOUCH" docs/` | present in doctrine + 3 prompts | ✅ |
 | 7 | **Lens model** Note(Epdoc)/Source(MarkEdit)/Prose(TK2); **old code editor KEPT as v1 legacy** (no deletion); MD-nav = Note default→Prose→Source-button→full-MarkEdit | `grep -rniE "delete the 3 old\|old code-editor files were deleted" docs/research/EDITOR_CANONICAL*.md docs/research/MARKEDIT_EMBED*.md \| grep -viE "SUPERSEDES\|PRESERVED\|KEEP\|legacy"` | empty (the only hit is the line ENFORCING "v1 PRESERVED", excluded) | ✅ |
 | 8 | **Retheme-not-replace** (Goose's existing shadcn/Radix/Tailwind/framer-motion) | doctrine + reskin + Plan-1 prompt say "retheme … do NOT replace" | present | ✅ |
-| 9 | **Only paste = `PROMPT_PLAN_1/2/3`**; every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty | empty (every handoff *PROMPT* doc carries a banner) | ✅ (CLAUDE_IMPLEMENTATION_PROMPT_FULL_CLONE_INFUSION_2026_06_24 caught unbannered + bannered this cycle) |
+| 9 | **Only paste = `PROMPT_PLAN_1/2/3`**; every other "prompt"-named doc is bannered/not-the-paste | `for f in docs/handoffs/*PROMPT*.md; do grep -qiE "SUPERSEDED\|DO NOT PASTE\|HISTORICAL" "$f" \|\| echo "UNBANNERED: $f"; done` → empty | empty (every handoff *PROMPT* doc carries a banner) | ✅ ledger-scope green (CLONE_INFUSION + PRACTICAL_FULL_PORT_06-24 bannered). Broadened corpus-wide paste-prompt scan → ~50 archival/different-purpose hits parked in OWNER REVIEW (not a fleet-launch risk) |
 | 10 | **Accent #0066cc · SF Pro · radius 11** consistent | `grep -rohE "#0066cc" docs/ \| wc -l` (>0, no rival accent) | consistent | ✅ |
 
 ## Stale docs that are BANNERED (mitigated, kept for nuance — do NOT delete)
@@ -29,7 +29,20 @@ GOOSE_APPKIT_SURFACE_MAPPING · CLAUDE_IMPLEMENTATION_PROMPT_FULL_CLONE_INFUSION
 paste-prompt; bannered 2026-06-29) — each has a top SUPERSEDED-2026-06-29 banner; their bodies are HISTORICAL.
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
-- _(none as of 2026-06-29)_
+- **2026-06-29 (Auditor) — historical paste-prompt corpus (NOT a fleet blocker).** A broadened content-scan
+  (`paste this` / `use this prompt`) found ~50 paste-prompt-style docs corpus-wide beyond the current handoff prompts.
+  Triage: the vast majority are **archival** (`docs/_consolidated/**` research corpus, `docs/fusion/research/**`,
+  `docs/june 1/**`, `docs/audits/**`, `docs/plan/prompts/**`) or legitimate **different-purpose session-startup
+  prompts** (`MASTER_SESSION_PROMPT*` — named current by CLAUDE.md, `CLAUDE_CODE_SESSION_PROMPT`,
+  `PARALLEL_SESSION_PROMPT`, `IMPLEMENTATION_PROMPTS`, `CODEX_PROMPT_CHAIN`, `ANTI_DRIFT_SYSTEM`,
+  `AUDITOR_LOOP_PROMPT_2026_06_22`). **Auditor read: NOT a fleet-launch risk** — the 3 paste prompts + canon name
+  PROMPT_PLAN_1/2/3 as the only paste, and the fleet's read-docs never route into the archive. I did NOT banner these
+  (52 banners = vandalism; preserve-nuance). **Same rejected 06-24 full-clone family, still unbannered (banner only if
+  owner wants):** `AUTHORITATIVE_FULL_CLONE_NATIVE_INFUSION_PLAN`, `OPENWORK_OPENCHAMBER_CODE_STUDY_HANDOFF`,
+  `ACT_OSAURUS_SWIFT_AGENT_CODE_STUDY_HANDOFF`, `ACT_IP_PRESERVATION`, `TRANSITION_AND_MODEL_PICKER_IP_LEDGER` (all
+  06-24, in `docs/`/`docs/handoffs/`). **Owner decision needed:** leave archival/session prompts as-is (auditor's rec)
+  OR direct me to banner the 06-24 full-clone family for extra safety. (Already bannered the 2 that are paste-prompts
+  in `docs/handoffs/`: CLONE_INFUSION + PRACTICAL_FULL_PORT.)
 
 ## How to use
 - **Owner:** open this file; scan STATUS. Any ⚠️ → read the Auditor's note + the OWNER REVIEW section.

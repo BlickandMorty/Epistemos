@@ -1,5 +1,12 @@
 # Practical Full-Port And Hardening Plan - 2026-06-24
 
+> 🛑 **SUPERSEDED 2026-06-29 — NOT a current paste-prompt.** This 06-24 full-port/clone-infusion plan (Osaurus Act,
+> OpenChamber/OpenWork, "full clones first") is overtaken by the **2026-06-25 surface lock** (Act = Goose, Work =
+> OpenGUI/OpenCode), the **2026-06-28 Goose-only scope lock**, and the **2026-06-29 Option 1** canon. The only prompts
+> to paste are `docs/prompts/PROMPT_PLAN_{1_GOOSE,2_EDITOR,3_CAPABILITIES}.md`; canon that wins:
+> `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+> The older intra-06-24 "Supersession note" below is kept for nuance — its target is itself a stale 06-24 doc.
+
 > Supersession note: the owner's latest correction supersedes any language in
 > this file that sounds like "thin native shell + hidden donor engine." Read
 > `docs/handoffs/AUTHORITATIVE_FULL_CLONE_NATIVE_INFUSION_PLAN_2026_06_24.md`
