@@ -121,12 +121,12 @@ navigations, surfaces settings load failures instead of silently falling back, t
 the runtime on disappear, and stops an already-launched runtime if a readiness refresh finds the Pro gate invalid. It
 does not reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
 `EpistemosTests/BrowserUseWebUIViewTests.swift` verifies the loopback URL guard, the local WKWebView fixture dry-run
-shell smoke, the real Gradio WKWebView shell/control smoke, and the source boundary. `[VERIFIED-CODE]`
+shell smoke, the real Gradio WKWebView shell/control and task-submit dry-run smokes, and the source boundary.
+`[VERIFIED-CODE]`
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
 screenshot` to browser-use's `skill_cli` daemon. The `console/errors` commands are bounded compatibility stubs because
-the vendored `skill_cli` has no matching console/error stream actions yet; these console/errors compatibility stubs
-avoid browser-use runtime import until upstream exposes matching stream actions. The adapter keeps session files under
+the vendored `skill_cli` has no matching console/error stream actions yet; these console/errors compatibility stubs avoid browser-use runtime import until upstream exposes matching stream actions. The adapter keeps session files under
 `AGENT_BROWSER_SOCKET_DIR` via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a
 no-runtime `contract` check for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME`
 after validating that it is an absolute existing directory, so direct adapter invocation cannot redirect browser-use
