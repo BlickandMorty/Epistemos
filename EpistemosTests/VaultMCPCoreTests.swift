@@ -265,6 +265,12 @@ struct VaultMCPCoreTests {
         let encodedContents = try #require(encodedResult["contents"] as? [[String: Any]])
         #expect(encodedContents.first?["text"] as? String == "Encoded")
 
+        let encodedSeparator = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":12,"method":"resources/read","params":{"uri":"vault:///Folder%2FNote.md"}}"#)
+        let encodedSeparatorObject = try Self.jsonObject(encodedSeparator)
+        let encodedSeparatorError = try #require(encodedSeparatorObject["error"] as? [String: Any])
+        #expect(encodedSeparatorError["code"] as? Int == -32602)
+
         let traversal = await core.handle(
             requestJSON: #"{"jsonrpc":"2.0","id":7,"method":"resources/read","params":{"uri":"vault:///../secret.md"}}"#)
         let traversalObject = try Self.jsonObject(traversal)

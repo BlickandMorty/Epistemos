@@ -396,13 +396,15 @@ nonisolated struct VaultMCPCore {
 
     private static func relativePath(fromVaultURI uri: String) -> String? {
         guard uri.hasPrefix("vault:///") else { return nil }
-        if let url = URL(string: uri), url.scheme == "vault" {
-            let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            return path.isEmpty ? nil : path
-        }
-
         let rawPath = String(uri.dropFirst("vault:///".count))
-        return rawPath.removingPercentEncoding ?? rawPath
+        guard !rawPath.isEmpty else { return nil }
+        guard !containsPercentEncodedPathSeparator(rawPath) else { return nil }
+        return rawPath.removingPercentEncoding
+    }
+
+    private static func containsPercentEncodedPathSeparator(_ path: String) -> Bool {
+        let lowercased = path.lowercased()
+        return lowercased.contains("%2f") || lowercased.contains("%5c")
     }
 
     private static func containedMarkdownURL(vaultRoot: URL?, relativePath: String) throws -> URL {
