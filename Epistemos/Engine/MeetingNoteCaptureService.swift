@@ -25,6 +25,8 @@ extension LiveVoiceInputService: MeetingVoiceInputProviding {}
 @MainActor
 @Observable
 final class MeetingNoteCaptureService {
+    nonisolated static let maxTranscriptCharacters = TextCapturePipeline.maxCleanedTextCharacters
+
     enum State: Equatable, Sendable {
         case idle
         case preparing
@@ -84,7 +86,7 @@ final class MeetingNoteCaptureService {
     }
 
     var transcriptText: String {
-        Self.renderTranscript(finalSegments: finalSegments, partial: partialTranscript)
+        Self.boundedTranscript(Self.renderTranscript(finalSegments: finalSegments, partial: partialTranscript))
     }
 
     var durationSeconds: Int {
@@ -177,6 +179,7 @@ final class MeetingNoteCaptureService {
         } else if finalSegments.last != cleaned {
             finalSegments.append(cleaned)
         }
+        boundFinalSegments()
         if partialTranscript == cleaned || Self.segment(cleaned, extends: partialTranscript) {
             partialTranscript = ""
         }
@@ -277,6 +280,12 @@ final class MeetingNoteCaptureService {
         modelDownloadProgress = nil
     }
 
+    private func boundFinalSegments() {
+        let rendered = Self.renderTranscript(finalSegments: finalSegments, partial: "")
+        guard rendered.count > Self.maxTranscriptCharacters else { return }
+        finalSegments = [Self.boundedTranscript(rendered)]
+    }
+
     private func freezeCaptureClock() {
         if startedAt != nil, stoppedAt == nil {
             stoppedAt = now()
@@ -300,7 +309,12 @@ final class MeetingNoteCaptureService {
     }
 
     private static func cleanedSegment(_ text: String) -> String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines)
+        boundedTranscript(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private static func boundedTranscript(_ text: String) -> String {
+        guard text.count > maxTranscriptCharacters else { return text }
+        return String(text.prefix(maxTranscriptCharacters))
     }
 
     private static func segment(_ candidate: String, extends existing: String) -> Bool {

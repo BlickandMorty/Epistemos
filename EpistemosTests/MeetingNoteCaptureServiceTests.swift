@@ -44,6 +44,21 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.transcriptText == "Discuss launch and risk\n\nAssign follow-up.")
     }
 
+    @Test("transcript buffer is capped to the capture pipeline envelope")
+    func transcriptBufferIsCappedToCapturePipelineEnvelope() {
+        let service = MeetingNoteCaptureService(voiceInput: FakeMeetingVoiceInput())
+        let prefix = String(repeating: "a", count: MeetingNoteCaptureService.maxTranscriptCharacters - 2)
+
+        service.recordFinal(prefix)
+        service.recordFinal("tail segment that should not extend the saved transcript")
+        service.recordPartial("live partial that should also stay outside the capped display")
+
+        #expect(service.transcriptText.count == MeetingNoteCaptureService.maxTranscriptCharacters)
+        #expect(service.transcriptText.hasPrefix(prefix))
+        #expect(!service.transcriptText.contains("tail segment"))
+        #expect(!service.transcriptText.contains("live partial"))
+    }
+
     @Test("refresh consumes LiveVoiceInputService-shaped final transcript")
     func refreshConsumesVoiceInput() {
         let voice = FakeMeetingVoiceInput()
@@ -240,6 +255,9 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("runFromAudio("))
         #expect(source.contains("CaptureSourceMetadata.meetingSTT"))
         #expect(source.contains("segment(_ candidate: String, extends existing: String)"))
+        #expect(source.contains("maxTranscriptCharacters"))
+        #expect(source.contains("TextCapturePipeline.maxCleanedTextCharacters"))
+        #expect(source.contains("boundFinalSegments"))
         #expect(!source.contains("EpistemosSpeechAnalyzer"))
         #expect(!source.contains("Whisper"))
         #expect(!source.contains("Python"))

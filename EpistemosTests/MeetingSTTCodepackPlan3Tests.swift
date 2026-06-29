@@ -12,6 +12,7 @@ struct MeetingSTTCodepackPlan3Tests {
             "EpistemosSpeechAnalyzer.shared.startLive",
             "VoiceInputButton` consumes `LiveVoiceInputService.shared",
             "TextCapturePipeline.runFromAudio",
+            "TextCapturePipeline.maxCleanedTextCharacters",
             "CaptureSourceMetadata",
             "SDPage.frontMatter",
             "source = meeting_stt",
@@ -49,6 +50,7 @@ struct MeetingSTTCodepackPlan3Tests {
         #expect(capabilities.contains("Meeting/lecture note — SHIPPED (Pass 9)"))
         #expect(capabilities.contains("MeetingNoteCaptureService"))
         #expect(capabilities.contains("stt_engine=apple_speechanalyzer"))
+        #expect(capabilities.contains("live transcript buffer is capped to the capture pipeline envelope"))
 
         for stale in [
             "clone-ready",

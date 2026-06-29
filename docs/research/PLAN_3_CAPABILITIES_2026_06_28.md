@@ -284,8 +284,9 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   `LiveVoiceInputService`, buffered by `MeetingNoteCaptureService`, then saved through `TextCapturePipeline` as a
   searchable note with `source=meeting_stt`, `source_kind=audio_transcript`, `captured_at`, `duration_seconds`, and
   `stt_engine=apple_speechanalyzer` frontmatter. The landing button opens `MeetingNoteView` in the Plan 3 utility
-  window; auto-stop follows the dictation preference, and manual stop/save stays available. No hidden audio retention,
-  no cloud STT, no Whisper/Kokoro/Python/subprocess on the MAS path.
+  window; the live transcript buffer is capped to the capture pipeline envelope before save; auto-stop follows the
+  dictation preference, and manual stop/save stays available. No hidden audio retention, no cloud STT, no
+  Whisper/Kokoro/Python/subprocess on the MAS path.
 - **Eidos→chat / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): the closed-citation retrieval panel is
   the *visible payoff* of the moat; substrate is ~done, only the surfacing remains.
 
