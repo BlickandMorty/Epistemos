@@ -1487,6 +1487,17 @@ struct EpistemosCommands: Commands {
             Button("Open Real Goose Electron Fallback") {
                 GooseElectronFallbackLauncher.shared.launchFromMenu()
             }
+
+            // Phase 1 (Step 4) — native Agent FRAME entry (window + nav rail wrapping the Goose
+            // WebView; chat + all features stay in the WebView per the owner charter). Opt-in until
+            // the frame is proven: shown only when AgentSurface.isEnabled (env/UserDefaults). The
+            // WebView Goose surface (⌘3 above) remains the default primary surface.
+            if AgentSurface.isEnabled() {
+                Button("Epistemos Agent (Native Frame)") {
+                    AgentSurfaceWindowController.shared.open()
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+            }
             #endif
 
             Button("Knowledge Graph") {

@@ -1,17 +1,18 @@
 import Foundation
 
-// Phase 1 — native Agent surface feature flags.
+// Phase 1 — native Agent frame surface flag.
 //
-// `useNativeChatPath` stays DEFAULT FALSE until Step 9 (chat-primary flip): the WebView remains the
-// proven primary surface; the native Agent window is opt-in until its WRV passes. Flip via the
-// `EPISTEMOS_AGENT_NATIVE_CHAT` env var or the `epistemos.agent.useNativeChatPath` UserDefaults key —
-// the single explicit promotion point (mirrors the GooseSurfaceRouter flag pattern).
+// Per the owner charter (2026-06-27): NATIVE = FIXED frame (window + nav rail + permission/elicitation
+// pop-ups) wrapping Goose's reskinned WebView; chat and every Goose feature stay in the WebView (there
+// is NO native chat path — Gate 7 was deleted). This flag gates the opt-in native Agent frame window
+// entry until the frame is proven (the WebView Goose surface, ⌘3, remains the default). Flip via the
+// EPISTEMOS_AGENT_NATIVE_FRAME env var or the epistemos.agent.nativeFrame UserDefaults key.
 
 enum AgentSurface {
-    static let environmentKey = "EPISTEMOS_AGENT_NATIVE_CHAT"
-    static let userDefaultsKey = "epistemos.agent.useNativeChatPath"
+    static let environmentKey = "EPISTEMOS_AGENT_NATIVE_FRAME"
+    static let userDefaultsKey = "epistemos.agent.nativeFrame"
 
-    static func useNativeChatPath(
+    static func isEnabled(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         userDefaults: UserDefaults = .standard
     ) -> Bool {
