@@ -967,6 +967,20 @@ issue — it was the dead-`@/api`-REST surface the ACP grafts (provider catalog 
 picker / config-status / custom-provider CRUD) fixed. The live-SUITE slowness is
 isolated to the full-app TEST HOST racing the saturated machine, nothing more.
 
+Specific root cause pinned (from the existing live logs, no new run): the ISO-DD
+BUILD is degraded — the test-host app logs `precondition failure: unable to load
+binary archive for shader library: …/IconRendering.framework/Resources/binary.metallib
+has an invalid format`, i.e. the scratchpad-DD build's Metal shader archive is broken,
+so the app-hosted test boots in a degraded state and its supervisor-spawned
+`goose serve` never becomes reachable (no `Failed to launch` is logged → the spawn
+doesn't error; the degraded host just can't bring it up). The WebContent
+`launchservicesd` sandbox denials in the log are WebKit's normal content-process
+sandboxing and a red herring for the non-WebView suites. The DEFAULT-DD build is
+clean (PM #11 live 5/5 + the owner's app spawns `goose serve` fine on 3284), so this
+is an isolated-DerivedData build artifact, NOT a Goose regression. (A clean live-suite
+run therefore needs the default DD in a quiet window, or a fresh-from-scratch iso-DD
+rebuild — not a Goose code change.)
+
 **Conclusion:** `goose serve` and the Goose runtime are demonstrably functional here;
 the iso-DD live-test failures are a TEST-HARNESS spawn/connect artifact in the
 isolated DerivedData + TestRuntime context (likely the supervisor's spawn under the
