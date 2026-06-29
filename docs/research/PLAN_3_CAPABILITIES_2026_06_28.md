@@ -333,7 +333,8 @@ Pure additive UI, MAS-safe.
 - **Pro automation = vendor the REAL `browser-use`** (browser-use + web-ui + cdp-use + Python + Chromium), reskin its
   web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). The
   vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed; final signed Pro
-  packaging still remains; the loopback shell/control and task-submit dry-run UI smokes have landed.
+  packaging still remains; the loopback shell/control and task-submit dry-run UI smokes have landed; the Pro gate
+  rejects symlink-routed, non-regular, or >1 MiB vendor manifests before JSON decode.
   Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
 - ~~Option B (native `WebKitBrowserEngine`-driven robot)~~ = **PARKED/superseded** by browser-use — do NOT build it
   (the owner cut the heavy native automation engine). The `WebKitBrowserEngine` stub stays `NotConfigured`.

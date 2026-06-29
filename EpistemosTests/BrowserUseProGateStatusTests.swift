@@ -73,6 +73,46 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest file envelope rejects symlinks and oversized JSON before decode")
+    func manifestFileEnvelopeRejectsSymlinksAndOversizedJSONBeforeDecode() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-envelope-\(UUID().uuidString)", isDirectory: true)
+        let outsideManifest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-outside-manifest-\(UUID().uuidString).json", isDirectory: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(Self.packagedManifestJSON.utf8).write(to: outsideManifest)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outsideManifest)
+        }
+
+        let symlinkManifest = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: symlinkManifest, withDestinationURL: outsideManifest)
+        let symlinkStatus = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: symlinkManifest
+        )
+        #expect(!symlinkStatus.isActive)
+        #expect(symlinkStatus.headline == "browser-use Pro: vendor manifest unreadable")
+        #expect(symlinkStatus.detail.contains("symlink"))
+
+        let oversizedManifest = root.appendingPathComponent("OVERSIZED_MANIFEST.json", isDirectory: false)
+        FileManager.default.createFile(atPath: oversizedManifest.path, contents: Data())
+        let handle = try FileHandle(forWritingTo: oversizedManifest)
+        try handle.truncate(atOffset: UInt64(BrowserUseVendorManifest.maxManifestBytes + 1))
+        try handle.close()
+
+        let oversizedStatus = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: oversizedManifest
+        )
+        #expect(!oversizedStatus.isActive)
+        #expect(oversizedStatus.headline == "browser-use Pro: vendor manifest unreadable")
+        #expect(oversizedStatus.detail.contains("exceeds \(BrowserUseVendorManifest.maxManifestBytes) bytes"))
+        #endif
+    }
+
     @Test("manifest-staged payload must have the declared artifacts on disk")
     func manifestStagedPayloadMustHaveDeclaredArtifactsOnDisk() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -209,6 +249,11 @@ struct BrowserUseProGateStatusTests {
             "nonisolated enum BrowserUseProGateStatus",
             "static let flagName = \"EPISTEMOS_BROWSER_USE_PRO_V0\"",
             "struct BrowserUseVendorManifest",
+            "maxManifestBytes",
+            "validateManifestFile",
+            "BrowserUseSymlinkPathGuard.firstSymlinkComponent",
+            "browser-use vendor manifest must be a regular file",
+            "browser-use vendor manifest exceeds",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "No automation runtime is launched",
             "isProPayloadStaged",

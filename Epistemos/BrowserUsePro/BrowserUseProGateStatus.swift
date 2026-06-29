@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
+    static let maxManifestBytes = 1 * 1024 * 1024
+
     struct Component: Decodable, Equatable, Sendable {
         let name: String
         let repo: String
@@ -76,8 +78,36 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     static func load(from url: URL) throws -> BrowserUseVendorManifest {
+        try validateManifestFile(at: url)
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(BrowserUseVendorManifest.self, from: data)
+    }
+
+    private static func validateManifestFile(
+        at url: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use vendor manifest path must not include symlink component at \(component.path)"
+            )
+        }
+        if (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil {
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest must not be a symlink")
+        }
+
+        let attributes = try fileManager.attributesOfItem(atPath: url.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest must be a regular file")
+        }
+        guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest size is unavailable")
+        }
+        guard size <= UInt64(maxManifestBytes) else {
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use vendor manifest exceeds \(maxManifestBytes) bytes"
+            )
+        }
     }
 
     var pinnedSourceProblems: [String] {
@@ -242,6 +272,17 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         let root = manifestRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
         return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
+    }
+}
+
+private enum BrowserUseVendorManifestError: Error, LocalizedError, Equatable {
+    case invalid(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalid(let reason):
+            return reason
+        }
     }
 }
 
