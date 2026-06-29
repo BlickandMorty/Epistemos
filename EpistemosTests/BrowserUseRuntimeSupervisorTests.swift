@@ -124,6 +124,52 @@ struct BrowserUseRuntimeSupervisorTests {
         }
     }
 
+    @Test("ready launch plan uses normalized loopback host argument")
+    func readyLaunchPlanUsesNormalizedLoopbackHostArgument() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        let localhost = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: " LOCALHOST ",
+            port: 7878
+        )
+        guard case .ready(let localhostPlan) = localhost else {
+            Issue.record("Expected ready localhost runtime plan, got \(localhost.message)")
+            return
+        }
+        #expect(localhostPlan.loopbackURL.absoluteString == "http://localhost:7878/")
+        #expect(localhostPlan.arguments == [
+            paths.webUIEntrypointURL.path,
+            "--ip", "localhost",
+            "--port", "7878",
+            "--theme", "Ocean",
+        ])
+
+        let ipv6 = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: " [::1] ",
+            port: 7878
+        )
+        guard case .ready(let ipv6Plan) = ipv6 else {
+            Issue.record("Expected ready IPv6 loopback runtime plan, got \(ipv6.message)")
+            return
+        }
+        #expect(ipv6Plan.loopbackURL.absoluteString == "http://[::1]:7878/")
+        #expect(ipv6Plan.arguments == [
+            paths.webUIEntrypointURL.path,
+            "--ip", "::1",
+            "--port", "7878",
+            "--theme", "Ocean",
+        ])
+    }
+
     @Test("readiness rejects malformed Web UI themes before launch planning")
     func readinessRejectsMalformedWebUIThemesBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
@@ -500,7 +546,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "throw CancellationError()",
             "rejectEnvironmentSymlink",
             "browser-use environment \\(label) must not be a symlink",
-            "private static func defaultHealthProbe",
+            "private static let defaultHealthProbe",
+            "private static func defaultHealthProbeImpl",
             "loopbackHealthProblem(for:",
             "BrowserUseLoopbackPolicy.allows(url:",
             "try healthProbe(plan, shouldCancel)",

@@ -453,7 +453,11 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         #endif
     }
 
-    private static func defaultHealthProbe(
+    private static let defaultHealthProbe: BrowserUseRuntimeHealthProbe = { plan, shouldCancel in
+        try BrowserUseRuntimeSupervisor.defaultHealthProbeImpl(plan, shouldCancel)
+    }
+
+    private static func defaultHealthProbeImpl(
         _ plan: BrowserUseRuntimeLaunchPlan,
         _ shouldCancel: @Sendable () -> Bool
     ) throws {
@@ -590,9 +594,11 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             }
         }
 
-        guard let loopbackURL = BrowserUseLoopbackPolicy.loopbackURL(host: host, port: port) else {
+        guard let loopbackURL = BrowserUseLoopbackPolicy.loopbackURL(host: host, port: port),
+              let loopbackOrigin = BrowserUseLoopbackPolicy.origin(for: loopbackURL) else {
             return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
         }
+        let launchHost = loopbackOrigin.host
         guard let theme = normalizedThemeArgument(theme) else {
             return .unavailable("browser-use Pro runtime has invalid Web UI theme")
         }
@@ -618,7 +624,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             loopbackURL: loopbackURL,
             arguments: [
                 paths.webUIEntrypointURL.path,
-                "--ip", host,
+                "--ip", launchHost,
                 "--port", String(port),
                 "--theme", theme,
             ],
