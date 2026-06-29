@@ -37,6 +37,46 @@ nonisolated enum LiteParseImportEnvelope {
     }
 }
 
+nonisolated enum LiteParsePDFSignature {
+    private static let pdfMagic = Array("%PDF-".utf8)
+    static let unsupportedPDFMessage = "Only PDF is supported here (Office/image formats need external binaries — out of scope)."
+    static let invalidPDFBodyMessage = "The file does not start with %PDF-, so it is not a PDF."
+
+    static func validationFailure(forPath path: String) -> LiteParseImportResult? {
+        let hasPDFExtension = path.lowercased().hasSuffix(".pdf")
+        switch fileStartsWithPDFMagic(path) {
+        case .match:
+            return nil
+        case .mismatch:
+            return .failed(invalidPDFBodyMessage)
+        case .unreadable(let message):
+            return hasPDFExtension
+                ? .failed("Could not inspect the PDF file: \(message)")
+                : .unsupported(unsupportedPDFMessage)
+        }
+    }
+
+    static func fileStartsWithPDFMagic(_ path: String) -> PDFMagicCheck {
+        guard let handle = FileHandle(forReadingAtPath: path) else {
+            return .unreadable("file is not readable")
+        }
+        defer { try? handle.close() }
+
+        do {
+            let data = try handle.read(upToCount: pdfMagic.count) ?? Data()
+            return Array(data) == pdfMagic ? .match : .mismatch
+        } catch {
+            return .unreadable(error.localizedDescription)
+        }
+    }
+}
+
+nonisolated enum PDFMagicCheck: Equatable, Sendable {
+    case match
+    case mismatch
+    case unreadable(String)
+}
+
 /// Converts a local PDF to Markdown. An implementation NEVER returns a fabricated note —
 /// only a real conversion or an honest failure result.
 nonisolated protocol LiteParsePDFImporter: Sendable {
@@ -48,8 +88,8 @@ nonisolated protocol LiteParsePDFImporter: Sendable {
 /// `.unsupported` (never shelled out).
 nonisolated struct InertLiteParsePDFImporter: LiteParsePDFImporter {
     func importToMarkdown(pdfPath: String) -> LiteParseImportResult {
-        guard pdfPath.lowercased().hasSuffix(".pdf") else {
-            return .unsupported("Only PDF is supported here (Office/image formats need external binaries — out of scope).")
+        if let failure = LiteParsePDFSignature.validationFailure(forPath: pdfPath) {
+            return failure
         }
         return .notWired
     }
@@ -61,8 +101,8 @@ nonisolated struct InertLiteParsePDFImporter: LiteParsePDFImporter {
 /// `agent_coreFFI` it falls back to the inert behavior so it still compiles + runs.
 nonisolated struct LiveLiteParsePDFImporter: LiteParsePDFImporter {
     func importToMarkdown(pdfPath: String) -> LiteParseImportResult {
-        guard pdfPath.lowercased().hasSuffix(".pdf") else {
-            return .unsupported("Only PDF is supported here (Office/image formats need external binaries — out of scope).")
+        if let failure = LiteParsePDFSignature.validationFailure(forPath: pdfPath) {
+            return failure
         }
         #if canImport(agent_coreFFI)
         return LiteParseImportEnvelope.decode(liteparsePdfToMarkdown(pdfPath: pdfPath))

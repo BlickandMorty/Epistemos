@@ -48,10 +48,21 @@ struct LiteParseImportTests {
         if case .markdown = result { Issue.record("unreadable output must never decode to a note") }
     }
 
-    @Test("the inert importer reports not-wired for a PDF, unsupported for a non-PDF")
-    func inertImporter() {
+    @Test("the inert importer accepts PDF bytes without trusting extension")
+    func inertImporter() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-signature-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let extensionlessPDF = root.appendingPathComponent("CFNetworkDownload_temp")
+        try Data("%PDF-1.7\n".utf8).write(to: extensionlessPDF)
+        let htmlNamedPDF = root.appendingPathComponent("paper.pdf")
+        try Data("<html>not a paper</html>".utf8).write(to: htmlNamedPDF)
+
         let importer = InertLiteParsePDFImporter()
-        #expect(importer.importToMarkdown(pdfPath: "/docs/paper.pdf") == .notWired)
+        #expect(importer.importToMarkdown(pdfPath: extensionlessPDF.path) == .notWired)
+        #expect(importer.importToMarkdown(pdfPath: htmlNamedPDF.path) == .failed(LiteParsePDFSignature.invalidPDFBodyMessage))
         guard case .unsupported = importer.importToMarkdown(pdfPath: "/docs/book.docx") else {
             Issue.record("a non-PDF must be .unsupported (never shelled out)")
             return
@@ -67,10 +78,17 @@ struct LiteParseImportTests {
     }
 
     @Test("the live importer is honest on a PDF when the FFI is absent")
-    func liveImporterHonestOnPdf() {
+    func liveImporterHonestOnPdf() throws {
         // Test host has no agent_coreFFI → the fallback. The linked app build exercises
         // the Rust EdgeParse/unpdf engine through the same envelope decoder.
-        #expect(LiveLiteParsePDFImporter().importToMarkdown(pdfPath: "/a/paper.pdf") == .notWired)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-live-importer-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let pdf = root.appendingPathComponent("paper.pdf")
+        try Data("%PDF-1.7\n".utf8).write(to: pdf)
+        #expect(LiveLiteParsePDFImporter().importToMarkdown(pdfPath: pdf.path) == .notWired)
     }
 
     @Test("import controller preserves the original PDF via frontmatter")

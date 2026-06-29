@@ -92,6 +92,32 @@ struct ArxivPlan3Tests {
         #expect(draft.markdownBody.contains("Parsed text."))
     }
 
+    @Test("downloader prepares extensionless temp PDFs and rejects non-PDF bodies")
+    func downloaderPreparesExtensionlessPDF() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-download-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let tempPDF = root.appendingPathComponent("CFNetworkDownload_123.tmp")
+        try Data("%PDF-1.7\n".utf8).write(to: tempPDF)
+        let prepared = try URLSessionArxivPDFDownloader.prepareDownloadedPDF(from: tempPDF)
+
+        #expect(prepared.pathExtension == "pdf")
+        #expect(FileManager.default.fileExists(atPath: prepared.path))
+        #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
+
+        let htmlTemp = root.appendingPathComponent("CFNetworkDownload_html.tmp")
+        try Data("<html>rate limited</html>".utf8).write(to: htmlTemp)
+        do {
+            _ = try URLSessionArxivPDFDownloader.prepareDownloadedPDF(from: htmlTemp)
+            Issue.record("Expected non-PDF arXiv download body to be rejected")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed("downloaded file is not a PDF (%PDF- header missing)"))
+        }
+        #expect(!FileManager.default.fileExists(atPath: htmlTemp.path))
+    }
+
     @MainActor
     @Test("ingest writes PDF, markdown note, and source_pdf frontmatter")
     func ingestWritesVaultNote() async throws {

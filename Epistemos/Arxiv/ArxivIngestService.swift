@@ -2,6 +2,8 @@ import Foundation
 import SwiftData
 
 nonisolated protocol ArxivPDFDownloading: Sendable {
+    /// Returns a caller-owned temporary PDF file. `ArxivIngestService` removes it
+    /// after copying it into the vault.
     func download(from url: URL) async throws -> URL
 }
 
@@ -10,9 +12,37 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
         let (fileURL, response) = try await URLSession.shared.download(from: url)
         if let http = response as? HTTPURLResponse,
            !(200..<300).contains(http.statusCode) {
+            try? FileManager.default.removeItem(at: fileURL)
             throw ArxivIngestError.downloadFailed("HTTP \(http.statusCode)")
         }
-        return fileURL
+        return try Self.prepareDownloadedPDF(from: fileURL)
+    }
+
+    static func prepareDownloadedPDF(from fileURL: URL) throws -> URL {
+        switch LiteParsePDFSignature.fileStartsWithPDFMagic(fileURL.path) {
+        case .match:
+            break
+        case .mismatch:
+            try? FileManager.default.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("downloaded file is not a PDF (%PDF- header missing)")
+        case .unreadable(let message):
+            try? FileManager.default.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(message)")
+        }
+
+        let pdfURL = fileURL.deletingPathExtension().appendingPathExtension("pdf")
+        guard pdfURL.standardizedFileURL != fileURL.standardizedFileURL else {
+            return fileURL
+        }
+
+        try? FileManager.default.removeItem(at: pdfURL)
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: pdfURL)
+            return pdfURL
+        } catch {
+            try? FileManager.default.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("could not prepare downloaded PDF: \(error.localizedDescription)")
+        }
     }
 }
 
@@ -72,6 +102,7 @@ enum ArxivIngestService {
         } catch {
             return .rejected(.downloadFailed(error.localizedDescription))
         }
+        defer { try? FileManager.default.removeItem(at: downloadedPDF) }
 
         let parseResult = await Task.detached(priority: .userInitiated) {
             importer.importToMarkdown(pdfPath: downloadedPDF.path)
