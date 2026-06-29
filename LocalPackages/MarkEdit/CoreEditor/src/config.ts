@@ -73,6 +73,8 @@ export interface Config {
   visibleWhitespaceCharacter?: string;
   visibleLineBreakCharacter?: string;
   searchNormalizers?: { [key: string]: string };
+  epistemosMode?: string;
+  epistemosCodeLanguage?: string;
 }
 
 /**

@@ -9,8 +9,14 @@ import {
   keymap,
 } from '@codemirror/view';
 
-import { Compartment, EditorState } from '@codemirror/state';
-import { indentUnit as indentUnitFacet, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
+import {
+  indentUnit as indentUnitFacet,
+  indentOnInput,
+  bracketMatching,
+  foldKeymap,
+  LanguageDescription,
+} from '@codemirror/language';
 import { yamlFrontmatter as frontMatter } from '@codemirror/lang-yaml';
 import { defaultKeymap } from '@codemirror/commands';
 import { highlightSelectionMatches, search } from '@codemirror/search';
@@ -64,7 +70,7 @@ window.dynamics = {
   markdownConfigurator,
 };
 
-export function extensions(options: { lineBreak?: string }) {
+export function extensions(options: { lineBreak?: string; documentLanguage?: Extension }) {
   return [
     // Extensions created by user scripts
     extensionConfigurator.of(userExtensions()),
@@ -138,8 +144,8 @@ export function extensions(options: { lineBreak?: string }) {
       ...customizedCommandsKeymap,
     ]),
 
-    // Markdown
-    markdownConfigurator.of(markdownConfigurations()),
+    // Document language
+    markdownConfigurator.of(options.documentLanguage ?? markdownConfigurations()),
     markdownLanguage.data.of(markdownExtendedData),
     markdownLanguage.data.of(standardLinkCompletion),
     markdownLanguage.data.of(referenceLinkCompletion),
@@ -169,6 +175,24 @@ export function extensions(options: { lineBreak?: string }) {
   ];
 }
 
+export async function documentLanguageExtension(): Promise<Extension> {
+  if (window.config.epistemosMode !== 'code') {
+    return markdownConfigurations();
+  }
+
+  const description = codeLanguageDescription(window.config.epistemosCodeLanguage);
+  if (description === null) {
+    return [];
+  }
+
+  try {
+    return await description.load();
+  } catch (error) {
+    console.error('[Epistemos] Failed to load CoreEditor language', window.config.epistemosCodeLanguage, error);
+    return [];
+  }
+}
+
 export function markdownConfigurations() {
   const content = markdown({
     base: markdownLanguage,
@@ -184,6 +208,64 @@ export function markdownConfigurations() {
   });
 
   return frontMatter({ content });
+}
+
+function codeLanguageDescription(language?: string): LanguageDescription | null {
+  const normalized = normalizedCodeLanguage(language);
+  if (normalized === undefined) {
+    return null;
+  }
+
+  return LanguageDescription.matchLanguageName(languages, normalized, true);
+}
+
+function normalizedCodeLanguage(language?: string): string | undefined {
+  const normalized = language?.trim().toLowerCase();
+  if (normalized === undefined || normalized.length === 0) {
+    return undefined;
+  }
+
+  switch (normalized) {
+    case 'bash':
+    case 'fish':
+    case 'sh':
+    case 'shell':
+    case 'zsh':
+      return 'Shell';
+    case 'c':
+      return 'C';
+    case 'cpp':
+    case 'c++':
+      return 'C++';
+    case 'css':
+      return 'CSS';
+    case 'go':
+      return 'Go';
+    case 'html':
+      return 'HTML';
+    case 'javascript':
+    case 'js':
+      return 'JavaScript';
+    case 'json':
+      return 'JSON';
+    case 'python':
+      return 'Python';
+    case 'rs':
+    case 'rust':
+      return 'Rust';
+    case 'swift':
+      return 'Swift';
+    case 'toml':
+      return 'TOML';
+    case 'typescript':
+    case 'ts':
+      return 'TypeScript';
+    case 'yaml':
+    case 'yml':
+      return 'YAML';
+    default:
+      return normalized;
+  }
 }
 
 function indentBehaviorExtension() {

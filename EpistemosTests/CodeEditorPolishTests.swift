@@ -14,6 +14,15 @@ import Testing
 @Suite("Code editor Phase-S polish (T+8 items 2 + 3)")
 nonisolated struct CodeEditorPolishTests {
 
+    @Test("Markdown chrome routing includes MDX and language IDs")
+    func markdownChromeRoutingIncludesMdxAndLanguageIDs() {
+        #expect(CodeLanguage.isMarkdownDocument(path: "/tmp/README.MD"))
+        #expect(CodeLanguage.isMarkdownDocument(path: "/tmp/research.markdown"))
+        #expect(CodeLanguage.isMarkdownDocument(path: "/tmp/component.mdx"))
+        #expect(CodeLanguage.isMarkdownDocument(filePath: nil, language: "mdx"))
+        #expect(!CodeLanguage.isMarkdownDocument(filePath: "/tmp/Package.swift", language: "swift"))
+    }
+
     // MARK: - OutlineParserCache (item 3)
 
     @Test("Cache hits when (content, language) unchanged")

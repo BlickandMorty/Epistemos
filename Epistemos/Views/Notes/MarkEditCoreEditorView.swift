@@ -229,6 +229,24 @@ private enum MarkEditCoreEditorMode: Equatable {
     case code(language: String)
     case markdownChrome
 
+    var configMode: String {
+        switch self {
+        case .code:
+            return "code"
+        case .markdownChrome:
+            return "markdown"
+        }
+    }
+
+    var configCodeLanguage: String? {
+        switch self {
+        case .code(let language):
+            return language
+        case .markdownChrome:
+            return nil
+        }
+    }
+
     var language: String {
         switch self {
         case .code(let language):
@@ -327,9 +345,11 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
 
     private var hasLoadedEditor = false
     private var pendingState: MarkEditCoreEditorState?
+    private var loadingState: MarkEditCoreEditorState?
     private var lastAppliedState: MarkEditCoreEditorState?
     private var lastSelectionRequestID: UUID?
     private var isApplyingFromSwift = false
+    private var loadGeneration = 0
 
     init(
         text: Binding<String>,
@@ -344,9 +364,13 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
     }
 
     func loadEditor(into webView: WKWebView, initialState: MarkEditCoreEditorState) {
+        loadGeneration += 1
         hasLoadedEditor = false
         pendingState = nil
-        lastAppliedState = initialState
+        loadingState = initialState
+        lastAppliedState = nil
+        lastSelectionRequestID = nil
+        isApplyingFromSwift = false
         let html = MarkEditCoreEditorDocument.html(for: initialState)
         webView.loadHTMLString(html, baseURL: URL(string: "https://epistemos-markedit.local/"))
     }
@@ -360,9 +384,11 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         self.webView = nil
         hasLoadedEditor = false
         pendingState = nil
+        loadingState = nil
         lastAppliedState = nil
         lastSelectionRequestID = nil
         isApplyingFromSwift = false
+        loadGeneration += 1
     }
 
     func update(
@@ -385,9 +411,18 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         }
 
         guard state != lastAppliedState else { return }
-        lastAppliedState = state
-        guard let json = state.resetMessageJSON else { return }
+        resetEditor(to: state, in: webView, documentChanged: false)
+    }
+
+    private func resetEditor(
+        to state: MarkEditCoreEditorState,
+        in webView: WKWebView,
+        documentChanged: Bool
+    ) {
+        guard let json = state.resetMessageJSON(documentChanged: documentChanged) else { return }
         isApplyingFromSwift = true
+        let generation = loadGeneration
+        let previousState = lastAppliedState
         let script = """
         (async () => {
           if (!window.webModules?.core?.resetEditor) { return false; }
@@ -400,8 +435,15 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
           }
         })();
         """
-        webView.evaluateJavaScript(script) { [weak self] _, _ in
-            self?.isApplyingFromSwift = false
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            guard let self, generation == self.loadGeneration else { return }
+            self.isApplyingFromSwift = false
+            if (result as? Bool) == true {
+                self.lastAppliedState = state
+            } else {
+                self.lastAppliedState = previousState
+                self.pendingState = state
+            }
         }
     }
 
@@ -426,16 +468,79 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         webView.evaluateJavaScript(Self.snapshotBridgeScript)
     }
 
+    private func waitForCoreEditorReady(
+        in webView: WKWebView,
+        generation: Int,
+        attempt: Int = 0
+    ) {
+        let script = """
+        Boolean(
+          window.webModules?.core?.resetEditor &&
+          window.webModules?.core?.getEditorText &&
+          window.MarkEdit?.editorAPI
+        );
+        """
+        webView.evaluateJavaScript(script) { [weak self, weak webView] result, _ in
+            guard let self,
+                  let webView,
+                  generation == self.loadGeneration,
+                  !self.hasLoadedEditor else { return }
+
+            if (result as? Bool) == true {
+                self.finishLoadingEditor(in: webView)
+                return
+            }
+
+            guard attempt < 160 else {
+                self.showLoadFailure(in: webView)
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self, weak webView] in
+                guard let self,
+                      let webView,
+                      generation == self.loadGeneration,
+                      !self.hasLoadedEditor else { return }
+                self.waitForCoreEditorReady(in: webView, generation: generation, attempt: attempt + 1)
+            }
+        }
+    }
+
+    private func finishLoadingEditor(in webView: WKWebView) {
+        hasLoadedEditor = true
+        installSnapshotBridge(into: webView)
+        let state = pendingState ?? loadingState
+        pendingState = nil
+        loadingState = nil
+        if let state {
+            resetEditor(to: state, in: webView, documentChanged: true)
+        }
+    }
+
+    private func showLoadFailure(in webView: WKWebView) {
+        hasLoadedEditor = false
+        isApplyingFromSwift = false
+        let script = """
+        (() => {
+          const target = document.querySelector('#editor') || document.body;
+          target.innerHTML = '';
+          const message = document.createElement('pre');
+          message.textContent = 'MarkEdit CoreEditor failed to load. Check CoreEditor chunks and the chunk-loader scheme.';
+          message.style.margin = '16px';
+          message.style.whiteSpace = 'pre-wrap';
+          message.style.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+          target.appendChild(message);
+          return true;
+        })();
+        """
+        webView.evaluateJavaScript(script)
+    }
+
     func webView(
         _ webView: WKWebView,
         didFinish navigation: WKNavigation!
     ) {
-        hasLoadedEditor = true
-        installSnapshotBridge(into: webView)
-        if let pendingState {
-            self.pendingState = nil
-            apply(state: pendingState, to: webView)
-        }
+        waitForCoreEditorReady(in: webView, generation: loadGeneration)
     }
 
     func webView(
@@ -561,11 +666,11 @@ private struct MarkEditCoreEditorState: Equatable {
     let useSpaces: Bool
     let tabWidth: Int
 
-    var resetMessageJSON: String? {
+    func resetMessageJSON(documentChanged: Bool) -> String? {
         MarkEditCoreEditorResetMessage(
             text: text,
             selectionRange: nil,
-            documentChanged: false
+            documentChanged: documentChanged
         ).jsonString
     }
 
@@ -595,7 +700,9 @@ private struct MarkEditCoreEditorState: Equatable {
             headerFontSizeDiffs: nil,
             visibleWhitespaceCharacter: nil,
             visibleLineBreakCharacter: nil,
-            searchNormalizers: nil
+            searchNormalizers: nil,
+            epistemosMode: mode.configMode,
+            epistemosCodeLanguage: mode.configCodeLanguage
         ).jsonString
     }
 
@@ -671,6 +778,8 @@ private struct MarkEditCoreEditorConfig: Encodable {
     let visibleWhitespaceCharacter: String?
     let visibleLineBreakCharacter: String?
     let searchNormalizers: [String: String]?
+    let epistemosMode: String
+    let epistemosCodeLanguage: String?
 }
 
 private struct MarkEditCoreEditorFontFace: Encodable {
@@ -765,12 +874,12 @@ private final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler 
         guard let url = urlSchemeTask.request.url,
               let relativePath = Self.relativePath(for: url),
               let fileURL = Self.fileURL(relativePath: relativePath),
+              let mimeType = Self.mimeTypes[fileURL.pathExtension.lowercased()],
               let data = try? Data(contentsOf: fileURL) else {
             urlSchemeTask.didFailWithError(Self.error(for: urlSchemeTask.request.url))
             return
         }
 
-        let mimeType = Self.mimeTypes[fileURL.pathExtension.lowercased()] ?? "application/octet-stream"
         let response = HTTPURLResponse(
             url: url,
             statusCode: 200,
@@ -795,29 +904,52 @@ private final class MarkEditCoreEditorChunkLoader: NSObject, WKURLSchemeHandler 
     private static func relativePath(for url: URL) -> String? {
         guard url.scheme == MarkEditCoreEditorBridge.chunkScheme,
               let host = url.host,
-              !host.isEmpty else { return nil }
-        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return path.isEmpty ? host : "\(host)/\(path)"
+              host == "chunks" else { return nil }
+        let pathComponents = url.path
+            .split(separator: "/")
+            .map(String.init)
+        guard !pathComponents.isEmpty,
+              pathComponents.allSatisfy(Self.isSafeRelativePathComponent) else { return nil }
+        return ([host] + pathComponents).joined(separator: "/")
     }
 
     private static func fileURL(relativePath: String) -> URL? {
         let filename = URL(fileURLWithPath: relativePath).lastPathComponent
-        let candidates = [
+        let repoResourcesURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("Epistemos/Resources", isDirectory: true)
+        let roots = [
             Bundle.main.resourceURL?
-                .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath, isDirectory: true)
-                .appendingPathComponent(relativePath),
-            Bundle.main.resourceURL?
-                .appendingPathComponent(relativePath),
-            Bundle.main.url(forResource: filename, withExtension: nil),
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                .appendingPathComponent("Epistemos/Resources")
-                .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath)
-                .appendingPathComponent(relativePath),
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                .appendingPathComponent("Epistemos/Resources")
-                .appendingPathComponent(relativePath),
-        ].compactMap { $0 }
-        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+                .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath, isDirectory: true),
+            Bundle.main.resourceURL,
+            repoResourcesURL
+                .appendingPathComponent(MarkEditCoreEditorBridge.resourceSubpath, isDirectory: true),
+            repoResourcesURL,
+        ].compactMap { $0?.standardizedFileURL }
+
+        for root in roots {
+            let candidate = root
+                .appendingPathComponent(relativePath)
+                .standardizedFileURL
+            if isDescendant(candidate, of: root),
+               FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+        }
+
+        return Bundle.main.url(forResource: filename, withExtension: nil)
+    }
+
+    private static func isSafeRelativePathComponent(_ component: String) -> Bool {
+        !component.isEmpty &&
+            component != "." &&
+            component != ".." &&
+            !component.contains("\\")
+    }
+
+    private static func isDescendant(_ candidate: URL, of root: URL) -> Bool {
+        let rootPath = root.standardizedFileURL.path
+        let candidatePath = candidate.standardizedFileURL.path
+        return candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/")
     }
 
     private static func error(for url: URL?) -> NSError {

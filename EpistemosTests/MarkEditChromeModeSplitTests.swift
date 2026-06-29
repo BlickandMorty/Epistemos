@@ -42,6 +42,27 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("epistemosMarkEditCoreEditor"))
     }
 
+    @Test("CoreEditor adapter waits for the JS bridge before the first reset")
+    func markEditCoreEditorAdapterWaitsForBridgeBeforeInitialReset() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+
+        #expect(source.contains("waitForCoreEditorReady"))
+        #expect(source.contains("window.webModules?.core?.resetEditor"))
+        #expect(source.contains("finishLoadingEditor(in: webView)"))
+        #expect(source.contains("resetEditor(to: state, in: webView, documentChanged: true)"))
+        #expect(!source.contains("lastAppliedState = initialState"))
+    }
+
+    @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
+    func markEditCoreEditorChunkLoaderRejectsTraversalAndNonChunkHosts() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+
+        #expect(source.contains(#"host == "chunks""#))
+        #expect(source.contains("isSafeRelativePathComponent"))
+        #expect(source.contains(#"component != "..""#))
+        #expect(source.contains("mimeTypes[fileURL.pathExtension.lowercased()]"))
+    }
+
     private static func extractBlock(named name: String, from source: String) throws -> String {
         guard let nameRange = source.range(of: "private var \(name): some View") else {
             throw MarkEditChromeModeSplitTestError.missingBlock(name)

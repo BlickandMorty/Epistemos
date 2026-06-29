@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { EditorSelection, EditorState } from '@codemirror/state';
-import { extensions } from './extensions';
+import { documentLanguageExtension, extensions } from './extensions';
 import { globalState, editingState } from './common/store';
 import { tryGetEditor, almostEqual, afterDomUpdate, getViewportScale, isReleaseMode, isMotionReduced } from './common/utils';
 
@@ -84,13 +84,14 @@ export async function resetEditor(
   const initialDoc = normalizeLineBreaks(initialContent, lineBreak);
   const initialSelection = normalizeSelection(initialDoc.length, selectionRange);
   const selectionRestored = selectionRange !== undefined && (selectionRange.anchor !== 0 || selectionRange.head !== 0);
+  const documentLanguage = await documentLanguageExtension();
 
   tryGetEditor()?.destroy();
   window.editor = new EditorView({
     state: EditorState.create({
       doc: initialDoc,
       selection: initialSelection,
-      extensions: extensions({ lineBreak }),
+      extensions: extensions({ lineBreak, documentLanguage }),
     }),
     parent: document.querySelector('#editor') ?? document.body,
     // Initial scroll to avoid an extra transaction
@@ -120,7 +121,9 @@ export async function resetEditor(
   setTimeout(ensureLineHeight, 1000);
 
   const contentDOM = editor.contentDOM;
-  contentDOM.dataset.language = 'markdown'; // Because of the front-matter wrapper
+  contentDOM.dataset.language = window.config.epistemosMode === 'code'
+    ? (window.config.epistemosCodeLanguage ?? 'code')
+    : 'markdown'; // Because of the front-matter wrapper
   contentDOM.addEventListener('blur', handleFocusLost);
 
   updateTextChecker(contentDOM, {

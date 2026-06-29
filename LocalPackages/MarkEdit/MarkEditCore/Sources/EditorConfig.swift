@@ -35,6 +35,8 @@ public struct EditorConfig: Encodable {
   let visibleWhitespaceCharacter: String?
   let visibleLineBreakCharacter: String?
   let searchNormalizers: [String: String]?
+  let epistemosMode: String?
+  let epistemosCodeLanguage: String?
 
   public init(
     text: String,
@@ -61,7 +63,9 @@ public struct EditorConfig: Encodable {
     headerFontSizeDiffs: [Double]?,
     visibleWhitespaceCharacter: String?,
     visibleLineBreakCharacter: String?,
-    searchNormalizers: [String: String]?
+    searchNormalizers: [String: String]?,
+    epistemosMode: String?,
+    epistemosCodeLanguage: String?
   ) {
     self.text = text
     self.theme = theme
@@ -88,5 +92,7 @@ public struct EditorConfig: Encodable {
     self.visibleWhitespaceCharacter = visibleWhitespaceCharacter
     self.visibleLineBreakCharacter = visibleLineBreakCharacter
     self.searchNormalizers = searchNormalizers
+    self.epistemosMode = epistemosMode
+    self.epistemosCodeLanguage = epistemosCodeLanguage
   }
 }

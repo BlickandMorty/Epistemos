@@ -49,6 +49,7 @@ targets:
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Resources/CoreEditor/chunks/**
+          - Resources/chunks/**
           - Vault/KnowledgeGraphService.swift
       - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: syncedFolder
@@ -185,6 +186,7 @@ targets:
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Resources/CoreEditor/chunks/**
+          - Resources/chunks/**
           - Vault/KnowledgeGraphService.swift
       - path: LocalPackages/MarkEdit/MarkEditMac/Sources
         type: syncedFolder

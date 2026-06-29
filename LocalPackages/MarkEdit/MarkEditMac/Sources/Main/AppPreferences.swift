@@ -302,7 +302,9 @@ extension AppPreferences {
       headerFontSizeDiffs: AppRuntimeConfig.headerFontSizeDiffs,
       visibleWhitespaceCharacter: AppRuntimeConfig.visibleWhitespaceCharacter,
       visibleLineBreakCharacter: AppRuntimeConfig.visibleLineBreakCharacter,
-      searchNormalizers: AppRuntimeConfig.searchNormalizers
+      searchNormalizers: AppRuntimeConfig.searchNormalizers,
+      epistemosMode: nil,
+      epistemosCodeLanguage: nil
     )
   }
 }

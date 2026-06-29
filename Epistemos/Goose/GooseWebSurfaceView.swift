@@ -295,9 +295,23 @@ struct GooseWebSurfaceView: View {
     }
 
     private var customACPStatusLabel: String {
-        acpBridge.unhandledDiagnostics.isEmpty
-            ? "ready"
-            : "blocked: \(acpBridge.unhandledDiagnostics.count)"
+        // HONESTY (deep-hardening 2026-06-29 H/false-ready): this row showed "ready" even when
+        // the ACP bridge was idle/connecting/FAILED/disconnected (diagnostics-only check). Gate
+        // on the real bridge status like nativeACPStatusLabel — "ready" ONLY when connected.
+        switch acpBridge.status {
+        case .idle:
+            return "idle"
+        case .connecting:
+            return "connecting"
+        case .connected:
+            return acpBridge.unhandledDiagnostics.isEmpty
+                ? "ready"
+                : "blocked: \(acpBridge.unhandledDiagnostics.count)"
+        case .failed(let message):
+            return "error: \(message)"
+        case .disconnected:
+            return "disconnected"
+        }
     }
 
     private var gooseUIServerStatusLabel: String {

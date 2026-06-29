@@ -692,12 +692,12 @@ nonisolated enum CodeLanguage {
     static func isMarkdownDocument(path: String?) -> Bool {
         guard let path, !path.isEmpty else { return false }
         let ext = (path as NSString).pathExtension.lowercased()
-        return ext == "md" || ext == "markdown"
+        return ext == "md" || ext == "markdown" || ext == "mdx"
     }
 
     static func isMarkdownDocument(filePath: String?, language: String) -> Bool {
         let languageID = language.lowercased()
-        if languageID == "markdown" || languageID == "md" {
+        if languageID == "markdown" || languageID == "md" || languageID == "mdx" {
             return true
         }
         return isMarkdownDocument(path: filePath)
