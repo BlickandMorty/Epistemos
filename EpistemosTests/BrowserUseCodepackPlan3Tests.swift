@@ -613,6 +613,8 @@ struct BrowserUseCodepackPlan3Tests {
             "PLAYWRIGHT_BROWSERS_PATH=\"$playwright_dir\"",
             "-m playwright install chromium",
             "BUILD_MANIFEST.json",
+            "BUILD_MANIFEST=\"$build_manifest\"",
+            "json.dumps(payload, indent=2, sort_keys=True)",
             "\"wheelhouse\": \"agent_core/vendor/browser-use/wheels\"",
             "\"sdist_wheel_exceptions\": [",
             "ibm-cos-sdk==2.14.3",

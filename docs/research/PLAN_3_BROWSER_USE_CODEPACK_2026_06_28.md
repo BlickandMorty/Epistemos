@@ -51,7 +51,7 @@ browser-use automation drives CDP through `cdp-use`.
 under `build/browser-use-pro/.venv`, compiles `requirements.lock` with hashes from the vendored paths, syncs the venv,
 staged third-party and local package wheels under `agent_core/vendor/browser-use/wheels/` (177 wheel files), staged
 Playwright Chromium under `agent_core/vendor/browser-use/playwright/` (`chromium-1223`, `chromium_headless_shell-1223`,
-and `ffmpeg-1011`), and wrote a non-secret `BUILD_MANIFEST.json` outside MAS/App Store build phases.
+and `ffmpeg-1011`), and writes a JSON-escaped, non-secret `BUILD_MANIFEST.json` outside MAS/App Store build phases.
 
 Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
 `build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>
@@ -316,7 +316,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Packaging script test: shell syntax passes; script requires `uv`, uses Python 3.11, compiles with
   `--generate-hashes`, stages third-party wheels under `--require-hashes --only-binary=:all:`, stages local vendored
   package wheels with `--no-deps`, installs Playwright Chromium into the Pro staging directory, writes only non-secret
-  `BUILD_MANIFEST.json`, and says it is not for MAS/App Store build phases.
+  JSON-escaped `BUILD_MANIFEST.json`, and says it is not for MAS/App Store build phases.
 - Settings contract test: `BrowserUseSettingsStore.swift` includes typed non-secret provider/browser/runtime settings,
   loopback-only browser debugging/CDP validation, a launch-time environment renderer, Keychain-backed secret bindings
   for provider/cloud/proxy/AWS/VNC values, privacy defaults with telemetry/cloud/version checks off, and no runtime launch seam.
