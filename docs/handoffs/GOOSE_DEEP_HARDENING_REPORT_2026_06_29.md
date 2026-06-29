@@ -178,3 +178,39 @@ Net: real, present-tense defects remain (1 critical, 5 high), plus a coverage ga
 - session/request_permission and elicitation/create round-trips are never exercised live — the entire native approval/elicitation UX (the core security gate for tool calls) is source-grep-only
 - Scheduler, recipes, session export/import, slash-commands and agent-mentions are whole product surfaces with zero coverage in the 8 lenses + 3 rounds (no graft fidelity, no live, no parity finding)
 - Process-lifecycle resilience (crash → orphan cleanup, auto-restart, WebView reload) is asserted by handlers but not independently proven; handleProcessExit only flips status to .failed with no recovery
+
+---
+
+## Step-1 fix status (2026-06-29) — owner green-light "fix every confirmed bug"
+
+**FIXED + committed + build/tsc-verified (the backend-independent bugs that persist regardless of goosed):**
+- C1 CRITICAL — addRecentDir filesystem-scope escape (ae6937673)
+- H1 HIGH — nav gate any-loopback → pinned server ports (a26a9c058)
+- HIGH — false "custom ACP Goose ready" decoupled from bridge status (39d57bb99)
+- #3 MED — connect() leaked superseded client (9876b54f3)
+- #4 MED — null-id JSON-RPC error terminal-fail → contained (983c4aaa1)
+- #11 HIGH — dead Stop button (cancel/steer bypass the serialization FIFO) (e6b0a4751)
+- #13/#24 MED — openExternal denylist → allowlist (f3b3a3cea)
+- #23 LOW — listGitWorktreeDirs env hardening (f3b3a3cea)
+- #14 LOW — launchApp guest webview nav-gate + non-persistent store (f3b3a3cea)
+- #7/#20 LOW — useFileDrop grafts hard-fail on drift (e473049ac)
+- #9/#17/#28 — golden-rule guard catches hardcoded MODEL ids (754f87643)
+App target BUILD SUCCEEDED with all Swift fixes (witness: scratchpad/goose-fixes-build2.log).
+
+**DEFERRED to Step 2 (goosed swap) — these are "dead REST call" bugs that 404 ONLY because lean
+`goose serve` doesn't serve REST; `goosed agent` serves the full REST, so they fix themselves on
+the swap (ACP-grafting them would be throwaway Path-A work):** #5 (/agent/update_from_session),
+#6/#16/#27/#32 (useNavigationSessions getSession), #19 (Settings>Auth empty-state masks load
+failure), #25 (Gateways /gateway poll), #26 (FeaturesContext getFeatures), #31 (Tetrate/NanoGPT
+onboarding), #33 (CostTracker canonical model info), #34 (boot analytics readConfig).
+
+**DEFERRED with rationale (low-value / native-UI rework / test-bundle blocked):**
+- #2 MED (file scope defaults to $HOME + no CSP) — aggressive narrowing risks breaking legitimate
+  project-file access ("WebView stays green"); the file bridge is reworked in the native-UI phase;
+  the actual sandbox ESCAPES (C1 + traversal/symlink) are already closed. CSP half also touches
+  Epistemos/Work (outside owned surface).
+- #8 LOW, #21 LOW — staging graft-guard robustness (same hard-fail pattern as the shipped #7 fix).
+- #30 MED — ready-language needs a behavioral test (driving bridge to .failed); the shared test
+  bundle is currently broken by another agent's VRMLabelHonestLabelTests (Int64/UInt64), so test
+  changes can't be bundle-run now — NOT my owned surface (NO-COLLISION), not touched.
+- #15 MED (dictation) — Task #12 native-vs-graft decision ("do not rush").
