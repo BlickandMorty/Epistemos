@@ -98,11 +98,12 @@ public final class LiveVoiceInputService {
             state = .recording
             streamTask = Task { @MainActor [weak self] in
                 defer {
-                    guard let self, self.startGeneration == generation else { return }
-                    if case .recording = self.state {
-                        self.state = .idle
+                    if let self, self.startGeneration == generation {
+                        if case .recording = self.state {
+                            self.state = .idle
+                        }
+                        self.streamTask = nil
                     }
-                    self.streamTask = nil
                 }
                 for await result in stream {
                     guard self?.isCurrentStart(generation) == true else { break }
