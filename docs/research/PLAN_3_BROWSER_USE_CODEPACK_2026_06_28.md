@@ -130,7 +130,8 @@ the vendored `skill_cli` has no matching console/error stream actions yet; these
 `AGENT_BROWSER_SOCKET_DIR` via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a
 no-runtime `contract` check for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME`
 after validating that it is an absolute existing directory, so direct adapter invocation cannot redirect browser-use
-session files away from the private socket root; session names are capped at 64 safe characters before browser-use
+session files away from the private socket root; the adapter also rejects symlinked runtime-directory routes below
+the macOS `/tmp`/`/var`/`/etc` compatibility symlinks and requires current-user owner-only permissions. Session names are capped at 64 safe characters before browser-use
 derives daemon/socket files.
 Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
