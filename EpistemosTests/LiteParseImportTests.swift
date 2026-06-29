@@ -106,9 +106,11 @@ struct LiteParseImportTests {
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
         let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
         #expect(src.contains("Plan3ImportFileIO.copyFileContents"))
+        #expect(src.contains("Plan3ImportFileIO.writeData"))
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
         #expect(src.contains("materializeImportedFiles"))
         #expect(src.contains("Plan3ImportFileIO.reservePairedFileURLs"))
+        #expect(sharedIO.contains("O_NOFOLLOW"))
         #expect(sharedIO.contains("O_EXCL"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
     }
@@ -212,6 +214,36 @@ struct LiteParseImportTests {
         let empty = try Plan3ImportFileIO.reservePairedFileURLs(directory: root, baseName: ".")
         #expect(empty.noteURL.lastPathComponent == "Imported PDF.md")
         #expect(empty.pdfURL.lastPathComponent == "Imported PDF.pdf")
+    }
+
+    @Test("reserved import writes reject final symlink destinations")
+    func reservedImportWritesRejectFinalSymlinkDestinations() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-final-symlink-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = root.appendingPathComponent("source.pdf")
+        let outside = root.appendingPathComponent("outside.txt")
+        let pdfSymlink = root.appendingPathComponent("reserved.pdf")
+        let markdownSymlink = root.appendingPathComponent("reserved.md")
+        try Data("%PDF source".utf8).write(to: source)
+        try Data("outside original".utf8).write(to: outside)
+        try FileManager.default.createSymbolicLink(at: pdfSymlink, withDestinationURL: outside)
+        try FileManager.default.createSymbolicLink(at: markdownSymlink, withDestinationURL: outside)
+
+        do {
+            try Plan3ImportFileIO.copyFileContents(from: source, toReservedFile: pdfSymlink)
+            Issue.record("Expected copied PDF write to reject a final symlink destination")
+        } catch {}
+
+        do {
+            try Plan3ImportFileIO.writeData(Data("new markdown".utf8), toReservedFile: markdownSymlink)
+            Issue.record("Expected markdown write to reject a final symlink destination")
+        } catch {}
+
+        let outsideText = try String(contentsOf: outside, encoding: .utf8)
+        #expect(outsideText == "outside original")
     }
 
     @MainActor

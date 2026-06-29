@@ -134,7 +134,7 @@ enum LiteParsePDFImportController {
             try Task.checkCancellation()
             try Plan3ImportFileIO.copyFileContents(from: URL(fileURLWithPath: pdfPath), toReservedFile: urls.pdfURL)
             try Task.checkCancellation()
-            try Data(markdown.utf8).write(to: urls.noteURL, options: .atomic)
+            try Plan3ImportFileIO.writeData(Data(markdown.utf8), toReservedFile: urls.noteURL)
             try Task.checkCancellation()
             keepMaterializedFiles = true
             return .materialized(

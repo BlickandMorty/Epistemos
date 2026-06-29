@@ -21,7 +21,8 @@
   (off `@MainActor` via `Task.detached` — never block main); (3) create the paired PDF/Markdown files in a detached
   worker so conversion and file materialization run off `@MainActor`; (4) file-first `SDPage` with body = abstract intro
   + parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
-  the §1 coexistence model), `url`. **Honest:** failed download / `.notWired` / `.failed` → no note + the real reason.
+  the §1 coexistence model), `url`. The paired PDF/Markdown writes use the shared reserved-file writer, including final
+  symlink rejection after reservation. **Honest:** failed download / `.notWired` / `.failed` → no note + the real reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`).
 - **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,

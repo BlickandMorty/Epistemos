@@ -21,7 +21,8 @@
 - **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
   main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
   basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
-  note fails, the copied source PDF is removed too.
+  note fails, the copied source PDF is removed too. Reserved PDF/Markdown destination writes reopen with `O_NOFOLLOW`
+  and regular-file validation so a final symlink swap cannot redirect import output after reservation.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Absolute paths,
   `..`, missing files, and traversal attempts are rejected. Plan 2 still owns any full PDF viewer; Plan 3 only owns the

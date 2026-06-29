@@ -224,7 +224,7 @@ enum ArxivIngestService {
                 try Task.checkCancellation()
                 try Plan3ImportFileIO.copyFileContents(from: downloadedPDF, toReservedFile: urls.pdfURL)
                 try Task.checkCancellation()
-                try Data(note.markdownBody.utf8).write(to: urls.noteURL, options: .atomic)
+                try Plan3ImportFileIO.writeData(Data(note.markdownBody.utf8), toReservedFile: urls.noteURL)
                 try Task.checkCancellation()
                 return MaterializedImportFiles(
                     noteURL: urls.noteURL,

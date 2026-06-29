@@ -195,7 +195,7 @@ nonisolated enum Plan3ImportFileIO {
         let source = try FileHandle(forReadingFrom: sourceURL)
         defer { try? source.close() }
 
-        let destination = try FileHandle(forWritingTo: destinationURL)
+        let destination = try openReservedFileForWriting(destinationURL)
         defer { try? destination.close() }
         try destination.truncate(atOffset: 0)
 
@@ -208,6 +208,35 @@ nonisolated enum Plan3ImportFileIO {
         try destination.synchronize()
     }
 
+    static func writeData(_ data: Data, toReservedFile destinationURL: URL) throws {
+        let destination = try openReservedFileForWriting(destinationURL)
+        defer { try? destination.close() }
+        try destination.truncate(atOffset: 0)
+        try destination.write(contentsOf: data)
+        try destination.synchronize()
+    }
+
+    private static func openReservedFileForWriting(_ url: URL) throws -> FileHandle {
+        let fd = url.path.withCString { path in
+            open(path, O_WRONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw fileIOError("could not open reserved \(url.lastPathComponent)", errnoCode: errno)
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let capturedErrno = errno
+            close(fd)
+            throw fileIOError("could not inspect reserved \(url.lastPathComponent)", errnoCode: capturedErrno)
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw fileIOError("reserved \(url.lastPathComponent) is not a regular file", errnoCode: EFTYPE)
+        }
+        return FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+    }
+
     private static func reserveEmptyFile(at url: URL) throws -> Bool {
         let fd = url.path.withCString { path in
             open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, mode_t(0o600))
@@ -217,11 +246,15 @@ nonisolated enum Plan3ImportFileIO {
             return true
         }
         if errno == EEXIST { return false }
-        let err = String(cString: strerror(errno))
-        throw NSError(
+        throw fileIOError("could not reserve \(url.lastPathComponent)", errnoCode: errno)
+    }
+
+    private static func fileIOError(_ prefix: String, errnoCode: Int32) -> NSError {
+        let err = String(cString: strerror(errnoCode))
+        return NSError(
             domain: "Plan3ImportFileIO",
-            code: Int(errno),
-            userInfo: [NSLocalizedDescriptionKey: "could not reserve \(url.lastPathComponent): \(err)"]
+            code: Int(errnoCode),
+            userInfo: [NSLocalizedDescriptionKey: "\(prefix): \(err)"]
         )
     }
 }

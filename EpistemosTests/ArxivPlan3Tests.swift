@@ -163,6 +163,7 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
+        #expect(ingest.contains("Plan3ImportFileIO.writeData"))
 
         for stale in [
             "clone-ready code",
