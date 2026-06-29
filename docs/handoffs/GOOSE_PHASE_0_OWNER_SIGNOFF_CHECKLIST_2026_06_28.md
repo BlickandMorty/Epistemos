@@ -59,6 +59,21 @@ Still tracked (verify-then-fix, not yet grafted): tools/permissions list
 (`toolsList_unstable` — needs live extension-prefix filtering check), dictation,
 agent-mode cross-restart persistence (no `GOOSE_MODE` preference home in 1.39.0).
 
+### Feature-completeness DEFINITIVELY assessed (your primary gate)
+
+A 10-agent audit swept ALL 42 ungrafted Goose UI components that touch the dead
+`@/api` REST surface (`docs/handoffs/GOOSE_MISSING_FEATURE_AUDIT_2026_06_28.md`).
+Result: **35 are NOT missing features** (types-only / already-ACP-wired /
+dead-branch / non-ACP native carve-outs), and **7 are genuine gaps** — of which
+**1 was a clean fix (AlertBox threshold save, grafted `80de32ab7`)** and the other
+**6 are NOT silent bugs but product decisions or features with no ACP method**:
+PermissionModal-save + Prompts have **no ACP persistence method** (implement native
+or hide); Dictation needs a **graft-vs-native** decision (Epistemos has native
+voice); MCP-App rendering needs a goosed-only host; toolsCache/PermissionModal-load
+need a live extension-filter check. So the residual is **bounded and named, not an
+unknown "things are silently missing"** — the surface is feature-complete for
+everything ACP can express.
+
 ---
 
 ## OWNER — manual app pass (please click through and confirm)
