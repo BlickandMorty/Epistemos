@@ -453,9 +453,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }
     }
 
-    private func utteranceID(for utterance: AVSpeechUtterance) -> String? {
+    private func utteranceID(forObjectID objectID: ObjectIdentifier) -> String? {
         inflight.first { _, candidate in
-            candidate === utterance
+            ObjectIdentifier(candidate) == objectID
         }?.key
     }
 
@@ -486,9 +486,10 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     ) {
         let total = utterance.speechString.count
         let spoken = characterRange.upperBound
+        let utteranceObjectID = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
             guard let self,
-                  let utteranceId = self.utteranceID(for: utterance),
+                  let utteranceId = self.utteranceID(forObjectID: utteranceObjectID),
                   case let .speaking(currentID, _, _) = self.state,
                   currentID == utteranceId else { return }
             self.state = .speaking(
@@ -503,9 +504,10 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         _ synthesizer: AVSpeechSynthesizer,
         didFinish utterance: AVSpeechUtterance
     ) {
+        let utteranceObjectID = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
             guard let self,
-                  let utteranceId = self.utteranceID(for: utterance) else { return }
+                  let utteranceId = self.utteranceID(forObjectID: utteranceObjectID) else { return }
             self.completeUtterance(id: utteranceId)
         }
     }
@@ -514,9 +516,10 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         _ synthesizer: AVSpeechSynthesizer,
         didCancel utterance: AVSpeechUtterance
     ) {
+        let utteranceObjectID = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
             guard let self,
-                  let utteranceId = self.utteranceID(for: utterance) else { return }
+                  let utteranceId = self.utteranceID(forObjectID: utteranceObjectID) else { return }
             self.completeUtterance(id: utteranceId)
         }
     }
@@ -525,9 +528,10 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         _ synthesizer: AVSpeechSynthesizer,
         didPause utterance: AVSpeechUtterance
     ) {
+        let utteranceObjectID = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
             guard let self,
-                  let utteranceId = self.utteranceID(for: utterance),
+                  let utteranceId = self.utteranceID(forObjectID: utteranceObjectID),
                   case let .speaking(currentID, _, _) = self.state,
                   currentID == utteranceId else { return }
             self.state = .paused(utteranceId: utteranceId)
@@ -538,11 +542,12 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         _ synthesizer: AVSpeechSynthesizer,
         didContinue utterance: AVSpeechUtterance
     ) {
+        let utteranceObjectID = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
             guard let self,
                   case let .paused(utteranceId) = self.state,
                   let currentUtterance = self.inflight[utteranceId],
-                  currentUtterance === utterance else { return }
+                  ObjectIdentifier(currentUtterance) == utteranceObjectID else { return }
             self.state = .speaking(
                 utteranceId: utteranceId,
                 charactersTotal: currentUtterance.speechString.count,
