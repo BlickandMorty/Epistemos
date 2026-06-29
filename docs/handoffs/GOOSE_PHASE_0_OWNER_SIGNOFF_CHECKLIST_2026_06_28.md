@@ -74,7 +74,18 @@ agent-mode cross-restart persistence (no `GOOSE_MODE` preference home in 1.39.0)
 
 Launch the current Debug build:
 
+> ⚠️ **IMPORTANT — relaunch to pick up the fixes.** The Goose surface loads its Web
+> UI from `~/Library/Application Support/Epistemos/GooseWebUI` at launch. All the
+> parity fixes from this loop (welcome provider grid, model switcher / config-status,
+> Thinking-Effort persistence, custom-provider add/edit/delete) live in that
+> re-staged bundle. If an Epistemos instance is still running from BEFORE the
+> re-stage, it shows the OLD surface — which would look like "still broken." **Quit
+> any running Epistemos (Cmd-Q) first, then open the build below.** (The bundle is
+> already current; you do NOT need to rebuild for these Web-UI fixes. A rebuild is
+> only needed if you also want the Swift-side hardening from this loop.)
+
 ```
+# quit any running instance first, then:
 /usr/bin/open "/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Debug/Epistemos.app"
 ```
 
