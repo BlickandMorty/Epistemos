@@ -80,7 +80,7 @@ struct ArxivPlan3Tests {
         #expect(landing.contains("ArxivSearchView()"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
-        #expect(ingest.contains("nonisolated private static func uniquePairedFileURLs"))
+        #expect(ingest.contains("nonisolated private static func reservePairedFileURLs"))
 
         for stale in [
             "clone-ready code",
@@ -258,6 +258,67 @@ struct ArxivPlan3Tests {
     }
 
     @MainActor
+    @Test("concurrent ingests keep each note paired with its source PDF")
+    func concurrentIngestsKeepPairedFiles() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-concurrent-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let sourcePDF = root.appendingPathComponent("download.pdf")
+        let importDir = vault.appendingPathComponent(ArxivIngestService.importDirectory, isDirectory: true)
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+        let paper = try Self.paper()
+        let importer = BarrierArxivImporter(expectedCalls: 2)
+        let downloader = CopyingArxivDownloader(sourcePDF: sourcePDF, outputDirectory: root)
+
+        let firstTask = Task { @MainActor in
+            await ArxivIngestService.ingest(
+                paper: paper,
+                vaultURL: vault,
+                modelContext: context,
+                graphState: nil,
+                importer: importer,
+                downloader: downloader
+            )
+        }
+        let secondTask = Task { @MainActor in
+            await ArxivIngestService.ingest(
+                paper: paper,
+                vaultURL: vault,
+                modelContext: context,
+                graphState: nil,
+                importer: importer,
+                downloader: downloader
+            )
+        }
+
+        let firstOutcome = await firstTask.value
+        let secondOutcome = await secondTask.value
+        guard case .imported = firstOutcome, case .imported = secondOutcome else {
+            Issue.record("Expected both arXiv ingests to import, got \(firstOutcome) and \(secondOutcome)")
+            return
+        }
+
+        let files = try FileManager.default.contentsOfDirectory(at: importDir, includingPropertiesForKeys: nil)
+        let mdBases = Set(files.filter { $0.pathExtension == "md" }.map { $0.deletingPathExtension().lastPathComponent })
+        let pdfBases = Set(files.filter { $0.pathExtension == "pdf" }.map { $0.deletingPathExtension().lastPathComponent })
+
+        #expect(mdBases.count == 2)
+        #expect(pdfBases.count == 2)
+        #expect(mdBases == pdfBases)
+        for base in mdBases {
+            #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("\(base).md").path))
+            #expect(FileManager.default.fileExists(atPath: importDir.appendingPathComponent("\(base).pdf").path))
+        }
+    }
+
+    @MainActor
     @Test("ingest rejects a symlinked arXiv import directory")
     func ingestRejectsSymlinkedImportDirectory() async throws {
         let root = FileManager.default.temporaryDirectory
@@ -426,6 +487,55 @@ private struct FakeArxivImporter: LiteParsePDFImporter {
 
     func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
         result
+    }
+}
+
+private final class BarrierArxivImporter: LiteParsePDFImporter, @unchecked Sendable {
+    private let expectedCalls: Int
+    private let lock = NSLock()
+    private let release = DispatchSemaphore(value: 0)
+    private var calls = 0
+
+    init(expectedCalls: Int) {
+        self.expectedCalls = expectedCalls
+    }
+
+    func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
+        lock.lock()
+        calls += 1
+        let shouldRelease = calls == expectedCalls
+        lock.unlock()
+
+        if shouldRelease {
+            for _ in 0..<expectedCalls {
+                release.signal()
+            }
+        }
+        _ = release.wait(timeout: .now() + .seconds(2))
+        return .markdown("Converted full text.")
+    }
+}
+
+private final class CopyingArxivDownloader: ArxivPDFDownloading, @unchecked Sendable {
+    private let sourcePDF: URL
+    private let outputDirectory: URL
+    private let lock = NSLock()
+    private var nextIndex = 0
+
+    init(sourcePDF: URL, outputDirectory: URL) {
+        self.sourcePDF = sourcePDF
+        self.outputDirectory = outputDirectory
+    }
+
+    func download(from _: URL) async throws -> URL {
+        lock.lock()
+        nextIndex += 1
+        let index = nextIndex
+        lock.unlock()
+
+        let copy = outputDirectory.appendingPathComponent("download-\(index).pdf")
+        try FileManager.default.copyItem(at: sourcePDF, to: copy)
+        return copy
     }
 }
 
