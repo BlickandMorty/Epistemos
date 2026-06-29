@@ -75,7 +75,12 @@ it is a deliberate, owner-confirmed Phase-0 architecture change.**
 - **TLS in WKWebView**: self-signed localhost cert handling (step 3) is the main
   technical risk; (a) http loopback avoids it.
 - **Port 3000 fixed?**: confirm; affects occupied-port handling.
-- **Binary size**: +247 MB if bundling goosed in addition to goose (or swap if the
+- **Binary size — CORRECTED 2026-06-29 (source-verified):** this is a SWAP, **net ≈ −7 MB**
+  (goosed 247.7 MB *replaces* goose 254.4 MB), NOT +247 MB. The "+247 MB" framing below assumed
+  bundling BOTH — wrong; goosed serves ACP too (`rest_router.merge(acp_router)`), so `goose` is no
+  longer needed. Also: `mcp-app-proxy` is already in lean `goose serve`, so the residual no-ACP set
+  is 2 features (Permission-save + prompt CRUD), not 3. See GOOSE_NATIVE_UI_DECISION_2026_06_29.md.
+- ~~**Binary size**: +247 MB if bundling goosed in addition to goose~~ (superseded — see above) (or swap if the
   ACP path can also come from goosed and `goose` is no longer needed).
 
 ## Validation (gated on the shared test bundle unblocking)
