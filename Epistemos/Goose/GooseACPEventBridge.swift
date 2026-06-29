@@ -291,6 +291,10 @@ final class GooseACPEventBridge {
             }
         case .unhandledNotification(let method, let params):
             appendUnhandledDiagnostic(kind: .notification, method: method, params: params)
+        case .serverError(let code, let message, let data):
+            // #4: contained server-level error (null-id JSON-RPC error). Recorded as a diagnostic;
+            // the connection stays alive (terminal fail() is reserved for transport errors).
+            recordDiagnostic(kind: .notification, method: "server/error(\(code))", params: data ?? .string(message))
         }
     }
 
@@ -299,11 +303,19 @@ final class GooseACPEventBridge {
         method: GooseACPMethod,
         params: JSONValue
     ) {
+        recordDiagnostic(kind: kind, method: method.rawValue, params: params)
+    }
+
+    private func recordDiagnostic(
+        kind: GooseACPUnhandledDiagnostic.Kind,
+        method: String,
+        params: JSONValue
+    ) {
         unhandledDiagnosticSequence += 1
         unhandledDiagnostics.append(GooseACPUnhandledDiagnostic(
             sequence: unhandledDiagnosticSequence,
             kind: kind,
-            method: method.rawValue,
+            method: method,
             params: params
         ))
         if unhandledDiagnostics.count > 12 {

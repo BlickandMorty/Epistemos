@@ -40,6 +40,10 @@ nonisolated enum GooseACPClientEvent: Equatable, Sendable {
     case elicitationRequest(id: GooseACPRequestID, GooseACPCreateElicitationRequest)
     case unhandledRequest(id: GooseACPRequestID, method: GooseACPMethod, params: JSONValue)
     case unhandledNotification(method: GooseACPMethod, params: JSONValue)
+    /// A JSON-RPC error frame with null/absent id (parse-error / invalid-request / global server
+    /// notice). Application-level, NOT a transport failure — contained as a diagnostic so it does
+    /// not tear down the connection. Deep-hardening 2026-06-29 #4.
+    case serverError(code: Int, message: String, data: JSONValue?)
 }
 
 actor GooseACPClient {
@@ -543,11 +547,9 @@ actor GooseACPClient {
                 id: id
             )
         case .error(nil, let error):
-            fail(GooseACPProtocolError.jsonRPCError(
-                code: error.code,
-                message: error.message,
-                data: error.data
-            ))
+            // #4: a null-id JSON-RPC error is application-level, not a transport failure. Contain
+            // it as a diagnostic event; terminal fail() stays reserved for transport/frame-parse.
+            deliverEvent(.serverError(code: error.code, message: error.message, data: error.data))
         case let message:
             deliverEvent(try event(from: message))
         }
