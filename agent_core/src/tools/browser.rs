@@ -35,6 +35,7 @@ const MAX_BROWSER_OUTPUT_BYTES: usize = 512 * 1024;
 const MAX_BROWSER_ERROR_CHARS: usize = 512;
 const BROWSER_USE_AGENT_BROWSER_ENV: &str = "EPISTEMOS_BROWSER_USE_AGENT_BROWSER";
 const BROWSER_USE_VENDOR_ROOT_ENV: &str = "EPISTEMOS_BROWSER_USE_VENDOR_ROOT";
+const BROWSER_USE_CDP_URL_ENV: &str = "EPISTEMOS_BROWSER_USE_CDP_URL";
 const BROWSER_USE_ADAPTER_FILENAME: &str = "epistemos_agent_browser.py";
 const AGENT_BROWSER_SCREENSHOT_DIR_ENV: &str = "AGENT_BROWSER_SCREENSHOT_DIR";
 
@@ -118,10 +119,7 @@ impl BrowserManager {
             create_private_browser_dir(&socket_dir)?;
             state.session_name = Some(session_name);
             state.socket_dir = Some(socket_dir);
-            state.cdp_url = env::var("BROWSER_CDP_URL")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty());
+            state.cdp_url = cdp_url_from_env()?;
         }
         Ok(())
     }
@@ -626,6 +624,45 @@ fn env_path(key: &str) -> Option<PathBuf> {
             Some(PathBuf::from(value))
         }
     })
+}
+
+fn cdp_url_from_env() -> Result<Option<String>, ToolError> {
+    let Some(value) = env::var_os(BROWSER_USE_CDP_URL_ENV) else {
+        return Ok(None);
+    };
+    if value.as_os_str().is_empty() {
+        return Ok(None);
+    }
+
+    let value = value.to_string_lossy();
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    validate_cdp_url(trimmed)?;
+    Ok(Some(trimmed.to_string()))
+}
+
+fn validate_cdp_url(raw: &str) -> Result<(), ToolError> {
+    let parsed = reqwest::Url::parse(raw).map_err(|_| {
+        ToolError::InvalidArguments(format!("{BROWSER_USE_CDP_URL_ENV} must be a valid URL"))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https" | "ws" | "wss") {
+        return Err(ToolError::InvalidArguments(format!(
+            "{BROWSER_USE_CDP_URL_ENV} must use http, https, ws, or wss"
+        )));
+    }
+    let Some(host) = parsed.host_str() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "{BROWSER_USE_CDP_URL_ENV} must include a loopback host"
+        )));
+    };
+    if !matches!(host, "127.0.0.1" | "localhost" | "::1") {
+        return Err(ToolError::InvalidArguments(format!(
+            "{BROWSER_USE_CDP_URL_ENV} must point at localhost, 127.0.0.1, or [::1]"
+        )));
+    }
+    Ok(())
 }
 
 fn executable_search_dirs() -> Vec<PathBuf> {
@@ -1318,6 +1355,28 @@ esac
 
         assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
         assert!(message.contains("not an executable file"));
+    }
+
+    #[test]
+    fn browser_cdp_url_env_accepts_only_loopback_urls() {
+        for allowed in [
+            "http://127.0.0.1:9222",
+            "http://localhost:9222/json/version",
+            "ws://127.0.0.1:9222/devtools/browser/session",
+            "ws://[::1]:9222/devtools/browser/session",
+        ] {
+            validate_cdp_url(allowed).unwrap();
+        }
+
+        for rejected in [
+            "file:///tmp/browser",
+            "http://192.168.0.2:9222",
+            "ws://example.com/devtools/browser/session",
+            "not a url",
+        ] {
+            let err = validate_cdp_url(rejected).unwrap_err();
+            assert!(format!("{err}").contains(BROWSER_USE_CDP_URL_ENV));
+        }
     }
 
     #[tokio::test]

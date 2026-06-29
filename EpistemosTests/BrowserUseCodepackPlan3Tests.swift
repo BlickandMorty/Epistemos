@@ -78,6 +78,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("console/errors compatibility stubs avoid browser-use runtime import"))
         #expect(codepack.contains("command arguments after `--json <command>` are preserved even when they begin with `--`"))
         #expect(codepack.contains("runtime environment setup happens only after adapter arguments are accepted"))
+        #expect(codepack.contains("never trusts ambient `BROWSER_CDP_URL`"))
+        #expect(codepack.contains("EPISTEMOS_BROWSER_USE_CDP_URL"))
         #expect(codepack.contains("browser_vision rejects screenshot paths that resolve outside"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))

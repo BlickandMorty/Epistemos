@@ -147,9 +147,14 @@ struct BrowserUseAdapterPlan3Tests {
         for required in [
             "EPISTEMOS_BROWSER_USE_AGENT_BROWSER",
             "EPISTEMOS_BROWSER_USE_VENDOR_ROOT",
+            "EPISTEMOS_BROWSER_USE_CDP_URL",
             "epistemos_agent_browser.py",
             "resolve_agent_browser(",
             "require_executable_browser(",
+            "cdp_url_from_env",
+            "validate_cdp_url",
+            "must point at localhost, 127.0.0.1, or [::1]",
+            "browser_cdp_url_env_accepts_only_loopback_urls",
             "create_private_browser_dir(",
             "not an executable file",
             "PYTHON_DOTENV_DISABLED",
@@ -187,6 +192,7 @@ struct BrowserUseAdapterPlan3Tests {
         let adapterIndex = try #require(browserTool.range(of: "browser_use_adapter")?.lowerBound)
         let pathFallbackIndex = try #require(browserTool.range(of: "for candidate in search_dirs")?.lowerBound)
         #expect(adapterIndex < pathFallbackIndex)
+        #expect(!browserTool.contains("BROWSER_CDP_URL"))
 
         #expect(registry.contains("#[cfg(feature = \"pro-build\")]"))
         #expect(registry.contains("browser_navigate_schema()"))
