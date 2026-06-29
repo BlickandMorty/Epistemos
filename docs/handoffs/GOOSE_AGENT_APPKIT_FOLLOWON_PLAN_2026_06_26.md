@@ -339,7 +339,7 @@ Execute in order. **Do not skip gates.** Each step has an exit criterion.
 
 **Exit:** Attach note from vault → visible in prompt context
 
-### Step 9 — Chat-primary flip + regression fallback (Gate 7)
+### Step 9 — Chat-primary flip + regression fallback (Gate 7)  🛑 [DELETED 2026-06-29 — Option 1: NO native chat. Do NOT build this step. Chat stays WebView, reskinned. See top banner.]
 
 1. Flip `AgentSurface.useNativeChatPath = true` by default (native hub + session + transcript + composer + permission/elicitation)
 2. **Do not** bulk-disable per-route WebView flags — long-tail routes keep embedded WebView until Step 7 per-route gate passes
