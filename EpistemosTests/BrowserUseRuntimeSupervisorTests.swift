@@ -117,6 +117,32 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(readiness.message.contains("Python 3.11 executable is not executable"))
     }
 
+    @Test("readiness rejects runtime artifact symlinks outside packaged roots before launch planning")
+    func readinessRejectsRuntimeArtifactSymlinksOutsidePackagedRootsBeforeLaunchPlanning() throws {
+        let paths = try runtimeFixture(packaged: true)
+        let outsidePython = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-outside-python-\(UUID().uuidString)", isDirectory: false)
+        defer {
+            removeFixture(paths)
+            try? FileManager.default.removeItem(at: outsidePython)
+        }
+
+        try Data("#!/usr/bin/env python3\n".utf8).write(to: outsidePython)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: outsidePython.path)
+        try FileManager.default.removeItem(at: paths.pythonExecutableURL)
+        try FileManager.default.createSymbolicLink(at: paths.pythonExecutableURL, withDestinationURL: outsidePython)
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"]
+        )
+
+        #expect(!readiness.isReady)
+        #expect(readiness.message.contains("Python 3.11 executable resolves outside browser-use runtime root"))
+    }
+
     @Test("default paths prefer bundled Pro resources before source checkout layout")
     func defaultPathsPreferBundledProResourcesBeforeSourceCheckoutLayout() throws {
         let root = FileManager.default.temporaryDirectory
@@ -240,7 +266,10 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseEnvironmentFileWriter",
             "BrowserUseRuntimeArtifactKind",
+            "BrowserUseRuntimeArtifactRequirement",
             "isExecutableFile(atPath:",
+            "resolvesInsideRuntimeRoot",
+            "resolves outside browser-use runtime root",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
             "resourceRootURL: URL? = Bundle.main.resourceURL",

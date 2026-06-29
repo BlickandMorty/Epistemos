@@ -161,6 +161,13 @@ private enum BrowserUseRuntimeArtifactKind {
     case directory
 }
 
+private struct BrowserUseRuntimeArtifactRequirement {
+    let name: String
+    let url: URL
+    let kind: BrowserUseRuntimeArtifactKind
+    let rootURL: URL
+}
+
 nonisolated enum BrowserUseEnvironmentFileWriter {
     static func write(
         _ contents: String,
@@ -357,6 +364,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 name: requirement.name,
                 url: requirement.url,
                 kind: requirement.kind,
+                rootURL: requirement.rootURL,
                 fileManager: fileManager
             ) {
                 return .unavailable("browser-use Pro runtime \(problem)")
@@ -409,11 +417,15 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         name: String,
         url: URL,
         kind: BrowserUseRuntimeArtifactKind,
+        rootURL: URL,
         fileManager: FileManager
     ) -> String? {
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return "missing \(name) at \(url.path)"
+        }
+        guard resolvesInsideRuntimeRoot(url, relativeTo: rootURL) else {
+            return "\(name) resolves outside browser-use runtime root at \(url.path)"
         }
 
         switch kind {
@@ -429,13 +441,44 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         }
     }
 
-    private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [(name: String, url: URL, kind: BrowserUseRuntimeArtifactKind)] {
+    private static func resolvesInsideRuntimeRoot(_ url: URL, relativeTo rootURL: URL) -> Bool {
+        let root = rootURL.standardizedFileURL.resolvingSymlinksInPath()
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
+    }
+
+    private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [BrowserUseRuntimeArtifactRequirement] {
         [
-            ("Python 3.11 executable", paths.pythonExecutableURL, .executableFile),
-            ("web-ui entrypoint", paths.webUIEntrypointURL, .file),
-            ("BUILD_MANIFEST.json", paths.buildManifestURL, .file),
-            ("wheelhouse", paths.wheelhouseURL, .directory),
-            ("Playwright Chromium payload", paths.playwrightURL, .directory),
+            .init(
+                name: "Python 3.11 executable",
+                url: paths.pythonExecutableURL,
+                kind: .executableFile,
+                rootURL: paths.buildRoot
+            ),
+            .init(
+                name: "web-ui entrypoint",
+                url: paths.webUIEntrypointURL,
+                kind: .file,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "BUILD_MANIFEST.json",
+                url: paths.buildManifestURL,
+                kind: .file,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "wheelhouse",
+                url: paths.wheelhouseURL,
+                kind: .directory,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "Playwright Chromium payload",
+                url: paths.playwrightURL,
+                kind: .directory,
+                rootURL: paths.vendorRoot
+            ),
         ]
     }
 

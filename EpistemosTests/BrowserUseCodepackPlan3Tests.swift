@@ -68,6 +68,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("file-vs-directory mismatches are rejected before ready"))
         #expect(codepack.contains("symlink escapes are rejected before ready"))
         #expect(codepack.contains("rejects non-executable Python and file/directory artifact shape mismatches"))
+        #expect(codepack.contains("rejects runtime artifact symlink escapes before launch planning"))
         #expect(codepack.contains("rejects a non-executable Python runtime before launch planning"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
