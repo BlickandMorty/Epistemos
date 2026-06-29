@@ -170,9 +170,9 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Extra positional
   arguments and unexpected console/error flags are rejected before daemon startup. The console/errors compatibility
   stubs avoid browser-use runtime import until upstream exposes matching stream actions; they only accept optional
-  `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. The
-  `browser_type`/`fill` result acknowledges success and reports only a character count; it never echoes submitted text
-  back into tool output. Runtime
+  `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. Both the adapter
+  `fill` result and Rust `browser_type` result acknowledge success and report only a character count; they never echo
+  submitted text back into tool output. Runtime
   environment setup happens only after adapter arguments are accepted. The Rust bridge never trusts ambient
   `BROWSER_CDP_URL`; the only CDP override env is `EPISTEMOS_BROWSER_USE_CDP_URL`, and it must be valid UTF-8, point at
   localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. `browser_vision` also rejects screenshot

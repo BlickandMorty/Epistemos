@@ -68,6 +68,8 @@ struct BrowserUseAdapterPlan3Tests {
             "require_only_flags",
             "open accepts exactly one url",
             "fill accepts exactly a ref and text",
+            "\"typed\": True",
+            "\"typed_chars\": len(text)",
             "console does not accept argument",
             "console/errors compatibility stubs avoid browser-use runtime import",
             "return success({\"messages\": []})",
@@ -92,6 +94,7 @@ struct BrowserUseAdapterPlan3Tests {
         #expect(!source.contains("ensure_browser_daemon(args)\n\n    if command == \"open\""))
         #expect(!source.contains("setdefault(\"BROWSER_USE_HOME\""))
         #expect(!source.contains("prepare_runtime_environment()\n\n    if command == \"close\""))
+        #expect(!source.contains("\"typed\": text"))
 
         let contractIndex = try #require(source.range(of: "if command == \"contract\"")?.lowerBound)
         let prepareIndex = try #require(source.range(of: "prepare_runtime_environment()")?.lowerBound)
