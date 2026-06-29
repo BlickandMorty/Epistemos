@@ -116,6 +116,33 @@ struct SSQCGlobalVoiceTests {
         #expect(src.contains("clampedPitch(prosody?.pitch ?? pitch)"))
     }
 
+    @Test("stale utterance completion cannot clear a newer speech state")
+    func staleUtteranceCompletionDoesNotClearNewerState() {
+        let active = EpistemosSpeechSynthesizer.SpeakingState.speaking(
+            utteranceId: "new",
+            charactersTotal: 20,
+            charactersSpoken: 5
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.stateAfterCompletingUtterance(
+                utteranceId: "old",
+                currentState: active
+            ) == active
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.stateAfterCompletingUtterance(
+                utteranceId: "new",
+                currentState: active
+            ) == .idle
+        )
+        #expect(
+            EpistemosSpeechSynthesizer.stateAfterCompletingUtterance(
+                utteranceId: "old",
+                currentState: .paused(utteranceId: "new")
+            ) == .paused(utteranceId: "new")
+        )
+    }
+
     @Test("Quick Capture surfaces the voice picker at point of use + persists to the global default")
     func quickCaptureMountsVoicePicker() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")

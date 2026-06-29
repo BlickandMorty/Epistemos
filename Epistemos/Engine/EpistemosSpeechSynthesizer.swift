@@ -439,6 +439,39 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         return min(max(value, 0.5), 2.0)
     }
 
+    nonisolated static func stateAfterCompletingUtterance(
+        utteranceId completedID: String,
+        currentState: SpeakingState
+    ) -> SpeakingState {
+        switch currentState {
+        case .speaking(let currentID, _, _) where currentID == completedID:
+            return .idle
+        case .paused(let currentID) where currentID == completedID:
+            return .idle
+        case .idle, .speaking, .paused:
+            return currentState
+        }
+    }
+
+    private func utteranceID(for utterance: AVSpeechUtterance) -> String? {
+        inflight.first { _, candidate in
+            candidate === utterance
+        }?.key
+    }
+
+    private func completeUtterance(id completedID: String) {
+        let nextState = Self.stateAfterCompletingUtterance(
+            utteranceId: completedID,
+            currentState: state
+        )
+        if nextState.isActive {
+            inflight.removeValue(forKey: completedID)
+        } else {
+            inflight.removeAll()
+        }
+        state = nextState
+    }
+
     // MARK: - AVSpeechSynthesizerDelegate
 
     nonisolated public func speechSynthesizer(
@@ -455,7 +488,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         let spoken = characterRange.upperBound
         Task { @MainActor [weak self] in
             guard let self,
-                  case let .speaking(utteranceId, _, _) = self.state else { return }
+                  let utteranceId = self.utteranceID(for: utterance),
+                  case let .speaking(currentID, _, _) = self.state,
+                  currentID == utteranceId else { return }
             self.state = .speaking(
                 utteranceId: utteranceId,
                 charactersTotal: total,
@@ -469,8 +504,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         didFinish utterance: AVSpeechUtterance
     ) {
         Task { @MainActor [weak self] in
-            self?.state = .idle
-            self?.inflight.removeAll()
+            guard let self,
+                  let utteranceId = self.utteranceID(for: utterance) else { return }
+            self.completeUtterance(id: utteranceId)
         }
     }
 
@@ -479,8 +515,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         didCancel utterance: AVSpeechUtterance
     ) {
         Task { @MainActor [weak self] in
-            self?.state = .idle
-            self?.inflight.removeAll()
+            guard let self,
+                  let utteranceId = self.utteranceID(for: utterance) else { return }
+            self.completeUtterance(id: utteranceId)
         }
     }
 
@@ -490,7 +527,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     ) {
         Task { @MainActor [weak self] in
             guard let self,
-                  case let .speaking(utteranceId, _, _) = self.state else { return }
+                  let utteranceId = self.utteranceID(for: utterance),
+                  case let .speaking(currentID, _, _) = self.state,
+                  currentID == utteranceId else { return }
             self.state = .paused(utteranceId: utteranceId)
         }
     }
@@ -502,10 +541,11 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         Task { @MainActor [weak self] in
             guard let self,
                   case let .paused(utteranceId) = self.state,
-                  let inflight = self.inflight[utteranceId] else { return }
+                  let currentUtterance = self.inflight[utteranceId],
+                  currentUtterance === utterance else { return }
             self.state = .speaking(
                 utteranceId: utteranceId,
-                charactersTotal: inflight.speechString.count,
+                charactersTotal: currentUtterance.speechString.count,
                 charactersSpoken: 0
             )
         }
