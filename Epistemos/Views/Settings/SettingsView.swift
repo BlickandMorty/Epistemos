@@ -50,8 +50,12 @@ enum SettingsViewDestructiveActionSovereignGate {
 
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
-    @State private var selection: SettingsSection? = .general
+    @State private var selection: SettingsSection?
     @State private var settingsSearchQuery = ""
+
+    init(initialSelection: SettingsSection? = .general) {
+        _selection = State(initialValue: SettingsSection.safeDetailSelection(for: initialSelection))
+    }
 
     // MARK: - Settings Categories (Phase 7 Step 7)
     //
@@ -84,6 +88,7 @@ struct SettingsView: View {
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
         case ambientFrequencies = "Ambient Frequencies"
+        case voice = "Voice"
         case skills = "Extensions"
         case landing = "Landing"
         case appearance = "Appearance"
@@ -106,6 +111,7 @@ struct SettingsView: View {
             var sections: [SettingsSection] = [
                 .general,
                 .ambientFrequencies,
+                .voice,
                 .skills,
             ]
             sections += [
@@ -128,6 +134,7 @@ struct SettingsView: View {
             switch self {
             case .general: "gearshape"
             case .ambientFrequencies: "waveform.path"
+            case .voice: "waveform.and.mic"
             case .skills: "puzzlepiece.extension"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
@@ -143,7 +150,8 @@ struct SettingsView: View {
         var category: SettingsCategory {
             switch self {
             case .landing,
-                 .ambientFrequencies: .capture
+                 .ambientFrequencies,
+                 .voice: .capture
             case .appearance:     .graph
             case .skills:         .automation
             case .vault:          .privacyStore
@@ -164,6 +172,8 @@ struct SettingsView: View {
                 "Power, session, workspace summaries, data protection, reset."
             case .ambientFrequencies:
                 "Generate precise local WAV frequency presets for ambient sessions."
+            case .voice:
+                "Speech, dictation, read-aloud, and premium voice defaults."
             case .skills:
                 "Skills, MCP servers, connectors, and presets."
             case .landing:
@@ -189,6 +199,8 @@ struct SettingsView: View {
                 ["session", "workspace", "restore", "reset", "retention", "privacy", "data"]
             case .ambientFrequencies:
                 ["audio", "sound", "frequency", "frequencies", "wav", "ambient", "binaural", "music"]
+            case .voice:
+                ["voice", "speech", "dictation", "read aloud", "tts", "stt", "microphone", "premium"]
             case .skills:
                 ["skills", "manifest", "activation", "plugin", "tools"]
             case .landing:
@@ -268,6 +280,15 @@ struct SettingsView: View {
         .onChange(of: settingsSearchQuery) { _, _ in
             normalizeSelectionForVisibleSearchResults()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .selectSettingsSection)) { notification in
+            guard
+                let rawSection = notification.userInfo?[SettingsView.sectionUserInfoKey] as? String,
+                let section = SettingsSection(rawValue: rawSection)
+            else {
+                return
+            }
+            selection = SettingsSection.safeDetailSelection(for: section)
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
@@ -315,6 +336,7 @@ struct SettingsView: View {
             switch SettingsSection.safeDetailSelection(for: selection) {
             case .general: GeneralDetailView()
             case .ambientFrequencies: AmbientFrequencySettingsView()
+            case .voice: VoicePreferencesSection()
             case .skills: ExtensionsDetailView()
             case .landing: LandingDetailView()
             case .appearance: AppearanceDetailView()
@@ -336,6 +358,14 @@ struct SettingsView: View {
             from: nil
         )
     }
+}
+
+extension SettingsView {
+    nonisolated static let sectionUserInfoKey = "section"
+}
+
+extension Notification.Name {
+    static let selectSettingsSection = Notification.Name("epistemos.selectSettingsSection")
 }
 
 private extension SettingsView.SettingsSection {

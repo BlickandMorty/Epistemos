@@ -640,6 +640,8 @@ struct LandingView: View {
             showingArxivSearch = true
         case .provenance, .extensions, .vaultMCP:
             UtilityWindowManager.shared.show(.settings)
+        case .voice:
+            UtilityWindowManager.shared.showSettings(section: .voice)
         case .browser:
             UtilityWindowManager.shared.show(.browser)
         case .meetingNote:

@@ -261,6 +261,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case "vaultMCP": .vaultMCP
         case "browser": .browser
         case "meetingNote": .meetingNote
+        case "voice": .voice
         default: .generic
         }
     }

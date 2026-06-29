@@ -16,6 +16,7 @@ struct LandingFeatureButtonsPlan3Tests {
                 "vaultMCP",
                 "browser",
                 "meetingNote",
+                "voice",
             ]
         )
     }
@@ -29,6 +30,7 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(LandingFeatureButton.vaultMCP.integrationBrand == .vaultMCP)
         #expect(LandingFeatureButton.browser.integrationBrand == .browser)
         #expect(LandingFeatureButton.meetingNote.integrationBrand == .meetingNote)
+        #expect(LandingFeatureButton.voice.integrationBrand == .voice)
     }
 
     @Test("landing feature button tiles render the registry-backed brand mark")
@@ -54,6 +56,7 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(landing.contains("LiteParsePDFImportController.importPage"))
         #expect(landing.contains("showingArxivSearch = true"))
         #expect(landing.contains("UtilityWindowManager.shared.show(.settings)"))
+        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .voice)"))
         #expect(landing.contains("UtilityWindowManager.shared.show(.browser)"))
         #expect(landing.contains("UtilityWindowManager.shared.show(.meetingNote)"))
 
@@ -62,9 +65,26 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(buttons.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(buttons.contains("case .browser:"))
         #expect(buttons.contains("case .meetingNote:"))
+        #expect(buttons.contains("case .voice:"))
         #expect(buttons.contains("return true"))
         #expect(!landing.contains("GooseSurfaceWindowController"))
         #expect(!buttons.contains("GooseSurfaceWindowController"))
+    }
+
+    @Test("voice landing shortcut opens the real voice settings pane")
+    func voiceShortcutOpensVoiceSettingsPane() throws {
+        let settings = try Self.loadSource("Epistemos/Views/Settings/SettingsView.swift")
+        let windows = try Self.loadSource("Epistemos/App/UtilityWindowManager.swift")
+        let landing = try Self.loadSource("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(settings.contains("case voice = \"Voice\""))
+        #expect(settings.contains("VoicePreferencesSection()"))
+        #expect(settings.contains("static let selectSettingsSection"))
+        #expect(windows.contains("func showSettings(section: SettingsView.SettingsSection)"))
+        #expect(windows.contains("SettingsView(initialSelection: initialSettingsSection)"))
+        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .voice)"))
+        #expect(!settings.contains("Epistemos/Goose"))
+        #expect(!settings.contains("Epistemos/Agent"))
     }
 
     @Test("Plan 3 landing docs do not claim Goose-owned routes")

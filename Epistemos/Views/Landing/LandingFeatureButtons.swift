@@ -8,6 +8,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case vaultMCP
     case browser
     case meetingNote
+    case voice
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .vaultMCP: "vault MCP"
         case .browser: "browser"
         case .meetingNote: "meeting"
+        case .voice: "voice"
         }
     }
 
@@ -32,6 +34,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .vaultMCP: .notes
         case .browser: .html
         case .meetingNote: .capture
+        case .voice: .chat
         }
     }
 
@@ -48,6 +51,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .vaultMCP: Color(hex: 0x4FB477)
         case .browser: Color(hex: 0xE0A53C)
         case .meetingNote: Color(hex: 0x5AA6A6)
+        case .voice: Color(hex: 0xB26BD6)
         }
     }
 
@@ -57,7 +61,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .provenance: .graph
         case .extensions, .vaultMCP: .workspace
         case .browser: .agent
-        case .meetingNote: .capture
+        case .meetingNote, .voice: .capture
         }
     }
 
@@ -70,6 +74,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .vaultMCP: "PRO"
         case .browser: nil
         case .meetingNote: nil
+        case .voice: nil
         }
     }
 
@@ -77,7 +82,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .vaultMCP:
             return true
-        case .pdfImport, .arxiv, .provenance, .extensions, .browser, .meetingNote:
+        case .pdfImport, .arxiv, .provenance, .extensions, .browser, .meetingNote, .voice:
             return false
         }
     }
@@ -96,7 +101,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return ArxivPullGateStatus.status().isActive
         case .provenance, .extensions:
             return true
-        case .browser, .meetingNote:
+        case .browser, .meetingNote, .voice:
             return true
         }
     }
@@ -114,6 +119,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return "Browser is unavailable in this build."
         case .meetingNote:
             return "Meeting notes are unavailable in this build."
+        case .voice:
+            return "Voice settings are unavailable in this build."
         case .provenance, .extensions, .vaultMCP:
             return "\(title) is unavailable in this build."
         }

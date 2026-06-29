@@ -292,10 +292,11 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 
 ## 8. Landing-page feature buttons (owner requirement, Pass 5) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
 Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
-grid `:492`). New `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/meetingNote)
+grid `:492`). `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/meetingNote/voice)
 reuses the existing `PixelLandingCommandTile` and summons Plan 3-owned surfaces only: `UtilityWindowManager.show(.settings)`,
-`UtilityWindowManager.show(.browser)`, `UtilityWindowManager.show(.meetingNote)`, the arXiv sheet, and
-`LiteParsePDFImportController.importPage`. Honest compile-time Pro pills. Adding a feature = 1 enum case + 1 switch line.
+`UtilityWindowManager.showSettings(section: .voice)`, `UtilityWindowManager.show(.browser)`,
+`UtilityWindowManager.show(.meetingNote)`, the arXiv sheet, and `LiteParsePDFImportController.importPage`.
+Honest compile-time Pro pills. Adding a feature = 1 enum case + 1 switch line.
 Pure additive UI, MAS-safe.
 
 ## 9. Browser automation + browser-use + Goose (Pass 5 honest verdict)

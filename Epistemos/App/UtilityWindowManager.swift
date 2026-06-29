@@ -223,6 +223,7 @@ final class UtilityWindowManager {
     static let shared = UtilityWindowManager()
 
     private var panels: [UtilityPanel: NSPanel] = [:]
+    private var pendingSettingsSection: SettingsView.SettingsSection?
 
     private init() {}
 
@@ -240,6 +241,17 @@ final class UtilityWindowManager {
         NSApp.activate(ignoringOtherApps: true)
         window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
+    }
+
+    func showSettings(section: SettingsView.SettingsSection) {
+        pendingSettingsSection = section
+        show(.settings)
+        NotificationCenter.default.post(
+            name: .selectSettingsSection,
+            object: nil,
+            userInfo: [SettingsView.sectionUserInfoKey: section.rawValue]
+        )
+        pendingSettingsSection = nil
     }
 
     func hide(_ panel: UtilityPanel) {
@@ -372,6 +384,7 @@ final class UtilityWindowManager {
         // This ensures background + colorScheme are reactive — plain function calls bake values
         // in at call time and never update when the theme changes.
         ThemedUtilityRoot(kind: kind, bootstrap: bootstrap)
+            .initialSettingsSection(pendingSettingsSection)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
     }
@@ -386,6 +399,7 @@ private struct ThemedUtilityRoot: View {
     @Environment(UIState.self) private var ui
     let kind: UtilityPanel
     let bootstrap: AppBootstrap
+    var initialSettingsSection: SettingsView.SettingsSection? = nil
 
     var body: some View {
         Group {
@@ -398,12 +412,20 @@ private struct ThemedUtilityRoot: View {
             case .omega:
                 OmegaPanel()
             case .settings:
-                SettingsView()
+                SettingsView(initialSelection: initialSettingsSection)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .preferredColorScheme(ui.preferredColorScheme)
         .navigationTitle("")
+    }
+}
+
+private extension ThemedUtilityRoot {
+    func initialSettingsSection(_ section: SettingsView.SettingsSection?) -> Self {
+        var copy = self
+        copy.initialSettingsSection = section
+        return copy
     }
 }
