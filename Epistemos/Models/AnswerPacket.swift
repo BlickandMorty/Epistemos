@@ -198,8 +198,9 @@ nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseItera
     ///
     /// A stored `AnswerPacket.uiLabel` is legacy wire data and must never by
     /// itself authorize a visible "Verified" chip. Verification requires an
-    /// active, verifiable claim with a real UAS or ACS anchor. Empty packets
-    /// render no chip.
+    /// active, verifiable claim with a real ACS verification anchor. UAS is
+    /// stable address identity, not evidence by itself. Empty packets render
+    /// no chip.
     public static func honestLabel(for packet: AnswerPacket) -> VRMLabel? {
         let activeClaims = packet.activeClaims
         guard !activeClaims.isEmpty else { return nil }
@@ -208,7 +209,7 @@ nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseItera
             return .verified
         }
 
-        if activeClaims.allSatisfy({ $0.kind == .speculative && !$0.hasEvidenceAnchor }) {
+        if activeClaims.allSatisfy({ $0.kind == .speculative && !$0.hasVerificationAnchor }) {
             return .speculative
         }
 
@@ -345,9 +346,12 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
         self.acsAnchor = try c.decodeIfPresent(AcsAnchor.self, forKey: .acsAnchor)
     }
 
-    public var hasEvidenceAnchor: Bool {
-        uasAddress?.isWellFormedEvidenceAnchor == true
-            || acsAnchor?.isWellFormedEvidenceAnchor == true
+    public var hasUasAddress: Bool {
+        uasAddress?.isWellFormedAddress == true
+    }
+
+    public var hasVerificationAnchor: Bool {
+        acsAnchor?.isWellFormedVerificationAnchor == true
     }
 
     public var isVerifiableKind: Bool {
@@ -360,12 +364,12 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
     }
 
     public var isAnchoredVerifiableClaim: Bool {
-        status == .active && isVerifiableKind && hasEvidenceAnchor
+        status == .active && isVerifiableKind && hasVerificationAnchor
     }
 }
 
 nonisolated public extension UasAddress {
-    var isWellFormedEvidenceAnchor: Bool {
+    var isWellFormedAddress: Bool {
         Self.isValidWireToken(kind)
             && Self.isCanonicalBlake3Hex(hash)
     }
@@ -392,7 +396,7 @@ nonisolated public extension UasAddress {
 }
 
 nonisolated public extension AcsAnchor {
-    var isWellFormedEvidenceAnchor: Bool {
+    var isWellFormedVerificationAnchor: Bool {
         Self.isValidAnchorID(anchorId)
             && Self.foundationalTheoremIDs.contains(theoremId)
             && Self.isValidOptionalProjectionField(sourceHash)

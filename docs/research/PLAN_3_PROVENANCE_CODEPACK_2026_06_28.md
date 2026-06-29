@@ -2,13 +2,14 @@
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §4`. Swift-only honest-chip fix + hover-lineage moat.
 > **Shipped invariant:** `VRMLabelView` must NEVER read `packet.uiLabel` — only `VRMLabel.honestLabel(for:)`.
-> `Verified` is visible only when an active claim has a verifiable UAS/ACS anchor; empty packets render no chip.
+> `Verified` is visible only when an active claim has a verifiable ACS anchor; UAS is address identity, not proof.
+> Empty packets render no chip.
 > `[VERIFIED-CODE]`/`[INFERRED]` tagged.
 
 ## Verified anchors
 `VRMLabel` `AnswerPacket.swift:167-196`; `Claim{status,kind,uasAddress,acsAnchor}` `:278-326`; `ClaimStatus.active` `:269`;
 hardcoded `uiLabel=.plausibleButUnverified` (`AnswerPacketEmitter.swift:364` stub + `:397` request). Swift `Claim` has
-NO evidence-link field — use `uasAddress`/`acsAnchor` presence as "evidence chain" `[INFERRED — confirm vs ledger.rs]`.
+ACS anchors as verification evidence; `uasAddress` is stable identity metadata and cannot authorize `.verified` alone.
 `VerifiedFloorChipStrip` green = `productionWired && falsifierPassed && artifactSatisfied && liveBackingSatisfied`
 (`SettingsSurfaceComponents.swift`). `RustProvenanceLedgerClient.summary().claimCount` + `RustCognitiveDagClient.stats().nodeCount`
 exist, `nonisolated`, return `.empty` when FFI absent, and are used by `VerifiedFloorLiveBacking`. `ChatMessage.answerPacketId`
@@ -18,15 +19,15 @@ plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge
 `VRMLabel.honestLabel(for packet:) -> VRMLabel?`:
 - `nil` (NO CHIP) when no `.active` claims → preserves "honest by omission".
 - `.verified` ONLY if ≥1 active claim whose kind ∈ {`.empirical,.mathematical,.codeInvariant`} AND
-  `claim.uasAddress != nil || claim.acsAnchor != nil` (the evidence chain). This is the only green path.
+  `claim.acsAnchor` is a valid ACS verification anchor. This is the only green path.
 - else `.speculative` (all speculative) / `.plausibleButUnverified` (self-witness or unanchored verifiable).
 - Never invents `.blocked` (that's an upstream safety state, not claim-derivable).
 **Emitter change** (`AnswerPacketEmitter.swift:351-353`, where `interruptBucket` is stamped): after stamping, if
 `let honest = VRMLabel.honestLabel(for: stamped) { stamped.uiLabel = honest }` — derive from claims, don't trust the
 placeholder. Empty-claims stub path needs no change (honestLabel→nil → no promotion → no chip).
-**Test** `EpistemosTests/VRMLabelHonestLabelTests.swift`: empty→nil; self-witness-empirical-without-anchor→plausible;
-anchored empirical/codeInvariant→verified; speculative-even-anchored→plausible; **invariant sweep over all
-`ClaimKind.allCases` × statuses asserting no `.verified` leaks without (active + anchored + verifiable-arm)**.
+**Test** `EpistemosTests/VRMLabelHonestLabelTests.swift`: empty→nil; UAS-addressed self-witness→plausible;
+ACS-anchored empirical/codeInvariant→verified; speculative-even-ACS-anchored→plausible; **invariant sweep over all
+`ClaimKind.allCases` × statuses asserting no `.verified` leaks without (active + ACS-anchored + verifiable-arm)**.
 (`ClaimKind` is `CaseIterable :38`; `ClaimStatus` is NOT — enumerate arms by hand.)
 
 ## Fix B — tightened `VerifiedFloorChipStrip` [DELIVERED]
@@ -41,7 +42,8 @@ ledger backing with `requiresLiveBacking: .ledger`; other rows stay deliberate r
 ## Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]
 Chip text/color from `honestLabel(for:)` ONLY; renders **nothing** when nil. Hover popover surfaces: model + tier +
 verification score (`packet.residencySignals.map(\.verificationScore).max()`, `:204`) + generatedAt (newest claim
-`createdAtMs`) vs acceptedAt + the **claim list** (kind/status dot + a `link` glyph when anchored). Lineage fields the
+`createdAtMs`) vs acceptedAt + the **claim list** (kind/status dot + a `link` glyph for ACS verification anchors and a
+`number` glyph for UAS-addressed claims). Lineage fields the
 packet doesn't carry (model/tier/acceptedAt) are **explicit view inputs from `ChatMessage`** — never fabricated inside
 the packet. Call site (the binding that keeps it honest):
 ```swift

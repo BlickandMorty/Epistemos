@@ -10,23 +10,23 @@ struct VRMLabelHonestLabelTests {
         #expect(VRMLabel.honestLabel(for: packet) == nil)
     }
 
-    @Test("unanchored empirical self-witness is plausible, never verified")
-    func unanchoredEmpiricalClaimIsPlausible() {
+    @Test("UAS-addressed empirical self-witness is plausible, never verified")
+    func uasAddressedEmpiricalClaimIsPlausible() {
         let packet = Self.packet(claims: [
-            Self.claim(kind: .empirical, status: .active)
+            Self.claim(kind: .empirical, status: .active, uasAddressed: true)
         ])
 
         #expect(VRMLabel.honestLabel(for: packet) == .plausibleButUnverified)
     }
 
-    @Test("anchored empirical and code-invariant claims are verified")
-    func anchoredVerifiableClaimsAreVerified() {
+    @Test("ACS-anchored empirical and code-invariant claims are verified")
+    func acsAnchoredVerifiableClaimsAreVerified() {
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [
-            Self.claim(kind: .empirical, status: .active, anchored: true)
+            Self.claim(kind: .empirical, status: .active, acsAnchored: true)
         ])) == .verified)
 
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [
-            Self.claim(kind: .codeInvariant, status: .active, anchored: true)
+            Self.claim(kind: .codeInvariant, status: .active, acsAnchored: true)
         ])) == .verified)
     }
 
@@ -55,15 +55,16 @@ struct VRMLabelHonestLabelTests {
             )
         )
 
-        #expect(emptyUAS.hasEvidenceAnchor == false)
-        #expect(malformedACS.hasEvidenceAnchor == false)
+        #expect(emptyUAS.hasUasAddress == false)
+        #expect(emptyUAS.hasVerificationAnchor == false)
+        #expect(malformedACS.hasVerificationAnchor == false)
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [emptyUAS, malformedACS])) == .plausibleButUnverified)
     }
 
-    @Test("anchored speculative claims do not become verified")
-    func anchoredSpeculativeClaimsStayPlausible() {
+    @Test("ACS-anchored speculative claims do not become verified")
+    func acsAnchoredSpeculativeClaimsStayPlausible() {
         let packet = Self.packet(claims: [
-            Self.claim(kind: .speculative, status: .active, anchored: true)
+            Self.claim(kind: .speculative, status: .active, acsAnchored: true)
         ])
 
         #expect(VRMLabel.honestLabel(for: packet) == .plausibleButUnverified)
@@ -78,19 +79,19 @@ struct VRMLabelHonestLabelTests {
         #expect(VRMLabel.honestLabel(for: packet) == .speculative)
     }
 
-    @Test("verified cannot leak without active anchored verifiable claim")
+    @Test("verified cannot leak without active ACS-anchored verifiable claim")
     func verifiedInvariantSweep() {
         let statuses: [ClaimStatus] = [.active, .atRisk, .needsRevalidation, .retracted]
 
         for kind in ClaimKind.allCases {
             for status in statuses {
                 let labelWithoutAnchor = VRMLabel.honestLabel(for: Self.packet(claims: [
-                    Self.claim(kind: kind, status: status, anchored: false)
+                    Self.claim(kind: kind, status: status)
                 ]))
                 #expect(labelWithoutAnchor != .verified)
 
                 let labelWithAnchor = VRMLabel.honestLabel(for: Self.packet(claims: [
-                    Self.claim(kind: kind, status: status, anchored: true)
+                    Self.claim(kind: kind, status: status, acsAnchored: true)
                 ]))
                 let expectedVerified = status == .active
                     && [.empirical, .mathematical, .codeInvariant].contains(kind)
@@ -225,19 +226,27 @@ struct VRMLabelHonestLabelTests {
     private static func claim(
         kind: ClaimKind,
         status: ClaimStatus,
-        anchored: Bool = false,
+        acsAnchored: Bool = false,
+        uasAddressed: Bool = false,
         createdAtMs: Int64 = 1_783_000_000_000
     ) -> Claim {
         Claim(
-            id: "\(kind.rawValue)-\(status.rawValue)-\(anchored)",
+            id: "\(kind.rawValue)-\(status.rawValue)-acs-\(acsAnchored)-uas-\(uasAddressed)",
             text: "\(kind.rawValue) \(status.rawValue)",
             status: status,
             createdAtMs: createdAtMs,
             kind: kind,
-            uasAddress: anchored ? UasAddress(
+            uasAddress: uasAddressed ? UasAddress(
                 kind: "claim",
                 hash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 createdAtMs: UInt64(clamping: createdAtMs)
+            ) : nil,
+            acsAnchor: acsAnchored ? AcsAnchor(
+                anchorId: "anchor-\(kind.rawValue)-\(status.rawValue)",
+                theoremId: "E1",
+                plane: .episodic,
+                residency: .verifiedFloor,
+                salience: 0.7
             ) : nil
         )
     }

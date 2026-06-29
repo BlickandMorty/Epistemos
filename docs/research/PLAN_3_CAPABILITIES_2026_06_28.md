@@ -170,7 +170,8 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 
 **The fake-chip vector is closed for shipped Swift per-answer chips `[VERIFIED-CODE]`:**
 1. `VRMLabelView` exists again, but it binds only to `VRMLabel.honestLabel(for:)`; empty packets render no chip, and
-   `.verified` requires an active empirical/mathematical/code-invariant claim with a UAS/ACS anchor.
+   `.verified` requires an active empirical/mathematical/code-invariant claim with an ACS verification anchor;
+   UAS remains address identity and cannot promote a claim by itself.
 2. Settings rows can no longer force green with literals once they declare artifact or live backing. Provenance-facing
    `AnswerPacketHealthRow` declares ledger backing; remaining rows keep source-compatible defaults until deliberately
    opted in.

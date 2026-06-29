@@ -310,11 +310,16 @@ private struct ClaimLineageRow: View {
                     Text(claim.status.rawValue)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    if claim.hasEvidenceAnchor {
+                    if claim.hasVerificationAnchor {
                         Image(systemName: "link")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                            .accessibilityLabel("Anchored evidence")
+                            .accessibilityLabel("Verification anchor")
+                    } else if claim.hasUasAddress {
+                        Image(systemName: "number")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("UAS address")
                     }
                 }
                 Text(claim.text)
