@@ -41,6 +41,18 @@ struct MCPUrlServerDirectoryTests {
         #expect(servers.map(\.name) == ["ok"])
     }
 
+    @Test("drops URL servers with query strings or fragments")
+    func dropsSecretBearingURLComponents() {
+        let servers = MCPUrlServerDirectory.parse(data("""
+        [
+          { "name": "query", "url": "https://example.com/mcp?token=abc123" },
+          { "name": "fragment", "url": "https://example.com/mcp#token=abc123" },
+          { "name": "ok", "url": "https://good.example.com/mcp" }
+        ]
+        """))
+        #expect(servers.map(\.name) == ["ok"])
+    }
+
     @Test("a server with no auth fields declares no auth")
     func noAuthDeclared() {
         let servers = MCPUrlServerDirectory.parse(data("""
@@ -177,6 +189,86 @@ struct MCPUrlServerDirectoryTests {
                     MCPUrlServerDirectory.WritableEntry(name: "bad", url: url),
                     to: config
                 )
+            }
+        }
+    }
+
+    @Test("writer rejects query strings and fragments without echoing secrets")
+    func writerRejectsSecretBearingURLComponents() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-reject-secret-bearing-url-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        for url in ["https://example.com/mcp?token=abc123", "https://example.com/mcp#token=abc123"] {
+            do {
+                try MCPUrlServerDirectory.install(
+                    MCPUrlServerDirectory.WritableEntry(name: "bad", url: url),
+                    to: config
+                )
+                Issue.record("Expected query/fragment URL component to be rejected")
+            } catch let error as MCPUrlServerDirectory.WriteError {
+                #expect(error == .secretBearingURLComponentPresent)
+                #expect(error.errorDescription?.contains("abc123") == false)
+            } catch {
+                Issue.record("Unexpected error type: \(error)")
+            }
+        }
+    }
+
+    @Test("writer accepts only process environment shaped token keys")
+    func writerRejectsInvalidAuthorizationTokenEnvKeys() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-reject-env-key-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        _ = try MCPUrlServerDirectory.install(
+            MCPUrlServerDirectory.WritableEntry(
+                name: "good",
+                url: "https://good.example.com/mcp",
+                authorizationTokenEnv: "_TOKEN_9"
+            ),
+            to: config
+        )
+
+        for key in ["1TOKEN", "TOKEN NAME", "TOKEN-NAME", "TOKEN\nNAME", "TØKEN"] {
+            #expect(throws: MCPUrlServerDirectory.WriteError.invalidAuthorizationTokenEnv(key)) {
+                try MCPUrlServerDirectory.install(
+                    MCPUrlServerDirectory.WritableEntry(
+                        name: "bad-\(key)",
+                        url: "https://bad.example.com/mcp",
+                        authorizationTokenEnv: key
+                    ),
+                    to: config
+                )
+            }
+        }
+    }
+
+    @Test("writer validation diagnostics do not echo rejected secret values")
+    func writerDiagnosticsDoNotEchoRejectedSecretValues() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-redacted-diagnostics-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        for entry in [
+            MCPUrlServerDirectory.WritableEntry(name: "bad-url", url: "https://abc123@example.com/mcp"),
+            MCPUrlServerDirectory.WritableEntry(name: "bad-query", url: "https://example.com/mcp?token=abc123"),
+            MCPUrlServerDirectory.WritableEntry(
+                name: "bad-env",
+                url: "https://example.com/mcp",
+                authorizationTokenEnv: "abc123-secret"
+            ),
+        ] {
+            do {
+                try MCPUrlServerDirectory.install(entry, to: config)
+                Issue.record("Expected invalid URL MCP entry to be rejected")
+            } catch let error as MCPUrlServerDirectory.WriteError {
+                #expect(error.errorDescription?.contains("abc123") == false)
+            } catch {
+                Issue.record("Unexpected error type: \(error)")
             }
         }
     }

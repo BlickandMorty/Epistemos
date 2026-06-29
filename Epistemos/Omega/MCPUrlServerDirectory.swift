@@ -53,6 +53,7 @@ nonisolated enum MCPUrlServerDirectory {
     enum WriteError: LocalizedError, Equatable {
         case emptyName
         case notHTTPS(String)
+        case secretBearingURLComponentPresent
         case invalidAuthorizationTokenEnv(String)
         case inlineTokenPresent(String)
         case writeFailed(String)
@@ -61,10 +62,12 @@ nonisolated enum MCPUrlServerDirectory {
             switch self {
             case .emptyName:
                 return "MCP server name cannot be empty."
-            case .notHTTPS(let url):
-                return "URL MCP servers must use https://. Rejected \(url)."
-            case .invalidAuthorizationTokenEnv(let key):
-                return "Authorization token environment variable is invalid: \(key)."
+            case .notHTTPS:
+                return "URL MCP servers must use https:// with a valid host and no embedded credentials."
+            case .secretBearingURLComponentPresent:
+                return "URL MCP servers cannot include query strings or fragments. Put tokens in authorization_token_env instead."
+            case .invalidAuthorizationTokenEnv:
+                return "Authorization token environment variable must match [A-Za-z_][A-Za-z0-9_]*."
             case .inlineTokenPresent(let name):
                 return "Cannot rewrite MCP server config while \(name) stores an inline authorization_token. Move that secret to authorization_token_env first."
             case .writeFailed(let message):
@@ -271,11 +274,27 @@ nonisolated enum MCPUrlServerDirectory {
               components.password == nil else {
             throw WriteError.notHTTPS(url)
         }
+        guard components.percentEncodedQuery == nil,
+              components.percentEncodedFragment == nil else {
+            throw WriteError.secretBearingURLComponentPresent
+        }
         return url
     }
 
     private static func authEnvKeyAllowed(_ key: String) -> Bool {
-        !key.isEmpty && !key.contains("=") && !key.contains("\0")
+        guard let first = key.unicodeScalars.first,
+              isEnvKeyStart(first) else {
+            return false
+        }
+        return key.unicodeScalars.dropFirst().allSatisfy(isEnvKeyContinuation)
+    }
+
+    private static func isEnvKeyStart(_ scalar: Unicode.Scalar) -> Bool {
+        scalar == "_" || (65...90).contains(Int(scalar.value)) || (97...122).contains(Int(scalar.value))
+    }
+
+    private static func isEnvKeyContinuation(_ scalar: Unicode.Scalar) -> Bool {
+        isEnvKeyStart(scalar) || (48...57).contains(Int(scalar.value))
     }
 }
 

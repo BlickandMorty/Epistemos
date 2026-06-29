@@ -22,9 +22,10 @@ crash). `isMASInstallable = installKind == .remoteURL`. **GitHub search is the o
 three registry endpoints are `[INFERRED]` — confirm at build time.** No exec, no write → MAS-safe.
 
 ## 2. `MCPUrlServerDirectory.write/install/uninstall` [DELIVERED]
-Mirrors the read contract + the Rust `entry_to_config`: HTTPS-only (`WriteError.notHTTPS`), **name-dedupe idempotent**
-(re-install replaces, never duplicates), **token VALUE never written** (only `authorization_token_env` name), bare-array
-JSON to `~/.config/mcp/url_servers.json` (atomic write). `install(WritableEntry)` / `uninstall(name:)` return the new
+Mirrors the read contract + the Rust `entry_to_config`: HTTPS-only (`WriteError.notHTTPS`), no URL userinfo/query/fragment
+secret channels, secret-safe validation diagnostics, **name-dedupe idempotent** (re-install replaces, never duplicates),
+**token VALUE never written** (only a process-env-shaped `authorization_token_env` name), bare-array JSON to
+`~/.config/mcp/url_servers.json` (atomic write). `install(WritableEntry)` / `uninstall(name:)` return the new
 `[ServerInfo]`. Config write only → **MAS-safe**; the Rust side forwards via the Anthropic `mcp_servers` API param.
 
 ## 3. `Epistemos/Views/Settings/ExtensionsDetailView.swift` [DELIVERED]
