@@ -104,10 +104,11 @@ struct LiteParseImportTests {
         let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportController.swift")
         #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
-        #expect(src.contains("copyItem"))
+        #expect(src.contains("copyFileContents"))
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
         #expect(src.contains("materializeImportedFiles"))
-        #expect(src.contains("uniquePairedFileURLs"))
+        #expect(src.contains("reservePairedFileURLs"))
+        #expect(src.contains("O_EXCL"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
     }
 
@@ -245,6 +246,71 @@ struct LiteParseImportTests {
     }
 
     @MainActor
+    @Test("concurrent import controller writes distinct paired source PDFs")
+    func concurrentImportControllerKeepsPairedFiles() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-concurrent-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let sourcePDF = root.appendingPathComponent("paper.pdf")
+        let importDir = vault.appendingPathComponent(LiteParsePDFImportController.importDirectory, isDirectory: true)
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+        let importer = BarrierLiteParseImporter(expectedCalls: 2)
+
+        let firstTask = Task { @MainActor in
+            await LiteParsePDFImportController.importPage(
+                pdfPath: sourcePDF.path,
+                vaultURL: vault,
+                modelContext: context,
+                graphState: nil,
+                importer: importer
+            )
+        }
+        let secondTask = Task { @MainActor in
+            await LiteParsePDFImportController.importPage(
+                pdfPath: sourcePDF.path,
+                vaultURL: vault,
+                modelContext: context,
+                graphState: nil,
+                importer: importer
+            )
+        }
+
+        let firstOutcome = await firstTask.value
+        let secondOutcome = await secondTask.value
+        guard case .imported = firstOutcome, case .imported = secondOutcome else {
+            Issue.record("Expected both PDF imports to import, got \(firstOutcome) and \(secondOutcome)")
+            return
+        }
+
+        let files = try FileManager.default.contentsOfDirectory(at: importDir, includingPropertiesForKeys: nil)
+        let mdBases = Set(files.filter { $0.pathExtension == "md" }.map { $0.deletingPathExtension().lastPathComponent })
+        let pdfBases = Set(files.filter { $0.pathExtension == "pdf" }.map { $0.deletingPathExtension().lastPathComponent })
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+
+        #expect(pages.count == 2)
+        #expect(mdBases.count == 2)
+        #expect(pdfBases.count == 2)
+        #expect(mdBases == pdfBases)
+        for page in pages {
+            let filePath = try #require(page.filePath)
+            let noteBaseName = URL(fileURLWithPath: filePath).deletingPathExtension().lastPathComponent
+            let sourcePDFRelative = try #require(page.frontMatter["source_pdf"])
+            let sourcePDFBaseName = vault
+                .appendingPathComponent(sourcePDFRelative)
+                .deletingPathExtension()
+                .lastPathComponent
+            #expect(noteBaseName == sourcePDFBaseName)
+        }
+    }
+
+    @MainActor
     @Test("import controller rejects a symlinked import directory")
     func importControllerRejectsSymlinkedImportDirectory() async throws {
         let root = FileManager.default.temporaryDirectory
@@ -289,5 +355,31 @@ private struct FakeLiteParseImporter: LiteParsePDFImporter {
 
     func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
         result
+    }
+}
+
+private final class BarrierLiteParseImporter: LiteParsePDFImporter, @unchecked Sendable {
+    private let expectedCalls: Int
+    private let lock = NSLock()
+    private let release = DispatchSemaphore(value: 0)
+    private var calls = 0
+
+    init(expectedCalls: Int) {
+        self.expectedCalls = expectedCalls
+    }
+
+    func importToMarkdown(pdfPath _: String) -> LiteParseImportResult {
+        lock.lock()
+        calls += 1
+        let shouldRelease = calls == expectedCalls
+        lock.unlock()
+
+        if shouldRelease {
+            for _ in 0..<expectedCalls {
+                release.signal()
+            }
+        }
+        _ = release.wait(timeout: .now() + .seconds(2))
+        return .markdown("# Parsed\n\nConverted body.")
     }
 }
