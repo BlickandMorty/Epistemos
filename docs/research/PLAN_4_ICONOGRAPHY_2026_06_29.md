@@ -167,6 +167,20 @@
   token (mono preserved); reduce-motion → static (Invariant I-14). Owner's candidates: Opus→Claude Code, Sonnet→Claude,
   Codex, GPT — animate ONLY via official assets or subtle native motion; static everywhere else.
 - **MAS-safe:** Lottie (Apache-2.0) + animated SVG + SwiftUI are all sandbox-safe; vendored at build, no subprocess.
+- **SOURCING + PER-MARK BUILD PLAN [VERIFIED 2026-06-29]:** real animated brand assets DO exist — but on third-party
+  marketplaces (IconScout, LottieFiles) as community RECREATIONS under their own licenses (IconScout "Digital License",
+  LottieFiles "Lottie Simple License"), NOT as official free brand-kit downloads from OpenAI/Anthropic. So each is a
+  license + trademark decision (App Store sensitivity). Per mark:
+  - **Big brands w/ a clean licensed Lottie (OpenAI/ChatGPT, Gemini, …):** vendor a properly-licensed dotLottie/JSON
+    (prefer free Lottie-Simple-License; OWNER approves the license + trademark for each before it ships).
+  - **Marks WITHOUT a good/licensed asset (Claude Code mascot, niche providers):** AUTHOR procedurally — SwiftUI motion
+    on the mono SVG (draw-on / pulse / shimmer / slow-rotate), or a hand-built Lottie via SVGator / Rive / Haiku
+    Animator (all export Lottie). Subtle, mono-preserving, no third-party asset.
+  - **Companion mascots (your OWN IP):** full custom animation, ZERO trademark risk — safest + richest to animate
+    (already breathing via `CompanionAnimationState` — deepen it). **Build these FIRST** (no license gate).
+  - **Format:** dotLottie (`.lottie`) is the modern compact form; `lottie-ios` renders it natively + runtime-tints it.
+  - **OWNER GATE before shipping ANY third-party brand animation:** confirm the marketplace license permits app
+    redistribution AND the brand's trademark policy permits an animated mark. When unsure → procedural/subtle motion only.
 
 ---
 **Sources:** [lobe-icons (GitHub, MIT)](https://github.com/lobehub/lobe-icons) · [icon set](https://lobehub.com/icons) ·
