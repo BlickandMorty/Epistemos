@@ -198,6 +198,22 @@ struct LiteParseImportTests {
         }
     }
 
+    @Test("import file reservation never creates hidden basename pairs")
+    func importFileReservationAvoidsHiddenBaseNames() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-hidden-name-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let hidden = try Plan3ImportFileIO.reservePairedFileURLs(directory: root, baseName: ".hidden")
+        #expect(hidden.noteURL.lastPathComponent == "hidden.md")
+        #expect(hidden.pdfURL.lastPathComponent == "hidden.pdf")
+
+        let empty = try Plan3ImportFileIO.reservePairedFileURLs(directory: root, baseName: ".")
+        #expect(empty.noteURL.lastPathComponent == "Imported PDF.md")
+        #expect(empty.pdfURL.lastPathComponent == "Imported PDF.pdf")
+    }
+
     @MainActor
     @Test("import controller keeps duplicate note and source PDF basenames paired")
     func importControllerKeepsDuplicateNoteAndSourcePDFBasenamesPaired() async throws {

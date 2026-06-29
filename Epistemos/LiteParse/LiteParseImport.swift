@@ -136,12 +136,15 @@ nonisolated enum Plan3VaultPath {
 }
 
 nonisolated enum Plan3ImportFileIO {
+    private static let fallbackBaseName = "Imported PDF"
+    private static let maxBaseNameLength = 180
+
     /// Atomically reserves a paired `<baseName>.md` + `<baseName>.pdf`.
     static func reservePairedFileURLs(
         directory: URL,
         baseName: String
     ) throws -> (noteURL: URL, pdfURL: URL) {
-        let safe = baseName.replacingOccurrences(of: "/", with: "-")
+        let safe = safeImportBaseName(baseName)
         var candidateBaseName = safe
         var counter = 2
         while true {
@@ -162,6 +165,30 @@ nonisolated enum Plan3ImportFileIO {
             candidateBaseName = "\(safe) \(counter)"
             counter += 1
         }
+    }
+
+    static func safeImportBaseName(_ baseName: String) -> String {
+        let normalized = baseName.unicodeScalars.map { scalar in
+            CharacterSet.controlCharacters.contains(scalar) ? " " : String(scalar)
+        }.joined()
+        var safe = normalized
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: "\\", with: "-")
+            .replacingOccurrences(of: ":", with: " -")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        repeat {
+            let before = safe
+            safe = safe.trimmingCharacters(in: .whitespacesAndNewlines)
+            while safe.hasPrefix(".") {
+                safe.removeFirst()
+            }
+            safe = safe.trimmingCharacters(in: .whitespacesAndNewlines)
+            if safe == before { break }
+        } while true
+        if safe.isEmpty {
+            return fallbackBaseName
+        }
+        return String(safe.prefix(maxBaseNameLength)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func copyFileContents(from sourceURL: URL, toReservedFile destinationURL: URL) throws {
