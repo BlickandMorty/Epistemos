@@ -163,7 +163,8 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 - FFI is **read-only** (`bridge.rs:3465/3497/3526` summary/recent/snapshot). **No claim-write / no retract FFI.**
 - Swift: `VRMLabel.honestLabel(for:)` gates every per-answer label; `AnswerPacketEmitter` derives stored labels through
   the honest gate for Rust-produced packets; `VRMLabelView` renders only `honestLabel(for:)` and never reads raw
-  `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`.
+  `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`; `VRMLineageExport`
+  copies deterministic verifiable lineage JSON from the hover card without Rust writes.
 - `VerifiedFloorChipStrip` green now requires `productionWired && falsifierPassed && artifactSatisfied &&
   liveBackingSatisfied`. `requiresLiveBacking: .ledger/.dag` probes `RustProvenanceLedgerClient`/`RustCognitiveDagClient`;
   `AnswerPacketHealthRow` opts into ledger backing.
@@ -182,10 +183,10 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
   `AgentNoteEditProvenance` sequence ordering. The **true ClaimLedger BFS cascade needs ONE new Rust FFI**
   (`record_claim_json` + `retract_claim_json`) — write through the DAG dispatch (Phase-8.E single-authority),
   **owner sign-off required** (CLAUDE.md canon-hardening; don't add the write FFI without it).
-- **Moat-3 (now):** one-click "export this answer's verifiable lineage" via the snapshot/`.epbundle` + BLAKE3 (read-side
-  already there) = the tamper-evident story.
+- **Moat-3 (delivered):** one-click "Copy lineage JSON" exports the visible answer's verifiable lineage snapshot from
+  the hover card. Snapshot/`.epbundle` + BLAKE3 read-side packaging remains available for deeper bundle exports.
 
-Effort remaining: **LOW–MEDIUM** for export/demo polish; the full retraction cascade remains a gated Rust addition.
+Effort remaining: **LOW–MEDIUM** for the edit-retraction demo; the full retraction cascade remains a gated Rust addition.
 
 ---
 
@@ -349,7 +350,7 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 
 ## Suggested build order (within Plan 3)
 1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI).
-2. **Provenance moat follow-up** (LOW-MED) → lineage export + EventStore edit-retraction demo; Rust write FFI only with owner sign-off.
+2. **Provenance moat follow-up** (LOW-MED) → EventStore edit-retraction demo; Rust write FFI only with owner sign-off.
 3. **Extensibility 5c vault-as-MCP-server** (LOW-MED, ~80% built — the outward moat) → 5a install UI → 5b preset.
 4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
 5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot

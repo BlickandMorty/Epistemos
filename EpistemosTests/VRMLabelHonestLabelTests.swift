@@ -73,9 +73,54 @@ struct VRMLabelHonestLabelTests {
     func vrmLabelViewDoesNotTrustStoredPacketLabel() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Provenance/VRMLabelView.swift")
         #expect(source.contains("VRMLabel.honestLabel(for: packet)"))
+        #expect(source.contains("guard let honestLabel = VRMLabel.honestLabel(for: packet) else { return nil }"))
         #expect(source.contains("LatestAnswerPacketSink.shared.packet(for: packetID)"))
         #expect(source.contains("message.answerPacketId"))
+        #expect(source.contains("VRMLineageExport.make("))
+        #expect(source.contains("NSPasteboard.general.setString(export.encodedJSONString(), forType: .string)"))
+        #expect(source.contains("encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]"))
+        #expect(source.contains("Copy lineage JSON"))
         #expect(!source.contains("packet.uiLabel"))
+    }
+
+    @Test("lineage export is deterministic and excludes legacy stored label")
+    func lineageExportIsDeterministicAndHonest() throws {
+        let packet = Self.packet(
+            claims: [
+                Self.claim(kind: .empirical, status: .active, anchored: true)
+            ],
+            storedLabel: .blocked
+        )
+        let export = try #require(VRMLineageExport.make(
+            packet: packet,
+            modelLabel: "test-model",
+            tierLabel: "dynamic",
+            acceptedAt: Date(timeIntervalSince1970: 42)
+        ))
+        let json = export.encodedJSONString()
+        let decoded = try JSONDecoder().decode(VRMLineageExport.self, from: Data(json.utf8))
+
+        #expect(decoded == export)
+        #expect(export.schema == "epistemos.vrm_lineage.v1")
+        #expect(export.honestLabel == .verified)
+        #expect(export.modelLabel == "test-model")
+        #expect(export.acceptedAtMs == 42_000)
+        #expect(export.generatedAtMs == 1_783_000_000_000)
+        #expect(!json.contains("ui_label"))
+        #expect(json.contains("\"honest_label\""))
+        #expect(json.contains("\"packet_id\""))
+    }
+
+    @Test("lineage export renders nothing for unclaimed packets")
+    func lineageExportRequiresHonestVisibleLabel() {
+        let export = VRMLineageExport.make(
+            packet: Self.packet(claims: [], storedLabel: .verified),
+            modelLabel: "test-model",
+            tierLabel: "dynamic",
+            acceptedAt: Date(timeIntervalSince1970: 42)
+        )
+
+        #expect(export == nil)
     }
 
     @Test("AnswerPacketEmitter derives Rust-produced labels through the honest gate")
@@ -95,6 +140,7 @@ struct VRMLabelHonestLabelTests {
             "Fix A — honest label gate [DELIVERED]",
             "Fix B — tightened `VerifiedFloorChipStrip` [DELIVERED]",
             "Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]",
+            "Moat-3 — copy verifiable lineage JSON [DELIVERED]",
             "message.resolvedModelLabel",
             "message.mode?.rawValue",
             "message.createdAt",
@@ -106,6 +152,8 @@ struct VRMLabelHonestLabelTests {
             "`VRMLabel.honestLabel(for:)` gates every per-answer label",
             "`VRMLabelView` renders only `honestLabel(for:)`",
             "`requiresLiveBacking: .ledger/.dag`",
+            "`VRMLineageExport`",
+            "Moat-3 (delivered)",
             "Provenance moat follow-up",
         ] {
             #expect(capability.contains(phrase), "Capability doc must include \(phrase)")

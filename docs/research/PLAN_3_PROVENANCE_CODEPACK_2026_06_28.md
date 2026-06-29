@@ -53,6 +53,13 @@ if let id = message.answerPacketId, let packet = LatestAnswerPacketSink.shared.p
 }
 ```
 
+## Moat-3 — copy verifiable lineage JSON [DELIVERED]
+`VRMLineageCard` includes a "Copy lineage JSON" action that writes a deterministic `VRMLineageExport` snapshot to the
+pasteboard. The export recomputes `VRMLabel.honestLabel(for:)` before encoding, then includes `schema`, `packet_id`,
+`honest_label`, model/tier inputs, accepted/generated timestamps, verification score, claims, residency signals,
+attention/interrupt state, and witness/mutation refs. It intentionally excludes legacy stored `ui_label` and performs
+no Rust writes.
+
 ## Dependency — full retraction cascade (FLAGGED, not built now)
 The `ClaimLedger` BFS cascade (`MAX_RETRACTION_WALK_DEPTH=16`) is NOT Swift-reachable: `RustProvenanceLedgerClient` is
 **read-only by doctrine** (`:13-15`). The live "undo this claim + everything downstream" demo needs a **NEW Rust write
@@ -64,4 +71,4 @@ EventStore edit-retraction chain via `AgentNoteEditProvenance` (`:28-80`) — ea
 ## Shipped bundle
 Fix A (`AnswerPacket.swift` + `AnswerPacketEmitter.swift`) + `VRMLabelView.swift` + `VRMLabelHonestLabelTests.swift`
 are shipped together. Fix B (`SettingsSurfaceComponents.swift`) + `AnswerPacketHealthRow` ledger opt-in are shipped.
-Rust write FFI + cascade remain flagged-pending owner sign-off.
+Moat-3 lineage JSON copy (`VRMLineageExport`) is shipped. Rust write FFI + cascade remain flagged-pending owner sign-off.

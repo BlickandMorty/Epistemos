@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import SwiftUI
 
 struct ChatMessageVRMLabelView: View {
@@ -106,12 +107,90 @@ struct VRMLabelView: View {
     }
 }
 
+nonisolated struct VRMLineageExport: Codable, Equatable, Sendable {
+    let schema: String
+    let packetId: String
+    let honestLabel: VRMLabel
+    let modelLabel: String?
+    let tierLabel: String?
+    let acceptedAtMs: Int64?
+    let generatedAtMs: Int64?
+    let verificationScore: Float?
+    let claims: [Claim]
+    let residencySignals: [ResidencySignal]
+    let attentionMode: AttentionMode
+    let interruptBucket: InterruptBucket
+    let witnessedStateRef: String
+    let semanticDeltaRef: String?
+    let mutationEnvelopeRef: String
+
+    enum CodingKeys: String, CodingKey {
+        case schema
+        case packetId = "packet_id"
+        case honestLabel = "honest_label"
+        case modelLabel = "model_label"
+        case tierLabel = "tier_label"
+        case acceptedAtMs = "accepted_at_ms"
+        case generatedAtMs = "generated_at_ms"
+        case verificationScore = "verification_score"
+        case claims
+        case residencySignals = "residency_signals"
+        case attentionMode = "attention_mode"
+        case interruptBucket = "interrupt_bucket"
+        case witnessedStateRef = "witnessed_state_ref"
+        case semanticDeltaRef = "semantic_delta_ref"
+        case mutationEnvelopeRef = "mutation_envelope_ref"
+    }
+
+    static func make(
+        packet: AnswerPacket,
+        modelLabel: String?,
+        tierLabel: String?,
+        acceptedAt: Date?
+    ) -> VRMLineageExport? {
+        guard let honestLabel = VRMLabel.honestLabel(for: packet) else { return nil }
+        return VRMLineageExport(
+            schema: "epistemos.vrm_lineage.v1",
+            packetId: packet.id,
+            honestLabel: honestLabel,
+            modelLabel: modelLabel,
+            tierLabel: tierLabel,
+            acceptedAtMs: acceptedAt.map(Self.millisecondsSinceEpoch),
+            generatedAtMs: packet.claims.map(\.createdAtMs).max(),
+            verificationScore: packet.residencySignals.map(\.verificationScore).max(),
+            claims: packet.claims,
+            residencySignals: packet.residencySignals,
+            attentionMode: packet.attentionMode,
+            interruptBucket: packet.interruptBucket,
+            witnessedStateRef: packet.witnessedStateRef,
+            semanticDeltaRef: packet.semanticDeltaRef,
+            mutationEnvelopeRef: packet.mutationEnvelopeRef
+        )
+    }
+
+    func encodedJSONString() -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(self),
+              let string = String(data: data, encoding: .utf8) else {
+            return #"{"schema":"epistemos.vrm_lineage.v1","error":"encoding_failed"}"#
+        }
+        return string
+    }
+
+    private static func millisecondsSinceEpoch(_ date: Date) -> Int64 {
+        Int64((date.timeIntervalSince1970 * 1000.0).rounded())
+    }
+}
+
 private struct VRMLineageCard: View {
     let packet: AnswerPacket
     let label: VRMLabel
     let modelLabel: String?
     let tierLabel: String?
     let acceptedAt: Date?
+
+    @State private var didCopyLineage = false
 
     private var generatedAt: Date? {
         packet.claims
@@ -132,6 +211,18 @@ private struct VRMLineageCard: View {
                 Text(label.shortLabel)
                     .font(.headline)
                 Spacer(minLength: 0)
+                Button {
+                    copyLineageExport()
+                } label: {
+                    Label(
+                        didCopyLineage ? "Copied" : "Copy lineage",
+                        systemImage: didCopyLineage ? "checkmark" : "doc.on.doc"
+                    )
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .help("Copy lineage JSON")
+                .accessibilityLabel(didCopyLineage ? "Copied lineage JSON" : "Copy lineage JSON")
             }
 
             metadataGrid
@@ -185,6 +276,22 @@ private struct VRMLineageCard: View {
 
     private static func formatDate(_ date: Date) -> String {
         date.formatted(date: .abbreviated, time: .standard)
+    }
+
+    private func copyLineageExport() {
+        guard let export = VRMLineageExport.make(
+            packet: packet,
+            modelLabel: modelLabel,
+            tierLabel: tierLabel,
+            acceptedAt: acceptedAt
+        ) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(export.encodedJSONString(), forType: .string)
+        didCopyLineage = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1500))
+            didCopyLineage = false
+        }
     }
 }
 
