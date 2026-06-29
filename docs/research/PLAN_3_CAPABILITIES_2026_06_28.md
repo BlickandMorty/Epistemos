@@ -276,8 +276,8 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   superseded by browser-use. See §2/§9.
 - **🔴 CUT — ColBERT.** Owner: "not using the model… I don't think I should use the model then." No local model →
   no ColBERT. §3 cut.
-- **⚠️ RECOVER — owner says scope got narrowed; HTML Workspace + "all the other things I wanted" must be re-included.**
-  Pending owner confirm of the full list (HTML Workspace currently lives in Plan 2 — decide its home). See §10.
+- **🟢 RECOVERED — narrowed-scope issue is complete.** Every owner-wanted item is now homed in a plan. HTML Workspace
+  + web clipper + PDF viewer + editor-graph items belong to Plan 2; Voice + whole-app logos stay in Plan 3. See §10.
 
 ## 8. Landing-page feature buttons (owner requirement, shipped Pass 6) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
 Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
@@ -324,10 +324,10 @@ Most of Plan 3 is **native code reusing your own seams — NOT repo clones.** Th
 thumbnails) · extensibility install UI + best-of preset · landing buttons · arXiv · meeting/STT · voice · whole-app logos.
 So you clone **2 repos for the App Store (EdgeParse + unpdf)** + **browser-use for Pro**; everything else is your own code.
 
-## 10. ⚠️ SCOPE RECOVERY (owner: "you forgot HTML Workspace + the other things I wanted")
-Owner flagged that Plan 3 got narrowed and dropped items they wanted to research+add. **Do NOT lose these again.**
-- **DONE (2026-06-28):** scope recovery complete; every owner-wanted item is now homed in a plan (the transient
-  SCOPE_RECOVERY doc was folded in + retired). HTML Workspace + web clipper + PDF viewer + the editor-graph trio →
+## 10. Scope recovery complete (owner: HTML Workspace + other wanted items were homed)
+Scope recovery is complete; do not re-open Plan 2 editor work inside Plan 3.
+- **DONE (2026-06-28):** every owner-wanted item is now homed in a plan (the transient SCOPE_RECOVERY doc was folded
+  in + retired). HTML Workspace + web clipper + PDF viewer + the editor-graph trio →
   **Plan 2 §13** (added there). Voice + whole-app logos → §11 below. The full ledger remains in `LEDGER_CURATION`.
 
 ## 11. Recovered additions (owner-confirmed 2026-06-28)
@@ -349,15 +349,15 @@ instant-recall/Halo popup scoped to the editors. Flagged so Plan 2 picks them up
 **Honestly CUT by the Goose-only + model-management decisions (NOT dropped):** three-engine Chat/Act/Work + Osaurus-as-Act
 cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without local models). Stealth browsing = re-confirm.
 
-## Suggested build order (within Plan 3)
-1. **Fast PDF→MD** (LOW, MAS-shippable, immediate user value — and you already have the UI).
-2. **Provenance moat follow-up** (LOW-MED) → EventStore edit-retraction demo; Rust write FFI only with owner sign-off.
-3. **Extensibility follow-up** (LOW-MED) → optional Rust dispatcher byte-parity; UI/MCP install, Best-of, and vault-MCP server are shipped.
-4. **Apple-native** (LOW — QuickLook/VisionKit/thumbnails) · **Landing buttons** (LOW) · **arXiv pull** (LOW).
-5. **Browser** — lite native WKWebView tab (MAS, `PLAN_3_OBSCURA_TIER1_CODEPACK`) first; **browser-use** Chromium robot
-   (Pro, vendor codepack and payload now exist; continue Pro UI/MCP hardening without touching MAS).
-6. **Meeting/STT note · Voice · whole-app logos** — codepacks and first implementations now exist; continue recurring
-   hardening passes, Pro Kokoro gating, and logo utility/sidebar metadata slices.
+## Follow-up hardening order (within Plan 3)
+1. **Fast PDF→MD** — shipped; continue parser hardening/perf checks around EdgeParse primary + unpdf fallback.
+2. **Provenance moat** — shipped; follow-up EventStore edit-retraction demo, Rust write FFI only with owner sign-off.
+3. **Extensibility** — shipped; optional Rust dispatcher byte-parity after UI/MCP install, Best-of, and vault-MCP server.
+4. **Apple-native · Landing buttons · arXiv pull** — shipped; continue focused regression coverage only.
+5. **Browser** — lite native WKWebView tab is shipped for MAS; browser-use Pro vendor code/payload exists, continue
+   signed Pro UI/MCP hardening without touching MAS.
+6. **Meeting/STT note · Voice · whole-app logos** — shipped; continue recurring hardening passes, Pro Kokoro gating,
+   and logo utility/sidebar metadata slices.
 
 ## NOT in Plan 3 (so the three plans never blur)
 Editor/markdown/Tolaria/code-editor v2/HTML-workspace/web-clipper/wikilinks/PDF-*viewer* → **Plan 2**. Goose/Act/Work
