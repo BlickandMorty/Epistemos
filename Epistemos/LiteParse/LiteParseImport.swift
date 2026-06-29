@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 // R-LITEPARSE — the Swift PDF-import result model + the FFI-envelope decoder + the
@@ -131,6 +132,69 @@ nonisolated enum Plan3VaultPath {
         return missingPathComponents.reduce(existing.resolvingSymlinksInPath()) { partial, component in
             partial.appendingPathComponent(component, isDirectory: false)
         }.standardizedFileURL
+    }
+}
+
+nonisolated enum Plan3ImportFileIO {
+    /// Atomically reserves a paired `<baseName>.md` + `<baseName>.pdf`.
+    static func reservePairedFileURLs(
+        directory: URL,
+        baseName: String
+    ) throws -> (noteURL: URL, pdfURL: URL) {
+        let safe = baseName.replacingOccurrences(of: "/", with: "-")
+        var candidateBaseName = safe
+        var counter = 2
+        while true {
+            let noteURL = directory.appendingPathComponent("\(candidateBaseName).md")
+            let pdfURL = directory.appendingPathComponent("\(candidateBaseName).pdf")
+            if try reserveEmptyFile(at: noteURL) {
+                do {
+                    if try reserveEmptyFile(at: pdfURL) {
+                        return (noteURL: noteURL, pdfURL: pdfURL)
+                    }
+                    try? FileManager.default.removeItem(at: noteURL)
+                } catch {
+                    try? FileManager.default.removeItem(at: noteURL)
+                    throw error
+                }
+            }
+            candidateBaseName = "\(safe) \(counter)"
+            counter += 1
+        }
+    }
+
+    static func copyFileContents(from sourceURL: URL, toReservedFile destinationURL: URL) throws {
+        let source = try FileHandle(forReadingFrom: sourceURL)
+        defer { try? source.close() }
+
+        let destination = try FileHandle(forWritingTo: destinationURL)
+        defer { try? destination.close() }
+        try destination.truncate(atOffset: 0)
+
+        while true {
+            try Task.checkCancellation()
+            let chunk = try source.read(upToCount: 1_048_576) ?? Data()
+            guard !chunk.isEmpty else { break }
+            try destination.write(contentsOf: chunk)
+        }
+        try destination.synchronize()
+    }
+
+    private static func reserveEmptyFile(at url: URL) throws -> Bool {
+        let fd = url.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, mode_t(0o600))
+        }
+        guard fd < 0 else {
+            close(fd)
+            return true
+        }
+        if errno == EEXIST { return false }
+        let err = String(cString: strerror(errno))
+        throw NSError(
+            domain: "Plan3ImportFileIO",
+            code: Int(errno),
+            userInfo: [NSLocalizedDescriptionKey: "could not reserve \(url.lastPathComponent): \(err)"]
+        )
     }
 }
 

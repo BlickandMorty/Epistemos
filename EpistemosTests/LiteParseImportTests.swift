@@ -104,11 +104,12 @@ struct LiteParseImportTests {
         let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportController.swift")
         #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
-        #expect(src.contains("copyFileContents"))
+        let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
+        #expect(src.contains("Plan3ImportFileIO.copyFileContents"))
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
         #expect(src.contains("materializeImportedFiles"))
-        #expect(src.contains("reservePairedFileURLs"))
-        #expect(src.contains("O_EXCL"))
+        #expect(src.contains("Plan3ImportFileIO.reservePairedFileURLs"))
+        #expect(sharedIO.contains("O_EXCL"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
     }
 

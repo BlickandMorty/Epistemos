@@ -80,7 +80,7 @@ struct ArxivPlan3Tests {
         #expect(landing.contains("ArxivSearchView()"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
-        #expect(ingest.contains("nonisolated private static func reservePairedFileURLs"))
+        #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
 
         for stale in [
             "clone-ready code",

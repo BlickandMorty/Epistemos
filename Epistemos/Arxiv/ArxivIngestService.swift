@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import Darwin
 
 nonisolated protocol ArxivPDFDownloading: Sendable {
     /// Returns a caller-owned temporary PDF file. `ArxivIngestService` removes it
@@ -213,7 +212,7 @@ enum ArxivIngestService {
                     throw ArxivIngestError.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)
                 }
                 try Task.checkCancellation()
-                let urls = try reservePairedFileURLs(directory: dirURL, baseName: note.safeBaseName)
+                let urls = try Plan3ImportFileIO.reservePairedFileURLs(directory: dirURL, baseName: note.safeBaseName)
                 selectedURLs = urls
                 guard
                     let sourcePDFRelativePath = Plan3VaultPath.vaultRelativePath(for: urls.pdfURL, in: vaultURL),
@@ -223,7 +222,7 @@ enum ArxivIngestService {
                     throw ArxivIngestError.fileWriteFailed(Plan3VaultPath.outsideVaultMessage)
                 }
                 try Task.checkCancellation()
-                try copyFileContents(from: downloadedPDF, toReservedFile: urls.pdfURL)
+                try Plan3ImportFileIO.copyFileContents(from: downloadedPDF, toReservedFile: urls.pdfURL)
                 try Task.checkCancellation()
                 try Data(note.markdownBody.utf8).write(to: urls.noteURL, options: .atomic)
                 try Task.checkCancellation()
@@ -271,62 +270,6 @@ enum ArxivIngestService {
     nonisolated private static func removeMaterializedURLs(noteURL: URL, pdfURL: URL) {
         try? FileManager.default.removeItem(at: noteURL)
         try? FileManager.default.removeItem(at: pdfURL)
-    }
-
-    nonisolated private static func reservePairedFileURLs(
-        directory: URL,
-        baseName: String
-    ) throws -> (noteURL: URL, pdfURL: URL) {
-        let safe = baseName.replacingOccurrences(of: "/", with: "-")
-        var candidateBaseName = safe
-        var counter = 2
-        while true {
-            let noteURL = directory.appendingPathComponent("\(candidateBaseName).md")
-            let pdfURL = directory.appendingPathComponent("\(candidateBaseName).pdf")
-            if try reserveEmptyFile(at: noteURL) {
-                do {
-                    if try reserveEmptyFile(at: pdfURL) {
-                        return (noteURL: noteURL, pdfURL: pdfURL)
-                    }
-                    try? FileManager.default.removeItem(at: noteURL)
-                } catch {
-                    try? FileManager.default.removeItem(at: noteURL)
-                    throw error
-                }
-            }
-            candidateBaseName = "\(safe) \(counter)"
-            counter += 1
-        }
-    }
-
-    nonisolated private static func reserveEmptyFile(at url: URL) throws -> Bool {
-        let fd = url.path.withCString { path in
-            open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, mode_t(0o600))
-        }
-        guard fd < 0 else {
-            close(fd)
-            return true
-        }
-        if errno == EEXIST { return false }
-        let err = String(cString: strerror(errno))
-        throw ArxivIngestError.fileWriteFailed("could not reserve \(url.lastPathComponent): \(err)")
-    }
-
-    nonisolated private static func copyFileContents(from sourceURL: URL, toReservedFile destinationURL: URL) throws {
-        let source = try FileHandle(forReadingFrom: sourceURL)
-        defer { try? source.close() }
-
-        let destination = try FileHandle(forWritingTo: destinationURL)
-        defer { try? destination.close() }
-        try destination.truncate(atOffset: 0)
-
-        while true {
-            try Task.checkCancellation()
-            let chunk = try source.read(upToCount: 1_048_576) ?? Data()
-            guard !chunk.isEmpty else { break }
-            try destination.write(contentsOf: chunk)
-        }
-        try destination.synchronize()
     }
 
 }

@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import Darwin
 
 // R-LITEPARSE — import a PDF as a Markdown note (owner 2026-06-19). Converts the PDF via
 // the live liteparse FFI importer; on a real markdown result it creates an SDPage note
@@ -92,7 +91,7 @@ enum LiteParsePDFImportController {
             guard Plan3VaultPath.resolvesInsideVault(dirURL, in: vaultURL) else {
                 return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
             }
-            let urls = try reservePairedFileURLs(directory: dirURL, baseName: title)
+            let urls = try Plan3ImportFileIO.reservePairedFileURLs(directory: dirURL, baseName: title)
             selectedURLs = urls
             guard
                 let sourcePDFRelativePath = Plan3VaultPath.vaultRelativePath(for: urls.pdfURL, in: vaultURL),
@@ -101,7 +100,7 @@ enum LiteParsePDFImportController {
             else {
                 return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
             }
-            try copyFileContents(from: URL(fileURLWithPath: pdfPath), toReservedFile: urls.pdfURL)
+            try Plan3ImportFileIO.copyFileContents(from: URL(fileURLWithPath: pdfPath), toReservedFile: urls.pdfURL)
             try Data(markdown.utf8).write(to: urls.noteURL, options: .atomic)
             return .materialized(
                 LiteParseMaterializedImportFiles(
@@ -118,66 +117,6 @@ enum LiteParsePDFImportController {
             }
             return .rejected(.failed("Couldn't write the note file: \(error.localizedDescription)"))
         }
-    }
-
-    /// A reserved paired `<baseName>.md` + `<baseName>.pdf` in `directory`.
-    nonisolated private static func reservePairedFileURLs(
-        directory: URL,
-        baseName: String
-    ) throws -> (noteURL: URL, pdfURL: URL) {
-        let safe = baseName.replacingOccurrences(of: "/", with: "-")
-        var candidateBaseName = safe
-        var counter = 2
-        while true {
-            let noteURL = directory.appendingPathComponent("\(candidateBaseName).md")
-            let pdfURL = directory.appendingPathComponent("\(candidateBaseName).pdf")
-            if try reserveEmptyFile(at: noteURL) {
-                do {
-                    if try reserveEmptyFile(at: pdfURL) {
-                        return (noteURL: noteURL, pdfURL: pdfURL)
-                    }
-                    try? FileManager.default.removeItem(at: noteURL)
-                } catch {
-                    try? FileManager.default.removeItem(at: noteURL)
-                    throw error
-                }
-            }
-            candidateBaseName = "\(safe) \(counter)"
-            counter += 1
-        }
-    }
-
-    nonisolated private static func reserveEmptyFile(at url: URL) throws -> Bool {
-        let fd = url.path.withCString { path in
-            open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, mode_t(0o600))
-        }
-        guard fd < 0 else {
-            close(fd)
-            return true
-        }
-        if errno == EEXIST { return false }
-        let err = String(cString: strerror(errno))
-        throw NSError(
-            domain: "LiteParsePDFImportController",
-            code: Int(errno),
-            userInfo: [NSLocalizedDescriptionKey: "could not reserve \(url.lastPathComponent): \(err)"]
-        )
-    }
-
-    nonisolated private static func copyFileContents(from sourceURL: URL, toReservedFile destinationURL: URL) throws {
-        let source = try FileHandle(forReadingFrom: sourceURL)
-        defer { try? source.close() }
-
-        let destination = try FileHandle(forWritingTo: destinationURL)
-        defer { try? destination.close() }
-        try destination.truncate(atOffset: 0)
-
-        while true {
-            let chunk = try source.read(upToCount: 1_048_576) ?? Data()
-            guard !chunk.isEmpty else { break }
-            try destination.write(contentsOf: chunk)
-        }
-        try destination.synchronize()
     }
 
 }
