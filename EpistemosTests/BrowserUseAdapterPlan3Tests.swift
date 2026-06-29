@@ -79,6 +79,8 @@ struct BrowserUseAdapterPlan3Tests {
             "\"pressed\": True",
             "\"key_chars\": len(key)",
             "sanitize_output_url",
+            "MAX_URL_OUTPUT_CHARS",
+            "truncate_url_output",
             "\"url_redacted\"",
             "validate_cdp_url(parsed.cdp)",
             "def validate_cdp_url",

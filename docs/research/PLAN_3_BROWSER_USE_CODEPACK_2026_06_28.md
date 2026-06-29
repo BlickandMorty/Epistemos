@@ -187,7 +187,8 @@ validated before runtime import and must be loopback-only with no URL credential
   and `browser_console` caps page-controlled
   console/error/evaluation arrays, object fields, and strings before returning tool output. Direct adapter `eval`
   responses also cap nested result arrays, object fields, keys, and strings before returning JSON. Browser URL result fields from
-  `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments before returning tool output.
+  `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments, then cap long URL/path
+  strings before returning tool output.
   `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider,
   deletes the temporary screenshot after the provider call returns, and does not return the absolute screenshot path. The
