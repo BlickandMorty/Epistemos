@@ -82,6 +82,27 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 - Perf budget (from doctrine): 60/120fps, animate transform/opacity ONLY (never layout props), virtualize the
   chat transcript + sessions list, bounded webview live-set + listener teardown. Instrument fps + input latency.
 
+## ★ APPLE TOKENS + SPRING VALUES + GLASS RECIPE (R3 — concrete, build-ready)
+### Theme tokens — shadcn Apple Design System [VERIFIED via shadcn.io/design/apple] → wire into Goose's Tailwind/CSS vars
+- Accent / **Action Blue `#0066cc`** (focus `#0071e3`, on-dark `#2997ff`).
+- Light: canvas `#ffffff` · parchment `#f5f5f7` · pearl `#fafafc` · ink `#1d1d1f` · hairline `#f0f0f0`/`#e0e0e0`.
+- Dark: tiles `#272729`/`#2a2a2c`/`#252527` · black `#000` · text `#fff` · muted `#7a7a7a`/`#ccc`/`#333`.
+- Type: **SF Pro** (Display+Text) via `-apple-system`; weights **300/400/600/700 (skip 500)**; **body 17px**; scale 10–56px.
+- **Radius base 11px**; mixed (full-bleed tiles + pill interactive). 
+- License: token VALUES are facts (safe to use); the **DESIGN.md file is Google Labs' open spec** — lift values into Epistemos's existing theme tokens, don't necessarily copy the file verbatim. ⏳ confirm spec license if copied.
+### Spring values — match macOS; framer-motion is ALREADY in Goose (calibrate, don't add)
+- Native ref [VERIFIED]: **CocoaSprings (MIT)** damped spring `angularFrequency ω=7.5, dampingRatio ζ=0.5`.
+- Map → framer-motion `{type:"spring"}` (mass=1): `stiffness = ω² ≈ 56`, `damping = 2·ζ·ω ≈ 7.5` (ζ=0.5 = playful; good for hover/press).
+- PREFERRED API: framer-motion `{type:"spring", duration, bounce}` ≈ SwiftUI `.spring(duration:bounce:)` (`bounce ≈ 1 − dampingFraction`). macOS presets:
+  - UI settle (menus/sheets/most controls): `duration ~0.30–0.45, bounce 0` (smooth, no overshoot).
+  - snappy (tabs/toggles/segments): `duration ~0.30, bounce ~0.15`.
+  - playful (toasts/hub/route transitions): `duration ~0.5, bounce ~0.3`.
+- ⏳ confirm exact SwiftUI defaults (`.spring`/`.smooth`/`.snappy`/`.bouncy`) via Apple docs / HIG MCP (current = knowledge + CocoaSprings-derived).
+### Transparent-over-native-glass recipe (#8 — the killer move)
+- Swift: place an `NSVisualEffectView` (material `.sidebar`/`.menu`/`.hudWindow`, or macOS 26 Liquid Glass) BEHIND the WKWebView; make the webview non-opaque: `webView.setValue(false, forKey:"drawsBackground")` and/or `underPageBackgroundColor = .clear`. ⏳ verify the cleanest macOS-26-safe API.
+- CSS: `html,body{background:transparent}`; content surfaces translucent so the real glass shows through. Web fallback glass = frost+tint+specular (NOT refraction — Chromium-only).
+- Contrast guard on vibrancy: keep text contrast adequate; `-apple-system` font; no full-opacity content backgrounds where blend is wanted.
+
 ## VENDORING DECISIONS (ProvenanceGate — R2, pivoted)
 - Component base → **IN-PLACE RETHEME** of Goose's existing shadcn/ui + Radix (no new lib, no vendoring — theme via Tailwind/CSS vars). Safest.
 - Motion → **IN-PLACE CALIBRATE** Goose's existing framer-motion v12 (MIT, already bundled) — tune spring values to macOS; no new motion lib.
@@ -94,13 +115,14 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 ## GAP LIST → next rounds
 1. ✅ CLOSED (R2) — Goose inventory + framework = React 19 + shadcn/ui + Radix + Tailwind v4 + framer-motion v12 + lucide.
 2. ✅ CLOSED (R2) — component base decided: RETHEME Goose's existing shadcn (LiqUIdify/Framework7/Konsta demoted to reference-only).
-3. Pull the **shadcn Apple Design System DESIGN.md token values** (colors/type/spacing) → wire into Goose's Tailwind config + CSS vars (`cssVariables:true`, baseColor neutral).
-4. Extract **macOS native spring values** from CocoaSprings/Advance → calibrate Goose's framer-motion springs (press/sheet/menu/toast/transition).
+3. ✅ CLOSED (R3) — shadcn Apple token VALUES pulled (Action Blue #0066cc, SF Pro 300/400/600/700, body 17px, radius 11px, full palette). Next: actually wire them into Goose's Tailwind config + CSS vars.
+4. ▶ DRAFTED (R3) — spring values mapped (CocoaSprings ω=7.5/ζ=0.5 → framer-motion stiffness≈56/damping≈7.5; + duration/bounce presets). REMAINING: confirm exact SwiftUI `.spring/.smooth/.snappy/.bouncy` defaults via HIG MCP.
 5. Verify **CSS `linear()` spring** + Tailwind v4 + Radix behavior in **WebKit/WKWebView**.
 6. **SF Symbols licensing** path (Apple-restricted) + lucide↔SF-Symbols glyph mapping for native feel.
-7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols.
-8. **Transparent-webview-over-glass** WebKit recipe: `drawsBackground=false` + native `NSVisualEffectView` behind — verify + prototype the seam.
+7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols + the spring defaults (#4).
+8. ▶ DRAFTED (R3) — transparent-over-glass recipe written. REMAINING: verify the cleanest macOS-26-safe non-opaque WKWebView API + prototype the seam (no flicker, contrast OK).
 9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
+10. **Wire the Epistemos theme tokens** (R3 values) into Goose's `tailwind.config.ts` + `src/styles/main.css` CSS vars (the actual retheme implementation handoff).
 
 ## INTEGRATION NOTES
 - Build-time vendor via `build-tiptap-bundle.sh` model → `Resources/` → served via `WKURLSchemeHandler`. No runtime npm.
@@ -116,3 +138,9 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
   reference-only. Filled the component mapping table with Goose's REAL components → retheme recipes. Closed gaps
   #1 (inventory) + #2 (base decision). New gaps: pull shadcn Apple DESIGN.md tokens, extract macOS spring values,
   WebKit verify (linear()/Tailwind v4/Radix), SF Symbols licensing, transparent-over-glass recipe, A/B harness.
+- 2026-06-29 R3: build-ready recipe landed. [VERIFIED] shadcn Apple token VALUES (Action Blue #0066cc, full
+  palette, SF Pro 300/400/600/700 / body 17px, radius 11px) + CocoaSprings (MIT) native spring (ω=7.5, ζ=0.5)
+  → framer-motion mapping (stiffness≈56/damping≈7.5 + duration/bounce presets for settle/snappy/playful) +
+  transparent-over-glass recipe (NSVisualEffectView behind non-opaque WKWebView). Closed #3; drafted #4 + #8.
+  New gaps: wire tokens into Goose tailwind.config/main.css, confirm SwiftUI spring defaults via HIG MCP,
+  verify macOS-26 non-opaque WKWebView API, A/B harness.
