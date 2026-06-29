@@ -63,4 +63,18 @@ nonisolated struct MarkEditFullChromeWiringTests {
             #expect(project.contains("product: \(product)"))
         }
     }
+
+    @Test("CoreEditor build script stages resources for Epistemos and verbatim MarkEdit chunk loaders")
+    func coreEditorBuildScriptStagesResourcesForBothChunkLoaders() throws {
+        let script = try loadMirroredSourceTextFile("build-coreeditor-bundle.sh")
+        let markEditChunkLoader = try loadMirroredSourceTextFile(
+            "LocalPackages/MarkEdit/MarkEditMac/Sources/Editor/EditorChunkLoader.swift"
+        )
+
+        #expect(script.contains(#"DEST="${ROOT_DIR}/Epistemos/Resources/CoreEditor""#))
+        #expect(script.contains(#"ROOT_CHUNKS_DEST="${ROOT_DIR}/Epistemos/Resources/chunks""#))
+        #expect(script.contains(#"rsync -a --delete dist/ "$DEST/""#))
+        #expect(script.contains(#"rsync -a --delete dist/chunks/ "$ROOT_CHUNKS_DEST/""#))
+        #expect(markEditChunkLoader.contains(#"Bundle.main.url(forResource: "\(host)/\(url.path())", withExtension: nil)"#))
+    }
 }
