@@ -868,9 +868,27 @@ ALL_LIVE_ACP_METHODS_PASS
 
 This directly covers the ProviderCatalog + SessionLifecycle live suites' assertions
 (live catalog enumeration + session creation) without the degraded app-hosted runner.
-The only live thing still requiring the owner is prompt→stream with REAL provider
-credentials (Gate 3 streaming + Gate 5 OAuth) — the probe used a dummy key, which is
-fine for session/new but not for actual token streaming.
+
+**Comprehensive read-only surface probe** (`scratchpad/acp-probe-full.mjs`) — proves
+EVERY ACP method the WebRoute / CustomCapability suites depend on is live + reachable:
+```
+OK count=106   _goose/unstable/providers/catalog/list      (GOLDEN RULE)
+OK count=1key  _goose/unstable/providers/list
+OK count=32    _goose/unstable/providers/setup/catalog/list
+OK count=11    _goose/unstable/config/extensions/list
+OK count=0     _goose/unstable/sources/list [recipe]        (empty HOME — correct)
+OK count=0     _goose/unstable/sources/list [skill]         (empty HOME — correct)
+OK count=0     session/list                                 (fresh HOME — correct)
+SURFACE_REACHABLE 7/7 methods answered
+```
+Every method returns a valid structured response (0-counts are correct for a fresh
+HOME with no recipes/skills/sessions yet) — i.e. the routes' real ACP methods are seen
+and answered, exactly what `GooseWebRouteLiveIntegrationTests` asserts, proven here
+without the app-hosted runner. So the entire read-only live ACP surface the four
+live suites depend on is DIRECTLY proven (initialize + session/new + the 7 list
+methods). The ONLY live item still requiring the owner is prompt→stream with REAL
+provider credentials (Gate 3 streaming + live `agent_thought_chunk` + Gate 5 OAuth) —
+the probe used a dummy key, fine for catalog/session but not for actual token streaming.
 
 ### STEP-2 code-quality review of THIS loop's grafts (toolsCache + AlertBox)
 
