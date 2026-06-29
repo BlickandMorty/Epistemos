@@ -112,18 +112,18 @@ pub(crate) async fn run_agent_browser_command(
                     redact_browser_error_detail(message)
                 )));
             }
-            return Ok(parsed);
-        }
-
-        if command_name == "screenshot" {
-            if let Some(path) = extract_screenshot_path(&stdout) {
-                return Ok(json!({
-                    "success": true,
-                    "data": {
-                        "path": path,
-                    }
-                }));
+            if !status.success() {
+                let code = status.code().unwrap_or(-1);
+                let stream = if stderr.is_empty() {
+                    "stdout"
+                } else {
+                    "stderr"
+                };
+                return Err(ToolError::ExecutionFailed(format!(
+                    "agent-browser '{command_name}' failed with exit code {code}; {stream} redacted"
+                )));
             }
+            return Ok(parsed);
         }
 
         if !status.success() {
@@ -136,6 +136,17 @@ pub(crate) async fn run_agent_browser_command(
             return Err(ToolError::ExecutionFailed(format!(
                 "agent-browser '{command_name}' failed with exit code {code}; {stream} redacted"
             )));
+        }
+
+        if command_name == "screenshot" {
+            if let Some(path) = extract_screenshot_path(&stdout) {
+                return Ok(json!({
+                    "success": true,
+                    "data": {
+                        "path": path,
+                    }
+                }));
+            }
         }
 
         return Err(ToolError::ExecutionFailed(format!(

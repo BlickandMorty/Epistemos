@@ -699,6 +699,10 @@ EOF
   jsonfail)
     printf '{"success":false,"error":"failed token=sk-secret-token https://user:pass@example.com/path"}\n'
     ;;
+  jsonsuccessfail)
+    printf '{"success":true,"data":{"ok":true}}\n'
+    exit 7
+    ;;
   envcheck)
     gemini_present=false
     openai_auth_present=false
@@ -849,6 +853,30 @@ esac
         assert!(message.contains("[redacted]"));
         assert!(!message.contains("sk-secret-token"));
         assert!(!message.contains("user:pass"));
+    }
+
+    #[tokio::test]
+    async fn browser_success_json_requires_successful_exit_status() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let socket_dir = socket_dir_for_session("json-success-exit-failure");
+
+        let err = run_agent_browser_command(
+            "jsonsuccessfail",
+            &[],
+            "json-success-exit-failure",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("exit code 7"));
+        assert!(message.contains("stdout redacted"));
+        assert!(!message.contains("\"ok\""));
     }
 
     #[tokio::test]
