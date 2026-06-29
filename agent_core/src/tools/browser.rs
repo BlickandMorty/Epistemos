@@ -10,7 +10,7 @@ use std::env;
 use std::fs;
 use std::io::Read;
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
@@ -113,12 +113,7 @@ impl BrowserManager {
         if state.session_name.is_none() {
             let session_name = format!("epi-{}", &Uuid::new_v4().simple().to_string()[..12]);
             let socket_dir = socket_dir_for_session(&session_name);
-            fs::create_dir_all(&socket_dir).map_err(|e| {
-                ToolError::ExecutionFailed(format!(
-                    "create browser socket dir '{}': {e}",
-                    socket_dir.display()
-                ))
-            })?;
+            create_private_browser_dir(&socket_dir)?;
             state.session_name = Some(session_name);
             state.socket_dir = Some(socket_dir);
             state.cdp_url = env::var("BROWSER_CDP_URL")
@@ -143,12 +138,7 @@ impl BrowserManager {
             .socket_dir
             .clone()
             .unwrap_or_else(|| socket_dir_for_session(&session_name));
-        fs::create_dir_all(&socket_dir).map_err(|e| {
-            ToolError::ExecutionFailed(format!(
-                "create browser socket dir '{}': {e}",
-                socket_dir.display()
-            ))
-        })?;
+        create_private_browser_dir(&socket_dir)?;
 
         run_agent_browser_command(
             command_name,
@@ -673,6 +663,51 @@ fn socket_dir_for_session(session_name: &str) -> PathBuf {
     base.join(format!("agent-browser-{session_name}"))
 }
 
+fn create_private_browser_dir(path: &Path) -> Result<(), ToolError> {
+    #[cfg(unix)]
+    {
+        let mut builder = fs::DirBuilder::new();
+        builder.recursive(true).mode(0o700);
+        builder.create(path).map_err(|e| {
+            ToolError::ExecutionFailed(format!(
+                "create private browser directory '{}': {e}",
+                path.display()
+            ))
+        })?;
+    }
+
+    #[cfg(not(unix))]
+    fs::create_dir_all(path).map_err(|e| {
+        ToolError::ExecutionFailed(format!(
+            "create private browser directory '{}': {e}",
+            path.display()
+        ))
+    })?;
+
+    #[cfg(unix)]
+    {
+        let mut permissions = fs::metadata(path)
+            .map_err(|e| {
+                ToolError::ExecutionFailed(format!(
+                    "inspect private browser directory '{}': {e}",
+                    path.display()
+                ))
+            })?
+            .permissions();
+        if permissions.mode() & 0o077 != 0 {
+            permissions.set_mode(0o700);
+            fs::set_permissions(path, permissions).map_err(|e| {
+                ToolError::ExecutionFailed(format!(
+                    "harden private browser directory '{}': {e}",
+                    path.display()
+                ))
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
 fn extended_path() -> String {
     let mut values = Vec::new();
     if let Some(path) = env::var_os("PATH") {
@@ -702,6 +737,7 @@ async fn run_agent_browser_command(
     timeout: Duration,
 ) -> Result<Value, ToolError> {
     let executable = find_agent_browser()?;
+    create_private_browser_dir(socket_dir)?;
     let stdout_file = Builder::new()
         .prefix("stdout-")
         .tempfile_in(socket_dir)
@@ -918,12 +954,7 @@ fn next_screenshot_path() -> Result<PathBuf, ToolError> {
     } else {
         env::temp_dir().join("epistemos-browser-screenshots")
     };
-    fs::create_dir_all(&directory).map_err(|e| {
-        ToolError::ExecutionFailed(format!(
-            "create screenshot directory '{}': {e}",
-            directory.display()
-        ))
-    })?;
+    create_private_browser_dir(&directory)?;
     Ok(directory.join(format!("browser-{}.png", Uuid::new_v4().simple())))
 }
 
@@ -1142,6 +1173,23 @@ mod tests {
         )
         .unwrap();
         mark_executable(path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_private_directories_are_owner_only() {
+        let temp = tempfile::tempdir().unwrap();
+        let directory = temp.path().join("browser-session");
+        fs::create_dir_all(&directory).unwrap();
+
+        let mut permissions = fs::metadata(&directory).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&directory, permissions).unwrap();
+
+        create_private_browser_dir(&directory).unwrap();
+
+        let mode = fs::metadata(&directory).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700);
     }
 
     fn make_fake_browser(temp_root: &Path) -> PathBuf {

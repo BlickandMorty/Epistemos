@@ -99,8 +99,9 @@ isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload. 
   `WKWebsiteDataStore.nonPersistent()` and `BrowserURLGuard` http/https gating. It remains independent.
 - Agent browser tools: `agent_core/src/tools/browser.rs` shells out to the bundled browser-use adapter when
   `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` is set, otherwise to a user-installed
-  `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, and SSRF/private URL
-  blocking. The registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
+  `agent-browser` binary. It applies hardened subprocess env clearing, timeouts, redacted output, SSRF/private URL
+  blocking, and owner-only browser daemon/socket/screenshot directories. The registry exposes the 11 `browser_*` tools
+  only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
   that split.
@@ -258,7 +259,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Pro runtime smoke: start loopback Gradio on `127.0.0.1`, load it in the WKWebView shell, submit a dry-run task with a
   local fixture page, then stop cleanly.
 - Tool smoke: `browser_navigate` to a local fixture, `browser_snapshot`, `browser_click`, `browser_close`; prove session
-  reuse and bounded/redacted output.
+  reuse, owner-only session/screenshot directories, and bounded/redacted output.
 - App Store audit: the `EPISTEMOS_APP_STORE MAS_SANDBOX` compile branch returns unavailable before launch planning,
   strips the `Process()` branch, and contains no Python, Playwright, Chromium, browser-use resources, or
   `agent_core/vendor/browser-use` SourceMirror output.
