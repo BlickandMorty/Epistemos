@@ -245,13 +245,14 @@ viewer and PencilKit annotations; the PDF viewer remains Plan 2.
 
 Deferred (still MAS-safe): PencilKit/`PDFAnnotation` markup, FileProvider. Needs-new-usage-string (out of scope): PhotosUI, EventKit, camera/document-scan.
 
-## 7. Ingest capabilities (Pass-2 ledger re-scan — owner-wanted, were skipped)
+## 7. Ingest capabilities (arXiv shipped; meeting/STT tracked separately)
 
 The re-scan found concrete items you explicitly asked for that got flattened/omitted in the curation. These fit Plan 3
 (standalone capabilities, MAS-safe, don't conflict with Goose-only AI):
-- **arXiv pull** — search arXiv + ingest a paper's PDF/abstract/metadata into the vault (→ then PDF→md §1 parses it).
-  Was **omitted entirely** from the curation. MAS-safe (arxiv.org API + the §1 PDF pipeline). Pairs with the web clipper
-  (Plan 2). LOW effort.
+- **arXiv pull — SHIPPED (Pass 6):** search arXiv, parse Atom metadata, download the PDF, convert through the local
+  PDF→md importer, and write a file-first vault note with abstract, parsed full text, metadata frontmatter, and
+  `source_pdf` pointing at the copied PDF under `<vault>/arXiv/`. The landing button opens `ArxivSearchView` as a sheet.
+  MAS-safe (arxiv.org API + the §1 PDF pipeline); failures create no note and report the download/parser reason.
 - **Meeting/lecture note** — record audio → **on-device STT** (Apple Speech / local Whisper) → a note + AI summary.
   Was buried as one line; it's a flagship capability (Granola/Notion-AI territory), fully on-device, MAS-safe. Uses the
   Apple-native Speech framework (§6). MEDIUM effort.

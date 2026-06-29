@@ -1,9 +1,9 @@
-# Plan 3 — arXiv pull (clone-ready code, Pass 6)
+# Plan 3 — arXiv pull (shipped code, Pass 6)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §7`. Search arXiv + ingest a paper (PDF + abstract + metadata) into
-> the vault as a note. MAS-safe (arxiv.org public API + the existing PDF→md pipeline). `[VERIFIED-CODE]`/`[INFERRED]`.
+> the vault as a note. MAS-safe (arxiv.org public API + the existing PDF→md pipeline).
 
-## Verified reuse seams
+## Shipped reuse seams
 - File-first vault import: write `.md`, then `SDPage` with `filePath`+`subfolder`+`needsVaultSync=false`
   (`LiteParsePDFImportController.swift:36-60`). `SDPage.frontMatter` = `[String:String]` over `frontMatterData`
   (`SDPage.swift:55-61,144-170`). PDF→md FFI seam = `LiteParsePDFImporter.importToMarkdown(pdfPath:)` →
@@ -11,23 +11,31 @@
   (`URLSessionTransportSupport.swift:61`). `VaultSyncService.vaultURL` (`:401`). Gate pattern
   `LiteParseImportGateStatus` (`:13-41`).
 
-## New files
-- **`Epistemos/Arxiv/ArxivClient.swift`** — `search(query,maxResults)` against
+## Shipped files
+- **`Epistemos/Arxiv/ArxivClient.swift` [DELIVERED]** — `search(query,maxResults)` against
   `https://export.arxiv.org/api/query?search_query=…&sortBy=submittedDate` → Atom XML parsed by an `XMLParser`
   delegate (`ArxivAtomParser`) into `ArxivPaper{id,title,authors,summary,published,pdfURL,categories}` (+ `shortID`).
   Defaults plain text to `all:`; honest errors. Networking only.
-- **`Epistemos/Arxiv/ArxivIngestService.swift`** — `ingest(paper,vaultURL,modelContext,graphState,importer)`:
+- **`Epistemos/Arxiv/ArxivIngestService.swift` [DELIVERED]** — `ingest(paper,vaultURL,modelContext,graphState,importer)`:
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI
   (off `@MainActor` via `Task.detached` — never block main); (3) file-first `SDPage` with body = abstract intro +
   parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. **Honest:** failed download / `.notWired` / `.failed` → no note + the real reason.
-- **`Epistemos/Views/Arxiv/ArxivSearchView.swift`** — query field → results list → per-paper "Add to vault"
+- **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`).
-- **`Epistemos/Arxiv/ArxivPullGateStatus.swift`** — copy of `LiteParseImportGateStatus`, flag `EPISTEMOS_ARXIV_PULL_V0`.
-  Note: search+metadata+abstract+download work immediately; only the parsed full-text degrades to `.notWired` until the
-  PDF engine (EdgeParse §1) lands.
+- **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,
+  explicit `0/false/no/off` kill switch. Search+metadata+download are HTTPS-only; note creation still requires real
+  markdown from the local PDF importer. If the parser bridge is absent in a Swift-only host or the parser rejects the
+  PDF, ingest creates no note and reports the actual rejection.
 
 ## Wiring
-A gated landing button (§8) presents `ArxivSearchView` as a sheet. MAS-safe: networking + the existing PDF pipeline;
-no Python, no subprocess, no fabricated notes. New code is only the Atom `XMLParser` + body composition; everything
-else reuses verified seams.
+A gated landing button (§8) presents `ArxivSearchView` as a sheet via `showingArxivSearch = true` in `LandingView`.
+MAS-safe: networking + the existing PDF pipeline; no Python, no subprocess, no fabricated notes. Code is only the Atom
+`XMLParser`, sheet UI, and body/frontmatter composition; everything else reuses verified seams.
+
+## Verification
+- `EpistemosTests/ArxivPlan3Tests.swift` covers search URL construction, Atom parsing, default-on kill switch behavior,
+  draft frontmatter/body composition, successful ingest into an in-memory SwiftData vault, parser rejection with no note,
+  and download rejection with no note.
+- `EpistemosTests/LandingFeatureButtonsPlan3Tests.swift` guards the landing button, arXiv sheet presentation, and
+  `ArxivPullGateStatus` availability wiring.

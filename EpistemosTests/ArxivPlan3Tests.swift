@@ -42,6 +42,36 @@ struct ArxivPlan3Tests {
         #expect(ArxivPullGateStatus.status(environment: [ArxivPullGateStatus.flagName: "1"]).isActive)
     }
 
+    @Test("Plan 3 arXiv docs describe shipped ingest state")
+    func plan3ArxivDocsDescribeShippedIngestState() throws {
+        let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_ARXIV_CODEPACK_2026_06_28.md")
+        let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(codepack.contains("shipped code"))
+        #expect(codepack.contains("ArxivIngestService.swift` [DELIVERED]"))
+        #expect(codepack.contains("showingArxivSearch = true"))
+        #expect(codepack.contains("parser rejection with no note"))
+        #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
+        #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
+        #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
+        #expect(landing.contains("ArxivSearchView()"))
+
+        for stale in [
+            "clone-ready code",
+            "[INFERRED]",
+            "until the\n  PDF engine (EdgeParse §1) lands",
+        ] where codepack.contains(stale) {
+            Issue.record("arXiv codepack still contains stale phrase: \(stale)")
+        }
+        for stale in [
+            "Was **omitted entirely** from the curation",
+            "arXiv pull** — search arXiv",
+        ] where capabilities.contains(stale) {
+            Issue.record("Plan 3 capabilities still contains stale arXiv phrase: \(stale)")
+        }
+    }
+
     @Test("draft includes arXiv frontmatter and parsed full text")
     func noteDraft() throws {
         let paper = try Self.paper()
