@@ -11,12 +11,14 @@ struct AppleNativeSharedViewsPlan3Tests {
         let thumbnail = try loadMirroredSourceTextFile("Epistemos/Views/Shared/FileThumbnail.swift")
 
         for required in [
+            "nonisolated enum FilePreviewURLPolicy",
+            "isReadableRegularFileURL",
             "final class FilePreviewItem: NSObject, QLPreviewItem",
             "final class FilePreviewController: NSObject, @MainActor QLPreviewPanelDataSource, @MainActor QLPreviewPanelDelegate",
             "struct FilePreviewButton",
             "func filePreview(_ previewURL: Binding<URL?>) -> some View",
             "QLPreviewPanel.shared()",
-            "url.isFileURL"
+            "destinationOfSymbolicLink(atPath:"
         ] {
             #expect(preview.contains(required), "FilePreview missing expected API: \(required)")
         }
@@ -41,7 +43,7 @@ struct AppleNativeSharedViewsPlan3Tests {
             "generateBestRepresentation(for: request)",
             "representationTypes: .all",
             ".task(id: thumbnailIdentity)",
-            "url.isFileURL",
+            "FilePreviewURLPolicy.isReadableRegularFileURL(url)",
             "scale.isFinite",
             "scale > 0"
         ] {
@@ -58,6 +60,24 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(await FileThumbnailer.thumbnail(for: remoteURL, size: size, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: .zero, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: 0) == nil)
+    }
+
+    @Test("preview policy rejects remote directory and symlink URLs")
+    func previewPolicyRejectsRemoteDirectoryAndSymlinkURLs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apple-native-preview-policy-\(UUID().uuidString)", isDirectory: true)
+        let directory = root.appendingPathComponent("Folder", isDirectory: true)
+        let readableFile = root.appendingPathComponent("Note.md", isDirectory: false)
+        let symlink = root.appendingPathComponent("Linked.md", isDirectory: false)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "note".write(to: readableFile, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: readableFile)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        #expect(FilePreviewController.isPreviewableURL(readableFile))
+        #expect(!FilePreviewController.isPreviewableURL(URL(string: "https://example.com/paper.pdf")!))
+        #expect(!FilePreviewController.isPreviewableURL(directory))
+        #expect(!FilePreviewController.isPreviewableURL(symlink))
     }
 
     @Test("shared views stay out of Plan 1, Plan 2, and Pro-only runtimes")

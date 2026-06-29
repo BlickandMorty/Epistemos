@@ -8,7 +8,7 @@ enum FileThumbnailer {
         size: CGSize,
         scale: CGFloat
     ) async -> NSImage? {
-        guard url.isFileURL,
+        guard FilePreviewURLPolicy.isReadableRegularFileURL(url),
               size.width > 0,
               size.height > 0,
               scale.isFinite,

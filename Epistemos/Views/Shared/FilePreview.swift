@@ -2,6 +2,26 @@ import AppKit
 import Quartz
 import SwiftUI
 
+nonisolated enum FilePreviewURLPolicy {
+    static func isReadableRegularFileURL(
+        _ url: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard url.isFileURL,
+              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil else {
+            return false
+        }
+
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue,
+              fileManager.isReadableFile(atPath: url.path) else {
+            return false
+        }
+        return true
+    }
+}
+
 final class FilePreviewItem: NSObject, QLPreviewItem {
     let url: URL
     private let title: String?
@@ -49,7 +69,7 @@ final class FilePreviewController: NSObject, @MainActor QLPreviewPanelDataSource
     }
 
     static func isPreviewableURL(_ url: URL) -> Bool {
-        url.isFileURL
+        FilePreviewURLPolicy.isReadableRegularFileURL(url)
     }
 
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
