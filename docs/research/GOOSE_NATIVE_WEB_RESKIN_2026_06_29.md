@@ -98,10 +98,13 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
   - snappy (tabs/toggles/segments): `duration ~0.30, bounce ~0.15`.
   - playful (toasts/hub/route transitions): `duration ~0.5, bounce ~0.3`.
 - ⏳ confirm exact SwiftUI defaults (`.spring`/`.smooth`/`.snappy`/`.bouncy`) via Apple docs / HIG MCP (current = knowledge + CocoaSprings-derived).
-### Transparent-over-native-glass recipe (#8 — the killer move)
-- Swift: place an `NSVisualEffectView` (material `.sidebar`/`.menu`/`.hudWindow`, or macOS 26 Liquid Glass) BEHIND the WKWebView; make the webview non-opaque: `webView.setValue(false, forKey:"drawsBackground")` and/or `underPageBackgroundColor = .clear`. ⏳ verify the cleanest macOS-26-safe API.
-- CSS: `html,body{background:transparent}`; content surfaces translucent so the real glass shows through. Web fallback glass = frost+tint+specular (NOT refraction — Chromium-only).
-- Contrast guard on vibrancy: keep text contrast adequate; `-apple-system` font; no full-opacity content backgrounds where blend is wanted.
+### Transparent-over-native-glass recipe (#8 — ✅ PROVEN in Epistemos's own code, R5)
+Every piece ALREADY ships in-app — the Goose reskin just COMPOSES them (macOS target = 26.0, confirmed project.yml):
+- **Non-opaque window:** `Agent/AgentSurfaceWindowController.swift:37` already sets `window.isOpaque = false` (the Goose surface window itself).
+- **Native glass layer (reuse, don't reinvent):** `Theme/GlassModifiers.swift` (macOS 26 `glassEffect`), `Views/Shared/UnifiedFrostedGlass.swift`, `Theme/ToolbarGlass.swift`. NSVisualEffectView / Liquid Glass already powers 12+ surfaces (ShadowPanel, HologramOverlay, Settings, ToastOverlay, MetalGraphView…). Mount one BEHIND the Goose WKWebView.
+- **Non-opaque WKWebView:** `webView.setValue(false, forKey:"drawsBackground")` — PROVEN at `Views/Epdoc/EpdocKaTeXPreview.swift:79` (also `CodeEditorView.swift:2888` for the scroll view). Reuse the exact pattern.
+- **CSS:** `html,body{background:transparent}`; translucent content surfaces so the real glass shows through. Web fallback glass = frost+tint+specular (NOT refraction — Chromium-only).
+- **Contrast guard on vibrancy:** adequate text contrast; `-apple-system`; no full-opacity content backgrounds where blend is wanted.
 
 ## WebKit / WKWebView COMPATIBILITY [VERIFIED R4 — stack is WebKit-safe on macOS 26]
 - **Tailwind v4 → requires Safari 16.4+** (uses `@property`, cascade layers, `color-mix()`, oklch). macOS 26's
@@ -133,7 +136,7 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 5. ✅ CLOSED (R4) — WebKit-safe on macOS 26: Tailwind v4 (Safari 16.4+), CSS `linear()` (17.2+), backdrop-filter OK (prefix + no CSS-vars-inside); native glass sidesteps the backdrop-filter gotcha. See "WebKit COMPATIBILITY".
 6. **SF Symbols licensing** path (Apple-restricted) + lucide↔SF-Symbols glyph mapping for native feel.
 7. Connect + use the **HIG / SF Symbols MCP servers** (apple-dev-mcp, SF Symbols MCP) for exact control metrics/symbols + the spring defaults (#4).
-8. ▶ DRAFTED (R3) — transparent-over-glass recipe written. REMAINING: verify the cleanest macOS-26-safe non-opaque WKWebView API + prototype the seam (no flicker, contrast OK).
+8. ✅ CLOSED (R5) — transparent-over-glass recipe PROVEN in Epistemos's own code (window isOpaque=false at AgentSurfaceWindowController.swift:37; glass via GlassModifiers/UnifiedFrostedGlass/ToolbarGlass; non-opaque WKWebView via setValue(false,"drawsBackground") at EpdocKaTeXPreview.swift:79). Reuse, don't reinvent. REMAINING: prototype the actual seam (no flicker) during build.
 9. Build the **A/B pixel-diff harness** (native control vs rethemed Goose control) — gates every `[VERIFIED]`.
 10. **Wire the Epistemos theme tokens** (R3 values) into Goose's `tailwind.config.ts` + `src/styles/main.css` CSS vars (the actual retheme implementation handoff).
 
@@ -162,3 +165,9 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
   native NSVisualEffectView glass sidesteps the backdrop-filter limitation. Radix/framer-motion engine-agnostic.
   Remaining gaps: SwiftUI spring defaults via HIG MCP, macOS-26 non-opaque WKWebView API, SF Symbols licensing,
   A/B pixel-diff harness, token-wiring implementation handoff.
+- 2026-06-29 R5: closed #8 — the transparent-over-glass recipe is PROVEN in Epistemos's OWN code, not
+  theoretical. Verified locally: macOS target 26.0; AgentSurfaceWindowController.swift:37 window.isOpaque=false
+  (the Goose surface window); macOS-26 glassEffect + UnifiedFrostedGlass/GlassModifiers/ToolbarGlass power 12+
+  surfaces; non-opaque WKWebView via setValue(false,"drawsBackground") at EpdocKaTeXPreview.swift:79. The reskin
+  COMPOSES existing pieces (reuse, don't reinvent). Remaining gaps: SwiftUI spring defaults via HIG MCP, SF
+  Symbols licensing, A/B pixel-diff harness, token-wiring handoff.
