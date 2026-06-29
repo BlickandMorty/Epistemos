@@ -1067,13 +1067,23 @@ plus their resolved-symlink variants. The containment helper is boundary-safe:
 prefix-confusion bug (`/foo/barbaz` does NOT match root `/foo/bar`). A compromised
 WebView therefore cannot read/write outside the scoped roots.
 
+Review of the second WebView→native bridge (`GooseWebNativePromptBridge`, permission/
+elicitation responses), **no defects**: validates message shape + `type` + `id`, then
+the key integrity guard `pendingPermission?.id == promptID` / `pendingElicitation?.id
+== promptID` — a WebView reply is accepted ONLY if its promptID matches the actual
+pending prompt (a malicious WebView can't inject a response for a non-pending or
+spoofed prompt), and replies pass `JSONSerialization.isValidJSONObject` before
+serialization. Both WebView→native bridges are thus secured: file I/O by path sandbox,
+prompt responses by promptID-matching.
+
 **STEP-2 coverage this loop (all reviewed, NO defects):** grafts (toolsCache +
 AlertBox); subprocess/secret/env-hardening (`GooseRuntimeSupervisor`); no-silent-drops
 decode path (`GooseACPClient` + `GooseACPEventBridge`); WebView nav gate
 (`GooseWebSurfaceView`); Keychain secret bridge (`GooseProviderKeyBridge`); WebView→
-native file/affordance bridge (`GooseWebNativeAffordanceBridge` — path sandbox). The §7
+native file/affordance bridge (`GooseWebNativeAffordanceBridge` — path sandbox);
+WebView→native prompt bridge (`GooseWebNativePromptBridge` — promptID-matching). The §7
 security/honesty + no-silent-ACP-drops gates are now confirmed at the code level
-across every security-critical Goose Swift file.
+across every security-critical Goose Swift file (7 files, 0 defects).
 
 ### Recursive proof — deterministic layer: THREE consecutive clean passes
 
