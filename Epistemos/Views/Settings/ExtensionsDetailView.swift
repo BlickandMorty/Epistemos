@@ -419,10 +419,7 @@ private struct BestOfPresetCard: View {
 
     @State private var isApplying = false
     @State private var results: [BestOfPresetResult] = []
-
-    private var rows: [BestOfPresetItem] {
-        BestOfPreset.manifest().items
-    }
+    @State private var rows: [BestOfPresetItem] = []
 
     var body: some View {
         SettingsSurfaceCard {
@@ -488,6 +485,19 @@ private struct BestOfPresetCard: View {
                     }
                 }
             }
+        }
+        .task {
+            loadRows()
+        }
+    }
+
+    private func loadRows() {
+        Task { @MainActor in
+            let loadedRows = await Task.detached(priority: .utility) {
+                BestOfPreset.manifest().items
+            }.value
+            guard !Task.isCancelled else { return }
+            rows = loadedRows
         }
     }
 

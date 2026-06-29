@@ -32,8 +32,9 @@ Segmented tabs: **Skills** (reuses the existing real `SkillsDetailView`) · **MC
 installed-list with delete + add-HTTPS-server form with `https://` validation + marketplace browse via §1, one-tap
 Install for `.remoteURL`, `.stdio`/`.skillRepo` shown disabled "unlocks in Pro" in MAS) · **Connectors** (existing
 read-only `CoworkConnectorDirectory` status) · **browser-use** (Pro diagnostics/settings). URL-server discovery,
-install/uninstall, connector refresh, and Best-of apply/revert run off the SwiftUI path in detached utility workers.
-Settings now routes `.skills` to `ExtensionsDetailView()` where `@Environment(VaultSyncService.self)` is available.
+install/uninstall, connector refresh, Best-of manifest row loading, and Best-of apply/revert run off the SwiftUI path in
+detached utility workers. Settings now routes `.skills` to `ExtensionsDetailView()` where
+`@Environment(VaultSyncService.self)` is available.
 
 ## 4. `BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json` [DELIVERED]
 Manifest `{kind:.builtinTool|.skillRepo|.remoteMCP, id, displayName, why, minDistribution}` over **only-real-today**

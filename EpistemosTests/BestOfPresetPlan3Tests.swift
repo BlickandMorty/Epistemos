@@ -43,6 +43,8 @@ struct BestOfPresetPlan3Tests {
             "Task.detached(priority: .utility)",
             "MCPServerSettingsOperationOutcome",
             "MCPUrlServerDirectory.discover()",
+            "BestOfPreset.manifest().items",
+            "rows = loadedRows",
             "BestOfPreset.apply(vaultPath: selectedVaultPath)",
             "BestOfPreset.revertRemoteMCP()",
         ] {
