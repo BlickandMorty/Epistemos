@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 // SUBSTRATE Phase 2 (owner 2026-06-20, SUBSTRATE_BUILD_SEQUENCE): durable AnswerPacket persistence.
@@ -5,11 +6,14 @@ import Foundation
 // provenance receipt is lost on relaunch. This is the pure persistence PRIMITIVE — an append-only
 // JSONL log (one packet per line) over the frozen AnswerPacket Codable schema (Phase 0). It is
 // `nonisolated` so file IO runs OFF the MainActor (CLAUDE.md "never block @MainActor"), bounded
-// (compact keeps the last N), and corruption-tolerant (a bad line is skipped, never crashes).
+// (compact keeps the last N; reads are capped), regular-file/no-follow, and corruption-tolerant
+// (a bad line is skipped, never crashes).
 //
 // The live `emit()` → `append` wiring is the deliberate follow-up slice; this primitive is unit-
 // tested in isolation first (post-crash discipline: safe machinery now, production wiring later).
 nonisolated public struct AnswerPacketStore: Sendable {
+    public static let maxLogBytes = 8 * 1024 * 1024
+
     public let fileURL: URL
 
     public init(fileURL: URL) {
@@ -20,22 +24,21 @@ nonisolated public struct AnswerPacketStore: Sendable {
     public func append(_ packet: AnswerPacket) throws {
         var line = try JSONEncoder().encode(packet)
         line.append(0x0A)  // '\n' — one packet per line
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            let handle = try FileHandle(forWritingTo: fileURL)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: line)
-        } else {
-            try FileManager.default.createDirectory(
-                at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try line.write(to: fileURL, options: .atomic)
+        if let byteCount = try readableStoreFileByteCount(), byteCount > Self.maxLogBytes {
+            throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
         }
+        let handle = try openStoreFileForWriting(truncate: false)
+        defer { try? handle.close() }
+        try handle.write(contentsOf: line)
     }
 
     /// Load up to `limit` of the most recently persisted packets, MOST-RECENT-FIRST. A corrupt or
     /// partially-written line is skipped honestly (never throws on a single bad entry).
     public func loadRecent(limit: Int) throws -> [AnswerPacket] {
-        guard limit > 0, let raw = try? String(contentsOf: fileURL, encoding: .utf8) else { return [] }
+        guard limit > 0,
+              let byteCount = try readableStoreFileByteCount(),
+              byteCount <= Self.maxLogBytes else { return [] }
+        let raw = try String(contentsOf: fileURL, encoding: .utf8)
         let decoder = JSONDecoder()
         let tail = raw.split(separator: "\n", omittingEmptySubsequences: true).suffix(limit)
         let chronological = tail.compactMap { line in
@@ -47,10 +50,65 @@ nonisolated public struct AnswerPacketStore: Sendable {
     /// Bound the log: rewrite the file to keep only the last `maxEntries` valid lines. The wiring
     /// calls this periodically so the append-only log never grows without limit.
     public func compact(maxEntries: Int) throws {
-        guard maxEntries > 0, let raw = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
+        guard maxEntries > 0,
+              let byteCount = try readableStoreFileByteCount(),
+              byteCount <= Self.maxLogBytes else { return }
+        let raw = try String(contentsOf: fileURL, encoding: .utf8)
         let lines = raw.split(separator: "\n", omittingEmptySubsequences: true)
         guard lines.count > maxEntries else { return }
         let kept = lines.suffix(maxEntries).joined(separator: "\n") + "\n"
-        try kept.data(using: .utf8)?.write(to: fileURL, options: .atomic)
+        let handle = try openStoreFileForWriting(truncate: true)
+        defer { try? handle.close() }
+        try handle.write(contentsOf: Data(kept.utf8))
+    }
+
+    private func readableStoreFileByteCount() throws -> Int? {
+        let fileManager = FileManager.default
+        if (try? fileManager.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
+            throw storeError("answer packet log is a symbolic link", errnoCode: ELOOP)
+        }
+        guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
+        let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard values.isRegularFile == true else {
+            throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
+        }
+        guard let byteCount = values.fileSize else {
+            throw storeError("could not inspect answer packet log size", errnoCode: EINVAL)
+        }
+        return byteCount
+    }
+
+    private func openStoreFileForWriting(truncate: Bool) throws -> FileHandle {
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true)
+        let flags = O_WRONLY | O_CREAT | O_NOFOLLOW | O_CLOEXEC | (truncate ? O_TRUNC : O_APPEND)
+        let fd = fileURL.path.withCString { path in
+            open(path, flags, mode_t(0o600))
+        }
+        guard fd >= 0 else {
+            throw storeError("could not open answer packet log", errnoCode: errno)
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let capturedErrno = errno
+            close(fd)
+            throw storeError("could not inspect answer packet log", errnoCode: capturedErrno)
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
+        }
+        return FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+    }
+
+    private func storeError(_ prefix: String, errnoCode: Int32) -> NSError {
+        let message = String(cString: strerror(errnoCode))
+        return NSError(
+            domain: "AnswerPacketStore",
+            code: Int(errnoCode),
+            userInfo: [NSLocalizedDescriptionKey: "\(prefix): \(message)"]
+        )
     }
 }

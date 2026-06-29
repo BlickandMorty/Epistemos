@@ -215,6 +215,8 @@ struct VRMLabelHonestLabelTests {
             "message.resolvedModelLabel",
             "message.mode?.rawValue",
             "message.createdAt",
+            "O_NOFOLLOW",
+            "8 MiB",
         ] {
             #expect(codepack.contains(phrase), "Provenance codepack must include \(phrase)")
         }
@@ -224,6 +226,8 @@ struct VRMLabelHonestLabelTests {
             "`VRMLabelView` renders only `honestLabel(for:)`",
             "`requiresLiveBacking: .ledger/.dag`",
             "`VRMLineageExport`",
+            "regular-file/no-follow writes",
+            "8 MiB",
             "Moat-3 (delivered)",
             "Provenance moat follow-up",
         ] {

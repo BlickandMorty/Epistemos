@@ -62,6 +62,46 @@ struct AnswerPacketStoreTests {
         #expect(try store.loadRecent(limit: 10).map(\.id) == ["good2", "good1"])
     }
 
+    @Test("store rejects symlinked persistence logs")
+    func rejectsSymlinkedPersistenceLog() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apstore-symlink-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let outside = root.appendingPathComponent("outside.jsonl")
+        let symlink = root.appendingPathComponent("answer_packets.jsonl")
+        try Data("outside original\n".utf8).write(to: outside)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outside)
+        let store = AnswerPacketStore(fileURL: symlink)
+
+        do {
+            try store.append(packet("blocked"))
+            Issue.record("Expected symlinked AnswerPacket log append to be rejected")
+        } catch {}
+        #expect(try String(contentsOf: outside, encoding: .utf8) == "outside original\n")
+
+        do {
+            _ = try store.loadRecent(limit: 10)
+            Issue.record("Expected symlinked AnswerPacket log load to be rejected")
+        } catch {}
+    }
+
+    @Test("loadRecent rejects oversized logs before decoding")
+    func loadRecentRejectsOversizedLogsBeforeDecoding() throws {
+        let (store, cleanup) = tempStore(); defer { cleanup() }
+        try Data(#"{"id":"too-big"}"#.utf8).write(to: store.fileURL)
+        let handle = try FileHandle(forWritingTo: store.fileURL)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: UInt64(AnswerPacketStore.maxLogBytes + 1))
+
+        #expect(try store.loadRecent(limit: 10).isEmpty)
+        do {
+            try store.append(packet("blocked"))
+            Issue.record("Expected oversized AnswerPacket log append to be rejected")
+        } catch {}
+    }
+
     // The emitter's persist seam (nonisolated static → tested WITHOUT the shared singleton).
     @Test("AnswerPacketEmitter.persist writes through to the store; nil store is a no-op")
     func emitterPersistHelper() throws {
@@ -96,6 +136,10 @@ struct AnswerPacketStoreTests {
         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AnswerPacketHealthRow.swift")
         #expect(row.contains("durable JSONL persistence log"))
         #expect(!row.contains("session ring only"))   // the stale "not persisted" claim is gone
+        let store = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacketStore.swift")
+        #expect(store.contains("maxLogBytes"))
+        #expect(store.contains("O_NOFOLLOW"))
+        #expect(store.contains("destinationOfSymbolicLink"))
     }
 
     // SUBSTRATE Phase 2 — LOAD-ON-LAUNCH RING RESTORE (the "production wiring later" slice): on relaunch

@@ -77,3 +77,6 @@ Moat-3 lineage JSON copy (`VRMLineageExport`) is shipped. Rust write FFI + casca
 The Settings provenance console is also shipped as a read-only GenUI projection: it initializes to
 `ProvenanceConsoleSnapshot.empty`, refreshes `ProvenanceConsoleProjectionService.snapshot(limit:)` in a cancellable
 utility task, and never performs EventStore/Rust projection reads in the SwiftUI init/body path.
+Durable `AnswerPacketStore` persistence is append-only JSONL under Application Support, but the store treats the log as
+a bounded provenance artifact: appends/compaction open the final file with `O_NOFOLLOW` and regular-file validation,
+loads reject symlink/non-regular logs, and read/restore work is capped at 8 MiB before JSON decoding.
