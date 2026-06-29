@@ -245,6 +245,7 @@ struct BrowserUseRuntimeSupervisorTests {
             "inheritedRuntimeEnvironment(from:",
             "resourceRootURL: URL? = Bundle.main.resourceURL",
             "appendingPathComponent(\"BrowserUsePro\", isDirectory: true)",
+            "fileManager: fileManager",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
             "BrowserUseLoopbackPolicy.loopbackURL",

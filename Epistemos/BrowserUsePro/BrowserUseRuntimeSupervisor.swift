@@ -345,7 +345,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         #else
         let gate = BrowserUseProGateStatus.status(
             environment: processEnvironment,
-            manifestURL: paths.vendorManifestURL
+            manifestURL: paths.vendorManifestURL,
+            fileManager: fileManager
         )
         guard gate.isActive else {
             return .unavailable("\(gate.headline): \(gate.detail)")

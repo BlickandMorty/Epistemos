@@ -97,6 +97,32 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest artifact paths cannot escape the vendor root")
+    func manifestArtifactPathsCannotEscapeVendorRoot() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-path-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        let manifest = Self.packagedManifestJSON.replacingOccurrences(
+            of: "\"expected_path\": \"requirements.lock\"",
+            with: "\"expected_path\": \"../requirements.lock\""
+        )
+        try Data(manifest.utf8).write(to: manifestURL)
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: packaged payload incomplete")
+        #expect(status.detail.contains("requirements.lock has unsafe path ../requirements.lock"))
+        #endif
+    }
+
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
@@ -109,6 +135,8 @@ struct BrowserUseProGateStatusTests {
             "No automation runtime is launched",
             "isProPayloadStaged",
             "stagedArtifactProblems(",
+            "artifactURL(",
+            "unsafe path",
             "packaged payload incomplete",
             "BUILD_MANIFEST.json",
             "sourceMirrorGuard.requiredExclude"

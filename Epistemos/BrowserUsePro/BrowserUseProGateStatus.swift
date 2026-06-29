@@ -196,7 +196,13 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         requiresDirectory: Bool,
         fileManager: FileManager
     ) -> String? {
-        let url = manifestRoot.appendingPathComponent(relativePath, isDirectory: requiresDirectory)
+        guard let url = artifactURL(
+            relativePath: relativePath,
+            relativeTo: manifestRoot,
+            isDirectory: requiresDirectory
+        ) else {
+            return "\(name) has unsafe path \(relativePath)"
+        }
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return "missing \(name) at \(relativePath)"
@@ -205,6 +211,25 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             return "\(name) is not a directory at \(relativePath)"
         }
         return nil
+    }
+
+    private func artifactURL(
+        relativePath: String,
+        relativeTo manifestRoot: URL,
+        isDirectory: Bool
+    ) -> URL? {
+        let trimmed = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("/") else {
+            return nil
+        }
+
+        let components = trimmed.split(separator: "/", omittingEmptySubsequences: true)
+        guard !components.isEmpty,
+              components.allSatisfy({ $0 != "." && $0 != ".." }) else {
+            return nil
+        }
+
+        return manifestRoot.appendingPathComponent(trimmed, isDirectory: isDirectory)
     }
 }
 

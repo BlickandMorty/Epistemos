@@ -61,6 +61,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("can report `browser-use Pro: packaged payload ready` only after"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
+        #expect(codepack.contains("manifest-declared artifact paths are relative-only"))
+        #expect(codepack.contains("absolute or parent-relative artifact paths are"))
         #expect(codepack.contains("rejects non-executable Python and file/directory artifact shape mismatches"))
         #expect(codepack.contains("rejects a non-executable Python runtime before launch planning"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
