@@ -2114,9 +2114,8 @@ struct CodeEditorView: View {
                 package: livePreviewPackage,
                 previewTheme: ui.theme.isDark ? .dark : .light,
                 themeGuardCSSOverride: livePreviewThemeGuardCSS,
-                themeIdentity: livePreviewIdentity
+                themeIdentity: livePreviewThemeIdentity
             )
-            .id(livePreviewIdentity)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -2140,10 +2139,8 @@ struct CodeEditorView: View {
             : "Live preview is available for HTML, CSS, JavaScript, and JSON code notes."
     }
 
-    private var livePreviewIdentity: String {
+    private var livePreviewThemeIdentity: String {
         [
-            livePreviewLanguageKind.rawValue,
-            String(livePreviewText.hashValue),
             ui.theme.isDark ? "dark" : "light",
             ui.theme.resolved.accent.nsColor.codePreviewCSSColor,
         ].joined(separator: "|")

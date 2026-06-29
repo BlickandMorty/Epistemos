@@ -24,6 +24,17 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(livePreview.contains("livePreviewPackage"))
     }
 
+    @Test("Code live preview updates the existing WKWebView instead of rebuilding on text edits")
+    func codeLivePreviewDoesNotKeyPreviewIdentityToText() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let livePreview = try Self.extractBlock(named: "codeLivePreview", from: source)
+
+        #expect(livePreview.contains("HTMLWorkspacePreviewView("))
+        #expect(!livePreview.contains(".id(livePreview"))
+        #expect(source.contains("private var livePreviewThemeIdentity: String"))
+        #expect(!source.contains("livePreviewText.hashValue"))
+    }
+
     @Test("MarkEdit CoreEditor adapter uses vendored bundle and generated MarkEdit bridge surface")
     func markEditCoreEditorAdapterUsesVendoredBundleAndBridgeSurface() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
