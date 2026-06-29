@@ -89,8 +89,9 @@ shape, Keychain environment propagation, secure `.env` file permissions, and sou
 `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` is the Pro loopback shell: it refreshes settings/readiness in a
 detached worker using the injected `BrowserUseSettingsStore`, starts the supervisor only from a user action, loads only
 `http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in a non-persistent WKWebView, cancels non-loopback
-navigations, tears down delegates on dismantle, stops the runtime on disappear, and stops an already-launched runtime
-if a readiness refresh finds the Pro gate invalid. It does not reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
+navigations, surfaces settings load failures instead of silently falling back, tears down delegates on dismantle, stops
+the runtime on disappear, and stops an already-launched runtime if a readiness refresh finds the Pro gate invalid. It
+does not reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
 `EpistemosTests/BrowserUseWebUIViewTests.swift` verifies the loopback URL guard and the source boundary. `[VERIFIED-CODE]`
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/

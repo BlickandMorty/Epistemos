@@ -42,7 +42,8 @@ struct BrowserUseWebUIViewTests {
             "BrowserUseLoopbackPolicy.allows",
             "self.settingsStore = settingsStore",
             "Task.detached(priority: .userInitiated)",
-            "settingsStore.loadOrDefault()",
+            "settingsStore.load()",
+            "browser-use Pro settings could not be loaded",
             "readinessWorker?.cancel()",
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
@@ -57,6 +58,7 @@ struct BrowserUseWebUIViewTests {
         ] {
             #expect(source.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
+        #expect(!source.contains("loadOrDefault()"))
 
         #expect(policy.contains("normalizedAllowedHost("))
         #expect(policy.contains("trimmed.dropFirst().dropLast().contains(\":\")"))

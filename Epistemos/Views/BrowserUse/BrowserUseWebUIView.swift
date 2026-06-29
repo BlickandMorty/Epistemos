@@ -155,7 +155,15 @@ struct BrowserUseWebUIView: View {
         let port = port
         let themeName = themeName
         let worker = Task.detached(priority: .userInitiated) { () -> (BrowserUseSettings, BrowserUseRuntimeReadiness) in
-            let loadedSettings = settingsStore.loadOrDefault()
+            let loadedSettings: BrowserUseSettings
+            do {
+                loadedSettings = try settingsStore.load()
+            } catch {
+                return (
+                    .default,
+                    .unavailable("browser-use Pro settings could not be loaded: \(error.localizedDescription)")
+                )
+            }
             guard !Task.isCancelled else {
                 return (loadedSettings, .unavailable("browser-use Pro readiness refresh was cancelled."))
             }
