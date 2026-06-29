@@ -245,6 +245,14 @@ nonisolated struct BrowserUseSettings: Codable, Equatable, Sendable {
 }
 
 nonisolated enum BrowserUseSettingsValidation {
+    private static let allowedProxyServerSchemes: Set<String> = [
+        "http",
+        "https",
+        "socks4",
+        "socks5",
+        "socks5h",
+    ]
+
     static func problem(in settings: BrowserUseSettings) -> String? {
         let browser = settings.browser
         guard (1...65535).contains(browser.debuggingPort) else {
@@ -255,6 +263,9 @@ nonisolated enum BrowserUseSettingsValidation {
         }
         if let browserCDPProblem = browserCDPProblem(browser.browserCDP) {
             return browserCDPProblem
+        }
+        if let proxyServerProblem = proxyServerProblem(settings.runtime.proxyServer) {
+            return proxyServerProblem
         }
         guard (1...16_384).contains(browser.resolutionWidth),
               (1...16_384).contains(browser.resolutionHeight) else {
@@ -288,6 +299,33 @@ nonisolated enum BrowserUseSettingsValidation {
         }
         if components.fragment != nil {
             return "browser CDP URL must not include a URL fragment"
+        }
+        return nil
+    }
+
+    private static func proxyServerProblem(_ rawValue: String) -> String? {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            return nil
+        }
+        guard let components = URLComponents(string: value),
+              let scheme = components.scheme?.lowercased(),
+              allowedProxyServerSchemes.contains(scheme),
+              let host = components.host,
+              !host.isEmpty else {
+            return "browser-use proxy server must be an http, https, socks4, socks5, or socks5h URL"
+        }
+        if components.user != nil || components.password != nil {
+            return "browser-use proxy server must not include username or password credentials; use Keychain proxy bindings"
+        }
+        if !components.path.isEmpty, components.path != "/" {
+            return "browser-use proxy server must not include a URL path"
+        }
+        if components.query != nil {
+            return "browser-use proxy server must not include a URL query"
+        }
+        if components.fragment != nil {
+            return "browser-use proxy server must not include a URL fragment"
         }
         return nil
     }

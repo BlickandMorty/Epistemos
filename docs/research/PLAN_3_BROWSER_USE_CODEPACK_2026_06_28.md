@@ -293,7 +293,9 @@ tree. Default telemetry/cloud sync should be off unless the user explicitly enab
 browser-use environment shape as typed Codable settings and renders a launch-time `.env` by combining those values with
 `BrowserUseSecretBinding` values loaded from Keychain. It covers `DEFAULT_LLM`, provider endpoints, own-browser/CDP,
 resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. Browser debugging
-host and non-empty CDP URLs are loopback-constrained and reject URL credentials, queries, and fragments. It does not
+host and non-empty CDP URLs are loopback-constrained and reject URL credentials, queries, and fragments; non-empty proxy
+server URLs must use supported proxy schemes and keep credentials, paths, queries, and fragments out of non-secret JSON.
+It does not
 launch Python, Chromium, Playwright, or `webui.py`. The `.env` renderer quotes and escapes multiline/CRLF values before
 writing the launch file.
 

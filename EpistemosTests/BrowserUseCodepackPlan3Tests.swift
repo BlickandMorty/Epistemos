@@ -249,6 +249,8 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseSettingsValidation",
             "BrowserUseLoopbackPolicy.allowsHost",
             "browserCDPProblem",
+            "proxyServerProblem",
+            "allowedProxyServerSchemes",
             "static func pairs",
             "static func dictionary",
             "settings.json",
@@ -316,6 +318,7 @@ struct BrowserUseCodepackPlan3Tests {
             "browser debugging host must be localhost",
             "browser CDP URL must point at localhost",
             "browser CDP URL must not include username or password credentials",
+            "browser-use proxy server must not include username or password credentials",
         ] {
             #expect(store.contains(required), "Missing browser-use settings contract string: \(required)")
         }

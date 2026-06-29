@@ -84,6 +84,35 @@ struct BrowserUseSettingsStoreTests {
         }
     }
 
+    @Test("settings validation keeps proxy credentials out of non-secret proxy URLs")
+    func settingsValidationKeepsProxyCredentialsOutOfNonSecretProxyURLs() {
+        for proxyServer in [
+            "",
+            "http://proxy.example.com:8080",
+            "https://proxy.example.com",
+            "socks5://127.0.0.1:9050",
+            "socks5h://proxy.example.com:9050/",
+        ] {
+            var settings = BrowserUseSettings.default
+            settings.runtime.proxyServer = proxyServer
+            #expect(BrowserUseSettingsValidation.problem(in: settings) == nil)
+        }
+
+        let rejected: [(String, String)] = [
+            ("http://user:pass@proxy.example.com:8080", "username or password"),
+            ("http://proxy.example.com:8080/private/path", "URL path"),
+            ("http://proxy.example.com:8080?token=secret", "URL query"),
+            ("http://proxy.example.com:8080#token", "URL fragment"),
+            ("ftp://proxy.example.com:21", "http, https, socks4"),
+            ("proxy.example.com:8080", "http, https, socks4"),
+        ]
+        for (proxyServer, expected) in rejected {
+            var settings = BrowserUseSettings.default
+            settings.runtime.proxyServer = proxyServer
+            #expect(BrowserUseSettingsValidation.problem(in: settings)?.contains(expected) == true)
+        }
+    }
+
     @Test("secret store saves values by environment-key binding")
     func secretStoreSavesValuesByEnvironmentKeyBinding() {
         let harness = SecretHarness()
