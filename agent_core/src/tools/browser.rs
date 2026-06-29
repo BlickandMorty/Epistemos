@@ -237,26 +237,40 @@ async fn snapshot_impl(manager: &BrowserManager, input: &Value) -> Result<Value,
         args.push("-c".to_string());
     }
     let raw = manager.run_existing("snapshot", &args).await?;
-    let snapshot_text = raw
-        .get("data")
+    let data = raw.get("data");
+    let adapter_truncated = data
+        .and_then(|data| data.get("truncated"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let adapter_refs_truncated = data
+        .and_then(|data| data.get("refs_truncated"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let adapter_element_count = data
+        .and_then(|data| data.get("element_count"))
+        .and_then(Value::as_u64)
+        .and_then(|count| usize::try_from(count).ok());
+    let snapshot_text = data
         .and_then(|data| data.get("snapshot"))
         .and_then(Value::as_str)
         .unwrap_or("");
-    let raw_refs = raw
-        .get("data")
+    let raw_refs = data
         .and_then(|data| data.get("refs"))
         .cloned()
         .unwrap_or_else(|| json!({}));
     let (snapshot, truncated) = truncate_snapshot(snapshot_text);
     let (refs, element_count, refs_truncated) = normalize_snapshot_refs(raw_refs);
+    let element_count = adapter_element_count
+        .unwrap_or(element_count)
+        .max(element_count);
     Ok(json!({
         "success": true,
         "snapshot": snapshot,
         "full": full,
         "element_count": element_count,
         "refs": refs,
-        "truncated": truncated,
-        "refs_truncated": refs_truncated,
+        "truncated": truncated || adapter_truncated,
+        "refs_truncated": refs_truncated || adapter_refs_truncated,
     }))
 }
 
@@ -622,7 +636,15 @@ case "$command_name" in
     printf '{"success":true,"data":{"url":"%s"}}\n' "$last"
     ;;
   snapshot)
-    printf '{"success":true,"data":{"snapshot":"Page heading\n[@e1] Search\n[@e2] Submit","refs":{"@e1":{"role":"textbox"},"@e2":{"role":"button"}}}}\n'
+    if [ -f "$script_root/snapshot-truncated" ]; then
+      cat <<'EOF'
+{"success":true,"data":{"snapshot":"Page heading\n[@e1] Search","refs":{"@e1":{"role":"textbox"}},"element_count":77,"truncated":true,"refs_truncated":true}}
+EOF
+    else
+      cat <<'EOF'
+{"success":true,"data":{"snapshot":"Page heading\n[@e1] Search\n[@e2] Submit","refs":{"@e1":{"role":"textbox"},"@e2":{"role":"button"}}}}
+EOF
+    fi
     ;;
   click)
     printf '{"success":true,"data":{"clicked":"%s"}}\n' "$last"
@@ -926,6 +948,29 @@ esac
         let line = fs::read_to_string(&log_path).unwrap();
         assert!(line.contains("--session cdp-session"));
         assert!(line.contains("--cdp http://127.0.0.1:9222"));
+    }
+
+    #[tokio::test]
+    async fn browser_snapshot_preserves_adapter_truncation_flags() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        fs::write(temp.path().join("snapshot-truncated"), "1").unwrap();
+
+        let manager = BrowserManager::new();
+        BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com" }))
+            .await
+            .unwrap();
+        let output = BrowserActionHandler::new(manager, BrowserAction::Snapshot)
+            .execute(&json!({}))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["element_count"], json!(77));
+        assert_eq!(parsed["truncated"], json!(true));
+        assert_eq!(parsed["refs_truncated"], json!(true));
     }
 
     #[tokio::test]

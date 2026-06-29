@@ -217,6 +217,9 @@ struct BrowserUseAdapterPlan3Tests {
             "\"result_truncated\"",
             "browser_get_images_preserves_page_truncation_flag",
             "browser_console_preserves_adapter_eval_truncation_flag",
+            "adapter_refs_truncated",
+            "adapter_element_count",
+            "browser_snapshot_preserves_adapter_truncation_flags",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }

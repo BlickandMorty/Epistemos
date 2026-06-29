@@ -182,8 +182,8 @@ validated before runtime import and must be loopback-only with no URL credential
   localhost, 127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. The browser output
   policy uses `agent_core/src/tools/browser_output.rs` for normalization and bounds: `browser_get_images` asks the page
   for a pre-capped image payload, normalizes page-controlled image metadata, caps returned image count, truncates image
-  text fields, and preserves page/adapter truncation flags; `browser_snapshot` caps snapshot text and derives refs only
-  from that bounded text before returning capped refs;
+  text fields, and preserves page/adapter truncation flags; `browser_snapshot` caps snapshot text, derives refs only
+  from that bounded text, and preserves adapter truncation flags before returning capped refs;
   and `browser_console` caps page-controlled
   console/error/evaluation arrays, object fields, and strings before returning tool output. Direct adapter `eval`
   responses also cap nested result arrays, object fields, keys, and strings before returning JSON. Browser URL result fields from
