@@ -6,7 +6,8 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 16:17 CDT (loop cycle 2) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. Greps for #6/#8 made case/phrasing-honest (the doctrine match was always real; the old grep was just too narrow to surface it). HEAD at pass: `43f5cf6c0`.
+**Last auditor pass:** 2026-06-29 16:26 CDT (loop cycle 3) — **10/10 ✅**, 0 new drift, 0 new OWNER REVIEW. No canon/prompt docs changed since cycle 2; build agents now editing CODE (Plan-1 AgentSurface, Plan-2 MarkEdit, Plan-3 Arxiv WIP) — auditor observes, never touches code. Honest #6/#8 greps confirm doctrine+prompts. HEAD at pass: `3e6384c1b`.
+<br>_(cycle 2, 16:17: made #6/#8 greps case/phrasing-honest — doctrine match was always real, old grep too narrow.)_
 
 ## INVARIANTS (the locked truths — each agent's docs must agree with these)
 Run each `Check` from repo root; the Pass condition is what a consistent canon returns.
