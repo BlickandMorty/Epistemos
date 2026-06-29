@@ -154,6 +154,10 @@ nonisolated struct BrowserUseRuntimeProcessHandle {
 }
 
 typealias BrowserUseRuntimeProcessLauncher = (BrowserUseRuntimeLaunchPlan) throws -> BrowserUseRuntimeProcessHandle
+typealias BrowserUseRuntimeHealthProbe = @Sendable (
+    _ plan: BrowserUseRuntimeLaunchPlan,
+    _ shouldCancel: @Sendable () -> Bool
+) throws -> Void
 
 private enum BrowserUseRuntimeArtifactKind {
     case file
@@ -225,7 +229,33 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
     }
 }
 
+nonisolated private final class BrowserUseLoopbackHealthProbeResult: @unchecked Sendable {
+    private let lock = NSLock()
+    private var problem: String?
+    private var hasResult = false
+
+    func store(problem: String?) {
+        lock.lock()
+        self.problem = problem
+        hasResult = true
+        lock.unlock()
+    }
+
+    func loadProblem() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard hasResult else {
+            return "health probe returned no result"
+        }
+        return problem
+    }
+}
+
 nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
+    private static let healthProbeDeadlineSeconds: TimeInterval = 20
+    private static let healthProbeRequestTimeoutSeconds: TimeInterval = 1
+    private static let healthProbePollIntervalSeconds: TimeInterval = 0.25
+
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
         "HOME",
@@ -243,6 +273,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private let secretStore: BrowserUseSecretStore
     private let fileManager: FileManager
     private let launchProcess: BrowserUseRuntimeProcessLauncher
+    private let healthProbe: BrowserUseRuntimeHealthProbe
     private let lifecycleLock = NSLock()
 
     #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -253,7 +284,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         paths: BrowserUseRuntimePaths? = BrowserUseRuntimePaths.defaultPaths(),
         secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
         fileManager: FileManager = .default,
-        launchProcess: @escaping BrowserUseRuntimeProcessLauncher = BrowserUseRuntimeSupervisor.defaultLaunchProcess
+        launchProcess: @escaping BrowserUseRuntimeProcessLauncher = BrowserUseRuntimeSupervisor.defaultLaunchProcess,
+        healthProbe: @escaping BrowserUseRuntimeHealthProbe = BrowserUseRuntimeSupervisor.defaultHealthProbe
     ) {
         guard let paths else {
             return nil
@@ -262,18 +294,21 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         self.secretStore = secretStore
         self.fileManager = fileManager
         self.launchProcess = launchProcess
+        self.healthProbe = healthProbe
     }
 
     init(
         paths: BrowserUseRuntimePaths,
         secretStore: BrowserUseSecretStore = BrowserUseSecretStore(),
         fileManager: FileManager = .default,
-        launchProcess: @escaping BrowserUseRuntimeProcessLauncher = BrowserUseRuntimeSupervisor.defaultLaunchProcess
+        launchProcess: @escaping BrowserUseRuntimeProcessLauncher = BrowserUseRuntimeSupervisor.defaultLaunchProcess,
+        healthProbe: @escaping BrowserUseRuntimeHealthProbe = BrowserUseRuntimeSupervisor.defaultHealthProbe
     ) {
         self.paths = paths
         self.secretStore = secretStore
         self.fileManager = fileManager
         self.launchProcess = launchProcess
+        self.healthProbe = healthProbe
     }
 
     func readiness(
@@ -333,7 +368,15 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             throw BrowserUseRuntimeSupervisorError.appStoreBuild
             #else
             stopLocked()
-            process = try launchProcess(plan)
+            let launchedProcess = try launchProcess(plan)
+            process = launchedProcess
+            do {
+                try healthProbe(plan, shouldCancel)
+            } catch {
+                launchedProcess.terminate()
+                process = nil
+                throw error
+            }
             return plan
             #endif
         }
@@ -366,6 +409,83 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             runtime.terminate()
         }
         #endif
+    }
+
+    private static func defaultHealthProbe(
+        _ plan: BrowserUseRuntimeLaunchPlan,
+        _ shouldCancel: @Sendable () -> Bool
+    ) throws {
+        guard BrowserUseLoopbackPolicy.allows(url: plan.loopbackURL) else {
+            throw BrowserUseRuntimeSupervisorError.unavailable(
+                "browser-use Pro Web UI health probe refused non-loopback URL \(plan.loopbackURL.absoluteString)"
+            )
+        }
+
+        let deadline = Date().addingTimeInterval(healthProbeDeadlineSeconds)
+        var lastProblem = "timed out waiting for loopback response"
+        while Date() < deadline {
+            if shouldCancel() {
+                throw CancellationError()
+            }
+            if let problem = loopbackHealthProblem(for: plan.loopbackURL, timeout: healthProbeRequestTimeoutSeconds) {
+                lastProblem = problem
+            } else {
+                return
+            }
+            Thread.sleep(forTimeInterval: healthProbePollIntervalSeconds)
+        }
+
+        throw BrowserUseRuntimeSupervisorError.unavailable(
+            "browser-use Pro Web UI health probe failed at \(plan.loopbackURL.absoluteString): \(lastProblem)"
+        )
+    }
+
+    private static func loopbackHealthProblem(for url: URL, timeout: TimeInterval) -> String? {
+        guard BrowserUseLoopbackPolicy.allows(url: url) else {
+            return "non-loopback URL"
+        }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = BrowserUseLoopbackHealthProbeResult()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.timeoutIntervalForResource = timeout
+        configuration.urlCache = nil
+        let session = URLSession(configuration: configuration)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.timeoutInterval = timeout
+        request.setValue("Epistemos-browser-use-health", forHTTPHeaderField: "User-Agent")
+
+        let task = session.dataTask(with: request) { _, response, error in
+            defer { semaphore.signal() }
+            if let error {
+                result.store(problem: "request failed: \(error.localizedDescription)")
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                result.store(problem: "response was not HTTP")
+                return
+            }
+
+            if (200..<500).contains(httpResponse.statusCode) {
+                result.store(problem: nil)
+            } else {
+                result.store(problem: "HTTP \(httpResponse.statusCode)")
+            }
+        }
+        task.resume()
+
+        if semaphore.wait(timeout: .now() + timeout + 0.25) == .timedOut {
+            task.cancel()
+            session.invalidateAndCancel()
+            return "timed out waiting for loopback response"
+        }
+
+        session.finishTasksAndInvalidate()
+        return result.loadProblem()
     }
 
     static func readiness(

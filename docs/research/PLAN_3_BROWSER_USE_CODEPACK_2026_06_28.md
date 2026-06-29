@@ -77,7 +77,9 @@ the browser-use gate plus staged payload artifacts, builds the exact `web-ui/web
 --theme Ocean` loopback plan, rejects non-executable Python, file/directory artifact shape mismatches, and runtime
 artifact symlink escapes before launch planning, writes the Keychain-combined launch `.env` under Application Support
 with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
-secrets are written, and compiles the actual `Process()` launch only in
+secrets are written, launches the Pro process only after an injected loopback health probe can validate
+`http://127.0.0.1:<port>/`, terminates the launched process if the loopback health probe fails, and compiles the actual
+`Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
 Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload when present, then falls back to the
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.
@@ -297,7 +299,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   launch planning, rejects launch `.env` paths below symlinked parent directories before secrets are written, verifies
   bundled `BrowserUsePro/` resources are preferred over source-checkout discovery, verifies ambient process
   secrets/injection variables are not inherited, verifies dotenv loading is disabled for exact Keychain-rendered values,
-  and verifies the subprocess branch is Pro-only.
+  verifies a failed loopback health probe terminates the launched process before surfacing a bounded error, and verifies
+  the subprocess branch is Pro-only.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
   non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, tears down delegates, and proves it does not reference native Browser, Goose/Agent, or Plan 2 editor/PDF
@@ -325,7 +328,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 4. Add `BrowserUseProGateStatus` + Settings gate; MAS says Pro only. **Gate, diagnostic Settings surface, and
    settings/env contract landed.**
 5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
-   full UI smoke still pending.**
+   loopback health gating landed; full UI smoke still pending.**
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
    **Source-only adapter contract, Rust discovery wiring, and live tool smoke landed.**
 7. Run the full Pro smoke suite, then the MAS boundary audit.

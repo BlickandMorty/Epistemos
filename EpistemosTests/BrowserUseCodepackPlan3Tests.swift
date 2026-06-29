@@ -107,6 +107,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("rejects final symlinks plus symlink components in parent paths"))
         #expect(codepack.contains("rejecting symlinked env directories/files and symlinked parent components"))
         #expect(codepack.contains("rejects launch `.env` paths below symlinked parent directories before secrets are written"))
+        #expect(codepack.contains("loopback health probe"))
+        #expect(codepack.contains("terminates the launched process if the loopback health probe fails"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("keeps console/errors compatibility stubs runtime"))
@@ -314,6 +316,7 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseRuntimeReadiness",
             "BrowserUseEnvironmentFileWriter",
+            "BrowserUseRuntimeHealthProbe",
             "BrowserUseLoopbackPolicy.loopbackURL",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
@@ -325,6 +328,11 @@ struct BrowserUseCodepackPlan3Tests {
             "shouldCancel: @Sendable () -> Bool",
             "throw CancellationError()",
             "stopLocked()",
+            "private static func defaultHealthProbe",
+            "loopbackHealthProblem(for:",
+            "BrowserUseLoopbackPolicy.allows(url:",
+            "try healthProbe(plan, shouldCancel)",
+            "launchedProcess.terminate()",
             "web-ui entrypoint",
             "BUILD_MANIFEST.json",
             "wheelhouse",
@@ -345,7 +353,6 @@ struct BrowserUseCodepackPlan3Tests {
 
         for forbidden in [
             "NSWorkspace",
-            "URLSession",
             "BrowserView(",
             "WebKitBrowserEngine",
             "Epistemos/Goose",

@@ -260,7 +260,8 @@ struct BrowserUseRuntimeSupervisorTests {
                 return BrowserUseRuntimeProcessHandle {
                     process.terminate()
                 }
-            }
+            },
+            healthProbe: { _, _ in }
         )
 
         try supervisor.start(processEnvironment: [BrowserUseProGateStatus.flagName: "1"])
@@ -273,6 +274,49 @@ struct BrowserUseRuntimeSupervisorTests {
 
         supervisor.stop()
         #expect(secondProcess.terminationCount == 1)
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("start terminates launched Pro runtime when loopback health probe fails")
+    func startTerminatesLaunchedProRuntimeWhenLoopbackHealthProbeFails() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        let launchedProcess = FakeBrowserUseRuntimeProcess()
+        var launchedPlans: [BrowserUseRuntimeLaunchPlan] = []
+        let supervisor = BrowserUseRuntimeSupervisor(
+            paths: paths,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            launchProcess: { plan in
+                launchedPlans.append(plan)
+                return BrowserUseRuntimeProcessHandle {
+                    launchedProcess.terminate()
+                }
+            },
+            healthProbe: { plan, _ in
+                throw BrowserUseRuntimeSupervisorError.unavailable(
+                    "browser-use Pro Web UI health probe failed at \(plan.loopbackURL.absoluteString): synthetic failure"
+                )
+            }
+        )
+
+        do {
+            try supervisor.start(processEnvironment: [BrowserUseProGateStatus.flagName: "1"])
+            Issue.record("Expected browser-use runtime start to fail when health probe fails")
+        } catch let error as BrowserUseRuntimeSupervisorError {
+            #expect(error.errorDescription?.contains("health probe failed") == true)
+            #expect(error.errorDescription?.contains("synthetic failure") == true)
+        } catch {
+            Issue.record("Expected BrowserUseRuntimeSupervisorError, got \(error)")
+        }
+
+        #expect(launchedPlans.count == 1)
+        #expect(launchedProcess.terminationCount == 1)
+        supervisor.stop()
+        #expect(launchedProcess.terminationCount == 1)
         #else
         #expect(true)
         #endif
@@ -322,6 +366,7 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseRuntimePaths",
             "BrowserUseRuntimeLaunchPlan",
             "BrowserUseEnvironmentFileWriter",
+            "BrowserUseRuntimeHealthProbe",
             "BrowserUseRuntimeArtifactKind",
             "BrowserUseRuntimeArtifactRequirement",
             "isExecutableFile(atPath:",
@@ -341,9 +386,15 @@ struct BrowserUseRuntimeSupervisorTests {
             "throw CancellationError()",
             "rejectEnvironmentSymlink",
             "browser-use environment \\(label) must not be a symlink",
+            "private static func defaultHealthProbe",
+            "loopbackHealthProblem(for:",
+            "BrowserUseLoopbackPolicy.allows(url:",
+            "try healthProbe(plan, shouldCancel)",
+            "launchedProcess.terminate()",
             "stop()",
             "stopLocked()",
-            "process = try launchProcess(plan)",
+            "let launchedProcess = try launchProcess(plan)",
+            "process = launchedProcess",
             "private static func defaultLaunchProcess",
             "let runtime = Process()",
             "runtime.executableURL = plan.pythonExecutableURL",
@@ -356,7 +407,6 @@ struct BrowserUseRuntimeSupervisorTests {
 
         for forbidden in [
             "NSWorkspace",
-            "URLSession",
             "BrowserView(",
             "WebKitBrowserEngine",
             "Epistemos/Goose",
