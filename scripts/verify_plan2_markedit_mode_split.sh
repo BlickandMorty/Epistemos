@@ -30,13 +30,11 @@ require_not_contains() {
 
 code_editor="${ROOT_DIR}/Epistemos/Views/Notes/CodeEditorView.swift"
 adapter="${ROOT_DIR}/Epistemos/Views/Notes/MarkEditCoreEditorView.swift"
-legacy_webkit="${ROOT_DIR}/Epistemos/Views/Notes/WebKitCodeEditorView.swift"
 codepack="${ROOT_DIR}/docs/research/MARKEDIT_EMBED_CODEPACK_2026_06_27.md"
 canonical="${ROOT_DIR}/docs/research/EDITOR_CANONICAL_PLAN_2026_06_27.md"
 
 require_file "${code_editor}"
 require_file "${adapter}"
-require_file "${legacy_webkit}"
 require_file "${codepack}"
 require_file "${canonical}"
 
@@ -56,9 +54,11 @@ require_not_contains "${code_editor}" "WebKitCodeEditorView("
 require_not_contains "${code_editor}" "CodeEditSourceEditor"
 require_not_contains "${code_editor}" "SourceEditor("
 require_not_contains "${code_editor}" "useNativeSourceEditorFallback"
+require_not_contains "${code_editor}" "WebKitCodeEditor"
 
 require_contains "${adapter}" "struct MarkEditCodeEditorRepresentable"
 require_contains "${adapter}" "struct MarkEditMarkdownEditorRepresentable"
+require_contains "${adapter}" "struct CoreEditorSelectionRequest"
 require_contains "${adapter}" "MarkEditVerbatimMarkdownChromeRepresentable"
 require_contains "${adapter}" "makeNSViewController(context: Context) -> EditorViewController"
 require_contains "${adapter}" "MarkEditCoreEditorChunkLoader"
@@ -67,7 +67,10 @@ require_contains "${adapter}" "Bundle.main.url(forResource: \"index\", withExten
 require_contains "${adapter}" "invisiblesBehavior: showInvisibles ? \"always\" : \"never\""
 require_contains "${adapter}" "tabKeyBehavior: tabKeyBehavior"
 require_contains "${adapter}" "indentUnit: indentUnit"
-require_contains "${legacy_webkit}" "struct WebKitCodeEditorView"
+
+if [ -f "${ROOT_DIR}/Epistemos/Views/Notes/WebKitCodeEditorView.swift" ]; then
+  fail "legacy WebKitCodeEditorView.swift should have been deleted"
+fi
 
 if [ -d "${APP_RESOURCES_DIR}" ]; then
   index_html="${APP_RESOURCES_DIR}/index.html"

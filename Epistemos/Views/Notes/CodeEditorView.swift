@@ -1604,7 +1604,7 @@ struct CodeEditorView: View {
     @State private var semanticRefreshTask: Task<Void, Never>?
     @State private var semanticLookupTask: Task<Void, Never>?
     @State private var contentDebouncer: CodeEditorContentDebouncer?
-    @State private var webKitSelectionRequest: WebKitCodeEditorSelectionRequest?
+    @State private var coreEditorSelectionRequest: CoreEditorSelectionRequest?
     
     // MARK: - Editor Preferences (persisted via AppStorage)
     
@@ -1612,7 +1612,7 @@ struct CodeEditorView: View {
     // Minimap removed — outline navigator replaces it
     @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
     // Keep the code surface at the native-editor scale by default. The
-    // WebKit editor owns rendering now, but code notes should still feel like
+    // CoreEditor owns rendering now, but code notes should still feel like
     // a Mac code editor rather than a compact web preview panel.
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
@@ -1807,7 +1807,7 @@ struct CodeEditorView: View {
                 showInvisibles: showInvisibles,
                 useSpaces: useSpaces,
                 tabWidth: tabWidth,
-                selectionRequest: webKitSelectionRequest
+                selectionRequest: coreEditorSelectionRequest
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
@@ -2039,7 +2039,7 @@ struct CodeEditorView: View {
         let starts = CodeEditorLineMetrics.lineStartUTF16Offsets(in: text)
         let index = min(max(line - 1, 0), max(starts.count - 1, 0))
         let location = starts.isEmpty ? 0 : starts[index]
-        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(
+        coreEditorSelectionRequest = CoreEditorSelectionRequest(
             range: NSRange(location: location, length: 0)
         )
     }
@@ -2080,7 +2080,7 @@ struct CodeEditorView: View {
             showInvisibles: showInvisibles,
             useSpaces: useSpaces,
             tabWidth: tabWidth,
-            selectionRequest: webKitSelectionRequest
+            selectionRequest: coreEditorSelectionRequest
         )
     }
 
@@ -2538,7 +2538,7 @@ struct CodeEditorView: View {
         }
 
         activeSearchRange = match
-        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: match)
+        coreEditorSelectionRequest = CoreEditorSelectionRequest(range: match)
     }
 
     // MARK: - Semantic LSP Lookup
@@ -2633,7 +2633,7 @@ struct CodeEditorView: View {
                     if definition.uri == documentURI,
                        let definitionRange = CodeEditorSemanticLSP.nsRange(for: definition.range, in: textSnapshot) {
                         activeSearchRange = nil
-                        webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: definitionRange)
+                        coreEditorSelectionRequest = CoreEditorSelectionRequest(range: definitionRange)
                         cursorLine = lineNumber
                         cursorCol = definition.range.start.character + 1
                         semanticStatusMessage = "Definition selected at line \(lineNumber)."

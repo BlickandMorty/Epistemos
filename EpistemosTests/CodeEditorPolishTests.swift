@@ -383,7 +383,7 @@ nonisolated struct CodeEditorPolishTests {
 
         #expect(source.contains("CodeEditorSearchEngine.find("),
                 "The visible find bar must execute a real wrapped search instead of only accepting query text.")
-        #expect(source.contains("webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: match)"),
+        #expect(source.contains("coreEditorSelectionRequest = CoreEditorSelectionRequest(range: match)"),
                 "Search results must be selected through the shared CoreEditor bridge.")
         #expect(source.contains("activeSearchRange = nil"),
                 "Changing text/query/case should invalidate the stale search anchor.")
@@ -532,7 +532,7 @@ nonisolated struct CodeEditorPolishTests {
                 "The verified LSP definition substrate should be reachable through an explicit user action.")
         #expect(source.contains("try await client.definition("),
                 "Definition lookup must call the real LSP definition request.")
-        #expect(source.contains("webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: definitionRange)"),
+        #expect(source.contains("coreEditorSelectionRequest = CoreEditorSelectionRequest(range: definitionRange)"),
                 "Same-file definitions must select the real definition range through the CoreEditor bridge.")
     }
 

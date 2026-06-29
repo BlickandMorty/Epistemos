@@ -12,6 +12,11 @@ nonisolated enum MarkEditCoreEditorBridge {
     static let resourceSubpath = "CoreEditor"
 }
 
+struct CoreEditorSelectionRequest: Equatable {
+    let id = UUID()
+    let range: NSRange
+}
+
 struct MarkEditCodeEditorRepresentable: View {
     @Binding var text: String
     @Binding var cursorLine: Int
@@ -26,7 +31,7 @@ struct MarkEditCodeEditorRepresentable: View {
     var showInvisibles: Bool
     var useSpaces: Bool
     var tabWidth: Int
-    var selectionRequest: WebKitCodeEditorSelectionRequest?
+    var selectionRequest: CoreEditorSelectionRequest?
 
     var body: some View {
         MarkEditCoreEditorRepresentable(
@@ -60,7 +65,7 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var showInvisibles: Bool
     var useSpaces: Bool
     var tabWidth: Int
-    var selectionRequest: WebKitCodeEditorSelectionRequest?
+    var selectionRequest: CoreEditorSelectionRequest?
 
     var body: some View {
         #if canImport(MarkEditKit)
@@ -248,7 +253,7 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
     var showInvisibles: Bool
     var useSpaces: Bool
     var tabWidth: Int
-    var selectionRequest: WebKitCodeEditorSelectionRequest?
+    var selectionRequest: CoreEditorSelectionRequest?
 
     func makeCoordinator() -> MarkEditCoreEditorCoordinator {
         MarkEditCoreEditorCoordinator(
@@ -363,7 +368,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
     func update(
         webView: WKWebView,
         state: MarkEditCoreEditorState,
-        selectionRequest: WebKitCodeEditorSelectionRequest?
+        selectionRequest: CoreEditorSelectionRequest?
     ) {
         if hasLoadedEditor {
             apply(state: state, to: webView)
@@ -400,7 +405,7 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
         }
     }
 
-    private func apply(selectionRequest: WebKitCodeEditorSelectionRequest?, to webView: WKWebView) {
+    private func apply(selectionRequest: CoreEditorSelectionRequest?, to webView: WKWebView) {
         guard let selectionRequest,
               selectionRequest.id != lastSelectionRequestID else { return }
         lastSelectionRequestID = selectionRequest.id
