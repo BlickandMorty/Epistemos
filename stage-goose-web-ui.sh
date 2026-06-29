@@ -3198,12 +3198,20 @@ const filesAnchor = `    const files = e.dataTransfer.files;
 const filesReplacement = `    const files = e.dataTransfer.files;
     const nativePaths = nativeFilePathsFromDataTransfer(e.dataTransfer);
     if (files.length > 0) {`;
-if (fileDropSource.includes(filesAnchor)) {
+// #7/#20: marker-guarded hard-fail (idempotent on re-stage, but FAILS LOUDLY if upstream
+// drifts) instead of silently no-opping the native drag-drop path resolution.
+if (!fileDropSource.includes('nativeFilePathsFromDataTransfer(e.dataTransfer)')) {
+  if (!fileDropSource.includes(filesAnchor)) {
+    throw new Error('useFileDrop files anchor not found');
+  }
   fileDropSource = fileDropSource.replace(filesAnchor, filesReplacement);
 }
 const pathAnchor = `          const path = window.electron.getPathForFile(file);`;
 const pathReplacement = `          const path = nativePaths[i] || window.electron.getPathForFile(file);`;
-if (fileDropSource.includes(pathAnchor)) {
+if (!fileDropSource.includes('nativePaths[i] ||')) {
+  if (!fileDropSource.includes(pathAnchor)) {
+    throw new Error('useFileDrop path anchor not found');
+  }
   fileDropSource = fileDropSource.replace(pathAnchor, pathReplacement);
 }
 fs.writeFileSync(fileDropPath, fileDropSource);
