@@ -142,6 +142,7 @@ struct BrowserUseAdapterPlan3Tests {
     func rustBrowserToolsDiscoverBundledAdapterBeforePathFallback() throws {
         let browserTool = try loadMirroredSourceTextFile("agent_core/src/tools/browser.rs")
         let browserPrivate = try loadMirroredSourceTextFile("agent_core/src/tools/browser_private.rs")
+        let browserRedaction = try loadMirroredSourceTextFile("agent_core/src/tools/browser_redaction.rs")
         let registry = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
 
         for required in [
@@ -158,13 +159,6 @@ struct BrowserUseAdapterPlan3Tests {
             "create_private_browser_dir(",
             "not an executable file",
             "PYTHON_DOTENV_DISABLED",
-            "contains_secret_assignment",
-            "redacts_following_auth_value",
-            "access_token",
-            "x-api-key",
-            "opaqueBearerValue",
-            "compact-bearer",
-            "browser_error_redaction_covers_secret_assignment_variants",
             "AGENT_BROWSER_SCREENSHOT_DIR",
             "AGENT_BROWSER_SCREENSHOT_DIR_ENV",
             "screenshot_directory()",
@@ -194,6 +188,19 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_private_directories_reject_symlink_targets",
         ] {
             #expect(browserPrivate.contains(required), "Missing browser private-dir policy string: \(required)")
+        }
+
+        for required in [
+            "redact_browser_error_detail",
+            "contains_secret_assignment",
+            "redacts_following_auth_value",
+            "access_token",
+            "x-api-key",
+            "opaqueBearerValue",
+            "compact-bearer",
+            "browser_error_redaction_covers_secret_assignment_variants",
+        ] {
+            #expect(browserRedaction.contains(required), "Missing browser redaction policy string: \(required)")
         }
 
         let adapterIndex = try #require(browserTool.range(of: "browser_use_adapter")?.lowerBound)
