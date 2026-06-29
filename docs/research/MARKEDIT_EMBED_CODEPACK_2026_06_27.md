@@ -35,16 +35,16 @@ Epistemos equivalent and PORT the hardening config across:**
 **Rule: a MarkEdit capability that lived in a dropped item must reappear via its Epistemos equivalent (ported), or be
 explicitly listed as a deliberate loss (only the 2 `.appex` Finder bits). No silent loss.**
 
-## 0. ★ DISCOVERY — Epistemos's CURRENT code editor is a plain textarea with highlighting DISABLED
-Three impls on disk; only one is live:
-- **LIVE: `Epistemos/Views/Notes/WebKitCodeEditorView.swift`** — an `NSViewRepresentable` over a `WKWebView`
+## 0. ★ DISCOVERY — Epistemos's PRE-SWAP code editor was a plain textarea with highlighting DISABLED
+Historical pre-swap state before the Plan 2 MarkEdit replacement:
+- **REMOVED: `Epistemos/Views/Notes/WebKitCodeEditorView.swift`** — was an `NSViewRepresentable` over a `WKWebView`
   hosting a `<textarea id="source">` + aria-hidden `<pre id="highlight">` overlay. **It is NOT CodeMirror.**
   The highlighter is **dead code** — `renderHighlight()` starts with a bare `return;` (line 757) — so it's
   effectively a monospace textarea with a line-number gutter + status line. Bridge = one handler
   `epistemosCodeEditor` (`ready`/`change`/`cursor`); loads `epistemos-doc:///code-editor.html` via the SHARED
   `EpdocEditorURLSchemeHandler`. `CodeEditorView.usesWebKitEditor` is hardcoded `true` (`:1831`).
-- DORMANT fallback: `CodeEditSourceEditor` (TextKit/tree-sitter) — compiled, gated off, self-heals to off.
-- SCAFFOLD: `LiveCodeEditorController` (+ `SwiftTreeSitterLiveHighlighter`) — no production view binds it.
+- **REMOVED fallback:** `CodeEditSourceEditor` (TextKit/tree-sitter) — was compiled, gated off, self-healed to off.
+- **REMOVED scaffold:** `LiveCodeEditorController` (+ `SwiftTreeSitterLiveHighlighter`) — no production view bound it.
 
 **So MarkEdit's real CodeMirror 6 is a strict upgrade of the SURFACE.** And Epistemos's surrounding *chrome*
 is genuinely nice and worth keeping: `CodeEditorView` provides a native SwiftUI top bar (file/lang/Ln-Col,

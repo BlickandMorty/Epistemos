@@ -128,9 +128,8 @@ nonisolated public enum CodeArtifactKind: String, Codable, Sendable, Hashable, C
 
     // MARK: - Tree-sitter grammar
 
-    /// Identifier the SwiftTreeSitter loader uses to look up the
-    /// grammar bundle. `nil` for languages we can't currently
-    /// highlight (W9.6 follow-up may add).
+    /// Tree-sitter grammar identifier used by syntax-aware code paths.
+    /// `nil` for languages we cannot currently highlight.
     public var treeSitterGrammar: String? {
         switch self {
         case .swift:      return "swift"

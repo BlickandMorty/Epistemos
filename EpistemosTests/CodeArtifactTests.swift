@@ -52,7 +52,7 @@ nonisolated struct CodeArtifactTests {
         ]
         for kind in highlightable {
             #expect(kind.treeSitterGrammar != nil,
-                    "\(kind) must declare a tree-sitter grammar id (W9.6 SwiftTreeSitter loader uses it)")
+                    "\(kind) must declare a tree-sitter grammar id for syntax-aware code paths")
         }
         #expect(CodeArtifactKind.plain.treeSitterGrammar == nil,
                 ".plain must not have a grammar — it's the no-highlight fallback")

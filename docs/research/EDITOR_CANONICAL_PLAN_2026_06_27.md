@@ -49,9 +49,10 @@ strictness as the Goose plan's R-CODEREVIEW:
   `custom(px:)` path to satisfy the slider half of L2 (an explicit ADD, not yet in the codepacks).
 - **L3. CODE editor v2 = MarkEdit CoreEditor; DELETE the 3 OLD code-editor files once v2 is runtime-verified.**
   (Owner clarified 2026-06-27: the "delete nothing" was a mis-scope — the owner DOES want the dead **code**-editor
-  files gone.) Replace `WebKitCodeEditorView` (the disabled-highlighting textarea) + dormant `CodeEditSourceEditor`
-  + scaffold `LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` with the MarkEdit CoreEditor engine
-  ("code editor v2"). **Deletion gate (the one safety rule):** delete ONLY after a MANUAL real-app run confirms v2
+  files gone.) Plan 2 replaces `WebKitCodeEditorView` (the disabled-highlighting textarea) + dormant
+  `CodeEditSourceEditor` wiring + scaffold `LiveCodeEditorController`/`SwiftTreeSitterLiveHighlighter` with the
+  MarkEdit CoreEditor engine ("code editor v2"). **Deletion gate (the one safety rule):** delete ONLY after a
+  MANUAL real-app run confirms v2
   types + highlights + saves (the textarea "works" headlessly too, it just doesn't highlight); commit deletions
   separately (easy revert). **SCOPE: code editor ONLY.** The NOTE editor (Epdoc/TipTap) and Prose/TK2 are NEVER
   touched. This matches the R-CODEREVIEW deletion guardrail: provably-dead + not-in-flight + verified-replacement.
@@ -234,10 +235,9 @@ Stage gates; each is independently shippable where possible. Goose-dependent ite
    Epistemos's code chrome INCLUDING the Live-Preview/HTML preview button (`HTMLWorkspacePreviewView` — preserve
    it); MD files host MarkEdit's `EditorViewController` chrome VERBATIM (toolbar/panels/Previewer/Settings). One
    CoreEditor engine, one `isMarkdownDocument` branch picks the chrome. Graft native Find/FontPicker/Statistics;
-   full Settings inert. **Then (L3) — after a MANUAL real-app verify of v2 (types +
-   highlights + saves) — DELETE the 3 old code-editor files** (`WebKitCodeEditorView`/`CodeEditSourceEditor`/
-   `LiveCodeEditorController`+`SwiftTreeSitterLiveHighlighter`), commit separately. NOTE editor (Epdoc) + Prose/TK2
-   untouched.
+   full Settings inert. **Plan 2 checkpoint:** after v2 runtime verification, the old code-editor files were
+   deleted in separate commits (`WebKitCodeEditorView`, dormant `CodeEditSourceEditor` wiring, and
+   `LiveCodeEditorController`+`SwiftTreeSitterLiveHighlighter` scaffold). NOTE editor (Epdoc) + Prose/TK2 untouched.
 6. **[M] Views + Type registry + incremental crawl** (codepack 4a) over GRDB/graph/shadow.
 7. **[L, Phase-0 gated] Goose minichat** (codepack 4d): build the note-context plumbing now; flip the live
    agent surface after Goose §7 sign-off. Close the 3 Goose-boundary gaps. Provenance EditClaim wiring.

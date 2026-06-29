@@ -1,11 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Transitive SwiftLint build-tool plugins in CodeEditSourceEditor/CodeEditTextView
-# still fail under Xcode 16 after successful linting because their prebuild
-# command declares an Output directory they never create. The plugin only honors
-# DISABLE_SWIFTLINT when it is present in the process environment, not as an
-# xcodebuild build setting.
+# Some transitive SwiftLint build-tool plugins still fail under Xcode 16 after
+# successful linting because their prebuild command declares an Output directory
+# they never create. The plugin only honors DISABLE_SWIFTLINT when it is present
+# in the process environment, not as an xcodebuild build setting.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 local_model_sweep_override_file="/tmp/epi-local-model-sweep-models.txt"
 local_model_sweep_override_backup=""

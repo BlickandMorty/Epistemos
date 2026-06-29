@@ -1,9 +1,9 @@
 // CodeLineGutter.swift
 //
-// Right-side line-number gutter for the code editor. Modeled directly on
-// SegmentedIndentationGuideView's pattern: an NSView added as a subview of
-// CodeEditSourceEditor's NSTextView, with scroll offset applied at draw time
-// so it stays in lockstep with the editor without per-frame allocation.
+// Right-side line-number gutter for legacy TextKit preview/editor surfaces.
+// Modeled directly on SegmentedIndentationGuideView's pattern: an NSView added
+// as a text-view subview, with scroll offset applied at draw time so it stays
+// in lockstep with the editor without per-frame allocation.
 //
 // The gutter floats over the right edge of the text container — it does not
 // consume editor width. The editor body keeps its full width; we sit on top

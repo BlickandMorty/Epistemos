@@ -6,13 +6,11 @@ import os
 /// Owns an opaque `SyntaxDocument` pointer and provides viewport-scoped
 /// token generation via the C FFI. Behind `EPISTEMOS_USE_SYNTAX_CORE` flag.
 ///
-/// `nonisolated` so non-MainActor consumers (e.g. the W9.6
-/// SyntaxCoreLiveHighlighter, which conforms to the nonisolated
-/// `LiveHighlighter` protocol) can call into it without an isolation
-/// hop. The `@unchecked Sendable` conformance puts the burden on the
-/// caller to avoid concurrent `edit()` mutations on the same instance —
-/// the only existing call sites today are single-threaded so this is
-/// a safe contract.
+/// `nonisolated` so inspector/highlighter callers can opt into the
+/// syntax-core path without a MainActor hop. The `@unchecked Sendable`
+/// conformance puts the burden on the caller to avoid concurrent
+/// `edit()` mutations on the same instance; the only existing call
+/// sites today are single-threaded, so this is a safe contract.
 nonisolated final class SyntaxCoreService: @unchecked Sendable {
 
     static let useSyntaxCore: Bool = {
