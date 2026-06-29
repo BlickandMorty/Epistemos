@@ -14,6 +14,14 @@ struct LiteParseImportTests {
         // `##"…"##` so the `"#` inside `"# Title` doesn't close the raw string early.
         let result = LiteParseImportEnvelope.decode(##"{"ok":true,"markdown":"# Title\n\nbody"}"##)
         #expect(result == .markdown("# Title\n\nbody"))
+        #expect(
+            LiteParseImportEnvelope.decode(#"{"ok":true,"markdown":"   "}"#)
+                == .failed(LiteParseImportEnvelope.emptyMarkdownMessage)
+        )
+        #expect(
+            LiteParseImportEnvelope.decode(#"{"ok":true,"markdown":"*No content extracted.*"}"#)
+                == .failed(LiteParseImportEnvelope.emptyMarkdownMessage)
+        )
     }
 
     @Test("decodes the engine-not-wired error to .notWired")

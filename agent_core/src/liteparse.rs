@@ -87,10 +87,17 @@ fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
     Ok(())
 }
 
-#[cfg(feature = "edgeparse-pdf")]
+const NO_SUBSTANTIVE_TEXT_MESSAGE: &str = "\
+PDF text extraction produced no readable Markdown; scanned/image-only PDFs need OCR, \
+which is out of scope on the MAS path";
+
 fn markdown_is_substantive(markdown: &str) -> bool {
     let trimmed = markdown.trim();
     !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("*No content extracted.*")
+}
+
+fn no_substantive_text_error() -> LiteParseError {
+    LiteParseError::Failed(NO_SUBSTANTIVE_TEXT_MESSAGE.to_string())
 }
 
 /// The honest seam: a local PDF → Markdown. A non-PDF input is rejected with
@@ -158,21 +165,21 @@ fn unpdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
 #[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
 fn fallback_or_primary_empty(
     pdf_path: &str,
-    primary_markdown: String,
+    _primary_markdown: String,
 ) -> Result<String, LiteParseError> {
     match unpdf_to_markdown(pdf_path) {
         Ok(markdown) if markdown_is_substantive(&markdown) => Ok(markdown),
-        Ok(_) => Ok(primary_markdown),
-        Err(_) => Ok(primary_markdown),
+        Ok(_) => Err(no_substantive_text_error()),
+        Err(_) => Err(no_substantive_text_error()),
     }
 }
 
 #[cfg(all(feature = "edgeparse-pdf", not(feature = "parser-unpdf")))]
 fn fallback_or_primary_empty(
     _pdf_path: &str,
-    primary_markdown: String,
+    _primary_markdown: String,
 ) -> Result<String, LiteParseError> {
-    Ok(primary_markdown)
+    Err(no_substantive_text_error())
 }
 
 #[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
@@ -221,7 +228,11 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     let result = runtime
         .block_on(async { LiteParse::new(config).parse(pdf_path).await })
         .map_err(|e| LiteParseError::Failed(e.to_string()))?;
-    Ok(result.text)
+    if markdown_is_substantive(&result.text) {
+        Ok(result.text)
+    } else {
+        Err(no_substantive_text_error())
+    }
 }
 
 /// FFI: convert a local PDF to Markdown for the Swift import UI. Returns a JSON envelope
@@ -302,6 +313,15 @@ mod tests {
             Err(LiteParseError::Failed(_)) => {}
             other => panic!("expected Failed for a missing PDF, got {other:?}"),
         }
+    }
+
+    #[cfg(feature = "edgeparse-pdf")]
+    #[test]
+    fn empty_primary_markdown_after_fallback_is_honest_failure() {
+        assert_eq!(
+            fallback_or_primary_empty("/nonexistent/epistemos-empty-probe.pdf", String::new()),
+            Err(no_substantive_text_error())
+        );
     }
 
     #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]

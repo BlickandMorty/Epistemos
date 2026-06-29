@@ -17,6 +17,8 @@ nonisolated enum LiteParseImportResult: Equatable, Sendable {
 }
 
 nonisolated enum LiteParseImportEnvelope {
+    static let emptyMarkdownMessage = "PDF conversion produced no readable Markdown."
+
     /// Decode the `liteparse_pdf_to_markdown` FFI JSON envelope into a typed result.
     /// Unreadable output is an honest `.failed`, never a fabricated note.
     static func decode(_ json: String) -> LiteParseImportResult {
@@ -27,6 +29,9 @@ nonisolated enum LiteParseImportEnvelope {
             return .failed("Unreadable response from the PDF engine.")
         }
         if (obj["ok"] as? Bool) == true, let markdown = obj["markdown"] as? String {
+            guard markdownIsSubstantive(markdown) else {
+                return .failed(emptyMarkdownMessage)
+            }
             return .markdown(markdown)
         }
         let error = (obj["error"] as? String) ?? "PDF conversion failed."
@@ -34,6 +39,12 @@ nonisolated enum LiteParseImportEnvelope {
         if lower.contains("not wired") { return .notWired }
         if lower.contains("unsupported format") { return .unsupported(error) }
         return .failed(error)
+    }
+
+    private static func markdownIsSubstantive(_ markdown: String) -> Bool {
+        let trimmed = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty
+            && trimmed.localizedCaseInsensitiveCompare("*No content extracted.*") != .orderedSame
     }
 }
 
