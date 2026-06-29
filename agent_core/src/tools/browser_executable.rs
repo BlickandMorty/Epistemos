@@ -242,6 +242,11 @@ fn validate_cdp_url(raw: &str) -> Result<(), ToolError> {
             "{BROWSER_USE_CDP_URL_ENV} must not include username or password credentials"
         )));
     }
+    if parsed.query().is_some() {
+        return Err(ToolError::InvalidArguments(format!(
+            "{BROWSER_USE_CDP_URL_ENV} must not include a URL query"
+        )));
+    }
     if parsed.fragment().is_some() {
         return Err(ToolError::InvalidArguments(format!(
             "{BROWSER_USE_CDP_URL_ENV} must not include a URL fragment"
@@ -437,6 +442,7 @@ mod tests {
             "http://192.168.0.2:9222",
             "ws://example.com/devtools/browser/session",
             "http://user:pass@127.0.0.1:9222",
+            "http://127.0.0.1:9222/json/version?token=secret",
             "ws://127.0.0.1:9222/devtools/browser/session#token",
             "not a url",
         ] {

@@ -188,6 +188,7 @@ struct BrowserUseAdapterPlan3Tests {
             "validate_cdp_url",
             "must point at localhost, 127.0.0.1, or [::1]",
             "must not include username or password credentials",
+            "must not include a URL query",
             "must not include a URL fragment",
             "browser_cdp_url_env_accepts_only_loopback_urls",
             "not an executable file",

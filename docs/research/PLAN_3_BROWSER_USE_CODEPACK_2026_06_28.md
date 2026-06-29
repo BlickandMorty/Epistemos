@@ -150,7 +150,8 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   are isolated in `agent_core/src/tools/browser_command.rs`. Input-shape parsing, ref normalization, and snapshot
   truncation are isolated in `agent_core/src/tools/browser_input.rs`. The executable discovery and CDP override policy is
   isolated in `agent_core/src/tools/browser_executable.rs`: explicit `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` wins before the vendored
-  root lookup and both win before `PATH`, while `EPISTEMOS_BROWSER_USE_CDP_URL` is loopback-only. The redaction policy
+  root lookup and both win before `PATH`, while `EPISTEMOS_BROWSER_USE_CDP_URL` is loopback-only and rejects URL
+  credentials, queries, and fragments. The redaction policy
   is isolated in `agent_core/src/tools/browser_redaction.rs` and covers credential-assignment redaction for
   token/api-key/password/secret variants plus split and compact auth-scheme follower tokens. The screenshot path policy
   is isolated in `agent_core/src/tools/browser_screenshot.rs`: screenshots are created under an owner-only private root,
@@ -171,7 +172,7 @@ shape without importing browser-use or emitting argparse usage on stderr. `[VERI
   `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. Runtime
   environment setup happens only after adapter arguments are accepted. The Rust bridge never trusts ambient
   `BROWSER_CDP_URL`; the only CDP override env is `EPISTEMOS_BROWSER_USE_CDP_URL`, and it must point at localhost,
-  127.0.0.1, or [::1] with no URL username/password credentials or fragment. `browser_vision` also rejects screenshot
+  127.0.0.1, or [::1] with no URL username/password credentials, query, or fragment. `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
