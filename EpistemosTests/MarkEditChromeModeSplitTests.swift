@@ -27,6 +27,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
     @Test("MarkEdit CoreEditor adapter uses vendored bundle and generated MarkEdit bridge surface")
     func markEditCoreEditorAdapterUsesVendoredBundleAndBridgeSurface() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let resources = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
 
         #expect(source.contains("struct MarkEditCodeEditorRepresentable"))
         #expect(source.contains("struct MarkEditMarkdownEditorRepresentable"))
@@ -34,8 +35,9 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("makeNSViewController(context: Context) -> EditorViewController"))
         #expect(source.contains("#if canImport(MarkEditKit)"))
         #expect(source.contains("MarkEditCoreEditorBridge"))
-        #expect(source.contains("MarkEditCoreEditorChunkLoader"))
-        #expect(source.contains("{{EDITOR_CONFIG}}"))
+        #expect(source.contains("MarkEditCoreEditorChunkLoader()"))
+        #expect(resources.contains("final class MarkEditCoreEditorChunkLoader"))
+        #expect(resources.contains("{{EDITOR_CONFIG}}"))
         #expect(source.contains("CoreEditor"))
         #expect(source.contains("webModules.core.resetEditor"))
         #expect(source.contains("window.webModules.core.getEditorText()"))
@@ -72,12 +74,16 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
     func markEditCoreEditorChunkLoaderRejectsTraversalAndNonChunkHosts() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
 
         #expect(source.contains(#"host == "chunks""#))
         #expect(source.contains("isSafeRelativePathComponent"))
         #expect(source.contains(#"component != "..""#))
+        #expect(source.contains("resolvingSymlinksInPath()"))
+        #expect(source.contains("isRegularFile"))
         #expect(source.contains("mimeTypes[fileURL.pathExtension.lowercased()]"))
+        #expect(!source.contains("Bundle.main.url(forResource: filename"))
+        #expect(!source.contains(#"Bundle.main.url(forResource: "index", withExtension: "html")"#))
     }
 
     @Test("Runtime asset bundler preserves CoreEditor chunks inside the app bundle")
