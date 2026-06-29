@@ -50,8 +50,10 @@ struct VaultMCPCoreTests {
 
     @Test("tools/call canonicalizes read aliases before executing")
     func toolsCallCanonicalizesReadAliases() async throws {
+        let root = try Self.makeVaultRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
         let recorder = CallRecorder()
-        let core = VaultMCPCore(executor: { name, argumentsJSON in
+        let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
             await recorder.record(name: name, argumentsJSON: argumentsJSON)
             return LocalToolResult(toolName: name, resultJson: #"{"ok":true}"#, isError: false)
         })
@@ -67,6 +69,41 @@ struct VaultMCPCoreTests {
         #expect(calls.first?.0 == "vault.read")
         let arguments = try Self.jsonObject(calls.first?.1 ?? "{}")
         #expect(arguments["path"] as? String == "Note.md")
+    }
+
+    @Test("tools/call rejects vault read path escapes before executor")
+    func toolsCallRejectsVaultReadPathEscapesBeforeExecutor() async throws {
+        let root = try Self.makeVaultRoot()
+        let outside = try Self.makeVaultRoot()
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outside)
+        }
+        try "secret".write(to: outside.appendingPathComponent("Secret.md"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("Linked.md"),
+            withDestinationURL: outside.appendingPathComponent("Secret.md"))
+
+        let recorder = CallRecorder()
+        let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
+            await recorder.record(name: name, argumentsJSON: argumentsJSON)
+            return LocalToolResult(toolName: name, resultJson: #"{"called":true}"#, isError: false)
+        })
+
+        for payload in [
+            #"{"name":"file.read","arguments":{"path":"../Secret.md"}}"#,
+            #"{"name":"vault.read","arguments":{"path":"/tmp/Secret.md"}}"#,
+            #"{"name":"vault.read","arguments":{"path":"Linked.md"}}"#,
+        ] {
+            let response = await core.handle(
+                requestJSON: #"{"jsonrpc":"2.0","id":22,"method":"tools/call","params":\#(payload)}"#)
+            let object = try Self.jsonObject(response)
+            let error = try #require(object["error"] as? [String: Any])
+            #expect(error["code"] as? Int == -32602)
+        }
+
+        let calls = await recorder.snapshot()
+        #expect(calls.isEmpty)
     }
 
     @Test("tools/call rejects write and patch aliases before the executor")
@@ -219,6 +256,8 @@ struct VaultMCPCoreTests {
         #expect(source.contains("resources/read"))
         #expect(source.contains("maxResourceNotes"))
         #expect(source.contains("maxResourceReadBytes"))
+        #expect(source.contains("pathRequiredReadToolNameSet"))
+        #expect(source.contains("validatedArgumentsJSON"))
         #expect(source.contains("vaultURI(for:"))
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))

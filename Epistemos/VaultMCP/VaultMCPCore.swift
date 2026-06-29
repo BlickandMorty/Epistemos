@@ -18,6 +18,15 @@ nonisolated struct VaultMCPCore {
     ]
 
     private static let readToolNameSet = Set(readToolNames)
+    private static let pathRequiredReadToolNameSet = Set([
+        "vault.read",
+        "vault.outlinks",
+        "vault.note_links",
+        "vault.link_candidates",
+    ])
+    private static let pathOptionalReadToolNameSet = Set([
+        "vault.backlinks",
+    ])
 
     private static let readAliasMap: [String: String] = [
         "file.search": "vault.search",
@@ -90,9 +99,53 @@ nonisolated struct VaultMCPCore {
             return Self.errorResponse(id: id, code: -32601, message: "read-only vault server: \(rawName)")
         }
 
-        let argumentsJSON = Self.argumentsJSON(from: params["arguments"])
-        let result = await executor(canonicalName, argumentsJSON)
-        return Self.successResponse(id: id, result: Self.toolCallResult(from: result))
+        switch validatedArgumentsJSON(for: canonicalName, rawArguments: params["arguments"]) {
+        case .failure(let message):
+            return Self.errorResponse(id: id, code: -32602, message: message)
+        case .success(let argumentsJSON):
+            let result = await executor(canonicalName, argumentsJSON)
+            return Self.successResponse(id: id, result: Self.toolCallResult(from: result))
+        }
+    }
+
+    private func validatedArgumentsJSON(for toolName: String, rawArguments: Any?) -> ToolArgumentsValidationResult {
+        let requiresPath = Self.pathRequiredReadToolNameSet.contains(toolName)
+        let acceptsOptionalPath = Self.pathOptionalReadToolNameSet.contains(toolName)
+        guard requiresPath || acceptsOptionalPath else {
+            return .success(Self.argumentsJSON(from: rawArguments))
+        }
+
+        guard let arguments = Self.argumentsObject(from: rawArguments) else {
+            return .failure("\(toolName) requires JSON object arguments")
+        }
+        guard let rawPath = arguments["path"] as? String else {
+            return requiresPath
+                ? .failure("\(toolName) requires arguments.path")
+                : .success(Self.argumentsJSON(from: rawArguments))
+        }
+        let path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else {
+            return requiresPath
+                ? .failure("\(toolName) requires arguments.path")
+                : .success(Self.argumentsJSON(from: rawArguments))
+        }
+
+        do {
+            _ = try Self.containedMarkdownURL(vaultRoot: vaultRoot, relativePath: path)
+        } catch {
+            return .failure(Self.errorMessage(for: error))
+        }
+        return .success(Self.argumentsJSON(from: rawArguments))
+    }
+
+    private static func argumentsObject(from arguments: Any?) -> [String: Any]? {
+        if let object = arguments as? [String: Any] { return object }
+        if let string = arguments as? String,
+           let data = string.data(using: .utf8),
+           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return object
+        }
+        return nil
     }
 
     private func handleResourcesRead(id: Any, request: [String: Any]) async -> String {
@@ -382,6 +435,11 @@ nonisolated struct VaultMCPCore {
 }
 
 private enum ResourceReadResult: Sendable {
+    case success(String)
+    case failure(String)
+}
+
+private enum ToolArgumentsValidationResult: Sendable {
     case success(String)
     case failure(String)
 }
