@@ -53,6 +53,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("settings/env contract landed"))
         #expect(codepack.contains("Runtime launch contract landed"))
         #expect(codepack.contains("WKWebView loopback shell landed"))
+        #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("Behavior test"))
         #expect(codepack.contains("generated lock"))
@@ -308,7 +309,10 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseLoopbackWebView",
             "WKWebsiteDataStore.nonPersistent()",
             "BrowserUseLoopbackPolicy.allows",
+            "self.settingsStore = settingsStore",
             "Task.detached(priority: .userInitiated)",
+            "settingsStore.loadOrDefault()",
+            "readinessWorker?.cancel()",
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
             "supervisor?.stop()",

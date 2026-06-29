@@ -74,11 +74,11 @@ permissions, and compiles the actual `Process()` launch only in `#if !(EPISTEMOS
 App Store builds return an honest unavailable readiness and keep the native Browser tab separate.
 `EpistemosTests/BrowserUseRuntimeSupervisorTests.swift` verifies packaged/unpackaged readiness, loopback launch-plan
 shape, Keychain environment propagation, secure `.env` file permissions, and source boundaries.
-`Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` is the Pro loopback shell: it starts the supervisor only from a
-user action, loads only `http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in a non-persistent WKWebView,
-cancels non-loopback navigations, tears down delegates on dismantle, stops the runtime on disappear, and stops an
-already-launched runtime if a readiness refresh finds the Pro gate invalid. It does not reuse or drive the native
-`BrowserView`. `[VERIFIED-CODE]`
+`Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` is the Pro loopback shell: it refreshes settings/readiness in a
+detached worker using the injected `BrowserUseSettingsStore`, starts the supervisor only from a user action, loads only
+`http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in a non-persistent WKWebView, cancels non-loopback
+navigations, tears down delegates on dismantle, stops the runtime on disappear, and stops an already-launched runtime
+if a readiness refresh finds the Pro gate invalid. It does not reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
 `EpistemosTests/BrowserUseWebUIViewTests.swift` verifies the loopback URL guard and the source boundary. `[VERIFIED-CODE]`
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
@@ -240,8 +240,9 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   staged launch plan uses `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only
   launch `.env` permissions, and verifies the subprocess branch is Pro-only.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
-  non-persistent, cancels non-loopback navigation, tears down delegates, and proves it does not reference native
-  Browser, Goose/Agent, or Plan 2 editor/PDF surfaces.
+  non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
+  navigation, tears down delegates, and proves it does not reference native Browser, Goose/Agent, or Plan 2 editor/PDF
+  surfaces.
 - Adapter source test: `BrowserUseAdapterPlan3Tests.swift` verifies `epistemos_agent_browser.py` supports the existing
   `agent-browser --json` command set, delegates to `browser_use.skill_cli` only after runtime commands begin, keeps
   session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, and contains no Plan 1 Goose/Agent or Plan 2

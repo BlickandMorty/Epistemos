@@ -9,6 +9,7 @@ nonisolated enum BrowserUseLoopbackGuard {
 }
 
 struct BrowserUseWebUIView: View {
+    private let settingsStore: BrowserUseSettingsStore
     private let host: String
     private let port: Int
     private let themeName: String
@@ -20,6 +21,9 @@ struct BrowserUseWebUIView: View {
     @State private var startRequestID = UUID()
     @State private var startTask: Task<Void, Never>?
     @State private var startWorker: Task<(BrowserUseRuntimeLaunchPlan?, String?), Never>?
+    @State private var readinessRequestID = UUID()
+    @State private var readinessTask: Task<Void, Never>?
+    @State private var readinessWorker: Task<(BrowserUseSettings, BrowserUseRuntimeReadiness), Never>?
     @State private var blockedURL: URL?
     @State private var lastError: String?
 
@@ -30,15 +34,13 @@ struct BrowserUseWebUIView: View {
         port: Int = 7788,
         themeName: String = "Ocean"
     ) {
+        self.settingsStore = settingsStore
         self.host = host
         self.port = port
         self.themeName = themeName
-        let settings = settingsStore.loadOrDefault()
-        let readiness = supervisor?.readiness(settings: settings, host: host, port: port, theme: themeName)
-            ?? .unavailable("browser-use Pro runtime source is not installed.")
         _supervisor = State(initialValue: supervisor)
-        _settings = State(initialValue: settings)
-        _readiness = State(initialValue: readiness)
+        _settings = State(initialValue: .default)
+        _readiness = State(initialValue: .unavailable("Checking browser-use Pro readiness."))
     }
 
     var body: some View {
@@ -141,18 +143,44 @@ struct BrowserUseWebUIView: View {
     }
 
     private func refreshReadiness() {
-        settings = BrowserUseSettingsStore().loadOrDefault()
-        readiness = supervisor?.readiness(settings: settings, host: host, port: port, theme: themeName)
-            ?? .unavailable("browser-use Pro runtime source is not installed.")
-        if !readiness.isReady {
-            startTask?.cancel()
-            startWorker?.cancel()
-            startTask = nil
-            startWorker = nil
-            startRequestID = UUID()
-            isStarting = false
-            supervisor?.stop()
-            loadedURL = nil
+        readinessTask?.cancel()
+        readinessWorker?.cancel()
+
+        let requestID = UUID()
+        readinessRequestID = requestID
+
+        let settingsStore = settingsStore
+        let supervisor = supervisor
+        let host = host
+        let port = port
+        let themeName = themeName
+        let worker = Task.detached(priority: .userInitiated) {
+            let loadedSettings = settingsStore.loadOrDefault()
+            guard !Task.isCancelled else {
+                return (loadedSettings, .unavailable("browser-use Pro readiness refresh was cancelled."))
+            }
+            let loadedReadiness = supervisor?.readiness(
+                settings: loadedSettings,
+                host: host,
+                port: port,
+                theme: themeName
+            ) ?? .unavailable("browser-use Pro runtime source is not installed.")
+            return (loadedSettings, loadedReadiness)
+        }
+
+        readinessWorker = worker
+        readinessTask = Task { @MainActor in
+            let outcome = await worker.value
+            guard !Task.isCancelled, readinessRequestID == requestID else { return }
+            settings = outcome.0
+            readiness = outcome.1
+            readinessTask = nil
+            readinessWorker = nil
+            if !readiness.isReady {
+                cancelStartAttempt()
+                supervisor?.stop()
+                loadedURL = nil
+            }
         }
     }
 
@@ -225,14 +253,23 @@ struct BrowserUseWebUIView: View {
     }
 
     private func stopRuntime() {
+        readinessTask?.cancel()
+        readinessWorker?.cancel()
+        readinessTask = nil
+        readinessWorker = nil
+        readinessRequestID = UUID()
+        cancelStartAttempt()
+        supervisor?.stop()
+        loadedURL = nil
+    }
+
+    private func cancelStartAttempt() {
         startTask?.cancel()
         startWorker?.cancel()
         startTask = nil
         startWorker = nil
         startRequestID = UUID()
         isStarting = false
-        supervisor?.stop()
-        loadedURL = nil
     }
 }
 
