@@ -183,7 +183,7 @@ struct GooseRuntimeSupervisorTests {
     func listeningLogsDoNotShortCircuitHealthReadiness() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
         let forbiddenEarlyResume = #"if\s+let\s+url\s*=\s*Self\.parseListeningURL\(from:\s*line,\s*expectedPort:\s*Self\.defaultPort\)\s*\{\s*await\s+state\.resume\(url\)"#
-        #expect(source.contains("if await healthCheck(defaultBaseURL)"))
+        #expect(source.contains("if await effectiveHealthCheck(defaultBaseURL)"))
         #expect(source.contains("status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))"))
         #expect(source.range(of: forbiddenEarlyResume, options: .regularExpression) == nil)
     }
@@ -217,8 +217,8 @@ struct GooseRuntimeSupervisorTests {
             }
         }
         // AppSupport + bundle candidates remain unconditional (real-install path).
-        #expect(source.contains("Epistemos/GooseRuntime/goose"))
-        #expect(source.contains("bundle?.url(forResource: \"goose\", withExtension: nil)"))
+        #expect(source.contains("Epistemos/GooseRuntime/\\(binaryName)"))
+        #expect(source.contains("bundle?.url(forResource: binaryName, withExtension: nil)"))
     }
 
     @Test("checkout-relative web index candidate is DEBUG-only (no cwd content in the privileged WebView in release)")
@@ -256,7 +256,10 @@ struct GooseRuntimeSupervisorTests {
         // native connected (goose-named agent) -> "ready (<version>)"
         #expect(source.contains("return \"ready (\\(agent.version))\""))
         // custom healthy -> "ready"
-        #expect(source.contains("? \"ready\""))
+        let customStatus = try #require(source.range(of: "private var customACPStatusLabel"))
+        let customStatusSource = source[customStatus.lowerBound...]
+        #expect(customStatusSource.contains("case .connected:"))
+        #expect(customStatusSource.contains("return \"ready\""))
         // Must NOT downgrade to a vague combined label.
         #expect(!source.contains("\"Goose ACP ready\""))
         #expect(!source.contains("detailRow(\"Goose ACP\""))
@@ -336,6 +339,21 @@ struct GooseRuntimeSupervisorTests {
         // `file:` must NOT be allow-listed; the documented deny intent stays.
         #expect(!source.contains("case \"file\":"))
         #expect(source.contains("is not allow-listed"))
+    }
+
+    @Test("MCP app guest navigation delegate keeps the Swift 6 WebKit signature")
+    func mcpAppGuestNavigationDelegateKeepsSwift6Signature() throws {
+        let bridge = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+        #expect(bridge.contains("private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNavigationDelegate"))
+        #expect(bridge.contains("decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void"))
+        #expect(!bridge.contains("decisionHandler: @escaping (WKNavigationActionPolicy) -> Void"))
+
+        // The target builds with default MainActor isolation. The background pipe drain must opt out
+        // explicitly instead of mutating actor-isolated state from a Sendable closure.
+        #expect(bridge.contains("private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable"))
+        #expect(bridge.contains("drainBox.store(stdoutHandle.readDataToEndOfFile())"))
+        #expect(bridge.contains("String(data: drainBox.load(), encoding: .utf8)"))
+        #expect(!bridge.contains("drainBox.data = stdoutHandle.readDataToEndOfFile()"))
     }
 
     @Test("ACP per-frame decode is contained — a drifted known-method payload becomes unhandled*, not fatal")
