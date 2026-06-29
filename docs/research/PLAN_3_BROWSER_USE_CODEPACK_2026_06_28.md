@@ -118,7 +118,7 @@ shape, Keychain environment propagation, secure `.env` file permissions, and sou
 detached worker using the injected `BrowserUseSettingsStore`, starts the supervisor only from a user action, loads only
 `http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in a non-persistent WKWebView, cancels non-loopback
 navigations, surfaces settings load failures instead of silently falling back, tears down delegates on dismantle, stops
-the runtime on disappear, and stops an already-launched runtime if a readiness refresh finds the Pro gate invalid. It
+the runtime if a start plan ever returns a non-loopback URL, stops the runtime on disappear, and stops an already-launched runtime if a readiness refresh finds the Pro gate invalid. It
 does not reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
 `EpistemosTests/BrowserUseWebUIViewTests.swift` verifies the loopback URL guard, the local WKWebView fixture dry-run
 shell smoke, the real Gradio WKWebView shell/control and task-submit dry-run smokes, and the source boundary.

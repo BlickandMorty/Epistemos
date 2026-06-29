@@ -231,6 +231,7 @@ struct BrowserUseWebUIViewTests {
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
             "supervisor?.stop()",
+            "browser-use Pro returned a non-loopback URL.",
             "startWorker?.cancel()",
             "if !readiness.isReady",
             "startRequestID = UUID()",

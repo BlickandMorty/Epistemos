@@ -247,6 +247,7 @@ struct BrowserUseWebUIView: View {
             if let plan = outcome.0 {
                 guard BrowserUseLoopbackGuard.allows(url: plan.loopbackURL) else {
                     let message = "browser-use Pro returned a non-loopback URL."
+                    supervisor?.stop()
                     loadedURL = nil
                     lastError = message
                     readiness = .unavailable(message)
