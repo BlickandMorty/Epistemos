@@ -194,18 +194,25 @@ nonisolated struct CodeEditorPolishTests {
                 "The old inset-free guide placement would make indentation guides feel detached from the code text.")
     }
 
-    @Test("CodeEditorView syntax theme does not collapse semantic tokens into plain body text")
-    func codeEditorViewSyntaxThemeKeepsSemanticContrast() throws {
+    @Test("MarkEdit CoreEditor syntax theme does not collapse code into plain body text")
+    func markEditCoreEditorSyntaxThemeKeepsSemanticContrast() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
 
-        #expect(source.contains(#"keywords: .init(color: normalized(NSColor(hex: "AD3DA4")), bold: true)"#))
-        #expect(source.contains(#"types: .init(color: normalized(NSColor(hex: "0B4F79")))"#))
-        #expect(source.contains(#"strings: .init(color: normalized(NSColor(hex: "C41A16")))"#))
-        #expect(source.contains(#"keywords: .init(color: normalized(NSColor(hex: "FF7AB2")), bold: true)"#))
-        #expect(source.contains(#"types: .init(color: normalized(NSColor(hex: "6BDFFF")))"#))
-        #expect(source.contains(#"strings: .init(color: normalized(NSColor(hex: "FF8170")))"#))
-        #expect(source.contains("private let useMinimalTheme = false"),
-                "The live editor should default to the semantic native theme, not the no-highlight fallback.")
+        #expect(source.contains("MarkEditCodeEditorRepresentable("),
+                "Code files must render through MarkEdit CoreEditor, not the deleted native highlighter.")
+        #expect(source.contains("theme: ui.theme"),
+                "Epistemos theme changes must feed the CoreEditor adapter.")
+        #expect(adapter.contains(#"themeName: theme.isDark ? "github-dark" : "github-light""#),
+                "CoreEditor must receive a syntax theme, not a plain body-text fallback.")
+        #expect(adapter.contains(#"fontFace: .init(family: "SF Mono", weight: nil, style: nil)"#),
+                "The code lane should keep a monospaced editor face through CoreEditor config.")
+        #expect(adapter.contains("showActiveLineIndicator: true"),
+                "CoreEditor should preserve editor affordances that distinguish code from prose.")
+        #expect(adapter.contains("lineWrapping: wrapLines"),
+                "The existing code-editor wrap preference must reach CoreEditor.")
+        #expect(!source.contains("private let useMinimalTheme = false"),
+                "The deleted native minimal-theme switch must not be the code syntax gate anymore.")
     }
 
     @Test("Code editor search engine finds forward matches and wraps")
@@ -536,30 +543,31 @@ nonisolated struct CodeEditorPolishTests {
                 "Same-file definitions must select the real definition range through the CoreEditor bridge.")
     }
 
-    @Test("Code editor large-file affordances are viewport scoped")
-    func codeEditorLargeFileAffordancesAreViewportScoped() throws {
+    @Test("Code editor large-file affordances stay on CoreEditor")
+    func codeEditorLargeFileAffordancesStayOnCoreEditor() throws {
         let editor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
         let guides = try loadRepoTextFile("Epistemos/Views/Notes/SegmentedIndentationGuideView.swift")
         let gutter = try loadRepoTextFile("Epistemos/Views/Notes/CodeLineGutter.swift")
 
         #expect(editor.contains("enum CodeEditorLargeFilePolicy"),
                 "The editor needs a named large-file policy instead of scattered magic thresholds.")
-        #expect(editor.contains("CodeEditorLargeFilePolicy.visibleLineRange("),
-                "Large-file indentation guides should use a bounded visible-line window.")
-        #expect(editor.contains("lastTextLineStartUTF16Offsets"),
-                "Scroll-time guide refresh should reuse cached line-start offsets instead of rediscovering line positions from byte zero.")
-        #expect(editor.contains("CodeEditorLineMetrics.textWindow("),
-                "Large-file guide refresh should extract only the visible text window.")
-        #expect(editor.contains("let text = lastText"),
-                "Scroll-time guide refresh should not fetch the full NSTextView string on every pass.")
-        #expect(editor.contains("let selectedTextSource = lastText"),
-                "Cursor/selection tracking should reuse the coordinator's cached text instead of fetching NSTextView.string on movement.")
-        #expect(editor.contains("baseLineNumber: guidePayload.baseLineNumber"),
-                "Visible text windows must preserve absolute line numbers for active-guide alignment.")
-        #expect(editor.contains("guard let gutter = gutterView, !gutter.isHidden else { return }"),
-                "The dormant fallback gutter must not allocate line-number cache entries while hidden.")
-        #expect(editor.contains("if enabled, let tv = textController?.textView {\n            updateGutterLineCount(lastTotalLines)"),
-                "If the fallback gutter is explicitly enabled later, it must hydrate from the current line count.")
+        #expect(editor.contains("MarkEditCodeEditorRepresentable("),
+                "Large code files should use the MarkEdit CoreEditor engine instead of reviving the native fallback.")
+        #expect(editor.contains("showLineNumbers: showLineGutter"),
+                "The Epistemos line-number toggle must route into CoreEditor config.")
+        #expect(adapter.contains("const lineCount = state.doc.lines"),
+                "CoreEditor should report line counts from CodeMirror doc metadata instead of Swift splitting large buffers on cursor movement.")
+        #expect(adapter.contains("requestAnimationFrame(() => {"),
+                "CoreEditor snapshots should be frame-coalesced rather than running per-event heavyweight work.")
+        #expect(adapter.contains("document.addEventListener(\"selectionchange\", scheduleSnapshot, true)"),
+                "Cursor/selection tracking should come from the CoreEditor bridge.")
+        #expect(!editor.contains("textController?.textView"),
+                "CodeEditorView must not depend on the deleted native text controller after the MarkEdit swap.")
+        #expect(!editor.contains("gutterView"),
+                "The dormant fallback gutter must not be mounted on the production code path.")
+        #expect(!editor.contains("CodeEditorLineMetrics.textWindow("),
+                "Production code editor viewporting is owned by CoreEditor, not the old Swift text-window overlay.")
         #expect(guides.contains("lineRange: ClosedRange<Int>? = nil"),
                 "Indent guide parsing should support viewport-scoped line windows.")
         #expect(guides.contains("baseLineNumber: Int = 1"),
