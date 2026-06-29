@@ -22,11 +22,15 @@ struct BrowserUseWebUIViewTests {
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "127.0.0.1", port: 7788)?.absoluteString == "http://127.0.0.1:7788/")
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[::1]", port: 7788)?.absoluteString == "http://[::1]:7788/")
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "example.com", port: 7788) == nil)
+        #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[localhost]", port: 7788) == nil)
+        #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[127.0.0.1]", port: 7788) == nil)
+        #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[]127.0.0.1[]", port: 7788) == nil)
     }
 
     @Test("web UI shell source keeps native Browser, Goose, Agent, and editor boundaries")
     func webUIShellSourceKeepsBoundaries() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift")
+        let policy = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseLoopbackPolicy.swift")
 
         for required in [
             "BrowserUseWebUIView",
@@ -53,6 +57,9 @@ struct BrowserUseWebUIViewTests {
         ] {
             #expect(source.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
+
+        #expect(policy.contains("normalizedAllowedHost("))
+        #expect(policy.contains("trimmed.dropFirst().dropLast().contains(\":\")"))
 
         for forbidden in [
             "BrowserView(",

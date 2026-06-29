@@ -5,7 +5,7 @@ nonisolated enum BrowserUseLoopbackPolicy {
         guard let url,
               url.scheme?.lowercased() == "http",
               let host = url.host,
-              isAllowedHost(host),
+              normalizedAllowedHost(host) != nil,
               let port = url.port,
               (1...65535).contains(port),
               url.user == nil,
@@ -16,8 +16,7 @@ nonisolated enum BrowserUseLoopbackPolicy {
     }
 
     static func loopbackURL(host: String, port: Int) -> URL? {
-        let normalizedHost = normalize(host)
-        guard isAllowedHost(normalizedHost),
+        guard let normalizedHost = normalizedAllowedHost(host),
               (1...65535).contains(port) else {
             return nil
         }
@@ -30,15 +29,32 @@ nonisolated enum BrowserUseLoopbackPolicy {
         return components.url
     }
 
-    private static func isAllowedHost(_ host: String) -> Bool {
-        let normalized = normalize(host)
-        return normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1"
+    private static func normalizedAllowedHost(_ host: String) -> String? {
+        guard let normalized = normalize(host),
+              normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1" else {
+            return nil
+        }
+        return normalized
     }
 
-    private static func normalize(_ host: String) -> String {
-        host
+    private static func normalize(_ host: String) -> String? {
+        let trimmed = host
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
             .lowercased()
+
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        if trimmed.hasPrefix("[") || trimmed.hasSuffix("]") {
+            guard trimmed.hasPrefix("["),
+                  trimmed.hasSuffix("]"),
+                  trimmed.dropFirst().dropLast().contains(":") else {
+                return nil
+            }
+            return String(trimmed.dropFirst().dropLast())
+        }
+
+        return trimmed
     }
 }
