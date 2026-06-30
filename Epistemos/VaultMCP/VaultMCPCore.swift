@@ -3,6 +3,7 @@ import Foundation
 
 nonisolated struct VaultMCPCore {
     static let maxRequestJSONBytes = 8 * 1024 * 1024
+    static let maxJSONRPCIDStringLength = 256
     static let maxResourceNotes = 5_000
     static let maxResourceReadBytes = 8 * 1024 * 1024
 
@@ -70,12 +71,22 @@ nonisolated struct VaultMCPCore {
             return Self.errorResponse(id: NSNull(), code: -32600, message: "JSON-RPC request is too large")
         }
         guard let data = requestJSON.data(using: .utf8),
-              let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let method = request["method"] as? String else {
+              let parsed = try? JSONSerialization.jsonObject(with: data) else {
             return Self.errorResponse(id: NSNull(), code: -32700, message: "Parse error")
         }
 
-        let id = request["id"] ?? NSNull()
+        guard let request = parsed as? [String: Any] else {
+            return Self.errorResponse(id: NSNull(), code: -32600, message: "Invalid Request")
+        }
+        let id = Self.responseID(from: request["id"])
+        guard request["jsonrpc"] as? String == "2.0" else {
+            return Self.errorResponse(id: id, code: -32600, message: "Invalid Request")
+        }
+        guard let method = request["method"] as? String,
+              !method.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return Self.errorResponse(id: id, code: -32600, message: "Invalid Request")
+        }
+
         switch method {
         case "initialize":
             return Self.successResponse(id: id, result: Self.initializeResult())
@@ -339,6 +350,20 @@ nonisolated struct VaultMCPCore {
             return string
         }
         return "{}"
+    }
+
+    static func responseID(from rawID: Any?) -> Any {
+        guard let rawID else { return NSNull() }
+        if let string = rawID as? String {
+            return String(string.prefix(maxJSONRPCIDStringLength))
+        }
+        if rawID is NSNull {
+            return NSNull()
+        }
+        if let number = rawID as? NSNumber {
+            return number
+        }
+        return NSNull()
     }
 
     static func toolCallResult(from result: LocalToolResult) -> [String: Any] {

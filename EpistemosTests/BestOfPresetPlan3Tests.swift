@@ -90,6 +90,7 @@ struct BestOfPresetPlan3Tests {
             "AgentToolNameAliases.canonical",
             "ChatToolTier.readOnly",
             "Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap",
+            "requires a JSON-RPC 2.0 object envelope",
         ] {
             #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")
         }

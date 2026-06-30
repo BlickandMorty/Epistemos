@@ -186,6 +186,42 @@ struct VaultMCPCoreTests {
         #expect(await recorder.snapshot().isEmpty)
     }
 
+    @Test("invalid JSON-RPC envelopes are rejected before dispatch")
+    func invalidJSONRPCEnvelopesAreRejectedBeforeDispatch() async throws {
+        let recorder = CallRecorder()
+        let core = VaultMCPCore(executor: { name, argumentsJSON in
+            await recorder.record(name: name, argumentsJSON: argumentsJSON)
+            return LocalToolResult(toolName: name, resultJson: #"{"called":true}"#, isError: false)
+        })
+
+        for request in [
+            #"{"id":1,"method":"tools/list"}"#,
+            #"{"jsonrpc":"1.0","id":1,"method":"tools/list"}"#,
+            #"{"jsonrpc":"2.0","id":1}"#,
+            #"[{"jsonrpc":"2.0","id":1,"method":"tools/list"}]"#,
+        ] {
+            let response = await core.handle(requestJSON: request)
+            let object = try Self.jsonObject(response)
+            let error = try #require(object["error"] as? [String: Any])
+            #expect(error["code"] as? Int == -32600)
+        }
+
+        #expect(await recorder.snapshot().isEmpty)
+    }
+
+    @Test("JSON-RPC string ids are capped before response echo")
+    func jsonRPCStringIDsAreCappedBeforeResponseEcho() async throws {
+        let longID = String(repeating: "i", count: VaultMCPCore.maxJSONRPCIDStringLength + 32)
+        let core = VaultMCPCore(executor: Self.echoExecutor)
+        let response = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":"\#(longID)","method":"missing.method"}"#)
+        let object = try Self.jsonObject(response)
+        let id = try #require(object["id"] as? String)
+
+        #expect(id.count == VaultMCPCore.maxJSONRPCIDStringLength)
+        #expect(id.allSatisfy { $0 == "i" })
+    }
+
     @Test("empty or missing vault lists honest-empty resources")
     func emptyVaultListsHonestEmptyResources() async throws {
         let missing = FileManager.default.temporaryDirectory
@@ -393,6 +429,9 @@ struct VaultMCPCoreTests {
         #expect(source.contains("resources/list"))
         #expect(source.contains("resources/read"))
         #expect(source.contains("maxRequestJSONBytes"))
+        #expect(source.contains("maxJSONRPCIDStringLength"))
+        #expect(source.contains("request[\"jsonrpc\"] as? String == \"2.0\""))
+        #expect(source.contains("responseID(from:"))
         #expect(source.contains("maxResourceNotes"))
         #expect(source.contains("maxResourceReadBytes"))
         #expect(source.contains("pathRequiredReadToolNameSet"))
