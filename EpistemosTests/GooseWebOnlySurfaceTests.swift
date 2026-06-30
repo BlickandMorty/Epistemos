@@ -103,6 +103,10 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-new-session-mode-default"))
         #expect(stageScript.contains("gooseMode: configuredGooseMode"))
         #expect(stageScript.contains("useChatContext()"))
+        #expect(stageScript.contains("epistemos-acp-permission-tools-list"))
+        #expect(stageScript.contains("listAcpSessionTools(sessionId, extensionName)"))
+        #expect(stageScript.contains("epistemos-acp-permission-save-unavailable"))
+        #expect(stageScript.contains("permissionEditingUnavailable"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))

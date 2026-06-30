@@ -2248,6 +2248,123 @@ for (const snippet of ['listAcpSessionTools', 'epistemos-acp-tools-cache']) {
 fs.writeFileSync(path, source);
 NODE
 
+PERMISSION_MODAL="$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
+node - "$PERMISSION_MODAL" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { getTools, PermissionLevel, ToolInfo, upsertPermissions } from '../../../api';",
+  "import { getTools, PermissionLevel, ToolInfo, upsertPermissions } from '../../../api';\nimport { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';\nimport { listAcpSessionTools } from '../../../acp/providers';"
+);
+source = source.replace(
+  `  saveChanges: {
+    id: 'permissionModal.saveChanges',
+    defaultMessage: 'Save Changes',
+  },
+});`,
+  `  saveChanges: {
+    id: 'permissionModal.saveChanges',
+    defaultMessage: 'Save Changes',
+  },
+  permissionEditingUnavailable: {
+    id: 'permissionModal.permissionEditingUnavailable',
+    defaultMessage:
+      'This ACP build can show live tool permissions, but per-tool permission editing is not available yet.',
+  },
+});`
+);
+source = source.replace(
+  `        const response = await getTools({
+          query: { extension_name: extensionName, session_id: sessionId },
+        });
+        if (response.error) {
+          console.error('Failed to get tools:', response.error);
+          setLoadError('fetch_failed');
+        } else {
+          const filteredTools = (response.data || []).filter(
+            (tool: ToolInfo) =>
+              tool.name !== 'platform__read_resource' && tool.name !== 'platform__list_resources'
+          );
+          setTools(filteredTools);
+        }`,
+  `        if (USE_ACP_CHAT) {
+          const acpTools = await listAcpSessionTools(sessionId, extensionName); // epistemos-acp-permission-tools-list
+          const filteredTools = acpTools.filter(
+            (tool: ToolInfo) =>
+              tool.name !== 'platform__read_resource' && tool.name !== 'platform__list_resources'
+          );
+          setTools(filteredTools);
+          return;
+        }
+
+        const response = await getTools({
+          query: { extension_name: extensionName, session_id: sessionId },
+        });
+        if (response.error) {
+          console.error('Failed to get tools:', response.error);
+          setLoadError('fetch_failed');
+        } else {
+          const filteredTools = (response.data || []).filter(
+            (tool: ToolInfo) =>
+              tool.name !== 'platform__read_resource' && tool.name !== 'platform__list_resources'
+          );
+          setTools(filteredTools);
+        }`
+);
+source = source.replace(
+  `      if (payload.tool_permissions.length === 0) {
+        onClose();
+        return;
+      }
+
+      const response = await upsertPermissions({`,
+  `      if (payload.tool_permissions.length === 0) {
+        onClose();
+        return;
+      }
+
+      if (USE_ACP_CHAT) {
+        console.warn('Per-tool permission editing is not available over Goose ACP yet.');
+        return; // epistemos-acp-permission-save-unavailable
+      }
+
+      const response = await upsertPermissions({`
+);
+source = source.replace(
+  `          {!loadError && (
+            <Button disabled={!hasChanges} onClick={handleSave}>
+              {intl.formatMessage(i18n.saveChanges)}
+            </Button>
+          )}`,
+  `          {USE_ACP_CHAT && !loadError && tools.length > 0 ? (
+            <p className="mr-auto max-w-xs text-xs text-text-secondary">
+              {intl.formatMessage(i18n.permissionEditingUnavailable)}
+            </p>
+          ) : null}
+          {!loadError && !USE_ACP_CHAT && (
+            <Button disabled={!hasChanges} onClick={handleSave}>
+              {intl.formatMessage(i18n.saveChanges)}
+            </Button>
+          )}`
+);
+
+for (const snippet of [
+  'listAcpSessionTools(sessionId, extensionName)',
+  'epistemos-acp-permission-tools-list',
+  'epistemos-acp-permission-save-unavailable',
+  'permissionEditingUnavailable',
+  '!USE_ACP_CHAT',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`PermissionModal staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 AUTH_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
 node - "$AUTH_SETTINGS_SECTION" <<'NODE'
 const fs = require('fs');
@@ -3867,6 +3984,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "rounded-\\[9px\\] border border-border-secondary bg-background-secondary/60" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ConversationLimitsDropdown.tsx"
     grep -q "bg-background-primary/88 p-\\[16px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ConfigureApproveMode.tsx"
     grep -q "rounded-\\[9px\\] border px-3 py-2.5 text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/response_styles/ResponseStyleSelectionItem.tsx"
+    grep -q "epistemos-acp-permission-tools-list" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
+    grep -q "listAcpSessionTools(sessionId, extensionName)" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
+    grep -q "epistemos-acp-permission-save-unavailable" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
+    grep -q "permissionEditingUnavailable" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "sm:max-w-\\[560px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "grid grid-cols-12 items-center gap-3 rounded-\\[10px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "rounded-\\[11px\\] border border-border-secondary bg-background-primary/65" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionRulesModal.tsx"
