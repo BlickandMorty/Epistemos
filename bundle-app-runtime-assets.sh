@@ -182,7 +182,53 @@ is_acp_goose_web_ui() {
     [ -f "$candidate/index.html" ] &&
         [ -f "$candidate/.epistemos-goose-webui.json" ] &&
         grep -q '"acpMode"[[:space:]]*:[[:space:]]*true' "$candidate/.epistemos-goose-webui.json" &&
+        goose_web_ui_referenced_assets_exist "$candidate" &&
         goose_web_ui_contains_required_markers "$candidate"
+}
+
+goose_web_ui_referenced_assets_exist() {
+    local candidate="$1"
+    node - "$candidate" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+const root = process.argv[2];
+let html;
+try {
+  html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+} catch {
+  process.exit(1);
+}
+
+const references = Array.from(html.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/gi), match => match[1]);
+for (const rawReference of references) {
+  const reference = String(rawReference || '').trim();
+  if (
+    !reference ||
+    reference.startsWith('#') ||
+    reference.startsWith('data:') ||
+    reference.startsWith('blob:') ||
+    reference.startsWith('http://') ||
+    reference.startsWith('https://') ||
+    reference.startsWith('ws://') ||
+    reference.startsWith('wss://') ||
+    reference.startsWith('//') ||
+    reference.startsWith('/')
+  ) {
+    if (reference.startsWith('/')) process.exit(1);
+    continue;
+  }
+  const withoutFragment = reference.split('#', 1)[0];
+  const withoutQuery = withoutFragment.split('?', 1)[0];
+  const normalized = withoutQuery.startsWith('./') ? withoutQuery.slice(2) : withoutQuery;
+  if (!normalized || normalized.includes('../')) process.exit(1);
+  const resolved = path.resolve(root, normalized);
+  const rootWithSeparator = path.resolve(root) + path.sep;
+  if (!resolved.startsWith(rootWithSeparator) || !fs.existsSync(resolved)) {
+    process.exit(1);
+  }
+}
+NODE
 }
 
 goose_web_ui_contains_required_markers() {
@@ -207,6 +253,38 @@ goose_web_ui_contains_required_markers() {
             return 1
         fi
     done
+}
+
+copy_goose_web_ui_atomically() {
+    local source="$1"
+    local destination="$2"
+    local parent
+    parent="$(dirname "$destination")"
+    mkdir -p "$parent"
+
+    local staged_copy previous_copy
+    staged_copy="$(mktemp -d "$parent/.goose-desktop.copy.XXXXXX")"
+    previous_copy="$parent/.goose-desktop.previous.$$"
+    rm -rf "$previous_copy"
+
+    rsync -a --delete "$source/" "$staged_copy/"
+    if ! is_acp_goose_web_ui "$staged_copy"; then
+        echo "Fresh Goose Web UI copy failed self-validation." >&2
+        rm -rf "$staged_copy"
+        return 1
+    fi
+
+    if [ -e "$destination" ]; then
+        mv "$destination" "$previous_copy"
+    fi
+    if ! mv "$staged_copy" "$destination"; then
+        if [ -e "$previous_copy" ]; then
+            mv "$previous_copy" "$destination"
+        fi
+        rm -rf "$staged_copy"
+        return 1
+    fi
+    rm -rf "$previous_copy"
 }
 
 bundle_goose_web_ui() {
@@ -253,8 +331,7 @@ bundle_goose_web_ui() {
         return
     fi
 
-    mkdir -p "$GOOSE_WEB_UI_DEST"
-    rsync -a --delete "$source/" "$GOOSE_WEB_UI_DEST/"
+    copy_goose_web_ui_atomically "$source" "$GOOSE_WEB_UI_DEST"
 }
 
 bundle_editor_resources

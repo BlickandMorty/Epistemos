@@ -3383,6 +3383,43 @@ if (!source.includes(marker)) {
 }
 NODE
 
+node - "$STAGED_OUTPUT" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+const root = process.argv[2];
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const references = Array.from(html.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/gi), match => match[1]);
+for (const rawReference of references) {
+  const reference = String(rawReference || '').trim();
+  if (
+    !reference ||
+    reference.startsWith('#') ||
+    reference.startsWith('data:') ||
+    reference.startsWith('blob:') ||
+    reference.startsWith('http://') ||
+    reference.startsWith('https://') ||
+    reference.startsWith('ws://') ||
+    reference.startsWith('wss://') ||
+    reference.startsWith('//')
+  ) {
+    continue;
+  }
+  if (reference.startsWith('/')) {
+    console.error(`Goose Web UI artifact references an absolute local asset: ${reference}`);
+    process.exit(1);
+  }
+  const withoutFragment = reference.split('#', 1)[0];
+  const withoutQuery = withoutFragment.split('?', 1)[0];
+  const normalized = withoutQuery.startsWith('./') ? withoutQuery.slice(2) : withoutQuery;
+  const resolved = path.resolve(root, normalized);
+  if (!normalized || normalized.includes('../') || !resolved.startsWith(path.resolve(root) + path.sep) || !fs.existsSync(resolved)) {
+    console.error(`Goose Web UI artifact references a missing local asset: ${reference}`);
+    process.exit(1);
+  }
+}
+NODE
+
 for required_marker in \
     "providersList_unstable" \
     "providersCatalogList_unstable" \

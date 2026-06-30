@@ -2,15 +2,25 @@ import SwiftUI
 import WebKit
 
 struct GooseWebSurfaceView: View {
-    nonisolated private static let gooseUISurfaceCacheToken = UUID().uuidString
+    nonisolated static let gooseUISurfaceCacheToken = UUID().uuidString
     nonisolated static let gooseUISchemeName =
         "epistemos-goose-\(gooseUISurfaceCacheToken.lowercased())"
-    nonisolated private static let gooseUISurfaceHost =
+    nonisolated static let gooseUISurfaceHost =
         "app-\(gooseUISurfaceCacheToken.lowercased())"
-    nonisolated private static let gooseUISurfaceVirtualBasePath =
+    nonisolated static let gooseUISurfaceVirtualBasePath =
         "/__epistemos-goose/\(gooseUISurfaceCacheToken)"
     nonisolated static let maxGooseRouteCharacters = 4096
     nonisolated static let maxPlaceholderStatusCharacters = 512
+    nonisolated static let initialRuntimeRetryDelayNanoseconds: UInt64 = 450_000_000
+    nonisolated static let maximumRuntimeRetryDelayNanoseconds: UInt64 = 5_000_000_000
+    nonisolated static let initialWebUIRenderRetryDelayNanoseconds: UInt64 = 300_000_000
+    nonisolated static let maximumWebUIRenderRetryDelayNanoseconds: UInt64 = 3_000_000_000
+    nonisolated static let webUINavigationTimeoutNanoseconds: UInt64 = 12_000_000_000
+    nonisolated static let webUIRenderProbeCount = 80
+    nonisolated static let webUIRenderProbeIntervalNanoseconds: UInt64 = 150_000_000
+    nonisolated static let startingStatus = "Goose starting. Waiting for runtime and ACP."
+    nonisolated static let waitingForACPStatus = "Goose Web UI waiting for runtime"
+    nonisolated static let loadingWebUIStatus = "Loading Goose Web UI"
 
     var theme: EpistemosTheme = .nativeDefault
     /// The web hash route to display. Default `/?` (the Goose hub). The native Agent frame's nav rail
@@ -28,6 +38,12 @@ struct GooseWebSurfaceView: View {
     @State private var showDetails = false
     @State private var runtimeHealthTask: Task<Void, Never>?
     @State private var trustedOrigins: GooseTrustedLoopbackOrigins
+    @State private var pageBootstrapConnectionKey: String
+    @State private var runtimeRetryTask: Task<Void, Never>?
+    @State private var runtimeRetryAttempt = 0
+    @State private var webUILoadTask: Task<Void, Never>?
+    @State private var webUIRenderOverlayStatus: String?
+    @State private var webUIRenderProbeLastResult: String?
     // Step 3 per-route migration: the router defaults EVERY route to the WebView (the oracle) and
     // promotes a route to native only when explicitly enabled. `nativeModelsPresented` drives the
     // native Models sheet; the WebView keeps backing the route, unchanged, when not promoted.
@@ -64,13 +80,16 @@ struct GooseWebSurfaceView: View {
         _secretKey = State(initialValue: secretKey)
         _trustedOrigins = State(initialValue: trustedOrigins)
         _activeRoute = State(initialValue: Self.normalizedGooseRoute(route))
-        _page = State(initialValue: Self.makePage(
+        let page = Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
             trustedOrigins: trustedOrigins
-        ))
+        )
+        _ = page.load(html: Self.placeholderHTML(status: Self.startingStatus, acpURL: ""))
+        _page = State(initialValue: page)
+        _pageBootstrapConnectionKey = State(initialValue: bootstrap.baseURL.absoluteString)
     }
 
     var body: some View {
@@ -78,6 +97,9 @@ struct GooseWebSurfaceView: View {
             WebView(page)
                 .background(background)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let webUIRenderOverlayStatus {
+                webUIRenderOverlay(status: webUIRenderOverlayStatus)
+            }
             if showDetails {
                 detailsPanel
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -116,6 +138,10 @@ struct GooseWebSurfaceView: View {
         }
         .onDisappear {
             runtimeHealthTask?.cancel()
+            runtimeRetryTask?.cancel()
+            runtimeRetryTask = nil
+            webUILoadTask?.cancel()
+            webUILoadTask = nil
             supervisor.stop()
             gooseUIServer?.stop()
             nativePromptBridge.cancelPendingPrompts()
@@ -160,6 +186,9 @@ struct GooseWebSurfaceView: View {
             detailRow("ACP", GooseRuntimeSupervisor.defaultBaseURL().absoluteString)
             detailRow("surface", Self.resolvedGooseUIIndex() == nil ? "UI bundle not staged" : "Goose Web UI")
             detailRow("UI origin", gooseUIServerStatusLabel)
+            if let webUIRenderProbeLastResult {
+                detailRow("render probe", webUIRenderProbeLastResult)
+            }
             detailRow("custom ACP Goose", customACPStatusLabel)
             HStack(spacing: 8) {
                 Button {
@@ -205,6 +234,23 @@ struct GooseWebSurfaceView: View {
         .frame(width: 300, alignment: .leading)
         .background(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.96))
         .overlay(Rectangle().stroke(theme.border.opacity(0.72), lineWidth: 1))
+    }
+
+    private func webUIRenderOverlay(status: String) -> some View {
+        ZStack {
+            background
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Epistemos Goose")
+                    .font(GooseSurfaceStyle.bodyFont(16, weight: .semibold))
+                    .foregroundStyle(theme.resolved.foreground.color)
+                Text(status)
+                    .font(GooseSurfaceStyle.bodyFont(12))
+                    .foregroundStyle(theme.mutedForeground)
+            }
+            .frame(maxWidth: 560, alignment: .leading)
+            .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -405,7 +451,15 @@ struct GooseWebSurfaceView: View {
         drivenConnectionKey = nil
         loadedUIForConnectionKey = nil
         reloadedSyncForConnectionKey = nil
-        supervisor.start(secretKey: secretKey)
+        runtimeRetryTask?.cancel()
+        runtimeRetryTask = nil
+        runtimeRetryAttempt = 0
+        webUILoadTask?.cancel()
+        webUILoadTask = nil
+        webUIRenderOverlayStatus = nil
+        webUIRenderProbeLastResult = nil
+        loadPlaceholder(status: Self.startingStatus)
+        supervisor.start(secretKey: secretKey, allowPortFallback: true)
         await loadWhenReady()
     }
 
@@ -418,35 +472,67 @@ struct GooseWebSurfaceView: View {
         reloadedSyncForConnectionKey = nil
         runtimeHealthTask?.cancel()
         runtimeHealthTask = nil
+        runtimeRetryTask?.cancel()
+        runtimeRetryTask = nil
+        runtimeRetryAttempt = 0
+        webUILoadTask?.cancel()
+        webUILoadTask = nil
+        webUIRenderOverlayStatus = nil
+        webUIRenderProbeLastResult = nil
         gooseUIServer?.stop()
         gooseUIServer = nil
         await acpBridge.disconnect()
         nativePromptBridge.cancelPendingPrompts()
-        loadPlaceholder()
+        loadPlaceholder(status: Self.startingStatus)
         supervisor.stop()
-        supervisor.start(secretKey: secretKey)
+        supervisor.start(secretKey: secretKey, allowPortFallback: true)
         await loadWhenReady()
     }
 
     private func handleRuntimeStatusChange(_ status: GooseRuntimeSupervisor.Status) {
         switch status {
         case .running(let connection):
+            runtimeRetryTask?.cancel()
+            runtimeRetryTask = nil
+            runtimeRetryAttempt = 0
             // H1: .running can arrive AFTER loadWhenReady's bounded poll gave up (goosed's readiness
             // budget is 45s, well past the 26s poll; serve on a slow cold start). Drive the surface
             // here too — idempotently, so the fast path where loadWhenReady already drove it never
             // double-loads. Without this the surface stuck permanently on the placeholder.
             driveSurface(connection: connection)
-        case .failed, .unavailable:
+        case .failed(let message):
             drivenConnectionKey = nil
             loadedUIForConnectionKey = nil
             reloadedSyncForConnectionKey = nil
             runtimeHealthTask?.cancel()
             runtimeHealthTask = nil
+            webUILoadTask?.cancel()
+            webUILoadTask = nil
+            webUIRenderOverlayStatus = nil
+            webUIRenderProbeLastResult = nil
             gooseUIServer?.stop()
             gooseUIServer = nil
             Task { await acpBridge.disconnect() }
             nativePromptBridge.cancelPendingPrompts()
-            loadPlaceholder()
+            loadPlaceholder(status: "Goose runtime retrying: \(message)")
+            scheduleRuntimeRetry(reason: message)
+        case .unavailable(let message):
+            drivenConnectionKey = nil
+            loadedUIForConnectionKey = nil
+            reloadedSyncForConnectionKey = nil
+            runtimeHealthTask?.cancel()
+            runtimeHealthTask = nil
+            runtimeRetryTask?.cancel()
+            runtimeRetryTask = nil
+            webUILoadTask?.cancel()
+            webUILoadTask = nil
+            webUIRenderOverlayStatus = nil
+            webUIRenderProbeLastResult = nil
+            gooseUIServer?.stop()
+            gooseUIServer = nil
+            Task { await acpBridge.disconnect() }
+            nativePromptBridge.cancelPendingPrompts()
+            loadPlaceholder(status: message)
         default:
             break
         }
@@ -458,9 +544,11 @@ struct GooseWebSurfaceView: View {
     private func driveSurface(connection: GooseRuntimeConnection) {
         let key = connection.baseURL.absoluteString
         guard drivenConnectionKey != key else { return }
+        rebuildPageIfNeeded(for: connection)
         drivenConnectionKey = key
         connectNativeACP(connection: connection)
-        Task { await loadGooseUI(connection: connection) }
+        webUILoadTask?.cancel()
+        webUILoadTask = Task { await loadGooseUI(connection: connection) }
     }
 
     /// Review H2: the ACP bridge can terminally fail (N consecutive reconnects during a brief goose
@@ -473,10 +561,7 @@ struct GooseWebSurfaceView: View {
         guard case .running(let connection) = supervisor.status else { return }
         switch acpBridge.status {
         case .connected:
-            if loadedUIForConnectionKey != connection.baseURL.absoluteString,
-               let gooseUIServer {
-                Task { await loadGooseUIWhenReady(gooseUIServer, connection: connection) }
-            }
+            break
         case .failed, .disconnected:
             connectNativeACP(connection: connection)
         default:
@@ -498,7 +583,7 @@ struct GooseWebSurfaceView: View {
         reloadedSyncForConnectionKey = key
         // Reload to the CURRENT route, not a literal "/?" — otherwise this post-sync reload snaps the
         // WebView back to the hub while the native rail still highlights e.g. Sessions (rail/content desync).
-        _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute)))
+        loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: activeRoute)
     }
 
     private func loadWhenReady() async {
@@ -508,10 +593,16 @@ struct GooseWebSurfaceView: View {
             case .running(let connection):
                 driveSurface(connection: connection)
                 return
-            case .unavailable, .failed:
+            case .failed(let message):
                 await acpBridge.disconnect()
                 nativePromptBridge.cancelPendingPrompts()
-                loadPlaceholder()
+                loadPlaceholder(status: "Goose runtime retrying: \(message)")
+                scheduleRuntimeRetry(reason: message)
+                return
+            case .unavailable(let message):
+                await acpBridge.disconnect()
+                nativePromptBridge.cancelPendingPrompts()
+                loadPlaceholder(status: message)
                 return
             default:
                 try? await Task.sleep(nanoseconds: 100_000_000)
@@ -532,9 +623,16 @@ struct GooseWebSurfaceView: View {
         if let index = Self.resolvedGooseUIIndex() {
             beginRuntimeHealthMonitor(connection: connection)
             let root = index.deletingLastPathComponent()
+            let bootstrap = GooseWebBootstrap(baseURL: connection.baseURL, secretKey: secretKey)
+            let staticRoutes = Self.gooseStaticCompatibilityRoutes(
+                bootstrappedIndexHTML: Self.bootstrappedGooseUIHTML(
+                    indexURL: index,
+                    bootstrap: bootstrap
+                )
+            )
             let server = WorkSPAServer(
                 root: root,
-                staticRoutes: Self.gooseStaticCompatibilityRoutes(),
+                staticRoutes: staticRoutes,
                 advertisedHost: "127.0.0.1"
             )
             gooseUIServer?.stop()
@@ -552,7 +650,7 @@ struct GooseWebSurfaceView: View {
             if case .running(let uiBaseURL) = server.status {
                 trustedOrigins.register(uiBaseURL)
             }
-            await loadGooseUIWhenReady(server, connection: connection)
+            await loadGooseUIWhenReady(server, connection: connection, indexURL: index)
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
@@ -580,145 +678,132 @@ struct GooseWebSurfaceView: View {
 
     private func loadGooseRoute(_ route: String) {
         guard let gooseUIServer,
-              case .running(let baseURL) = gooseUIServer.status else { return }
+              case .running(let baseURL) = gooseUIServer.status,
+              case .running(let connection) = supervisor.status else { return }
+        loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: route)
+    }
+
+    private func loadBootstrappedGooseUI(baseURL: URL, connection: GooseRuntimeConnection, route: String) {
+        trustedOrigins.register(baseURL)
+        trustedOrigins.register(connection.baseURL)
+        trustedOrigins.register(connection.acpWebSocketURL)
         _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: route)))
     }
 
-    private func loadPlaceholder() {
-        _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: ""))
+    private func loadPlaceholder(status: String? = nil, acpURL: String = "") {
+        _ = page.load(html: Self.placeholderHTML(status: status ?? statusLabel, acpURL: acpURL))
     }
 
-    private static func makePage(
-        bootstrap: GooseWebBootstrap,
-        gooseUIRoot: URL?,
-        nativePromptBridge: GooseWebNativePromptBridge,
-        nativeAffordanceBridge: GooseWebNativeAffordanceBridge,
-        trustedOrigins: GooseTrustedLoopbackOrigins
-    ) -> WebPage {
-        var configuration = WebPage.Configuration()
-        configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
-        configuration.defaultNavigationPreferences.allowsContentJavaScript = true
-        configuration.userContentController.addScriptMessageHandler(
-            nativePromptBridge,
-            contentWorld: .page,
-            name: "epistemosGoosePrompt"
-        )
-        configuration.userContentController.addScriptMessageHandler(
-            nativeAffordanceBridge,
-            contentWorld: .page,
-            name: "epistemosGooseNative"
-        )
-        if let gooseUIRoot, let scheme = URLScheme(gooseUISchemeName) {
-            configuration.urlSchemeHandlers[scheme] = WorkSPASchemeHandler(
-                root: gooseUIRoot,
-                virtualBasePath: gooseUISurfaceVirtualBasePath
-            )
-        }
-        configuration.userContentController.addUserScript(
-            WKUserScript(
-                source: GooseWebBootShim.bootstrapScript(for: bootstrap) + "\n" + nativeFeelScript,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
-        )
-        // Pin loopback navigation to OUR servers: the goose/goosed origin is known now; the
-        // WorkSPA UI-server origin is registered when it starts (loadGooseUI). H1.
-        trustedOrigins.register(bootstrap.baseURL)
-        return WebPage(configuration: configuration, navigationDecider: GooseNavigationDecider(trustedOrigins: trustedOrigins))
-    }
-
-    @MainActor
-    static func makeBootProbePage(
-        bootstrap: GooseWebBootstrap,
-        gooseUIRoot: URL,
-        nativePromptBridge: GooseWebNativePromptBridge = GooseWebNativePromptBridge(),
-        nativeAffordanceBridge: GooseWebNativeAffordanceBridge = GooseWebNativeAffordanceBridge()
-    ) -> WebPage {
-        makePage(
+    private func rebuildPageIfNeeded(for connection: GooseRuntimeConnection) {
+        let key = connection.baseURL.absoluteString
+        guard pageBootstrapConnectionKey != key else { return }
+        let bootstrap = GooseWebBootstrap(baseURL: connection.baseURL, secretKey: secretKey)
+        let nextPage = Self.makePage(
             bootstrap: bootstrap,
-            gooseUIRoot: gooseUIRoot,
+            gooseUIRoot: Self.resolvedGooseUIRoot(),
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
-            trustedOrigins: GooseTrustedLoopbackOrigins()
+            trustedOrigins: trustedOrigins
         )
+        _ = nextPage.load(html: Self.placeholderHTML(
+            status: Self.waitingForACPStatus,
+            acpURL: connection.acpWebSocketURL?.absoluteString ?? ""
+        ))
+        page = nextPage
+        pageBootstrapConnectionKey = key
     }
 
-    private static func resolvedGooseUIIndex() -> URL? {
-        GooseWebUIResolver.indexURL()
-    }
-
-    private static func resolvedGooseUIRoot() -> URL? {
-        resolvedGooseUIIndex()?.deletingLastPathComponent()
-    }
-
-    nonisolated static func bootURL(for _: URL) -> URL {
-        surfaceURL(hashRoute: "/?")
-    }
-
-    nonisolated static func routeURL(_ route: String) -> URL {
-        surfaceURL(hashRoute: normalizedGooseRoute(route))
-    }
-
-    nonisolated static func loopbackURL(baseURL: URL, route: String) -> URL {
-        let normalizedRoute = normalizedGooseRoute(route)
-        var absolute = baseURL.absoluteString
-        if !absolute.hasSuffix("/") {
-            absolute += "/"
+    private func scheduleRuntimeRetry(reason _: String) {
+        guard runtimeRetryTask == nil else { return }
+        let retryAttempt = runtimeRetryAttempt
+        runtimeRetryAttempt += 1
+        let delay = Self.runtimeRetryDelayNanoseconds(for: retryAttempt)
+        runtimeRetryTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+            runtimeRetryTask = nil
+            drivenConnectionKey = nil
+            loadedUIForConnectionKey = nil
+            reloadedSyncForConnectionKey = nil
+            runtimeHealthTask?.cancel()
+            runtimeHealthTask = nil
+            webUILoadTask?.cancel()
+            webUILoadTask = nil
+            webUIRenderOverlayStatus = nil
+            webUIRenderProbeLastResult = nil
+            gooseUIServer?.stop()
+            gooseUIServer = nil
+            await acpBridge.disconnect()
+            nativePromptBridge.cancelPendingPrompts()
+            loadPlaceholder(status: Self.startingStatus)
+            supervisor.stop()
+            supervisor.start(secretKey: secretKey, allowPortFallback: true)
+            await loadWhenReady()
         }
-        // review C-L1: percent-encode the route fragment (a future route with stray chars must not be
-        // able to make URL(string:) return nil) and fall back to the always-valid baseURL instead of
-        // force-unwrapping.
-        let fragment = normalizedRoute.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? ""
-        return URL(string: "\(absolute)?v=\(gooseUISurfaceCacheToken)#\(fragment)") ?? baseURL
     }
 
-    nonisolated static func normalizedGooseRoute(_ route: String) -> String {
-        let boundedRoute = String(route.prefix(maxGooseRouteCharacters))
-        guard !boundedRoute.isEmpty else { return "/?" }
-        return boundedRoute.hasPrefix("/") ? boundedRoute : "/\(boundedRoute)"
-    }
-
-    nonisolated static func gooseStaticCompatibilityRoutes() -> [WorkSPAStaticRoute] {
-        [
-            WorkSPAStaticRoute(
-                path: "/agent/list_apps",
-                contentType: "application/json; charset=utf-8",
-                body: Data(#"{"apps":[]}"#.utf8)
-            ),
-        ]
-    }
-
-    nonisolated private static func surfaceURL(hashRoute: String) -> URL {
-        // review C-L1: percent-encode the route fragment and degrade to the route-less surface URL
-        // instead of force-unwrapping; the final fileURL fallback is unreachable (the base is built
-        // from known-valid constants) but keeps this non-force-unwrapping.
-        let base = "\(gooseUISchemeName)://\(gooseUISurfaceHost)\(gooseUISurfaceVirtualBasePath)/?v=\(gooseUISurfaceCacheToken)"
-        let fragment = hashRoute.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? ""
-        return URL(string: "\(base)#\(fragment)") ?? URL(string: base) ?? URL(fileURLWithPath: "/")
-    }
-
-    private func loadGooseUIWhenReady(_ server: WorkSPAServer, connection: GooseRuntimeConnection) async {
+    private func loadGooseUIWhenReady(
+        _ server: WorkSPAServer,
+        connection: GooseRuntimeConnection,
+        indexURL _: URL
+    ) async {
         let connectionKey = connection.baseURL.absoluteString
         let acpURL = connection.acpWebSocketURL?.absoluteString ?? ""
         guard loadedUIForConnectionKey != connectionKey else { return }
-        _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI waiting for ACP", acpURL: acpURL))
+        webUIRenderProbeLastResult = nil
+        _ = page.load(html: Self.placeholderHTML(status: Self.waitingForACPStatus, acpURL: acpURL))
+        var renderAttempt = 0
         while true {
             guard !Task.isCancelled else { return }
             switch server.status {
             case .running(let baseURL):
                 if await Self.gooseUIReady(baseURL: baseURL),
-                   await runtimeACPReady(connection: connection) {
+                   await Self.runtimeHealthReady(baseURL: connection.baseURL) {
                     guard loadedUIForConnectionKey != connectionKey else { return }
+                    trustedOrigins.register(baseURL)
+                    trustedOrigins.register(connection.baseURL)
+                    trustedOrigins.register(connection.acpWebSocketURL)
+                    webUIRenderOverlayStatus = renderAttempt == 0
+                        ? Self.loadingWebUIStatus
+                        : "Goose Web UI render retry \(renderAttempt)"
                     // Read `activeRoute` at the actual load instant (not a value captured when this task
                     // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
-                    loadedUIForConnectionKey = connectionKey
-                    _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute)))
-                    return
+                    let request = URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute))
+                    let navigationFinished = await Self.waitForWebPageLoadFinished(
+                        page: page,
+                        request: request,
+                        timeoutNanoseconds: Self.webUINavigationTimeoutNanoseconds
+                    )
+                    if !navigationFinished {
+                        webUIRenderProbeLastResult = "navigation-timeout"
+                    }
+                    webUIRenderOverlayStatus = nil
+                    if await waitForRenderedGooseUI(connectionKey: connectionKey) {
+                        loadedUIForConnectionKey = connectionKey
+                        webUIRenderOverlayStatus = nil
+                        webUIRenderProbeLastResult = navigationFinished
+                            ? "ready"
+                            : "ready-after-navigation-timeout"
+                        return
+                    }
+                    renderAttempt += 1
+                    let delay = Self.webUIRenderRetryDelayNanoseconds(for: renderAttempt)
+                    let probe = webUIRenderProbeLastResult ?? "blank"
+                    webUIRenderOverlayStatus = navigationFinished
+                        ? "Goose Web UI stayed blank (\(probe)). Retrying."
+                        : "Goose Web UI navigation timed out and render probe stayed \(probe). Retrying."
+                    if delay > 0 {
+                        try? await Task.sleep(nanoseconds: delay)
+                    }
                 }
             case .failed(let message):
+                webUIRenderOverlayStatus = nil
+                webUIRenderProbeLastResult = nil
                 _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server failed: \(message)", acpURL: acpURL))
                 return
             case .stopped:
+                webUIRenderOverlayStatus = nil
+                webUIRenderProbeLastResult = nil
                 return
             default:
                 break
@@ -727,144 +812,25 @@ struct GooseWebSurfaceView: View {
         }
     }
 
-    private func runtimeACPReady(connection: GooseRuntimeConnection) async -> Bool {
-        guard await Self.runtimeHealthReady(baseURL: connection.baseURL) else { return false }
-        switch acpBridge.status {
-        case .connected:
-            return true
-        case .idle, .failed, .disconnected:
-            connectNativeACP(connection: connection)
-            return false
-        case .connecting:
-            return false
+    private func waitForRenderedGooseUI(connectionKey: String) async -> Bool {
+        for _ in 0..<Self.webUIRenderProbeCount {
+            guard !Task.isCancelled else { return false }
+            if loadedUIForConnectionKey == connectionKey { return true }
+            let result = await gooseUIRenderProbe()
+            webUIRenderProbeLastResult = result
+            if result == "ready" { return true }
+            try? await Task.sleep(nanoseconds: Self.webUIRenderProbeIntervalNanoseconds)
+        }
+        return loadedUIForConnectionKey == connectionKey
+    }
+
+    private func gooseUIRenderProbe() async -> String {
+        do {
+            let value = try await page.callJavaScript(Self.gooseUIRenderProbeScript)
+            return (value as? String) ?? "unexpected-probe-result"
+        } catch {
+            return "probe-error:\(Self.boundedPlaceholderStatus(error.localizedDescription))"
         }
     }
 
-    nonisolated static func runtimeHealthReady(baseURL: URL) async -> Bool {
-        await GooseRuntimeSupervisor.healthCheck(base: baseURL)
-    }
-
-    nonisolated static func gooseUIReady(baseURL: URL) async -> Bool {
-        var request = URLRequest(url: baseURL)
-        request.httpMethod = "HEAD"
-        request.timeoutInterval = 1
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        guard let (_, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse,
-              http.statusCode == 200 else {
-            return false
-        }
-        return (http.value(forHTTPHeaderField: "Content-Type") ?? "")
-            .localizedCaseInsensitiveContains("text/html")
-    }
-
-    private static func placeholderHTML(status: String, acpURL: String) -> String {
-        let boundedStatus = boundedPlaceholderStatus(status)
-        """
-        <!doctype html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <style>
-            :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
-            body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: Canvas; color: CanvasText; }
-            main { width: min(560px, calc(100vw - 48px)); }
-            h1 { font-size: 16px; font-weight: 650; margin: 0 0 10px; }
-            p { font-size: 13px; line-height: 1.45; margin: 0 0 8px; color: color-mix(in srgb, CanvasText 72%, transparent); }
-            code { font-family: "SF Mono", ui-monospace, monospace; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <main>
-            <h1>Epistemos Goose</h1>
-            <p><code>\(escapeHTML(boundedStatus))</code></p>
-            <p><code>\(escapeHTML(acpURL))</code></p>
-          </main>
-        </body>
-        </html>
-        """
-    }
-
-    nonisolated static func boundedPlaceholderStatus(_ status: String) -> String {
-        let trimmed = status.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = trimmed.isEmpty ? "Goose surface unavailable." : trimmed
-        guard value.count > maxPlaceholderStatusCharacters else { return value }
-        return String(value.prefix(maxPlaceholderStatusCharacters))
-    }
-
-    private static func escapeHTML(_ raw: String) -> String {
-        raw.replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-    }
-
-    private static let nativeFeelScript = """
-    (() => {
-      const style = document.createElement('style');
-      style.textContent = `
-        :root { color-scheme: light dark; }
-        * { -webkit-font-smoothing: antialiased; }
-        html, body { overscroll-behavior: none; cursor: default; }
-        ::-webkit-scrollbar { width: 0; height: 0; }
-      `;
-      document.documentElement.appendChild(style);
-    })();
-    """
-}
-
-/// SECURITY (deep-hardening 2026-06-29 H1): the trusted loopback origins (the WorkSPA UI
-/// server + the goose/goosed server) are the ONLY http/ws origins the surface may navigate
-/// to. Allowing ANY 127.0.0.1/localhost/::1 page would let a foreign local page (reached via
-/// a plain link or tool/MCP-influenced `window.location`) inherit the injected boot shim —
-/// including `getSecretKey()` and the native FS bridge. We pin to the exact registered ports.
-final class GooseTrustedLoopbackOrigins: @unchecked Sendable {
-    private let lock = NSLock()
-    private var ports: Set<Int> = []
-    static let maxLoopbackHostCharacters = 128
-
-    static func isLoopback(_ host: String?) -> Bool {
-        guard let host,
-              host.utf8.count <= maxLoopbackHostCharacters,
-              !host.utf8.contains(0) else {
-            return false
-        }
-        let host = host.lowercased()
-        return host == "127.0.0.1" || host == "localhost" || host == "::1"
-    }
-
-    func register(_ url: URL?) {
-        guard let url, let port = url.port, Self.isLoopback(url.host) else { return }
-        lock.lock(); ports.insert(port); lock.unlock()
-    }
-
-    func isAllowed(_ url: URL) -> Bool {
-        guard Self.isLoopback(url.host), let port = url.port else { return false }
-        lock.lock(); defer { lock.unlock() }
-        return ports.contains(port)
-    }
-}
-
-private struct GooseNavigationDecider: WebPage.NavigationDeciding {
-    let trustedOrigins: GooseTrustedLoopbackOrigins
-
-    func decidePolicy(
-        for action: WebPage.NavigationAction,
-        preferences: inout WebPage.NavigationPreferences
-    ) async -> WKNavigationActionPolicy {
-        guard let url = action.request.url else { return .cancel }
-        switch url.scheme?.lowercased() {
-        // The trusted Goose surface only ever loads via its custom scheme and the
-        // loopback http server (handled below). `file:` is never used and is
-        // needless local-file navigation surface, so it is not allow-listed.
-        case "about", GooseWebSurfaceView.gooseUISchemeName:
-            return .allow
-        case "http", "https":
-            // Loopback alone is NOT enough — must be one of OUR registered server ports.
-            return trustedOrigins.isAllowed(url) ? .allow : .cancel
-        default:
-            return .cancel
-        }
-    }
 }

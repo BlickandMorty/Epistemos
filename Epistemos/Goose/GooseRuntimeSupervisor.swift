@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Observation
 import Security
@@ -60,6 +61,7 @@ final class GooseRuntimeSupervisor {
     // momentarily bound to the port; wait this long for it to release before
     // declaring the port occupied by a foreign service.
     nonisolated static let portReleaseGrace: Duration = .seconds(2)
+    nonisolated static let fallbackPortSearchCount = 64
     nonisolated private static let subprocessEnvironmentAllowlist: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
         // Non-secret detection/host config so goose serve can perform its OWN
@@ -159,6 +161,7 @@ final class GooseRuntimeSupervisor {
         gooseMode: String? = nil,
         homeDirectory: URL? = nil,
         port: Int = defaultPort,
+        allowPortFallback: Bool = false,
         disableKeyring: Bool = false,
         builtins: [String] = ["developer"],
         healthCheck: @escaping @Sendable (URL) async -> Bool = GooseRuntimeSupervisor.healthCheck(base:)
@@ -187,6 +190,7 @@ final class GooseRuntimeSupervisor {
                 gooseMode: gooseMode,
                 homeDirectory: homeDirectory,
                 port: port,
+                allowPortFallback: allowPortFallback,
                 disableKeyring: disableKeyring,
                 builtins: builtins,
                 healthCheck: healthCheck
@@ -231,6 +235,7 @@ final class GooseRuntimeSupervisor {
         gooseMode: String?,
         homeDirectory: URL?,
         port: Int,
+        allowPortFallback: Bool,
         disableKeyring: Bool,
         builtins: [String],
         healthCheck: @escaping @Sendable (URL) async -> Bool
@@ -254,7 +259,8 @@ final class GooseRuntimeSupervisor {
             return
         }
         let scheme = tls ? "https" : "http"
-        let defaultBaseURL = Self.defaultBaseURL(port: port, scheme: scheme)
+        var launchPort = port
+        var defaultBaseURL = Self.defaultBaseURL(port: launchPort, scheme: scheme)
         let readinessTimeout = (backend == .goosed) ? Self.goosedListenTimeout : Self.listenTimeout
         // goosed has no /health (uses /status); lean serve uses the passed healthCheck (/health).
         let effectiveHealthCheck: @Sendable (URL) async -> Bool
@@ -263,25 +269,37 @@ final class GooseRuntimeSupervisor {
         } else {
             effectiveHealthCheck = healthCheck
         }
-        if await effectiveHealthCheck(defaultBaseURL) {
-            // The port is currently answering. On a user-initiated restart this is
-            // usually our own just-terminated server still releasing the
-            // socket, not a foreign occupant. Poll for it to go down within a
-            // bounded grace window; only fail if it stays up the whole time (a real
-            // foreign Goose-compatible service never releases here).
+        let defaultPortHealthy = await effectiveHealthCheck(defaultBaseURL)
+        let defaultPortBusy = !Self.isLoopbackTCPPortAvailable(launchPort)
+        if defaultPortHealthy || defaultPortBusy {
+            // The port is currently answering OR bound by a non-healthy listener. On a
+            // user-initiated restart this is usually our own just-terminated server still
+            // releasing the socket. Poll for a clean port within a bounded grace window,
+            // then fall forward to another loopback port when the surface requested it.
             let releaseDeadline = ContinuousClock.now.advanced(by: Self.portReleaseGrace)
             var released = false
             while ContinuousClock.now < releaseDeadline {
                 if Task.isCancelled { return }
                 try? await Task.sleep(nanoseconds: 100_000_000)
-                if await effectiveHealthCheck(defaultBaseURL) == false {
+                if await effectiveHealthCheck(defaultBaseURL) == false,
+                   Self.isLoopbackTCPPortAvailable(launchPort) {
                     released = true
                     break
                 }
             }
             if !released {
-                status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))
-                return
+                if allowPortFallback,
+                   let fallbackPort = await Self.firstAvailableFallbackPort(
+                    after: port,
+                    scheme: scheme,
+                    healthCheck: effectiveHealthCheck
+                   ) {
+                    launchPort = fallbackPort
+                    defaultBaseURL = Self.defaultBaseURL(port: launchPort, scheme: scheme)
+                } else {
+                    status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))
+                    return
+                }
             }
         }
 
@@ -291,10 +309,10 @@ final class GooseRuntimeSupervisor {
         // automatically); lean `goose serve` takes --host/--port/--with-builtin.
         proc.arguments = (backend == .goosed)
             ? ["agent"]
-            : Self.serveArguments(host: Self.defaultHost, port: port, builtins: builtins)
+            : Self.serveArguments(host: Self.defaultHost, port: launchPort, builtins: builtins)
         var goosedConfig: (host: String, port: Int, tls: Bool)?
         if backend == .goosed {
-            goosedConfig = (host: Self.defaultHost, port: port, tls: tls)
+            goosedConfig = (host: Self.defaultHost, port: launchPort, tls: tls)
         } else {
             goosedConfig = nil
         }
@@ -327,7 +345,7 @@ final class GooseRuntimeSupervisor {
         }
 
         let baseURL = await waitForReady(
-            port: port,
+            port: launchPort,
             pipe: pipe,
             baseURL: defaultBaseURL,
             timeout: readinessTimeout,
@@ -355,8 +373,9 @@ final class GooseRuntimeSupervisor {
         return await withCheckedContinuation { continuation in
             let state = GooseRuntimeReadyState(continuation)
             outputTask = Task.detached { [weak self] in
+                guard let recorder = self else { return }
                 await GooseProcessDiagnostics.consume(from: pipe.fileHandleForReading) { message in
-                    await self?.recordDiagnostic(message)
+                    await recorder.recordDiagnostic(message)
                 }
                 await state.resume(nil)
             }
@@ -582,6 +601,50 @@ final class GooseRuntimeSupervisor {
 
     nonisolated static func occupiedPortMessage(base: URL) -> String {
         "Port \(base.port ?? defaultPort) already has a running Goose-compatible service. Stop it before opening Epistemos Goose."
+    }
+
+    nonisolated static func fallbackPortCandidates(after port: Int) -> [Int] {
+        guard port < 65_535 else { return [] }
+        let upperBound = min(65_535, port + fallbackPortSearchCount)
+        guard port + 1 <= upperBound else { return [] }
+        return Array((port + 1)...upperBound)
+    }
+
+    nonisolated static func firstAvailableFallbackPort(
+        after port: Int,
+        scheme: String = "http",
+        healthCheck: @escaping @Sendable (URL) async -> Bool = GooseRuntimeSupervisor.healthCheck(base:)
+    ) async -> Int? {
+        for candidate in fallbackPortCandidates(after: port) {
+            let base = defaultBaseURL(port: candidate, scheme: scheme)
+            guard isLoopbackTCPPortAvailable(candidate),
+                  await healthCheck(base) == false else {
+                continue
+            }
+            return candidate
+        }
+        return nil
+    }
+
+    nonisolated static func isLoopbackTCPPortAvailable(_ port: Int) -> Bool {
+        let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+        guard descriptor >= 0 else { return false }
+        defer { close(descriptor) }
+
+        var reuse = Int32(1)
+        _ = setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = in_port_t(port).bigEndian
+        address.sin_addr = in_addr(s_addr: inet_addr(defaultHost))
+
+        return withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                bind(descriptor, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
+            }
+        }
     }
 
     nonisolated static func healthURL(base: URL) -> URL {

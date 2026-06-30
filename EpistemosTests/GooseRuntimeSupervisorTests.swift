@@ -220,7 +220,11 @@ struct GooseRuntimeSupervisorTests {
     func listeningLogsDoNotShortCircuitHealthReadiness() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
         let forbiddenEarlyResume = #"if\s+let\s+url\s*=\s*Self\.parseListeningURL\(from:\s*line,\s*expectedPort:\s*Self\.defaultPort\)\s*\{\s*await\s+state\.resume\(url\)"#
-        #expect(source.contains("if await effectiveHealthCheck(defaultBaseURL)"))
+        #expect(source.contains("let defaultPortHealthy = await effectiveHealthCheck(defaultBaseURL)"))
+        #expect(source.contains("let defaultPortBusy = !Self.isLoopbackTCPPortAvailable(launchPort)"))
+        #expect(source.contains("if defaultPortHealthy || defaultPortBusy"))
+        #expect(source.contains("Self.isLoopbackTCPPortAvailable(launchPort)"))
+        #expect(source.contains("let fallbackPort = await Self.firstAvailableFallbackPort("))
         #expect(source.contains("status = .failed(Self.occupiedPortMessage(base: defaultBaseURL))"))
         #expect(source.range(of: forbiddenEarlyResume, options: .regularExpression) == nil)
     }
@@ -337,6 +341,12 @@ struct GooseRuntimeSupervisorTests {
     @Test("details panel uses the owner-required exact native/custom ACP status language")
     func detailsPanelUsesExactOwnerStatusLanguage() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         // Owner requirement (verbatim): the details/status panel must read EXACTLY
         // "native ACP Goose ready (...)" and "custom ACP Goose ready" — never a
         // vague "Goose ACP ready" / "Goose". Lock the label rows + the connected
@@ -359,6 +369,8 @@ struct GooseRuntimeSupervisorTests {
     @Test("native prompt overlay is cancelled on every teardown path + ready-loops honor cancellation")
     func surfaceTeardownCancelsPromptsAndHonorsCancellation() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         // A permission/elicitation overlay must NOT survive a goose death/restart:
         // cancelPendingPrompts() must run on onDisappear AND restartSurface AND the
         // runtime-failure case AND the load-failure branch (>= 4 sites), not just
@@ -822,6 +834,8 @@ struct GooseWebUIResolverTests {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
         #expect(source.contains("regex.enumerateMatches(in: html"))
         #expect(!source.contains("regex.matches(in: html"))
+        #expect(source.contains("missingLocalAssetReferences"))
+        #expect(source.contains("missing-referenced-asset"))
         #expect(source.contains("maxLocalAssetReferenceCount"))
         #expect(source.contains("maxLocalAssetReferenceCharacters"))
         #expect(source.contains("maxBundledAssetEnumerationItems"))
@@ -967,6 +981,13 @@ struct GooseWebUIResolverTests {
                 includeBundledCandidates: false
             ) == nil
         )
+        let diagnostics = GooseWebUIResolver.diagnosticSummary(
+            appSupportDirectory: nil,
+            currentDirectory: root.path,
+            environment: ["EPISTEMOS_GOOSE_UI_INDEX": explicit.path],
+            includeBundledCandidates: false
+        )
+        #expect(diagnostics.contains("missing-referenced-asset:assets/index-live.js"))
 
         try FileManager.default.createDirectory(
             at: explicit.deletingLastPathComponent().appendingPathComponent("assets"),
@@ -995,6 +1016,7 @@ struct GooseWebUIStagingTests {
         let script = try loadRepoTextFile("stage-goose-web-ui.sh")
         #expect(script.contains("vite.renderer.config.mts"))
         #expect(script.contains("base: './'"))
+        #expect(script.contains("Goose Web UI artifact references a missing local asset"))
         #expect(script.contains("acpChatFeatureFlag.ts"))
         #expect(script.contains("export const USE_ACP_CHAT = true;"))
         #expect(script.contains("goose.providersList_unstable({ providerIds: [] })"))
@@ -1406,6 +1428,8 @@ struct GooseWebViewBootShimTests {
         #expect(await GooseWebSurfaceView.gooseUIReady(baseURL: readyBaseURL) == true)
 
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(source.contains("while true"))
         #expect(source.contains("await Self.gooseUIReady(baseURL: baseURL)"))
         #expect(source.contains("request.httpMethod = \"HEAD\""))
@@ -1415,19 +1439,45 @@ struct GooseWebViewBootShimTests {
         #expect(!source.contains("Goose Web UI server timed out"))
     }
 
-    @Test("Goose Web UI first render waits for runtime health and ACP initialize")
-    func gooseWebUIFirstRenderWaitsForRuntimeHealthAndACPInitialize() throws {
+    @Test("Goose Web UI first render waits for runtime health without blocking on native ACP")
+    func gooseWebUIFirstRenderWaitsForRuntimeHealthWithoutBlockingOnNativeACP() throws {
         let surface = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         let bridge = try loadRepoTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
 
         #expect(surface.contains("await Self.runtimeHealthReady(baseURL: connection.baseURL)"))
         #expect(surface.contains("case .connected:"))
-        #expect(surface.contains("await runtimeACPReady(connection: connection)"))
-        #expect(surface.contains("Goose Web UI waiting for ACP"))
-        #expect(surface.contains("Task { await loadGooseUIWhenReady(gooseUIServer, connection: connection) }"))
+        #expect(!surface.contains("await runtimeACPReady(connection: connection)"))
+        #expect(!surface.contains("private func runtimeACPReady(connection: GooseRuntimeConnection)"))
+        #expect(surface.contains("Goose Web UI waiting for runtime"))
+        #expect(surface.contains("webUILoadTask = Task { await loadGooseUI(connection: connection) }"))
         #expect(surface.contains("loadedUIForConnectionKey = connectionKey"))
         #expect(bridge.contains("initialHandshakeAttempts: nil"))
         #expect(bridge.contains("maxRetryDelayNanoseconds: Self.urlHandshakeMaximumRetryDelayNanoseconds"))
+    }
+
+    @Test("Goose surface does not render blank while retrying runtime startup")
+    func gooseSurfaceShowsStartupPlaceholderAndRetriesRuntime() throws {
+        let surface = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
+
+        #expect(surface.contains("_ = page.load(html: Self.placeholderHTML(status: Self.startingStatus, acpURL: \"\"))"))
+        #expect(surface.contains("loadPlaceholder(status: Self.startingStatus)"))
+        #expect(surface.contains("@State private var runtimeRetryTask"))
+        #expect(surface.contains("scheduleRuntimeRetry(reason: message)"))
+        #expect(surface.contains("runtimeRetryDelayNanoseconds(for: retryAttempt)"))
+        #expect(surface.contains("supervisor.start(secretKey: secretKey, allowPortFallback: true)"))
+        #expect(surface.contains("rebuildPageIfNeeded(for: connection)"))
+        #expect(surface.contains("pageBootstrapConnectionKey != key"))
+        #expect(surface.contains("GooseWebBootstrap(baseURL: connection.baseURL, secretKey: secretKey)"))
+        #expect(surface.contains("@State private var webUILoadTask"))
+        #expect(surface.contains("@State private var webUIRenderOverlayStatus"))
+        #expect(surface.contains("waitForRenderedGooseUI(connectionKey: connectionKey)"))
+        #expect(surface.contains("page.callJavaScript(Self.gooseUIRenderProbeScript)"))
+        #expect(surface.contains("Goose Web UI stayed blank ("))
+        #expect(surface.contains("loadedUIForConnectionKey = connectionKey"))
     }
 
     @Test("surface availability requires both Goose runtime and ACP Web UI")
@@ -1480,6 +1530,8 @@ struct GooseWebViewBootShimTests {
     @Test("surface keeps the Goose runtime secret stable across SwiftUI view reloads")
     func gooseSurfaceSecretLivesInState() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(source.contains("@State private var secretKey: String"))
         #expect(!source.contains("private let secretKey"))
     }
@@ -1638,6 +1690,8 @@ struct GooseWebViewBootShimTests {
     @Test("surface registers the native affordance bridge separately from prompt replies")
     func surfaceRegistersNativeAffordanceBridge() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(source.contains("@State private var nativeAffordanceBridge: GooseWebNativeAffordanceBridge"))
         #expect(source.contains("name: \"epistemosGoosePrompt\""))
         #expect(source.contains("name: \"epistemosGooseNative\""))

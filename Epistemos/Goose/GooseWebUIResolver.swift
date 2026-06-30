@@ -294,8 +294,9 @@ enum GooseWebUIResolver {
         if !manifest.acpMode {
             reasons.append("manifest-acpMode-false")
         }
-        if !localAssetReferencesExist(in: indexURL, fileManager: fileManager) {
-            reasons.append("missing-local-assets")
+        let missingAssetReferences = missingLocalAssetReferences(in: indexURL, fileManager: fileManager)
+        if !missingAssetReferences.isEmpty {
+            reasons.append(contentsOf: missingAssetReferences.map { "missing-referenced-asset:\($0)" })
         }
         let missingMarkers = missingRequiredBridgeMarkers(indexURL: indexURL, fileManager: fileManager)
         if !missingMarkers.isEmpty {
@@ -304,21 +305,25 @@ enum GooseWebUIResolver {
         return reasons
     }
 
-    nonisolated private static func localAssetReferencesExist(
+    nonisolated private static func missingLocalAssetReferences(
         in indexURL: URL,
         fileManager: FileManager
-    ) -> Bool {
-        guard let html = readTextFile(indexURL, fileManager: fileManager) else { return false }
+    ) -> [String] {
+        guard let html = readTextFile(indexURL, fileManager: fileManager) else {
+            return ["index-unreadable"]
+        }
         let root = indexURL.deletingLastPathComponent()
+        var missing: [String] = []
         for reference in localResourceReferences(in: html) {
             guard let path = localFilePath(from: reference) else { continue }
             let fileURL = root.appendingPathComponent(path)
             guard fileURL.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/"),
                   fileManager.fileExists(atPath: fileURL.path) else {
-                return false
+                missing.append(diagnosticValue(path))
+                continue
             }
         }
-        return true
+        return missing
     }
 
     nonisolated private static func localResourceReferences(in html: String) -> [String] {
