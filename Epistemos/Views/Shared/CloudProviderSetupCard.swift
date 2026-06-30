@@ -2,6 +2,45 @@ import AppKit
 import os
 import SwiftUI
 
+nonisolated enum CloudProviderSetupDiagnostics {
+    static let maxLogMessageCharacters = 240
+
+    static func logMessage(for error: Error, fallback: String) -> String {
+        let nsError = error as NSError
+        return logMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func logMessage(_ message: String, fallback: String = "Cloud provider setup failed") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxLogMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxLogMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 @MainActor
 enum CloudProviderSetupAutomation {
     private nonisolated static let logger = Logger(subsystem: "Epistemos", category: "CloudProviderSetupAutomation")
@@ -92,7 +131,11 @@ enum CloudProviderSetupAutomation {
         do {
             parsedConfiguration = try GoogleOAuthClientConfiguration.parse(from: configData)
         } catch {
-            logger.error("Failed to parse stored Google OAuth client configuration: \(error.localizedDescription, privacy: .public)")
+            let message = CloudProviderSetupDiagnostics.logMessage(
+                for: error,
+                fallback: "Failed to parse stored Google OAuth client configuration"
+            )
+            logger.error("\(message, privacy: .public)")
             return nil
         }
         let resolvedProjectID = normalizedDraft(projectIDOverride)

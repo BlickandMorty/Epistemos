@@ -60,6 +60,37 @@ struct CloudProviderAuthServiceTests {
         #expect(configuration.projectID.isEmpty)
     }
 
+    @Test("Cloud provider setup diagnostics redact stored OAuth parse errors")
+    func cloudProviderSetupDiagnosticsRedactStoredOAuthParseErrors() throws {
+        let message = CloudProviderSetupDiagnostics.logMessage(
+            for: NSError(
+                domain: "/Users/jojo/PrivateVault/oauth.swift",
+                code: 400,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid OAuth JSON at /Users/jojo/PrivateVault/client_secret.json"
+                ]
+            ),
+            fallback: "Failed to parse stored Google OAuth client configuration"
+        )
+
+        #expect(message.contains("Failed to parse stored Google OAuth client configuration"))
+        #expect(message.contains("code=400"))
+        #expect(message.count <= CloudProviderSetupDiagnostics.maxLogMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "oauth.swift",
+            "client_secret.json",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
+        #expect(source.contains("CloudProviderSetupDiagnostics.logMessage"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
+
     @Test("JWT expiration decoder reads exp claim from OAuth access token")
     func jwtExpirationDecoderReadsExpClaim() throws {
         let expiration = Date(timeIntervalSince1970: 1_777_777_777)
