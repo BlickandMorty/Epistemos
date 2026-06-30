@@ -2814,9 +2814,8 @@ source = source.replace(
       setCurrentMode(newMode);`,
   `      if (USE_ACP_CHAT && sessionId) {
         await saveAcpSessionMode(sessionId, newMode); // epistemos-acp-session-mode-setting
-      } else {
-        await upsert('GOOSE_MODE', newMode, false);
       }
+      await upsert('GOOSE_MODE', newMode, false); // epistemos-acp-next-session-mode-default
       setCurrentMode(newMode);`
 );
 
@@ -2824,10 +2823,65 @@ for (const snippet of [
   'USE_ACP_CHAT && sessionId',
   'saveAcpSessionMode(sessionId, newMode)',
   'epistemos-acp-session-mode-setting',
+  'epistemos-acp-next-session-mode-default',
   'useChatContext()',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`ModeSection staged source missing required snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+node - "$WORK_ROOT/ui/desktop/src/components/Hub.tsx" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { UserInput } from '../types/message';",
+  "import { UserInput } from '../types/message';\nimport type { GooseMode } from '../api';"
+);
+source = source.replace(
+  '  const { extensionsList } = useConfig();',
+  '  const { extensionsList, read } = useConfig();'
+);
+source = source.replace(
+  `      const selectedExtensions = nextChatExtensionDraft
+        ? selectNextChatExtensions(extensionsList, nextChatExtensionDraft)
+        : [];
+      const sessionOptions =
+        selectedExtensions.length > 0
+          ? { extensionConfigs: selectedExtensions }
+          : { allExtensions: extensionsList };`,
+  `      const selectedExtensions = nextChatExtensionDraft
+        ? selectNextChatExtensions(extensionsList, nextChatExtensionDraft)
+        : [];
+      let configuredGooseMode: GooseMode | undefined;
+      try {
+        configuredGooseMode = ((await read('GOOSE_MODE', false)) as GooseMode | undefined) || undefined;
+      } catch (error) {
+        console.warn('Failed to read Goose mode for new session:', error);
+      }
+      const modeSessionOption = configuredGooseMode
+        ? { gooseMode: configuredGooseMode } // epistemos-acp-new-session-mode-default
+        : {};
+      const sessionOptions =
+        selectedExtensions.length > 0
+          ? { extensionConfigs: selectedExtensions, ...modeSessionOption }
+          : { allExtensions: extensionsList, ...modeSessionOption };`
+);
+
+for (const snippet of [
+  "import type { GooseMode } from '../api';",
+  'const { extensionsList, read } = useConfig();',
+  "read('GOOSE_MODE', false)",
+  'epistemos-acp-new-session-mode-default',
+  'gooseMode: configuredGooseMode',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`Hub staged source missing required mode-default snippet: ${snippet}`);
   }
 }
 
@@ -3638,7 +3692,11 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "BookOpen" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "epistemos-acp-session-mode-setting" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
     grep -q "saveAcpSessionMode(sessionId, newMode)" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
+    grep -q "epistemos-acp-next-session-mode-default" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
     grep -q "useChatContext()" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
+    grep -q "epistemos-acp-new-session-mode-default" "$WORK_ROOT/ui/desktop/src/components/Hub.tsx"
+    grep -q "gooseMode: configuredGooseMode" "$WORK_ROOT/ui/desktop/src/components/Hub.tsx"
+    grep -q "read('GOOSE_MODE', false)" "$WORK_ROOT/ui/desktop/src/components/Hub.tsx"
     grep -q "mb-4 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { exportApp, importApp, listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts"
