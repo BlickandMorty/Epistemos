@@ -63,6 +63,14 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
+- **2026-06-29 cycle 34 (Auditor) — ⚠️ EXECUTION-vs-PLAN GAP (owner-flagged: "goose still white"). NOT canon drift —
+  the docs are correct; the CODE hasn't caught up.** The white-screen fix is marked **PRIORITY-0** in `PROMPT_PLAN_1_GOOSE`
+  (set ~21:05, cycle 32) with explicit "fix BEFORE more peripheral hardening." **But no implementing code commit exists** —
+  `grep` of `Epistemos/Goose/*.swift` finds NO WebView↔ACP retry-until-ready / `/health`-poll-then-reinit logic. Since the
+  P0 was set, Plan-1 has instead shipped 40+ security/bounds commits (`bound/cap/redact/sanitize`). ⇒ owner still sees white
+  because the render fix isn't written yet. **Auditor can't fix code (docs-only role).** OWNER ACTION: direct the Plan-1
+  agent to implement the white-screen P0 NOW (poll `/health`, backoff-retry ACP `init`, re-init the WebUI ACP client on first
+  healthy connect) ahead of further hardening. (Tracking only — auditor edited nothing in code or Plan-1.)
 - **2026-06-29 cycle 19 (Auditor) — "graph CHROME" items vs invariant #6 "Graph = DO NOT TOUCH" (boundary question;
   NOT live drift — these are recon proposals, not build instructions; invariant grep still passes).** WAVE-2 of
   `LOST_ITEMS_RECON_2026_06_29.md` (`0daaf6695`) surfaces graph-adjacent items and proposes routing them: **#34** dead
