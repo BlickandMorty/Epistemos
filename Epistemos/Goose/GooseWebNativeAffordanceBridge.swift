@@ -362,8 +362,23 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return nil
         }
 
+        return Self.importSessionFileResult(filePath: filePath, fileManager: fileManager)
+    }
+
+    static func importSessionFileResult(
+        filePath: String,
+        fileManager: FileManager = .default
+    ) -> [String: Any] {
+        let expandedPath = standardizedPath(filePath)
+        guard !exceedsNativeFileReadLimit(expandedPath, fileManager: fileManager) else {
+            return [
+                "filePath": filePath,
+                "contents": "",
+                "error": "Epistemos blocked Goose WebView import session file read over \(maxNativeFileReadBytes) bytes.",
+            ]
+        }
         do {
-            let contents = try String(contentsOfFile: filePath, encoding: .utf8)
+            let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
             return ["filePath": filePath, "contents": contents]
         } catch {
             return ["filePath": filePath, "contents": "", "error": error.localizedDescription]
@@ -1055,16 +1070,20 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func exceedsNativeFileReadLimit(_ path: String) -> Bool {
+        Self.exceedsNativeFileReadLimit(path, fileManager: fileManager)
+    }
+
+    private static func exceedsNativeFileReadLimit(_ path: String, fileManager: FileManager) -> Bool {
         let maxBytes = UInt64(Self.maxNativeFileReadBytes)
         for candidate in [Self.resolvedSymlinkPath(path), path] {
-            if let size = fileSize(atPath: candidate) {
+            if let size = fileSize(atPath: candidate, fileManager: fileManager) {
                 return size > maxBytes
             }
         }
         return false
     }
 
-    private func fileSize(atPath path: String) -> UInt64? {
+    private static func fileSize(atPath path: String, fileManager: FileManager) -> UInt64? {
         guard let attributes = try? fileManager.attributesOfItem(atPath: path),
               let size = attributes[.size] as? NSNumber else {
             return nil

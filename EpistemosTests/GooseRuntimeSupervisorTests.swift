@@ -1368,6 +1368,33 @@ struct GooseWebNativeAffordanceBridgeTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test("selected import session files are bounded before native reads")
+    func selectedImportSessionFilesAreBoundedBeforeNativeReads() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let session = root.appendingPathComponent("session.jsonl", isDirectory: false)
+        try #"{"role":"user","content":"hello"}"#.write(to: session, atomically: true, encoding: .utf8)
+
+        let imported = GooseWebNativeAffordanceBridge.importSessionFileResult(filePath: session.path)
+        #expect(imported["filePath"] as? String == session.path)
+        #expect(imported["contents"] as? String == #"{"role":"user","content":"hello"}"#)
+        #expect(imported["error"] == nil)
+
+        let oversized = root.appendingPathComponent("oversized-session.json", isDirectory: false)
+        _ = FileManager.default.createFile(atPath: oversized.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: oversized)
+        try handle.truncate(atOffset: UInt64(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes + 1))
+        try handle.close()
+
+        let blocked = GooseWebNativeAffordanceBridge.importSessionFileResult(filePath: oversized.path)
+        #expect(blocked["filePath"] as? String == oversized.path)
+        #expect(blocked["contents"] as? String == "")
+        #expect((blocked["error"] as? String)?.contains("\(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes)") == true)
+    }
+
     @Test("listFiles caps scoped directory results")
     func listFilesCapsScopedDirectoryResults() throws {
         let root = FileManager.default.temporaryDirectory
