@@ -698,6 +698,58 @@ struct GooseWebUIResolverTests {
         )
     }
 
+    @Test("resolver bounds artifact reference scanning and actual file reads")
+    func resolverBoundsArtifactReferenceScanningAndReads() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
+        #expect(source.contains("regex.enumerateMatches(in: html"))
+        #expect(!source.contains("regex.matches(in: html"))
+        #expect(source.contains("maxLocalAssetReferenceCount"))
+        #expect(source.contains("maxLocalAssetReferenceCharacters"))
+        #expect(source.contains("maxBundledAssetEnumerationItems"))
+        #expect(source.contains("handle.read(upToCount: maxBytes + 1)"))
+        #expect(source.contains("type == .typeRegular"))
+        #expect(!source.contains("Data(contentsOf: url)"))
+
+        let root = try temporaryDirectory()
+        let directoryIndex = root.appendingPathComponent("directory-index/index.html", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryIndex, withIntermediateDirectories: true)
+        try writeGooseACPWebUIManifest(nextTo: directoryIndex)
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": directoryIndex.path],
+                includeBundledCandidates: false
+            ) == nil
+        )
+
+        let oversizedReferenceIndex = root.appendingPathComponent("oversized-reference/index.html")
+        try FileManager.default.createDirectory(
+            at: oversizedReferenceIndex.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let oversizedReference = "assets/" + String(
+            repeating: "a",
+            count: GooseWebUIResolver.maxLocalAssetReferenceCharacters + 1
+        ) + ".js"
+        try """
+        <!doctype html>
+        <script type="module" src="\(oversizedReference)"></script>
+        <script>
+        \(gooseACPWebUIBridgeFixtureSource)
+        </script>
+        """.write(to: oversizedReferenceIndex, atomically: true, encoding: .utf8)
+        try writeGooseACPWebUIManifest(nextTo: oversizedReferenceIndex)
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": oversizedReferenceIndex.path],
+                includeBundledCandidates: false
+            ) == nil
+        )
+    }
+
     @Test("resolver rejects stale ACP artifacts without the provider catalog bridge")
     func resolverRejectsStaleProviderCatalogArtifact() throws {
         let root = try temporaryDirectory()

@@ -9,6 +9,9 @@ enum GooseWebUIResolver {
     nonisolated static let maxArtifactManifestBytes = 256 * 1024
     nonisolated static let maxArtifactTextFileBytes = 64 * 1024 * 1024
     nonisolated static let maxBundledTextAssetCount = 512
+    nonisolated static let maxBundledAssetEnumerationItems = 8192
+    nonisolated static let maxLocalAssetReferenceCount = 4096
+    nonisolated static let maxLocalAssetReferenceCharacters = 2048
     nonisolated private static let requiredBridgeMarkers = [
         "providersList_unstable",
         "providersCatalogList_unstable",
@@ -311,14 +314,27 @@ enum GooseWebUIResolver {
         ) else {
             return []
         }
+        var references: [String] = []
+        references.reserveCapacity(min(maxLocalAssetReferenceCount, 64))
         let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        return regex.matches(in: html, range: range).compactMap { match in
-            guard match.numberOfRanges > 1,
-                  let matchRange = Range(match.range(at: 1), in: html) else {
-                return nil
+        regex.enumerateMatches(in: html, range: range) { match, _, stop in
+            guard references.count < maxLocalAssetReferenceCount else {
+                stop.pointee = true
+                return
             }
-            return String(html[matchRange])
+            guard let match,
+                  match.numberOfRanges > 1,
+                  let matchRange = Range(match.range(at: 1), in: html) else {
+                return
+            }
+            let reference = html[matchRange]
+            references.append(
+                reference.count <= maxLocalAssetReferenceCharacters
+                    ? String(reference)
+                    : "__oversized_asset_reference__"
+            )
         }
+        return references
     }
 
     nonisolated private static func localFilePath(from reference: String) -> String? {
@@ -403,7 +419,10 @@ enum GooseWebUIResolver {
             return []
         }
         var urls: [URL] = []
+        var scannedItems = 0
         for item in enumerator {
+            guard scannedItems < maxBundledAssetEnumerationItems else { break }
+            scannedItems += 1
             guard urls.count < maxBundledTextAssetCount else { break }
             guard let fileURL = item as? URL else { continue }
             guard (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
@@ -438,11 +457,19 @@ enum GooseWebUIResolver {
               size <= UInt64(maxBytes) else {
             return nil
         }
-        return try? Data(contentsOf: url)
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: maxBytes + 1),
+              data.count <= maxBytes else {
+            return nil
+        }
+        return data
     }
 
     nonisolated private static func fileSize(_ url: URL, fileManager: FileManager) -> UInt64? {
         guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let type = attributes[.type] as? FileAttributeType,
+              type == .typeRegular,
               let size = attributes[.size] as? NSNumber else {
             return nil
         }
