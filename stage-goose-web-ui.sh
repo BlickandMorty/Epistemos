@@ -3353,6 +3353,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-native-reskin-overlay" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "epistemos-native-scrollbar-focus-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "epistemos-native-primitive-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q "epistemos-native-surface-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "scrollbar-width: auto !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "outline: 2px solid color-mix(in srgb, var(--epistemos-accent)" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "bg-\\[var(--epistemos-accent)\\] text-white hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/button.tsx"
@@ -3361,6 +3362,13 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "rounded-\\[14px\\] border border-border-primary" "$WORK_ROOT/ui/desktop/src/components/ui/dialog.tsx"
     grep -q "rounded-\\[9px\\] border border-border-primary p-1 shadow-lg backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/ui/dropdown-menu.tsx"
     grep -q "className=\"goose-epistemos relative w-screen h-screen overflow-hidden bg-transparent flex flex-col\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "backgroundColor = 'bg-transparent'" "$WORK_ROOT/ui/desktop/src/components/Layout/MainPanelLayout.tsx"
+    grep -q "bg-background-secondary/62 backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "goose-chat-input-card overflow-hidden rounded-\\[16px\\]" "$WORK_ROOT/ui/desktop/src/components/ChatInputCard.tsx"
+    grep -q "goose-tool-call w-full text-sm font-sans rounded-\\[14px\\]" "$WORK_ROOT/ui/desktop/src/components/ToolCallWithResponse.tsx"
+    grep -q "fixed z-50 bg-background-primary/88 border border-border-primary rounded-\\[14px\\]" "$WORK_ROOT/ui/desktop/src/components/MentionPopover.tsx"
+    grep -q "text-2xl font-sans font-semibold tracking-normal" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "h-\\[22px\\] w-\\[38px\\]" "$WORK_ROOT/ui/desktop/src/components/ui/switch.tsx"
     grep -q "rounded-\\[10px\\] bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
     grep -q "select__menu z-\\[9999\\] absolute backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/ui/Select.tsx"
@@ -3451,6 +3459,7 @@ for required_marker in \
     "epistemos-native-reskin-overlay" \
     "epistemos-native-scrollbar-focus-polish" \
     "epistemos-native-primitive-polish" \
+    "epistemos-native-surface-polish" \
     "provider-catalog-template-choice"; do
     if ! grep -R -q -- "$required_marker" "$STAGED_OUTPUT/index.html" "$STAGED_OUTPUT/assets" 2>/dev/null; then
         echo "Goose Web UI artifact is missing required ACP provider catalog marker: $required_marker" >&2

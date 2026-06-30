@@ -11,6 +11,7 @@ if (!desktopRoot) {
 const marker = 'epistemos-native-reskin-overlay';
 const focusPolishMarker = 'epistemos-native-scrollbar-focus-polish';
 const primitivePolishMarker = 'epistemos-native-primitive-polish';
+const surfacePolishMarker = 'epistemos-native-surface-polish';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -28,6 +29,14 @@ function replaceRequired(source, label, search, replacement) {
   const next = typeof search === 'string'
     ? source.replace(search, replacement)
     : source.replace(search, replacement);
+  if (next === source) {
+    throw new Error(`${label} replacement was not applied`);
+  }
+  return next;
+}
+
+function replaceAllRequired(source, label, search, replacement) {
+  const next = source.replaceAll(search, replacement);
   if (next === source) {
     throw new Error(`${label} replacement was not applied`);
   }
@@ -397,6 +406,101 @@ body {
 }
 `;
   }
+  if (!source.includes(surfacePolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos native surface polish (${surfacePolishMarker})
+   Real Goose screen retheme: chat, tool calls, hub, session/list cards, mention
+   popovers, and hosted MCP app frames. This keeps upstream Goose structure
+   intact while removing the flat web-shell tells from the visible product path.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-surface-polish: 1;
+}
+
+.goose-epistemos .goose-chat-input-card {
+  border-radius: 16px !important;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-background-primary) 88%, transparent),
+      color-mix(in srgb, var(--color-background-secondary) 62%, transparent)
+    ) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 55%, transparent) inset,
+    0 18px 46px rgba(0, 0, 0, 0.10) !important;
+}
+
+.dark .goose-epistemos .goose-chat-input-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 20px 54px rgba(0, 0, 0, 0.34) !important;
+}
+
+.goose-epistemos .goose-message {
+  width: min(88%, 900px) !important;
+}
+
+.goose-epistemos :is(.goose-tool-call, .goose-message-content, .goose-message-tool) {
+  border-radius: 14px !important;
+  background-color: var(--epistemos-glass-fill-muted) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 46%, transparent) inset,
+    0 10px 28px rgba(0, 0, 0, 0.07) !important;
+}
+
+.dark .goose-epistemos :is(.goose-tool-call, .goose-message-content, .goose-message-tool) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 12px 30px rgba(0, 0, 0, 0.24) !important;
+}
+
+.goose-epistemos .goose-tool-call > :first-child,
+.goose-epistemos .goose-message-content > :first-child {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+
+.goose-epistemos .prose {
+  color: var(--color-text-primary);
+}
+
+.goose-epistemos .prose :is(p, li) {
+  line-height: 1.58;
+}
+
+.goose-epistemos .prose :is(pre, table) {
+  border: 1px solid var(--epistemos-glass-border);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--color-background-secondary) 74%, transparent) !important;
+}
+
+.goose-epistemos .prose code:not(pre code) {
+  border: 1px solid color-mix(in srgb, var(--color-border-primary) 70%, transparent);
+  border-radius: 5px;
+  padding: 1px 4px;
+  background-color: color-mix(in srgb, var(--color-background-secondary) 72%, transparent);
+}
+
+.goose-epistemos :is(
+  .mcp-app-container,
+  .fixed.z-\\[900\\],
+  [class*='rounded-\\[6px\\]'][class*='border-border-primary']
+) {
+  border-radius: 14px !important;
+}
+
+.goose-epistemos :is(.Toastify__toast, [role='status']) {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  background-color: var(--epistemos-glass-fill-strong) !important;
+  border: 1px solid var(--epistemos-glass-border);
+  border-radius: 12px !important;
+  box-shadow: var(--epistemos-popover-shadow) !important;
+}
+`;
+  }
   write('src/styles/main.css', source);
 }
 
@@ -659,6 +763,181 @@ function applyAppSurfaces() {
     'className="rounded-[11px] border border-border-primary bg-background-primary/85 px-4 py-3 font-sans text-xs uppercase text-text-primary shadow-lg backdrop-blur-xl"'
   );
   write('src/components/LauncherView.tsx', source);
+
+  source = read('src/components/Layout/MainPanelLayout.tsx');
+  source = replaceRequired(
+    source,
+    'main panel transparent default',
+    "}> = ({ children, removeTopPadding = false, backgroundColor = 'bg-background-primary' }) => {",
+    "}> = ({ children, removeTopPadding = false, backgroundColor = 'bg-transparent' }) => {"
+  );
+  write('src/components/Layout/MainPanelLayout.tsx', source);
+
+  source = read('src/components/Layout/AppLayout.tsx');
+  source = replaceRequired(
+    source,
+    'app layout transparent root',
+    'className="flex flex-1 w-full h-full relative animate-fade-in bg-background-primary flex-row"',
+    'className="flex flex-1 w-full h-full relative animate-fade-in bg-transparent flex-row"'
+  );
+  source = replaceRequired(
+    source,
+    'app layout nav glass',
+    'className="relative flex-shrink-0 overflow-hidden h-full border-r border-border-secondary bg-background-secondary"',
+    'className="relative flex-shrink-0 overflow-hidden h-full border-r border-border-secondary bg-background-secondary/62 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'app layout nav toggle glass',
+    'className="no-drag border border-border-secondary bg-background-primary/85 hover:!bg-background-tertiary"',
+    'className="no-drag border border-border-secondary bg-background-primary/70 shadow-sm backdrop-blur-xl hover:!bg-background-tertiary/80"'
+  );
+  write('src/components/Layout/AppLayout.tsx', source);
+}
+
+function applyChatSurfaces() {
+  let source = read('src/components/ChatInputCard.tsx');
+  source = replaceRequired(
+    source,
+    'chat input native glass',
+    "'goose-chat-input-card border border-border-primary overflow-hidden bg-background-primary'",
+    "'goose-chat-input-card overflow-hidden rounded-[16px] border border-border-primary bg-background-primary/76 shadow-[0_18px_46px_rgba(0,0,0,.10)] backdrop-blur-xl'"
+  );
+  write('src/components/ChatInputCard.tsx', source);
+
+  source = read('src/components/Hub.tsx');
+  source = replaceRequired(
+    source,
+    'hub clock system font',
+    'className="flex items-baseline gap-2 mb-1 font-mono"',
+    'className="flex items-baseline gap-2 mb-1 font-sans"'
+  );
+  source = replaceRequired(
+    source,
+    'hub greeting native copy',
+    'className="ep-pixel text-sm text-text-secondary mb-5 uppercase tracking-[0.06em]"',
+    'className="text-[13px] font-medium text-text-secondary mb-5 tracking-normal"'
+  );
+  write('src/components/Hub.tsx', source);
+
+  source = read('src/components/GooseMessage.tsx');
+  source = replaceRequired(
+    source,
+    'message width clamp',
+    'className="goose-message flex w-[88%] justify-start min-w-0"',
+    'className="goose-message flex w-[min(88%,900px)] justify-start min-w-0"'
+  );
+  source = replaceRequired(
+    source,
+    'message timestamp system font',
+    'className="text-xs font-mono text-text-secondary pt-1 transition-all duration-200 group-hover:-translate-y-4 group-hover:opacity-0"',
+    'className="text-xs font-sans text-text-secondary pt-1 transition-all duration-200 group-hover:-translate-y-4 group-hover:opacity-0"'
+  );
+  write('src/components/GooseMessage.tsx', source);
+
+  source = read('src/components/MessageCopyLink.tsx');
+  source = replaceRequired(
+    source,
+    'copy link system font',
+    'className="flex font-mono items-center gap-1 text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0"',
+    'className="flex font-sans items-center gap-1 text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0"'
+  );
+  write('src/components/MessageCopyLink.tsx', source);
+}
+
+function applyToolAndPopoverSurfaces() {
+  let source = read('src/components/ToolCallWithResponse.tsx');
+  source = replaceRequired(
+    source,
+    'tool call native glass',
+    "'goose-tool-call w-full text-sm font-sans rounded-[6px] overflow-hidden border bg-background-secondary'",
+    "'goose-tool-call w-full text-sm font-sans rounded-[14px] overflow-hidden border bg-background-secondary/68 shadow-sm backdrop-blur-xl'"
+  );
+  source = replaceRequired(
+    source,
+    'tool approval prompt font',
+    'className="px-3 py-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50/10 font-mono"',
+    'className="px-3 py-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50/10 font-sans"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp inline note native radius',
+    'className="mt-3 p-3 border border-border-primary rounded-[6px] bg-background-secondary flex items-center"',
+    'className="mt-3 p-3 border border-border-primary rounded-[12px] bg-background-secondary/70 shadow-sm backdrop-blur-xl flex items-center"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp inline note font',
+    'className="text-xs font-mono"',
+    'className="text-xs font-sans"'
+  );
+  source = replaceRequired(
+    source,
+    'tool expandable label font',
+    'className="flex items-center font-mono text-xs truncate flex-1 min-w-0"',
+    'className="flex items-center font-sans text-xs font-medium truncate flex-1 min-w-0"'
+  );
+  source = replaceAllRequired(
+    source,
+    'tool detail labels system font',
+    'pl-3 font-mono text-xs',
+    'pl-3 font-sans text-xs font-medium'
+  );
+  source = replaceAllRequired(
+    source,
+    'tool progress labels system font',
+    'font-mono text-xs text-textSubtle',
+    'font-sans text-xs text-textSubtle'
+  );
+  write('src/components/ToolCallWithResponse.tsx', source);
+
+  source = read('src/components/MentionPopover.tsx');
+  source = replaceRequired(
+    source,
+    'mention popover native glass',
+    'className="fixed z-50 bg-background-primary border border-border-primary rounded-[6px] shadow-none min-w-96 max-w-lg max-h-80"',
+    'className="fixed z-50 bg-background-primary/88 border border-border-primary rounded-[14px] shadow-2xl backdrop-blur-xl min-w-96 max-w-lg max-h-80 overflow-hidden"'
+  );
+  source = replaceRequired(
+    source,
+    'mention selected row radius',
+    'className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${',
+    'className={`flex items-center gap-3 p-2 rounded-[9px] cursor-pointer transition-colors ${'
+  );
+  source = replaceRequired(
+    source,
+    'mention selected row color',
+    "index === selectedIndex ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50'",
+    "index === selectedIndex ? 'bg-[var(--epistemos-accent)]/14' : 'hover:bg-background-secondary/70'"
+  );
+  write('src/components/MentionPopover.tsx', source);
+}
+
+function applyCatalogSurfaces() {
+  const screenFiles = [
+    'src/components/settings/SettingsView.tsx',
+    'src/components/skills/SkillsView.tsx',
+    'src/components/recipes/RecipesView.tsx',
+    'src/components/schedule/SchedulesView.tsx',
+    'src/components/apps/AppsView.tsx',
+    'src/components/sessions/SessionListView.tsx',
+  ];
+  for (const file of screenFiles) {
+    let source = read(file);
+    source = replaceAllRequired(
+      source,
+      `${file} native header glass`,
+      'className="bg-background-primary px-6 pb-5 pt-14 border-b border-border-secondary"',
+      'className="bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl"'
+    );
+    source = replaceAllRequired(
+      source,
+      `${file} native heading font`,
+      'text-2xl font-mono font-normal',
+      'text-2xl font-sans font-semibold tracking-normal'
+    );
+    write(file, source);
+  }
 }
 
 applyThemeTokens();
@@ -672,5 +951,8 @@ applySwitch();
 applyTabs();
 applySelect();
 applyAppSurfaces();
+applyChatSurfaces();
+applyToolAndPopoverSurfaces();
+applyCatalogSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
