@@ -29,6 +29,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxLaunchedAppContentBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeDirectoryListEntries = 5_000
+    nonisolated static let maxLaunchedAppNameCharacters = 128
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -772,6 +773,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func closeApp(name: String) {
+        guard let name = Self.normalizedAppName(name),
+              name.count <= Self.maxLaunchedAppNameCharacters else { return }
         appWindows[name]?.close()
         appWindows.removeValue(forKey: name)
         appWebViews.removeValue(forKey: name)
@@ -1084,10 +1087,22 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func appName(from app: [String: Any]) throws -> String {
-        guard let name = app["name"] as? String, !name.isEmpty else {
+        guard let rawName = app["name"] as? String,
+              let name = Self.normalizedAppName(rawName) else {
             throw GooseWebNativeAffordanceBridgeError.missingArgument("launchApp")
         }
+        guard name.count <= Self.maxLaunchedAppNameCharacters else {
+            throw GooseWebNativeAffordanceBridgeError.appNameTooLong(Self.maxLaunchedAppNameCharacters)
+        }
         return name
+    }
+
+    private nonisolated static func normalizedAppName(_ rawName: String) -> String? {
+        let withoutControls = String(String.UnicodeScalarView(rawName.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func htmlContent(from app: [String: Any], appName: String) throws -> String? {
@@ -1240,6 +1255,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
     case missingArgument(String)
     case missingAppContent(String)
+    case appNameTooLong(Int)
     case appContentTooLarge(String, Int)
     case appWindowLimitExceeded(Int)
     case openFailed(String)
@@ -1252,6 +1268,8 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
             "Missing argument for Epistemos Goose native affordance: \(name)."
         case .missingAppContent(let name):
             "Missing renderable MCP app content for Epistemos Goose app: \(name)."
+        case .appNameTooLong(let limit):
+            "Epistemos blocked Goose from opening an MCP app with a name over \(limit) characters."
         case .appContentTooLarge(let name, let limit):
             "Epistemos blocked oversized MCP app content for Goose app \(name) (limit: \(limit) bytes)."
         case .appWindowLimitExceeded(let limit):

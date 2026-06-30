@@ -1477,6 +1477,44 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(!NSApp.windows.contains { $0.title == title })
     }
 
+    @Test("MCP app launch normalizes and bounds untrusted app names")
+    func mcpAppLaunchNormalizesAndBoundsUntrustedAppNames() throws {
+        let bridge = GooseWebNativeAffordanceBridge()
+        let rawName = "\u{0007} normalized_app_\(UUID().uuidString) \n"
+        let normalizedName = String(String.UnicodeScalarView(rawName.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        })).trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try bridge.handleAffordance(
+            name: "launchApp",
+            args: [[
+                "name": rawName,
+                "text": "<!doctype html><title>name</title>",
+            ]]
+        )
+        defer { _ = try? bridge.handleAffordance(name: "closeApp", args: [rawName]) }
+
+        let title = "Normalized App \(normalizedName.suffix(36))"
+        #expect(NSApp.windows.contains { $0.title == title })
+
+        let oversizedName = String(
+            repeating: "a",
+            count: GooseWebNativeAffordanceBridge.maxLaunchedAppNameCharacters + 1
+        )
+        do {
+            _ = try bridge.handleAffordance(
+                name: "launchApp",
+                args: [[
+                    "name": oversizedName,
+                    "text": "<!doctype html><title>too long</title>",
+                ]]
+            )
+            Issue.record("launchApp should reject oversized MCP app names")
+        } catch {
+            #expect(error.localizedDescription.contains("name over"))
+            #expect(error.localizedDescription.contains("\(GooseWebNativeAffordanceBridge.maxLaunchedAppNameCharacters)"))
+        }
+    }
+
     @Test("settings affordances persist through the native host")
     func settingsAffordancesPersistThroughNativeHost() throws {
         let suiteName = "epistemos-goose-native-\(UUID().uuidString)"
