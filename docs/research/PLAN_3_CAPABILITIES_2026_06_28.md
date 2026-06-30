@@ -88,7 +88,8 @@ test-linking condition, not the shipped MAS parser state.
 2. **unpdf vendored** at `agent_core/vendor/unpdf/` and compiled through `parser-unpdf` as the fallback for failed or
    non-substantive EdgeParse output.
 3. **Same FFI envelope preserved:** Swift decodes `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}` from
-   `liteparse_pdf_to_markdown`, so the import button, Settings row, and controller did not need a new UI contract.
+   `liteparse_pdf_to_markdown`, rejecting oversized response/Markdown payloads and capping engine error strings, so the
+   import button, Settings row, and controller did not need a new UI contract.
 4. **PDF-only scope enforced:** Office/image inputs are rejected before FFI on Swift and as `UnsupportedFormat` in Rust;
    no subprocess/sidecar fallback is introduced.
 5. **Parser input envelope hardened:** Swift and Rust both reject symlink/non-regular PDF paths, empty files, bodies over

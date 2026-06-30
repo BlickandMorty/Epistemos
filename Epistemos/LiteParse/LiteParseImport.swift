@@ -19,10 +19,18 @@ nonisolated enum LiteParseImportResult: Equatable, Sendable {
 
 nonisolated enum LiteParseImportEnvelope {
     static let emptyMarkdownMessage = "PDF conversion produced no readable Markdown."
+    static let markdownTooLargeMessage = "PDF conversion produced Markdown that is too large to import safely."
+    static let envelopeTooLargeMessage = "PDF engine response is too large to read safely."
+    static let maxMarkdownCharacters = 8 * 1024 * 1024
+    static let maxEnvelopeCharacters = maxMarkdownCharacters + (1024 * 1024)
+    static let maxErrorMessageCharacters = 1024
 
     /// Decode the `liteparse_pdf_to_markdown` FFI JSON envelope into a typed result.
     /// Unreadable output is an honest `.failed`, never a fabricated note.
     static func decode(_ json: String) -> LiteParseImportResult {
+        guard json.count <= maxEnvelopeCharacters else {
+            return .failed(envelopeTooLargeMessage)
+        }
         guard
             let data = json.data(using: .utf8),
             let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -30,12 +38,15 @@ nonisolated enum LiteParseImportEnvelope {
             return .failed("Unreadable response from the PDF engine.")
         }
         if (obj["ok"] as? Bool) == true, let markdown = obj["markdown"] as? String {
+            guard markdown.count <= maxMarkdownCharacters else {
+                return .failed(markdownTooLargeMessage)
+            }
             guard markdownIsSubstantive(markdown) else {
                 return .failed(emptyMarkdownMessage)
             }
             return .markdown(markdown)
         }
-        let error = (obj["error"] as? String) ?? "PDF conversion failed."
+        let error = boundedErrorMessage((obj["error"] as? String) ?? "PDF conversion failed.")
         let lower = error.lowercased()
         if lower.contains("not wired") { return .notWired }
         if lower.contains("unsupported format") { return .unsupported(error) }
@@ -46,6 +57,13 @@ nonisolated enum LiteParseImportEnvelope {
         let trimmed = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty
             && trimmed.localizedCaseInsensitiveCompare("*No content extracted.*") != .orderedSame
+    }
+
+    private static func boundedErrorMessage(_ error: String) -> String {
+        let trimmed = error.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? "PDF conversion failed." : trimmed
+        guard value.count > maxErrorMessageCharacters else { return value }
+        return String(value.prefix(maxErrorMessageCharacters))
     }
 }
 

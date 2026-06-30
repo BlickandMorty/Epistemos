@@ -22,6 +22,15 @@ struct LiteParseImportTests {
             LiteParseImportEnvelope.decode(#"{"ok":true,"markdown":"*No content extracted.*"}"#)
                 == .failed(LiteParseImportEnvelope.emptyMarkdownMessage)
         )
+
+        let oversizedMarkdown = String(
+            repeating: "m",
+            count: LiteParseImportEnvelope.maxMarkdownCharacters + 1
+        )
+        #expect(
+            LiteParseImportEnvelope.decode(#"{"ok":true,"markdown":""# + oversizedMarkdown + #""}"#)
+                == .failed(LiteParseImportEnvelope.markdownTooLargeMessage)
+        )
     }
 
     @Test("decodes the engine-not-wired error to .notWired")
@@ -43,6 +52,16 @@ struct LiteParseImportTests {
     func decodesFailed() {
         let result = LiteParseImportEnvelope.decode(#"{"ok":false,"error":"page 3 is corrupt"}"#)
         #expect(result == .failed("page 3 is corrupt"))
+
+        let oversizedError = String(
+            repeating: "e",
+            count: LiteParseImportEnvelope.maxErrorMessageCharacters + 37
+        )
+        let boundedError = String(oversizedError.prefix(LiteParseImportEnvelope.maxErrorMessageCharacters))
+        #expect(
+            LiteParseImportEnvelope.decode(#"{"ok":false,"error":""# + oversizedError + #""}"#)
+                == .failed(boundedError)
+        )
     }
 
     @Test("unreadable output is an honest failure, never a fabricated note")
@@ -54,6 +73,15 @@ struct LiteParseImportTests {
         }
         // crucially NOT a markdown note
         if case .markdown = result { Issue.record("unreadable output must never decode to a note") }
+
+        let oversizedEnvelope = String(
+            repeating: "{",
+            count: LiteParseImportEnvelope.maxEnvelopeCharacters + 1
+        )
+        #expect(
+            LiteParseImportEnvelope.decode(oversizedEnvelope)
+                == .failed(LiteParseImportEnvelope.envelopeTooLargeMessage)
+        )
     }
 
     @Test("the inert importer accepts PDF bytes without trusting extension")
@@ -149,6 +177,9 @@ struct LiteParseImportTests {
         #expect(sharedIO.contains("O_NOFOLLOW"))
         #expect(sharedIO.contains("O_EXCL"))
         #expect(sharedIO.contains("maxPDFBytes"))
+        #expect(sharedIO.contains("maxMarkdownCharacters"))
+        #expect(sharedIO.contains("maxEnvelopeCharacters"))
+        #expect(sharedIO.contains("maxErrorMessageCharacters"))
         #expect(sharedIO.contains("destinationOfSymbolicLink"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
         #expect(viewer.contains("maxSearchQueryLength"))

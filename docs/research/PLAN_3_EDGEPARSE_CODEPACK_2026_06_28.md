@@ -15,10 +15,11 @@
   `iyulab/unpdf@d41b4dff1a29411bd62d405b322c4589a025f1fb`. The FFI status JSON reports both licenses/sources and
   the `pdf+markdown,no-subprocess` scope.
 - **Swift import [DELIVERED]:** `LiteParseImportEnvelope.decode` still accepts
-  `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}`. `LiveLiteParsePDFImporter` rejects non-PDF paths before
-  FFI and mirrors the Rust input envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB
-  before parser dispatch. It calls the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that
-  binding honestly fall back to `.notWired`.
+  `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}` while rejecting oversized engine envelopes/Markdown and
+  capping engine error strings. `LiveLiteParsePDFImporter` rejects non-PDF paths before FFI and mirrors the Rust input
+  envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB before parser dispatch. It calls
+  the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that binding honestly fall back to
+  `.notWired`.
 - **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
   main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
   basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
