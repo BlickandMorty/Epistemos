@@ -30,6 +30,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeFileWriteBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeDirectoryListEntries = 5_000
+    nonisolated static let maxGitWorktreeListBytes = 4 * 1024 * 1024
+    nonisolated static let maxGitWorktreePathCharacters = 4_096
     nonisolated static let maxNativeAffordanceNameCharacters = 96
     nonisolated static let maxLaunchedAppNameCharacters = 128
     nonisolated static let maxRecentDirsFileBytes = 64 * 1024
@@ -631,7 +633,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let drainBox = GooseAffordanceDataBox()
         let drainDone = DispatchSemaphore(value: 0)
         DispatchQueue.global(qos: .userInitiated).async {
-            drainBox.store(stdoutHandle.readDataToEndOfFile())
+            drainBox.store(Self.readBoundedPipeData(
+                stdoutHandle,
+                maxBytes: Self.maxGitWorktreeListBytes
+            ))
             drainDone.signal()
         }
         let semaphore = DispatchSemaphore(value: 0)
@@ -649,16 +654,74 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         // The process has exited → it closed its write end → the concurrent drain hits EOF promptly.
         _ = drainDone.wait(timeout: .now() + 1)
         guard process.terminationStatus == 0 else { return [] }
-        let output = String(data: drainBox.load(), encoding: .utf8) ?? ""
+        let outputData = drainBox.load()
+        guard outputData.count <= Self.maxGitWorktreeListBytes else { return [] }
+        let output = String(data: outputData, encoding: .utf8) ?? ""
         var seen = Set<String>()
-        return output
-            .split(separator: "\n")
-            .compactMap { line -> String? in
-                guard line.hasPrefix("worktree ") else { return nil }
-                let path = String(line.dropFirst("worktree ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !path.isEmpty, seen.insert(path).inserted else { return nil }
-                return path
+        var worktrees: [String] = []
+        output.enumerateLines { line, stop in
+            guard line.hasPrefix("worktree "),
+                  let path = Self.boundedGitWorktreePath(String(line.dropFirst("worktree ".count))),
+                  seen.insert(path).inserted else {
+                return
             }
+            worktrees.append(path)
+            if worktrees.count >= Self.maxNativeDirectoryListEntries {
+                stop = true
+            }
+        }
+        return worktrees
+    }
+
+    nonisolated static func boundedGitWorktreePath(_ path: String) -> String? {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxGitWorktreePathCharacters else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private nonisolated static func readBoundedPipeData(_ handle: FileHandle, maxBytes: Int) -> Data {
+        let maxBytes = max(0, maxBytes)
+        let captureLimit = maxBytes == Int.max ? Int.max : maxBytes + 1
+        let chunkSize = 64 * 1024
+        var data = Data()
+
+        while true {
+            if data.count < captureLimit {
+                let requestedBytes = min(chunkSize, captureLimit - data.count)
+                guard requestedBytes > 0 else { break }
+                let chunk: Data?
+                do {
+                    chunk = try handle.read(upToCount: requestedBytes)
+                } catch {
+                    break
+                }
+                guard let chunk, !chunk.isEmpty else {
+                    break
+                }
+                data.append(chunk)
+                if data.count < captureLimit {
+                    continue
+                }
+            }
+
+            while true {
+                let overflow: Data?
+                do {
+                    overflow = try handle.read(upToCount: chunkSize)
+                } catch {
+                    break
+                }
+                guard let overflow, !overflow.isEmpty else {
+                    break
+                }
+            }
+            break
+        }
+
+        return data
     }
 
     private func addRecentDirectory(_ path: String) -> Bool {

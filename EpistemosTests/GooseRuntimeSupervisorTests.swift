@@ -408,8 +408,12 @@ struct GooseRuntimeSupervisorTests {
         // The target builds with default MainActor isolation. The background pipe drain must opt out
         // explicitly instead of mutating actor-isolated state from a Sendable closure.
         #expect(bridge.contains("private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable"))
-        #expect(bridge.contains("drainBox.store(stdoutHandle.readDataToEndOfFile())"))
-        #expect(bridge.contains("String(data: drainBox.load(), encoding: .utf8)"))
+        #expect(bridge.contains("readBoundedPipeData("))
+        #expect(bridge.contains("maxGitWorktreeListBytes"))
+        #expect(bridge.contains("maxGitWorktreePathCharacters"))
+        #expect(bridge.contains("let outputData = drainBox.load()"))
+        #expect(bridge.contains("String(data: outputData, encoding: .utf8)"))
+        #expect(!bridge.contains("readDataToEndOfFile()"))
         #expect(!bridge.contains("drainBox.data = stdoutHandle.readDataToEndOfFile()"))
     }
 
@@ -1658,6 +1662,18 @@ struct GooseWebNativeAffordanceBridgeTests {
                 String(repeating: "n", count: GooseWebNativeAffordanceBridge.maxNativeAffordanceNameCharacters + 1)
             ) == nil
         )
+    }
+
+    @Test("git worktree native affordance paths are bounded")
+    func gitWorktreeNativeAffordancePathsAreBounded() {
+        let oversizedPath = "/" + String(
+            repeating: "w",
+            count: GooseWebNativeAffordanceBridge.maxGitWorktreePathCharacters + 1
+        )
+
+        #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(" \n/tmp/project\n ") == "/tmp/project")
+        #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(" \n\t ") == nil)
+        #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(oversizedPath) == nil)
     }
 
     @Test("bridge ignores oversized native persistence inputs")
