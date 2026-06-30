@@ -1655,6 +1655,48 @@ struct GooseWebNativePromptBridgeTests {
         #expect(bridge.pendingElicitation == nil)
     }
 
+    @Test("native prompt bridge rejects oversized response payloads")
+    func bridgeRejectsOversizedResponsePayloads() throws {
+        let bridge = GooseWebNativePromptBridge()
+        let capture = GoosePromptReplyCapture()
+
+        bridge.receivePromptMessage([
+            "type": "elicitation",
+            "id": "native-elicit-oversized-reply",
+            "request": [
+                "mode": "form",
+                "sessionId": "session-1",
+                "message": "Need a title",
+                "requestedSchema": [
+                    "type": "object",
+                    "properties": [
+                        "title": ["type": "string", "title": "Title"],
+                    ],
+                ],
+            ],
+        ]) { object, error in
+            capture.capture(object: object, error: error)
+        }
+
+        let pending = try #require(bridge.pendingElicitation)
+        bridge.acceptElicitation(
+            promptID: pending.id,
+            values: [
+                "title": .string(String(
+                    repeating: "r",
+                    count: GooseWebNativePromptBridge.maxPromptPayloadBytes + 1
+                )),
+            ]
+        )
+
+        #expect(capture.object == nil)
+        #expect(capture.error?.contains("\(GooseWebNativePromptBridge.maxPromptPayloadBytes)") == true)
+        #expect(bridge.pendingElicitation == nil)
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebNativePromptBridge.swift")
+        #expect(source.contains("data.count <= Self.maxPromptPayloadBytes"))
+    }
+
     @Test("native prompt bridge cancels pending renderer replies on deinit")
     func bridgeCancelsPendingRendererRepliesOnDeinit() throws {
         let permissionCapture = GoosePromptReplyCapture()

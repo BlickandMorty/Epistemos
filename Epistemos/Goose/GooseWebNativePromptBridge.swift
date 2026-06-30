@@ -149,6 +149,9 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
     ) {
         do {
             let data = try encoder.encode(value)
+            guard data.count <= Self.maxPromptPayloadBytes else {
+                throw GooseWebNativePromptBridgeError.payloadTooLarge(Self.maxPromptPayloadBytes)
+            }
             reply(try JSONSerialization.jsonObject(with: data), nil)
         } catch {
             reply(nil, Self.promptErrorMessage(
