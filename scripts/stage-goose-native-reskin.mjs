@@ -2697,6 +2697,119 @@ function applyLocalInferenceSurfaces() {
   write('src/components/settings/localInference/ModelSettingsPanel.tsx', source);
 }
 
+function applyGatewaySettingsSurfaces() {
+  let source = read('src/components/settings/gateways/GatewaySettingsSection.tsx');
+  source = replaceRequired(
+    source,
+    'gateway error banner native',
+    'className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200 mb-4"',
+    'className="mb-4 rounded-[10px] border border-border-danger bg-background-danger/55 p-3 text-sm text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway paired users spacing native',
+    '<div className="space-y-1 mt-2">',
+    '<div className="mt-2 space-y-2">'
+  );
+  source = replaceRequired(
+    source,
+    'gateway paired users heading token',
+    'className="text-xs text-text-muted font-medium"',
+    'className="text-xs font-medium text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway paired user row native',
+    'className="flex items-center justify-between py-1.5 px-2 bg-background-muted rounded text-sm"',
+    'className="flex items-center justify-between rounded-[9px] border border-border-secondary bg-background-primary/68 px-2 py-1.5 text-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway paired user icon token',
+    'className="h-3 w-3 text-text-muted flex-shrink-0"',
+    'className="h-3 w-3 flex-shrink-0 text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway unpair button native',
+    'className="h-6 w-6 p-0 text-text-muted hover:text-red-600 flex-shrink-0"',
+    'className="h-6 w-6 flex-shrink-0 rounded-[8px] p-0 text-text-secondary transition-colors hover:text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway card native glass',
+    '<Card className="rounded-lg">',
+    '<Card className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl">'
+  );
+  source = replaceRequired(
+    source,
+    'gateway running badge native',
+    'className="inline-flex items-center text-[10px] font-mono uppercase text-text-primary bg-background-secondary border border-border-primary px-2 py-0.5 rounded-[3px]"',
+    'className="ep-native-badge px-2 py-0.5 text-[10px] uppercase text-text-success"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway stopped badge native',
+    'className="inline-flex items-center text-[10px] font-mono uppercase text-text-muted bg-background-secondary border border-border-primary px-2 py-0.5 rounded-[3px]"',
+    'className="ep-native-badge px-2 py-0.5 text-[10px] uppercase text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway pair device button native',
+    '<Button variant="outline" size="sm" onClick={onGenerateCode}>',
+    '<Button variant="outline" size="sm" className="rounded-[8px]" onClick={onGenerateCode}>'
+  );
+  source = replaceRequired(
+    source,
+    'gateway stop button native',
+    '<Button variant="destructive" size="sm" disabled={busy} onClick={wrap(onStop)}>',
+    '<Button variant="destructive" size="sm" className="rounded-[8px]" disabled={busy} onClick={wrap(onStop)}>'
+  );
+  source = replaceRequired(
+    source,
+    'gateway restart button native',
+    '<Button size="sm" disabled={busy} onClick={wrap(onRestart)}>',
+    '<Button size="sm" className="rounded-[8px]" disabled={busy} onClick={wrap(onRestart)}>'
+  );
+  source = replaceRequired(
+    source,
+    'gateway remove button native',
+    'className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"',
+    'className="rounded-[8px] text-text-danger hover:bg-background-danger/55 hover:text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway token input native',
+    'className="text-sm"',
+    'className="min-h-9 rounded-[8px] text-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway first start button native',
+    '<Button size="sm" onClick={handleFirstStart} disabled={busy || !botToken.trim()}>',
+    '<Button size="sm" className="rounded-[8px]" onClick={handleFirstStart} disabled={busy || !botToken.trim()}>'
+  );
+  source = replaceRequired(
+    source,
+    'gateway pairing dialog native',
+    '<DialogContent className="sm:max-w-[400px]">',
+    '<DialogContent className="border-border-secondary bg-background-primary/82 shadow-lg backdrop-blur-xl sm:max-w-[400px]">'
+  );
+  source = replaceRequired(
+    source,
+    'gateway copy button native',
+    'className="flex-shrink-0"',
+    'className="flex-shrink-0 rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'gateway close button native',
+    '<Button variant="outline" onClick={onClose}>',
+    '<Button variant="outline" className="rounded-[8px]" onClick={onClose}>'
+  );
+  write('src/components/settings/gateways/GatewaySettingsSection.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3439,6 +3552,7 @@ applyModelSettingsSurfaces();
 applyKeyboardSettingsSurfaces();
 applyAuthSettingsSurfaces();
 applyLocalInferenceSurfaces();
+applyGatewaySettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
