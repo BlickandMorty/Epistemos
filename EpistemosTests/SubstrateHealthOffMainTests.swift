@@ -17,8 +17,28 @@ struct SubstrateHealthOffMainTests {
             "Epistemos/Views/Settings/SubstrateHealthSupport.swift"
         )
         #expect(src.contains("static func snapshotAsync() async -> SubstrateHealthUnifiedSnapshot"))
+        #expect(src.contains("SubstrateHealthDiagnostics.statusMessage(for: error)"))
+        #expect(!src.contains("String(describing: error)"))
         // FFI + JSON decode run on a detached background task (off the MainActor).
         #expect(src.contains("await Task.detached { snapshot() }.value"))
+    }
+
+    @Test("unified client diagnostics redact path-leaking external errors")
+    func unifiedClientDiagnosticsRedactPathLeakingExternalErrors() {
+        let privatePath = "/Users/example/private-vault/substrate.json"
+        let error = NSError(
+            domain: privatePath,
+            code: 12,
+            userInfo: [NSLocalizedDescriptionKey: "decode failed at \(privatePath)"]
+        )
+        let message = SubstrateHealthDiagnostics.statusMessage(for: error)
+
+        #expect(message.contains("substrate health unavailable"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=12"))
+        #expect(message.count <= SubstrateHealthDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("decode failed"))
     }
 
     // SS-SH dedup (corrected 2026-06-21): the 6 rows no longer each fetch — they read ONE shared

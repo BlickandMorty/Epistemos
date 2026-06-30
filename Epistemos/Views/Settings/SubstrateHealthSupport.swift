@@ -310,6 +310,43 @@ nonisolated struct SubstrateHealthUnifiedSnapshot: Sendable, Equatable, Decodabl
     }
 }
 
+nonisolated enum SubstrateHealthDiagnostics {
+    static let maxStatusMessageCharacters = 240
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func statusMessage(for error: Error, fallback: String = "substrate health unavailable") -> String {
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return statusMessage("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    static func statusMessage(_ message: String, fallback: String = "substrate health unavailable") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else {
+            return value
+        }
+        return String(value.prefix(maxStatusMessageCharacters)) + "..."
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 nonisolated enum SubstrateHealthUnifiedClient {
     static func snapshot() -> SubstrateHealthUnifiedSnapshot {
         #if canImport(agent_coreFFI)
@@ -321,7 +358,7 @@ nonisolated enum SubstrateHealthUnifiedClient {
             )
             return decoded
         } catch {
-            return .unavailable(String(describing: error))
+            return .unavailable(SubstrateHealthDiagnostics.statusMessage(for: error))
         }
         #else
         return .unavailable("agent_core FFI unavailable")

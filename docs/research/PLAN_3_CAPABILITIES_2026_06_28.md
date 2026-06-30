@@ -183,6 +183,7 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 - Rust: `ClaimLedger` with full retraction (`ledger.rs:699` `retract_claim`, `:753` depth-capped `bfs_mark_at_risk`),
   `ReplayBundle`+BLAKE3 (`replay.rs`), Cognitive DAG (live writes route here via `dispatch::on_claim_committed`).
 - FFI is **read-only** (`bridge.rs:3465/3497/3526` summary/recent/snapshot). **No claim-write / no retract FFI.**
+- Substrate health FFI/JSON fallback status maps external failures to bounded domain/code diagnostics before UI display.
 - Swift: `VRMLabel.honestLabel(for:)` gates every per-answer label; `AnswerPacketEmitter` derives stored labels through
   the honest gate for Rust-produced packets; `VRMLabelView` renders only `honestLabel(for:)` and never reads raw
   `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`; the hover-lineage card
