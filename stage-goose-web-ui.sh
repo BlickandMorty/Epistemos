@@ -3124,6 +3124,101 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+HUGGING_FACE_SIGN_IN_PROMPT="$WORK_ROOT/ui/desktop/src/components/settings/auth/HuggingFaceSignInPrompt.tsx"
+node - "$HUGGING_FACE_SIGN_IN_PROMPT" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`HuggingFaceSignInPrompt ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+const importAnchor = "import { configureProviderOauth, listProviderSecrets } from '../../../api';";
+const imports = `${importAnchor}
+import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';
+import {
+  authenticateAcpProviderConfig,
+  listAcpProviderSecrets,
+  readAcpProviderConfigStatuses,
+} from '../../../acp/providers';`;
+if (!source.includes('readAcpProviderConfigStatuses')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('HuggingFaceSignInPrompt API import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+// epistemos-acp-huggingface-sign-in-prompt: this prompt is embedded in the
+// provider configuration modal and used to call dead REST auth/list endpoints.
+// Keep the non-ACP path for upstream, but use Goose ACP for Epistemos.
+replaceRequired(
+  'ACP provider secret status',
+  `      const response = await listProviderSecrets({ throwOnError: true });
+      const huggingFaceSecret = response.data?.secrets.find(
+        (secret) => secret.id === HUGGINGFACE_OAUTH_SECRET_ID
+      );
+      setLoggedIn(Boolean(huggingFaceSecret?.has_secret && huggingFaceSecret.status !== 'expired'));`,
+  `      if (USE_ACP_CHAT) {
+        const statuses = await readAcpProviderConfigStatuses([HUGGINGFACE_PROVIDER]);
+        const configured = statuses.some(
+          (status) => status.providerId === HUGGINGFACE_PROVIDER && status.isConfigured
+        );
+        if (configured) {
+          setLoggedIn(true); // epistemos-acp-huggingface-sign-in-prompt
+          return;
+        }
+
+        const secrets = await listAcpProviderSecrets();
+        const huggingFaceSecret = secrets.find(
+          (secret) => secret.provider === HUGGINGFACE_PROVIDER
+        );
+        setLoggedIn(Boolean(huggingFaceSecret?.has_secret && huggingFaceSecret.status !== 'expired'));
+        return;
+      }
+
+      const response = await listProviderSecrets({ throwOnError: true });
+      const huggingFaceSecret = response.data?.secrets.find(
+        (secret) => secret.id === HUGGINGFACE_OAUTH_SECRET_ID
+      );
+      setLoggedIn(Boolean(huggingFaceSecret?.has_secret && huggingFaceSecret.status !== 'expired'));`
+);
+
+replaceRequired(
+  'ACP provider OAuth configure',
+  `      await configureProviderOauth({
+        path: { name: HUGGINGFACE_PROVIDER },
+        throwOnError: true,
+      });`,
+  `      if (USE_ACP_CHAT) {
+        await authenticateAcpProviderConfig(HUGGINGFACE_PROVIDER); // epistemos-acp-huggingface-sign-in-prompt
+      } else {
+        await configureProviderOauth({
+          path: { name: HUGGINGFACE_PROVIDER },
+          throwOnError: true,
+        });
+      }`
+);
+
+for (const snippet of [
+  'USE_ACP_CHAT',
+  'readAcpProviderConfigStatuses([HUGGINGFACE_PROVIDER])',
+  'listAcpProviderSecrets()',
+  'authenticateAcpProviderConfig(HUGGINGFACE_PROVIDER)',
+  'epistemos-acp-huggingface-sign-in-prompt',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`HuggingFaceSignInPrompt staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 EXTENSION_UTILS="$WORK_ROOT/ui/desktop/src/components/settings/extensions/utils.ts"
 ACP_EXTENSIONS="$WORK_ROOT/ui/desktop/src/acp/extensions.ts"
 EXTENSION_MODAL="$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionModal.tsx"
@@ -5307,6 +5402,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "border-border-danger bg-background-danger/55 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "rounded-\\[10px\\] border border-transparent px-3 py-3" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "ep-native-badge px-2 py-0.5 text-xs" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
+    grep -q "epistemos-acp-huggingface-sign-in-prompt" "$WORK_ROOT/ui/desktop/src/components/settings/auth/HuggingFaceSignInPrompt.tsx"
+    grep -q "readAcpProviderConfigStatuses(\\[HUGGINGFACE_PROVIDER\\])" "$WORK_ROOT/ui/desktop/src/components/settings/auth/HuggingFaceSignInPrompt.tsx"
+    grep -q "authenticateAcpProviderConfig(HUGGINGFACE_PROVIDER)" "$WORK_ROOT/ui/desktop/src/components/settings/auth/HuggingFaceSignInPrompt.tsx"
     grep -q "rounded-\\[10px\\] border border-border-secondary bg-background-primary/68 p-3" "$WORK_ROOT/ui/desktop/src/components/settings/auth/HuggingFaceSignInPrompt.tsx"
     grep -q "rounded-\\[10px\\] border border-border-secondary bg-background-primary/68 p-3 shadow-sm" "$WORK_ROOT/ui/desktop/src/components/settings/localInference/LocalInferenceSettings.tsx"
     grep -q "h-2 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/localInference/LocalInferenceSettings.tsx"
