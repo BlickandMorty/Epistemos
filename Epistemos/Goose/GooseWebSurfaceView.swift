@@ -56,6 +56,7 @@ struct GooseWebSurfaceView: View {
     @State private var drivenConnectionKey: String?
     @State private var loadedUIForConnectionKey: String?
     @State private var reloadedSyncForConnectionKey: String?
+    @State private var surfaceStarted = false
     @State private var isRestarting = false
     // Single live source-of-truth for the route to display. The incoming `route` prop drives this via
     // `onChange`, but the async load chain (`.task → loadWhenReady`) and the provider-sync reload must
@@ -144,6 +145,7 @@ struct GooseWebSurfaceView: View {
             webUILoadTask = nil
             supervisor.stop()
             gooseUIServer?.stop()
+            surfaceStarted = false
             nativePromptBridge.cancelPendingPrompts()
             nativeAffordanceBridge.closeAllApps()
             Task { await acpBridge.disconnect() }
@@ -441,6 +443,13 @@ struct GooseWebSurfaceView: View {
     }
 
     private func startSurface() async {
+        guard !surfaceStarted else {
+            if case .running(let connection) = supervisor.status {
+                driveSurface(connection: connection)
+            }
+            return
+        }
+        surfaceStarted = true
         // Share the SAME registered-origin set with the affordance bridge so MCP-app launch URIs and
         // guest navigations are pinned to OUR server's exact loopback ports (review M1/M3), not any
         // loopback host. The reference is shared, so ports registered later (loadGooseUI) are visible.
@@ -769,29 +778,18 @@ struct GooseWebSurfaceView: View {
                     // Read `activeRoute` at the actual load instant (not a value captured when this task
                     // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
                     let request = URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute))
-                    let navigationFinished = await Self.waitForWebPageLoadFinished(
-                        page: page,
-                        request: request,
-                        timeoutNanoseconds: Self.webUINavigationTimeoutNanoseconds
-                    )
-                    if !navigationFinished {
-                        webUIRenderProbeLastResult = "navigation-timeout"
-                    }
                     webUIRenderOverlayStatus = nil
+                    _ = page.load(request)
                     if await waitForRenderedGooseUI(connectionKey: connectionKey) {
                         loadedUIForConnectionKey = connectionKey
                         webUIRenderOverlayStatus = nil
-                        webUIRenderProbeLastResult = navigationFinished
-                            ? "ready"
-                            : "ready-after-navigation-timeout"
+                        webUIRenderProbeLastResult = "ready"
                         return
                     }
                     renderAttempt += 1
                     let delay = Self.webUIRenderRetryDelayNanoseconds(for: renderAttempt)
                     let probe = webUIRenderProbeLastResult ?? "blank"
-                    webUIRenderOverlayStatus = navigationFinished
-                        ? "Goose Web UI stayed blank (\(probe)). Retrying."
-                        : "Goose Web UI navigation timed out and render probe stayed \(probe). Retrying."
+                    webUIRenderOverlayStatus = "Goose Web UI stayed blank (\(probe)). Retrying."
                     if delay > 0 {
                         try? await Task.sleep(nanoseconds: delay)
                     }

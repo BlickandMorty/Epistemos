@@ -536,9 +536,10 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return [Self.jsonResponse(id: id, result: catalog.extensionsResult())]
         case "_goose/unstable/sources/list",
              "_goose/unstable/recipes/list",
-             "_goose/unstable/schedules/list",
              "_goose/unstable/skills/list":
             return [Self.jsonResponse(id: id, result: emptySourcesResult())]
+        case "_goose/unstable/schedules/list":
+            return [Self.jsonResponse(id: id, result: emptySchedulesResult())]
         default:
             if Self.isProGated(method: method) {
                 return [
@@ -752,6 +753,15 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             "sources": [],
             "items": [],
             "entries": [],
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func emptySchedulesResult() -> [String: Any] {
+        [
+            "jobs": [],
+            "schedules": [],
+            "items": [],
             "_meta": catalog.metadata(),
         ]
     }

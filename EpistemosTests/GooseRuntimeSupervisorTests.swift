@@ -77,6 +77,14 @@ struct GooseRuntimeSupervisorTests {
         }
     }
 
+    @Test("MAS in-process ACP scheduler list returns the jobs array the WebUI expects")
+    func masInProcessACPSchedulerListUsesWebUIShape() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        #expect(source.contains(#"case "_goose/unstable/schedules/list":"#))
+        #expect(source.contains(#"emptySchedulesResult()"#))
+        #expect(source.contains(#""jobs": []"#))
+    }
+
     @Test("serve argv pins Goose ACP to loopback port 3284 with an explicit builtin")
     func serveArgumentsPinLoopbackACP() {
         let args = GooseRuntimeSupervisor.serveArguments(
@@ -1555,6 +1563,10 @@ struct GooseWebViewBootShimTests {
         #expect(surface.contains("GooseWebBootstrap(baseURL: connection.baseURL, secretKey: secretKey)"))
         #expect(surface.contains("@State private var webUILoadTask"))
         #expect(surface.contains("@State private var webUIRenderOverlayStatus"))
+        #expect(surface.contains("@State private var surfaceStarted"))
+        #expect(surface.contains("guard !surfaceStarted else"))
+        #expect(surface.contains("surfaceStarted = false"))
+        #expect(surface.contains("_ = page.load(request)"))
         #expect(surface.contains("waitForRenderedGooseUI(connectionKey: connectionKey)"))
         #expect(surface.contains("page.callJavaScript(Self.gooseUIRenderProbeScript)"))
         #expect(surface.contains("Goose Web UI stayed blank ("))
