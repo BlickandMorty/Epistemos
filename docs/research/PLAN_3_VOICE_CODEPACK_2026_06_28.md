@@ -25,7 +25,8 @@
   model-download progress, and partial/final transcript state for reusable UI consumption. Meeting/STT builds on this
   facade. Final SpeechAnalyzer segments are buffered and drained in order so fast final events cannot overwrite one
   another before the UI consumes them; partial, final, buffered, and consumed transcript strings are capped to the
-  `TextCapturePipeline.maxCleanedTextCharacters` envelope before host callbacks receive them.
+  `TextCapturePipeline.maxCleanedTextCharacters` envelope before host callbacks receive them. External SpeechAnalyzer
+  failures are mapped to bounded domain/code diagnostics before they reach voice UI status text.
 - **Reusable mic API has no inert auto-stop flag:** `VoiceInputButton` is manual by design; surfaces that support
   automatic silence-stop own the policy at their capture-service boundary.
 - **Preferred voice floor is quality-first:** `preferredVoice()` now resolves installed voices by Premium > Enhanced >

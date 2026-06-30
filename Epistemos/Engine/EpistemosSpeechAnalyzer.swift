@@ -153,7 +153,9 @@ public final class EpistemosSpeechAnalyzer {
                 try await request.downloadAndInstall()
                 onModelDownload?(1.0)
             } catch {
-                throw SpeechError.downloadFailed(error.localizedDescription)
+                throw SpeechError.downloadFailed(
+                    VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "model download failed")
+                )
             }
         }
         self.transcriber = transcriber
@@ -232,7 +234,9 @@ public final class EpistemosSpeechAnalyzer {
             try engine.start()
         } catch {
             stopInternal()
-            throw SpeechError.audioEngineFailed(error.localizedDescription)
+            throw SpeechError.audioEngineFailed(
+                VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "audio engine failed")
+            )
         }
 
         Self.log.info("live transcription started")

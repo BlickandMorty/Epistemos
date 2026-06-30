@@ -15,6 +15,7 @@ struct VoiceCodepackPlan3Tests {
             "Shared mic control is now backed by live Apple STT",
             "Shared mic callbacks are capture-owner gated",
             "Live macOS 26 STT is surfaced",
+            "bounded domain/code diagnostics",
             "Preferred voice floor is quality-first",
             "SSML/prosody fallback exists",
             "Pro Kokoro gate is honest",
@@ -59,6 +60,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("## Pro Kokoro lane `[STATUS GATE DELIVERED; RUNTIME DEFERRED]`"))
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
+        #expect(capabilities.contains("domain/code-redacted status/error text"))
         #expect(capabilities.contains("Kokoro-82M is Pro-only status-gated"))
         #expect(capabilities.contains("rejects symlink-routed, non-regular, oversized, or"))
         #expect(capabilities.contains("no model asset, picker row, neural runtime, Python, or"))
@@ -90,6 +92,7 @@ struct VoiceCodepackPlan3Tests {
     func voiceButtonRoutesThroughLiveSpeechAnalyzerFacade() throws {
         let button = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
         let facade = try loadMirroredSourceTextFile("Epistemos/Engine/LiveVoiceInputService.swift")
+        let analyzer = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechAnalyzer.swift")
 
         #expect(button.contains("LiveVoiceInputService.shared"))
         #expect(button.contains(".onChange(of: service.partialTranscript)"))
@@ -111,6 +114,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("Self.boundedTranscript(pending.joined(separator: \"\\n\\n\"))"))
         #expect(facade.contains("VoiceCapturePresentationBounds.modelDownloadProgress(progress)"))
         #expect(facade.contains("VoiceCapturePresentationBounds.statusMessage"))
+        #expect(facade.contains("VoiceCaptureDiagnostics.externalStatusMessage"))
+        #expect(!facade.contains("String(describing: error)"))
+        #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"model download failed\")"))
+        #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"audio engine failed\")"))
+        #expect(!analyzer.contains("throw SpeechError.downloadFailed(error.localizedDescription)"))
+        #expect(!analyzer.contains("throw SpeechError.audioEngineFailed(error.localizedDescription)"))
     }
 
     @Test("live voice transcript helpers enforce the capture text envelope")
@@ -147,6 +156,28 @@ struct VoiceCodepackPlan3Tests {
                 .count == VoiceCapturePresentationBounds.maxStatusMessageCharacters
         )
         #expect(VoiceCapturePresentationBounds.statusMessage(" \n\t ") == "Voice input failed.")
+    }
+
+    @Test("voice diagnostics redact path-leaking external errors")
+    func voiceDiagnosticsRedactPathLeakingExternalErrors() {
+        let privatePath = "/private/var/folders/voice/model.bundle"
+        let error = NSError(
+            domain: privatePath,
+            code: 9,
+            userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
+        )
+        let detail = VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "audio engine failed")
+        let status = VoiceCaptureDiagnostics.externalStatusMessage("Voice input failed", error: error)
+
+        #expect(detail.contains("audio engine failed"))
+        #expect(status.contains("Voice input failed"))
+        #expect(detail.contains("domain=Error"))
+        #expect(status.contains("code=9"))
+        #expect(detail.count <= VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+        #expect(status.count <= VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+        #expect(!detail.contains(privatePath))
+        #expect(!status.contains(privatePath))
+        #expect(!status.contains("failed to open"))
     }
 
     @Test("voice button gates shared transcript callbacks to the capture owner")

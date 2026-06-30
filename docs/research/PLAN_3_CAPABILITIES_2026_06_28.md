@@ -394,7 +394,7 @@ Folded in as clean Plan-3 capabilities:
 - **Voice — SHIPPED (Pass 8):** Apple AVSpeech TTS wrapper, quality-first preferred voice resolution, global voice
   picker, premium-download hint, SSML/prosody fallback, consumer-backed Auto/Manual toggles, and live Apple STT facade
   through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope
-  and finite/clamped download progress plus capped status/error text for UI display.
+  and finite/clamped download progress plus capped, domain/code-redacted status/error text for UI display.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, oversized, or invalid-manifest model artifacts with bounded
   model-relative status diagnostics; no model asset, picker row, neural runtime, Python, or subprocess enters the MAS path.

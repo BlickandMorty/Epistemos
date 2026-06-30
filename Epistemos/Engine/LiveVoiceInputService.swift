@@ -16,6 +16,43 @@ nonisolated enum VoiceCapturePresentationBounds {
     }
 }
 
+nonisolated enum VoiceCaptureDiagnostics {
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func externalErrorDescription(_ error: Error, fallback: String) -> String {
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return VoiceCapturePresentationBounds.statusMessage(
+            "\(fallback) (domain=\(domain) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func externalStatusMessage(_ prefix: String, error: Error) -> String {
+        VoiceCapturePresentationBounds.statusMessage(
+            "\(prefix): \(externalErrorDescription(error, fallback: "external failure"))",
+            fallback: prefix
+        )
+    }
+
+    static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 // MARK: - LiveVoiceInputService
 //
 // Small UI-facing facade over EpistemosSpeechAnalyzer. Views get a stable
@@ -245,6 +282,6 @@ public final class LiveVoiceInputService {
                 return "Voice input was cancelled."
             }
         }
-        return VoiceCapturePresentationBounds.statusMessage("Voice input failed: \(String(describing: error))")
+        return VoiceCaptureDiagnostics.externalStatusMessage("Voice input failed", error: error)
     }
 }
