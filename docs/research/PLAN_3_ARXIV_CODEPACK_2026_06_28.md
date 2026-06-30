@@ -15,8 +15,8 @@
 - **`Epistemos/Arxiv/ArxivClient.swift` [DELIVERED]** — `search(query,maxResults)` against
   `https://export.arxiv.org/api/query?search_query=…&sortBy=submittedDate` → Atom XML parsed by an `XMLParser`
   delegate (`ArxivAtomParser`) into `ArxivPaper{id,title,authors,summary,published,pdfURL,categories}` (+ `shortID`).
-  Atom parsing disables external entity resolution and caps parsed papers, element text, and repeated authors/categories
-  inside the 5 MiB response envelope.
+  Search query length is bounded before request construction. Atom parsing disables external entity resolution and caps
+  parsed papers, element text, and repeated authors/categories inside the 5 MiB response envelope.
   PDF links normalize to HTTPS only for canonical new-style or old-style `/pdf/<arxiv-id>` paths; credentials, queries,
   fragments, encoded path tricks, traversal suffixes, and arbitrary non-ID paths are rejected before download. Defaults
   plain text to `all:`; honest errors. Networking only.
@@ -32,7 +32,8 @@
   them. **Honest:** failed download / `.notWired` / `.failed`
   → no note + the real reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
-  (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`).
+  (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`), and
+  caps network-fed title/author/summary/metadata/status display strings before SwiftUI render.
 - **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,
   explicit `0/false/no/off` kill switch. Search+metadata+download are HTTPS-only; note creation still requires real
   markdown from the local PDF importer. If the parser bridge is absent in a Swift-only host or the parser rejects the

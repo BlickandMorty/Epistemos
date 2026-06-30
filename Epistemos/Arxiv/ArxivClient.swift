@@ -105,6 +105,7 @@ nonisolated enum ArxivPDFURLPolicy {
 nonisolated struct ArxivClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
     static let maxSearchResponseBytes = 5 * 1024 * 1024
+    static let maxSearchQueryCharacters = 512
     static let maxParsedPapers = 50
     static let maxAtomElementTextCharacters = 64 * 1024
     static let maxAtomRepeatedValues = 32
@@ -134,7 +135,8 @@ nonisolated struct ArxivClient: Sendable {
 
     static func searchRequest(query: String, maxResults: Int = 10) throws -> URLRequest {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw ArxivClientError.invalidQuery }
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxSearchQueryCharacters else { throw ArxivClientError.invalidQuery }
 
         var components = URLComponents(string: "https://export.arxiv.org/api/query")
         components?.queryItems = [

@@ -1,6 +1,42 @@
 import SwiftData
 import SwiftUI
 
+nonisolated enum ArxivSearchPresentation {
+    static let maxTitleCharacters = 300
+    static let maxAuthorsCharacters = 240
+    static let maxSummaryCharacters = 1_000
+    static let maxMetadataCharacters = 240
+    static let maxStatusMessageCharacters = 360
+
+    static func title(_ value: String) -> String {
+        capped(value, limit: maxTitleCharacters)
+    }
+
+    static func authors(_ values: [String]) -> String {
+        capped(values.joined(separator: ", "), limit: maxAuthorsCharacters)
+    }
+
+    static func summary(_ value: String) -> String {
+        capped(value, limit: maxSummaryCharacters)
+    }
+
+    static func metadata(_ value: String) -> String {
+        capped(value, limit: maxMetadataCharacters)
+    }
+
+    static func status(_ value: String) -> String {
+        capped(value, limit: maxStatusMessageCharacters)
+    }
+
+    private static func capped(_ value: String, limit: Int) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else {
+            return trimmed
+        }
+        return String(trimmed.prefix(limit)) + "..."
+    }
+}
+
 struct ArxivSearchView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(GraphState.self) private var graphState
@@ -99,24 +135,24 @@ struct ArxivSearchView: View {
     private func paperRow(_ paper: ArxivPaper) -> some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(paper.title)
+                Text(ArxivSearchPresentation.title(paper.title))
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(paper.authors.joined(separator: ", "))
+                Text(ArxivSearchPresentation.authors(paper.authors))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
-                Text(paper.summary)
+                Text(ArxivSearchPresentation.summary(paper.summary))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(4)
 
                 HStack(spacing: 8) {
-                    Text(paper.shortID)
+                    Text(ArxivSearchPresentation.metadata(paper.shortID))
                     if !paper.categories.isEmpty {
-                        Text(paper.categories.joined(separator: ", "))
+                        Text(ArxivSearchPresentation.metadata(paper.categories.joined(separator: ", ")))
                     }
                 }
                 .font(.caption.monospaced())
@@ -184,7 +220,7 @@ struct ArxivSearchView: View {
             statusMessage = nil
         } catch {
             papers = []
-            statusMessage = error.localizedDescription
+            statusMessage = ArxivSearchPresentation.status(error.localizedDescription)
         }
     }
 
@@ -206,11 +242,11 @@ struct ArxivSearchView: View {
         switch outcome {
         case .imported(_, let title):
             importedIDs.insert(paper.id)
-            statusMessage = "Added \(title)."
+            statusMessage = ArxivSearchPresentation.status("Added \(title).")
         case .rejected(.cancelled):
             statusMessage = nil
         case .rejected(let error):
-            statusMessage = error.localizedDescription
+            statusMessage = ArxivSearchPresentation.status(error.localizedDescription)
         }
     }
 }

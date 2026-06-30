@@ -18,6 +18,10 @@ struct ArxivPlan3Tests {
         #expect(items["search_query"] == "all:retrieval augmented generation")
         #expect(items["sortBy"] == "submittedDate")
         #expect(items["max_results"] == "50")
+
+        #expect(throws: ArxivClientError.invalidQuery) {
+            _ = try ArxivClient.searchRequest(query: String(repeating: "q", count: ArxivClient.maxSearchQueryCharacters + 1))
+        }
     }
 
     @Test("search rejects redirected non-arXiv Atom responses")
@@ -103,6 +107,15 @@ struct ArxivPlan3Tests {
         let paper = try #require(try ArxivClient.parseSearchResponse(Data(atom.utf8)).first)
 
         #expect(paper.summary.count == ArxivClient.maxAtomElementTextCharacters)
+    }
+
+    @Test("search presentation caps network-fed display strings")
+    func searchPresentationCapsNetworkFedDisplayStrings() {
+        #expect(ArxivSearchPresentation.title(String(repeating: "t", count: ArxivSearchPresentation.maxTitleCharacters + 32)).count == ArxivSearchPresentation.maxTitleCharacters + 3)
+        #expect(ArxivSearchPresentation.authors([String(repeating: "a", count: ArxivSearchPresentation.maxAuthorsCharacters + 32)]).count == ArxivSearchPresentation.maxAuthorsCharacters + 3)
+        #expect(ArxivSearchPresentation.summary(String(repeating: "s", count: ArxivSearchPresentation.maxSummaryCharacters + 32)).count == ArxivSearchPresentation.maxSummaryCharacters + 3)
+        #expect(ArxivSearchPresentation.metadata(String(repeating: "m", count: ArxivSearchPresentation.maxMetadataCharacters + 32)).count == ArxivSearchPresentation.maxMetadataCharacters + 3)
+        #expect(ArxivSearchPresentation.status(String(repeating: "e", count: ArxivSearchPresentation.maxStatusMessageCharacters + 32)).count == ArxivSearchPresentation.maxStatusMessageCharacters + 3)
     }
 
     @Test("rejects non-arXiv PDF URLs before download")
@@ -196,6 +209,7 @@ struct ArxivPlan3Tests {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
         let client = try loadMirroredSourceTextFile("Epistemos/Arxiv/ArxivClient.swift")
         let ingest = try loadMirroredSourceTextFile("Epistemos/Arxiv/ArxivIngestService.swift")
+        let searchView = try loadMirroredSourceTextFile("Epistemos/Views/Arxiv/ArxivSearchView.swift")
 
         #expect(codepack.contains("shipped code"))
         #expect(codepack.contains("ArxivIngestService.swift` [DELIVERED]"))
@@ -213,8 +227,11 @@ struct ArxivPlan3Tests {
         #expect(client.contains("oldStyleIDPattern"))
         #expect(client.contains("parser.shouldResolveExternalEntities = false"))
         #expect(client.contains("maxParsedPapers"))
+        #expect(client.contains("maxSearchQueryCharacters"))
         #expect(client.contains("maxAtomElementTextCharacters"))
         #expect(client.contains("maxAtomRepeatedValues"))
+        #expect(searchView.contains("ArxivSearchPresentation"))
+        #expect(searchView.contains("maxStatusMessageCharacters"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
