@@ -1066,6 +1066,76 @@ export async function listAcpSessionTools(
   return scoped.length > 0 ? scoped : all;
 }
 
+type AcpMcpResourceContent = {
+  uri?: string;
+  text?: string;
+  blob?: string;
+  mimeType?: string | null;
+  _meta?: Record<string, unknown> | null;
+  meta?: Record<string, unknown> | null;
+};
+
+export type AcpMcpResource = {
+  uri: string;
+  text: string;
+  mimeType?: string | null;
+  _meta?: Record<string, unknown> | null;
+};
+
+export async function readAcpSessionResource(
+  sessionId: string,
+  uri: string,
+  extensionName: string
+): Promise<AcpMcpResource | null> {
+  const client = await getAcpClient();
+  const response = await client.goose.resourcesRead_unstable({
+    sessionId,
+    uri,
+    extensionName,
+  }); // epistemos-acp-mcp-resource-read
+  const result = response.result as { contents?: AcpMcpResourceContent[] } | null | undefined;
+  const content = result?.contents?.[0];
+  if (!content) {
+    return null;
+  }
+  const text =
+    typeof content.text === 'string'
+      ? content.text
+      : typeof content.blob === 'string'
+        ? globalThis.atob(content.blob)
+        : '';
+  return {
+    uri: content.uri || uri,
+    text,
+    mimeType: content.mimeType ?? null,
+    _meta: content._meta ?? content.meta ?? null,
+  };
+}
+
+export async function callAcpSessionTool(
+  sessionId: string,
+  name: string,
+  args: Record<string, unknown>
+): Promise<{
+  content: unknown[];
+  isError: boolean;
+  structuredContent?: unknown;
+  _meta?: unknown;
+}> {
+  const client = await getAcpClient();
+  const response = await client.goose.toolsCall_unstable({
+    sessionId,
+    name,
+    arguments: args,
+  }); // epistemos-acp-mcp-tool-call
+  return {
+    content: response.content ?? [],
+    isError: response.isError,
+    structuredContent: response.structuredContent,
+    _meta: response._meta,
+  };
+}
+
 // Custom-provider create/read/update/delete bridged onto the live ACP methods
 // (providersCustom*_unstable). The upstream desktop UI hits the dead REST
 // /config/custom-providers, which does not exist in ACP mode, so adding or
@@ -2389,6 +2459,127 @@ for (const snippet of ['listAcpSessionTools', 'epistemos-acp-tools-cache']) {
     throw new Error(`toolsCache staged source missing: ${snippet}`);
   }
 }
+fs.writeFileSync(path, source);
+NODE
+
+MCP_APP_RENDERER="$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
+node - "$MCP_APP_RENDERER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const importAnchor = "import { callTool, readResource } from '../../api';";
+const imports = `${importAnchor}
+import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';
+import { callAcpSessionTool, readAcpSessionResource } from '../../acp/providers';`;
+if (!source.includes('callAcpSessionTool')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('McpAppRenderer API import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+source = source.replace(
+  `          const response = await readResource({
+            body: {
+              session_id: sessionId,
+              uri: resourceUri,
+              extension_name: extensionName,
+            },
+          });
+
+          if (cancelled) return;
+
+          if (response.data) {
+            const content = response.data;`,
+  `          const content = USE_ACP_CHAT
+            ? await readAcpSessionResource(sessionId, resourceUri, extensionName) // epistemos-acp-mcp-resource-read-ui
+            : (
+                await readResource({
+                  body: {
+                    session_id: sessionId,
+                    uri: resourceUri,
+                    extension_name: extensionName,
+                  },
+                })
+              ).data ?? null;
+
+          if (cancelled) return;
+
+          if (content) {`
+);
+source = source.replace(
+  `      const response = await callTool({
+        body: {
+          session_id: sessionId,
+          name: fullToolName,
+          arguments: args || {},
+        },
+      });
+
+      return {
+        content: (response.data?.content || []) as unknown as CallToolResult['content'],
+        isError: response.data?.isError || false,
+        structuredContent: response.data?.structuredContent as
+          | { [key: string]: unknown }
+          | undefined,
+        _meta: response.data?._meta as { [key: string]: unknown } | undefined,
+      };`,
+  `      const response = USE_ACP_CHAT
+        ? await callAcpSessionTool(sessionId, fullToolName, args || {}) // epistemos-acp-mcp-tool-call-ui
+        : (
+            await callTool({
+              body: {
+                session_id: sessionId,
+                name: fullToolName,
+                arguments: args || {},
+              },
+            })
+          ).data ?? null;
+
+      return {
+        content: (response?.content || []) as unknown as CallToolResult['content'],
+        isError: response?.isError || false,
+        structuredContent: response?.structuredContent as
+          | { [key: string]: unknown }
+          | undefined,
+        _meta: response?._meta as { [key: string]: unknown } | undefined,
+      };`
+);
+source = source.replace(
+  `      const response = await readResource({
+        body: {
+          session_id: sessionId,
+          uri,
+          extension_name: extensionName,
+        },
+      });
+      const data = response.data;`,
+  `      const data = USE_ACP_CHAT
+        ? await readAcpSessionResource(sessionId, uri, extensionName) // epistemos-acp-mcp-resource-read-handler
+        : (
+            await readResource({
+              body: {
+                session_id: sessionId,
+                uri,
+                extension_name: extensionName,
+              },
+            })
+          ).data ?? null;`
+);
+
+for (const snippet of [
+  'callAcpSessionTool',
+  'readAcpSessionResource',
+  'epistemos-acp-mcp-resource-read-ui',
+  'epistemos-acp-mcp-tool-call-ui',
+  'epistemos-acp-mcp-resource-read-handler',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`McpAppRenderer staged source missing required ACP MCP app snippet: ${snippet}`);
+  }
+}
+
 fs.writeFileSync(path, source);
 NODE
 
@@ -4734,6 +4925,13 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "listAcpSessionTools(sessionId, extensionName)" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "epistemos-acp-permission-save-unavailable" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "permissionEditingUnavailable" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
+    grep -q "epistemos-acp-mcp-resource-read" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-mcp-tool-call" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "resourcesRead_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "toolsCall_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-mcp-resource-read-ui" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
+    grep -q "epistemos-acp-mcp-tool-call-ui" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
+    grep -q "epistemos-acp-mcp-resource-read-handler" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "sm:max-w-\\[560px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "grid grid-cols-12 items-center gap-3 rounded-\\[10px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "rounded-\\[11px\\] border border-border-secondary bg-background-primary/65" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionRulesModal.tsx"
