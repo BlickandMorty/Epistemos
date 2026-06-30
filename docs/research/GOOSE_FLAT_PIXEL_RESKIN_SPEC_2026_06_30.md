@@ -27,11 +27,13 @@ Code desktop app — *not* boxy, *not* retro-pixel-everything.
 4. **NATIVE FRAME KEPT.** The rounded-corner window + vibrancy + traffic-lights + the calibrated springs stay (the
    "curved-white" window the owner likes). **NO native nav rail** — Goose's own rethemed web sidebar is the navigation.
 
-5. **TOTAL THEME-AWARENESS — including a true BLACK-AND-WHITE mode.** Every color comes from the Epistemos tokens
-   (two-token-sources: `EpistemosTheme.swift` + Goose `theme-tokens.ts`, in lock-step). **In the B&W / monochrome theme,
-   EVERYTHING is grayscale — the accent TOO** (New-session chip, send button, active row, focus tint all become mono,
-   ZERO blue). In colored + custom themes, the accent + tints come from that theme. **NEVER hardcode `#0066cc` or any
-   color** — always read the token, so B&W stays B&W and the custom palette propagates everywhere.
+5. **TOTAL THEME-AWARENESS — the UI ALWAYS follows the ACTIVE theme, from tokens. It is NOT a hardcoded B&W skin.**
+   Every color comes from the Epistemos tokens (two-token-sources: `EpistemosTheme.swift` + Goose `theme-tokens.ts`, in
+   lock-step). The **CLASSIC (default) theme IS black-and-white** — so out of the box everything, *including the accent*,
+   is grayscale (no blue: New-session chip, send button, active row, focus tint all mono). But that is **just the classic
+   theme, NOT a special "B&W mode"**: every OTHER built-in theme AND the user's CUSTOM theme must re-tint EVERY surface
+   live — accent, focus tint, active row, chips, send button — straight from the tokens. **NEVER hardcode `#0066cc` or any
+   color** — always read the token, so the classic theme renders B&W and every other/custom palette propagates everywhere.
 
 6. **OPTIMIZED.** Keep it CSS-token-only and cheap — no heavy re-renders, no per-click reloads (the lag came from the
    now-cut native rail; don't reintroduce churn). It must feel instant.
