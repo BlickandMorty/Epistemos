@@ -359,6 +359,7 @@ nonisolated enum GooseACPProtocolBounds {
     static let maxProviderModelsPerProvider = 512
     static let maxProviderSupportedModels = 1_024
     static let maxProviderConfigFields = 64
+    static let maxProviderConfigStatuses = 512
     static let maxConfigExtensions = 512
     static let maxConfigWarnings = 64
     static let maxConfigWarningCharacters = 512
@@ -834,10 +835,48 @@ nonisolated struct GooseACPProviderConfigStatusRequest: Encodable, Equatable, Se
 nonisolated struct GooseACPProviderConfigStatus: Codable, Equatable, Sendable {
     let providerId: String
     let isConfigured: Bool
+
+    init(providerId: String, isConfigured: Bool) {
+        self.providerId = providerId
+        self.isConfigured = isConfigured
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let providerId = trimmedNonEmptyACPString(
+            try container.decode(String.self, forKey: .providerId),
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .providerId,
+                in: container,
+                debugDescription: "Provider config status id is missing or too large."
+            )
+        }
+        self.providerId = providerId
+        self.isConfigured = try container.decodeIfPresent(Bool.self, forKey: .isConfigured) ?? false
+    }
 }
 
 nonisolated struct GooseACPProviderConfigStatusResponse: Decodable, Equatable, Sendable {
     let statuses: [GooseACPProviderConfigStatus]
+
+    private enum CodingKeys: String, CodingKey {
+        case statuses
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawStatuses: [JSONValue] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .statuses,
+            limit: GooseACPProtocolBounds.maxProviderConfigStatuses
+        ) ?? []
+        statuses = rawStatuses.compactMap {
+            try? $0.decoded(GooseACPProviderConfigStatus.self)
+        }
+    }
 }
 
 nonisolated struct GooseACPProviderConfigFieldUpdate: Encodable, Equatable, Sendable {
@@ -934,6 +973,29 @@ nonisolated struct GooseACPDefaultsReadRequest: Encodable, Equatable, Sendable {
 nonisolated struct GooseACPDefaultsReadResponse: Decodable, Equatable, Sendable {
     let providerId: String?
     let modelId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case providerId
+        case modelId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        providerId = Self.boundedDefaultIdentifier(
+            try container.decodeIfPresent(String.self, forKey: .providerId)
+        )
+        modelId = Self.boundedDefaultIdentifier(
+            try container.decodeIfPresent(String.self, forKey: .modelId)
+        )
+    }
+
+    static func boundedDefaultIdentifier(_ raw: String?) -> String? {
+        trimmedNonEmptyACPString(
+            raw,
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+        )
+    }
 }
 
 nonisolated struct GooseACPDefaultsSaveRequest: Encodable, Equatable, Sendable {

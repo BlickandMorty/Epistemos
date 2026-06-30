@@ -557,6 +557,37 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("defaults and provider config statuses bound live ACP identifiers")
+    func defaultsAndProviderConfigStatusesBoundIdentifiers() async throws {
+        let oversizedID = String(
+            repeating: "P",
+            count: GooseACPProtocolBounds.maxInventoryIDCharacters + 1
+        )
+        let statusLimit = GooseACPProtocolBounds.maxProviderConfigStatuses
+        let statusesJSON = ([
+            #"{"providerId":"\#(oversizedID)","isConfigured":true}"#,
+        ] + (0..<(statusLimit + 3)).map {
+            #"{"providerId":"provider-\#($0)","isConfigured":true}"#
+        }).joined(separator: ",")
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"providerId":" \#(oversizedID) ","modelId":"\#(oversizedID)"}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"statuses":[\#(statusesJSON)]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let defaults = try await client.readGooseDefaults()
+        let status = try await client.readGooseProviderConfigStatus()
+
+        #expect(defaults.providerId == nil)
+        #expect(defaults.modelId == nil)
+        #expect(status.statuses.count == statusLimit - 1)
+        #expect(status.statuses.first?.providerId == "provider-0")
+        #expect(status.statuses.last?.providerId == "provider-\(statusLimit - 2)")
+        await client.close()
+    }
+
     @Test("client sends the Skills source list Goose custom ACP subset")
     func clientSendsSkillsSourceListGooseCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
