@@ -4454,6 +4454,65 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+RENDERER_ENTRY="$WORK_ROOT/ui/desktop/src/renderer.tsx"
+node - "$RENDERER_ENTRY" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const importAnchor = "import { readConfig } from './api';";
+const importReplacement = `${importAnchor}
+import { USE_ACP_CHAT } from './acpChatFeatureFlag';
+import { readAcpProviderConfigValue } from './acp/providers';`;
+if (!source.includes("readAcpProviderConfigValue")) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('renderer telemetry readConfig import anchor not found');
+  }
+  source = source.replace(importAnchor, importReplacement);
+}
+
+const telemetryRestAnchor = `    try {
+      const telemetryResponse = await readConfig({
+        body: { key: TELEMETRY_CONFIG_KEY, is_secret: false },
+      });
+      const isTelemetryEnabled = telemetryResponse.data !== false;
+      setTelemetryEnabled(isTelemetryEnabled);
+    } catch (error) {`;
+const telemetryAcpReplacement = `    try {
+      const telemetryValue = USE_ACP_CHAT
+        ? await readAcpProviderConfigValue(TELEMETRY_CONFIG_KEY)
+        : (
+            await readConfig({
+              body: { key: TELEMETRY_CONFIG_KEY, is_secret: false },
+            })
+          ).data;
+      const isTelemetryEnabled = USE_ACP_CHAT
+        ? telemetryValue === 'true'
+        : telemetryValue !== false;
+      setTelemetryEnabled(isTelemetryEnabled); // epistemos-acp-renderer-telemetry-config
+    } catch (error) {`;
+if (!source.includes('epistemos-acp-renderer-telemetry-config')) {
+  if (!source.includes(telemetryRestAnchor)) {
+    throw new Error('renderer telemetry REST anchor not found');
+  }
+  source = source.replace(telemetryRestAnchor, telemetryAcpReplacement);
+}
+
+for (const snippet of [
+  "import { USE_ACP_CHAT } from './acpChatFeatureFlag';",
+  "import { readAcpProviderConfigValue } from './acp/providers';",
+  'epistemos-acp-renderer-telemetry-config',
+  'await readAcpProviderConfigValue(TELEMETRY_CONFIG_KEY)',
+  "telemetryValue === 'true'",
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`renderer staged source is missing required ACP telemetry snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 ACP_SESSIONS="$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
 NAVIGATION_SESSIONS="$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"
 node - "$ACP_SESSIONS" "$NAVIGATION_SESSIONS" <<'NODE'
@@ -5623,6 +5682,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "localAcpConfigKeys = new Set" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "local-acp-config-GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-renderer-telemetry-config" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
+    grep -q "readAcpProviderConfigValue(TELEMETRY_CONFIG_KEY)" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
+    grep -q "telemetryValue === 'true'" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
     grep -q "__epistemosGooseProviderInventoryEvents" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "Goose ACP provider inventory failed:" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "__epistemosGooseACPRequestSerialization" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
