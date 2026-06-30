@@ -65,6 +65,20 @@ the orchestrator — not a cron scheduler.** This is what makes it a *game* inst
 - So: **A2A orchestration emerges from world rules.** Cron is the fallback for a specific "do X every hour" agent, not
   the core loop.
 
+## 6b. THE CORE LOOP — autonomous knowledge + **budget = money** (the Epistemos dream, set free)
+This is the heart — and it's exactly what the owner always wanted for Epistemos: each mascot **autonomously makes
+knowledge.**
+- **Per-agent AUTONOMY BUDGET (the control panel):** tokens to spend · frequency (how often it acts) · depth (how far
+  it researches) · which tools / MCPs / skills it may use. You dial these per mascot.
+- **What it does with that budget:** researches on its own → writes + auto-edits **markdown files in its own vault** →
+  accumulates real knowledge over time. The vault fills with artifacts *it* created. (Epistemos's "auto-generate
+  insights / proactive AI" dream — here, unconstrained.)
+- **★ THE UNIFICATION — money = the budget.** This is the clean answer to the whole "agent money / bank account"
+  worry: **an agent's wallet IS its token/compute budget.** The Store sells *compute / tools / data*; spending money =
+  spending tokens to research + build. So the economy is REAL and meaningful with **zero real money, zero SSN, zero
+  provider risk** — you allocate budget, agents turn budget into knowledge, richer agents do more. **v1 = this
+  simulated budget-economy.** (Real money is §7's far stretch only.)
+
 ## 7. "Real game" — agents that DO real things (the ambitious layer)
 - **Per-agent VAULT:** each agent owns a folder (`Vault(path)` component). Press a button → open *that* agent's folder
   = all the files it has made/owns. Give another agent another vault. (Mirrors Epistemos's per-model-vault concept.)
@@ -107,3 +121,18 @@ If that feels magic in your hands, the society (multiple mascots · proximity-A2
 - It REUSES Epistemos *ideas/patterns* freely (above), and the *good* discoveries (what makes agents orchestrate,
   visualize-the-society, the brain tiers) graduate BACK into Goose/Epistemos.
 - This is the playground; Epistemos is the product. Keep them clean of each other.
+
+## 12. Frameworks to STUDY (mine for ideas — do NOT fork blindly; your edge is minimal + useful)
+Real agent-simulation repos exist; study them for ideas, but most are research-messy / web-stack / not minimal-native:
+- **Stanford "Generative Agents" (Smallville)** — the famous 2D agent town (memory + reflection + planning). The
+  *memory/reflection* model is worth stealing; the codebase is not minimal.
+- **a16z "AI Town"** — deployable open-source agent town (JS / Convex). More polished, but web-stack, not native/minimal.
+- **Project Sid / large-scale agent civilizations** — scale + emergence ideas, far from minimal.
+- **Honest read:** they prove the concept and have ideas to mine (memory/reflection, proximity interaction), but **none
+  fit "minimal + native + truly-useful"** — they're sprawling research demos or web apps. Your differentiator IS the
+  restraint: a frosted-minimal *native* game where agents make REAL knowledge/artifacts (not just chat). **Mine them;
+  don't fork them.**
+- **Real agent-payments** (for §7's money stretch ONLY): Google **AP2**, Coinbase **x402**, Stripe agent toolkit,
+  Visa/Mastercard agent-pay — all use **scoped, cryptographically-signed mandates + hard spend limits, NOT raw
+  SSN/identity** (your instinct is right: never let an agent hold your SSN). Far-future; the simulated **budget-economy
+  (§6b) is the v1** and dodges all of it.
