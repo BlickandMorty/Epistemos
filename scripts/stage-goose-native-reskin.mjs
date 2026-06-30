@@ -4126,6 +4126,125 @@ function applyStatusIndicatorSurfaces() {
   write('src/components/bottom_menu/ContextWindowIndicator.tsx', source);
 }
 
+function applyFormValidationSurfaces() {
+  let source = read('src/components/ParameterInputModal.tsx');
+  source = replaceRequired(
+    source,
+    'parameter modal native glass',
+    'className="bg-background-primary border border-border-primary rounded-[6px] shadow-none w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"',
+    'className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 shadow-2xl backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'parameter modal title native',
+    'className="text-xl font-bold text-text-primary mb-6"',
+    'className="mb-6 text-xl font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceAllRequired(
+    source,
+    'parameter modal required token',
+    'text-red-500',
+    'text-text-danger'
+  );
+  source = replaceAllRequired(
+    source,
+    'parameter modal control native base',
+    'w-full p-3 border rounded-[6px] bg-background-secondary text-text-primary focus:outline-none focus:ring-1',
+    'w-full rounded-[10px] border bg-background-primary/70 p-3 text-text-primary transition-all focus:outline-none focus:ring-[3px]'
+  );
+  source = replaceAllRequired(
+    source,
+    'parameter modal invalid ring token',
+    "? 'border-red-500 focus:ring-red-500'",
+    "? 'border-border-danger focus:ring-text-danger/20'"
+  );
+  source = replaceAllRequired(
+    source,
+    'parameter modal normal focus token',
+    ": 'border-border-primary focus:ring-border-secondary'",
+    ": 'border-border-secondary focus:border-[var(--epistemos-accent)] focus:ring-[var(--epistemos-accent)]/20'"
+  );
+  write('src/components/ParameterInputModal.tsx', source);
+
+  source = read('src/components/parameter/ParameterInput.tsx');
+  source = replaceRequired(
+    source,
+    'parameter input delete button native',
+    'className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"',
+    'className="rounded-[8px] p-1 text-text-secondary transition-colors hover:bg-background-danger/55 hover:text-text-danger"'
+  );
+  write('src/components/parameter/ParameterInput.tsx', source);
+
+  source = read('src/components/ui/JsonSchemaForm.tsx');
+  source = replaceRequired(
+    source,
+    'json schema checkbox native',
+    'className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"',
+    'className="h-4 w-4 rounded-[5px] border-border-primary accent-[var(--epistemos-accent)] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceAllRequired(
+    source,
+    'json schema invalid input token',
+    "className={error ? 'border-red-500' : ''}",
+    "className={error ? 'border-border-danger focus-visible:ring-text-danger/20' : ''}"
+  );
+  source = replaceAllRequired(
+    source,
+    'json schema validation text token',
+    'text-red-500',
+    'text-text-danger'
+  );
+  write('src/components/ui/JsonSchemaForm.tsx', source);
+
+  source = read('src/components/ElicitationRequest.tsx');
+  source = replaceRequired(
+    source,
+    'elicitation submit error token',
+    'className="mt-3 text-sm text-red-500"',
+    'className="mt-3 text-sm text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'elicitation urgent token',
+    "className={`mt-3 pt-3 border-t border-border-primary flex items-center gap-2 text-xs font-mono ${isUrgent ? 'text-red-500' : 'text-text-secondary'}`}",
+    "className={`mt-3 flex items-center gap-2 border-t border-border-secondary pt-3 text-xs font-sans ${isUrgent ? 'text-text-danger' : 'text-text-secondary'}`}"
+  );
+  write('src/components/ElicitationRequest.tsx', source);
+
+  source = read('src/components/common/InlineEditText.tsx');
+  source = replaceRequired(
+    source,
+    'inline edit active border token',
+    'border-blue-500 ring-2 ring-blue-500/20',
+    'border-[var(--epistemos-accent)] ring-[3px] ring-[var(--epistemos-accent)]/20'
+  );
+  source = replaceRequired(
+    source,
+    'inline edit focus ring token',
+    'focus:outline-none focus:ring-2 focus:ring-blue-500/40',
+    'focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/25'
+  );
+  write('src/components/common/InlineEditText.tsx', source);
+
+  source = read('src/components/TelemetryConsentPrompt.tsx');
+  source = replaceRequired(
+    source,
+    'telemetry consent link token',
+    'className="text-blue-600 dark:text-blue-400 hover:underline"',
+    'className="text-[var(--epistemos-accent)] hover:underline"'
+  );
+  write('src/components/TelemetryConsentPrompt.tsx', source);
+
+  source = read('src/components/SessionActionsHeader.tsx');
+  source = replaceRequired(
+    source,
+    'session action long text link token',
+    'className="min-w-0 rounded-sm text-left text-blue-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-active dark:text-blue-300 break-all"',
+    'className="min-w-0 break-all rounded-[6px] text-left text-[var(--epistemos-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20"'
+  );
+  write('src/components/SessionActionsHeader.tsx', source);
+}
+
 function applyLoadingAndErrorSurfaces() {
   let source = read('src/suspense-loader.tsx');
   source = replaceRequired(
@@ -4246,6 +4365,7 @@ applySchedulerDetailSurfaces();
 applyRecipeDetailSurfaces();
 applySearchSurfaces();
 applyStatusIndicatorSurfaces();
+applyFormValidationSurfaces();
 applyLoadingAndErrorSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
