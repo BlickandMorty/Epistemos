@@ -362,6 +362,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(routerSource.contains("setDataFeed"))
         #expect(routerSource.contains("case replaceDocument"))
         #expect(routerSource.contains("case regenerate"))
+        #expect(routerSource.contains("applyingAtomically(to:"))
+        #expect(routerSource.contains("document.setPackage(stagedPackage)"))
         #expect(routerSource.contains("Full-surface replacement: use replaceDocument/regenerate"))
         #expect(routerSource.contains("Live data operation: setDataFeed"))
         #expect(routerSource.contains("window.webkit.messagehandlers"))

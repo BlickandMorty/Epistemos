@@ -608,6 +608,29 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(regenerated.manifest.generationProvenance?.operation == .regenerate)
     }
 
+    @Test("HTML workspace patch command batches stage atomically")
+    func htmlWorkspacePatchCommandBatchStagesAtomically() throws {
+        let original = Self.samplePackage()
+        let failing = HTMLWorkspacePatchCommandBatch(operations: [
+            .replaceHTML("<main><h1>Partial</h1></main>"),
+            .updateStyleRule(HTMLWorkspaceStyleRulePatch(selector: "", declarations: ["color": "red"])),
+        ])
+
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try failing.applyingAtomically(to: original)
+        }
+        #expect(original.indexHTML.contains("Interactive Doc"))
+        #expect(!original.indexHTML.contains("Partial"))
+
+        let successful = HTMLWorkspacePatchCommandBatch(operations: [
+            .replaceHTML("<main><h1>Committed</h1></main>"),
+            .replaceDataJSON(#"{"committed":true}"#),
+        ])
+        let updated = try successful.applyingAtomically(to: original)
+        #expect(updated.indexHTML.contains("Committed"))
+        #expect(updated.dataJSON.contains("committed"))
+    }
+
     @Test("Document surface metadata captures HTML Workspace panes")
     func documentSurfaceMetadataCapturesHTMLWorkspacePanes() {
         let surface = DocumentSurface(

@@ -68,6 +68,16 @@ nonisolated public struct HTMLWorkspacePatchCommandBatch: Codable, Sendable, Equ
     }
 }
 
+extension HTMLWorkspacePatchCommandBatch {
+    public func applyingAtomically(to package: HTMLWorkspacePackage) throws -> HTMLWorkspacePackage {
+        var staged = package
+        for command in operations {
+            staged = try HTMLWorkspacePatchApplier.apply(command.patchOperation(), to: staged)
+        }
+        return staged
+    }
+}
+
 nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable {
     case replaceDocument(HTMLWorkspaceDocumentReplacement)
     case replaceHTML(String)
@@ -548,9 +558,10 @@ enum HTMLWorkspacePatchRouter {
                         throw HTMLWorkspacePatchRouterError.contentHashMismatch(expected: expected, actual: actual)
                     }
                 }
-                for command in batch.operations {
-                    try document.applyPatch(command.patchOperation())
-                    appliedCount += 1
+                if !batch.operations.isEmpty {
+                    let stagedPackage = try batch.applyingAtomically(to: document.package)
+                    document.setPackage(stagedPackage)
+                    appliedCount += batch.operations.count
                 }
             } catch {
                 errors.append(error.localizedDescription)
