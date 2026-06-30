@@ -227,6 +227,10 @@ nonisolated struct CodeEditorPolishTests {
                 "Text changes must enqueue into CodeEditorContentDebouncer, not bypass it with a local Task debounce.")
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(500))"),
                 "The old ad-hoc 500ms content-change debounce should not remain in the editor text-change path.")
+        let flushRange = try #require(source.range(of: "contentDebouncer?.flush(text)"))
+        let detachRange = try #require(source.range(of: "contentDebouncer?.detach()"))
+        #expect(flushRange.lowerBound < detachRange.lowerBound,
+                "CodeEditorView must flush the visible Source text before detaching the debouncer during lens switches.")
     }
 
     @Test("CodeEditorView feeds live preferences into MarkEdit CoreEditor")
