@@ -222,6 +222,41 @@ struct VaultMCPCoreTests {
         #expect(id.allSatisfy { $0 == "i" })
     }
 
+    @Test("JSON-RPC protocol diagnostics are bounded")
+    func jsonRPCProtocolDiagnosticsAreBounded() async throws {
+        let recorder = CallRecorder()
+        let core = VaultMCPCore(executor: { name, argumentsJSON in
+            await recorder.record(name: name, argumentsJSON: argumentsJSON)
+            return LocalToolResult(toolName: name, resultJson: #"{"called":true}"#, isError: false)
+        })
+        let longMethod = String(repeating: "m", count: VaultMCPCore.maxProtocolDiagnosticCharacters + 80)
+        let longTool = String(repeating: "t", count: VaultMCPCore.maxProtocolDiagnosticCharacters + 80)
+        let tooLongPath = String(repeating: "p", count: VaultMCPCore.maxRelativePathCharacters + 1) + ".md"
+
+        let methodResponse = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":41,"method":"\#(longMethod)"}"#)
+        let methodError = try #require(try Self.jsonObject(methodResponse)["error"] as? [String: Any])
+        let methodMessage = try #require(methodError["message"] as? String)
+
+        let toolResponse = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"\#(longTool)","arguments":{}}}"#)
+        let toolError = try #require(try Self.jsonObject(toolResponse)["error"] as? [String: Any])
+        let toolMessage = try #require(toolError["message"] as? String)
+
+        let pathResponse = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"vault.read","arguments":{"path":"\#(tooLongPath)"}}}"#)
+        let pathError = try #require(try Self.jsonObject(pathResponse)["error"] as? [String: Any])
+        let pathMessage = try #require(pathError["message"] as? String)
+
+        #expect(methodMessage.count <= VaultMCPCore.maxProtocolErrorMessageCharacters)
+        #expect(methodMessage.contains(longMethod) == false)
+        #expect(toolMessage.count <= VaultMCPCore.maxProtocolErrorMessageCharacters)
+        #expect(toolMessage.contains("read-only vault server"))
+        #expect(toolMessage.contains(longTool) == false)
+        #expect(pathMessage == "vault resource path is too long")
+        #expect(await recorder.snapshot().isEmpty)
+    }
+
     @Test("empty or missing vault lists honest-empty resources")
     func emptyVaultListsHonestEmptyResources() async throws {
         let missing = FileManager.default.temporaryDirectory

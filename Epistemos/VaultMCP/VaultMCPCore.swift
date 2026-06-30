@@ -4,6 +4,9 @@ import Foundation
 nonisolated struct VaultMCPCore {
     static let maxRequestJSONBytes = 8 * 1024 * 1024
     static let maxJSONRPCIDStringLength = 256
+    static let maxProtocolDiagnosticCharacters = 256
+    static let maxProtocolErrorMessageCharacters = 320
+    static let maxRelativePathCharacters = 2_048
     static let maxResourceNotes = 5_000
     static let maxResourceReadBytes = 8 * 1024 * 1024
 
@@ -102,7 +105,11 @@ nonisolated struct VaultMCPCore {
         case "resources/read":
             return await handleResourcesRead(id: id, request: request)
         default:
-            return Self.errorResponse(id: id, code: -32601, message: "Method not found: \(method)")
+            return Self.errorResponse(
+                id: id,
+                code: -32601,
+                message: "Method not found: \(Self.protocolDiagnostic(method))"
+            )
         }
     }
 
@@ -115,7 +122,11 @@ nonisolated struct VaultMCPCore {
 
         let canonicalName = Self.canonicalReadToolName(rawName)
         guard Self.readToolNameSet.contains(canonicalName) else {
-            return Self.errorResponse(id: id, code: -32601, message: "read-only vault server: \(rawName)")
+            return Self.errorResponse(
+                id: id,
+                code: -32601,
+                message: "read-only vault server: \(Self.protocolDiagnostic(rawName))"
+            )
         }
 
         switch validatedArgumentsJSON(for: canonicalName, rawArguments: params["arguments"]) {
@@ -248,7 +259,7 @@ nonisolated struct VaultMCPCore {
     }
 
     static func canonicalReadToolName(_ toolName: String) -> String {
-        let trimmed = toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmed = boundedProtocolInput(toolName).lowercased()
         let canonical = AgentToolNameAliases.canonical(trimmed)
         return readAliasMap[canonical] ?? readAliasMap[trimmed] ?? canonical
     }
@@ -385,7 +396,11 @@ nonisolated struct VaultMCPCore {
     }
 
     static func errorResponse(id: Any, code: Int, message: String) -> String {
-        jsonRPC(["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]])
+        jsonRPC([
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": ["code": code, "message": protocolErrorMessage(message)],
+        ])
     }
 
     private static func inputSchema(for toolName: String) -> [String: Any] {
@@ -491,6 +506,9 @@ nonisolated struct VaultMCPCore {
         let normalizedPath = relativePath
             .replacingOccurrences(of: "\\", with: "/")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedPath.count <= maxRelativePathCharacters else {
+            throw VaultMCPPathError.pathTooLong
+        }
         if allowCurrentDirectory && normalizedPath == "." {
             return vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
         }
@@ -561,6 +579,8 @@ nonisolated struct VaultMCPCore {
             "only markdown vault resources can be read"
         case .notRegularFile:
             "only regular markdown vault resources can be read"
+        case .pathTooLong:
+            "vault resource path is too long"
         case .tooLarge:
             "markdown resource is too large"
         case .hiddenPath:
@@ -570,6 +590,33 @@ nonisolated struct VaultMCPCore {
         case .none:
             "read failed"
         }
+    }
+
+    private static func protocolDiagnostic(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = boundedProtocolInput(trimmed)
+        let fallback = bounded.isEmpty ? "[empty]" : bounded
+        guard trimmed.count > maxProtocolDiagnosticCharacters else {
+            return fallback
+        }
+        return fallback + "..."
+    }
+
+    private static func boundedProtocolInput(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > maxProtocolDiagnosticCharacters else {
+            return trimmed
+        }
+        return String(trimmed.prefix(maxProtocolDiagnosticCharacters))
+    }
+
+    private static func protocolErrorMessage(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = trimmed.isEmpty ? "request failed" : trimmed
+        guard message.count > maxProtocolErrorMessageCharacters else {
+            return message
+        }
+        return String(message.prefix(maxProtocolErrorMessageCharacters)) + "..."
     }
 
     private static func jsonRPC(_ object: [String: Any]) -> String {
@@ -596,6 +643,7 @@ private enum VaultMCPPathError: Error, Sendable {
     case pathTraversal
     case notMarkdown
     case notRegularFile
+    case pathTooLong
     case tooLarge
     case hiddenPath
     case invalidEncoding

@@ -30,7 +30,8 @@ resolved note with `O_NOFOLLOW`, verify a regular file with `fstat`, enforce the
 invalid UTF-8. Tool calls still go through the read-only executor allowlist. Empty vault → honest-empty (`resources:[]`,
 real empty search/list payloads). Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap before JSON
 parsing, requires a JSON-RPC 2.0 object envelope before dispatch, and caps echoed string request IDs, matching the
-loopback HTTP body limit. Pure
+loopback HTTP body limit. Protocol error diagnostics for client-provided methods/tool names are bounded, and relative
+resource paths over the core cap are rejected before containment/file work. Pure
 helpers (`successResponse`/`errorResponse`/`toolCallResult`/`argumentsJSON`/`markdownRelPaths`/`noteText`) testable with
 a stub executor, no network/FFI in the file.
 
