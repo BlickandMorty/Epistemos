@@ -2581,6 +2581,221 @@ export async function exportApp(options: BridgeOptions): Promise<ApiResponse<str
 }
 TS
 
+cat > "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts" <<'TS'
+export type EpistemosContextSnapshot = {
+  available?: boolean;
+  source?: string;
+  appMode?: string;
+  capturedAt?: string;
+  vaultPath?: string | null;
+  activeNote?: {
+    id?: string;
+    title?: string;
+    path?: string | null;
+    vaultRelativePath?: string | null;
+    preview?: string | null;
+    wordCount?: number;
+  } | null;
+  graph?: {
+    route?: string;
+    sourceId?: string | null;
+    selectedNodeId?: string | null;
+    selectedNodeTitle?: string | null;
+    selectedNodeType?: string | null;
+    selectedNodeSourceId?: string | null;
+  } | null;
+  attachments?: Array<{
+    kind?: string;
+    title?: string;
+    path?: string | null;
+    targetId?: string | null;
+    summary?: string | null;
+  }>;
+  promptContext?: string | null;
+};
+
+type EpistemosContextBridge = {
+  snapshot: () => Promise<EpistemosContextSnapshot>;
+};
+
+function contextBridge(): EpistemosContextBridge {
+  const bridge = (window as Window & {
+    epistemos?: { context?: EpistemosContextBridge };
+  }).epistemos?.context;
+  if (!bridge?.snapshot) {
+    throw new Error('Epistemos context bridge unavailable');
+  }
+  return bridge;
+}
+
+export async function getEpistemosContextSnapshot(): Promise<EpistemosContextSnapshot> {
+  const snapshot = await contextBridge().snapshot();
+  return snapshot && typeof snapshot === 'object' ? snapshot : { available: false };
+}
+
+export function formatEpistemosContextForPrompt(snapshot: EpistemosContextSnapshot): string {
+  if (snapshot.available === false) return '';
+
+  const direct = typeof snapshot.promptContext === 'string' ? snapshot.promptContext.trim() : '';
+  if (direct) return direct;
+
+  const lines: string[] = ['Epistemos context snapshot:'];
+  if (snapshot.vaultPath) lines.push(`- Vault: ${snapshot.vaultPath}`);
+  if (snapshot.activeNote?.title) {
+    lines.push(`- Active note: ${snapshot.activeNote.title}`);
+    const notePath = snapshot.activeNote.path || snapshot.activeNote.vaultRelativePath;
+    if (notePath) lines.push(`  Path: ${notePath}`);
+    if (snapshot.activeNote.preview) lines.push(`  Preview: ${snapshot.activeNote.preview}`);
+  }
+  if (snapshot.graph?.route) {
+    lines.push(`- Graph route: ${snapshot.graph.route}`);
+    const selected = snapshot.graph.selectedNodeTitle || snapshot.graph.selectedNodeId;
+    if (selected) lines.push(`  Selected node: ${selected}`);
+  }
+  return lines.length > 1 ? lines.join('\n') : '';
+}
+TS
+
+node - "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { ArrowUp, Bug, ScrollText } from 'lucide-react';",
+  "import { ArrowUp, BookOpen, Bug, ScrollText } from 'lucide-react';"
+);
+source = source.replace(
+  "import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';",
+  "import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';\nimport { formatEpistemosContextForPrompt, getEpistemosContextSnapshot } from '../epistemos/contextBridge';"
+);
+source = source.replace(
+  "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);",
+  "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);\n  const [isContextAttachInFlight, setIsContextAttachInFlight] = useState(false);"
+);
+source = source.replace(
+  `  const handleFileSelect = () => {
+    if (isFilePickerOpen) return;
+    fileInputRef.current?.click();
+  };
+`,
+  `  const handleFileSelect = () => {
+    if (isFilePickerOpen) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleAttachEpistemosContext = async () => {
+    if (isContextAttachInFlight) return;
+    setIsContextAttachInFlight(true);
+    try {
+      const snapshot = await getEpistemosContextSnapshot();
+      const contextText = formatEpistemosContextForPrompt(snapshot);
+      if (!contextText) {
+        toastError({
+          title: 'No Epistemos context',
+          msg: 'Open a note, vault, or graph selection before attaching context.',
+        });
+        return;
+      }
+      const prefix = displayValue.trimEnd();
+      const nextValue = prefix ? \`\${prefix}\\n\\n\${contextText}\` : contextText;
+      setDisplayValue(nextValue);
+      setValue(nextValue);
+      setHasUserTyped(true);
+      setTimeout(() => textAreaRef.current?.focus(), 0);
+    } catch (error) {
+      toastError({
+        title: 'Context unavailable',
+        msg: error instanceof Error ? error.message : 'Epistemos context bridge failed.',
+      });
+    } finally {
+      setIsContextAttachInFlight(false);
+    }
+  };
+`
+);
+source = source.replace(
+  `            {/* Right: attach */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={handleFileSelect}
+                  disabled={isFilePickerOpen}
+                  variant="ghost"
+                  size="sm"
+                  shape="round"
+                  className={cn(
+                    'text-text-primary/70 hover:text-text-primary transition-colors',
+                    isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                >
+                  <Attach className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Attach file</TooltipContent>
+            </Tooltip>
+`,
+  `            {/* Right: Epistemos context */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={handleAttachEpistemosContext}
+                  disabled={isContextAttachInFlight}
+                  variant="ghost"
+                  size="sm"
+                  shape="round"
+                  className={cn(
+                    'text-text-primary/70 hover:text-text-primary transition-colors',
+                    isContextAttachInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                  aria-label="Attach Epistemos context"
+                >
+                  <BookOpen className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Attach Epistemos context</TooltipContent>
+            </Tooltip>
+
+            {/* Right: attach */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={handleFileSelect}
+                  disabled={isFilePickerOpen}
+                  variant="ghost"
+                  size="sm"
+                  shape="round"
+                  className={cn(
+                    'text-text-primary/70 hover:text-text-primary transition-colors',
+                    isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                >
+                  <Attach className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Attach file</TooltipContent>
+            </Tooltip>
+`
+);
+
+for (const snippet of [
+  'getEpistemosContextSnapshot',
+  'formatEpistemosContextForPrompt',
+  'handleAttachEpistemosContext',
+  'Attach Epistemos context',
+  'BookOpen',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ChatInput Epistemos context patch missing snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 node - "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx" \
        "$WORK_ROOT/ui/desktop/src/utils/platform_events.ts" \
        "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts" \
@@ -3376,6 +3591,13 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "rounded-\\[10px\\] border p-3 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
     grep -q "border-border-success bg-background-success/55 text-text-success" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
     grep -q "Epistemos Apps bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/appsBridge.ts"
+    grep -q "Epistemos context bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
+    grep -q "if (snapshot.available === false) return '';" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
+    grep -q "formatEpistemosContextForPrompt" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
+    grep -q "getEpistemosContextSnapshot" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "handleAttachEpistemosContext" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "Attach Epistemos context" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "BookOpen" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "mb-4 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { exportApp, importApp, listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts"

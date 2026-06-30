@@ -287,6 +287,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return hasAcceptedRecipeBefore(args.first)
         case "recordRecipeHash":
             return recordRecipeHash(args.first)
+        case "epistemos.context.snapshot":
+            return GooseAppContextSnapshot.current().dictionary
         default:
             throw GooseWebNativeAffordanceBridgeError.unsupported(name)
         }

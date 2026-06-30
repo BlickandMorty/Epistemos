@@ -140,6 +140,7 @@ enum GooseWebBootShim {
         "apps.list": .implementedRuntime,
         "apps.import": .implementedRuntime,
         "apps.export": .implementedRuntime,
+        "epistemos.context.snapshot": .implementedNative,
         "getUpdateState": .hiddenShell,
         "isUsingGitHubFallback": .hiddenShell,
         "getAutoDownloadDisabled": .hiddenShell,
@@ -488,6 +489,7 @@ enum GooseWebBootShim {
             saveSettings(settings);
           };
           const showNotification = (data) => postNativeAffordance('showNotification', [data || {}]);
+          const epistemosContextSnapshot = () => postNativeAffordance('epistemos.context.snapshot');
           const postHostPrompt = async (type, request) => {
             const handler = window.webkit?.messageHandlers?.epistemosGoosePrompt;
             if (!handler?.postMessage) {
@@ -655,6 +657,9 @@ enum GooseWebBootShim {
           });
           window.appConfig = appConfig;
           window.epistemos = Object.assign(window.epistemos || {}, {
+            context: Object.freeze({
+              snapshot: epistemosContextSnapshot
+            }),
             goose: Object.freeze({
               acpUrl: epistemosGoose.acpUrl,
               dispositionLedger: Object.freeze(epistemosGoose.ledger),
