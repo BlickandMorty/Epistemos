@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 21:15 CDT (loop cycle 33) — **10/10 ✅**, 0 locked-canon drift. **1 active OWNER REVIEW** (Companion-v1.6 vs Plan-5 [cyc12]). Steady-state: no new plans (still 1–7). Plan-3 docs (CAPABILITIES/MEETING_STT/VAULT_MCP/WHOLE_APP_LOGOS) refined, drift-scanned clean; rest code-only (Vault MCP diag bounds, web boot shim buffer caps, ACP frame/inventory caps, HTML Workspace asset patches, deep-research render bounds). HEAD at pass: `1b80990ac`.
+**Last auditor pass:** 2026-06-29 21:25 CDT (loop cycle 34) — **10/10 ✅**, 0 locked-canon drift. **1 active OWNER REVIEW** (Companion-v1.6 vs Plan-5 [cyc12]). Steady-state: no new plans (still 1–7). Active `PROMPT_PLAN_3` recorded a browser-use version-pin decision (0.13.2, skip v2/cloud churn) — dependency discipline, no invariant impact. Plan-3 docs refined, drift-scanned clean; rest code-only (web-ui artifact bounds, VRM lineage, surface-route fragments, Vault MCP redaction, md-mode-picker a11y). HEAD at pass: `e945a2eaf`.
 <br>_(cycle 32 vetted the owner canon edit — white-screen P0 + MAS in-process backend — as Option-1-reinforcing, no drift.)_
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
