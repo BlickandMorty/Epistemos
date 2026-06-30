@@ -6,6 +6,9 @@ enum GooseWebUIResolver {
     nonisolated static let explicitIndexEnvironmentKey = "EPISTEMOS_GOOSE_UI_INDEX"
     nonisolated static let explicitDirectoryEnvironmentKey = "EPISTEMOS_GOOSE_UI_DIR"
     nonisolated static let artifactManifestFileName = ".epistemos-goose-webui.json"
+    nonisolated static let maxArtifactManifestBytes = 256 * 1024
+    nonisolated static let maxArtifactTextFileBytes = 64 * 1024 * 1024
+    nonisolated static let maxBundledTextAssetCount = 512
     nonisolated private static let requiredBridgeMarkers = [
         "providersList_unstable",
         "providersCatalogList_unstable",
@@ -260,7 +263,11 @@ enum GooseWebUIResolver {
         guard fileManager.fileExists(atPath: indexURL.path) else { return ["missing-index"] }
         let manifestURL = indexURL.deletingLastPathComponent()
             .appendingPathComponent(artifactManifestFileName)
-        guard let data = try? Data(contentsOf: manifestURL) else {
+        guard let data = readDataFile(
+            manifestURL,
+            fileManager: fileManager,
+            maxBytes: maxArtifactManifestBytes
+        ) else {
             return ["missing-manifest:\(manifestURL.path)"]
         }
         guard let manifest = try? JSONDecoder().decode(ArtifactManifest.self, from: data) else {
@@ -284,7 +291,7 @@ enum GooseWebUIResolver {
         in indexURL: URL,
         fileManager: FileManager
     ) -> Bool {
-        guard let html = try? String(contentsOf: indexURL, encoding: .utf8) else { return false }
+        guard let html = readTextFile(indexURL, fileManager: fileManager) else { return false }
         let root = indexURL.deletingLastPathComponent()
         for reference in localResourceReferences(in: html) {
             guard let path = localFilePath(from: reference) else { continue }
@@ -349,7 +356,7 @@ enum GooseWebUIResolver {
         indexURL: URL,
         fileManager: FileManager
     ) -> [String] {
-        guard let html = try? String(contentsOf: indexURL, encoding: .utf8) else {
+        guard let html = readTextFile(indexURL, fileManager: fileManager) else {
             return ["index-unreadable"]
         }
         let root = indexURL.deletingLastPathComponent()
@@ -361,14 +368,14 @@ enum GooseWebUIResolver {
             let fileURL = root.appendingPathComponent(path)
             guard fileURL.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/"),
                   fileManager.fileExists(atPath: fileURL.path),
-                  let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+                  let text = readTextFile(fileURL, fileManager: fileManager) else {
                 continue
             }
             removeRequiredBridgeMarkers(foundIn: text, from: &missing)
         }
         for fileURL in bundledTextAssetURLs(root: root, fileManager: fileManager) {
             guard !missing.isEmpty else { break }
-            guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
+            guard let text = readTextFile(fileURL, fileManager: fileManager) else { continue }
             removeRequiredBridgeMarkers(foundIn: text, from: &missing)
         }
         return requiredBridgeMarkers.filter { missing.contains($0) }
@@ -395,18 +402,51 @@ enum GooseWebUIResolver {
         ) else {
             return []
         }
-        return enumerator.compactMap { item in
-            guard let fileURL = item as? URL else { return nil }
+        var urls: [URL] = []
+        for item in enumerator {
+            guard urls.count < maxBundledTextAssetCount else { break }
+            guard let fileURL = item as? URL else { continue }
             guard (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
-                return nil
+                continue
             }
             switch fileURL.pathExtension.lowercased() {
             case "css", "html", "js", "json", "mjs":
-                return fileURL
+                urls.append(fileURL)
             default:
-                return nil
+                continue
             }
         }
+        return urls
+    }
+
+    nonisolated private static func readTextFile(
+        _ url: URL,
+        fileManager: FileManager
+    ) -> String? {
+        guard let data = readDataFile(url, fileManager: fileManager, maxBytes: maxArtifactTextFileBytes) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    nonisolated private static func readDataFile(
+        _ url: URL,
+        fileManager: FileManager,
+        maxBytes: Int
+    ) -> Data? {
+        guard let size = fileSize(url, fileManager: fileManager),
+              size <= UInt64(maxBytes) else {
+            return nil
+        }
+        return try? Data(contentsOf: url)
+    }
+
+    nonisolated private static func fileSize(_ url: URL, fileManager: FileManager) -> UInt64? {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let size = attributes[.size] as? NSNumber else {
+            return nil
+        }
+        return size.uint64Value
     }
 
     nonisolated private struct ArtifactManifest: Decodable {

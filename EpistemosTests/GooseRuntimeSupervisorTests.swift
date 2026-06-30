@@ -612,6 +612,52 @@ struct GooseWebUIResolverTests {
         )
     }
 
+    @Test("resolver rejects oversized ACP artifact files before reading")
+    func resolverRejectsOversizedACPArtifactFilesBeforeReading() throws {
+        let root = try temporaryDirectory()
+
+        let oversizedManifestIndex = root.appendingPathComponent("oversized-manifest/index.html")
+        try FileManager.default.createDirectory(
+            at: oversizedManifestIndex.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: oversizedManifestIndex.path, contents: Data())
+        try createSparseFile(
+            oversizedManifestIndex.deletingLastPathComponent()
+                .appendingPathComponent(GooseWebUIResolver.artifactManifestFileName),
+            size: GooseWebUIResolver.maxArtifactManifestBytes + 1
+        )
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": oversizedManifestIndex.path],
+                includeBundledCandidates: false
+            ) == nil
+        )
+
+        let oversizedIndex = root.appendingPathComponent("oversized-index/index.html")
+        try FileManager.default.createDirectory(
+            at: oversizedIndex.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try writeGooseACPWebUIManifest(nextTo: oversizedIndex)
+        try createSparseFile(
+            oversizedIndex,
+            size: GooseWebUIResolver.maxArtifactTextFileBytes + 1
+        )
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: ["EPISTEMOS_GOOSE_UI_INDEX": oversizedIndex.path],
+                includeBundledCandidates: false
+            ) == nil
+        )
+    }
+
     @Test("resolver rejects stale ACP artifacts without the provider catalog bridge")
     func resolverRejectsStaleProviderCatalogArtifact() throws {
         let root = try temporaryDirectory()
@@ -1826,6 +1872,13 @@ private func writeGooseACPWebUIManifest(nextTo indexURL: URL) throws {
     try """
     {"schemaVersion":1,"source":"test","acpMode":true}
     """.write(to: manifest, atomically: true, encoding: .utf8)
+}
+
+private func createSparseFile(_ url: URL, size: Int) throws {
+    FileManager.default.createFile(atPath: url.path, contents: nil)
+    let handle = try FileHandle(forWritingTo: url)
+    try handle.truncate(atOffset: UInt64(size))
+    try handle.close()
 }
 
 private func loadRepoTextFile(_ relativePath: String) throws -> String {
