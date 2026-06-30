@@ -205,6 +205,32 @@ struct BestOfPresetPlan3Tests {
         #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
     }
 
+    @Test("preset diagnostics redact external error details and cap messages")
+    func presetDiagnosticsRedactExternalErrorDetailsAndCapMessages() {
+        let privatePath = "/Users/example/Private Vault/best-of.json"
+        let error = NSError(
+            domain: privatePath,
+            code: 17,
+            userInfo: [NSLocalizedDescriptionKey: "failed at \(privatePath)"]
+        )
+        let redacted = BestOfPresetDiagnostics.externalErrorDescription(
+            error,
+            fallback: "Preset install failed."
+        )
+
+        #expect(redacted.contains("Preset install failed."))
+        #expect(redacted.contains("domain=Error"))
+        #expect(redacted.contains("code=17"))
+        #expect(redacted.count <= BestOfPresetDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(!redacted.contains(privatePath))
+        #expect(!redacted.contains("failed at"))
+
+        let longMessage = String(repeating: "x", count: BestOfPresetDiagnostics.maxStatusMessageCharacters + 50)
+        let capped = BestOfPresetDiagnostics.message(longMessage, fallback: "Skill install failed.")
+        #expect(capped.count == BestOfPresetDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(capped.hasSuffix("..."))
+    }
+
     @Test("manifest loader accepts bounded regular bundled manifests")
     func manifestLoaderAcceptsBoundedBundleManifest() throws {
         let json = """
@@ -349,10 +375,13 @@ struct BestOfPresetPlan3Tests {
             "readBoundedRegularFileNoFollow(at: url, maxBytes: maxReceiptBytes)",
             "data.count <= maxBytes",
             "data.count <= maxReceiptBytes",
+            "BestOfPresetDiagnostics.externalErrorDescription",
+            "BestOfPresetDiagnostics.message",
         ] {
             #expect(source.contains(required), "BestOfPreset receipt store missing hardening marker: \(required)")
         }
         #expect(!source.contains("Data(contentsOf: url)"))
+        #expect(!source.contains("error.localizedDescription"))
     }
 
     private static func makeBestOfPresetBundle(

@@ -111,6 +111,21 @@ nonisolated struct BestOfPresetResult: Equatable, Sendable, Identifiable {
     var id: String { item.id }
 }
 
+nonisolated enum BestOfPresetDiagnostics {
+    static let maxStatusMessageCharacters = MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters
+
+    static func message(_ value: String, fallback: String) -> String {
+        MCPUrlServerDirectory.Diagnostics.failureReason(value, fallback: fallback)
+    }
+
+    static func externalErrorDescription(_ error: Error, fallback: String) -> String {
+        if let writeError = error as? MCPUrlServerDirectory.WriteError {
+            return message(writeError.errorDescription ?? fallback, fallback: fallback)
+        }
+        return MCPUrlServerDirectory.Diagnostics.externalErrorDescription(error, fallback: fallback)
+    }
+}
+
 nonisolated enum BestOfPreset {
     static let maxManifestBytes = 64 * 1024
 
@@ -206,7 +221,11 @@ nonisolated enum BestOfPreset {
                 results.append(result(item, .removed, "Removed preset-managed URL MCP server."))
             } catch {
                 stillInstalled.insert(name)
-                results.append(result(item, .failed(error.localizedDescription), error.localizedDescription))
+                let message = BestOfPresetDiagnostics.externalErrorDescription(
+                    error,
+                    fallback: "Preset revert failed."
+                )
+                results.append(result(item, .failed(message), message))
             }
         }
 
@@ -251,7 +270,11 @@ nonisolated enum BestOfPreset {
             receipt.remoteMCPServerNames.insert(item.id)
             return result(item, .installed, "Installed URL MCP server config.")
         } catch {
-            return result(item, .failed(error.localizedDescription), error.localizedDescription)
+            let message = BestOfPresetDiagnostics.externalErrorDescription(
+                error,
+                fallback: "Preset install failed."
+            )
+            return result(item, .failed(message), message)
         }
     }
 
@@ -281,14 +304,19 @@ nonisolated enum BestOfPreset {
                 inputJson: inputJSON
             )
             if let error = toolResult.error, !error.isEmpty {
-                return result(item, .failed(error), error)
+                let message = BestOfPresetDiagnostics.message(error, fallback: "Skill install failed.")
+                return result(item, .failed(message), message)
             }
             if !toolResult.success {
                 return result(item, .failed("Skill install failed."), "Skill install failed.")
             }
             return result(item, .installed, "Installed skill repository through skill_manage.")
         } catch {
-            return result(item, .failed(error.localizedDescription), error.localizedDescription)
+            let message = BestOfPresetDiagnostics.externalErrorDescription(
+                error,
+                fallback: "Skill install failed."
+            )
+            return result(item, .failed(message), message)
         }
         #else
         return result(item, .unavailable, "agent_coreFFI bindings are unavailable.")
