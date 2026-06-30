@@ -5,7 +5,7 @@ html workspace with DOM, the chat, etc. — all the best things you'd want on HT
 to create a full web app through the built-in pipeline using html workspace."* Code-grounded + web. MAS-safe (NO runtime
 subprocess), license-gated, reuse-not-rebuild.
 
-## CURRENT STATUS — compiles + renders, but a one-way static renderer with DEAD seams, and NOT marked broken
+## ORIGINAL 2026-06-20 STATUS — compiled + rendered, but a one-way static renderer with DEAD seams, and NOT marked broken
 **Works:** `com.epistemos.html-workspace` is a real `NSDocument` (`Engine/HTMLWorkspaceDocument.swift:62,74,140`, registered
 in both Info.plists); multi-file HTML/CSS/JS/Data editing (`HTMLWorkspaceEditorView.swift:265-291,319`); WKWebView preview
 (`HTMLWorkspacePreviewView.swift:8,25` rendering `HTMLWorkspacePreviewDocument.render` `HTMLWorkspacePackage.swift:837`
@@ -25,6 +25,21 @@ banned by the patch validator (`HTMLWorkspacePatchRouter.swift:247`). (8) capabi
 **HONESTY GAP:** there is NO `HTMLWorkspaceGateStatus` — the codebase has the convention (`ActOsaurusGateStatus`,
 `WorkBackendGateStatus`, `DeepResearchGateStatus`, etc.) but HTML workspace is shipped silently as if complete, with
 T0/T1 dead seams. Per ARCHITECTURE PROMOTION CANON it should be honestly marked.
+
+## 2026-06-30 implementation delta — do not regress these, but do not overclaim completion
+- Honest status now lives in `HTMLWorkspaceCapabilityStatus`: renderer/editor/agent patches/data feed/PDF/local assets/live
+  DOM outline are marked live; app bridge, DOM picker/style inspector, Python, and full regenerate UX remain deferred.
+- Preview now serves package-local `assets/*`, `style.css`, `main.js`, and `data.json` through the local workspace scheme.
+  PDF export inlines package asset references before the macOS `WebPage` render path.
+- `data_feed` can opt into a Vault-backed `data.json` refresh with explicit stale/provenance metadata; failed feeds produce
+  stale JSON rather than pretending to refresh.
+- Console capture is wired but env-gated behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0`. Safe API app commands are still not
+  implemented; incoming Safe API messages are diagnostic-only and record a deferred-bridge console message.
+- DOM outline is a live WebView snapshot when the preview is mounted, with source parsing as the fallback. Element picker,
+  computed-style inspection, and targeted live style edits are still not implemented.
+- `replaceDocument`/`regenerate` are source-quad patch operations with atomic batch staging, reversible pre-replace snapshots,
+  manifest provenance, manifest content-hash refresh, current/stale provenance display, and chat-context provenance. This is
+  not yet streaming regenerate UX, multi-route packaging, persistent app storage, or Python/Pyodide.
 
 ## UPGRADE PLAN (smallest first; MAS-safe; reuse Epdoc WKWebView/bridge/URL-scheme + build-time-bundle + GateStatus + provenance)
 - **Step 0 — Honesty [S]:** add `HTMLWorkspaceGateStatus.swift` (mirror `ActOsaurusGateStatus`), mark app-bridge/Python/
