@@ -690,6 +690,7 @@ actor GooseACPClient {
 
     private func fail(_ error: Error) {
         terminalError = error
+        queuedEvents.removeAll()
         queuedResponses.removeAll()
         queuedResponseOrder.removeAll()
         let timeoutTasks = Array(waitingResponseTimeouts.values)

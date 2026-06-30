@@ -272,6 +272,26 @@ struct GooseACPClientTests {
         }
     }
 
+    @Test("client close drops queued ACP events instead of replaying stale state")
+    func clientCloseDropsQueuedEvents() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"stale"}}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        await transport.waitUntilReceiveWaiters(count: 1)
+        await client.close()
+
+        do {
+            _ = try await client.receiveEvent()
+            Issue.record("close should discard queued ACP events and report GooseACPProtocolError.closed")
+        } catch GooseACPProtocolError.closed {
+            // expected
+        }
+    }
+
     @Test("prompt streams session updates before the final prompt response")
     func promptStreamsBeforeFinalResponse() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
