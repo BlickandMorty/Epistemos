@@ -2357,7 +2357,69 @@ if (!source.includes('epistemos-acp-onboarding-provider-grid')) {
   source = source.replace(loadAnchor, loadReplacement);
 }
 
-for (const snippet of ['getAcpProviders', 'USE_ACP_CHAT', 'epistemos-acp-onboarding-provider-grid']) {
+// epistemos-acp-hide-rest-free-onboarding: NanoGPT/Tetrate "free/local" setup
+// cards call REST-only setup helpers. In ACP mode the supported path is the live
+// provider catalog/config bridge above, so keep onboarding on Connect Provider
+// and remove the dead free/local branch from the reachable UI.
+const selectedPathAnchor = `  const [selectedPath, setSelectedPath] = useState<SelectedPath>(null);`;
+const selectedPathReplacement = `  const [selectedPath, setSelectedPath] = useState<SelectedPath>(
+    USE_ACP_CHAT ? OWN_PROVIDER : null
+  );`;
+if (!source.includes('USE_ACP_CHAT ? OWN_PROVIDER : null')) {
+  if (!source.includes(selectedPathAnchor)) {
+    throw new Error('ProviderSelector selectedPath anchor not found');
+  }
+  source = source.replace(selectedPathAnchor, selectedPathReplacement);
+}
+
+const gridAnchor = `      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div
+          onClick={handleFreeCreditClick}`;
+const gridReplacement = `      <div
+        className={USE_ACP_CHAT ? 'grid grid-cols-1 gap-2 mb-4' : 'grid grid-cols-2 gap-2 mb-4'}
+        data-epistemos-acp-hide-rest-free-onboarding="true"
+      >
+        {!USE_ACP_CHAT && (
+        <div
+          onClick={handleFreeCreditClick}`;
+if (!source.includes('data-epistemos-acp-hide-rest-free-onboarding')) {
+  if (!source.includes(gridAnchor)) {
+    throw new Error('ProviderSelector free/local grid anchor not found');
+  }
+  source = source.replace(gridAnchor, gridReplacement);
+}
+
+const freeCardCloseAnchor = `          </p>
+        </div>
+
+        <div
+          onClick={handleOwnProviderClick}`;
+const freeCardCloseReplacement = `          </p>
+        </div>
+        )}
+
+        <div
+          onClick={handleOwnProviderClick}`;
+if (!source.includes('        )}\n\n        <div\n          onClick={handleOwnProviderClick}')) {
+  if (!source.includes(freeCardCloseAnchor)) {
+    throw new Error('ProviderSelector free/local close anchor not found');
+  }
+  source = source.replace(freeCardCloseAnchor, freeCardCloseReplacement);
+}
+
+source = source.replace(
+  '{selectedPath === FREE_OPTIONS && (',
+  '{!USE_ACP_CHAT && selectedPath === FREE_OPTIONS && ('
+);
+
+for (const snippet of [
+  'getAcpProviders',
+  'USE_ACP_CHAT',
+  'epistemos-acp-onboarding-provider-grid',
+  'epistemos-acp-hide-rest-free-onboarding',
+  'USE_ACP_CHAT ? OWN_PROVIDER : null',
+  '!USE_ACP_CHAT && selectedPath === FREE_OPTIONS',
+]) {
   if (!source.includes(snippet)) {
     throw new Error(`ProviderSelector staged source is missing required ACP snippet: ${snippet}`);
   }
