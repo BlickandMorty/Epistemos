@@ -3,6 +3,25 @@ import Foundation
 import Network
 import os
 
+@MainActor
+protocol GooseMASPromptStreaming: AnyObject {
+    func streamGooseMASPrompt(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int
+    ) -> AsyncThrowingStream<String, Error>
+}
+
+extension CloudLLMClient: GooseMASPromptStreaming {
+    func streamGooseMASPrompt(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int
+    ) -> AsyncThrowingStream<String, Error> {
+        stream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens)
+    }
+}
+
 nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     enum Status: Equatable, Sendable {
         case idle
@@ -18,13 +37,39 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         let cwd: String
     }
 
+    private final class WebSocketConnectionBox: @unchecked Sendable {
+        let connection: NWConnection
+
+        init(_ connection: NWConnection) {
+            self.connection = connection
+        }
+    }
+
+    private struct PromptRun: @unchecked Sendable {
+        let requestID: Any?
+        let sessionID: String
+        let messageID: String
+        let runID: String
+        let created: Int
+        let prompt: String
+        let systemPrompt: String?
+        let maxTokens: Int
+    }
+
+    private struct PromptStreamerBox: @unchecked Sendable {
+        let streamer: (any GooseMASPromptStreaming)?
+    }
+
     private static let logger = Logger(subsystem: "com.epistemos.goose", category: "GooseInProcessACPServer")
     private static let maxHTTPRequestBytes = 256 * 1024
     private static let maxWebSocketBufferBytes = 2 * 1024 * 1024
+    private static let defaultPromptMaxTokens = 4_096
 
     private let secretKey: String
     private let catalog: GooseMASAgentCoreCatalog
+    private let promptStreamer: PromptStreamerBox
     private let queue = DispatchQueue(label: "com.epistemos.goose.inprocess-acp", qos: .userInitiated)
+    private var configValues: [String: Any] = [:]
     private let statusLock = NSLock()
     private var _status: Status = .idle
     private var listener: NWListener?
@@ -32,9 +77,14 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
 
     var status: Status { statusLock.withLock { _status } }
 
-    init(secretKey: String, catalog: GooseMASAgentCoreCatalog = .load()) {
+    init(
+        secretKey: String,
+        catalog: GooseMASAgentCoreCatalog = .load(),
+        promptStreamer: (any GooseMASPromptStreaming)? = nil
+    ) {
         self.secretKey = secretKey
         self.catalog = catalog
+        self.promptStreamer = PromptStreamerBox(streamer: promptStreamer)
     }
 
     func start() throws {
@@ -127,6 +177,8 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private func handle(_ request: GooseInProcessACPHTTPRequest, on connection: NWConnection) {
         let method = request.method.uppercased()
         switch (method, request.path) {
+        case ("OPTIONS", _):
+            sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 204, body: ""))
         case ("GET", "/health"), ("HEAD", "/health"):
             let body = method == "HEAD" ? "" : "ok"
             sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 200, body: body))
@@ -135,6 +187,40 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 200, body: body))
         case ("GET", "/acp"):
             upgradeToWebSocket(request, on: connection)
+        case ("GET", "/config"):
+            guard authorizeREST(request, on: connection) else { return }
+            sendHTTPJSON(connection, ["config": configValues])
+        case ("POST", "/config/read"):
+            guard authorizeREST(request, on: connection) else { return }
+            let body = request.jsonBody()
+            let key = body["key"] as? String ?? ""
+            sendHTTPJSON(connection, configValues[key] ?? NSNull())
+        case ("POST", "/config/upsert"):
+            guard authorizeREST(request, on: connection) else { return }
+            let body = request.jsonBody()
+            if let key = body["key"] as? String, !key.isEmpty {
+                configValues[key] = body["value"] ?? NSNull()
+            }
+            sendHTTPJSON(connection, ["ok": true])
+        case ("POST", "/config/remove"):
+            guard authorizeREST(request, on: connection) else { return }
+            let body = request.jsonBody()
+            if let key = body["key"] as? String {
+                configValues.removeValue(forKey: key)
+            }
+            sendHTTPJSON(connection, ["ok": true])
+        case ("GET", "/config/providers"):
+            guard authorizeREST(request, on: connection) else { return }
+            sendHTTPJSON(connection, restProviderDetails())
+        case ("GET", "/config/provider-catalog"):
+            guard authorizeREST(request, on: connection) else { return }
+            sendHTTPJSON(connection, catalog.providerCatalogResult())
+        case ("GET", "/config/extensions"):
+            guard authorizeREST(request, on: connection) else { return }
+            sendHTTPJSON(connection, ["extensions": [], "_meta": catalog.metadata()])
+        case ("GET", "/features"):
+            guard authorizeREST(request, on: connection) else { return }
+            sendHTTPJSON(connection, ["features": ["masBoundedGoose": true], "_meta": catalog.metadata()])
         default:
             sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 404, body: "not found"))
         }
@@ -144,6 +230,51 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         connection.send(content: data, completion: .contentProcessed { _ in
             connection.cancel()
         })
+    }
+
+    private func sendHTTPJSON(_ connection: NWConnection, _ object: Any, status: Int = 200) {
+        guard JSONSerialization.isValidJSONObject(object) || object is NSNull || object is String || object is Bool || object is NSNumber else {
+            sendHTTP(connection, GooseInProcessACPHTTPRequest.jsonResponse(
+                status: 500,
+                object: ["error": "invalid json response"]
+            ))
+            return
+        }
+        sendHTTP(connection, GooseInProcessACPHTTPRequest.jsonResponse(status: status, object: object))
+    }
+
+    private func authorizeREST(_ request: GooseInProcessACPHTTPRequest, on connection: NWConnection) -> Bool {
+        guard request.header("x-secret-key") == secretKey else {
+            sendHTTPJSON(connection, ["error": "unauthorized"], status: 401)
+            return false
+        }
+        return true
+    }
+
+    private func restProviderDetails() -> [[String: Any]] {
+        catalog.providers.map { provider in
+            [
+                "name": provider.providerId,
+                "display_name": provider.providerName,
+                "description": provider.description,
+                "configured": provider.configured,
+                "metadata": [
+                    "default_model": provider.defaultModel,
+                    "models": provider.models.map { model in
+                        [
+                            "name": model.id,
+                            "display_name": model.name,
+                            "context_limit": model.contextLimit,
+                            "supports_tools": true,
+                        ] as [String: Any]
+                    },
+                ],
+                "_meta": [
+                    "masBounded": provider.masBounded,
+                    "policyProfile": catalog.policyProfile,
+                ],
+            ] as [String: Any]
+        }
     }
 
     private func upgradeToWebSocket(_ request: GooseInProcessACPHTTPRequest, on connection: NWConnection) {
@@ -248,8 +379,9 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
                 )
                 return
             }
-            let replies = handleJSONRPC(text)
-            sendWebSocketFrames(replies.map { GooseInProcessACPFraming.textFrame($0) }, on: connection)
+            let box = WebSocketConnectionBox(connection)
+            let replies = handleJSONRPC(text, on: box)
+            sendJSONMessages(replies, on: box)
         case 0x8:
             sendWebSocketFrames([GooseInProcessACPFraming.closeFrame()], on: connection, closeWhenDone: true)
         case 0x9:
@@ -275,7 +407,15 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         })
     }
 
-    private func handleJSONRPC(_ text: String) -> [String] {
+    private func sendJSONMessages(_ messages: [String], on box: WebSocketConnectionBox) {
+        guard !messages.isEmpty else { return }
+        let frames = messages.map { GooseInProcessACPFraming.textFrame($0) }
+        queue.async { [weak self] in
+            self?.sendWebSocketFrames(frames, on: box.connection)
+        }
+    }
+
+    private func handleJSONRPC(_ text: String, on box: WebSocketConnectionBox) -> [String] {
         guard let data = text.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               object["jsonrpc"] as? String == "2.0" else {
@@ -318,7 +458,24 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             result["sessionId"] = sessionID
             return [Self.jsonResponse(id: id, result: result)]
         case "session/prompt":
-            return promptResponses(id: id, params: params)
+            let run = makePromptRun(id: id, params: params)
+            beginPromptRun(run, on: box)
+            return [
+                Self.jsonNotification(
+                    method: "session/update",
+                    params: [
+                        "sessionId": run.sessionID,
+                        "update": [
+                            "sessionUpdate": "session_info_update",
+                            "_meta": [
+                                "goose": [
+                                    "activeRunId": run.runID,
+                                ],
+                            ],
+                        ],
+                    ]
+                ),
+            ]
         case "session/cancel", "session/close":
             if let sessionID = params["sessionId"] as? String {
                 sessions.removeValue(forKey: sessionID)
@@ -411,93 +568,245 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         ]
     }
 
-    private func promptResponses(id: Any?, params: [String: Any]) -> [String] {
+    private func makePromptRun(id: Any?, params: [String: Any]) -> PromptRun {
         let sessionID = params["sessionId"] as? String ?? Self.newSessionID()
         if sessions[sessionID] == nil {
             sessions[sessionID] = Session(id: sessionID, createdAt: Date(), cwd: NSHomeDirectory())
         }
-        let messageID = "mas_msg_\(UUID().uuidString.lowercased())"
-        let runID = "mas_run_\(UUID().uuidString.lowercased())"
-        let created = Int(Date().timeIntervalSince1970)
-        let text = """
-        Epistemos MAS in-process backend is connected. This App Store backend is bounded: vault files, hosted model APIs, network HTTP, and in-app tools are allowed. Developer shell, install-deps, local stdio MCP, and the goose serve subprocess are Pro-only.
-        """
+        return PromptRun(
+            requestID: id,
+            sessionID: sessionID,
+            messageID: "mas_msg_\(UUID().uuidString.lowercased())",
+            runID: "mas_run_\(UUID().uuidString.lowercased())",
+            created: Int(Date().timeIntervalSince1970),
+            prompt: Self.promptText(from: params),
+            systemPrompt: Self.systemPrompt(from: params),
+            maxTokens: Self.maxTokens(from: params)
+        )
+    }
 
-        return [
-            Self.jsonNotification(
-                method: "session/update",
-                params: [
-                    "sessionId": sessionID,
-                    "update": [
-                        "sessionUpdate": "session_info_update",
-                        "_meta": [
-                            "goose": [
-                                "activeRunId": runID,
-                            ],
-                        ],
-                    ],
-                ]
-            ),
-            Self.jsonNotification(
-                method: "session/update",
-                params: [
-                    "sessionId": sessionID,
-                    "update": [
-                        "sessionUpdate": "agent_message_chunk",
-                        "content": [
-                            "type": "text",
-                            "text": text,
-                        ],
-                        "_meta": [
-                            "goose": [
-                                "created": created,
-                                "messageId": messageID,
-                            ],
-                        ],
-                    ],
-                ]
-            ),
-            Self.jsonNotification(
-                method: "session/update",
-                params: [
-                    "sessionId": sessionID,
-                    "update": [
-                        "sessionUpdate": "session_info_update",
-                        "_meta": [
-                            "goose": [
-                                "activeRunId": NSNull(),
-                            ],
-                        ],
-                    ],
-                ]
-            ),
-            Self.jsonNotification(
-                method: "session/update",
-                params: [
-                    "sessionId": sessionID,
-                    "update": [
-                        "sessionUpdate": "usage_update",
-                        "size": 0,
-                        "used": 0,
-                        "cost": [
-                            "amount": 0,
-                            "currency": "USD",
-                        ],
-                    ],
-                ]
+    private func beginPromptRun(_ run: PromptRun, on box: WebSocketConnectionBox) {
+        guard !run.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            finishPromptRun(
+                run,
+                on: box,
+                errorMessage: "No prompt content was supplied to the MAS in-process backend."
+            )
+            return
+        }
+        let streamerBox = promptStreamer
+        guard streamerBox.streamer != nil else {
+            finishPromptRun(
+                run,
+                on: box,
+                errorMessage: "No configured cloud model client is available for the MAS in-process backend."
+            )
+            return
+        }
+
+        Task { [weak self, box, run, streamerBox] in
+            guard let self else { return }
+            var outputUTF8Bytes = 0
+            do {
+                guard let streamer = streamerBox.streamer else {
+                    self.finishPromptRun(
+                        run,
+                        on: box,
+                        errorMessage: "No configured cloud model client is available for the MAS in-process backend."
+                    )
+                    return
+                }
+                let stream = await streamer.streamGooseMASPrompt(
+                    prompt: run.prompt,
+                    systemPrompt: run.systemPrompt,
+                    maxTokens: run.maxTokens
+                )
+                for try await chunk in stream {
+                    if Task.isCancelled {
+                        self.finishPromptRun(run, on: box, stopReason: "cancelled", outputUTF8Bytes: outputUTF8Bytes)
+                        return
+                    }
+                    guard !chunk.isEmpty else { continue }
+                    outputUTF8Bytes += chunk.utf8.count
+                    self.sendJSONMessages([
+                        Self.agentMessageChunk(
+                            sessionID: run.sessionID,
+                            messageID: run.messageID,
+                            created: run.created,
+                            text: chunk
+                        ),
+                    ], on: box)
+                }
+                self.finishPromptRun(run, on: box, stopReason: "end_turn", outputUTF8Bytes: outputUTF8Bytes)
+            } catch {
+                let message = EngineLogDiagnostics.logMessage(
+                    for: error,
+                    fallback: "MAS in-process backend prompt failed"
+                )
+                self.finishPromptRun(run, on: box, errorMessage: message)
+            }
+        }
+    }
+
+    private func finishPromptRun(
+        _ run: PromptRun,
+        on box: WebSocketConnectionBox,
+        stopReason: String,
+        outputUTF8Bytes: Int
+    ) {
+        let approxOutputTokens = max(0, outputUTF8Bytes / 4)
+        let approxInputTokens = max(0, run.prompt.utf8.count / 4)
+        sendJSONMessages([
+            Self.clearActiveRunNotification(sessionID: run.sessionID),
+            Self.usageNotification(
+                sessionID: run.sessionID,
+                inputTokens: approxInputTokens,
+                outputTokens: approxOutputTokens
             ),
             Self.jsonResponse(
-                id: id,
+                id: run.requestID,
                 result: [
-                    "stopReason": "end_turn",
+                    "stopReason": stopReason,
                     "usage": [
-                        "inputTokens": 0,
-                        "outputTokens": 0,
-                        "totalTokens": 0,
+                        "inputTokens": approxInputTokens,
+                        "outputTokens": approxOutputTokens,
+                        "totalTokens": approxInputTokens + approxOutputTokens,
                     ],
+                    "_meta": catalog.metadata(),
                 ]
             ),
-        ]
+        ], on: box)
+    }
+
+    private func finishPromptRun(
+        _ run: PromptRun,
+        on box: WebSocketConnectionBox,
+        errorMessage: String
+    ) {
+        sendJSONMessages([
+            Self.agentMessageChunk(
+                sessionID: run.sessionID,
+                messageID: run.messageID,
+                created: run.created,
+                text: "MAS backend could not run this prompt: \(errorMessage)"
+            ),
+            Self.clearActiveRunNotification(sessionID: run.sessionID),
+            Self.jsonError(
+                id: run.requestID,
+                code: -32041,
+                message: errorMessage,
+                data: [
+                    "backend": "agent_core",
+                    "policyProfile": catalog.policyProfile,
+                    "masBounded": true,
+                ]
+            ),
+        ], on: box)
+    }
+
+    private static func promptText(from params: [String: Any]) -> String {
+        if let text = params["text"] as? String {
+            return text
+        }
+        if let message = params["message"] as? String {
+            return message
+        }
+        if let prompt = params["prompt"] as? String {
+            return prompt
+        }
+        guard let blocks = params["prompt"] as? [[String: Any]] else {
+            return ""
+        }
+        let parts = blocks.compactMap { block -> String? in
+            guard (block["type"] as? String) == "text" else { return nil }
+            return block["text"] as? String
+        }
+        return parts.joined(separator: "\n")
+    }
+
+    private static func systemPrompt(from params: [String: Any]) -> String? {
+        if let systemPrompt = params["systemPrompt"] as? String {
+            return systemPrompt
+        }
+        if let systemPrompt = params["system"] as? String {
+            return systemPrompt
+        }
+        return """
+        You are Epistemos Goose running in the App Store MAS backend. Stay within the bounded sandbox profile: hosted model APIs, security-scoped vault files, network HTTP, and in-app capabilities are allowed. Shell commands, dependency installers, local stdio MCP, and subprocess-backed Goose developer tools are Pro-only.
+        """
+    }
+
+    private static func maxTokens(from params: [String: Any]) -> Int {
+        let value = (params["maxTokens"] as? Int)
+            ?? (params["max_tokens"] as? Int)
+            ?? defaultPromptMaxTokens
+        return min(max(value, 1), 16_384)
+    }
+
+    private static func agentMessageChunk(
+        sessionID: String,
+        messageID: String,
+        created: Int,
+        text: String
+    ) -> String {
+        jsonNotification(
+            method: "session/update",
+            params: [
+                "sessionId": sessionID,
+                "update": [
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": [
+                        "type": "text",
+                        "text": text,
+                    ],
+                    "_meta": [
+                        "goose": [
+                            "created": created,
+                            "messageId": messageID,
+                        ],
+                    ],
+                ],
+            ]
+        )
+    }
+
+    private static func clearActiveRunNotification(sessionID: String) -> String {
+        jsonNotification(
+            method: "session/update",
+            params: [
+                "sessionId": sessionID,
+                "update": [
+                    "sessionUpdate": "session_info_update",
+                    "_meta": [
+                        "goose": [
+                            "activeRunId": NSNull(),
+                        ],
+                    ],
+                ],
+            ]
+        )
+    }
+
+    private static func usageNotification(
+        sessionID: String,
+        inputTokens: Int,
+        outputTokens: Int
+    ) -> String {
+        jsonNotification(
+            method: "session/update",
+            params: [
+                "sessionId": sessionID,
+                "update": [
+                    "sessionUpdate": "usage_update",
+                    "size": inputTokens + outputTokens,
+                    "used": inputTokens + outputTokens,
+                    "cost": [
+                        "amount": 0,
+                        "currency": "USD",
+                    ],
+                ],
+            ]
+        )
     }
 
     private static func requestID(from object: [String: Any]) -> Any? {
@@ -662,6 +971,7 @@ nonisolated struct GooseInProcessACPHTTPRequest: Equatable, Sendable {
     let target: String
     let path: String
     let headers: [String: String]
+    let body: Data
 
     enum ParseResult: Equatable {
         case needMore
@@ -678,6 +988,14 @@ nonisolated struct GooseInProcessACPHTTPRequest: Equatable, Sendable {
             return nil
         }
         return components.queryItems?.first { $0.name == name }?.value
+    }
+
+    func jsonBody() -> [String: Any] {
+        guard !body.isEmpty,
+              let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+            return [:]
+        }
+        return object
     }
 
     static func parse(_ buffer: Data) -> ParseResult {
@@ -701,12 +1019,40 @@ nonisolated struct GooseInProcessACPHTTPRequest: Equatable, Sendable {
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             headers[key] = value
         }
-        return .complete(Self(method: method, target: target, path: path, headers: headers))
+        let contentLength: Int
+        if let rawContentLength = headers["content-length"] {
+            guard let parsedContentLength = Int(rawContentLength),
+                  parsedContentLength >= 0 else {
+                return .invalid
+            }
+            contentLength = parsedContentLength
+        } else {
+            contentLength = 0
+        }
+        let bodyStart = range.upperBound
+        guard buffer.count >= bodyStart + contentLength else { return .needMore }
+        let body = contentLength > 0
+            ? buffer.subdata(in: bodyStart..<(bodyStart + contentLength))
+            : Data()
+        return .complete(Self(method: method, target: target, path: path, headers: headers, body: body))
     }
 
     static func response(status: Int, body: String) -> Data {
+        response(status: status, body: Data(body.utf8), contentType: "text/plain; charset=utf-8")
+    }
+
+    static func jsonResponse(status: Int, object: Any) -> Data {
+        let data = (try? JSONSerialization.data(
+            withJSONObject: object,
+            options: [.fragmentsAllowed]
+        )) ?? Data("null".utf8)
+        return response(status: status, body: data, contentType: "application/json; charset=utf-8")
+    }
+
+    static func response(status: Int, body bodyData: Data, contentType: String) -> Data {
         let reason: String
         switch status {
+        case 204: reason = "No Content"
         case 200: reason = "OK"
         case 400: reason = "Bad Request"
         case 401: reason = "Unauthorized"
@@ -714,11 +1060,13 @@ nonisolated struct GooseInProcessACPHTTPRequest: Equatable, Sendable {
         case 413: reason = "Payload Too Large"
         default: reason = "Error"
         }
-        let bodyData = Data(body.utf8)
         var response = Data()
         response.append(Data("HTTP/1.1 \(status) \(reason)\r\n".utf8))
-        response.append(Data("Content-Type: text/plain; charset=utf-8\r\n".utf8))
+        response.append(Data("Content-Type: \(contentType)\r\n".utf8))
         response.append(Data("Content-Length: \(bodyData.count)\r\n".utf8))
+        response.append(Data("Access-Control-Allow-Origin: *\r\n".utf8))
+        response.append(Data("Access-Control-Allow-Headers: Content-Type, X-Secret-Key\r\n".utf8))
+        response.append(Data("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n".utf8))
         response.append(Data("Connection: close\r\n\r\n".utf8))
         response.append(bodyData)
         return response

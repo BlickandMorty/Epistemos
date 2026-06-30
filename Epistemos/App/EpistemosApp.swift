@@ -1473,9 +1473,12 @@ struct EpistemosCommands: Commands {
                 .keyboardShortcut("2", modifiers: .command)
 
             #if EPISTEMOS_APP_STORE
-            Button("Epistemos Goose (Pro only)") {}
+            let gooseAvailability = GooseSurfaceAvailability.current()
+            Button(gooseAvailability.menuTitle) {
+                GooseSurfaceWindowController.shared.open()
+            }
                 .keyboardShortcut("3", modifiers: .command)
-                .disabled(true)
+                .disabled(!gooseAvailability.isReady)
             #else
             let gooseAvailability = GooseSurfaceAvailability.current()
             Button(gooseAvailability.menuTitle) {
@@ -1488,12 +1491,11 @@ struct EpistemosCommands: Commands {
                 GooseElectronFallbackLauncher.shared.launchFromMenu()
             }
 
-            // Phase 1 (Step 4) — native Agent FRAME entry (window + nav rail wrapping the Goose
-            // WebView; chat + all features stay in the WebView per the owner charter). Opt-in until
-            // the frame is proven: shown only when AgentSurface.isEnabled (env/UserDefaults). The
-            // WebView Goose surface (⌘3 above) remains the default primary surface.
+            // Native Goose FRAME entry (window + nav rail wrapping the Goose WebView; chat + all
+            // features stay in the WebView per the owner charter). AgentSurface.isEnabled remains
+            // a diagnostic/rollback override; this is not a second user-facing agent.
             if AgentSurface.isEnabled() {
-                Button("Epistemos Agent (Native Frame)") {
+                Button("Epistemos Goose (Native Frame)") {
                     AgentSurfaceWindowController.shared.open()
                 }
                 .keyboardShortcut("a", modifiers: [.command, .shift])

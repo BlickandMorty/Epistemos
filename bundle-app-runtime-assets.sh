@@ -288,11 +288,6 @@ copy_goose_web_ui_atomically() {
 }
 
 bundle_goose_web_ui() {
-    if is_app_store_build; then
-        rm -rf "$GOOSE_WEB_UI_DEST"
-        return
-    fi
-
     local source=""
     while IFS= read -r candidate; do
         if is_acp_goose_web_ui "$candidate"; then
@@ -341,8 +336,7 @@ bundle_default_skills
 if is_app_store_build; then
     rm -f "$GOOSE_BINARY_DEST"
     rm -f "$GOOSED_BINARY_DEST"
-    rm -rf "$GOOSE_WEB_UI_DEST"
 else
     bundle_goose_runtime_binary
-    bundle_goose_web_ui
 fi
+bundle_goose_web_ui

@@ -5,14 +5,28 @@ struct GooseSurfaceAvailability: Equatable {
     let webUIIndex: URL?
 
     var isReady: Bool {
+        #if EPISTEMOS_APP_STORE
+        webUIIndex != nil
+        #else
         runtimeBinary != nil && webUIIndex != nil
+        #endif
     }
 
     var menuTitle: String {
+        #if EPISTEMOS_APP_STORE
+        isReady ? "Open Epistemos Goose" : "Epistemos Goose (Web UI missing)"
+        #else
         isReady ? "Open Epistemos Goose" : "Epistemos Goose (runtime/UI missing)"
+        #endif
     }
 
     var unavailableMessage: String {
+        #if EPISTEMOS_APP_STORE
+        if webUIIndex == nil {
+            return "Goose Web UI is not bundled or staged for this build."
+        }
+        return ""
+        #else
         switch (runtimeBinary, webUIIndex) {
         case (nil, nil):
             return "Goose runtime and Web UI are not bundled or staged for this build."
@@ -23,6 +37,7 @@ struct GooseSurfaceAvailability: Equatable {
         case (.some, .some):
             return ""
         }
+        #endif
     }
 
     nonisolated static func current(

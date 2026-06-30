@@ -152,6 +152,7 @@ final class GooseRuntimeSupervisor {
 
     private var process: Process?
     private var inProcessACPServer: GooseInProcessACPServer?
+    private var masPromptStreamer: (any GooseMASPromptStreaming)?
     private var lifecycleTask: Task<Void, Never>?
     private var outputTask: Task<Void, Never>?
 
@@ -165,6 +166,7 @@ final class GooseRuntimeSupervisor {
         allowPortFallback: Bool = false,
         disableKeyring: Bool = false,
         builtins: [String] = ["developer"],
+        masPromptStreamer: (any GooseMASPromptStreaming)? = nil,
         healthCheck: @escaping @Sendable (URL) async -> Bool = GooseRuntimeSupervisor.healthCheck(base:)
     ) {
         switch status {
@@ -176,6 +178,7 @@ final class GooseRuntimeSupervisor {
 
         #if EPISTEMOS_APP_STORE
         let resolvedSecretKey = secretKey ?? Self.randomSecretKey()
+        self.masPromptStreamer = masPromptStreamer ?? AppBootstrap.shared?.cloudLLMClient
         status = .starting
         lifecycleTask = Task { [weak self] in
             await self?.runInProcessAgentCore(
@@ -218,6 +221,7 @@ final class GooseRuntimeSupervisor {
         process = nil
         inProcessACPServer?.stop()
         inProcessACPServer = nil
+        masPromptStreamer = nil
         switch status {
         case .starting, .running:
             status = .stopped
@@ -233,6 +237,7 @@ final class GooseRuntimeSupervisor {
         }
         inProcessACPServer?.stop()
         inProcessACPServer = nil
+        masPromptStreamer = nil
         switch status {
         case .starting, .running:
             status = .failed(Self.boundedStatusMessage(message))
@@ -246,7 +251,10 @@ final class GooseRuntimeSupervisor {
         healthCheck: @escaping @Sendable (URL) async -> Bool
     ) async {
         #if EPISTEMOS_APP_STORE
-        let server = GooseInProcessACPServer(secretKey: secretKey)
+        let server = GooseInProcessACPServer(
+            secretKey: secretKey,
+            promptStreamer: masPromptStreamer
+        )
         inProcessACPServer = server
         do {
             try server.start()
@@ -392,7 +400,9 @@ final class GooseRuntimeSupervisor {
 
         do {
             try proc.run()
+            #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
             AppBootstrap.shared?.orphanCleanup.track(proc)
+            #endif
         } catch {
             let name = (backend == .goosed) ? "`goosed agent`" : "`goose serve`"
             status = .failed(Self.boundedStatusMessage("Failed to launch \(name): \(error.localizedDescription)"))

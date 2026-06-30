@@ -201,6 +201,7 @@ pub fn goose_mas_acp_catalog_json() -> String {
         "schemaVersion": 1,
         "backend": "agent_core",
         "policyProfile": policy_profile,
+        "diagnostics": [],
         "providers": providers,
         "extensions": [
             {
