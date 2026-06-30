@@ -56,6 +56,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let defaultNativeBinarySearchDirectories = [
         "/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/bin",
     ]
+    nonisolated static let maxNativeOpenURLCharacters = 4_096
+    nonisolated static let maxNativeURLSchemeCharacters = 64
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -291,13 +293,24 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     nonisolated static func shouldOpenExternalURL(_ rawURL: String) -> Bool {
-        guard let scheme = URL(string: rawURL)?.scheme?.lowercased() else { return false }
+        guard let scheme = boundedURLScheme(rawURL) else { return false }
         return allowedExternalSchemes.contains(scheme)
     }
 
     nonisolated static func shouldOpenBrowserURL(_ rawURL: String) -> Bool {
-        guard let scheme = URL(string: rawURL)?.scheme?.lowercased() else { return false }
+        guard let scheme = boundedURLScheme(rawURL) else { return false }
         return webProtocols.contains(scheme)
+    }
+
+    nonisolated private static func boundedURLScheme(_ rawURL: String) -> String? {
+        guard rawURL.utf8.count <= maxNativeOpenURLCharacters,
+              !rawURL.utf8.contains(0),
+              let scheme = URL(string: rawURL)?.scheme,
+              scheme.utf8.count <= maxNativeURLSchemeCharacters,
+              !scheme.utf8.contains(0) else {
+            return nil
+        }
+        return scheme.lowercased()
     }
 
     private func runOpenDialog(options: [String: Any]) -> [String: Any] {

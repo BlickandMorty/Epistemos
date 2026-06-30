@@ -770,9 +770,15 @@ struct GooseWebSurfaceView: View {
 final class GooseTrustedLoopbackOrigins: @unchecked Sendable {
     private let lock = NSLock()
     private var ports: Set<Int> = []
+    static let maxLoopbackHostCharacters = 128
 
     static func isLoopback(_ host: String?) -> Bool {
-        guard let host = host?.lowercased() else { return false }
+        guard let host,
+              host.utf8.count <= maxLoopbackHostCharacters,
+              !host.utf8.contains(0) else {
+            return false
+        }
+        let host = host.lowercased()
         return host == "127.0.0.1" || host == "localhost" || host == "::1"
     }
 

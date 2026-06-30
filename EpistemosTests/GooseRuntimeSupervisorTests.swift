@@ -443,6 +443,7 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("case \"http\", \"https\":"))
         #expect(!source.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
         #expect(source.contains("host == \"127.0.0.1\" || host == \"localhost\" || host == \"::1\""))
+        #expect(source.contains("maxLoopbackHostCharacters"))
         #expect(source.contains("return .cancel"))
         // `file:` must NOT be allow-listed; the documented deny intent stays.
         #expect(!source.contains("case \"file\":"))
@@ -1624,13 +1625,21 @@ struct GooseWebNativeAffordanceBridgeTests {
 
     @Test("external URL policy mirrors Goose blocked and web protocol rules")
     func externalURLPolicyMirrorsGooseRules() {
+        let oversizedURL = "https://block.github.io/goose/" + String(
+            repeating: "u",
+            count: GooseWebNativeAffordanceBridge.maxNativeOpenURLCharacters + 1
+        )
+
         #expect(GooseWebNativeAffordanceBridge.shouldOpenExternalURL("https://block.github.io/goose"))
         #expect(GooseWebNativeAffordanceBridge.shouldOpenExternalURL("mailto:hello@example.com"))
         #expect(!GooseWebNativeAffordanceBridge.shouldOpenExternalURL("file:///tmp/secret"))
         #expect(!GooseWebNativeAffordanceBridge.shouldOpenExternalURL("javascript:alert(1)"))
         #expect(!GooseWebNativeAffordanceBridge.shouldOpenExternalURL("data:text/plain,hello"))
+        #expect(!GooseWebNativeAffordanceBridge.shouldOpenExternalURL(oversizedURL))
+        #expect(!GooseWebNativeAffordanceBridge.shouldOpenExternalURL("https://block.github.io/goose\0"))
         #expect(GooseWebNativeAffordanceBridge.shouldOpenBrowserURL("https://block.github.io/goose"))
         #expect(!GooseWebNativeAffordanceBridge.shouldOpenBrowserURL("mailto:hello@example.com"))
+        #expect(!GooseWebNativeAffordanceBridge.shouldOpenBrowserURL(oversizedURL))
     }
 
     @Test("bridge persists recents, recipe trust, and scoped file edits")
