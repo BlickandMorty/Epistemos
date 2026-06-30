@@ -332,7 +332,7 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
     }
 
     private func updateLineCount(for text: String) {
-        totalLines.wrappedValue = max(1, text.split(separator: "\n", omittingEmptySubsequences: false).count)
+        totalLines.wrappedValue = CodeEditorLineMetrics.lineCount(text)
         cursorLine.wrappedValue = min(max(1, cursorLine.wrappedValue), totalLines.wrappedValue)
         cursorColumn.wrappedValue = max(1, cursorColumn.wrappedValue)
     }

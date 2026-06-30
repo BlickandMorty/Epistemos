@@ -1254,7 +1254,7 @@ struct NoteDetailWorkspaceView: View {
             return 0
         }
         let content = cachedSourceEditorContent(page: page, route: route)
-        return content.components(separatedBy: "\n").count
+        return CodeEditorLineMetrics.lineCount(content)
     }
 
     private func noteFooterBubble<Content: View>(

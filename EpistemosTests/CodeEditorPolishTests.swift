@@ -61,6 +61,10 @@ nonisolated struct CodeEditorPolishTests {
                 "The gate must be satisfied only by a raw snapshot for the same page and file path.")
         #expect(workspaceSource.contains("if needsRawMarkdownSourceSnapshot(page: page, route: route) {\n            return 0\n        }"),
                 "Status counts should not be derived from prose fallback content while raw Source is pending.")
+        #expect(workspaceSource.contains("CodeEditorLineMetrics.lineCount(content)"),
+                "Source status counts should reuse the non-allocating code editor line counter.")
+        #expect(!workspaceSource.contains(#"return content.components(separatedBy: "\n").count"#),
+                "Source status counts must not allocate a full line array.")
         #expect(workspaceSource.contains(#"message: "No active vault is available for this source file.""#),
                 "Without a vault, markdown Source must report failure rather than treating page.body as raw source.")
         #expect(!workspaceSource.contains("if CodeLanguage.isMarkdownDocument(path: filePath) {\n                codeFileBodySnapshot = CodeFileBodySnapshot(\n                    pageId: page.id,\n                    filePath: filePath,\n                    body: page.body"),
@@ -639,6 +643,7 @@ nonisolated struct CodeEditorPolishTests {
     @Test("Code editor large-file affordances stay on CoreEditor")
     func codeEditorLargeFileAffordancesStayOnCoreEditor() throws {
         let editor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let textUtilities = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorTextUtilities.swift")
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
         let guides = try loadRepoTextFile("Epistemos/Views/Notes/SegmentedIndentationGuideView.swift")
         let gutter = try loadRepoTextFile("Epistemos/Views/Notes/CodeLineGutter.swift")
@@ -661,6 +666,10 @@ nonisolated struct CodeEditorPolishTests {
                 "The dormant fallback gutter must not be mounted on the production code path.")
         #expect(!editor.contains("CodeEditorLineMetrics.textWindow("),
                 "Production code editor viewporting is owned by CoreEditor, not the old Swift text-window overlay.")
+        #expect(!editor.contains("nonisolated enum CodeEditorLineMetrics"),
+                "Pure text metrics should live outside the SwiftUI editor shell.")
+        #expect(textUtilities.contains("nonisolated enum CodeEditorLineMetrics"))
+        #expect(textUtilities.contains("nonisolated enum CodeEditorSearchEngine"))
         #expect(guides.contains("lineRange: ClosedRange<Int>? = nil"),
                 "Indent guide parsing should support viewport-scoped line windows.")
         #expect(guides.contains("baseLineNumber: Int = 1"),
