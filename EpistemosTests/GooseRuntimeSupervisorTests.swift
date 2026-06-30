@@ -1085,6 +1085,26 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("boundedImportedAppName(title)"))
     }
 
+    @Test("bootstrap script bounds runtime buffers and native bridge payloads")
+    func bootstrapScriptBoundsRuntimeBuffersAndNativeBridgePayloads() {
+        let bootstrap = GooseWebBootstrap(
+            baseURL: URL(string: "http://127.0.0.1:3284")!,
+            secretKey: "secret-123"
+        )
+        let script = GooseWebBootShim.bootstrapScript(for: bootstrap)
+
+        #expect(script.contains("const maxSettingsJsonCharacters = 256 * 1024;"))
+        #expect(script.contains("const maxConsoleMessageCharacters = 4096;"))
+        #expect(script.contains("const maxACPTraceFrameCharacters = 1024 * 1024;"))
+        #expect(script.contains("const maxNativeBridgePayloadBytes = 16 * 1024 * 1024;"))
+        #expect(script.contains("const maxNativePromptPayloadBytes = 1024 * 1024;"))
+        #expect(script.contains("if (rawSettings.length > maxSettingsJsonCharacters)"))
+        #expect(script.contains("if (data.length > maxACPTraceFrameCharacters) return null;"))
+        #expect(script.contains("boundedJSONClone(request, maxNativePromptPayloadBytes, 'native prompt')"))
+        #expect(script.contains("boundedNativeAffordanceName(name)"))
+        #expect(script.contains("boundedJSONClone(Array.isArray(args) ? args : [], maxNativeBridgePayloadBytes, 'native affordance')"))
+    }
+
     @Test("bootstrap payload serialization failure stays loud")
     func bootstrapSerializationFailureStaysLoud() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebBootShim.swift")

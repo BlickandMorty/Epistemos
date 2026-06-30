@@ -181,9 +181,17 @@ enum GooseWebBootShim {
             return JSON.parse(JSON.stringify(value));
           };
           const settingsStorageKey = 'epistemos.goose.settings';
+          const maxSettingsJsonCharacters = 256 * 1024;
+          const maxConsoleMessageCharacters = 4096;
+          const maxACPTraceFrameCharacters = 1024 * 1024;
+          const maxNativeBridgePayloadBytes = 16 * 1024 * 1024;
+          const maxNativePromptPayloadBytes = 1024 * 1024;
+          const maxNativeAffordanceNameCharacters = 96;
           const loadSettings = () => {
             try {
-              const stored = JSON.parse(localStorage.getItem(settingsStorageKey) || '{}');
+              const rawSettings = localStorage.getItem(settingsStorageKey) || '{}';
+              if (rawSettings.length > maxSettingsJsonCharacters) return Object.assign({}, epistemosGoose.settings);
+              const stored = JSON.parse(rawSettings);
               return Object.assign({}, epistemosGoose.settings, stored);
             } catch {
               return Object.assign({}, epistemosGoose.settings);
@@ -191,7 +199,9 @@ enum GooseWebBootShim {
           };
           const saveSettings = (settings) => {
             try {
-              localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
+              const serialized = JSON.stringify(settings);
+              if (serialized.length > maxSettingsJsonCharacters) return;
+              localStorage.setItem(settingsStorageKey, serialized);
             } catch {}
           };
           const appsStorageKey = 'epistemos.goose.importedApps';
@@ -205,6 +215,25 @@ enum GooseWebBootShim {
               return new TextEncoder().encode(text).length;
             }
             return unescape(encodeURIComponent(text)).length;
+          };
+          const boundedText = (value, maxCharacters) => {
+            const text = String(value ?? '');
+            return text.length > maxCharacters ? `${text.slice(0, maxCharacters)}...` : text;
+          };
+          const boundedJSONClone = (value, maxBytes, label) => {
+            const serialized = JSON.stringify(value);
+            if (serialized === undefined) return undefined;
+            if (utf8ByteLength(serialized) > maxBytes) {
+              throw new Error(`Epistemos ${label} payload is over ${maxBytes} bytes.`);
+            }
+            return JSON.parse(serialized);
+          };
+          const boundedNativeAffordanceName = (name) => {
+            const normalized = String(name || '').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim();
+            if (!normalized || normalized.length > maxNativeAffordanceNameCharacters) {
+              throw new Error(`Epistemos native affordance name is invalid or over ${maxNativeAffordanceNameCharacters} characters.`);
+            }
+            return normalized;
           };
           const boundedImportedAppName = (name) => {
             const normalized = String(name || '')
@@ -317,9 +346,10 @@ enum GooseWebBootShim {
           };
           const consoleEvents = [];
           const consoleString = (value) => {
-            if (value instanceof Error) return value.message;
-            if (typeof value === 'string') return value;
-            try { return JSON.stringify(value); } catch { return String(value); }
+            if (value instanceof Error) return boundedText(value.message, maxConsoleMessageCharacters);
+            if (typeof value === 'string') return boundedText(value, maxConsoleMessageCharacters);
+            try { return boundedText(JSON.stringify(value), maxConsoleMessageCharacters); }
+            catch { return boundedText(String(value), maxConsoleMessageCharacters); }
           };
           for (const level of ['error', 'warn']) {
             const nativeConsole = console[level]?.bind(console) || (() => undefined);
@@ -341,6 +371,7 @@ enum GooseWebBootShim {
             };
             const parse = (data) => {
               if (typeof data !== 'string') return null;
+              if (data.length > maxACPTraceFrameCharacters) return null;
               try { return JSON.parse(data); } catch { return null; }
             };
             const idKey = (id) => id === undefined || id === null ? '' : String(id);
@@ -463,7 +494,11 @@ enum GooseWebBootShim {
               throw new Error('Epistemos native prompt bridge is unavailable.');
             }
             const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-            return await handler.postMessage({ type, id, request: clone(request) });
+            return await handler.postMessage({
+              type,
+              id,
+              request: boundedJSONClone(request, maxNativePromptPayloadBytes, 'native prompt')
+            });
           };
           const postNativeAffordance = async (name, args = []) => {
             const handler = window.webkit?.messageHandlers?.epistemosGooseNative;
@@ -471,7 +506,11 @@ enum GooseWebBootShim {
               throw new Error('Epistemos native affordance bridge is unavailable.');
             }
             const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-            return await handler.postMessage({ name, id, args: clone(Array.isArray(args) ? args : []) });
+            return await handler.postMessage({
+              name: boundedNativeAffordanceName(name),
+              id,
+              args: boundedJSONClone(Array.isArray(args) ? args : [], maxNativeBridgePayloadBytes, 'native affordance')
+            });
           };
           const routeMap = {
             chat: '/',
