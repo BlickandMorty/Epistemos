@@ -49,6 +49,41 @@ struct WorkNativeMCPServerTests {
         try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
+    @Test("Work server diagnostics redact external errors")
+    func workServerDiagnosticsRedactExternalErrors() {
+        let message = WorkServerDiagnostics.statusMessage(
+            for: NSError(
+                domain: "/Users/jojo/PrivateVault/network.swift",
+                code: -12,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "listener failed at /Users/jojo/PrivateVault/socket"
+                ]
+            ),
+            fallback: "listener failed"
+        )
+
+        #expect(message.contains("listener failed"))
+        #expect(message.contains("code=-12"))
+        #expect(message.count <= WorkServerDiagnostics.maxStatusMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "network.swift",
+            "socket",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
+    }
+
+    @Test("Work native MCP server source routes failures through diagnostics")
+    func workNativeMCPServerSourceRoutesFailuresThroughDiagnostics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Work/WorkNativeMCPServer.swift")
+
+        #expect(source.contains("WorkServerDiagnostics.statusMessage(for: error"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
+
     // MARK: routeOutcome — the security + routing gate
 
     @Test("POST /mcp with the correct bearer dispatches to the core")

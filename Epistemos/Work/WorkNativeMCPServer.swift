@@ -111,8 +111,9 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
                     self.setStatus(.failed("listener ready but no bound port"))
                 }
             case .failed(let error):
-                Self.logger.error("listener failed: \(error.localizedDescription, privacy: .public)")
-                self.setStatus(.failed(error.localizedDescription))
+                let message = WorkServerDiagnostics.statusMessage(for: error, fallback: "listener failed")
+                Self.logger.error("\(message, privacy: .public)")
+                self.setStatus(.failed(message))
             case .cancelled:
                 self.setStatus(.stopped)
             default:
@@ -141,7 +142,8 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
             guard let self else { return }
             if let error {
-                Self.logger.debug("receive error: \(error.localizedDescription, privacy: .public)")
+                let message = WorkServerDiagnostics.statusMessage(for: error, fallback: "receive error")
+                Self.logger.debug("\(message, privacy: .public)")
                 connection.cancel()
                 return
             }

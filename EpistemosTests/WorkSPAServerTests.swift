@@ -36,6 +36,15 @@ struct WorkSPAServerTests {
         return html.contains(rawURL) || html.contains(escapedURL)
     }
 
+    @Test("Work SPA server source routes failures through diagnostics")
+    func workSPAServerSourceRoutesFailuresThroughDiagnostics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Work/WorkSPAServer.swift")
+
+        #expect(source.contains("WorkServerDiagnostics.statusMessage(for: error"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
+
     @Test("serves index.html at / over loopback (200 + text/html)")
     func servesIndex() async throws {
         let root = try makeRoot()
