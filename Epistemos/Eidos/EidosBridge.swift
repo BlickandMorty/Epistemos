@@ -77,7 +77,11 @@ nonisolated extension EidosBridge {
             return manifest
         } catch {
             EidosMetrics.shared.recordError(error)
-            prodLog.error("Eidos openVaultIndex failed: \(String(describing: error), privacy: .public)")
+            let message = RetrievalDiagnostics.statusMessage(
+                for: error,
+                fallback: "Eidos openVaultIndex failed"
+            )
+            prodLog.error("\(message, privacy: .public)")
             return nil
         }
     }
@@ -99,8 +103,12 @@ nonisolated extension EidosBridge {
             )
         } catch {
             EidosMetrics.shared.recordError(error)
+            let message = RetrievalDiagnostics.statusMessage(
+                for: error,
+                fallback: "Eidos insertVaultNote failed"
+            )
             prodLog.error(
-                "Eidos insertVaultNote failed doc=\(documentId, privacy: .public): \(String(describing: error), privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return false
         }
@@ -148,8 +156,12 @@ nonisolated extension EidosBridge {
             return packet
         } catch {
             EidosMetrics.shared.recordError(error)
+            let message = RetrievalDiagnostics.statusMessage(
+                for: error,
+                fallback: "Eidos retrieve failed"
+            )
             prodLog.error(
-                "Eidos retrieve failed query=\"\(query, privacy: .public)\": \(String(describing: error), privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return nil
         }
@@ -191,10 +203,15 @@ nonisolated extension EidosBridge {
                     return .rejected(err)
                 }
             }
-            return .bridgeFailure("validation JSON shape unrecognized: \(raw)")
+            return .bridgeFailure("validation JSON shape unrecognized")
         } catch {
             EidosMetrics.shared.recordError(error)
-            return .bridgeFailure(String(describing: error))
+            return .bridgeFailure(
+                RetrievalDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "Eidos citation validation failed"
+                )
+            )
         }
     }
 
@@ -245,7 +262,7 @@ nonisolated extension EidosBridge {
             // {"Err":[[i, <CitationError>], ...]} on reject (input
             // order preserved, first failure becomes the surface).
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return .bridgeFailure("batch validation JSON shape unrecognized: \(raw)")
+                return .bridgeFailure("batch validation JSON shape unrecognized")
             }
             if json.keys.contains("Ok") {
                 return .accepted
@@ -257,10 +274,15 @@ nonisolated extension EidosBridge {
                 let err = try JSONDecoder().decode(EidosCitationError.self, from: errData)
                 return .rejected(err)
             }
-            return .bridgeFailure("batch validation JSON shape unrecognized: \(raw)")
+            return .bridgeFailure("batch validation JSON shape unrecognized")
         } catch {
             EidosMetrics.shared.recordError(error)
-            return .bridgeFailure(String(describing: error))
+            return .bridgeFailure(
+                RetrievalDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "Eidos citation batch validation failed"
+                )
+            )
         }
     }
 

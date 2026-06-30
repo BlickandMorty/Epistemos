@@ -123,7 +123,10 @@ nonisolated public final class FUlpMetrics: @unchecked Sendable {
 
     public func recordError(_ error: Error) {
         lock.lock()
-        lastErrorDescription = String(describing: error)
+        lastErrorDescription = RetrievalDiagnostics.statusMessage(
+            for: error,
+            fallback: "F-ULP acceptance witness failed"
+        )
         lastErrorAt = Date()
         lock.unlock()
         notifyDidChange()
@@ -204,7 +207,11 @@ nonisolated public enum FUlpBridge {
             return witness
         } catch {
             FUlpMetrics.shared.recordError(error)
-            log.error("F-ULP acceptance witness failed: \(String(describing: error), privacy: .public)")
+            let message = RetrievalDiagnostics.statusMessage(
+                for: error,
+                fallback: "F-ULP acceptance witness failed"
+            )
+            log.error("\(message, privacy: .public)")
             return nil
         }
     }

@@ -332,7 +332,10 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
 
     public func recordError(_ error: Error) {
         lock.lock()
-        lastErrorDescription = String(describing: error)
+        lastErrorDescription = RetrievalDiagnostics.statusMessage(
+            for: error,
+            fallback: "Vault recall trace failed"
+        )
         lastErrorAt = Date()
         lock.unlock()
         notifyDidChange()
@@ -527,7 +530,11 @@ nonisolated public enum VaultRecallBridge {
                 log.info("VaultRecall production provider returned nil for query=\"\(query, privacy: .public)\"; falling back to scaffold")
             } catch {
                 VaultRecallMetrics.shared.recordError(error)
-                log.error("VaultRecall production provider failed for query=\"\(query, privacy: .public)\": \(String(describing: error), privacy: .public)")
+                let message = RetrievalDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "VaultRecall production provider failed"
+                )
+                log.error("\(message, privacy: .public)")
                 return nil
             }
         }
@@ -545,7 +552,11 @@ nonisolated public enum VaultRecallBridge {
             return recordTrace(trace, query: query, started: started)
         } catch {
             VaultRecallMetrics.shared.recordError(error)
-            log.error("VaultRecall trace failed for query=\"\(query, privacy: .public)\": \(String(describing: error), privacy: .public)")
+            let message = RetrievalDiagnostics.statusMessage(
+                for: error,
+                fallback: "VaultRecall trace failed"
+            )
+            log.error("\(message, privacy: .public)")
             return nil
         }
     }

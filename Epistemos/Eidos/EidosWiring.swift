@@ -121,7 +121,10 @@ nonisolated public final class EidosMetrics: @unchecked Sendable {
 
     public func recordError(_ error: Error) {
         lock.lock()
-        lastErrorDescription = String(describing: error)
+        lastErrorDescription = RetrievalDiagnostics.statusMessage(
+            for: error,
+            fallback: "Eidos retrieval failed"
+        )
         lastErrorAt = Date()
         lock.unlock()
         notifyDidChange()
@@ -238,7 +241,11 @@ nonisolated public enum EidosBridge {
             return packet
         } catch {
             EidosMetrics.shared.recordError(error)
-            log.error("Eidos search failed for query=\"\(query, privacy: .public)\": \(String(describing: error), privacy: .public)")
+            let message = RetrievalDiagnostics.statusMessage(
+                for: error,
+                fallback: "Eidos search failed"
+            )
+            log.error("\(message, privacy: .public)")
             return nil
         }
     }
