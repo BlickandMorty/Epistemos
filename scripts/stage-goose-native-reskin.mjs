@@ -2286,6 +2286,104 @@ function applyModelSettingsSurfaces() {
   write('src/components/settings/models/subcomponents/SwitchModelModal.tsx', source);
 }
 
+function applyKeyboardSettingsSurfaces() {
+  let source = read('src/components/settings/keyboard/ShortcutRecorder.tsx');
+  source = replaceRequired(
+    source,
+    'shortcut recorder native base',
+    'text-xs font-mono px-3 py-2 rounded border',
+    'min-h-9 rounded-[8px] border px-3 py-2 font-mono text-xs transition-all duration-200 ease-[var(--epistemos-control-ease)]'
+  );
+  source = replaceRequired(
+    source,
+    'shortcut recorder recording state native',
+    "? 'bg-background-primary ring-1'",
+    "? 'border-[var(--epistemos-accent)] bg-background-primary/70 ring-[3px] ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceRequired(
+    source,
+    'shortcut recorder conflict state native',
+    "? 'bg-background-secondary border-yellow-600/50'",
+    "? 'border-border-warning bg-background-warning/55 text-text-warning'"
+  );
+  source = replaceRequired(
+    source,
+    'shortcut recorder idle state native',
+    ": 'bg-background-secondary border-border-primary cursor-pointer'",
+    ": 'border-border-secondary bg-background-secondary/60 cursor-pointer hover:border-[var(--epistemos-accent)]'"
+  );
+  source = replaceRequired(
+    source,
+    'shortcut recorder focus native',
+    'focus:outline-none focus:ring-1',
+    'focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20'
+  );
+  source = replaceAllRequired(
+    source,
+    'shortcut recorder conflict text token',
+    "conflict ? 'text-yellow-600' : 'text-text-primary'",
+    "conflict ? 'text-text-warning' : 'text-text-primary'"
+  );
+  source = replaceAllRequired(
+    source,
+    'shortcut recorder action buttons native',
+    'className="text-xs"',
+    'className="rounded-[8px] text-xs"'
+  );
+  source = replaceRequired(
+    source,
+    'shortcut recorder warning row native',
+    'className="text-xs text-yellow-600 flex items-center gap-1"',
+    'className="flex items-center gap-1 text-xs text-text-warning"'
+  );
+  write('src/components/settings/keyboard/ShortcutRecorder.tsx', source);
+
+  source = read('src/components/settings/keyboard/KeyboardShortcutsSection.tsx');
+  source = replaceRequired(
+    source,
+    'keyboard restart warning native card',
+    'className="rounded-lg border-yellow-600/50 bg-yellow-600/10"',
+    'className="border-border-warning bg-background-warning/55 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'keyboard cards native glass',
+    'className="rounded-lg"',
+    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'keyboard rows native hover',
+    'className="flex items-center justify-between"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'keyboard shortcut chip native',
+    'className="text-xs font-mono px-2 py-1 bg-background-secondary rounded min-w-[120px] text-center"',
+    'className="ep-native-badge min-w-[120px] px-2 py-1 text-center text-xs"'
+  );
+  source = replaceRequired(
+    source,
+    'keyboard disabled chip native',
+    'className="text-xs text-text-secondary min-w-[120px] text-center"',
+    'className="ep-native-badge min-w-[120px] px-2 py-1 text-center text-xs text-text-secondary"'
+  );
+  source = replaceAllRequired(
+    source,
+    'keyboard small buttons native',
+    'className="text-xs"',
+    'className="rounded-[8px] text-xs"'
+  );
+  source = replaceRequired(
+    source,
+    'keyboard dismiss button native',
+    'className="text-xs shrink-0"',
+    'className="shrink-0 rounded-[8px] text-xs"'
+  );
+  write('src/components/settings/keyboard/KeyboardShortcutsSection.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3025,6 +3123,7 @@ applyChatSettingsSurfaces();
 applyPermissionSurfaces();
 applySettingsPanelSurfaces();
 applyModelSettingsSurfaces();
+applyKeyboardSettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
