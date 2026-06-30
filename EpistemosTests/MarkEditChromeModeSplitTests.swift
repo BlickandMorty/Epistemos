@@ -12,6 +12,8 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains(#""Source""#))
         #expect(source.contains("return sourceFileRoute(for: page) == nil\n                ? [.edit, .preview]\n                : [.edit, .preview, .source]"))
         #expect(source.contains(".frame(width: modes.count >= 3 ? 306 : 214)"))
+        #expect(source.contains(#".accessibilityLabel("Note view mode")"#))
+        #expect(source.contains(#""Switch between Edit/Prose, Preview, and Source""#))
         #expect(source.contains("setNoteMode($0, for: page)"))
     }
 

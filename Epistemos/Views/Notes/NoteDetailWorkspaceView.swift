@@ -1543,7 +1543,9 @@ struct NoteDetailWorkspaceView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: modes.count >= 3 ? 306 : 214)
-            .help("Switch note view")
+            .accessibilityLabel("Note view mode")
+            .accessibilityHint("Switch between Edit/Prose, Preview, and Source")
+            .help("Switch between Edit/Prose, Preview, and Source")
         }
     }
 
