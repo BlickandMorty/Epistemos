@@ -3375,6 +3375,12 @@ function applyUtilityListSurfaces() {
     'className="p-2 mb-2 bg-background-primary"',
     'className="ep-native-list-card mb-2 border p-2"'
   );
+  source = replaceRequired(
+    source,
+    'skills error icon token',
+    'className="h-12 w-12 text-red-500 mb-4"',
+    'className="mb-4 h-12 w-12 text-text-danger"'
+  );
   write('src/components/skills/SkillsView.tsx', source);
 
   source = read('src/components/recipes/RecipesView.tsx');
@@ -3401,6 +3407,18 @@ function applyUtilityListSurfaces() {
     'recipe skeleton native card',
     'className="p-2 mb-2 bg-background-primary border border-border-secondary rounded-[6px]"',
     'className="ep-native-list-card mb-2 border p-2"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe delete action native',
+    'className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"',
+    'className="h-8 w-8 rounded-[8px] p-0 text-text-secondary hover:bg-background-danger/55 hover:text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'recipes error icon token',
+    'className="h-12 w-12 text-red-500 mb-4"',
+    'className="mb-4 h-12 w-12 text-text-danger"'
   );
   write('src/components/recipes/RecipesView.tsx', source);
 
@@ -3440,6 +3458,12 @@ function applyUtilityListSurfaces() {
     'schedule error native panel',
     'className="mb-4 p-4 bg-background-danger border border-border-danger rounded-md"',
     'className="mb-4 rounded-[12px] border border-border-danger bg-background-danger/72 p-4 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule delete action native',
+    'className="h-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"',
+    'className="h-8 rounded-[8px] text-text-secondary hover:bg-background-danger/55 hover:text-text-danger"'
   );
   write('src/components/schedule/SchedulesView.tsx', source);
 
@@ -3514,6 +3538,24 @@ function applySessionListSurfaces() {
     'session action native radius',
     'rounded-[4px] hover:bg-background-tertiary',
     'rounded-[8px] hover:bg-background-tertiary/80'
+  );
+  source = replaceRequired(
+    source,
+    'session delete action native',
+    'className="p-2 rounded-[4px] hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors"',
+    'className="cursor-pointer rounded-[8px] p-2 transition-colors hover:bg-background-danger/55"'
+  );
+  source = replaceRequired(
+    source,
+    'session delete icon token',
+    '<Trash2 className="w-3 h-3 text-red-500 hover:text-red-600" />',
+    '<Trash2 className="h-3 w-3 text-text-secondary transition-colors hover:text-text-danger" />'
+  );
+  source = replaceRequired(
+    source,
+    'session list error icon token',
+    '<AlertCircle className="h-12 w-12 text-red-500 mb-4" />',
+    '<AlertCircle className="mb-4 h-12 w-12 text-text-danger" />'
   );
   source = replaceRequired(
     source,
@@ -3625,7 +3667,22 @@ function applySessionDetailSurfaces() {
     'className="relative rounded-[5px] border border-border-primary px-3 py-2 flex items-center bg-background-secondary"',
     'className="relative flex items-center rounded-[10px] border border-border-primary bg-background-secondary/70 px-3 py-2 shadow-sm backdrop-blur-xl"'
   );
+  source = replaceRequired(
+    source,
+    'session history error icon token',
+    'className="text-red-500 mb-4"',
+    'className="mb-4 text-text-danger"'
+  );
   write('src/components/sessions/SessionHistoryView.tsx', source);
+
+  source = read('src/components/sessions/SessionViewComponents.tsx');
+  source = replaceRequired(
+    source,
+    'session detail error icon token',
+    'className="text-red-500 mb-4"',
+    'className="mb-4 text-text-danger"'
+  );
+  write('src/components/sessions/SessionViewComponents.tsx', source);
 }
 
 function applySchedulerDetailSurfaces() {
@@ -3666,11 +3723,41 @@ function applySchedulerDetailSurfaces() {
     'className="inline-block w-2 h-2 bg-primary mr-1 animate-pulse"',
     'className="ep-native-loading-dot is-active mr-1"'
   );
+  source = replaceRequired(
+    source,
+    'schedule detail running text token',
+    'className="text-sm text-green-500 dark:text-green-400 font-semibold flex items-center"',
+    'className="flex items-center text-sm font-semibold text-text-success"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail paused text token',
+    'className="text-sm text-orange-500 dark:text-orange-400 font-semibold flex items-center"',
+    'className="flex items-center text-sm font-semibold text-text-warning"'
+  );
   source = replaceAllRequired(
     source,
     'schedule detail neutral outline actions',
     'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20',
     ''
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail unpause button token',
+    "'text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'",
+    "'border-border-success bg-background-success/35 text-text-success hover:bg-background-success/55'"
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail pause button token',
+    "'text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'",
+    "'border-border-warning bg-background-warning/35 text-text-warning hover:bg-background-warning/55'"
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail kill button token',
+    'className="w-full md:w-auto flex items-center gap-2 text-red-600 dark:text-red-400 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"',
+    'className="flex w-full items-center gap-2 border-border-danger bg-background-danger/35 text-text-danger hover:bg-background-danger/55 md:w-auto"'
   );
   source = replaceRequired(
     source,
@@ -3710,6 +3797,12 @@ function applySchedulerDetailSurfaces() {
     'schedule modal native error panels',
     'className="text-text-danger text-sm mb-3 p-2 border border-border-danger rounded-[6px]"',
     'className="mb-3 rounded-[12px] border border-border-danger bg-background-danger/72 p-2 text-sm text-text-danger backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule modal required token',
+    'text-red-500',
+    'text-text-danger'
   );
   source = replaceRequired(
     source,
