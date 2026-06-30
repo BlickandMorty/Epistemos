@@ -3,6 +3,18 @@ import Testing
 
 @Suite("MarkEdit L3-CHROME mode split guards (Plan 2)")
 nonisolated struct MarkEditChromeModeSplitTests {
+    @Test("Note workspace exposes Edit/Prose, Preview, and Source as explicit markdown modes")
+    func noteWorkspaceExposesExplicitMarkdownModes() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains(#""Edit/Prose""#))
+        #expect(source.contains(#""Preview""#))
+        #expect(source.contains(#""Source""#))
+        #expect(source.contains("return sourceFileRoute(for: page) == nil\n                ? [.edit, .preview]\n                : [.edit, .preview, .source]"))
+        #expect(source.contains(".frame(width: modes.count >= 3 ? 306 : 214)"))
+        #expect(source.contains("setNoteMode($0, for: page)"))
+    }
+
     @Test("CodeEditorView selects markdown chrome, default code chrome, and legacy v1 fallback")
     func codeEditorViewSelectsMarkdownCodeAndLegacyFallback() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")

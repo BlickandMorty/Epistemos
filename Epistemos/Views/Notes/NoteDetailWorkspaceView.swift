@@ -51,7 +51,7 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
     var label: String {
         switch self {
         case .edit:
-            "Edit"
+            "Edit/Prose"
         case .preview:
             "Preview"
         case .source:
@@ -1542,7 +1542,7 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: modes.count >= 3 ? 252 : 168)
+            .frame(width: modes.count >= 3 ? 306 : 214)
             .help("Switch note view")
         }
     }
