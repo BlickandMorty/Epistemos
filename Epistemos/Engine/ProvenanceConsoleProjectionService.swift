@@ -54,6 +54,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     typealias RetractionEventProvider = @Sendable (_ afterSequence: UInt64, _ limit: Int) -> [RetractionPropagatedProjection]
 
     private static let projectionLimitMaximum = 200
+    private static let displayValueMaximum = 256
 
     private let eventStoreProvider: EventStoreProvider
     private let retractionEventProvider: RetractionEventProvider
@@ -213,7 +214,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
             pairs.append(("trace", short(traceID)))
         }
         if let tool = event.tool {
-            pairs.append(("tool", tool.toolName))
+            pairs.append(("tool", displayValue(tool.toolName)))
             pairs.append(("tool status", tool.status.rawValue))
         }
         return .keyValueTable(title: event.kind.rawValue, pairs)
@@ -239,7 +240,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
         }
         if let relation = event.relation {
             pairs.append(("relation", "\(short(relation.fromID)) -> \(short(relation.toID))"))
-            pairs.append(("label", relation.label))
+            pairs.append(("label", displayValue(relation.label)))
         }
         return .keyValueTable(title: event.kind.rawValue, pairs)
     }
@@ -252,10 +253,17 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
             guard let modelID, !modelID.isEmpty else {
                 return "agent:\(short(id))"
             }
-            return "agent:\(short(id)) (\(modelID))"
+            return "agent:\(short(id)) (\(displayValue(modelID)))"
         case .system:
             return "system"
         }
+    }
+
+    private static func displayValue(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "unknown" }
+        guard trimmed.count > displayValueMaximum else { return trimmed }
+        return String(trimmed.prefix(displayValueMaximum))
     }
 
     private static func short(_ value: String) -> String {

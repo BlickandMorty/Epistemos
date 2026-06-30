@@ -58,10 +58,14 @@ struct ProvenanceConsoleSourceGuardTests {
 
         #expect(source.contains("func snapshot(limit: Int = 40) -> ProvenanceConsoleSnapshot"))
         #expect(source.contains("private static let projectionLimitMaximum = 200"))
+        #expect(source.contains("private static let displayValueMaximum = 256"))
         #expect(source.contains("let boundedLimit = Self.boundedProjectionLimit(limit)"))
         #expect(source.contains("eventStore.recentAgentEvents(limit: boundedLimit)"))
         #expect(source.contains("eventStore.recentGraphEvents(limit: boundedLimit)"))
         #expect(source.contains("subscribeRetractionEvents(afterSequence: 0, limit: boundedLimit)"))
+        #expect(source.contains("pairs.append((\"tool\", displayValue(tool.toolName)))"))
+        #expect(source.contains("pairs.append((\"label\", displayValue(relation.label)))"))
+        #expect(source.contains("agent:\\(short(id)) (\\(displayValue(modelID)))"))
         #expect(source.contains("func subscribeRetractionEvents("))
         #expect(source.contains("RetractionPropagatedProjection"))
         #expect(source.contains("GenUIPayload.provenanceTrace("))
@@ -107,6 +111,55 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(service.subscribeRetractionEvents(limit: 10_000).count == 200)
         #expect(service.subscribeRetractionEvents(limit: -10).isEmpty)
         #expect(service.subscribeRetractionEvents(limit: 3).map(\.sequence) == [0, 1, 2])
+    }
+
+    @Test("Provenance Console bounds untrusted display strings")
+    func projectionBoundsUntrustedDisplayStrings() throws {
+        let store = try makeStore()
+        let longModelID = String(repeating: "m", count: 400)
+        let longToolName = String(repeating: "t", count: 400)
+        let longRelationLabel = String(repeating: "r", count: 400)
+
+        let event = AgentProvenanceEvent(
+            eventID: "provenance-console-long-agent-\(UUID().uuidString)",
+            runID: "provenance-console-long-run",
+            sequence: 1,
+            kind: .toolCallCompleted,
+            actor: .agent(id: "agent-long-display", modelID: longModelID),
+            occurredAtMs: 1_000,
+            tool: AgentToolProvenance(
+                toolCallID: "tool-long-display",
+                toolName: longToolName,
+                argumentsJSON: "{}",
+                resultJSON: "{}",
+                durationMs: 1,
+                approvalID: nil,
+                status: .completed
+            )
+        )
+        let graphEvent = DurableGraphEvent(
+            eventID: "provenance-console-long-graph-\(UUID().uuidString)",
+            mutationID: "provenance-console-long-mutation",
+            sequence: 1,
+            kind: .edgeCreated,
+            occurredAtMs: 1_000,
+            relation: DurableGraphEventRelation(
+                fromID: "source-node-for-long-relation",
+                toID: "target-node-for-long-relation",
+                label: longRelationLabel
+            )
+        )
+
+        #expect(store.saveAgentEvent(event))
+        #expect(store.saveGraphEvent(graphEvent))
+
+        let snapshot = ProvenanceConsoleProjectionService(eventStoreProvider: { store }).snapshot(limit: 10)
+        let agentRows = try keyValueRows(in: firstTraceEvent(in: snapshot.agentPayload))
+        let graphRows = try keyValueRows(in: firstTraceEvent(in: snapshot.graphPayload))
+
+        #expect(agentRows["tool"] == String(longToolName.prefix(256)))
+        #expect(graphRows["label"] == String(longRelationLabel.prefix(256)))
+        #expect(agentRows["actor"] == "agent:\(String("agent-long-display".prefix(12))) (\(String(longModelID.prefix(256))))")
     }
 
     @Test("Settings mounts a read-only Provenance Console routed through GenUIDispatcher")
@@ -163,5 +216,26 @@ struct ProvenanceConsoleSourceGuardTests {
         for token in tokens {
             #expect(!source.contains(token), "\(label) must not contain \(token)")
         }
+    }
+
+    private func makeStore() throws -> EventStore {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("provenance-console-\(UUID().uuidString).sqlite")
+        return try #require(EventStore(databaseURL: url))
+    }
+
+    private func firstTraceEvent(in payload: GenUIPayload) throws -> GenUIPayload {
+        guard case .provenanceChain(let events) = payload.body,
+              let first = events.first else {
+            throw CocoaError(.fileReadUnknown, userInfo: [NSDebugDescriptionErrorKey: "Missing provenance event payload"])
+        }
+        return first
+    }
+
+    private func keyValueRows(in payload: GenUIPayload) throws -> [String: String] {
+        guard case .keyValues(let rows) = payload.body else {
+            throw CocoaError(.fileReadUnknown, userInfo: [NSDebugDescriptionErrorKey: "Missing key-value payload"])
+        }
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0.key, $0.value) })
     }
 }
