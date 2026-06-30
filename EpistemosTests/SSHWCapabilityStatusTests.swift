@@ -6,8 +6,8 @@ import Foundation
 // SS-HW (owner 2026-06-20: "the html workspace does not work as well but idk if its marked as such").
 // These pin the HONEST capability ledger: the live entries are the real working ones, the deferred
 // seams are marked NOT live (no fake-green), and the summary says works-but-partial rather than
-// reading as complete. Verified against code (empty app-bridge handler, safeAPIEnabled=false, no
-// Pyodide, source-quad replaceDocument primitive only — no full regenerate UX).
+// reading as complete. Verified against code (safeAPI path still no-op, console capture env-gated,
+// no Pyodide, source-quad replaceDocument primitive only — no full regenerate UX).
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
@@ -36,6 +36,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
         #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("console capture is wired but env-gated"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("deferred"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("regenerate UX"))
     }
