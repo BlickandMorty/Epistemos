@@ -241,6 +241,9 @@ struct BrowserUseWebUIViewTests {
             "Task.detached(priority: .userInitiated)",
             "settingsStore.load()",
             "browser-use Pro settings could not be loaded",
+            "BrowserUseDiagnostics.statusMessage(",
+            "fallback: \"settings load failed\"",
+            "fallback: \"runtime start failed\"",
             "readinessWorker?.cancel()",
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
@@ -258,6 +261,7 @@ struct BrowserUseWebUIViewTests {
             #expect(source.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
         #expect(!source.contains("url.absoluteString)"))
+        #expect(!source.contains("error.localizedDescription"))
         #expect(source.contains("supervisor.stop()\n                    loadedURL = nil"),
                 "The startRuntime non-loopback failure branch already has an unwrapped supervisor; optional chaining there does not compile.")
         #expect(!source.contains("loadOrDefault()"))

@@ -349,6 +349,9 @@ nonisolated enum BrowserUseDiagnostics {
         if let manifestError = error as? BrowserUseVendorManifestError {
             return bounded(manifestError.errorDescription ?? fallback, fallback: fallback)
         }
+        if let settingsError = error as? BrowserUseSettingsStoreError {
+            return bounded(settingsError.errorDescription ?? fallback, fallback: fallback)
+        }
         let nsError = error as NSError
         let domain = safeDomain(nsError.domain)
         return bounded("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)

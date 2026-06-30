@@ -430,6 +430,9 @@ struct BrowserUseCodepackPlan3Tests {
             "Task.detached(priority: .userInitiated)",
             "settingsStore.load()",
             "browser-use Pro settings could not be loaded",
+            "BrowserUseDiagnostics.statusMessage(",
+            "fallback: \"settings load failed\"",
+            "fallback: \"runtime start failed\"",
             "readinessWorker?.cancel()",
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
@@ -445,6 +448,7 @@ struct BrowserUseCodepackPlan3Tests {
             #expect(shell.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
         #expect(!shell.contains("loadOrDefault()"))
+        #expect(!shell.contains("error.localizedDescription"))
 
         for forbidden in [
             "BrowserView(",

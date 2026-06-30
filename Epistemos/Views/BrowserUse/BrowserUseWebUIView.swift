@@ -196,9 +196,13 @@ struct BrowserUseWebUIView: View {
             do {
                 loadedSettings = try settingsStore.load()
             } catch {
+                let message = BrowserUseDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "settings load failed"
+                )
                 return (
                     .default,
-                    .unavailable("browser-use Pro settings could not be loaded: \(error.localizedDescription)")
+                    .unavailable("browser-use Pro settings could not be loaded: \(message)")
                 )
             }
             guard !Task.isCancelled else {
@@ -264,7 +268,11 @@ struct BrowserUseWebUIView: View {
             } catch is CancellationError {
                 return (nil, nil)
             } catch {
-                return (nil, error.localizedDescription)
+                let message = BrowserUseDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "runtime start failed"
+                )
+                return (nil, message)
             }
         }
 

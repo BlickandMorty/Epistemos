@@ -91,6 +91,19 @@ struct BrowserUseProGateStatusTests {
         #expect(!message.contains("failed to read"))
     }
 
+    @Test("diagnostics preserve bounded browser-use settings errors")
+    func diagnosticsPreserveBoundedBrowserUseSettingsErrors() {
+        let message = BrowserUseDiagnostics.statusMessage(
+            for: BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file must be a regular file at settings.json"
+            ),
+            fallback: "settings load failed"
+        )
+
+        #expect(message.contains("browser-use settings file must be a regular file at settings.json"))
+        #expect(!message.contains("domain="))
+    }
+
     @Test("manifest file envelope rejects symlinks and oversized JSON before decode")
     func manifestFileEnvelopeRejectsSymlinksAndOversizedJSONBeforeDecode() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
