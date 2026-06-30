@@ -1,6 +1,67 @@
 import Foundation
 import os
 
+nonisolated enum ChunkedMCPFramingDiagnostics {
+    static let maxFailureMessageCharacters = 240
+    static let maxSegmentNameCharacters = 128
+    private static let redactedSegmentName = "/ep_redacted"
+
+    static func externalErrorDescription(_ error: Error, fallback: String = "SHM read failed") -> String {
+        let nsError = error as NSError
+        return boundedMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func isExpectedSegmentName(_ segmentName: String) -> Bool {
+        segmentLogName(segmentName) != redactedSegmentName
+    }
+
+    static func segmentLogName(_ segmentName: String) -> String {
+        let trimmed = segmentName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/ep_"),
+              !trimmed.dropFirst("/ep_".count).isEmpty,
+              trimmed.count <= maxSegmentNameCharacters else {
+            return redactedSegmentName
+        }
+
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        let body = trimmed.dropFirst()
+        guard body.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return redactedSegmentName
+        }
+        return trimmed
+    }
+
+    private static func boundedMessage(_ message: String, fallback: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxFailureMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxFailureMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 // MARK: - Chunked MCP Framing
 //
 // Fixes the macOS 64KB stdout pipe buffer limit.
@@ -165,20 +226,22 @@ actor ChunkedMCPFrameAccumulator {
         }
 
         // Validate segment name format to prevent arbitrary shm_open calls
-        guard segmentName.hasPrefix("/ep_") else {
-            Self.logger.warning("SHM reference with unexpected segment name: \(segmentName)")
+        let logSegmentName = ChunkedMCPFramingDiagnostics.segmentLogName(segmentName)
+        guard ChunkedMCPFramingDiagnostics.isExpectedSegmentName(segmentName) else {
+            Self.logger.warning("SHM reference with unexpected segment name: \(logSegmentName)")
             return message
         }
 
-        Self.logger.info("Resolving SHM reference: \(segmentName) (\(byteLength) bytes)")
+        Self.logger.info("Resolving SHM reference: \(logSegmentName) (\(byteLength) bytes)")
 
         #if canImport(agent_coreFFI)
         do {
             let payload = try shmReadPayload(segmentName: segmentName, byteLength: UInt64(byteLength))
-            Self.logger.info("SHM resolved: \(segmentName) → \(payload.count) chars")
+            Self.logger.info("SHM resolved: \(logSegmentName) -> \(payload.count) chars")
             return payload
         } catch {
-            Self.logger.error("SHM read failed for \(segmentName): \(error.localizedDescription)")
+            let failure = ChunkedMCPFramingDiagnostics.externalErrorDescription(error)
+            Self.logger.error("SHM read failed for \(logSegmentName): \(failure)")
             return message
         }
         #else

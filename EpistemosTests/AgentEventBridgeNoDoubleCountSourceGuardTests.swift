@@ -1,4 +1,6 @@
+import Foundation
 import Testing
+@testable import Epistemos
 
 /// Locks the post-PR43 bridge invariant: AgentEvents are emitted at tool or
 /// bridge execution boundaries, not inside transport, parser, router, or Swift
@@ -66,8 +68,39 @@ struct AgentEventBridgeNoDoubleCountSourceGuardTests {
         #expect(source.contains("feedAndResolve"))
         #expect(source.contains("ShmReference"))
         #expect(source.contains("resolveShmReferenceIfNeeded"))
+        #expect(source.contains("ChunkedMCPFramingDiagnostics.externalErrorDescription"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
         #expect(!source.contains("recordToolEvent("))
         #expect(!source.contains("AgentToolProvenanceRecorder("))
+    }
+
+    @Test("ChunkedMCPFraming diagnostics redact SHM failures")
+    func chunkedMCPFramingDiagnosticsRedactSHMFailures() {
+        let message = ChunkedMCPFramingDiagnostics.externalErrorDescription(
+            NSError(
+                domain: "/Users/jojo/PrivateVault/shm.swift",
+                code: 22,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "mmap failed for /Users/jojo/PrivateVault/segment"
+                ]
+            )
+        )
+
+        #expect(message.contains("SHM read failed"))
+        #expect(message.contains("code=22"))
+        #expect(message.count <= ChunkedMCPFramingDiagnostics.maxFailureMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "shm.swift",
+            "segment",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
+
+        #expect(ChunkedMCPFramingDiagnostics.segmentLogName("/ep_session-1_2") == "/ep_session-1_2")
+        #expect(ChunkedMCPFramingDiagnostics.segmentLogName("/ep_/Users/jojo/private") == "/ep_redacted")
     }
 
     @Test("CoTStreamInterceptor stays token parser, not tool timeline emitter")
