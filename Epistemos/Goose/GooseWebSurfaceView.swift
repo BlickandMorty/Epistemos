@@ -157,13 +157,26 @@ struct GooseWebSurfaceView: View {
     }
 
     private var detailsButton: some View {
-        Button { showDetails = true } label: {
+        let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+        return Button { showDetails = true } label: {
             Image(systemName: "slider.horizontal.3")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(theme.mutedForeground)
                 .frame(width: 30, height: 30)
-                .background(Rectangle().fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.92)))
-                .overlay(Rectangle().stroke(theme.border.opacity(0.58), lineWidth: 1))
+                .background {
+                    ZStack {
+                        if theme.isDark {
+                            shape.fill(.ultraThinMaterial)
+                        } else {
+                            shape.fill(.regularMaterial)
+                        }
+                        shape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.66))
+                    }
+                }
+                .overlay {
+                    shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.42 : 0.56), lineWidth: 0.7)
+                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
         .help("Goose details")
@@ -171,7 +184,8 @@ struct GooseWebSurfaceView: View {
     }
 
     private var detailsPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Goose")
                     .font(GooseSurfaceStyle.bodyFont(12, weight: .semibold))
@@ -234,8 +248,21 @@ struct GooseWebSurfaceView: View {
         }
         .padding(12)
         .frame(width: 300, alignment: .leading)
-        .background(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.96))
-        .overlay(Rectangle().stroke(theme.border.opacity(0.72), lineWidth: 1))
+        .background {
+            ZStack {
+                if theme.isDark {
+                    shape.fill(.ultraThinMaterial)
+                } else {
+                    shape.fill(.regularMaterial)
+                }
+                shape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.78 : 0.70))
+            }
+        }
+        .clipShape(shape)
+        .overlay {
+            shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.50 : 0.66), lineWidth: 0.7)
+        }
+        .shadow(color: .black.opacity(theme.isDark ? 0.26 : 0.12), radius: 22, y: 12)
     }
 
     private func webUIRenderOverlay(status: String) -> some View {

@@ -22,6 +22,8 @@ struct GooseACPPermissionPanel: View {
     let onDecision: (String?) -> Void
 
     var body: some View {
+        let panelShape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let controlShape = RoundedRectangle(cornerRadius: 9, style: .continuous)
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: "hand.raised")
@@ -53,8 +55,12 @@ struct GooseACPPermissionPanel: View {
                         .padding(.horizontal, 10)
                     }
                     .buttonStyle(.plain)
-                    .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
-                    .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                    .background {
+                        controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                    }
+                    .overlay {
+                        controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
+                    }
                 }
 
                 Button { onDecision(nil) } label: {
@@ -64,17 +70,30 @@ struct GooseACPPermissionPanel: View {
                         .frame(width: 30, height: 30)
                 }
                 .buttonStyle(.plain)
-                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
-                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                .background {
+                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                }
+                .overlay {
+                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
+                }
                 .help("Cancel")
             }
         }
         .padding(14)
         .frame(width: 460, alignment: .leading)
-        .background(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.98))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(theme.border.opacity(0.7), lineWidth: 1))
-        .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 18, y: 8)
+        .background {
+            ZStack {
+                if theme.isDark {
+                    panelShape.fill(.ultraThinMaterial)
+                } else {
+                    panelShape.fill(.regularMaterial)
+                }
+                panelShape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.80 : 0.72))
+            }
+        }
+        .clipShape(panelShape)
+        .overlay(panelShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.50 : 0.66), lineWidth: 0.7))
+        .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 26, y: 14)
     }
 
     private var boundedOptions: [GooseACPPermissionOption] {
@@ -146,6 +165,8 @@ struct GooseACPElicitationPanel: View {
     }
 
     var body: some View {
+        let panelShape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let controlShape = RoundedRectangle(cornerRadius: 9, style: .continuous)
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: "text.badge.checkmark")
@@ -185,8 +206,12 @@ struct GooseACPElicitationPanel: View {
                 .disabled(!allRequiredFilled)
                 .opacity(allRequiredFilled ? 1 : 0.5)
                 .help(allRequiredFilled ? "Submit" : "Fill all required (*) fields to submit")
-                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
-                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                .background {
+                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                }
+                .overlay {
+                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
+                }
 
                 Button { onAction(.decline) } label: {
                     HStack(spacing: 6) {
@@ -200,8 +225,12 @@ struct GooseACPElicitationPanel: View {
                     .padding(.horizontal, 10)
                 }
                 .buttonStyle(.plain)
-                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
-                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                .background {
+                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                }
+                .overlay {
+                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
+                }
 
                 Spacer(minLength: 0)
 
@@ -212,17 +241,30 @@ struct GooseACPElicitationPanel: View {
                         .frame(width: 30, height: 30)
                 }
                 .buttonStyle(.plain)
-                .background(Rectangle().fill(theme.resolved.card.color.opacity(0.82)))
-                .overlay(Rectangle().stroke(theme.border.opacity(0.62), lineWidth: 1))
+                .background {
+                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                }
+                .overlay {
+                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
+                }
                 .help("Cancel")
             }
         }
         .padding(14)
         .frame(width: 460, alignment: .leading)
-        .background(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.98))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(theme.border.opacity(0.7), lineWidth: 1))
-        .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 18, y: 8)
+        .background {
+            ZStack {
+                if theme.isDark {
+                    panelShape.fill(.ultraThinMaterial)
+                } else {
+                    panelShape.fill(.regularMaterial)
+                }
+                panelShape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.80 : 0.72))
+            }
+        }
+        .clipShape(panelShape)
+        .overlay(panelShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.50 : 0.66), lineWidth: 0.7))
+        .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 26, y: 14)
     }
 
     private var messageText: String {
@@ -253,8 +295,14 @@ struct GooseACPElicitationPanel: View {
                     .font(GooseSurfaceStyle.bodyFont(12))
                     .padding(.horizontal, 9)
                     .frame(height: 30)
-                    .background(Rectangle().fill(theme.resolved.chatSurface.color.opacity(0.84)))
-                    .overlay(Rectangle().stroke(theme.border.opacity(0.58), lineWidth: 1))
+                    .background {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(theme.resolved.chatSurface.color.opacity(theme.isDark ? 0.70 : 0.76))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.40 : 0.56), lineWidth: 0.7)
+                    }
             }
         }
     }

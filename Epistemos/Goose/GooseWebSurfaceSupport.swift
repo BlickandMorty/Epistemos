@@ -243,8 +243,15 @@ extension GooseWebSurfaceView {
       style.textContent = `
         :root { color-scheme: light dark; }
         * { -webkit-font-smoothing: antialiased; }
-        html, body { overscroll-behavior: none; cursor: default; }
-        ::-webkit-scrollbar { width: 0; height: 0; }
+        html, body {
+          background: transparent !important;
+          cursor: default;
+          overscroll-behavior: none;
+        }
+        ::-webkit-scrollbar {
+          width: initial;
+          height: initial;
+        }
       `;
       document.documentElement.appendChild(style);
     })();
