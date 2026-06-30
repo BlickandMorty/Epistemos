@@ -110,6 +110,23 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.error == "Vault feed unavailable")
     }
 
+    @Test("HTMLWorkspace setDataFeed patch seeds pending data for the new query")
+    func setDataFeedPatchSeedsPendingDataForNewQuery() throws {
+        var package = Self.samplePackage()
+        package.dataJSON = #"{"results":[{"title":"old"}]}"#
+
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: " substrate provenance ", limit: 3)
+        package = try HTMLWorkspacePatchApplier.apply(.setDataFeed(feed), to: package)
+
+        #expect(package.manifest.dataFeed == feed)
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: package.dataJSON))
+        #expect(metadata.query == "substrate provenance")
+        #expect(metadata.limit == 3)
+        #expect(metadata.refreshedAtMS == 0)
+        #expect(metadata.stale)
+        #expect(metadata.error == "Feed pending")
+    }
+
     @Test("HTMLWorkspace vault search dashboard template seeds a live data feed shell")
     func vaultSearchDashboardTemplateSeedsLiveDataFeedShell() throws {
         var package = HTMLWorkspacePackage.defaultPackage()

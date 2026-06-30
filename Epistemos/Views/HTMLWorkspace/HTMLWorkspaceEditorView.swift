@@ -742,12 +742,17 @@ struct HTMLWorkspaceEditorView: View {
         }
         let requestedLimit = Int(limitField.stringValue) ?? existingFeed?.limit ?? HTMLWorkspaceDataFeed.defaultLimit
         let limit = HTMLWorkspaceDataFeed.clampedLimit(requestedLimit)
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
         if package.isStarterTemplateContent {
             var updatedPackage = package
             updatedPackage.applyVaultSearchDashboardTemplate(query: query, limit: limit)
             package = updatedPackage
         } else {
-            package.manifest.dataFeed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
+            package.manifest.dataFeed = feed
+            package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
+                feed: feed,
+                error: "Feed pending"
+            )
         }
         statusText = "Vault feed configured"
         selectedPane = .data

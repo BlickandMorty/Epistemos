@@ -51,7 +51,7 @@ nonisolated struct HTMLWorkspaceDataFeedEnvelope: Codable, Equatable, Sendable {
 }
 
 nonisolated enum HTMLWorkspaceDataFeedRenderer {
-    static let provenance = "VaultSyncService.searchFullAsync"
+    static let provenance = HTMLWorkspaceDataFeedJSONEnvelope.provenance
 
     static func render(
         feed: HTMLWorkspaceDataFeed,
@@ -80,13 +80,10 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         error: String,
         refreshedAt: Date? = nil
     ) -> String {
-        render(
+        HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
             feed: feed,
-            results: [],
-            refreshedAtMS: refreshedAt.map { Int64($0.timeIntervalSince1970 * 1_000) } ?? 0,
-            stale: true,
-            status: "stale",
-            error: error
+            error: error,
+            refreshedAtMS: refreshedAt.map { Int64($0.timeIntervalSince1970 * 1_000) } ?? 0
         )
     }
 

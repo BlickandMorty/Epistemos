@@ -136,8 +136,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         let hostSource = try loadMirroredSourceTextFile("Epistemos/Views/Workspace/ArtifactHostView.swift")
 
         #expect(packageSource.contains("struct HTMLWorkspaceDataFeed"))
+        #expect(packageSource.contains("HTMLWorkspaceDataFeedJSONEnvelope"))
         #expect(packageSource.contains("case dataFeed = \"data_feed\""))
         #expect(templateSource.contains("applyVaultSearchDashboardTemplate"))
+        #expect(templateSource.contains("HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON"))
         #expect(templateSource.contains("renderVaultResults"))
         #expect(templateSource.contains("htmlworkspace:datachange"))
         #expect(documentSource.contains("notifyPackageDidChange()"))
@@ -149,6 +151,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("package.isStarterTemplateContent"))
         #expect(editorSource.contains("package.applyVaultSearchDashboardTemplate"))
         #expect(editorSource.contains("HTMLWorkspaceDataFeed.vaultSearch"))
+        #expect(editorSource.contains("HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON"))
         #expect(editorSource.contains("package.manifest.dataFeed = nil"))
         #expect(feedSource.contains("VaultSyncService.searchFullAsync"))
         #expect(feedSource.contains("NotificationCenter.default.publisher(for: .searchIndexDidUpdate)"))
@@ -252,6 +255,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("HTMLWorkspaceDocumentReplacement"))
         #expect(packageSource.contains("case replaceDocument(HTMLWorkspaceDocumentReplacement)"))
         #expect(packageSource.contains("case setDataFeed(HTMLWorkspaceDataFeed?)"))
+        #expect(packageSource.contains(#"error: "Feed pending""#))
     }
 
     @Test("document surface exposes structured patch hooks without Epdoc internals")

@@ -24,11 +24,15 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         package.manifest.title = normalizedQuery.isEmpty
             ? "Vault Search Dashboard"
             : "Vault Search: \(normalizedQuery)"
-        package.manifest.dataFeed = HTMLWorkspaceDataFeed.vaultSearch(query: normalizedQuery, limit: clampedLimit)
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: normalizedQuery, limit: clampedLimit)
+        package.manifest.dataFeed = feed
         package.indexHTML = html
         package.styleCSS = css
         package.scriptJS = js
-        package.dataJSON = dataJSON(query: normalizedQuery, limit: clampedLimit)
+        package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
+            feed: feed,
+            error: "Feed pending"
+        )
     }
 
     private static let html = """
@@ -231,29 +235,6 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
     """
-
-    private static func dataJSON(query: String, limit: Int) -> String {
-        let payload: [String: Any] = [
-            "results": [[String: Any]](),
-            "_epistemos": [
-                "source": HTMLWorkspaceDataFeed.Source.vaultSearch.rawValue,
-                "query": query,
-                "limit": HTMLWorkspaceDataFeed.clampedLimit(limit),
-                "result_count": 0,
-                "refreshed_at_ms": 0,
-                "provenance": "VaultSyncService.searchFullAsync",
-                "stale": true,
-                "status": "stale",
-                "error": "Feed pending",
-            ] as [String: Any],
-        ]
-        guard JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
-              let json = String(data: data, encoding: .utf8) else {
-            return "{}"
-        }
-        return json
-    }
 }
 
 extension HTMLWorkspacePackage {

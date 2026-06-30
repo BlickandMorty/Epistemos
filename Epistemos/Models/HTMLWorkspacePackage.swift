@@ -320,6 +320,37 @@ nonisolated public struct HTMLWorkspaceDataFeed: Codable, Sendable, Hashable {
     }
 }
 
+nonisolated public enum HTMLWorkspaceDataFeedJSONEnvelope {
+    public static let provenance = "VaultSyncService.searchFullAsync"
+
+    public static func staleDataJSON(
+        feed: HTMLWorkspaceDataFeed,
+        error: String,
+        refreshedAtMS: Int64 = 0
+    ) -> String {
+        let payload: [String: Any] = [
+            "results": [[String: Any]](),
+            "_epistemos": [
+                "source": feed.source.rawValue,
+                "query": feed.normalizedQuery,
+                "limit": feed.effectiveLimit,
+                "result_count": 0,
+                "refreshed_at_ms": refreshedAtMS,
+                "provenance": provenance,
+                "stale": true,
+                "status": "stale",
+                "error": error,
+            ] as [String: Any],
+        ]
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
+        }
+        return json
+    }
+}
+
 nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
     public static let currentSchemaVersion: UInt32 = 1
 
@@ -1164,6 +1195,12 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.dataJSON = json
         case .setDataFeed(let feed):
             updated.manifest.dataFeed = feed
+            if let feed {
+                updated.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
+                    feed: feed,
+                    error: "Feed pending"
+                )
+            }
         case .insertBlock(let insertion):
             updated.indexHTML = insert(insertion.html, into: updated.indexHTML, location: insertion.location)
         case .insertChart(let chart):
