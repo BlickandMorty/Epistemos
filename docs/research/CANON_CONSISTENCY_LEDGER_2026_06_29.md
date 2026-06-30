@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 23:16 CDT (loop cycle 48) — **10/10 ✅**, 0 drift. ⛔ **NOT-SAFE-TO-REBUILD:** 20 dirty code files (8 Goose/HTMLWorkspace), no new commits — agents still mid-edit; owner's rebuild would re-catch incomplete white-screen + regenerate work. `Full-surface regenerate` still `isLive:false`. Auditor watching for the clean commit to signal "rebuild now". (Owner rebuilt at 23:11 from this mid-edit tree → still white + HTML-WS blank; root = building mid-edit, see white-screen OWNER REVIEW cyc47.) **3 OWNER REVIEW** (Companion-v1.6 [cyc12]; white-screen [fix committed, blocked on clean rebuild]; systemic pattern [RESOLVED cyc43]). HEAD at pass: `4a74b39af`.
+**Last auditor pass:** 2026-06-29 23:20 CDT (loop cycle 49) — **10/10 ✅**, 0 drift. 🛑 **CAUGHT RESURRECTION of owner-removed features** (triage/raw-thoughts/cloud-agent) by the `recon/salvage` workstream → marked OWNER-REMOVED in `LOST_ITEMS_RECON` (#4/#19/#33) + the Plan-6 triage item. **Plan 2 is NOT the culprit** — it's on real editor/HTML-WS canon; the removed features aren't in fresh code (only the recon doc + OLD residual code like `RawThoughtsState`). See OWNER REVIEW cyc48b. **4 OWNER REVIEW** (Companion-v1.6; white-screen [blocked on clean rebuild]; systemic pattern [RESOLVED cyc43]; resurrection [need owner full kill-list + a build agent to delete residual code]). HEAD at pass: `4a74b39af`.
 <br>_Recent: cyc43 (owner-directed) baked the REAL-WORK-FIRST/HARDENING-CAPPED WORK-ORDER directive into PROMPT_PLAN_1/2/3 + added AGENT_LOOP_WRAPPERS_REAL_FIRST (canon-safe, 10/10). cyc32 vetted the white-screen P0 + MAS-in-process-backend canon edit (Option-1-reinforcing). cyc8 strengthened check #4 to all 4 springs. cyc2 made #6/#8 greps honest._
 
 ## INVARIANTS (the locked truths — each agent's docs must agree with these)
@@ -60,6 +60,21 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
+- **2026-06-29 cycle 48b (Auditor) — 🛑 RESURRECTION OF OWNER-REMOVED FEATURES (owner-flagged: triage / raw-thoughts /
+  chat-transcripts / old local+cloud agent "should just be Goose").** Source = the **`recon:`/`salvage:` workstream** (the
+  `LOST_ITEMS_RECON` ledger + "draft Plan 6/7"), NOT Plan 2. It treated DELIBERATE owner-removals as "lost items" and routed
+  them back. **Auditor MARKED the 3 confident ones OWNER-REMOVED in the recon:** #4 triage/Review-Queue HUD, #19 provider-
+  specific cloud agent (also contradicts Plan-1's own "no separate agent brain"), #33 raw-thoughts (RETIRE not wire). Also
+  marked the Plan-6 triage build item.
+  - **KEY: these are NOT in fresh code** — `git log -S "RawThought"/"triage"` shows no recent code commits; they're only
+    proposals in the recon DOC. **Plan 2 is on its real canon** (editor/HTML-Workspace commits: MarkEdit body-collapse,
+    CoreEditor split, HTML-Workspace routes/export) — it is NOT building removed features.
+  - **What the owner SEES in the app = OLD RESIDUAL code never fully removed** (`RawThoughtsState` refs in ~5 files; triage
+    Rust `route/` substrate). Making it actually disappear needs a BUILD agent to delete the residual code — **auditor is
+    docs-only, cannot.** Recommend owner task a build agent: "remove residual RawThoughts/triage/old-agent UI + code."
+  - **OWNER CONFIRM THE FULL KILL-LIST** so I mark every resurrection (don't-guess on these): chat-transcripts (legit Goose
+    chat transcript from the white-screen fix? vs old removed chat UI?), recon #19 cloud-agent (marked), "cockpit panel"
+    (recon line 49 → Plan 1), per-model profile #15, llama.cpp #16, hyperdynamic #25 (local-inference — keep or cut?).
 - **2026-06-29 cycle 39 (Auditor) — ⚠️ SYSTEMIC: build agents favor HARDENING over the VISIBLE fixes (owner asked "is
   it a forever loop?"). NOT canon drift — execution-priority observation.** Data:
   - **Plan-1 / white-screen:** 27 goose code commits since the P0 was set (21:05→22:18), **ALL "bound/cap"** (resource-

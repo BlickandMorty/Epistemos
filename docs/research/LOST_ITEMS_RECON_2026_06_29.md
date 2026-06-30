@@ -21,7 +21,7 @@
 | 1 | **Quick Capture surface** | ⇧⌘Space single-field capture → auto-routes → 2s "filed here" toast | **Plan 6 (NEW)** | ✅ Rust `route/` landed | high |
 | 2 | **Universal 24h Undo UX** | every auto-decision reversible ⌘Z within 24h (inverses precomputed) | **Plan 6 (NEW)** | ✅ Rust `undo/` landed | high |
 | 3 | **Action Trace UI (⌘?)** | overlay: which tool ran, variant attempts pass/fail, alt-candidates+scores | **Plan 6 (NEW)** (pairs Plan 3 provenance) | partial | high |
-| 4 | **Review Queue / triage HUD (⌘.)** | low-confidence captures → keyboard batch-triage HUD | **Plan 6 (NEW)** | ✅ Rust `route/` Variant-D | high |
+| 4 | **Review Queue / triage HUD (⌘.)** | low-confidence captures → keyboard batch-triage HUD | ~~Plan 6~~ 🛑 **OWNER-REMOVED 2026-06-30 — do NOT resurrect** (owner direct: triage was removed; AI surface = "just Goose") | substrate may exist; do NOT surface UI | ❌ DROP |
 | 5 | **Dark/Light toggle crash fix** | reproducible crash on appearance switch (likely WKWebView re-render race) | **Plan 7 (NEW)** stability | — | high |
 | 6 | **In-app crash recorder** | capture appearance/agent crashes in-app (today only OS DiagnosticReports) | **Plan 7 (NEW)** | — | high |
 | 7 | **PII / sensitive-info redaction** | on-device model detects+redacts PII (a *capability*, survives model-mgmt cut) | **Plan 3** (privacy, §6 Apple-native sibling) | — | high |
@@ -36,7 +36,7 @@
 | 16 | **llama.cpp chat-template hardening** | per-model `--chat-template`/`--jinja` + chatml fallback + preflight validation | **Plan 1** (GGUF lane) | partial (exit-class landed) | med |
 | 17 | **Recurring "nuclear" code-checker gate** | adversarial whole-codebase review at multiple build checkpoints | **Plan 7 (NEW)** / process | partly (thermo skill exists) | med |
 | 18 | **Stealth / undetected browsing** | anti-fingerprint option on browser-use (Camoufox/nodriver); Pro/dev-gated | **Plan 3** (Browser §10 "re-confirm") | — | med |
-| 19 | **Provider-specific cloud agent** | first-class OpenAI/Google/Claude vendor-native agent mode (gated, SENSITIVE) | **Plan 1** (kept 🟢, orphaned by Act cut) | — | low |
+| 19 | **Provider-specific cloud agent** | first-class OpenAI/Google/Claude vendor-native agent mode (gated, SENSITIVE) | ~~Plan 1~~ 🛑 **OWNER-REMOVED 2026-06-30 — do NOT resurrect** (owner: "just Goose"; contradicts Plan-1's own "no separate agent brain" rule) | — | ❌ DROP |
 | 20 | **Concept graph / alias canonicalization** | folders→implicit ontology; synonyms→canonical via embedding+medoid | **Plan 6 (NEW)** / Plan 2 wikilinks | ✅ Rust `canon/` landed | low |
 | 21 | **MCP connectors that actually connect** | wire ≥1 real Slack/Gmail/Drive/Notion connector (today honest-state stub only) | **Plan 3** (§5) | directory shipped | low |
 | 22 | **Self-refreshing live artifacts** | HTMLWorkspace artifact bound to a live vault/RRF feed → patched WKWebView | **Plan 2** (HTML Workspace) | reuse PatchRouter | low |
@@ -79,7 +79,7 @@
 | 30 | **Bases-style table/DB views over frontmatter** | Notion/Obsidian-Bases DB views computed over note frontmatter (the "take over Notion" bar) | L4154 | Plan 2 / NEW | med |
 | 31 | **Block-refs + transclusion + backlinks** | Logseq/Roam block-level refs + transclusion + backlink panel (beyond wikilink resolve) | L4155, L3782 | Plan 2 | med |
 | 32 | **Vault export / backup** | NO export/backup exists today — data-safety gap | L4055-61 (SS-BWB) | **Plan 7** | med |
-| 33 | **Raw-thoughts vault visibility** | `RawThoughtsState` captures but never surfaces in the vault — wire-or-honestly-retire | L4360-61 | Plan 6 | med |
+| 33 | **Raw-thoughts vault visibility** | `RawThoughtsState` captures but never surfaces in the vault — wire-or-honestly-retire | L4360-61 | ~~Plan 6~~ 🛑 **OWNER-REMOVED 2026-06-30 — RETIRE, do NOT wire** (owner direct: raw thoughts was removed) | ❌ DROP |
 | 34 | **Dead graph-appearance toggles** | graph appearance settings set flags `MetalGraphView` never reads — wire or remove (honesty debt) | L4362-63 | **NEW (graph chrome)** | med |
 | 35 | **Code-editor white-bar + page-relevant pill** | graph code-editor non-theme white top bar; landing pill persists onto graph (swap to page controls) | L3998-4019 | **NEW (graph chrome)** / Plan 2 | med |
 | 36 | **Quick-capture destination presets** | capture hardcoded to a Prose SDPage; add note/Epdoc/chat/code destination presets | L4049-51, L4174 | Plan 6 | med |
