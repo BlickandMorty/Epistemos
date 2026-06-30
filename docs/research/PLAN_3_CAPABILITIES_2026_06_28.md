@@ -225,7 +225,8 @@ Rust dispatch. Stdio MCP spawns remain hardened and Pro-only
 
 **5b — Best-of preset.** Shipped: `Epistemos/Resources/best_of_preset.json`, `BestOfPreset.swift`, and
 `BestOfPresetCard`. Apply is idempotent and reversible for owned remote-MCP rows; built-ins report `.alreadyEnabled`;
-Pro-only skill rows show `.proLocked` instead of silently enabling.
+Pro-only skill rows show `.proLocked` instead of silently enabling. The bundled manifest and receipt files are bounded
+regular-file JSON reads and reject final symlinks.
 
 **5c — Vault-as-MCP-server (the moat, outward-facing).** Shipped: `VaultMCPCore` (read-only tools/resources allowlist),
 `VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent

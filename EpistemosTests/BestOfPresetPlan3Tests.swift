@@ -198,6 +198,89 @@ struct BestOfPresetPlan3Tests {
         #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
     }
 
+    @Test("manifest loader accepts bounded regular bundled manifests")
+    func manifestLoaderAcceptsBoundedBundleManifest() throws {
+        let json = """
+        {
+          "items": [
+            {
+              "kind": "builtinTool",
+              "id": "custom.builtin",
+              "displayName": "Custom",
+              "why": "Fixture row",
+              "minDistribution": "coreAppStore",
+              "installTarget": null
+            }
+          ]
+        }
+        """
+        let fixture = try Self.makeBestOfPresetBundle(data: Data(json.utf8))
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let manifest = BestOfPreset.manifest(bundle: fixture.bundle)
+
+        #expect(manifest.items.map(\.id) == ["custom.builtin"])
+    }
+
+    @Test("manifest loader falls back for oversized bundled manifests")
+    func manifestLoaderRejectsOversizedBundleManifest() throws {
+        let oversizedWhy = String(repeating: "A", count: BestOfPreset.maxManifestBytes)
+        let json = """
+        {
+          "items": [
+            {
+              "kind": "remoteMCP",
+              "id": "malicious",
+              "displayName": "Malicious",
+              "why": "\(oversizedWhy)",
+              "minDistribution": "coreAppStore",
+              "installTarget": "https://malicious.example.com/mcp"
+            }
+          ]
+        }
+        """
+        let data = Data(json.utf8)
+        let fixture = try Self.makeBestOfPresetBundle(data: data)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        #expect(data.count > BestOfPreset.maxManifestBytes)
+        let manifest = BestOfPreset.manifest(bundle: fixture.bundle)
+
+        #expect(!manifest.items.map(\.id).contains("malicious"))
+        #expect(manifest.items.map(\.id).contains("context7"))
+    }
+
+    @Test("manifest loader does not follow symlinked bundled manifests")
+    func manifestLoaderRejectsSymlinkedBundleManifest() throws {
+        let outsideRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-manifest-outside-\(UUID().uuidString)")
+        let outsideURL = outsideRoot.appendingPathComponent("outside.json")
+        defer { try? FileManager.default.removeItem(at: outsideRoot) }
+        try FileManager.default.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
+        try """
+        {
+          "items": [
+            {
+              "kind": "remoteMCP",
+              "id": "malicious",
+              "displayName": "Malicious",
+              "why": "Symlinked fixture",
+              "minDistribution": "coreAppStore",
+              "installTarget": "https://malicious.example.com/mcp"
+            }
+          ]
+        }
+        """.write(to: outsideURL, atomically: true, encoding: .utf8)
+
+        let fixture = try Self.makeBestOfPresetBundle(symlinkTarget: outsideURL)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let manifest = BestOfPreset.manifest(bundle: fixture.bundle)
+
+        #expect(!manifest.items.map(\.id).contains("malicious"))
+        #expect(manifest.items.map(\.id).contains("context7"))
+    }
+
     @Test("receipt store ignores oversized receipt files")
     func receiptStoreIgnoresOversizedFiles() throws {
         let root = FileManager.default.temporaryDirectory
@@ -247,12 +330,49 @@ struct BestOfPresetPlan3Tests {
     func receiptStoreSourceGuard() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Omega/BestOfPreset.swift")
         for required in [
+            "maxManifestBytes",
+            "loadManifestData",
             "maxReceiptBytes",
             "destinationOfSymbolicLink",
             "attributesOfItem",
+            "data.count <= maxManifestBytes",
             "data.count <= maxReceiptBytes",
         ] {
             #expect(source.contains(required), "BestOfPreset receipt store missing hardening marker: \(required)")
         }
+    }
+
+    private static func makeBestOfPresetBundle(
+        data: Data? = nil,
+        symlinkTarget: URL? = nil
+    ) throws -> (bundle: Bundle, root: URL) {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BestOfPresetFixture-\(UUID().uuidString).bundle", isDirectory: true)
+        let contents = root.appendingPathComponent("Contents", isDirectory: true)
+        let resources = contents.appendingPathComponent("Resources", isDirectory: true)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>CFBundleIdentifier</key>
+          <string>com.epistemos.best-of-fixture.\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))</string>
+          <key>CFBundlePackageType</key>
+          <string>BNDL</string>
+          <key>CFBundleVersion</key>
+          <string>1</string>
+        </dict>
+        </plist>
+        """.write(to: contents.appendingPathComponent("Info.plist"), atomically: true, encoding: .utf8)
+
+        let manifestURL = resources.appendingPathComponent("best_of_preset.json")
+        if let symlinkTarget {
+            try FileManager.default.createSymbolicLink(at: manifestURL, withDestinationURL: symlinkTarget)
+        } else {
+            try (data ?? Data()).write(to: manifestURL)
+        }
+
+        return (try #require(Bundle(url: root)), root)
     }
 }

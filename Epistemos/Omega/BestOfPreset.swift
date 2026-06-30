@@ -68,9 +68,10 @@ nonisolated struct BestOfPresetResult: Equatable, Sendable, Identifiable {
 }
 
 nonisolated enum BestOfPreset {
+    static let maxManifestBytes = 64 * 1024
+
     static func manifest(bundle: Bundle = .main) -> BestOfPresetManifest {
-        if let url = bundle.url(forResource: "best_of_preset", withExtension: "json"),
-           let data = try? Data(contentsOf: url),
+        if let data = loadManifestData(bundle: bundle),
            let manifest = try? JSONDecoder().decode(BestOfPresetManifest.self, from: data) {
             return manifest
         }
@@ -79,6 +80,24 @@ nonisolated enum BestOfPreset {
 
     static func installTarget(for item: BestOfPresetItem) -> String? {
         item.installTarget ?? fallbackTargets[item.id]
+    }
+
+    private static func loadManifestData(bundle: Bundle) -> Data? {
+        guard let url = bundle.url(forResource: "best_of_preset", withExtension: "json"),
+              !isSymbolicLink(url),
+              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              attributes[.type] as? FileAttributeType == .typeRegular,
+              let size = attributes[.size] as? NSNumber,
+              size.intValue <= maxManifestBytes,
+              let data = try? Data(contentsOf: url),
+              data.count <= maxManifestBytes else {
+            return nil
+        }
+        return data
+    }
+
+    private static func isSymbolicLink(_ url: URL) -> Bool {
+        (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil
     }
 
     static func apply(
