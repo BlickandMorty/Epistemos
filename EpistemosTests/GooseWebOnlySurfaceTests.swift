@@ -97,6 +97,9 @@ struct GooseWebOnlySurfaceSourceTests {
 
         let stageScript = try loadMirroredSourceTextFile("stage-goose-web-ui.sh")
         #expect(stageScript.contains("Goose Web UI staging still contains blue/ring/outline visual leftovers."))
+        #expect(stageScript.contains("epistemos-acp-session-mode-setting"))
+        #expect(stageScript.contains("saveAcpSessionMode(sessionId, newMode)"))
+        #expect(stageScript.contains("useChatContext()"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))

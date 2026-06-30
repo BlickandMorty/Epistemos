@@ -2796,6 +2796,44 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+node - "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { ConversationLimitsDropdown } from './ConversationLimitsDropdown';",
+  "import { ConversationLimitsDropdown } from './ConversationLimitsDropdown';\nimport { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';\nimport { saveAcpSessionMode } from '../../../acp/providers';\nimport { useChatContext } from '../../../contexts/ChatContext';"
+);
+source = source.replace(
+  '  const { config, read, upsert } = useConfig();',
+  "  const { config, read, upsert } = useConfig();\n  const chatContext = useChatContext();\n  const sessionId = chatContext?.chat.sessionId || '';"
+);
+source = source.replace(
+  `      await upsert('GOOSE_MODE', newMode, false);
+      setCurrentMode(newMode);`,
+  `      if (USE_ACP_CHAT && sessionId) {
+        await saveAcpSessionMode(sessionId, newMode); // epistemos-acp-session-mode-setting
+      } else {
+        await upsert('GOOSE_MODE', newMode, false);
+      }
+      setCurrentMode(newMode);`
+);
+
+for (const snippet of [
+  'USE_ACP_CHAT && sessionId',
+  'saveAcpSessionMode(sessionId, newMode)',
+  'epistemos-acp-session-mode-setting',
+  'useChatContext()',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ModeSection staged source missing required snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 node - "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx" \
        "$WORK_ROOT/ui/desktop/src/utils/platform_events.ts" \
        "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts" \
@@ -3598,6 +3636,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "handleAttachEpistemosContext" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Attach Epistemos context" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "BookOpen" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "epistemos-acp-session-mode-setting" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
+    grep -q "saveAcpSessionMode(sessionId, newMode)" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
+    grep -q "useChatContext()" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
     grep -q "mb-4 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { exportApp, importApp, listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/AppsView.tsx"
     grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts"
