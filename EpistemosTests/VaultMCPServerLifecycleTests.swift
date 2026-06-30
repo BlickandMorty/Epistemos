@@ -157,6 +157,26 @@ struct VaultMCPServerLifecycleTests {
         #expect(data.isEmpty)
     }
 
+    @Test("server failure diagnostics do not expose raw localized paths")
+    func serverFailureDiagnosticsDoNotExposeRawLocalizedPaths() {
+        let privatePath = "/Users/example/private-vault/mcp.sock"
+        let error = NSError(
+            domain: "VaultMCPPathLeak",
+            code: 91,
+            userInfo: [NSLocalizedDescriptionKey: "listener failed at \(privatePath)"]
+        )
+        let status = VaultMCPServerDiagnostics.statusMessage(for: error)
+        let oversized = VaultMCPServerDiagnostics.statusMessage(
+            String(repeating: "e", count: VaultMCPServerDiagnostics.maxStatusMessageCharacters + 32)
+        )
+
+        #expect(status.contains("VaultMCPPathLeak"))
+        #expect(status.contains("91"))
+        #expect(status.contains(privatePath) == false)
+        #expect(status.count <= VaultMCPServerDiagnostics.maxStatusMessageCharacters)
+        #expect(oversized.count == VaultMCPServerDiagnostics.maxStatusMessageCharacters + 3)
+    }
+
     @Test("host scopes running registration to the active vault")
     @MainActor
     func hostScopesRunningRegistrationToActiveVault() async throws {
@@ -221,6 +241,8 @@ struct VaultMCPServerLifecycleTests {
         #expect(server.contains("WorkNativeMCPServer.acceptedResponse"))
         #expect(server.contains("WorkMCPHTTPRequest.parse"))
         #expect(server.contains("requiredInterfaceType = .loopback"))
+        #expect(server.contains("VaultMCPServerDiagnostics.statusMessage(for: error)"))
+        #expect(server.contains("maxStatusMessageCharacters"))
 
         let tokenStore = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPTokenStore.swift")
         #expect(tokenStore.contains("Keychain.load"))

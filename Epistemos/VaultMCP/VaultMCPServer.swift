@@ -2,6 +2,26 @@ import Foundation
 import Network
 import os
 
+nonisolated enum VaultMCPServerDiagnostics {
+    static let maxStatusMessageCharacters = 240
+
+    static func statusMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = domain.isEmpty ? "Network" : domain
+        return statusMessage("listener failed (\(label) \(nsError.code))")
+    }
+
+    static func statusMessage(_ message: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? "listener failed" : trimmed
+        guard description.count > maxStatusMessageCharacters else {
+            return description
+        }
+        return String(description.prefix(maxStatusMessageCharacters)) + "..."
+    }
+}
+
 nonisolated final class VaultMCPServer: @unchecked Sendable {
     enum Status: Equatable, Sendable {
         case idle
@@ -56,7 +76,7 @@ nonisolated final class VaultMCPServer: @unchecked Sendable {
                 }
             case .failed(let error):
                 Self.logger.error("listener failed: \(error.localizedDescription, privacy: .public)")
-                self.setStatus(.failed(error.localizedDescription))
+                self.setStatus(.failed(VaultMCPServerDiagnostics.statusMessage(for: error)))
             case .cancelled:
                 self.setStatus(.stopped)
             default:

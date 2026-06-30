@@ -39,7 +39,8 @@ a stub executor, no network/FFI in the file.
 Loopback `/mcp` NWListener binding `VaultMCPCore`, delegating auth/framing/routing to `WorkNativeMCPServer`'s static
 helpers (one audited copy of the security logic). Difference from `WorkNativeMCPServer`: a **persistent** bearer token
 (not per-launch). Lifecycle = same `start()`/`stop()` + `.ready`→`WorkNativeMCPRegistration{url,token}` shape;
-`WorkNativeMCPRegistration.isTrustedLoopbackMCP (:33)` validates it for free.
+`WorkNativeMCPRegistration.isTrustedLoopbackMCP (:33)` validates it for free. Listener failure status uses bounded
+domain/code diagnostics rather than raw localized network descriptions.
 
 ## 3. `VaultMCPTokenStore.swift` [DELIVERED]
 `currentToken()` returns the stored token or mints+persists one (`WorkNativeMCPServer.randomToken()` CSPRNG, 24-byte
