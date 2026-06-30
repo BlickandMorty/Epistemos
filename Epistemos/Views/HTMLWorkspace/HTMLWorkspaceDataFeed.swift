@@ -78,12 +78,12 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     static func staleRender(
         feed: HTMLWorkspaceDataFeed,
         error: String,
-        refreshedAt: Date = Date()
+        refreshedAt: Date? = nil
     ) -> String {
         render(
             feed: feed,
             results: [],
-            refreshedAt: refreshedAt,
+            refreshedAtMS: refreshedAt.map { Int64($0.timeIntervalSince1970 * 1_000) } ?? 0,
             stale: true,
             status: "stale",
             error: error
@@ -98,12 +98,30 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         status: String,
         error: String?
     ) -> String {
+        render(
+            feed: feed,
+            results: results,
+            refreshedAtMS: Int64(refreshedAt.timeIntervalSince1970 * 1_000),
+            stale: stale,
+            status: status,
+            error: error
+        )
+    }
+
+    private static func render(
+        feed: HTMLWorkspaceDataFeed,
+        results: [HTMLWorkspaceDataFeedResult],
+        refreshedAtMS: Int64,
+        stale: Bool,
+        status: String,
+        error: String?
+    ) -> String {
         let metadata = HTMLWorkspaceDataFeedMetadata(
             source: feed.source.rawValue,
             query: feed.normalizedQuery,
             limit: feed.effectiveLimit,
             resultCount: results.count,
-            refreshedAtMS: Int64(refreshedAt.timeIntervalSince1970 * 1_000),
+            refreshedAtMS: refreshedAtMS,
             provenance: provenance,
             stale: stale,
             status: status,

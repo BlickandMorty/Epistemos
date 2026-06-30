@@ -96,6 +96,20 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.stale == false)
     }
 
+    @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
+    func staleDataFeedRenderDoesNotPretendToRefresh() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)
+        let rendered = HTMLWorkspaceDataFeedRenderer.staleRender(
+            feed: feed,
+            error: "Vault feed unavailable"
+        )
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
+        #expect(metadata.stale)
+        #expect(metadata.refreshedAtMS == 0)
+        #expect(metadata.error == "Vault feed unavailable")
+    }
+
     @Test("HTMLWorkspace vault search dashboard template seeds a live data feed shell")
     func vaultSearchDashboardTemplateSeedsLiveDataFeedShell() throws {
         var package = HTMLWorkspacePackage.defaultPackage()
