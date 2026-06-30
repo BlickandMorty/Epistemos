@@ -202,10 +202,12 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(exporterSource.contains("HTMLWorkspacePDFExportError"))
         #expect(exporterSource.contains("loadTimeoutNanoseconds"))
         #expect(exporterSource.contains("loadTimedOut"))
-        // Timeout is a deadline checked as navigation events arrive (the @MainActor WebPage is never handed to a
-        // child task, which would trip the region-based isolation checker).
-        #expect(exporterSource.contains("ContinuousClock"))
-        #expect(exporterSource.contains("deadline"))
+        // Timeout must race the load stream; a passive deadline checked only on navigation events
+        // still hangs if the WebPage stream stalls before emitting another event.
+        #expect(exporterSource.contains("withThrowingTaskGroup(of: Void.self)"))
+        #expect(exporterSource.contains("group.addTask { @MainActor in"))
+        #expect(exporterSource.contains("Task.sleep(nanoseconds: Self.loadTimeoutNanoseconds)"))
+        #expect(exporterSource.contains("defer { group.cancelAll() }"))
         // macOS-26 SwiftUI WebKit migration: `WebPage` + a `NavigationDeciding` scheme allowlist (async policy,
         // not a delegate `decisionHandler`); content-sized PDF via `exported(as: .pdf(region: .rect(…)))`.
         #expect(exporterSource.contains("WebPage"))

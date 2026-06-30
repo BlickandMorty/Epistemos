@@ -80,23 +80,28 @@ enum HTMLWorkspacePDFExporter {
             )
         }
 
-        /// Drive the `load(html:)` navigation stream to `.finished` ON THE MAIN ACTOR — the @MainActor `WebPage`
-        /// is never handed to a child task (which would trip the region-based isolation checker). The legacy hard
-        /// 8s timeout becomes a deadline checked as navigation events arrive: an in-memory document emits
-        /// startedProvisional→committed→finished promptly, so a stalled render throws `loadTimedOut` rather than
-        /// hanging the export.
+        /// Drive the `load(html:)` navigation stream to `.finished` on the main actor while a timeout
+        /// task races it. Checking a deadline only when navigation events arrive still hangs if the
+        /// stream stalls before the next event.
         private func load(into page: WebPage) async throws {
             let html = HTMLWorkspacePreviewDocument.render(
                 package: package,
                 theme: theme,
                 resourceMode: .inlinePackageAssets
             )
-            let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int(Self.loadTimeoutNanoseconds)))
-            for try await event in page.load(html: html) {
-                if event == .finished { return }
-                if ContinuousClock.now >= deadline {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor in
+                    for try await event in page.load(html: html) {
+                        if event == .finished { return }
+                    }
                     throw HTMLWorkspacePDFExportError.loadTimedOut
                 }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: Self.loadTimeoutNanoseconds)
+                    throw HTMLWorkspacePDFExportError.loadTimedOut
+                }
+                defer { group.cancelAll() }
+                _ = try await group.next()
             }
         }
 
