@@ -751,12 +751,21 @@ struct HTMLWorkspaceEditorView: View {
         allowed_operations: \(allowedOperations(for: pane).joined(separator: ", "))
 
         ```epistemos-html-workspace-patch
-        {"workspace_id":"\(package.manifest.id)","expected_content_hash":"\(contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
+        {"workspace_id":"\(package.manifest.id)","expected_content_hash":"\(contentHash)","operations":[\(patchExampleOperation(for: pane))]}
         ```
         """
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(context, forType: .string)
         statusText = "Patch context copied"
+    }
+
+    private func patchExampleOperation(for pane: HTMLWorkspaceSourcePane) -> String {
+        switch pane {
+        case .routes:
+            #"{"type":"setRoute","name":"about.html","html":"<main></main>"}"#
+        default:
+            #"{"type":"insertBlock","html":"<section></section>","location":"append"}"#
+        }
     }
 
     private func configureVaultSearchFeed() {
