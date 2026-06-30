@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 19:15 CDT (loop cycle 21) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (2 open: graph-chrome boundary [cyc19], Companion-v1.6 vs Plan-5 [cyc12]). Steady-state: no new plans (still 1–7). Plan-3 docs (CAPABILITIES/PROVENANCE + APPLE_NATIVE WIP) refined, drift-scanned clean; other commits code-only (MCP app-window caps, cloud vision payload bounds, AnswerPacket log reads). HEAD at pass: `f5ce60d06`.
+**Last auditor pass:** 2026-06-29 19:25 CDT (loop cycle 22) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (2 open: graph-chrome boundary [cyc19], Companion-v1.6 vs Plan-5 [cyc12]). Steady-state: no new plans (still 1–7). Plan-3 docs (APPLE_NATIVE/CAPABILITIES/PROVENANCE) refined, drift-scanned clean; other commits code-only (HTML Workspace honesty/status hardening ×6, ACP shutdown/null-payload lifecycle, Live Text bounds, provenance gates). HEAD at pass: `e5557f93e`.
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
