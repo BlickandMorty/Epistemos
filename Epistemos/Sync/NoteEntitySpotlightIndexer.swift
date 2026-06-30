@@ -31,6 +31,45 @@ import OSLog
 // the W14.1 NoteEntity+IndexedEntity extension's `attributeSet`
 // computed property is what the system actually reads.
 
+nonisolated enum NoteEntitySpotlightDiagnostics {
+    static let maxLogMessageCharacters = 240
+
+    static func logMessage(for error: Error, fallback: String) -> String {
+        let nsError = error as NSError
+        return logMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func logMessage(_ message: String, fallback: String = "Spotlight entity indexing failed") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxLogMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxLogMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 public enum NoteEntitySpotlightIndexer {
 
     private static let log = Logger(
@@ -48,8 +87,12 @@ public enum NoteEntitySpotlightIndexer {
             try await CSSearchableIndex.default().indexAppEntities(entities)
             log.info("indexAppEntities donated \(entities.count, privacy: .public) note entities")
         } catch {
+            let message = NoteEntitySpotlightDiagnostics.logMessage(
+                for: error,
+                fallback: "indexAppEntities donation failed"
+            )
             log.error(
-                "indexAppEntities donation failed: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
         }
     }
@@ -72,8 +115,12 @@ public enum NoteEntitySpotlightIndexer {
             )
             log.info("deleteSearchableItems removed \(noteIds.count, privacy: .public) note ids")
         } catch {
+            let message = NoteEntitySpotlightDiagnostics.logMessage(
+                for: error,
+                fallback: "deleteSearchableItems failed"
+            )
             log.error(
-                "deleteSearchableItems failed: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
         }
     }
