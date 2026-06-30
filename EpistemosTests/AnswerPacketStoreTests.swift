@@ -87,6 +87,33 @@ struct AnswerPacketStoreTests {
         } catch {}
     }
 
+    @Test("store rejects non-regular persistence logs")
+    func rejectsNonRegularPersistenceLog() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apstore-nonregular-\(UUID().uuidString)", isDirectory: true)
+        let directoryLog = root.appendingPathComponent("answer_packets.jsonl", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryLog, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = AnswerPacketStore(fileURL: directoryLog)
+
+        do {
+            _ = try store.loadRecent(limit: 10)
+            Issue.record("Expected non-regular AnswerPacket log load to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("not a regular file"))
+        }
+
+        do {
+            try store.append(packet("blocked"))
+            Issue.record("Expected non-regular AnswerPacket log append to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("not a regular file")
+                || error.localizedDescription.contains("could not open answer packet log"))
+        }
+    }
+
     @Test("loadRecent rejects oversized logs before decoding")
     func loadRecentRejectsOversizedLogsBeforeDecoding() throws {
         let (store, cleanup) = tempStore(); defer { cleanup() }
@@ -139,7 +166,10 @@ struct AnswerPacketStoreTests {
         let store = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacketStore.swift")
         #expect(store.contains("maxLogBytes"))
         #expect(store.contains("O_NOFOLLOW"))
+        #expect(store.contains("O_RDONLY | O_NOFOLLOW"))
+        #expect(store.contains("readStoreFileText"))
         #expect(store.contains("destinationOfSymbolicLink"))
+        #expect(store.contains("fstat(fd"))
     }
 
     // SUBSTRATE Phase 2 — LOAD-ON-LAUNCH RING RESTORE (the "production wiring later" slice): on relaunch

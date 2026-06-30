@@ -36,9 +36,7 @@ nonisolated public struct AnswerPacketStore: Sendable {
     /// partially-written line is skipped honestly (never throws on a single bad entry).
     public func loadRecent(limit: Int) throws -> [AnswerPacket] {
         guard limit > 0,
-              let byteCount = try readableStoreFileByteCount(),
-              byteCount <= Self.maxLogBytes else { return [] }
-        let raw = try String(contentsOf: fileURL, encoding: .utf8)
+              let raw = try readStoreFileText() else { return [] }
         let decoder = JSONDecoder()
         let tail = raw.split(separator: "\n", omittingEmptySubsequences: true).suffix(limit)
         let chronological = tail.compactMap { line in
@@ -51,9 +49,7 @@ nonisolated public struct AnswerPacketStore: Sendable {
     /// calls this periodically so the append-only log never grows without limit.
     public func compact(maxEntries: Int) throws {
         guard maxEntries > 0,
-              let byteCount = try readableStoreFileByteCount(),
-              byteCount <= Self.maxLogBytes else { return }
-        let raw = try String(contentsOf: fileURL, encoding: .utf8)
+              let raw = try readStoreFileText() else { return }
         let lines = raw.split(separator: "\n", omittingEmptySubsequences: true)
         guard lines.count > maxEntries else { return }
         let kept = lines.suffix(maxEntries).joined(separator: "\n") + "\n"
@@ -76,6 +72,52 @@ nonisolated public struct AnswerPacketStore: Sendable {
             throw storeError("could not inspect answer packet log size", errnoCode: EINVAL)
         }
         return byteCount
+    }
+
+    private func readStoreFileText() throws -> String? {
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
+            throw storeError("answer packet log is a symbolic link", errnoCode: ELOOP)
+        }
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+
+        let fd = fileURL.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            let capturedErrno = errno
+            if capturedErrno == ENOENT { return nil }
+            throw storeError("could not open answer packet log", errnoCode: capturedErrno)
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let capturedErrno = errno
+            close(fd)
+            throw storeError("could not inspect answer packet log", errnoCode: capturedErrno)
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
+        }
+        guard fileStatus.st_size >= 0 else {
+            close(fd)
+            throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+        }
+        guard UInt64(fileStatus.st_size) <= UInt64(Self.maxLogBytes) else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        let data = try handle.readToEnd() ?? Data()
+        guard data.count <= Self.maxLogBytes else {
+            return nil
+        }
+        guard let raw = String(data: data, encoding: .utf8) else {
+            throw storeError("answer packet log is not valid UTF-8", errnoCode: EILSEQ)
+        }
+        return raw
     }
 
     private func openStoreFileForWriting(truncate: Bool) throws -> FileHandle {
