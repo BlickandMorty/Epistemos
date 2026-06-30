@@ -177,6 +177,14 @@ final class GooseRuntimeSupervisor {
         }
 
         #if EPISTEMOS_APP_STORE
+        // ★ OWNER GATE (2026-06-30): the MAS in-process backend is OWNER-GATED and OFF BY DEFAULT.
+        // It must NOT activate on any MAS build until the owner explicitly enables it. Default-off keeps
+        // MAS Goose honestly "unavailable" until owner sign-off. Single-point rollback = unset the flag.
+        // Full plan: docs/research/GOOSE_MAS_IN_PROCESS_READINESS_SPEC_2026_06_30.md.
+        guard ProcessInfo.processInfo.environment["EPISTEMOS_MAS_GOOSE_V0"] == "1" else {
+            status = .unavailable("MAS Goose (in-process) is owner-gated and in development — not active. Owner enables it via EPISTEMOS_MAS_GOOSE_V0=1.")
+            return
+        }
         let resolvedSecretKey = secretKey ?? Self.randomSecretKey()
         self.masPromptStreamer = masPromptStreamer ?? AppBootstrap.shared?.cloudLLMClient
         status = .starting
