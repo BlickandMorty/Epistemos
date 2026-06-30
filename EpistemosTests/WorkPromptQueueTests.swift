@@ -109,6 +109,9 @@ struct WorkPromptQueueTests {
         #expect(src.contains("queue.moveToTop(id: requeued.id)"))
         #expect(src.contains("sendNow(next.text, model: next.model, agent: next.agent, requeueOnFailure: next)"))
         #expect(src.contains("sendNow(prompt.text, model: prompt.model, agent: prompt.agent, requeueOnFailure: prompt)"))
+        #expect(src.contains("WorkServerDiagnostics.statusMessage("))
+        #expect(!src.contains("error.localizedDescription"))
+        #expect(!src.contains("String(describing: error)"))
     }
 
     @Test("after-part queue mode is exposed and bound to live part-boundary abort/drain")

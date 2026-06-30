@@ -420,7 +420,7 @@ struct WorkEngineSurfaceView: View {
     }
 
     private func surfaceRuntimeError(_ message: String, _ error: Error) {
-        ingestSurfaceError("\(message): \(error.localizedDescription)")
+        ingestSurfaceError(WorkServerDiagnostics.statusMessage(for: error, fallback: message))
     }
 
     private func ingestSurfaceError(_ message: String) {
@@ -509,7 +509,13 @@ struct WorkEngineSurfaceView: View {
                 // Honest failure (was: `try?` swallowed it, leaving the previous transcript stale under the new selection).
                 transcript.reset()
                 if let d = try? JSONSerialization.data(withJSONObject:
-                    ["type": "session.error", "message": "Couldn't reopen session: \(error.localizedDescription)"]) {
+                    [
+                        "type": "session.error",
+                        "message": WorkServerDiagnostics.statusMessage(
+                            for: error,
+                            fallback: "Couldn't reopen session"
+                        )
+                    ]) {
                     transcript.ingest(eventJSON: d)
                 }
                 activeSessionID = sessionID
@@ -593,7 +599,13 @@ struct WorkEngineSurfaceView: View {
                 }
                 // Surface failures as a NATIVE error part (built safely — never raw-interpolated into prose).
                 if let data = try? JSONSerialization.data(
-                    withJSONObject: ["type": "session.error", "message": error.localizedDescription]) {
+                    withJSONObject: [
+                        "type": "session.error",
+                        "message": WorkServerDiagnostics.statusMessage(
+                            for: error,
+                            fallback: "Work send failed"
+                        )
+                    ]) {
                     transcript.ingest(eventJSON: data)
                 }
             }
