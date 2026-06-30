@@ -1275,14 +1275,68 @@ function applyProviderModalSurfaces() {
     '} bg-background-primary text-lg placeholder:text-text-secondary font-regular text-text-primary`}',
     '} bg-background-primary/70 text-lg placeholder:text-text-secondary font-regular text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20`}'
   );
+  source = replaceRequired(
+    source,
+    'default provider setup input geometry native',
+    'className={`w-full h-14 px-4 font-regular rounded-lg shadow-none ${',
+    'className={`min-h-12 w-full rounded-[10px] px-4 font-regular shadow-none ${'
+  );
+  source = replaceRequired(
+    source,
+    'default provider setup invalid border native',
+    "? 'border-2 border-red-500'",
+    "? 'border-2 border-border-danger ring-[3px] ring-text-danger/15'"
+  );
+  source = replaceRequired(
+    source,
+    'default provider setup normal border native',
+    ": 'border border-border-primary hover:border-border-primary'",
+    ": 'border border-border-secondary hover:border-[var(--epistemos-accent)]'"
+  );
+  source = replaceAllRequired(
+    source,
+    'default provider setup required/error token',
+    'text-red-500',
+    'text-text-danger'
+  );
+  source = replaceRequired(
+    source,
+    'default provider setup empty token',
+    'className="text-center text-gray-500"',
+    'className="text-center text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'default provider setup optional native',
+    'className="my-4 border-2 border-dashed border-secondary rounded-lg bg-secondary/10"',
+    'className="my-4 rounded-[10px] border border-dashed border-border-secondary bg-background-primary/55 shadow-sm backdrop-blur-xl"'
+  );
   write('src/components/settings/providers/modal/subcomponents/forms/DefaultProviderSetupForm.tsx', source);
 
   source = read('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx');
   source = replaceAllRequired(
     source,
+    'custom provider choice cards native',
+    'className="w-full p-4 text-left border border-border rounded-lg hover:bg-surfaceHover hover:border-primary transition-colors group"',
+    'className="w-full rounded-[10px] border border-border-secondary bg-background-primary/68 p-4 text-left shadow-sm backdrop-blur-xl transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62 group"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider template banner native',
+    'className="p-3 bg-surfaceHover border border-border rounded-lg"',
+    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
     'custom provider capability badges native',
     'className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-[3px] bg-background-secondary text-primary border border-border-primary"',
     'className="ep-native-badge px-2 py-0.5 text-[10px] text-primary"'
+  );
+  source = replaceAllRequired(
+    source,
+    'custom provider checkbox native',
+    'className="rounded border-border-primary"',
+    'className="rounded-[5px] border-border-primary accent-[var(--epistemos-accent)]"'
   );
   source = replaceRequired(
     source,
@@ -1290,7 +1344,58 @@ function applyProviderModalSurfaces() {
     'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-textStandard bg-background-primary border border-borderSubtle hover:border-borderStandard transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
     'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-borderSubtle bg-background-primary/70 px-2 pr-4 text-sm text-textStandard transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
   );
+  source = replaceAllRequired(
+    source,
+    'custom provider validation text token',
+    'text-red-500',
+    'text-text-danger'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider active delete warning native',
+    'className="px-4 py-3 bg-yellow-600/20 border border-yellow-500/30 rounded"',
+    'className="rounded-[10px] border border-border-warning bg-background-warning/55 px-4 py-3"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider active delete warning text',
+    'className="text-yellow-500 text-sm flex items-start"',
+    'className="flex items-start text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider delete confirmation native',
+    'className="px-4 py-3 bg-red-900/20 border border-red-500/30 rounded"',
+    'className="rounded-[10px] border border-border-danger bg-background-danger/55 px-4 py-3"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider delete confirmation text',
+    'className="text-red-400 text-sm"',
+    'className="text-sm text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider delete button native',
+    'className="text-text-danger hover:text-red-600 mr-auto"',
+    'className="mr-auto rounded-[8px] border-border-danger bg-background-danger/35 text-text-danger hover:bg-background-danger/65 hover:text-text-danger"'
+  );
   write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/ProviderCatalogPicker.tsx');
+  source = replaceRequired(
+    source,
+    'provider catalog picker row native',
+    'className="w-full p-4 text-left border border-border rounded-lg hover:bg-surfaceHover hover:border-primary transition-colors group"',
+    'className="w-full rounded-[10px] border border-border-secondary bg-background-primary/68 p-4 text-left shadow-sm backdrop-blur-xl transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62 group"'
+  );
+  source = replaceRequired(
+    source,
+    'provider catalog picker error token',
+    'className="text-center py-8 text-red-500"',
+    'className="py-8 text-center text-text-danger"'
+  );
+  write('src/components/settings/providers/modal/subcomponents/ProviderCatalogPicker.tsx', source);
 }
 
 function applyExtensionSettingsSurfaces() {
