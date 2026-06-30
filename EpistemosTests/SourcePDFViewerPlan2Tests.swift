@@ -10,7 +10,9 @@ struct SourcePDFViewerPlan2Tests {
         #expect(viewer.contains("struct SourcePDFViewerSheet"))
         #expect(viewer.contains("PDFView()"))
         #expect(viewer.contains("PDFThumbnailView()"))
-        #expect(viewer.contains("document.findString(query, withOptions: .caseInsensitive)"))
+        #expect(viewer.contains("private static let maxSearchQueryLength = 128"))
+        #expect(viewer.contains("let boundedQuery = String(query.prefix(Self.maxSearchQueryLength))"))
+        #expect(viewer.contains("document\n                .findString(boundedQuery, withOptions: .caseInsensitive)"))
         #expect(viewer.contains("document.outlineRoot"))
         #expect(viewer.contains("selectedSearch.pages.first"))
     }
