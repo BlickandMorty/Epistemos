@@ -1493,6 +1493,101 @@ function applyExtensionSettingsSurfaces() {
   write('src/components/settings/extensions/modal/ExtensionTimeoutField.tsx', source);
 }
 
+function applyExtensionListSurfaces() {
+  let source = read('src/components/settings/extensions/ExtensionsSection.tsx');
+  source = replaceRequired(
+    source,
+    'extensions action row native spacing',
+    'className="flex gap-4 pt-4 w-full"',
+    'className="flex w-full gap-3 pt-4"'
+  );
+  source = replaceAllRequired(
+    source,
+    'extensions action buttons native',
+    'className="flex items-center gap-2 justify-center"',
+    'className="flex items-center justify-center gap-2 rounded-[8px]"'
+  );
+  write('src/components/settings/extensions/ExtensionsSection.tsx', source);
+
+  source = read('src/components/settings/extensions/subcomponents/ExtensionList.tsx');
+  source = replaceRequired(
+    source,
+    'enabled extensions heading native',
+    'className="text-lg font-medium text-text-primary mb-4 flex items-center gap-2"',
+    'className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'enabled extensions dot accent',
+    'className="w-2 h-2 bg-green-500 rounded-full"',
+    'className="h-2 w-2 rounded-full bg-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'enabled extensions grid native gap',
+    'className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2"',
+    'className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"'
+  );
+  source = replaceRequired(
+    source,
+    'available extensions heading native',
+    'className="text-lg font-medium text-text-secondary mb-4 flex items-center gap-2"',
+    'className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-normal text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'available extensions dot native',
+    'className="w-2 h-2 bg-gray-400 rounded-full"',
+    'className="h-2 w-2 rounded-full bg-border-tertiary"'
+  );
+  source = replaceRequired(
+    source,
+    'available extensions grid native gap',
+    'className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2"',
+    'className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"'
+  );
+  source = replaceRequired(
+    source,
+    'empty extensions native panel',
+    'className="text-center text-text-secondary py-8"',
+    'className="rounded-[12px] border border-border-secondary bg-background-secondary/55 py-8 text-center text-text-secondary backdrop-blur-xl"'
+  );
+  write('src/components/settings/extensions/subcomponents/ExtensionList.tsx', source);
+
+  source = read('src/components/settings/extensions/subcomponents/ExtensionItem.tsx');
+  source = replaceRequired(
+    source,
+    'extension item card native glass',
+    'className="transition-all duration-200 min-h-[120px] overflow-hidden"',
+    'className="min-h-[128px] overflow-hidden border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-[var(--epistemos-accent)]/45 hover:bg-background-secondary/62"'
+  );
+  source = replaceRequired(
+    source,
+    'extension item gear native button',
+    'className="text-text-secondary hover:text-text-primary"',
+    'className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-secondary transition-all hover:bg-background-secondary/75 hover:text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'extension item gear native size',
+    '<Gear className="w-4 h-4" />',
+    '<Gear className="h-4 w-4" />'
+  );
+  source = replaceRequired(
+    source,
+    'extension item command native chip',
+    '<span className="font-mono text-xs">{command}</span>',
+    '<span className="ep-native-badge mt-1 inline-flex max-w-full truncate px-2 py-0.5 text-xs">{command}</span>'
+  );
+  source = replaceRequired(
+    source,
+    'extension item content native spacing',
+    'className="px-4 overflow-hidden text-sm break-words text-text-secondary"',
+    'className="overflow-hidden break-words px-4 text-sm leading-relaxed text-text-secondary"'
+  );
+  write('src/components/settings/extensions/subcomponents/ExtensionItem.tsx', source);
+}
+
 function applyChatSettingsSurfaces() {
   let source = read('src/components/settings/chat/ChatSettingsSection.tsx');
   source = replaceAllRequired(
@@ -2925,6 +3020,7 @@ applyCatalogSurfaces();
 applyProviderCatalogSurfaces();
 applyProviderModalSurfaces();
 applyExtensionSettingsSurfaces();
+applyExtensionListSurfaces();
 applyChatSettingsSurfaces();
 applyPermissionSurfaces();
 applySettingsPanelSurfaces();
