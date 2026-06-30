@@ -1293,6 +1293,206 @@ function applyProviderModalSurfaces() {
   write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
 }
 
+function applyExtensionSettingsSurfaces() {
+  let source = read('src/components/settings/extensions/modal/ExtensionModal.tsx');
+  source = replaceRequired(
+    source,
+    'extension modal native sizing',
+    'className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"',
+    'className="max-h-[88vh] overflow-y-auto sm:max-w-[640px]"'
+  );
+  source = replaceRequired(
+    source,
+    'extension modal title native font',
+    'className="flex items-center gap-2"',
+    'className="flex items-center gap-2 font-sans tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'extension modal delete icon token',
+    '<AlertTriangle className="text-red-500" size={24} />',
+    '<AlertTriangle className="text-text-danger" size={24} />'
+  );
+  source = replaceRequired(
+    source,
+    'extension modal add icon token',
+    '<PlusIcon className="text-iconStandard" size={24} />',
+    '<PlusIcon className="text-[var(--epistemos-accent)]" size={24} />'
+  );
+  source = replaceRequired(
+    source,
+    'extension modal edit icon token',
+    '<Edit className="text-iconStandard" size={24} />',
+    '<Edit className="text-[var(--epistemos-accent)]" size={24} />'
+  );
+  source = replaceRequired(
+    source,
+    'extension installation note panel native glass',
+    'className="bg-background-secondary border border-border-primary rounded-lg p-4"',
+    'className="rounded-[12px] border border-border-primary bg-background-secondary/72 p-4 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'extension installation note icon token',
+    '<Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />',
+    '<Info className="mt-0.5 h-5 w-5 shrink-0 text-[var(--epistemos-accent)]" />'
+  );
+  source = replaceAllRequired(
+    source,
+    'extension modal dividers softened',
+    'className="border-t border-border-primary"',
+    'className="border-t border-border-secondary/70"'
+  );
+  source = replaceRequired(
+    source,
+    'extension remove button native danger',
+    'className="text-red-500 hover:text-red-600"',
+    'className="border-border-danger bg-background-danger/35 text-text-danger hover:bg-background-danger/65 hover:text-text-danger"'
+  );
+  write('src/components/settings/extensions/modal/ExtensionModal.tsx', source);
+
+  source = read('src/components/settings/extensions/modal/EnvVarsSection.tsx');
+  source = replaceAllRequired(
+    source,
+    'env vars input native focus',
+    "'w-full text-text-primary border-border-primary hover:border-border-primary'",
+    "'w-full border-border-primary bg-background-primary/70 text-text-primary hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceAllRequired(
+    source,
+    'env vars invalid token',
+    "'border-red-500 focus:border-red-500'",
+    "'border-border-danger focus:border-border-danger focus-visible:ring-text-danger/20'"
+  );
+  source = replaceAllRequired(
+    source,
+    'env vars icon button native',
+    'className="group p-2 h-auto text-iconSubtle hover:bg-transparent"',
+    'className="group flex h-8 w-8 items-center justify-center rounded-[8px] p-0 text-iconSubtle hover:bg-background-secondary/75"'
+  );
+  source = replaceRequired(
+    source,
+    'env vars edit icon native',
+    '<Edit className="h-3 w-3 text-gray-400 group-hover:text-white group-hover:drop-shadow-sm transition-all" />',
+    '<Edit className="h-3.5 w-3.5 text-iconSubtle transition-all group-hover:text-[var(--epistemos-accent)]" />'
+  );
+  source = replaceRequired(
+    source,
+    'env vars remove icon native',
+    '<X className="h-3 w-3 text-gray-400 group-hover:text-white group-hover:drop-shadow-sm transition-all" />',
+    '<X className="h-3.5 w-3.5 text-iconSubtle transition-all group-hover:text-text-danger" />'
+  );
+  source = replaceRequired(
+    source,
+    'env vars add button native',
+    'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-text-primary bg-background-primary border border-border-primary hover:border-border-primary transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
+    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-border-secondary bg-background-primary/70 px-2 pr-4 text-sm text-text-primary transition-all hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
+  );
+  source = replaceRequired(
+    source,
+    'env vars validation text token',
+    '<div className="mt-2 text-red-500 text-sm">{validationError}</div>',
+    '<div className="mt-2 text-sm text-text-danger">{validationError}</div>'
+  );
+  write('src/components/settings/extensions/modal/EnvVarsSection.tsx', source);
+
+  source = read('src/components/settings/extensions/modal/HeadersSection.tsx');
+  source = replaceAllRequired(
+    source,
+    'headers input native focus',
+    "'w-full text-text-primary border-border-primary hover:border-border-primary'",
+    "'w-full border-border-primary bg-background-primary/70 text-text-primary hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceAllRequired(
+    source,
+    'headers invalid token',
+    "'border-red-500 focus:border-red-500'",
+    "'border-border-danger focus:border-border-danger focus-visible:ring-text-danger/20'"
+  );
+  source = replaceRequired(
+    source,
+    'headers remove button native',
+    'className="group p-2 h-auto text-iconSubtle hover:bg-transparent"',
+    'className="group flex h-8 w-8 items-center justify-center rounded-[8px] p-0 text-iconSubtle hover:bg-background-secondary/75"'
+  );
+  source = replaceRequired(
+    source,
+    'headers remove icon native',
+    '<X className="h-3 w-3 text-gray-400 group-hover:text-white group-hover:drop-shadow-sm transition-all" />',
+    '<X className="h-3.5 w-3.5 text-iconSubtle transition-all group-hover:text-text-danger" />'
+  );
+  source = replaceRequired(
+    source,
+    'headers add button native',
+    'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-text-primary bg-background-primary border border-border-primary hover:border-border-primary transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
+    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-border-secondary bg-background-primary/70 px-2 pr-4 text-sm text-text-primary transition-all hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
+  );
+  source = replaceRequired(
+    source,
+    'headers validation text token',
+    '<div className="mt-2 text-red-500 text-sm">{validationError}</div>',
+    '<div className="mt-2 text-sm text-text-danger">{validationError}</div>'
+  );
+  write('src/components/settings/extensions/modal/HeadersSection.tsx', source);
+
+  source = read('src/components/settings/extensions/modal/ExtensionConfigFields.tsx');
+  source = replaceAllRequired(
+    source,
+    'extension config input native',
+    "className={`w-full ${!submitAttempted || isValid ? 'border-border-primary' : 'border-red-500'} text-text-primary`}",
+    "className={`w-full bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 ${!submitAttempted || isValid ? 'border-border-primary' : 'border-border-danger focus:border-border-danger'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'extension config command error token',
+    '<div className="absolute text-xs text-red-500 mt-1">{intl.formatMessage(i18n.commandRequired)}</div>',
+    '<div className="absolute mt-1 text-xs text-text-danger">{intl.formatMessage(i18n.commandRequired)}</div>'
+  );
+  source = replaceRequired(
+    source,
+    'extension config endpoint error token',
+    '<div className="absolute text-xs text-red-500 mt-1">{intl.formatMessage(i18n.endpointRequired)}</div>',
+    '<div className="absolute mt-1 text-xs text-text-danger">{intl.formatMessage(i18n.endpointRequired)}</div>'
+  );
+  write('src/components/settings/extensions/modal/ExtensionConfigFields.tsx', source);
+
+  source = read('src/components/settings/extensions/modal/ExtensionInfoFields.tsx');
+  source = replaceRequired(
+    source,
+    'extension name input native',
+    "className={`${!submitAttempted || isNameValid() ? 'border-border-primary' : 'border-red-500'} text-text-primary focus:border-border-primary`}",
+    "className={`bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 ${!submitAttempted || isNameValid() ? 'border-border-primary' : 'border-border-danger focus:border-border-danger'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'extension name error token',
+    '<div className="absolute text-xs text-red-500 mt-1">{intl.formatMessage(i18n.nameRequired)}</div>',
+    '<div className="absolute mt-1 text-xs text-text-danger">{intl.formatMessage(i18n.nameRequired)}</div>'
+  );
+  source = replaceRequired(
+    source,
+    'extension description input native',
+    'className={`text-text-primary focus:border-border-primary`}',
+    'className={`bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20`}'
+  );
+  write('src/components/settings/extensions/modal/ExtensionInfoFields.tsx', source);
+
+  source = read('src/components/settings/extensions/modal/ExtensionTimeoutField.tsx');
+  source = replaceRequired(
+    source,
+    'extension timeout input native',
+    "className={`${!submitAttempted || isTimeoutValid() ? 'border-border-primary' : 'border-red-500'} text-text-primary focus:border-border-primary`}",
+    "className={`bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 ${!submitAttempted || isTimeoutValid() ? 'border-border-primary' : 'border-border-danger focus:border-border-danger'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'extension timeout error token',
+    '<div className="absolute text-xs text-red-500 mt-1">Timeout </div>',
+    '<div className="absolute mt-1 text-xs text-text-danger">Timeout </div>'
+  );
+  write('src/components/settings/extensions/modal/ExtensionTimeoutField.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -2026,6 +2226,7 @@ applyToolAndPopoverSurfaces();
 applyCatalogSurfaces();
 applyProviderCatalogSurfaces();
 applyProviderModalSurfaces();
+applyExtensionSettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
