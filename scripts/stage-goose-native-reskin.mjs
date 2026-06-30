@@ -4811,6 +4811,105 @@ function applyNeutralTokenDriftSurfaces() {
   write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
 }
 
+function applyModalScrimAndElicitationSurfaces() {
+  let source = read('src/components/ParameterInputModal.tsx');
+  source = replaceRequired(
+    source,
+    'parameter cancel scrim native',
+    'className="fixed inset-0 bg-black/25 z-50 flex justify-center items-center animate-[fadein_200ms_ease-in]"',
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/24 backdrop-blur-sm animate-[fadein_200ms_ease-in]"'
+  );
+  source = replaceRequired(
+    source,
+    'parameter cancel modal native card',
+    'className="bg-background-primary border border-border-primary rounded-[6px] p-6 shadow-none w-full max-w-md"',
+    'className="w-full max-w-md rounded-[14px] border border-border-primary bg-background-primary/88 p-6 shadow-2xl backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'parameter cancel title native',
+    'className="text-xl font-bold text-text-primary mb-4"',
+    'className="mb-4 text-xl font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  write('src/components/ParameterInputModal.tsx', source);
+
+  source = read('src/components/ElicitationRequest.tsx');
+  source = replaceRequired(
+    source,
+    'elicitation prompt header native',
+    'className="goose-message-content bg-background-secondary rounded-[6px] rounded-b-none px-3 py-2 text-xs font-mono text-text-primary"',
+    'className="goose-message-content rounded-t-[12px] border border-border-secondary bg-background-secondary/70 px-3 py-2 text-xs font-sans text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'elicitation prompt body native',
+    'className="goose-message-content bg-background-primary border border-border-primary dark:border-gray-700 rounded-b-[6px] px-3 py-3"',
+    'className="goose-message-content rounded-b-[12px] border border-border-secondary bg-background-primary/68 px-3 py-3 shadow-sm backdrop-blur-xl"'
+  );
+  write('src/components/ElicitationRequest.tsx', source);
+
+  for (const file of [
+    'src/components/recipes/shared/SubRecipeModal.tsx',
+    'src/components/recipes/shared/CreateSubRecipeInline.tsx',
+  ]) {
+    source = read(file);
+    source = replaceRequired(
+      source,
+      `${file} native scrim`,
+      'className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50"',
+      'className="fixed inset-0 z-[500] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+    );
+    source = replaceRequired(
+      source,
+      `${file} native card`,
+      'className="bg-background-primary border border-borderSubtle rounded-lg w-[90vw] max-w-2xl max-h-[90vh] flex flex-col"',
+      'className="flex max-h-[90vh] w-[90vw] max-w-2xl flex-col overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 shadow-2xl backdrop-blur-xl"'
+    );
+    write(file, source);
+  }
+
+  for (const file of [
+    'src/components/recipes/shared/InstructionsEditor.tsx',
+    'src/components/recipes/shared/JsonSchemaEditor.tsx',
+  ]) {
+    source = read(file);
+    source = replaceRequired(
+      source,
+      `${file} native scrim`,
+      'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50"',
+      'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+    );
+    write(file, source);
+  }
+
+  source = read('src/components/ui/sheet.tsx');
+  source = replaceRequired(
+    source,
+    'sheet overlay native scrim',
+    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50'",
+    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/24 backdrop-blur-sm'"
+  );
+  write('src/components/ui/sheet.tsx', source);
+
+  source = read('src/components/bottom_menu/BottomMenuAlertPopover.tsx');
+  source = replaceRequired(
+    source,
+    'bottom alert divider token',
+    "className={cn(index > 0 && 'border-t border-white/20')}",
+    "className={cn(index > 0 && 'border-t border-border-secondary')}"
+  );
+  write('src/components/bottom_menu/BottomMenuAlertPopover.tsx', source);
+
+  source = read('src/components/GroupedExtensionLoadingToast.tsx');
+  source = replaceRequired(
+    source,
+    'extension loading toast divider token',
+    'className="mt-3 pt-3 border-t border-white/20"',
+    'className="mt-3 border-t border-border-secondary pt-3"'
+  );
+  write('src/components/GroupedExtensionLoadingToast.tsx', source);
+}
+
 function applyLoadingAndErrorSurfaces() {
   let source = read('src/suspense-loader.tsx');
   source = replaceRequired(
@@ -4934,6 +5033,7 @@ applyStatusIndicatorSurfaces();
 applyFormValidationSurfaces();
 applyRemainingTokenDriftSurfaces();
 applyNeutralTokenDriftSurfaces();
+applyModalScrimAndElicitationSurfaces();
 applyLoadingAndErrorSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
