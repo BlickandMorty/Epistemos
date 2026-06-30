@@ -389,6 +389,9 @@ struct WorkOpenGUISupervisorTests {
         #expect(supervisor.contains(#"failReady(error)"#))
         #expect(supervisor.contains(#"failAllPending(error)"#))
         #expect(supervisor.contains(#"failAllPending(WorkOGError.sidecar("Epistemos Work runtime exited."))"#))
+        #expect(supervisor.contains("WorkServerDiagnostics.statusMessage("))
+        #expect(!supervisor.contains("error.localizedDescription"))
+        #expect(!supervisor.contains("String(describing: error)"))
     }
 
     @Test("OpenGUI sidecar/probe keeps the no-model open + messages endpoint proof")

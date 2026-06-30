@@ -54,7 +54,10 @@ struct WorkTerminalViewTests {
         let src = try loadMirroredSourceTextFile("Epistemos/Work/WorkTerminalView.swift")
         #expect(src.contains("@State private var resolveError"))
         #expect(src.contains("WorkTerminalUnavailableView(detail: resolveError, palette: palette)"))
-        #expect(src.contains("resolveError = \"Couldn't start Epistemos Work terminal:"))
+        #expect(src.contains("fallback: \"Couldn't start Epistemos Work terminal\""))
+        #expect(src.contains("WorkServerDiagnostics.statusMessage("))
+        #expect(!src.contains("error.localizedDescription"))
+        #expect(!src.contains("String(describing: error)"))
         #expect(!src.contains("resolvedSpec = (try? await realShellSpec())"))
     }
 

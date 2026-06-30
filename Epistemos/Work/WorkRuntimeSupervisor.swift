@@ -121,7 +121,10 @@ final class WorkRuntimeSupervisor {
         do {
             try proc.run()
         } catch {
-            status = .failed("Failed to launch `opencode serve`: \(error.localizedDescription)")
+            status = .failed(WorkServerDiagnostics.statusMessage(
+                for: error,
+                fallback: "Failed to launch `opencode serve`"
+            ))
             return
         }
 

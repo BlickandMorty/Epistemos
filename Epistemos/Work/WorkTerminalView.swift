@@ -177,7 +177,10 @@ struct WorkTerminalHostView: View {
                     resolvedSpec = try await realShellSpec()
                 } catch {
                     resolvedSpec = nil
-                    resolveError = "Couldn't start Epistemos Work terminal: \(error.localizedDescription)"
+                    resolveError = WorkServerDiagnostics.statusMessage(
+                        for: error,
+                        fallback: "Couldn't start Epistemos Work terminal"
+                    )
                 }
             }
         }

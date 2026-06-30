@@ -54,4 +54,13 @@ struct WorkRuntimeSupervisorTests {
         #expect(env["OPENCODE_SERVER_USERNAME"] == "user")
         #expect(env["OPENCODE_SERVER_PASSWORD"] == "secret")
     }
+
+    @Test("launch failures route through bounded diagnostics")
+    func launchFailuresRouteThroughBoundedDiagnostics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Work/WorkRuntimeSupervisor.swift")
+
+        #expect(source.contains("WorkServerDiagnostics.statusMessage("))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
 }

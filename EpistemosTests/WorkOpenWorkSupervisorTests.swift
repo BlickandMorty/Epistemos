@@ -71,6 +71,9 @@ struct WorkOpenWorkSupervisorTests {
             #expect(src.contains("case .starting:"))
             #expect(src.contains("case .running:"))
             #expect(src.contains("exited unexpectedly"))
+            #expect(src.contains("WorkServerDiagnostics.statusMessage("))
+            #expect(!src.contains("error.localizedDescription"))
+            #expect(!src.contains("String(describing: error)"))
         }
     }
 

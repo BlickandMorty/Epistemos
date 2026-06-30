@@ -177,7 +177,10 @@ final class WorkOpenGUISupervisor {
         do {
             try proc.run()
         } catch {
-            status = .failed("Failed to launch Epistemos Work runtime: \(error.localizedDescription)")
+            status = .failed(WorkServerDiagnostics.statusMessage(
+                for: error,
+                fallback: "Failed to launch Epistemos Work runtime"
+            ))
             return
         }
         startReading(outPipe.fileHandleForReading)

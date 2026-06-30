@@ -96,7 +96,10 @@ final class WorkOpenWorkSupervisor {
         do {
             try proc.run()
         } catch {
-            status = .failed("Failed to launch Epistemos Work preview runtime: \(error.localizedDescription)")
+            status = .failed(WorkServerDiagnostics.statusMessage(
+                for: error,
+                fallback: "Failed to launch Epistemos Work preview runtime"
+            ))
             return
         }
 
