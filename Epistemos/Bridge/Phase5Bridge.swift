@@ -12,6 +12,46 @@ import AppKit
 import Foundation
 import os
 
+nonisolated enum Phase5BridgeDiagnostics {
+    static let maxFailureMessageCharacters = 360
+
+    static func externalFailureMessage(_ operation: String, error: Error) -> String {
+        let fallback = boundedFailureMessage(operation)
+        let nsError = error as NSError
+        return boundedFailureMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func boundedFailureMessage(_ message: String, fallback: String = "Phase5 bridge action failed.") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxFailureMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxFailureMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 @MainActor
 final class Phase5Bridge {
     typealias SSMStateServiceProvider = @MainActor () -> SSMStateService?
@@ -246,7 +286,10 @@ final class Phase5Bridge {
                 return errorJson("unknown grammar kind: \(kind)")
             }
         } catch {
-            return errorJson("constrained decoding failed: \(error.localizedDescription)")
+            return errorJson(Phase5BridgeDiagnostics.externalFailureMessage(
+                "constrained decoding failed",
+                error: error
+            ))
         }
     }
 

@@ -150,6 +150,41 @@ struct Phase5BridgeAgentEventTests {
         #expect(!encodedEvents.contains("PrivateModel"))
     }
 
+    @Test("Phase5 constrained decoding diagnostics redact external errors")
+    func phase5ConstrainedDecodingDiagnosticsRedactExternalErrors() throws {
+        let message = Phase5BridgeDiagnostics.externalFailureMessage(
+            "constrained decoding failed",
+            error: NSError(
+                domain: "/Users/jojo/PrivateModel/mlx.swift",
+                code: 911,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Could not load /Users/jojo/PrivateModel/adapter.safetensors"
+                ]
+            )
+        )
+
+        #expect(message.contains("constrained decoding failed"))
+        #expect(message.contains("code=911"))
+        #expect(message.count <= Phase5BridgeDiagnostics.maxFailureMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateModel",
+            "adapter.safetensors",
+            "mlx.swift",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
+    }
+
+    @Test("Phase5 constrained decoding source does not expose raw external errors")
+    func phase5ConstrainedDecodingSourceDoesNotExposeRawExternalErrors() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Bridge/Phase5Bridge.swift")
+
+        #expect(source.contains("Phase5BridgeDiagnostics.externalFailureMessage"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
+
     private static func tempStateRoot() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-phase5-ssm-\(UUID().uuidString)", isDirectory: true)
