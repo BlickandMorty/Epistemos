@@ -19,6 +19,34 @@ nonisolated public enum HTMLWorkspaceLocalResourceScheme {
     public static let contentSecurityPolicySource = "\(scheme):"
 }
 
+nonisolated enum HTMLWorkspacePackageContentHasher {
+    static func hash(
+        indexHTML: String,
+        styleCSS: String,
+        scriptJS: String,
+        dataJSON: String = "{}",
+        routes: [String: String] = [:]
+    ) -> String {
+        var data = Data()
+        data.append(Data(indexHTML.utf8))
+        data.append(0)
+        data.append(Data(styleCSS.utf8))
+        data.append(0)
+        data.append(Data(scriptJS.utf8))
+        data.append(0)
+        data.append(Data(dataJSON.utf8))
+        data.append(0)
+        for name in routes.keys.sorted() {
+            data.append(Data(name.utf8))
+            data.append(0)
+            data.append(Data(routes[name, default: ""].utf8))
+            data.append(0)
+        }
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
 nonisolated public enum HTMLWorkspacePackageLimits {
     public static let maxConsoleErrors = 48
     public static let maxSnapshots = 16
@@ -1443,23 +1471,13 @@ nonisolated public enum HTMLWorkspacePatchApplier {
     }
 
     private static func contentHash(for package: HTMLWorkspacePackage) -> String {
-        var data = Data()
-        data.append(Data(package.indexHTML.utf8))
-        data.append(0)
-        data.append(Data(package.styleCSS.utf8))
-        data.append(0)
-        data.append(Data(package.scriptJS.utf8))
-        data.append(0)
-        data.append(Data(package.dataJSON.utf8))
-        data.append(0)
-        for name in package.routes.keys.sorted() {
-            data.append(Data(name.utf8))
-            data.append(0)
-            data.append(Data(package.routes[name, default: ""].utf8))
-            data.append(0)
-        }
-        let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        HTMLWorkspacePackageContentHasher.hash(
+            indexHTML: package.indexHTML,
+            styleCSS: package.styleCSS,
+            scriptJS: package.scriptJS,
+            dataJSON: package.dataJSON,
+            routes: package.routes
+        )
     }
 
     private static func insert(

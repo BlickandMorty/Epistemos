@@ -1,5 +1,4 @@
 import AppKit
-import CryptoKit
 import Foundation
 import SwiftUI
 
@@ -182,23 +181,13 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         dataJSON: String = "{}",
         routes: [String: String] = [:]
     ) -> String {
-        var data = Data()
-        data.append(Data(indexHTML.utf8))
-        data.append(0)
-        data.append(Data(styleCSS.utf8))
-        data.append(0)
-        data.append(Data(scriptJS.utf8))
-        data.append(0)
-        data.append(Data(dataJSON.utf8))
-        data.append(0)
-        for name in routes.keys.sorted() {
-            data.append(Data(name.utf8))
-            data.append(0)
-            data.append(Data(routes[name, default: ""].utf8))
-            data.append(0)
-        }
-        let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        HTMLWorkspacePackageContentHasher.hash(
+            indexHTML: indexHTML,
+            styleCSS: styleCSS,
+            scriptJS: scriptJS,
+            dataJSON: dataJSON,
+            routes: routes
+        )
     }
 
     public func setPackage(_ package: HTMLWorkspacePackage) {

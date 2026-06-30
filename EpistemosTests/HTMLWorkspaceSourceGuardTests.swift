@@ -261,6 +261,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("HTMLWorkspaceLocalResourceScheme"))
         #expect(packageSource.contains("contentSecurityPolicySource"))
         #expect(packageSource.contains("HTMLWorkspaceGenerationProvenance"))
+        #expect(packageSource.contains("HTMLWorkspacePackageContentHasher"))
         #expect(packageSource.contains("generationProvenance"))
         #expect(packageSource.contains("generation_provenance"))
         #expect(packageSource.contains("producer: .agent"))
