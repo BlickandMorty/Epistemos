@@ -2,6 +2,59 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+nonisolated enum AmbientFrequencyExportDiagnostics {
+    static let maxStatusMessageCharacters = 360
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func statusMessage(for error: Error, fallback: String = "Ambient export failed.") -> String {
+        if let exportError = error as? AmbientFrequencyAudioGeneratorError {
+            return statusMessage(for: exportError, fallback: fallback)
+        }
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return statusMessage("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    static func statusMessage(_ message: String, fallback: String = "Ambient export failed.") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else {
+            return value
+        }
+        return String(value.prefix(maxStatusMessageCharacters)) + "..."
+    }
+
+    private static func statusMessage(
+        for error: AmbientFrequencyAudioGeneratorError,
+        fallback: String
+    ) -> String {
+        switch error {
+        case .couldNotCreateOutput(let url):
+            let filename = url.lastPathComponent.isEmpty ? "selected file" : url.lastPathComponent
+            return statusMessage("Could not create output file \(filename).", fallback: fallback)
+        default:
+            return statusMessage(error.errorDescription ?? fallback, fallback: fallback)
+        }
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 private struct AmbientFrequencyMusicSongSettings {
     let key: AmbientFrequencyMusicKey
     let scale: AmbientFrequencyMusicScale
@@ -1117,7 +1170,7 @@ struct AmbientFrequencySettingsView: View {
                 }.value
                 exportStatus = "Wrote \(Int(report.durationSeconds / 60)) min, \(report.sampleRate) Hz, \(report.bitDepth)-bit float WAV to \(report.outputURL.lastPathComponent)."
             } catch {
-                exportStatus = error.localizedDescription
+                exportStatus = AmbientFrequencyExportDiagnostics.statusMessage(for: error)
             }
             isExporting = false
         }

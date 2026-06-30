@@ -108,6 +108,32 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(detailSource.contains("Preset / Vibe"))
         #expect(detailSource.contains("Playback & Export"))
         #expect(detailSource.contains("32-bit float WAV"))
+        #expect(detailSource.contains("AmbientFrequencyExportDiagnostics.statusMessage(for: error)"))
+        #expect(!detailSource.contains("exportStatus = error.localizedDescription"))
+    }
+
+    @Test("Export diagnostics redact external and output paths")
+    func exportDiagnosticsRedactExternalAndOutputPaths() {
+        let privatePath = "/Users/example/Private Vault/export.wav"
+        let external = NSError(
+            domain: privatePath,
+            code: 7,
+            userInfo: [NSLocalizedDescriptionKey: "write failed at \(privatePath)"]
+        )
+        let externalStatus = AmbientFrequencyExportDiagnostics.statusMessage(for: external)
+
+        #expect(externalStatus.contains("Ambient export failed."))
+        #expect(externalStatus.contains("domain=Error"))
+        #expect(externalStatus.contains("code=7"))
+        #expect(externalStatus.count <= AmbientFrequencyExportDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(!externalStatus.contains(privatePath))
+        #expect(!externalStatus.contains("write failed"))
+
+        let outputStatus = AmbientFrequencyExportDiagnostics.statusMessage(
+            for: AmbientFrequencyAudioGeneratorError.couldNotCreateOutput(URL(fileURLWithPath: privatePath))
+        )
+        #expect(outputStatus.contains("export.wav"))
+        #expect(!outputStatus.contains(privatePath))
     }
 
     @Test("Live player sanitizes realtime parameters before modulo and bit shifting")
