@@ -390,7 +390,7 @@ struct SkillsDetailView: View {
             statusMessage = nil
             statusIsError = false
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = SkillsSettingsStatus.message(for: error, fallback: "Could not refresh skills.")
             statusIsError = true
         }
     }
@@ -425,7 +425,7 @@ struct SkillsDetailView: View {
                 skills = try await loadSkills(vaultPath: vaultPath)
             }
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = SkillsSettingsStatus.message(for: error, fallback: "Could not install skill.")
             statusIsError = true
         }
     }
@@ -446,7 +446,9 @@ struct SkillsDetailView: View {
             let payload = try draft.createPayload()
             let response = try await callSkillManager(payload: payload, vaultPath: vaultPath)
             let outcome = SkillInstallOutcome(responseJSON: response)
-            statusMessage = outcome.success ? "Created \(draft.identifier)." : outcome.message
+            statusMessage = outcome.success
+                ? SkillsSettingsStatus.message("Created \(draft.identifier).", fallback: "Skill created.")
+                : outcome.message
             statusIsError = !outcome.success
             if outcome.success {
                 resetCreateForm()
@@ -454,7 +456,7 @@ struct SkillsDetailView: View {
                 refreshDiscovery()
             }
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = SkillsSettingsStatus.message(for: error, fallback: "Could not create skill.")
             statusIsError = true
         }
     }
@@ -484,7 +486,7 @@ struct SkillsDetailView: View {
                 }
             }
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = SkillsSettingsStatus.message(for: error, fallback: "Could not import skill.")
             statusIsError = true
         }
     }
@@ -514,6 +516,46 @@ struct SkillsDetailView: View {
         createCategory = "general"
         createTags = ""
         createInstructionSheet = ""
+    }
+}
+
+nonisolated enum SkillsSettingsStatus {
+    static let maxStatusMessageCharacters = 360
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func message(_ value: String, fallback: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = trimmed.isEmpty ? fallback : trimmed
+        guard message.count > maxStatusMessageCharacters else {
+            return message
+        }
+        return String(message.prefix(maxStatusMessageCharacters)) + "..."
+    }
+
+    static func message(for error: Error, fallback: String) -> String {
+        if let error = error as? SkillsSettingsError {
+            return error.statusMessage(fallback: fallback)
+        }
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return message("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
     }
 }
 
@@ -628,14 +670,17 @@ private struct SkillInstallOutcome {
         self.success = success
         self.status = root["status"] as? String
         if let error = root["error"] as? String, !error.isEmpty {
-            self.message = error
+            self.message = SkillsSettingsStatus.message(error, fallback: "Skill install failed.")
         } else if let name = root["name"] as? String, !name.isEmpty {
-            self.message = success ? "Installed \(name)." : "Failed to install \(name)."
+            self.message = SkillsSettingsStatus.message(
+                success ? "Installed \(name)." : "Failed to install \(name).",
+                fallback: success ? "Skill installed." : "Skill install failed."
+            )
         } else if let status = root["status"] as? String, status == "quarantined" || status == "already_quarantined" {
             let action = status == "already_quarantined" ? "ready to promote" : "imported to quarantine"
             self.message = "Skill \(action). Review it, then run the install again to promote it."
         } else if let message = root["message"] as? String, !message.isEmpty {
-            self.message = message
+            self.message = SkillsSettingsStatus.message(message, fallback: success ? "Skill installed." : "Skill install failed.")
         } else {
             self.message = success ? "Skill installed." : "Skill install failed."
         }
@@ -698,6 +743,15 @@ private enum SkillsSettingsError: LocalizedError {
             "agent_core bindings unavailable"
         case .toolError(let message):
             message
+        }
+    }
+
+    func statusMessage(fallback: String) -> String {
+        switch self {
+        case .bindingsUnavailable:
+            return SkillsSettingsStatus.message("agent_core bindings unavailable", fallback: fallback)
+        case .toolError(let message):
+            return SkillsSettingsStatus.message(message, fallback: fallback)
         }
     }
 }

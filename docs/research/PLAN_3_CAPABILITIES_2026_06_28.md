@@ -226,7 +226,9 @@ Effort remaining: **LOW–MEDIUM** for the edit-retraction demo; the full retrac
 
 **5a — Skill/tool/MCP install + management.** Skill install works end-to-end today (`SkillsSettingsView.swift` →
 `skill_manage` create/edit/delete/install_from_{github,url,local}, `agent_core/src/tools/skills.rs:741`, with the
-MAS/Pro gate already enforced at `:753`). External HTTPS URL MCP now has the shipped Swift trio:
+MAS/Pro gate already enforced at `:753`). Skills settings status text caps skill-manager messages and maps external
+caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display. External HTTPS URL MCP now
+has the shipped Swift trio:
 `MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse, network-read only, bounded fields/limits, secret-bearing remote
 or GitHub repo URLs filtered, redirected responses must stay on the requested HTTPS host/path),
 `MCPUrlServerDirectory.write/install/uninstall` (bare-array HTTPS config writer, no token values,
