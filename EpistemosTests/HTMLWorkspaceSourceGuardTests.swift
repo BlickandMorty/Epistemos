@@ -124,6 +124,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains(".onChange(of: colorScheme)"))
         #expect(editorSource.contains("DisclosureGroup"))
         #expect(editorSource.contains("Console"))
+        #expect(editorSource.contains("bridgeStatusText"))
+        #expect(editorSource.contains(#""Safe API deferred""#))
     }
 
     @Test("HTML Workspace live data feed is explicit and provenance-visible")

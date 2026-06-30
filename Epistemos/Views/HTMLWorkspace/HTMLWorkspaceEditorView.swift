@@ -391,7 +391,7 @@ struct HTMLWorkspaceEditorView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 12)
-            Text(package.manifest.sandboxPolicy.allowAppBridge ? "Safe API" : "No bridge")
+            Text(bridgeStatusText)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
@@ -450,7 +450,7 @@ struct HTMLWorkspaceEditorView: View {
             VStack(alignment: .leading, spacing: 7) {
                 inspectorRow("Hash", String(contentHash.prefix(12)))
                 inspectorRow("Sandbox", package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
-                inspectorRow("Bridge", package.manifest.sandboxPolicy.allowAppBridge ? "Safe API" : "Off")
+                inspectorRow("Bridge", bridgeStatusText)
                 inspectorRow("DOM", "\(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML))")
                 inspectorRow("Data", dataStatus)
                 inspectorRow("Assets", "\(package.assets.count)")
@@ -482,6 +482,10 @@ struct HTMLWorkspaceEditorView: View {
                 .lineLimit(2)
         }
         .font(.caption)
+    }
+
+    private var bridgeStatusText: String {
+        package.manifest.sandboxPolicy.allowAppBridge ? "Safe API deferred" : "No bridge"
     }
 
     private var capabilityGrid: some View {

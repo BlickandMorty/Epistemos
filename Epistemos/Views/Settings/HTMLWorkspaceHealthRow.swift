@@ -5,8 +5,8 @@ import SwiftUI
 // SS-HW (owner 2026-06-20): "the html workspace does not work as well but idk if its marked as such."
 // A read-only Settings → Diagnostics row that honestly states the HTML Workspace's real capability
 // state — what works (multi-file editing, WKWebView preview, agent chat patches) vs what's still a
-// static/deferred seam (app message-bridge, live-DOM inspection, console capture, Python, full-surface
-// regenerate). It reads HTMLWorkspaceCapabilityStatus's static ledger only (no @Environment), so it's
+// static/deferred seam (app message-bridge, live-DOM inspection, Python, full-surface regenerate) plus
+// flag-gated console capture. It reads HTMLWorkspaceCapabilityStatus's static ledger only (no @Environment), so it's
 // crash-safe in Settings. Tinted info-blue, not red: the workspace genuinely works as a renderer —
 // it's just not the full web-app builder yet, and now says so instead of shipping silently as complete.
 
