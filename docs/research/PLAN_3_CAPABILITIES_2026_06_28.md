@@ -236,7 +236,8 @@ final-symlink/non-regular config reads rejected, 256 KiB config cap), and `Exten
 Connectors · browser-use). MCP server settings status text caps success/failure messages and maps external config-write
 failures to bounded domain/code diagnostics before SwiftUI display. `MCPBridge.dispatch` rejects oversized JSON-RPC
 requests before policy parsing or Rust
-dispatch. Stdio MCP spawns remain hardened and Pro-only
+dispatch. `ToolTierBridge` list/execution failures remain visible but external caught errors are bounded to domain/code
+diagnostics and tool JSON error payloads are capped before surfacing. Stdio MCP spawns remain hardened and Pro-only
 (`mcp/client.rs:221`).
 
 **5b — Best-of preset.** Shipped: `Epistemos/Resources/best_of_preset.json`, `BestOfPreset.swift`, and

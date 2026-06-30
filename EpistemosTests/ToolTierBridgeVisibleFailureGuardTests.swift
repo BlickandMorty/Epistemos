@@ -26,6 +26,35 @@ import Foundation
 /// before the silent-degradation behavior re-emerges.
 @Suite("RCA2-P1-016 ToolTierBridge Visible Failure Guard")
 struct ToolTierBridgeVisibleFailureGuardTests {
+    @Test("ToolTierBridge diagnostics redact path-leaking external errors")
+    func diagnosticsRedactPathLeakingExternalErrors() {
+        let privatePath = "/Users/example/Private Vault/tool-registry.sqlite"
+        let error = NSError(
+            domain: privatePath,
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "registry failed at \(privatePath)"]
+        )
+        let message = ToolTierBridgeDiagnostics.externalErrorDescription(
+            error,
+            fallback: "tool execution failed"
+        )
+
+        #expect(message.contains("tool execution failed"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=42"))
+        #expect(message.count <= ToolTierBridgeDiagnostics.maxMessageCharacters + 3)
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("registry failed"))
+    }
+
+    @Test("ToolTierBridge diagnostics cap tool error payload text")
+    func diagnosticsCapToolErrorPayloadText() {
+        let longMessage = String(repeating: "x", count: ToolTierBridgeDiagnostics.maxMessageCharacters + 50)
+        let message = ToolTierBridgeDiagnostics.toolErrorMessage(longMessage)
+
+        #expect(message.count == ToolTierBridgeDiagnostics.maxMessageCharacters + 3)
+        #expect(message.hasSuffix("..."))
+    }
 
     @Test("ToolTierBridge error path posts a toolTierBridgeLoadFailed notification")
     func errorPathPostsNotification() throws {
@@ -39,6 +68,8 @@ struct ToolTierBridgeVisibleFailureGuardTests {
         // can listen for it without string matching.
         #expect(source.contains("static let toolTierBridgeLoadFailed = Notification.Name"),
             "ToolTierBridge must keep the toolTierBridgeLoadFailed Notification.Name declaration — see RCA2-P1-016")
+        #expect(source.contains("ToolTierBridgeDiagnostics.externalErrorDescription"))
+        #expect(!source.contains("error.localizedDescription"))
     }
 
     @Test("ToolTierBridge logs failures at error level, not warning")

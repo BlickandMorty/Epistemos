@@ -13,6 +13,8 @@
   `ToolSurfacePolicy.Distribution` (`ToolTierBridge.swift:170,207,278`). Built-ins via `OmegaToolRegistry`
   (`MCPBridge.swift:82`). MAS gate idiom `#if EPISTEMOS_APP_STORE || MAS_SANDBOX`
   (`DeploymentProfileHealthRow.swift:24`).
+  Tool-tier list/execution failures now stay visible while mapping external Swift/Foundation errors to bounded
+  domain/code diagnostics and capping tool JSON error payloads before they reach UI/tool-call surfaces.
 
 ## 1. `Epistemos/Omega/MCPRegistryClient.swift` [DELIVERED]
 Pure `URLSession` clients for **Smithery / mcp.so / Glama / GitHub** → unified

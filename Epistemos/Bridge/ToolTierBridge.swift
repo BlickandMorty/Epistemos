@@ -358,6 +358,50 @@ nonisolated enum ToolTierBridgeError: LocalizedError, Sendable {
     }
 }
 
+nonisolated enum ToolTierBridgeDiagnostics {
+    static let maxMessageCharacters = 360
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func externalErrorDescription(_ error: Error, fallback: String) -> String {
+        if let bridgeError = error as? ToolTierBridgeError {
+            return boundedMessage(bridgeError.errorDescription ?? fallback, fallback: fallback)
+        }
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return boundedMessage("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    static func toolErrorMessage(_ message: String, fallback: String = "tool failed") -> String {
+        boundedMessage(message, fallback: fallback)
+    }
+
+    private static func boundedMessage(_ message: String, fallback: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxMessageCharacters else {
+            return value
+        }
+        return String(value.prefix(maxMessageCharacters)) + "..."
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 /// Logical tool tier used by the chat path. These map 1:1 onto the Rust
 /// `ToolTier` enum via the string form accepted by `with_tier` on the
 /// registry.
@@ -475,15 +519,19 @@ final class ToolTierBridge {
             // distinguish "Rust bindings broke" from "tier intentionally
             // disabled." Empty return preserved for compatibility, but
             // the surface is no longer silent.
+            let errorMessage = ToolTierBridgeDiagnostics.externalErrorDescription(
+                error,
+                fallback: "tool list fetch failed"
+            )
             logger.error(
-                "Tool list fetch FAILED (tier=\(self.tier.rawValue, privacy: .public), vault=\(resolvedVaultPath, privacy: .public)): \(error.localizedDescription, privacy: .public). Tool-capable surfaces will run without tools until the next refresh."
+                "Tool list fetch FAILED (tier=\(self.tier.rawValue, privacy: .public), vault=redacted): \(errorMessage, privacy: .public). Tool-capable surfaces will run without tools until the next refresh."
             )
             NotificationCenter.default.post(
                 name: .toolTierBridgeLoadFailed,
                 object: nil,
                 userInfo: [
                     "tier": self.tier.rawValue,
-                    "error": error.localizedDescription,
+                    "error": errorMessage,
                 ]
             )
             return []
@@ -664,7 +712,10 @@ final class ToolTierBridge {
                 )
             }
         } catch {
-            let errJson = errorToJson(error.localizedDescription)
+            let errJson = errorToJson(ToolTierBridgeDiagnostics.externalErrorDescription(
+                error,
+                fallback: "tool execution failed"
+            ))
             return LocalToolResult(
                 toolName: toolName,
                 resultJson: errJson,
@@ -1033,15 +1084,16 @@ final class ToolTierBridge {
     }
 
     private nonisolated static func errorToJson(_ message: String) -> String {
+        let safeMessage = ToolTierBridgeDiagnostics.toolErrorMessage(message)
         let payload: [String: Any] = [
-            "error": message,
+            "error": safeMessage,
             "success": false,
         ]
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
            let string = String(data: data, encoding: .utf8) {
             return string
         }
-        return "{\"error\":\"\(message)\",\"success\":false}"
+        return "{\"error\":\"\(safeMessage)\",\"success\":false}"
     }
 }
 
