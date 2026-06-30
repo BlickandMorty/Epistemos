@@ -184,6 +184,32 @@ struct ComputerUseBridgeAgentEventTests {
         }
     }
 
+    @Test("Screenshot diagnostics redact external errors")
+    func screenshotDiagnosticsRedactExternalErrors() {
+        let message = ComputerUseBridgeDiagnostics.externalStatusMessage(
+            "Screenshot failed",
+            error: NSError(
+                domain: "/Users/jojo/PrivateVault/display.swift",
+                code: -44,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Could not capture /Users/jojo/PrivateVault/display.swift token=secret"
+                ]
+            )
+        )
+
+        #expect(message.contains("Screenshot failed"))
+        #expect(message.contains("code=-44"))
+        #expect(message.count <= ComputerUseBridgeDiagnostics.maxStatusMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "display.swift",
+            "token=secret",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
+    }
+
     @Test("ComputerUseBridge provenance source never stores raw action payloads or raw results")
     func computerUseBridgeProvenanceSourceNeverStoresRawActionPayloadsOrRawResults() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Bridge/ComputerUseBridge.swift")
@@ -193,10 +219,13 @@ struct ComputerUseBridgeAgentEventTests {
         #expect(source.contains(#""coordinate_bucket""#))
         #expect(source.contains(#""text_length_bucket""#))
         #expect(source.contains("parseComputerActionResult"))
+        #expect(source.contains("ComputerUseBridgeDiagnostics.externalStatusMessage"))
         #expect(!source.contains("argumentsJSON: actionJSON"))
         #expect(!source.contains("argumentsJSON: input"))
         #expect(!source.contains("resultJSON: result,"))
         #expect(!source.contains("errorMessage: errorResult"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
     }
 
     private static func jsonObject(from response: String) throws -> [String: Any] {

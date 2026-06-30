@@ -18,6 +18,46 @@ import Foundation
 import ScreenCaptureKit
 import os.log
 
+nonisolated enum ComputerUseBridgeDiagnostics {
+    static let maxStatusMessageCharacters = 360
+
+    static func externalStatusMessage(_ operation: String, error: Error) -> String {
+        let fallback = statusMessage(operation)
+        let nsError = error as NSError
+        return statusMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func statusMessage(_ message: String, fallback: String = "Computer action failed.") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxStatusMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxStatusMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 @MainActor
 final class ComputerUseBridge {
     typealias AccessibilityPermissionProvider = @MainActor () -> Bool
@@ -472,7 +512,10 @@ final class ComputerUseBridge {
             config.showsCursor = false
             image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
         } catch {
-            return errorResult("Screenshot failed: \(error.localizedDescription)")
+            return errorResult(ComputerUseBridgeDiagnostics.externalStatusMessage(
+                "Screenshot failed",
+                error: error
+            ))
         }
 
         // Convert to base64 JPEG (already scaled to 1280x720 by ScreenCaptureKit config)
