@@ -2,7 +2,7 @@ import Foundation
 
 // SS-HW (owner 2026-06-20): "the html workspace does not work as well but idk if its marked as such."
 // The HTML Workspace renders, edits, and accepts agent chat patches — but several seams are dead or
-// static/gated (the app message-bridge path is still no-op, DOM outline is live but picker/style
+// static/gated (the app message-bridge path is diagnostic-only, DOM outline is live but picker/style
 // inspection is not, the JS console bridge is wired but env-gated, there is no Python, and
 // full-surface regenerate is only a provenance-stamped package patch primitive so far — no general streaming
 // UX yet). The codebase has a GateStatus honesty convention, but the
@@ -10,7 +10,7 @@ import Foundation
 //
 // This is that honest marker: a pure, verified capability ledger the Settings diagnostics row surfaces,
 // so the workspace's real state is scannable instead of reading as "done." Every entry below was
-// confirmed in code (safeAPI messages still no-op + safeAPIEnabled=false; console capture is wired
+// confirmed in code (safeAPI messages are diagnostic-only + safeAPIEnabled=false; console capture is wired
 // behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; no Pyodide/CPython refs; HTMLWorkspacePatchRouter
 // present for the live agent edit path).
 enum HTMLWorkspaceCapabilityStatus {

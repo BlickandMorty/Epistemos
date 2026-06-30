@@ -6,7 +6,7 @@ import Foundation
 // SS-HW (owner 2026-06-20: "the html workspace does not work as well but idk if its marked as such").
 // These pin the HONEST capability ledger: the live entries are the real working ones, the deferred
 // seams are marked NOT live (no fake-green), and the summary says works-but-partial rather than
-// reading as complete. Verified against code (safeAPI path still no-op, console capture env-gated,
+// reading as complete. Verified against code (safeAPI path is diagnostic-only, console capture env-gated,
 // live DOM outline and package-local routes but no picker/style inspector, no Pyodide, and no full
 // regenerate UX).
 @Suite("SS-HW — honest HTML Workspace capability status")
