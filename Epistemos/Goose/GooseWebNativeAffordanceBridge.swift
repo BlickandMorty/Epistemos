@@ -27,6 +27,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxLaunchedAppWindowWidth: Double = 1_600
     nonisolated static let maxLaunchedAppWindowHeight: Double = 1_200
     nonisolated static let maxLaunchedAppContentBytes = 16 * 1024 * 1024
+    nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -435,6 +436,14 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 "found": false,
             ]
         }
+        guard !exceedsNativeFileReadLimit(expandedPath) else {
+            return [
+                "file": "",
+                "filePath": expandedPath,
+                "error": "Epistemos blocked Goose WebView file read over \(Self.maxNativeFileReadBytes) bytes.",
+                "found": false,
+            ]
+        }
         do {
             let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
             return ["file": contents, "filePath": expandedPath, "error": NSNull(), "found": true]
@@ -445,7 +454,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     private func readFileDataURL(_ path: String) -> String? {
         let expandedPath = Self.standardizedPath(expandTilde(path))
-        guard isPathAllowed(expandedPath), !isSymbolicLink(expandedPath) else { return nil }
+        guard isPathAllowed(expandedPath),
+              !isSymbolicLink(expandedPath),
+              !exceedsNativeFileReadLimit(expandedPath) else { return nil }
         let fileURL = URL(fileURLWithPath: expandedPath, isDirectory: false)
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
         let mimeType = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType
@@ -1030,6 +1041,24 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     private func isSymbolicLink(_ path: String) -> Bool {
         (try? fileManager.destinationOfSymbolicLink(atPath: path)) != nil
+    }
+
+    private func exceedsNativeFileReadLimit(_ path: String) -> Bool {
+        let maxBytes = UInt64(Self.maxNativeFileReadBytes)
+        for candidate in [Self.resolvedSymlinkPath(path), path] {
+            if let size = fileSize(atPath: candidate) {
+                return size > maxBytes
+            }
+        }
+        return false
+    }
+
+    private func fileSize(atPath path: String) -> UInt64? {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: path),
+              let size = attributes[.size] as? NSNumber else {
+            return nil
+        }
+        return size.uint64Value
     }
 
     private func recipeHash(_ recipe: Any?) -> String? {

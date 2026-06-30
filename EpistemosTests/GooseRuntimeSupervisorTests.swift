@@ -1343,6 +1343,18 @@ struct GooseWebNativeAffordanceBridgeTests {
         let dataURL = try #require(bridge.handleAffordance(name: "readFileDataURL", args: [image.path]) as? String)
         #expect(dataURL.hasPrefix("data:image/png;base64,"))
 
+        let oversized = project.appendingPathComponent("oversized.txt", isDirectory: false)
+        _ = FileManager.default.createFile(atPath: oversized.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: oversized)
+        try handle.truncate(atOffset: UInt64(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes + 1))
+        try handle.close()
+        let oversizedRead = try #require(bridge.handleAffordance(name: "readFile", args: [oversized.path]) as? [String: Any])
+        #expect(oversizedRead["file"] as? String == "")
+        #expect(oversizedRead["found"] as? Bool == false)
+        #expect((oversizedRead["error"] as? String)?.contains("\(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes)") == true)
+        let oversizedDataURL = try bridge.handleAffordance(name: "readFileDataURL", args: [oversized.path]) as? String
+        #expect(oversizedDataURL == nil)
+
         let nested = project.appendingPathComponent("schedules", isDirectory: true)
         #expect(try bridge.handleAffordance(name: "ensureDirectory", args: [nested.path]) as? Bool == true)
         var isDirectory: ObjCBool = false
