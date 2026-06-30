@@ -233,6 +233,22 @@ struct GooseRuntimeSupervisorTests {
         #expect(!launcher.contains("bytes.lines"))
     }
 
+    @Test("runtime supervisor status messages are bounded")
+    func runtimeSupervisorStatusMessagesAreBounded() throws {
+        let oversized = String(
+            repeating: "s",
+            count: GooseRuntimeSupervisor.maxStatusMessageCharacters + 40
+        )
+
+        #expect(GooseRuntimeSupervisor.boundedStatusMessage(" \n\(oversized)\n ").count == GooseRuntimeSupervisor.maxStatusMessageCharacters)
+        #expect(GooseRuntimeSupervisor.boundedStatusMessage(" \n\t ", fallback: "fallback") == "fallback")
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
+        #expect(source.contains("Self.boundedStatusMessage(\"Failed to launch \\(name): \\(error.localizedDescription)\""))
+        #expect(!source.contains("status = .failed(\"Failed to launch \\(name): \\(error.localizedDescription)\""))
+        #expect(!source.contains("status = .failed(message)"))
+    }
+
     @Test("checkout-relative goose binary candidates are DEBUG-only (no code-exec-from-cwd in release)")
     func checkoutBinaryCandidatesAreDebugGuarded() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
@@ -2040,6 +2056,24 @@ struct GooseElectronFallbackLauncherTests {
         #expect(GooseElectronFallbackLauncher.launchArguments() == ["--filter", "goose-app", "run", "start-gui"])
         #expect(workspace.pnpm.lastPathComponent == "pnpm")
         #expect(workspace.uiRoot.lastPathComponent == "ui")
+    }
+
+    @Test("electron fallback status messages are bounded")
+    func electronFallbackStatusMessagesAreBounded() throws {
+        let oversized = String(
+            repeating: "e",
+            count: GooseElectronFallbackLauncher.maxStatusMessageCharacters + 40
+        )
+
+        #expect(
+            GooseElectronFallbackLauncher.boundedStatusMessage(" \n\(oversized)\n ")
+                .count == GooseElectronFallbackLauncher.maxStatusMessageCharacters
+        )
+        #expect(GooseElectronFallbackLauncher.boundedStatusMessage(" \n\t ", fallback: "fallback") == "fallback")
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseElectronFallbackLauncher.swift")
+        #expect(source.contains("Self.boundedStatusMessage("))
+        #expect(!source.contains("status = .failed(\"Failed to launch real Goose Electron fallback: \\(error.localizedDescription)\""))
     }
 
     @Test("launcher environment is sanitized and opt-in for Playwright debug")

@@ -25,6 +25,7 @@ final class GooseElectronFallbackLauncher {
     nonisolated static let uiRootEnvironmentKey = "EPISTEMOS_GOOSE_ELECTRON_UI_ROOT"
     nonisolated static let pnpmEnvironmentKey = "EPISTEMOS_GOOSE_ELECTRON_PNPM"
     nonisolated static let debugPortEnvironmentKey = "EPISTEMOS_GOOSE_ELECTRON_DEBUG_PORT"
+    nonisolated static let maxStatusMessageCharacters = 512
     nonisolated private static let environmentAllowlist: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "SHELL",
     ]
@@ -140,7 +141,9 @@ final class GooseElectronFallbackLauncher {
             status = .running(pid: proc.processIdentifier)
             return true
         } catch {
-            status = .failed("Failed to launch real Goose Electron fallback: \(error.localizedDescription)")
+            status = .failed(Self.boundedStatusMessage(
+                "Failed to launch real Goose Electron fallback: \(error.localizedDescription)"
+            ))
             process = nil
             closeInputPipe()
             return false
@@ -212,6 +215,16 @@ final class GooseElectronFallbackLauncher {
 
     nonisolated static func launchArguments() -> [String] {
         ["--filter", "goose-app", "run", "start-gui"]
+    }
+
+    nonisolated static func boundedStatusMessage(
+        _ message: String,
+        fallback: String = "Real Goose Electron fallback failed."
+    ) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else { return value }
+        return String(value.prefix(maxStatusMessageCharacters))
     }
 
     nonisolated static func resolveWorkspace(

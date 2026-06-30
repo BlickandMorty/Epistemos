@@ -26,6 +26,7 @@ final class GooseRuntimeSupervisor {
     nonisolated static let defaultHost = "127.0.0.1"
     nonisolated static let defaultPort = 3284
     nonisolated static let listenTimeout: Duration = .seconds(20)
+    nonisolated static let maxStatusMessageCharacters = 512
     /// `goosed agent` boots the full AppState (REST + gateways) and is slower to answer than the
     /// lean `goose serve`; give it a larger readiness budget. (Step 2 / Option B.)
     nonisolated static let goosedListenTimeout: Duration = .seconds(45)
@@ -213,7 +214,7 @@ final class GooseRuntimeSupervisor {
         }
         switch status {
         case .starting, .running:
-            status = .failed(message)
+            status = .failed(Self.boundedStatusMessage(message))
         default:
             break
         }
@@ -316,7 +317,7 @@ final class GooseRuntimeSupervisor {
             AppBootstrap.shared?.orphanCleanup.track(proc)
         } catch {
             let name = (backend == .goosed) ? "`goosed agent`" : "`goose serve`"
-            status = .failed("Failed to launch \(name): \(error.localizedDescription)")
+            status = .failed(Self.boundedStatusMessage("Failed to launch \(name): \(error.localizedDescription)"))
             return
         }
 
@@ -423,6 +424,16 @@ final class GooseRuntimeSupervisor {
             args += ["--with-builtin", builtin]
         }
         return args
+    }
+
+    nonisolated static func boundedStatusMessage(
+        _ message: String,
+        fallback: String = "Goose runtime failed."
+    ) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else { return value }
+        return String(value.prefix(maxStatusMessageCharacters))
     }
 
     nonisolated static func processEnvironment(
