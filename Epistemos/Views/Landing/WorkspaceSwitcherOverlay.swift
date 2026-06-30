@@ -452,8 +452,12 @@ private struct WorkspaceRow: View {
         do {
             return try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
         } catch {
+            let message = LandingDiagnostics.logMessage(
+                for: error,
+                fallback: "WorkspaceSwitcherOverlay: failed to decode workspace snapshot"
+            )
             Log.app.error(
-                "WorkspaceSwitcherOverlay: failed to decode workspace snapshot: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return nil
         }

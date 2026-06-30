@@ -535,8 +535,12 @@ struct SessionIntelligenceOverlay: View {
         do {
             try bootstrap.modelContainer.mainContext.save()
         } catch {
+            let message = LandingDiagnostics.logMessage(
+                for: error,
+                fallback: "SessionIntelligenceOverlay: failed to save created session note"
+            )
             Log.app.error(
-                "SessionIntelligenceOverlay: failed to save created session note \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return nil
         }
@@ -557,8 +561,12 @@ struct SessionIntelligenceOverlay: View {
         do {
             workspace = try context.fetch(descriptor).first
         } catch {
+            let message = LandingDiagnostics.logMessage(
+                for: error,
+                fallback: "SessionIntelligenceOverlay: failed to fetch autosaved workspace summary"
+            )
             Log.app.error(
-                "SessionIntelligenceOverlay: failed to fetch autosaved workspace summary: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return nil
         }
@@ -575,8 +583,12 @@ struct SessionIntelligenceOverlay: View {
         } catch is CancellationError {
             return false
         } catch {
+            let message = LandingDiagnostics.logMessage(
+                for: error,
+                fallback: "SessionIntelligenceOverlay: timing pause failed"
+            )
             Log.app.error(
-                "SessionIntelligenceOverlay: timing pause failed: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return false
         }

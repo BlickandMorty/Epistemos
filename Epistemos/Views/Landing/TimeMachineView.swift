@@ -306,8 +306,12 @@ struct TimeMachineView: View {
                 isLoading = false
                 return
             } catch {
+                let message = LandingDiagnostics.logMessage(
+                    for: error,
+                    fallback: "TimeMachineView: snapshot selection delay failed"
+                )
                 Log.app.error(
-                    "TimeMachineView: snapshot selection delay failed: \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
                 isLoading = false
                 return
@@ -342,8 +346,12 @@ struct TimeMachineView: View {
         do {
             data = try JSONEncoder().encode(snapshot)
         } catch {
+            let message = LandingDiagnostics.logMessage(
+                for: error,
+                fallback: "TimeMachineView: failed to encode restored workspace snapshot"
+            )
             Log.app.error(
-                "TimeMachineView: failed to encode restored workspace snapshot: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return
         }
@@ -361,8 +369,12 @@ struct TimeMachineView: View {
             try context.save()
         } catch {
             context.delete(ws)
+            let message = LandingDiagnostics.logMessage(
+                for: error,
+                fallback: "TimeMachineView: failed to persist restored workspace"
+            )
             Log.app.error(
-                "TimeMachineView: failed to persist restored workspace: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return
         }
@@ -387,8 +399,12 @@ struct TimeMachineView: View {
             } catch is CancellationError {
                 return
             } catch {
+                let message = LandingDiagnostics.logMessage(
+                    for: error,
+                    fallback: "TimeMachineView: dismiss delay failed"
+                )
                 Log.app.error(
-                    "TimeMachineView: dismiss delay failed: \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
                 isPresented = false
                 return

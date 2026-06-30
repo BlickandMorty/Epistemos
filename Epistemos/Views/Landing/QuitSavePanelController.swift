@@ -356,7 +356,7 @@ private struct QuitSaveContent: View {
             let name = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { return }
             guard let saved = ws.saveWorkspace(name: name) else {
-                Log.app.error("QuitSavePanelController: failed to save workspace '\(name, privacy: .public)'")
+                Log.app.error("QuitSavePanelController: failed to save workspace")
                 onComplete(false)
                 return
             }
@@ -367,8 +367,12 @@ private struct QuitSaveContent: View {
                     try modelContext.save()
                 } catch {
                     saved.userNote = originalSavedUserNote
+                    let message = LandingDiagnostics.logMessage(
+                        for: error,
+                        fallback: "QuitSavePanelController: failed to persist session note"
+                    )
                     Log.app.error(
-                        "QuitSavePanelController: failed to persist session note for workspace '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                        "\(message, privacy: .public)"
                     )
                     onComplete(false)
                     return
@@ -382,7 +386,11 @@ private struct QuitSaveContent: View {
                 do {
                     data = try JSONEncoder().encode(snapshot)
                 } catch {
-                    Log.app.error("QuitSavePanelController: failed to encode workspace update: \(error.localizedDescription, privacy: .public)")
+                    let message = LandingDiagnostics.logMessage(
+                        for: error,
+                        fallback: "QuitSavePanelController: failed to encode workspace update"
+                    )
+                    Log.app.error("\(message, privacy: .public)")
                     onComplete(false)
                     return
                 }
@@ -406,8 +414,12 @@ private struct QuitSaveContent: View {
                     existing.userNote = originalExistingUserNote
                     existing.summary = originalSummary
                     existing.lastSummaryAt = originalLastSummaryAt
+                    let message = LandingDiagnostics.logMessage(
+                        for: error,
+                        fallback: "QuitSavePanelController: failed to save updated workspace"
+                    )
                     Log.app.error(
-                        "QuitSavePanelController: failed to save updated workspace '\(existing.name, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                        "\(message, privacy: .public)"
                     )
                     onComplete(false)
                     return

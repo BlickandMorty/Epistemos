@@ -64,4 +64,46 @@ struct LandingOptimizationTests {
         #expect(!landing.contains("landingSearchExpandedToolRow"))
         #expect(!landing.contains("Rectangle()\n                    .fill(PixelPanelBackground.actionSurface(for: theme))"))
     }
+
+    @Test("landing diagnostics redact thrown error details")
+    func landingDiagnosticsRedactThrownErrorDetails() throws {
+        let error = NSError(
+            domain: "NSCocoaErrorDomain\n/Users/jojo/PrivateVault",
+            code: 513,
+            userInfo: [
+                NSLocalizedDescriptionKey: "/Users/jojo/PrivateVault/session.swift failed"
+            ]
+        )
+
+        let message = LandingDiagnostics.logMessage(
+            for: error,
+            fallback: "LandingView: failed to save welcome-back summary note"
+        )
+
+        #expect(message.contains("LandingView: failed to save welcome-back summary note"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=513"))
+        #expect(message.count <= LandingDiagnostics.maxLogMessageCharacters)
+        #expect(!message.contains("/Users/jojo"))
+        #expect(!message.contains("PrivateVault"))
+        #expect(!message.contains("session.swift"))
+    }
+
+    @Test("landing log sites route through redacted diagnostics")
+    func landingLogSitesRouteThroughRedactedDiagnostics() throws {
+        let paths = [
+            "Epistemos/Views/Landing/TimeMachineView.swift",
+            "Epistemos/Views/Landing/QuitSavePanelController.swift",
+            "Epistemos/Views/Landing/LandingView.swift",
+            "Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift",
+            "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
+        ]
+
+        for path in paths {
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(source.contains("LandingDiagnostics.logMessage"))
+            #expect(!source.contains("error.localizedDescription"))
+            #expect(!source.contains("String(describing: error)"))
+        }
+    }
 }

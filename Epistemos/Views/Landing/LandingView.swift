@@ -801,8 +801,12 @@ struct LandingView: View {
             } catch is CancellationError {
                 return
             } catch {
+                let message = LandingDiagnostics.logMessage(
+                    for: error,
+                    fallback: "LandingView: failed to schedule welcome-back presentation"
+                )
                 Self.log.error(
-                    "LandingView: failed to schedule welcome-back presentation: \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
                 return
             }
@@ -1096,8 +1100,12 @@ struct LandingView: View {
                 do {
                     try bootstrap.modelContainer.mainContext.save()
                 } catch {
+                    let message = LandingDiagnostics.logMessage(
+                        for: error,
+                        fallback: "LandingView: failed to save welcome-back summary note"
+                    )
                     Self.log.error(
-                        "LandingView: failed to save welcome-back summary note: \(error.localizedDescription, privacy: .public)"
+                        "\(message, privacy: .public)"
                     )
                 }
                 do {
@@ -1105,8 +1113,12 @@ struct LandingView: View {
                 } catch is CancellationError {
                     // Continue opening the created note even if the pacing delay is cancelled.
                 } catch {
+                    let message = LandingDiagnostics.logMessage(
+                        for: error,
+                        fallback: "LandingView: failed to wait before opening welcome-back summary note"
+                    )
                     Self.log.error(
-                        "LandingView: failed to wait before opening welcome-back summary note: \(error.localizedDescription, privacy: .public)"
+                        "\(message, privacy: .public)"
                     )
                 }
                 NoteWindowManager.shared.open(pageId: pageId)
