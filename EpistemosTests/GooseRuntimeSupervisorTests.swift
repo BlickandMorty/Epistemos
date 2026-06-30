@@ -1370,6 +1370,18 @@ struct GooseWebNativeAffordanceBridgeTests {
         } catch {
             #expect(error.localizedDescription.contains("Missing renderable MCP app content"))
         }
+
+        let cappedBridge = GooseWebNativeAffordanceBridge(maxLaunchedAppWindows: 0)
+        do {
+            _ = try cappedBridge.handleAffordance(
+                name: "launchApp",
+                args: [["name": "over_cap", "text": "<!doctype html><title>cap</title>"]]
+            )
+            Issue.record("launchApp should fail closed when the MCP app window cap is reached")
+        } catch {
+            #expect(error.localizedDescription.contains("MCP app window"))
+            #expect(error.localizedDescription.contains("limit: 0"))
+        }
     }
 
     @Test("settings affordances persist through the native host")

@@ -21,6 +21,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     ]
 
     nonisolated private static let webProtocols: Set<String> = ["http", "https"]
+    nonisolated static let maxLaunchedAppWindows = 16
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -28,6 +29,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private let recentDirsURL: URL
     private let recipeHashesRoot: URL
     private let preferences: UserDefaults
+    private let maxAppWindowCount: Int
     private var scopedFileRoots: Set<String>
     private var appWindows: [String: NSWindow] = [:]
     private var appWebViews: [String: WKWebView] = [:]
@@ -46,11 +48,13 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         initialScopedFileRoots: [URL]? = nil,
         applicationSupportRoot: URL? = nil,
         preferences: UserDefaults = .standard,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        maxLaunchedAppWindows: Int = GooseWebNativeAffordanceBridge.maxLaunchedAppWindows
     ) {
         self.handlers = handlers
         self.fileManager = fileManager
         self.preferences = preferences
+        self.maxAppWindowCount = Swift.max(0, maxLaunchedAppWindows)
         let root = applicationSupportRoot ?? Self.defaultApplicationSupportRoot(fileManager: fileManager)
         self.applicationSupportRoot = root
         self.recentDirsURL = root
@@ -659,6 +663,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             appWebViews[name]?.reload()
             return
         }
+        guard appWindows.count < maxAppWindowCount else {
+            throw GooseWebNativeAffordanceBridgeError.appWindowLimitExceeded(maxAppWindowCount)
+        }
 
         // Resolve the content SOURCE before creating any webview/window, so a rejected uri (review M3)
         // throws an honest error with NOTHING created or leaked — instead of building a window the
@@ -1149,6 +1156,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
     case missingArgument(String)
     case missingAppContent(String)
+    case appWindowLimitExceeded(Int)
     case openFailed(String)
     case disallowed(String)
     case unsupported(String)
@@ -1159,6 +1167,8 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
             "Missing argument for Epistemos Goose native affordance: \(name)."
         case .missingAppContent(let name):
             "Missing renderable MCP app content for Epistemos Goose app: \(name)."
+        case .appWindowLimitExceeded(let limit):
+            "Epistemos blocked Goose from opening another MCP app window (limit: \(limit))."
         case .openFailed(let rawURL):
             "Failed to open Epistemos Goose native URL: \(rawURL)."
         case .disallowed(let rawURL):
