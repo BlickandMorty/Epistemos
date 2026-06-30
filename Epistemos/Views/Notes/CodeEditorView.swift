@@ -1855,6 +1855,7 @@ struct CodeEditorView: View {
                     semanticSidebar
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -1863,6 +1864,7 @@ struct CodeEditorView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var codeEditorTopBar: some View {

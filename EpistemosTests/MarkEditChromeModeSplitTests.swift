@@ -23,6 +23,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
         let iconSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeFileIconView.swift")
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let editorContent = try Self.extractBlock(named: "editorContent", from: source)
+        let codeChrome = try Self.extractBlock(named: "codeEditorChromeContent", from: source)
         let codeSurface = try Self.extractBlock(named: "codeEditorSurface", from: source)
         let livePreview = try Self.extractBlock(named: "codeLivePreview", from: source)
 
@@ -34,10 +35,20 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(editorContent.contains("if isMarkdownDocument"))
         #expect(editorContent.contains("MarkEditMarkdownEditorRepresentable("))
         #expect(editorContent.contains("codeEditorChromeContent"))
-
         #expect(codeSurface.contains("MarkEditCodeEditorRepresentable("))
         #expect(codeSurface.contains("WebKitCodeEditorView("))
         #expect(!codeSurface.contains("SourceEditor("))
+        #expect(codeChrome.contains("""
+            HStack(spacing: 0) {
+                editorWithSearch
+                outlineNavigator
+                if CodeEditorReleasePolicy.semanticSidebarEnabled {
+                    semanticSidebar
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            """))
+        #expect(codeChrome.contains(".padding(.bottom, 12)\n        }\n        .frame(maxWidth: .infinity, maxHeight: .infinity)"))
 
         #expect(source.contains("showLivePreview.toggle()"))
         #expect(livePreview.contains("HTMLWorkspacePreviewView("))
