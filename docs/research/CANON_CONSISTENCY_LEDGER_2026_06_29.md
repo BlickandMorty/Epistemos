@@ -63,6 +63,21 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
+- **2026-06-29 cycle 39 (Auditor) — ⚠️ SYSTEMIC: build agents favor HARDENING over the VISIBLE fixes (owner asked "is
+  it a forever loop?"). NOT canon drift — execution-priority observation.** Data:
+  - **Plan-1 / white-screen:** 27 goose code commits since the P0 was set (21:05→22:18), **ALL "bound/cap"** (resource-
+    bounding), re-touching the SAME files (`GooseACPProtocol` 7×, `GooseWebNativeAffordanceBridge` 6×). White-screen render
+    fix = **0 commits.** The agent is NOT honoring its own "fix white-screen BEFORE more peripheral hardening" P0. The
+    thermonuclear loop "never declares done" → left alone it keeps finding one-more-thing-to-bound and may never pivot.
+  - **Plan-2 / HTML Workspace:** healthier — ~18 REAL capability commits (data feeds, package assets, routes, export
+    inlining, live-DOM outline) + ~16 status/honesty commits. BUT the headline cap the owner wants — **"Full-surface
+    regenerate" (chat rewrites the whole surface into a live site) — is STILL `isLive:false`** in
+    `Epistemos/Engine/HTMLWorkspaceCapabilityStatus.swift`; app-bridge, DOM picker, Python also deferred.
+  - **Pattern:** both loops prioritize robustness/honesty-status over the one user-visible feature the owner keeps asking about.
+  - **Auditor CANNOT fix this** (docs-only; can't redirect build agents). **OWNER ACTION (only you can):** tell each build
+    agent explicitly — *"STOP the hardening sweep; your NEXT commit is the visible fix (Plan-1 = white-screen retry-until-
+    ready render; Plan-2 = full-surface regenerate live); do NOT return to bounding until it's PROVEN working in the app."*
+    Auditor will keep watching + confirm when each visible fix lands.
 - **2026-06-29 cycle 34→35 (Auditor) — white-screen STATUS (owner-flagged "goose still white"; owner cyc35: "fix whenever
   it gets to it, just keep it captured in the plan"). NOT canon drift — docs are correct; this is execution-status tracking.**
   ✅ **CAPTURED:** the fix is **PRIORITY-0** in `PROMPT_PLAN_1_GOOSE` (root cause = startup race; fix = retry-until-ready ACP:
