@@ -196,6 +196,43 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("AppBootstrap.shared?.orphanCleanup.untrack(pid)"))
     }
 
+    @Test("process diagnostics are memory and storage bounded")
+    func processDiagnosticsAreBounded() throws {
+        let blank = GooseProcessDiagnostics.boundedLine(buffer: Array(" \n\t ".utf8), truncated: false)
+        #expect(blank == nil)
+
+        let storageCapped = GooseProcessDiagnostics.boundedLine(
+            buffer: Array(
+                String(
+                    repeating: "d",
+                    count: GooseProcessDiagnostics.maxStoredDiagnosticCharacters + 20
+                ).utf8
+            ),
+            truncated: false
+        )
+        #expect(storageCapped?.count == GooseProcessDiagnostics.maxStoredDiagnosticCharacters)
+        #expect(storageCapped?.hasSuffix(" ... [truncated]") == true)
+
+        let truncated = GooseProcessDiagnostics.boundedLine(
+            buffer: Array(
+                String(
+                    repeating: "d",
+                    count: GooseProcessDiagnostics.maxBufferedLineBytes
+                ).utf8
+            ),
+            truncated: true
+        )
+        #expect(truncated?.count == GooseProcessDiagnostics.maxStoredDiagnosticCharacters)
+        #expect(truncated?.hasSuffix(" ... [truncated]") == true)
+
+        let supervisor = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
+        let launcher = try loadRepoTextFile("Epistemos/Goose/GooseElectronFallbackLauncher.swift")
+        #expect(supervisor.contains("GooseProcessDiagnostics.consume"))
+        #expect(launcher.contains("GooseProcessDiagnostics.consume"))
+        #expect(!supervisor.contains("bytes.lines"))
+        #expect(!launcher.contains("bytes.lines"))
+    }
+
     @Test("checkout-relative goose binary candidates are DEBUG-only (no code-exec-from-cwd in release)")
     func checkoutBinaryCandidatesAreDebugGuarded() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")

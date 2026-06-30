@@ -349,15 +349,8 @@ final class GooseRuntimeSupervisor {
         return await withCheckedContinuation { continuation in
             let state = GooseRuntimeReadyState(continuation)
             outputTask = Task.detached { [weak self] in
-                do {
-                    for try await line in pipe.fileHandleForReading.bytes.lines {
-                        let message = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !message.isEmpty {
-                            await self?.recordDiagnostic(message)
-                        }
-                    }
-                } catch {
-                    // Teardown closes the pipe; process state drives lifecycle.
+                await GooseProcessDiagnostics.consume(from: pipe.fileHandleForReading) { message in
+                    await self?.recordDiagnostic(message)
                 }
                 await state.resume(nil)
             }
