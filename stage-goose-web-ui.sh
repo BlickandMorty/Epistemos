@@ -56,6 +56,7 @@ cat > "$WORK_ROOT/ui/desktop/src/acp/providers.ts" <<'TS'
 import type {
   ConfigKey,
   DeclarativeProviderConfig,
+  DictationProviderStatus,
   ModelInfo,
   ModelTemplate,
   ProviderCatalogEntry,
@@ -656,6 +657,45 @@ export async function readAcpProviderConfigStatuses(
   return (response.statuses ?? []) as ProviderConfigStatus[];
 }
 
+type AcpDictationProviderStatus = {
+  configured: boolean;
+  host?: string | null;
+  description: string;
+  usesProviderConfig: boolean;
+  settingsPath?: string | null;
+  configKey?: string | null;
+};
+
+function dictationProviderStatus(entry: AcpDictationProviderStatus): DictationProviderStatus {
+  return {
+    configured: entry.configured,
+    description: entry.description,
+    host: entry.host ?? null,
+    settings_path: entry.settingsPath ?? null,
+    config_key: entry.configKey ?? null,
+    uses_provider_config: entry.usesProviderConfig,
+  };
+}
+
+export async function readAcpDictationConfig(): Promise<Record<string, DictationProviderStatus>> {
+  const client = await getAcpClient();
+  const response = await client.goose.dictationConfig_unstable({}); // epistemos-acp-dictation-config
+  const entries = (response.providers ?? {}) as Record<string, AcpDictationProviderStatus>;
+  return Object.fromEntries(
+    Object.entries(entries).map(([provider, status]) => [provider, dictationProviderStatus(status)])
+  );
+}
+
+export async function saveAcpDictationSecret(provider: string, value: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.dictationSecretSave_unstable({ provider, value }); // epistemos-acp-dictation-secret-save
+}
+
+export async function deleteAcpDictationSecret(provider: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.dictationSecretDelete_unstable({ provider }); // epistemos-acp-dictation-secret-delete
+}
+
 async function providerForConfigKey(key: string): Promise<ProviderDetails> {
   const providers = await getAcpProviders();
   const matches = providers.filter((provider) =>
@@ -720,6 +760,8 @@ const preferenceBackedConfigKeys: Record<string, PreferenceKey> = {
   GOOSE_AUTO_COMPACT_THRESHOLD: 'autoCompactThreshold',
   VOICE_DICTATION_PROVIDER: 'voiceDictationProvider',
   VOICE_DICTATION_PREFERRED_MIC: 'voiceDictationPreferredMic',
+  voice_dictation_provider: 'voiceDictationProvider',
+  voice_dictation_preferred_mic: 'voiceDictationPreferredMic',
 };
 
 async function savePreferenceConfig(key: string, value: unknown): Promise<void> {
@@ -2365,6 +2407,67 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+DICTATION_SETTINGS="$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
+node - "$DICTATION_SETTINGS" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { DictationProvider, getDictationConfig, DictationProviderStatus } from '../../../api';",
+  "import { DictationProvider, getDictationConfig, DictationProviderStatus } from '../../../api';\nimport { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';\nimport { deleteAcpDictationSecret, readAcpDictationConfig, saveAcpDictationSecret } from '../../../acp/providers';"
+);
+source = source.replace(
+  `  const refreshStatuses = async () => {
+    const audioConfig = await getDictationConfig();
+    setProviderStatuses(audioConfig.data || {});
+  };`,
+  `  const refreshStatuses = async () => {
+    if (USE_ACP_CHAT) {
+      setProviderStatuses(await readAcpDictationConfig()); // epistemos-acp-dictation-config-ui
+      return;
+    }
+    const audioConfig = await getDictationConfig();
+    setProviderStatuses(audioConfig.data || {});
+  };`
+);
+source = source.replace(
+  `    const keyName = providerConfig.config_key!;
+    await upsert(keyName, trimmedKey, true);`,
+  `    if (USE_ACP_CHAT) {
+      await saveAcpDictationSecret(provider, trimmedKey); // epistemos-acp-dictation-secret-save-ui
+    } else {
+      const keyName = providerConfig.config_key!;
+      await upsert(keyName, trimmedKey, true);
+    }`
+);
+source = source.replace(
+  `    const keyName = providerConfig.config_key!;
+    await remove(keyName, true);`,
+  `    if (USE_ACP_CHAT) {
+      await deleteAcpDictationSecret(provider); // epistemos-acp-dictation-secret-delete-ui
+    } else {
+      const keyName = providerConfig.config_key!;
+      await remove(keyName, true);
+    }`
+);
+
+for (const snippet of [
+  'readAcpDictationConfig',
+  'saveAcpDictationSecret(provider, trimmedKey)',
+  'deleteAcpDictationSecret(provider)',
+  'epistemos-acp-dictation-config-ui',
+  'epistemos-acp-dictation-secret-save-ui',
+  'epistemos-acp-dictation-secret-delete-ui',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`DictationSettings staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 AUTH_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
 node - "$AUTH_SETTINGS_SECTION" <<'NODE'
 const fs = require('fs');
@@ -3783,6 +3886,14 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "ep-native-badge px-2 py-0.5 text-\\[10px\\] uppercase" "$WORK_ROOT/ui/desktop/src/components/settings/gateways/GatewaySettingsSection.tsx"
     grep -q "border-border-secondary bg-background-primary/82 shadow-lg backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/settings/gateways/GatewaySettingsSection.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
+    grep -q "epistemos-acp-dictation-config-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
+    grep -q "epistemos-acp-dictation-secret-save-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
+    grep -q "epistemos-acp-dictation-secret-delete-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
+    grep -q "voice_dictation_provider: 'voiceDictationProvider'" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "voice_dictation_preferred_mic: 'voiceDictationPreferredMic'" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-config" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-secret-save" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-secret-delete" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "min-h-9 items-center gap-2 rounded-\\[8px\\] border border-border-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/MicrophoneSelector.tsx"
     grep -q "h-2 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/MicrophoneSelector.tsx"
