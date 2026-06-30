@@ -217,6 +217,25 @@ struct BrowserUseSettingsStoreTests {
             Issue.record("Expected non-regular browser-use settings JSON to be rejected")
         } catch let error as BrowserUseSettingsStoreError {
             #expect(error.errorDescription?.contains("settings file must be a regular file") == true)
+            #expect(error.errorDescription?.contains("/dev/null") == false)
+        }
+    }
+
+    @Test("settings store diagnostics do not expose full local paths")
+    func settingsStoreDiagnosticsDoNotExposeFullLocalPaths() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-diagnostics-\(UUID().uuidString)", isDirectory: true)
+        let url = directory.appendingPathComponent("settings.json", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: url).load()
+            Issue.record("Expected directory-backed browser-use settings file to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file is a directory at settings.json") == true)
+            #expect(error.errorDescription?.contains(directory.path) == false)
         }
     }
 
@@ -330,6 +349,8 @@ struct BrowserUseSettingsStoreTests {
         ] {
             #expect(source.contains(required), "Missing browser-use settings read marker: \(required)")
         }
+        #expect(source.contains("maxPathDiagnosticLength"))
+        #expect(source.contains("settingsPathDescription"))
         #expect(!source.contains("Data(contentsOf: settingsURL)"))
     }
 

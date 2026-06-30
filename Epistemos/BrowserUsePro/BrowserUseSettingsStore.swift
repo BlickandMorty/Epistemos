@@ -404,6 +404,7 @@ nonisolated struct BrowserUseSecretStore: Sendable {
 
 nonisolated struct BrowserUseSettingsStore: Sendable {
     static let maxSettingsBytes = 256 * 1024
+    private static let maxPathDiagnosticLength = 160
 
     let settingsURL: URL
 
@@ -429,6 +430,7 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
 
     func load() throws -> BrowserUseSettings {
         let directory = settingsURL.deletingLastPathComponent()
+        let settingsPath = Self.settingsPathDescription(settingsURL)
         try Self.rejectSettingsSymlinkPath(at: directory, label: "directory")
         try Self.rejectSettingsSymlinkPath(at: settingsURL, label: "file")
         var isDirectory = ObjCBool(false)
@@ -437,19 +439,19 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         }
         guard !isDirectory.boolValue else {
             throw BrowserUseSettingsStoreError.invalidFile(
-                "browser-use settings file is a directory at \(settingsURL.path)"
+                "browser-use settings file is a directory at \(settingsPath)"
             )
         }
 
         let attributes = try FileManager.default.attributesOfItem(atPath: settingsURL.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular else {
             throw BrowserUseSettingsStoreError.invalidFile(
-                "browser-use settings file must be a regular file at \(settingsURL.path)"
+                "browser-use settings file must be a regular file at \(settingsPath)"
             )
         }
         guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
             throw BrowserUseSettingsStoreError.invalidFile(
-                "browser-use settings file size is unavailable at \(settingsURL.path)"
+                "browser-use settings file size is unavailable at \(settingsPath)"
             )
         }
         if size > UInt64(Self.maxSettingsBytes) {
@@ -499,8 +501,9 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
     private static func rejectSettingsSymlinkPath(at url: URL, label: String) throws {
         try rejectSettingsSymlink(at: url, label: label)
         if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url) {
+            let componentPath = settingsPathDescription(component)
             throw BrowserUseSettingsStoreError.unsafePath(
-                "browser-use settings \(label) path must not include symlink component at \(component.path)"
+                "browser-use settings \(label) path must not include symlink component \(componentPath)"
             )
         }
     }
@@ -514,6 +517,7 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
     }
 
     private static func readSettingsData(at url: URL) throws -> Data {
+        let settingsPath = settingsPathDescription(url)
         let fd = url.path.withCString { path in
             open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         }
@@ -527,13 +531,13 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         guard fstat(fd, &fileStatus) == 0 else {
             close(fd)
             throw BrowserUseSettingsStoreError.invalidFile(
-                "browser-use settings file attributes unavailable at \(url.path)"
+                "browser-use settings file attributes unavailable at \(settingsPath)"
             )
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             close(fd)
             throw BrowserUseSettingsStoreError.invalidFile(
-                "browser-use settings file must be a regular file at \(url.path)"
+                "browser-use settings file must be a regular file at \(settingsPath)"
             )
         }
         guard fileStatus.st_size >= 0,
@@ -553,6 +557,14 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
             )
         }
         return data
+    }
+
+    private static func settingsPathDescription(_ url: URL) -> String {
+        let filename = url.lastPathComponent.isEmpty ? "settings.json" : url.lastPathComponent
+        guard filename.count > maxPathDiagnosticLength else {
+            return filename
+        }
+        return String(filename.prefix(maxPathDiagnosticLength)) + "..."
     }
 }
 
