@@ -36,6 +36,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("evaluateJavaScript(script)"))
         #expect(previewSource.contains("__epistemosReplaceWorkspaceData"))
         #expect(previewSource.contains("lastRenderedShellIdentity"))
+        #expect(previewSource.contains("EpdocWebViewShared.notifyWebViewCreated()"))
+        #expect(previewSource.contains("EpdocWebViewShared.notifyWebViewDismantled()"))
         #expect(previewSource.components(separatedBy: "addUserScript(").count == 2,
                 "Preview may install exactly one user script: the env-gated console capture bridge.")
         #expect(previewSource.contains("configuration.userContentController.addUserScript("),

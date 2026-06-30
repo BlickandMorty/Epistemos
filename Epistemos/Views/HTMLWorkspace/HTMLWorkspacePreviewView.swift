@@ -125,6 +125,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         webView.allowsLinkPreview = false
         webView.setValue(false, forKey: "drawsBackground")
         loadPreview(into: webView, context: context)
+        EpdocWebViewShared.notifyWebViewCreated()
         return webView
     }
 
@@ -141,6 +142,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
         coordinator.detach(from: webView)
+        EpdocWebViewShared.notifyWebViewDismantled()
     }
 
     private func loadPreview(into webView: WKWebView, context: Context) {
