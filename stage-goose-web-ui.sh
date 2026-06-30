@@ -690,6 +690,20 @@ export async function readAcpDictationConfig(): Promise<Record<string, Dictation
   );
 }
 
+export async function transcribeAcpDictation(
+  audio: string,
+  mimeType: string,
+  provider: string
+): Promise<string> {
+  const client = await getAcpClient();
+  const response = await client.goose.dictationTranscribe_unstable({
+    audio,
+    mimeType,
+    provider,
+  }); // epistemos-acp-dictation-transcribe
+  return response.text ?? '';
+}
+
 export async function saveAcpDictationSecret(provider: string, value: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.dictationSecretSave_unstable({ provider, value }); // epistemos-acp-dictation-secret-save
@@ -2550,6 +2564,65 @@ for (const snippet of [
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`DictationSettings staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+USE_AUDIO_RECORDER="$WORK_ROOT/ui/desktop/src/hooks/useAudioRecorder.ts"
+node - "$USE_AUDIO_RECORDER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { transcribeDictation, getDictationConfig, DictationProvider } from '../api';",
+  "import { transcribeDictation, getDictationConfig, DictationProvider } from '../api';\nimport { USE_ACP_CHAT } from '../acpChatFeatureFlag';\nimport { readAcpDictationConfig, transcribeAcpDictation } from '../acp/providers';"
+);
+source = source.replace(
+  `        const resp = await getDictationConfig();
+        setIsEnabled(!!resp.data?.[pref]?.configured);
+        setProvider(pref);`,
+  `        if (USE_ACP_CHAT) {
+          const statuses = await readAcpDictationConfig(); // epistemos-acp-dictation-config-hook
+          setIsEnabled(!!statuses[pref]?.configured);
+          setProvider(pref);
+          return;
+        }
+        const resp = await getDictationConfig();
+        setIsEnabled(!!resp.data?.[pref]?.configured);
+        setProvider(pref);`
+);
+source = source.replace(
+  `      const result = await transcribeDictation({
+        body: { audio: base64, mime_type: 'audio/wav', provider: prov },
+        throwOnError: true,
+      });
+      if (result.data?.text) {
+        onTranscriptionRef.current(result.data.text);
+      }`,
+  `      const text = USE_ACP_CHAT
+        ? await transcribeAcpDictation(base64, 'audio/wav', prov) // epistemos-acp-dictation-transcribe-hook
+        : (
+            await transcribeDictation({
+              body: { audio: base64, mime_type: 'audio/wav', provider: prov },
+              throwOnError: true,
+            })
+          ).data?.text;
+      if (text) {
+        onTranscriptionRef.current(text);
+      }`
+);
+
+for (const snippet of [
+  'readAcpDictationConfig',
+  'transcribeAcpDictation',
+  'epistemos-acp-dictation-config-hook',
+  'epistemos-acp-dictation-transcribe-hook',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`useAudioRecorder staged source missing required ACP dictation snippet: ${snippet}`);
   }
 }
 
@@ -4430,6 +4503,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "voice_dictation_provider: 'voiceDictationProvider'" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "voice_dictation_preferred_mic: 'voiceDictationPreferredMic'" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-dictation-config" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-transcribe" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "dictationTranscribe_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-dictation-secret-save" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-dictation-secret-delete" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-dictation-models-list" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
@@ -4440,6 +4515,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "min-h-9 items-center gap-2 rounded-\\[8px\\] border border-border-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/MicrophoneSelector.tsx"
     grep -q "h-2 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/MicrophoneSelector.tsx"
+    grep -q "epistemos-acp-dictation-config-hook" "$WORK_ROOT/ui/desktop/src/hooks/useAudioRecorder.ts"
+    grep -q "epistemos-acp-dictation-transcribe-hook" "$WORK_ROOT/ui/desktop/src/hooks/useAudioRecorder.ts"
+    grep -q "transcribeAcpDictation(base64, 'audio/wav', prov)" "$WORK_ROOT/ui/desktop/src/hooks/useAudioRecorder.ts"
     grep -q "rounded-\\[10px\\] border p-3 shadow-sm backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "epistemos-acp-dictation-selected-model" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "epistemos-acp-dictation-models-list-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
