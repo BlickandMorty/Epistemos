@@ -12,6 +12,9 @@ enum GooseWebUIResolver {
     nonisolated static let maxBundledAssetEnumerationItems = 8192
     nonisolated static let maxLocalAssetReferenceCount = 4096
     nonisolated static let maxLocalAssetReferenceCharacters = 2048
+    nonisolated static let maxEnvironmentPathCharacters = 4_096
+    nonisolated static let maxDiagnosticValueCharacters = 512
+    nonisolated static let maxDiagnosticSummaryCharacters = 8_192
     nonisolated private static let requiredBridgeMarkers = [
         "providersList_unstable",
         "providersCatalogList_unstable",
@@ -61,24 +64,24 @@ enum GooseWebUIResolver {
             includeBundledCandidates: includeBundledCandidates
         )
         let roots = [
-            "bundle=\(bundle?.bundleURL.path ?? "<nil>")",
-            "main=\(Bundle.main.bundleURL.path)",
-            "probe=\(Bundle(for: BundleProbe.self).bundleURL.path)",
-            "appBundle=\(Bundle(identifier: "com.epistemos.app")?.bundleURL.path ?? "<nil>")",
-            "TEST_HOST=\(environment["TEST_HOST"] ?? "<nil>")",
-            "XCInjectBundleInto=\(environment["XCInjectBundleInto"] ?? "<nil>")",
-            "BUILT_PRODUCTS_DIR=\(environment["BUILT_PRODUCTS_DIR"] ?? "<nil>")",
-            "TARGET_BUILD_DIR=\(environment["TARGET_BUILD_DIR"] ?? "<nil>")",
-            "WRAPPER_NAME=\(environment["WRAPPER_NAME"] ?? "<nil>")",
-            "currentDirectory=\(currentDirectory)",
+            "bundle=\(diagnosticValue(bundle?.bundleURL.path))",
+            "main=\(diagnosticValue(Bundle.main.bundleURL.path))",
+            "probe=\(diagnosticValue(Bundle(for: BundleProbe.self).bundleURL.path))",
+            "appBundle=\(diagnosticValue(Bundle(identifier: "com.epistemos.app")?.bundleURL.path))",
+            "TEST_HOST=\(diagnosticValue(environment["TEST_HOST"]))",
+            "XCInjectBundleInto=\(diagnosticValue(environment["XCInjectBundleInto"]))",
+            "BUILT_PRODUCTS_DIR=\(diagnosticValue(environment["BUILT_PRODUCTS_DIR"]))",
+            "TARGET_BUILD_DIR=\(diagnosticValue(environment["TARGET_BUILD_DIR"]))",
+            "WRAPPER_NAME=\(diagnosticValue(environment["WRAPPER_NAME"]))",
+            "currentDirectory=\(diagnosticValue(currentDirectory))",
             "candidates=\(candidates.count)",
         ]
         let candidateLines = candidates.enumerated().map { offset, candidate in
             let reasons = artifactRejectionReasons(indexURL: candidate, fileManager: fileManager)
             let verdict = reasons.isEmpty ? "valid" : reasons.joined(separator: "+")
-            return "\(offset):\(candidate.path)=\(verdict)"
+            return "\(offset):\(diagnosticValue(candidate.path))=\(diagnosticValue(verdict))"
         }
-        return (roots + candidateLines).joined(separator: " | ")
+        return diagnosticSummary((roots + candidateLines).joined(separator: " | "))
     }
 
     nonisolated private static func candidateIndexURLs(
@@ -90,13 +93,11 @@ enum GooseWebUIResolver {
     ) -> [URL] {
         var candidates: [URL] = []
 
-        if let explicitIndex = environment[explicitIndexEnvironmentKey],
-           !explicitIndex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let explicitIndex = safeEnvironmentPath(environment[explicitIndexEnvironmentKey]) {
             candidates.append(fileURL(explicitIndex))
         }
 
-        if let explicitDirectory = environment[explicitDirectoryEnvironmentKey],
-           !explicitDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let explicitDirectory = safeEnvironmentPath(environment[explicitDirectoryEnvironmentKey]) {
             candidates.append(fileURL(explicitDirectory).appendingPathComponent("index.html"))
         }
 
@@ -186,28 +187,20 @@ enum GooseWebUIResolver {
             environment["XCInjectBundleInto"],
             Bundle.main.executableURL?.path,
             CommandLine.arguments.first,
-        ].compactMap { value in
-            guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                return nil
-            }
-            return value
-        }
+        ].compactMap(safeEnvironmentPath)
     }
 
     nonisolated private static func buildProductGooseWebUIIndexes(environment: [String: String]) -> [URL] {
         var urls: [URL] = []
-        if let builtProducts = environment["BUILT_PRODUCTS_DIR"],
-           !builtProducts.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let builtProducts = safeEnvironmentPath(environment["BUILT_PRODUCTS_DIR"]) {
             appendUnique(
                 fileURL(builtProducts)
                     .appendingPathComponent("Epistemos.app/Contents/Resources/goose-desktop/index.html"),
                 to: &urls
             )
         }
-        if let targetBuildDirectory = environment["TARGET_BUILD_DIR"],
-           let wrapperName = environment["WRAPPER_NAME"],
-           !targetBuildDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           !wrapperName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let targetBuildDirectory = safeEnvironmentPath(environment["TARGET_BUILD_DIR"]),
+           let wrapperName = safeEnvironmentPath(environment["WRAPPER_NAME"]) {
             appendUnique(
                 fileURL(targetBuildDirectory)
                     .appendingPathComponent(wrapperName)
@@ -219,7 +212,7 @@ enum GooseWebUIResolver {
     }
 
     nonisolated private static func appBundleGooseWebUIIndex(fromPathInsideBundle path: String?) -> URL? {
-        guard let path else { return nil }
+        guard let path = safeEnvironmentPath(path) else { return nil }
         let expanded = (path as NSString).expandingTildeInPath
         guard let appRange = expanded.range(of: ".app", options: [.backwards]) else {
             return nil
@@ -250,6 +243,27 @@ enum GooseWebUIResolver {
 
     nonisolated private static func fileURL(_ path: String) -> URL {
         URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+    }
+
+    nonisolated private static func safeEnvironmentPath(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.utf8.count <= maxEnvironmentPathCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated private static func diagnosticValue(_ value: String?) -> String {
+        guard let value else { return "<nil>" }
+        return String(value.prefix(maxDiagnosticValueCharacters).filter { $0 != "\0" })
+    }
+
+    nonisolated private static func diagnosticSummary(_ value: String) -> String {
+        guard value.count > maxDiagnosticSummaryCharacters else { return value }
+        return String(value.prefix(maxDiagnosticSummaryCharacters))
     }
 
     nonisolated private static func isACPModeArtifact(

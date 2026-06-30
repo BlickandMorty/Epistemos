@@ -542,6 +542,48 @@ struct GooseWebUIResolverTests {
         #expect(resolved == explicit)
     }
 
+    @Test("resolver bounds environment path candidates and diagnostics")
+    func resolverBoundsEnvironmentPathCandidatesAndDiagnostics() throws {
+        let root = try temporaryDirectory()
+        let oversizedPath = "/" + String(
+            repeating: "u",
+            count: GooseWebUIResolver.maxEnvironmentPathCharacters + 1
+        )
+        let environment = [
+            GooseWebUIResolver.explicitIndexEnvironmentKey: oversizedPath,
+            GooseWebUIResolver.explicitDirectoryEnvironmentKey: "bad\0path",
+            "TEST_HOST": oversizedPath,
+            "XCInjectBundleInto": "bad\0bundle",
+            "BUILT_PRODUCTS_DIR": oversizedPath,
+            "TARGET_BUILD_DIR": oversizedPath,
+            "WRAPPER_NAME": oversizedPath,
+        ]
+
+        #expect(
+            GooseWebUIResolver.indexURL(
+                appSupportDirectory: nil,
+                currentDirectory: root.path,
+                environment: environment,
+                includeBundledCandidates: false
+            ) == nil
+        )
+
+        let diagnostics = GooseWebUIResolver.diagnosticSummary(
+            appSupportDirectory: nil,
+            currentDirectory: root.path,
+            environment: environment,
+            includeBundledCandidates: false
+        )
+        #expect(diagnostics.count <= GooseWebUIResolver.maxDiagnosticSummaryCharacters)
+        #expect(!diagnostics.contains(oversizedPath))
+        #expect(!diagnostics.contains("bad\0path"))
+        #expect(!diagnostics.contains("bad\0bundle"))
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
+        #expect(source.contains("safeEnvironmentPath(environment[explicitIndexEnvironmentKey])"))
+        #expect(source.contains("diagnosticValue(environment[\"TEST_HOST\"])"))
+    }
+
     @Test("resolver finds a bundled Goose Web UI index in the goose-desktop resource subdirectory")
     func resolverUsesBundledGooseDesktopSubdirectory() throws {
         let root = try temporaryDirectory()
