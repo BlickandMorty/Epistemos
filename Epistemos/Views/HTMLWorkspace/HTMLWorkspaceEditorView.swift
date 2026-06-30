@@ -252,6 +252,18 @@ struct HTMLWorkspaceEditorView: View {
                         Text(operation)
                     }
                 }
+                if selectedPane == .data {
+                    Divider()
+                    Section("Data Feed") {
+                        Button("Configure Vault Search Feed", systemImage: "magnifyingglass") {
+                            configureVaultSearchFeed()
+                        }
+                        Button("Clear Data Feed", systemImage: "xmark.circle") {
+                            clearVaultSearchFeed()
+                        }
+                        .disabled(package.manifest.dataFeed == nil)
+                    }
+                }
                 Divider()
                 Button("Copy Target Context") {
                     copyPatchContext(for: selectedPane)
@@ -686,6 +698,59 @@ struct HTMLWorkspaceEditorView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(context, forType: .string)
         statusText = "Patch context copied"
+    }
+
+    private func configureVaultSearchFeed() {
+        let existingFeed = package.manifest.dataFeed
+        let queryField = NSTextField(string: existingFeed?.query ?? "")
+        queryField.placeholderString = "Vault search query"
+        let limitField = NSTextField(string: "\(existingFeed?.limit ?? HTMLWorkspaceDataFeed.defaultLimit)")
+        limitField.placeholderString = "Limit"
+        let limitFormatter = NumberFormatter()
+        limitFormatter.allowsFloats = false
+        limitFormatter.minimum = NSNumber(value: 1)
+        limitFormatter.maximum = NSNumber(value: HTMLWorkspaceDataFeed.maxLimit)
+        limitField.formatter = limitFormatter
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 6
+        stack.addArrangedSubview(NSTextField(labelWithString: "Query"))
+        stack.addArrangedSubview(queryField)
+        stack.addArrangedSubview(NSTextField(labelWithString: "Limit"))
+        stack.addArrangedSubview(limitField)
+        stack.setFrameSize(NSSize(width: 360, height: 96))
+        queryField.frame.size.width = 360
+        limitField.frame.size.width = 120
+
+        let alert = NSAlert()
+        alert.messageText = "Vault Search Feed"
+        alert.informativeText = "Refresh data.json from VaultSyncService.searchFullAsync."
+        alert.addButton(withTitle: "Apply")
+        alert.addButton(withTitle: "Cancel")
+        alert.accessoryView = stack
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            statusText = "Vault feed unchanged"
+            return
+        }
+        let query = queryField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            statusText = "Vault feed query required"
+            return
+        }
+        let requestedLimit = Int(limitField.stringValue) ?? existingFeed?.limit ?? HTMLWorkspaceDataFeed.defaultLimit
+        let limit = min(max(requestedLimit, 1), HTMLWorkspaceDataFeed.maxLimit)
+        package.manifest.dataFeed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
+        statusText = "Vault feed configured"
+        selectedPane = .data
+    }
+
+    private func clearVaultSearchFeed() {
+        package.manifest.dataFeed = nil
+        statusText = "Vault feed cleared"
+        selectedPane = .data
     }
 
     private func captureSnapshot() {
