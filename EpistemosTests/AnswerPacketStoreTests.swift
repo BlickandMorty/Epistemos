@@ -129,6 +129,26 @@ struct AnswerPacketStoreTests {
         } catch {}
     }
 
+    @Test("append rejects writes that would exceed the log cap")
+    func appendRejectsProjectedOversizedLog() throws {
+        let (store, cleanup) = tempStore(); defer { cleanup() }
+        try Data().write(to: store.fileURL)
+        let handle = try FileHandle(forWritingTo: store.fileURL)
+        try handle.truncate(atOffset: UInt64(AnswerPacketStore.maxLogBytes - 8))
+        try handle.close()
+
+        do {
+            try store.append(packet("blocked"))
+            Issue.record("Expected projected oversized AnswerPacket log append to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("exceeds the 8 MiB cap"))
+        }
+
+        let values = try store.fileURL.resourceValues(forKeys: [.fileSizeKey])
+        #expect(values.fileSize == AnswerPacketStore.maxLogBytes - 8)
+    }
+
     // The emitter's persist seam (nonisolated static → tested WITHOUT the shared singleton).
     @Test("AnswerPacketEmitter.persist writes through to the store; nil store is a no-op")
     func emitterPersistHelper() throws {
@@ -165,6 +185,8 @@ struct AnswerPacketStoreTests {
         #expect(!row.contains("session ring only"))   // the stale "not persisted" claim is gone
         let store = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacketStore.swift")
         #expect(store.contains("maxLogBytes"))
+        #expect(store.contains("line.count <= Self.maxLogBytes"))
+        #expect(store.contains("line.count <= Self.maxLogBytes - byteCount"))
         #expect(store.contains("O_NOFOLLOW"))
         #expect(store.contains("O_RDONLY | O_NOFOLLOW"))
         #expect(store.contains("readStoreFileText"))

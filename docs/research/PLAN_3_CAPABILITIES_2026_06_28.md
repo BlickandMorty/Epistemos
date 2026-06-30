@@ -183,7 +183,8 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
   the honest gate for Rust-produced packets; `VRMLabelView` renders only `honestLabel(for:)` and never reads raw
   `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`; `VRMLineageExport`
   copies deterministic verifiable lineage JSON from the hover card without Rust writes. Durable `AnswerPacketStore`
-  JSONL uses regular-file/no-follow reads and writes and caps read/restore decoding at 8 MiB.
+  JSONL uses regular-file/no-follow reads and writes, rejects append lines or projected post-append logs over 8 MiB,
+  and caps read/restore decoding at 8 MiB.
 - `VerifiedFloorChipStrip` green now requires `productionWired && falsifierPassed && artifactSatisfied &&
   liveBackingSatisfied`. `requiresLiveBacking: .ledger/.dag` probes `RustProvenanceLedgerClient`/`RustCognitiveDagClient`;
   declared artifact backing requires a readable regular non-symlink file. `AnswerPacketHealthRow` opts into ledger

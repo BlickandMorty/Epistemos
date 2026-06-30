@@ -24,8 +24,14 @@ nonisolated public struct AnswerPacketStore: Sendable {
     public func append(_ packet: AnswerPacket) throws {
         var line = try JSONEncoder().encode(packet)
         line.append(0x0A)  // '\n' — one packet per line
-        if let byteCount = try readableStoreFileByteCount(), byteCount > Self.maxLogBytes {
+        guard line.count <= Self.maxLogBytes else {
             throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+        }
+        if let byteCount = try readableStoreFileByteCount() {
+            guard byteCount <= Self.maxLogBytes,
+                  line.count <= Self.maxLogBytes - byteCount else {
+                throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+            }
         }
         let handle = try openStoreFileForWriting(truncate: false)
         defer { try? handle.close() }
