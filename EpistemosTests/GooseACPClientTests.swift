@@ -344,6 +344,20 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client bounds skipped frame diagnostic reasons")
+    func clientBoundsSkippedFrameDiagnosticReasons() {
+        let oversizedReason = String(
+            repeating: "r",
+            count: GooseACPClient.maxSkippedFrameReasonCharacters + 40
+        )
+
+        #expect(
+            GooseACPClient.boundedSkippedFrameReason(" \n\(oversizedReason)\n ")
+                .count == GooseACPClient.maxSkippedFrameReasonCharacters
+        )
+        #expect(GooseACPClient.boundedSkippedFrameReason(" \n\t ") == "unknown")
+    }
+
     @Test("prompt streams session updates before the final prompt response")
     func promptStreamsBeforeFinalResponse() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
@@ -848,6 +862,31 @@ struct GooseACPClientTests {
             #expect(code == -32602)
             #expect(message == "Invalid params")
             #expect(data == .string("Provider does not support native authentication: xai"))
+        }
+        await client.close()
+    }
+
+    @Test("client bounds inbound JSON-RPC error messages")
+    func clientBoundsInboundJSONRPCErrorMessages() async throws {
+        let oversizedMessage = String(
+            repeating: "e",
+            count: GooseACPProtocolBounds.maxJSONRPCErrorMessageCharacters + 40
+        )
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"error":{"code":-32000,"message":"\#(oversizedMessage)","data":"kept"}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        do {
+            _ = try await client.authenticateGooseProviderConfig(providerId: "xai")
+            Issue.record("provider authenticate should have failed")
+        } catch GooseACPProtocolError.jsonRPCError(let code, let message, let data) {
+            #expect(code == -32000)
+            #expect(message.count == GooseACPProtocolBounds.maxJSONRPCErrorMessageCharacters)
+            #expect(message == String(oversizedMessage.prefix(GooseACPProtocolBounds.maxJSONRPCErrorMessageCharacters)))
+            #expect(data == .string("kept"))
         }
         await client.close()
     }

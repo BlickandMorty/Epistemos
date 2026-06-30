@@ -256,6 +256,32 @@ nonisolated struct GooseACPJSONRPCError: Codable, Equatable, Sendable {
     let message: String
     let data: JSONValue?
 
+    private enum CodingKeys: String, CodingKey {
+        case code
+        case message
+        case data
+    }
+
+    init(code: Int, message: String, data: JSONValue?) {
+        self.code = code
+        self.message = Self.boundedMessage(message)
+        self.data = data
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        code = try container.decode(Int.self, forKey: .code)
+        message = Self.boundedMessage(try container.decode(String.self, forKey: .message))
+        data = try container.decodeIfPresent(JSONValue.self, forKey: .data)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(code, forKey: .code)
+        try container.encode(message, forKey: .message)
+        try container.encodeIfPresent(data, forKey: .data)
+    }
+
     static func unsupportedRequest(_ method: GooseACPMethod) -> Self {
         Self(
             code: -32601,
@@ -273,6 +299,13 @@ nonisolated struct GooseACPJSONRPCError: Codable, Equatable, Sendable {
             message: "Invalid params for ACP request: \(method.rawValue)",
             data: nil
         )
+    }
+
+    private static func boundedMessage(_ message: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? "ACP error" : trimmed
+        guard value.count > GooseACPProtocolBounds.maxJSONRPCErrorMessageCharacters else { return value }
+        return String(value.prefix(GooseACPProtocolBounds.maxJSONRPCErrorMessageCharacters))
     }
 }
 
@@ -363,6 +396,7 @@ nonisolated enum GooseACPProtocolBounds {
     static let maxConfigExtensions = 512
     static let maxConfigWarnings = 64
     static let maxConfigWarningCharacters = 512
+    static let maxJSONRPCErrorMessageCharacters = 1_024
     static let maxInventoryIDCharacters = 512
     static let maxInventoryDisplayCharacters = 256
     static let maxProviderConfigFieldKeyCharacters = 512

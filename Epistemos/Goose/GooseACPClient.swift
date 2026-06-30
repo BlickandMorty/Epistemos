@@ -51,6 +51,7 @@ actor GooseACPClient {
     nonisolated static let maxQueuedResponses = 256
     nonisolated static let maxPendingResponses = 256
     nonisolated static let maxACPFrameBytes = 8 * 1024 * 1024
+    nonisolated static let maxSkippedFrameReasonCharacters = 512
 
     private let transport: any GooseACPTransport
     private let clientVersion: String
@@ -557,7 +558,18 @@ actor GooseACPClient {
         // B-HIGH-1: surface a skipped, undecodable frame as a contained diagnostic event (the bridge
         // records `.serverError` as an application diagnostic without tearing down the connection).
         // -32700 = JSON parse error; the frame carries no usable id, so there is nothing to answer.
-        deliverEvent(.serverError(code: -32700, message: "Skipped undecodable ACP frame: \(reason)", data: nil))
+        deliverEvent(.serverError(
+            code: -32700,
+            message: "Skipped undecodable ACP frame: \(Self.boundedSkippedFrameReason(reason))",
+            data: nil
+        ))
+    }
+
+    nonisolated static func boundedSkippedFrameReason(_ reason: String) -> String {
+        let trimmed = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? "unknown" : trimmed
+        guard value.count > maxSkippedFrameReasonCharacters else { return value }
+        return String(value.prefix(maxSkippedFrameReasonCharacters))
     }
 
     private func sendRequest<Params: Encodable, Response: Decodable>(
