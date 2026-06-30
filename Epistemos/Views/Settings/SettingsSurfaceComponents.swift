@@ -339,6 +339,27 @@ nonisolated enum VerifiedFloorLiveBacking: String, Equatable, Sendable {
     case dag
 }
 
+nonisolated enum VerifiedFloorArtifactBackingPolicy {
+    static func isSatisfied(
+        path: String,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard !path.isEmpty,
+              (try? fileManager.destinationOfSymbolicLink(atPath: path)) == nil else {
+            return false
+        }
+
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory),
+              !isDirectory.boolValue,
+              fileManager.isReadableFile(atPath: path),
+              let type = try? fileManager.attributesOfItem(atPath: path)[.type] as? FileAttributeType else {
+            return false
+        }
+        return type == .typeRegular
+    }
+}
+
 nonisolated struct VerifiedFloorChipEligibility: Equatable, Sendable {
     let productionWired: Bool
     let falsifierPassed: Bool
@@ -415,7 +436,7 @@ struct VerifiedFloorChipStrip: View {
 
     private var artifactSatisfied: Bool {
         guard let requiresArtifactAtPath else { return true }
-        return FileManager.default.fileExists(atPath: requiresArtifactAtPath)
+        return VerifiedFloorArtifactBackingPolicy.isSatisfied(path: requiresArtifactAtPath)
     }
 
     private var liveBackingSatisfied: Bool {

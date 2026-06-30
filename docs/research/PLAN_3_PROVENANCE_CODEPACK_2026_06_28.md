@@ -13,7 +13,9 @@ ACS anchors as verification evidence; `uasAddress` is stable identity metadata a
 `VerifiedFloorChipStrip` green = `productionWired && falsifierPassed && artifactSatisfied && liveBackingSatisfied`
 (`SettingsSurfaceComponents.swift`). `RustProvenanceLedgerClient.summary().claimCount` + `RustCognitiveDagClient.stats().nodeCount`
 exist, `nonisolated`, return `.empty` when FFI absent, and are used by `VerifiedFloorLiveBacking`. `ChatMessage.answerPacketId`
-plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge.
+plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge. `FalsifierArtifactsHealthRow` reads
+`artifacts/falsifiers/*/result.json` through a bounded no-follow regular-file envelope and skips symlinked falsifier
+directories.
 
 ## Fix A — honest label gate [DELIVERED]
 `VRMLabel.honestLabel(for packet:) -> VRMLabel?`:
@@ -32,12 +34,13 @@ ACS-anchored empirical/codeInvariant→verified; speculative-even-ACS-anchored�
 
 ## Fix B — tightened `VerifiedFloorChipStrip` [DELIVERED]
 The existing init remains source-compatible, with opt-in real gates that AND into green:
-`requiresArtifactAtPath: String? = nil` (green also requires the file to exist on disk) and
+`requiresArtifactAtPath: String? = nil` (green also requires a readable regular non-symlink file on disk) and
 `requiresLiveBacking: VerifiedFloorLiveBacking = .none` (`.ledger` → `RustProvenanceLedgerClient.summary().claimCount > 0`;
 `.dag` → `RustCognitiveDagClient.stats().nodeCount > 0`). `greenEligible = productionWired && falsifierPassed &&
 artifactSatisfied && liveBackingSatisfied`. Witness label shows "no artifact"/"empty" instead of "PASS" when a declared
 backing is missing, so a literal-true cannot force green on rows that declare backing. `AnswerPacketHealthRow` opts into
-ledger backing with `requiresLiveBacking: .ledger`; other rows stay deliberate row-by-row adoption.
+ledger backing with `requiresLiveBacking: .ledger`; `FalsifierArtifactsHealthRow` bounds and no-follows each
+`result.json` artifact before parsing; other rows stay deliberate row-by-row adoption.
 
 ## Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]
 Chip text/color from `honestLabel(for:)` ONLY; renders **nothing** when nil. Hover popover surfaces: model + tier +

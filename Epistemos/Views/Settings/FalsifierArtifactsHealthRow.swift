@@ -1,4 +1,87 @@
+import Darwin
+import Foundation
 import SwiftUI
+
+nonisolated enum FalsifierArtifactResultReader {
+    static let maxResultBytes = 256 * 1024
+
+    static func artifactDirectories(
+        in root: URL,
+        fileManager: FileManager = .default
+    ) -> [URL] {
+        guard isReadableDirectory(root, fileManager: fileManager),
+              let dirs = try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        return dirs.filter { isReadableDirectory($0, fileManager: fileManager) }
+    }
+
+    static func jsonObject(
+        at resultPath: URL,
+        fileManager: FileManager = .default
+    ) -> [String: Any]? {
+        guard let data = resultData(at: resultPath, fileManager: fileManager) else {
+            return nil
+        }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    static func resultData(
+        at resultPath: URL,
+        fileManager: FileManager = .default
+    ) -> Data? {
+        guard resultPath.isFileURL,
+              fileManager.isReadableFile(atPath: resultPath.path),
+              (try? fileManager.destinationOfSymbolicLink(atPath: resultPath.path)) == nil else {
+            return nil
+        }
+
+        let fd = resultPath.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            return nil
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            return nil
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            return nil
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxResultBytes) else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              data.count <= maxResultBytes else {
+            return nil
+        }
+        return data
+    }
+
+    private static func isReadableDirectory(
+        _ url: URL,
+        fileManager: FileManager
+    ) -> Bool {
+        guard url.isFileURL,
+              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil else {
+            return false
+        }
+
+        guard let type = try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType else {
+            return false
+        }
+        return type == .typeDirectory
+    }
+}
 
 // MARK: - FalsifierArtifactsHealthRow
 //
@@ -143,14 +226,10 @@ public struct FalsifierArtifactsHealthRow: View {
         let root = URL(fileURLWithPath: cwd, isDirectory: true)
             .appendingPathComponent("artifacts", isDirectory: true)
             .appendingPathComponent("falsifiers", isDirectory: true)
-        guard let dirs = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else {
-            return []
-        }
         var out: [FalsifierArtifactSnapshot] = []
-        for dir in dirs {
+        for dir in FalsifierArtifactResultReader.artifactDirectories(in: root, fileManager: fm) {
             let resultPath = dir.appendingPathComponent("result.json")
-            guard let data = try? Data(contentsOf: resultPath),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            guard let json = FalsifierArtifactResultReader.jsonObject(at: resultPath, fileManager: fm) else {
                 continue
             }
             let snap = FalsifierArtifactSnapshot(

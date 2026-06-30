@@ -185,7 +185,9 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
   JSONL uses regular-file/no-follow reads and writes and caps read/restore decoding at 8 MiB.
 - `VerifiedFloorChipStrip` green now requires `productionWired && falsifierPassed && artifactSatisfied &&
   liveBackingSatisfied`. `requiresLiveBacking: .ledger/.dag` probes `RustProvenanceLedgerClient`/`RustCognitiveDagClient`;
-  `AnswerPacketHealthRow` opts into ledger backing.
+  declared artifact backing requires a readable regular non-symlink file. `AnswerPacketHealthRow` opts into ledger
+  backing. `FalsifierArtifactsHealthRow` reads falsifier `result.json` artifacts through a bounded no-follow regular-file
+  envelope and skips symlinked artifact directories.
 - `AgentNoteEditProvenance`→EventStore remains the real, buildable per-edit lineage; shipped Provenance Console
   (`ProvenanceConsoleView`) is read-only and its `retractionEventProvider` defaults to empty.
 

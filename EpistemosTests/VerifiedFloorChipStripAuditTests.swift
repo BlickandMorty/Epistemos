@@ -203,7 +203,35 @@ struct VerifiedFloorChipStripAuditTests {
         #expect(src.contains("let productionWired: Bool"))
         #expect(src.contains("let falsifierPassed: Bool"))
         #expect(src.contains("requiresArtifactAtPath: String? = nil"))
+        #expect(src.contains("nonisolated enum VerifiedFloorArtifactBackingPolicy"))
+        #expect(src.contains("VerifiedFloorArtifactBackingPolicy.isSatisfied(path: requiresArtifactAtPath)"))
+        #expect(src.contains("destinationOfSymbolicLink(atPath: path)"))
+        #expect(src.contains("FileAttributeType"))
+        #expect(src.contains(".typeRegular"))
         #expect(src.contains("requiresLiveBacking: VerifiedFloorLiveBacking = .none"))
+    }
+
+    @Test("artifact backing policy requires readable regular non-symlink files")
+    func artifactBackingPolicyRequiresReadableRegularNonSymlinkFiles() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("verified-floor-artifact-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let artifact = root.appendingPathComponent("artifact.json")
+        let directory = root.appendingPathComponent("artifact-dir", isDirectory: true)
+        let symlink = root.appendingPathComponent("linked.json")
+        let missing = root.appendingPathComponent("missing.json")
+
+        try #"{"overall_pass":true}"#.write(to: artifact, atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: artifact)
+
+        #expect(VerifiedFloorArtifactBackingPolicy.isSatisfied(path: artifact.path))
+        #expect(!VerifiedFloorArtifactBackingPolicy.isSatisfied(path: ""))
+        #expect(!VerifiedFloorArtifactBackingPolicy.isSatisfied(path: missing.path))
+        #expect(!VerifiedFloorArtifactBackingPolicy.isSatisfied(path: directory.path))
+        #expect(!VerifiedFloorArtifactBackingPolicy.isSatisfied(path: symlink.path))
     }
 
     @Test("chip eligibility requires artifact and live backing when declared")
