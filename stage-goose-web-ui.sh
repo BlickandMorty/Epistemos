@@ -1021,7 +1021,10 @@ export async function removeAcpProviderConfig(key: string): Promise<void> {
     key === 'GOOSE_DEFAULT_PROVIDER' ||
     key === 'GOOSE_DEFAULT_MODEL'
   ) {
-    return;
+    // epistemos-acp-defaults-reset-unavailable: Goose ACP exposes defaults/read
+    // and defaults/save, but no defaults/delete. Returning here makes the reset
+    // provider/model button look successful while doing nothing.
+    throw new Error('Goose ACP cannot reset provider/model defaults because defaults/save requires a providerId and ACP exposes no defaults delete.');
   }
   if (isLocalAcpConfigKey(key)) {
     localAcpConfigValues.delete(key);
@@ -4662,6 +4665,68 @@ for (const snippet of [
 fs.writeFileSync(appPath, appSource);
 NODE
 
+MODELS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
+node - "$MODELS_SECTION" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import ResetProviderSection from '../reset_provider/ResetProviderSection';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('ModelsSection ResetProviderSection import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+// epistemos-acp-hide-reset-provider-settings: Goose ACP can save defaults but
+// cannot delete/clear them, so the reset card would otherwise be a no-op.
+const resetProviderCardAnchor = `      <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">
+        <CardHeader className="pb-0">
+          <CardTitle className="">{intl.formatMessage(i18n.resetTitle)}</CardTitle>
+          <CardDescription>
+            {intl.formatMessage(i18n.resetDescription)}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-2">
+          <ResetProviderSection setView={setView} />
+        </CardContent>
+      </Card>`;
+const resetProviderCardReplacement = `      {!USE_ACP_CHAT && (
+        <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl" data-epistemos-acp-hide-reset-provider-settings="true">
+          <CardHeader className="pb-0">
+            <CardTitle className="">{intl.formatMessage(i18n.resetTitle)}</CardTitle>
+            <CardDescription>
+              {intl.formatMessage(i18n.resetDescription)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-2.5">
+            <ResetProviderSection setView={setView} />
+          </CardContent>
+        </Card>
+      )}`;
+if (!source.includes('data-epistemos-acp-hide-reset-provider-settings')) {
+  if (!source.includes(resetProviderCardAnchor)) {
+    throw new Error('ModelsSection reset-provider card anchor not found');
+  }
+  source = source.replace(resetProviderCardAnchor, resetProviderCardReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  'epistemos-acp-hide-reset-provider-settings',
+  'data-epistemos-acp-hide-reset-provider-settings',
+  '!USE_ACP_CHAT && (',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ModelsSection staged source missing required ACP reset snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 SESSION_HISTORY_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
 node - "$SESSION_HISTORY_VIEW" <<'NODE'
 const fs = require('fs');
@@ -5233,6 +5298,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-hide-telemetry-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "epistemos-acp-hide-local-inference-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "epistemos-acp-hide-generic-config-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-defaults-reset-unavailable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "data-epistemos-acp-hide-reset-provider-settings" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
     grep -q "min-h-9 w-full rounded-\\[8px\\] border px-3 py-2 text-sm placeholder:text-text-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
     grep -q "min-h-8 w-24 rounded-\\[8px\\] border px-2 py-1 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
