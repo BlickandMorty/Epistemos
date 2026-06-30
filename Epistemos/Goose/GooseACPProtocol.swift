@@ -5,6 +5,7 @@ nonisolated enum GooseACPProtocolError: Error, Equatable, Sendable {
     case unsupportedMessage
     case jsonRPCError(code: Int, message: String, data: JSONValue?)
     case responseTimedOut(method: String, id: GooseACPRequestID, timeout: Duration)
+    case tooManyPendingResponses(limit: Int)
     case closed
 }
 
@@ -19,6 +20,8 @@ extension GooseACPProtocolError: LocalizedError {
             message
         case .responseTimedOut(let method, _, let timeout):
             "Timed out waiting \(Self.timeoutDescription(timeout)) for Goose ACP response to \(method)."
+        case .tooManyPendingResponses(let limit):
+            "Too many pending Goose ACP responses (limit: \(limit))."
         case .closed:
             "Goose ACP connection is closed."
         }

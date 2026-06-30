@@ -688,6 +688,35 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("active ACP response waiters are bounded before sending another request")
+    func activeACPResponseWaitersAreBoundedBeforeSendingAnotherRequest() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let pending = (0..<GooseACPClient.maxPendingResponses).map { _ in
+            Task {
+                try await client.listGooseProviders()
+            }
+        }
+        await transport.waitUntilSent(count: 1 + GooseACPClient.maxPendingResponses)
+
+        do {
+            _ = try await client.listGooseProviders()
+            Issue.record("client should reject the request before adding another pending response")
+        } catch GooseACPProtocolError.tooManyPendingResponses(let limit) {
+            #expect(limit == GooseACPClient.maxPendingResponses)
+        }
+        #expect(await transport.sentMessages().count == 1 + GooseACPClient.maxPendingResponses)
+
+        await client.close()
+        for task in pending {
+            _ = await task.result
+        }
+    }
+
     @Test("queued ACP events are bounded to the newest retained tail")
     func queuedEventsAreBoundedToNewestTail() async throws {
         let eventCount = GooseACPClient.maxQueuedEvents + 3

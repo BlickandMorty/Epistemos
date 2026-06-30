@@ -49,6 +49,7 @@ nonisolated enum GooseACPClientEvent: Equatable, Sendable {
 actor GooseACPClient {
     nonisolated static let maxQueuedEvents = 1_024
     nonisolated static let maxQueuedResponses = 256
+    nonisolated static let maxPendingResponses = 256
 
     private let transport: any GooseACPTransport
     private let clientVersion: String
@@ -57,6 +58,7 @@ actor GooseACPClient {
     private var queuedEvents: [GooseACPClientEvent] = []
     private var queuedResponses: [GooseACPRequestID: Result<JSONValue, Error>] = [:]
     private var queuedResponseOrder: [GooseACPRequestID] = []
+    private var pendingResponseIDs: Set<GooseACPRequestID> = []
     private var waitingEvents: [CheckedContinuation<GooseACPClientEvent, Error>] = []
     private var waitingResponses: [GooseACPRequestID: CheckedContinuation<JSONValue, Error>] = [:]
     private var waitingResponseTimeouts: [GooseACPRequestID: Task<Void, Never>] = [:]
@@ -573,9 +575,15 @@ actor GooseACPClient {
         ensureReadLoop()
         let id = nextRequestID()
         let request = GooseACPJSONRPCRequest(id: id, method: method, params: params)
-        try await send(request)
-        let result = try await waitForResponse(id, method: method, timeout: timeout)
-        return try result.decoded(Response.self)
+        try reservePendingResponse(id)
+        do {
+            try await send(request)
+            let result = try await waitForResponse(id, method: method, timeout: timeout)
+            return try result.decoded(Response.self)
+        } catch {
+            releasePendingResponse(id)
+            throw error
+        }
     }
 
     private func sendResult<Result: Encodable>(id: GooseACPRequestID, result: Result) async throws {
@@ -604,6 +612,7 @@ actor GooseACPClient {
         }
 
         if let terminalError {
+            releasePendingResponse(id)
             throw terminalError
         }
 
@@ -645,6 +654,7 @@ actor GooseACPClient {
 
     private func deliverResponse(_ response: Result<JSONValue, Error>, id: GooseACPRequestID) {
         if let waiter = waitingResponses.removeValue(forKey: id) {
+            releasePendingResponse(id)
             waitingResponseTimeouts.removeValue(forKey: id)?.cancel()
             switch response {
             case .success(let result):
@@ -669,8 +679,20 @@ actor GooseACPClient {
 
     private func removeQueuedResponse(for id: GooseACPRequestID) -> Result<JSONValue, Error>? {
         guard let response = queuedResponses.removeValue(forKey: id) else { return nil }
+        releasePendingResponse(id)
         queuedResponseOrder.removeAll { $0 == id }
         return response
+    }
+
+    private func reservePendingResponse(_ id: GooseACPRequestID) throws {
+        guard pendingResponseIDs.count < Self.maxPendingResponses else {
+            throw GooseACPProtocolError.tooManyPendingResponses(limit: Self.maxPendingResponses)
+        }
+        pendingResponseIDs.insert(id)
+    }
+
+    private func releasePendingResponse(_ id: GooseACPRequestID) {
+        pendingResponseIDs.remove(id)
     }
 
     private func queueResponse(_ response: Result<JSONValue, Error>, id: GooseACPRequestID) {
@@ -702,6 +724,7 @@ actor GooseACPClient {
         queuedEvents.removeAll()
         queuedResponses.removeAll()
         queuedResponseOrder.removeAll()
+        pendingResponseIDs.removeAll()
         let timeoutTasks = Array(waitingResponseTimeouts.values)
         waitingResponseTimeouts.removeAll()
         for task in timeoutTasks {
@@ -723,6 +746,7 @@ actor GooseACPClient {
 
     private func timeOutResponse(id: GooseACPRequestID, method: String, timeout: Duration) {
         waitingResponseTimeouts.removeValue(forKey: id)?.cancel()
+        releasePendingResponse(id)
         guard let waiter = waitingResponses.removeValue(forKey: id) else { return }
         waiter.resume(throwing: GooseACPProtocolError.responseTimedOut(method: method, id: id, timeout: timeout))
     }
