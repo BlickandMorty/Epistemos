@@ -30,12 +30,22 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeFileWriteBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeDirectoryListEntries = 5_000
+    nonisolated static let maxNativeAffordanceNameCharacters = 96
     nonisolated static let maxLaunchedAppNameCharacters = 128
+    nonisolated static let maxRecentDirsFileBytes = 64 * 1024
+    nonisolated static let maxRecipeHashInputBytes = 1 * 1024 * 1024
+    nonisolated static let maxRecipeHashDepth = 32
+    nonisolated static let maxRecipeHashCollectionEntries = 4_096
     nonisolated static let maxNativeDialogButtons = 8
     nonisolated static let maxNativeDialogTitleCharacters = 160
     nonisolated static let maxNativeDialogMessageCharacters = 2_048
     nonisolated static let maxNativeDialogDetailCharacters = 8_192
     nonisolated static let maxNativeDialogButtonCharacters = 80
+    nonisolated static let maxNativeNotificationTitleCharacters = 160
+    nonisolated static let maxNativeNotificationBodyCharacters = 2_048
+    nonisolated static let maxNativeFileDialogFilters = 16
+    nonisolated static let maxNativeFileDialogExtensions = 64
+    nonisolated static let maxNativeFileDialogExtensionCharacters = 32
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -115,9 +125,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         _ body: [String: Any],
         replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void
     ) {
-        guard let name = body["name"] as? String,
+        guard let rawName = body["name"] as? String,
               body["id"] is String,
-              let args = body["args"] as? [Any] else {
+              let args = body["args"] as? [Any],
+              let name = Self.boundedNativeAffordanceName(rawName) else {
             replyHandler(nil, "Malformed Epistemos Goose native affordance request.")
             return
         }
@@ -680,6 +691,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func listRecentDirectories() -> [String] {
+        if let size = Self.fileSize(atPath: recentDirsURL.path, fileManager: fileManager),
+           size > UInt64(Self.maxRecentDirsFileBytes) {
+            return []
+        }
         guard let data = try? Data(contentsOf: recentDirsURL),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let dirs = object["dirs"] as? [String] else {
@@ -862,8 +877,16 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     private func showNotification(_ data: [String: Any]) -> Bool {
         let content = UNMutableNotificationContent()
-        content.title = (data["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Epistemos"
-        content.body = (data["body"] as? String) ?? ""
+        content.title = Self.boundedNativeDialogText(
+            data["title"] as? String,
+            maxCharacters: Self.maxNativeNotificationTitleCharacters,
+            fallback: "Epistemos"
+        ) ?? "Epistemos"
+        content.body = Self.boundedNativeDialogText(
+            data["body"] as? String,
+            maxCharacters: Self.maxNativeNotificationBodyCharacters,
+            fallback: ""
+        ) ?? ""
         let request = UNNotificationRequest(
             identifier: "epistemos-goose-\(UUID().uuidString)",
             content: content,
@@ -996,11 +1019,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func allowedContentTypes(from filters: [[String: Any]]?) -> [UTType]? {
-        guard let filters else { return nil }
-        let extensions = filters
-            .compactMap { $0["extensions"] as? [String] }
-            .flatMap { $0 }
-        guard !extensions.isEmpty, !extensions.contains("*") else { return nil }
+        guard let extensions = Self.boundedNativeFileDialogExtensions(from: filters) else { return nil }
         let types = extensions.compactMap { UTType(filenameExtension: $0) }
         return types.isEmpty ? nil : types
     }
@@ -1140,17 +1159,30 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func recipeHash(_ recipe: Any?) -> String? {
-        guard let recipe else { return nil }
-        let data: Data
-        if JSONSerialization.isValidJSONObject(recipe),
-           let jsonData = try? JSONSerialization.data(withJSONObject: recipe, options: [.sortedKeys]) {
-            data = jsonData
-        } else if let string = recipe as? String {
-            data = Data(string.utf8)
-        } else {
+        guard let data = Self.recipeHashData(from: recipe) else {
             return nil
         }
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func recipeHashData(from recipe: Any?) -> Data? {
+        guard let recipe else { return nil }
+        if let string = recipe as? String {
+            guard string.utf8.count <= Self.maxRecipeHashInputBytes else { return nil }
+            return Data(string.utf8)
+        }
+        guard GooseNativeJSONSizeBudget.permits(
+            recipe,
+            maxBytes: Self.maxRecipeHashInputBytes,
+            maxDepth: Self.maxRecipeHashDepth,
+            maxCollectionEntries: Self.maxRecipeHashCollectionEntries
+        ),
+              JSONSerialization.isValidJSONObject(recipe),
+              let data = try? JSONSerialization.data(withJSONObject: recipe, options: [.sortedKeys]),
+              data.count <= Self.maxRecipeHashInputBytes else {
+            return nil
+        }
+        return data
     }
 
     private func appName(from app: [String: Any]) throws -> String {
@@ -1247,6 +1279,61 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
+    nonisolated static func boundedNativeFileDialogExtensions(from filters: [[String: Any]]?) -> [String]? {
+        guard let filters else { return nil }
+        var seen = Set<String>()
+        var extensions: [String] = []
+        var inspectedExtensions = 0
+        for filter in filters.prefix(Self.maxNativeFileDialogFilters) {
+            guard let rawExtensions = filter["extensions"] as? [String] else { continue }
+            for rawExtension in rawExtensions {
+                guard inspectedExtensions < Self.maxNativeFileDialogExtensions else {
+                    return extensions.isEmpty ? nil : extensions
+                }
+                inspectedExtensions += 1
+                guard let fileExtension = boundedNativeFileDialogExtension(rawExtension) else { continue }
+                if fileExtension == "*" {
+                    return nil
+                }
+                if seen.insert(fileExtension).inserted {
+                    extensions.append(fileExtension)
+                    if extensions.count >= Self.maxNativeFileDialogExtensions {
+                        return extensions
+                    }
+                }
+            }
+        }
+        return extensions.isEmpty ? nil : extensions
+    }
+
+    private nonisolated static func boundedNativeFileDialogExtension(_ rawExtension: String) -> String? {
+        let withoutControls = String(String.UnicodeScalarView(rawExtension.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            .lowercased()
+        guard !trimmed.isEmpty,
+              trimmed.count <= Self.maxNativeFileDialogExtensionCharacters,
+              trimmed.allSatisfy({ $0 == "*" || $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated static func boundedNativeAffordanceName(_ rawName: String) -> String? {
+        let withoutControls = String(String.UnicodeScalarView(rawName.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= Self.maxNativeAffordanceNameCharacters else {
+            return nil
+        }
+        return trimmed
+    }
+
     private func intArgument(_ value: Any?) -> Int? {
         switch value {
         case let value as Int:
@@ -1319,6 +1406,148 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             normalizedRoot = normalizedRoot.lowercased()
         }
         return normalizedPath == normalizedRoot || normalizedPath.hasPrefix(normalizedRoot + "/")
+    }
+}
+
+enum GooseNativeJSONSizeBudget {
+    static func permits(
+        _ object: Any,
+        maxBytes: Int,
+        maxDepth: Int,
+        maxCollectionEntries: Int
+    ) -> Bool {
+        var remaining = maxBytes
+        return consume(
+            object,
+            remaining: &remaining,
+            depth: 0,
+            maxDepth: maxDepth,
+            maxCollectionEntries: maxCollectionEntries
+        )
+    }
+
+    private static func consume(
+        _ object: Any,
+        remaining: inout Int,
+        depth: Int,
+        maxDepth: Int,
+        maxCollectionEntries: Int
+    ) -> Bool {
+        guard depth <= maxDepth else { return false }
+        switch object {
+        case let dictionary as [String: Any]:
+            return consumeDictionary(
+                dictionary.map { ($0.key, $0.value) },
+                remaining: &remaining,
+                depth: depth,
+                maxDepth: maxDepth,
+                maxCollectionEntries: maxCollectionEntries
+            )
+        case let dictionary as NSDictionary:
+            let entries = dictionary.compactMap { rawKey, rawValue -> (String, Any)? in
+                guard let key = rawKey as? String else { return nil }
+                return (key, rawValue)
+            }
+            guard entries.count == dictionary.count else { return false }
+            return consumeDictionary(
+                entries,
+                remaining: &remaining,
+                depth: depth,
+                maxDepth: maxDepth,
+                maxCollectionEntries: maxCollectionEntries
+            )
+        case let array as [Any]:
+            return consumeArray(
+                array,
+                remaining: &remaining,
+                depth: depth,
+                maxDepth: maxDepth,
+                maxCollectionEntries: maxCollectionEntries
+            )
+        case let array as NSArray:
+            return consumeArray(
+                array.map { $0 },
+                remaining: &remaining,
+                depth: depth,
+                maxDepth: maxDepth,
+                maxCollectionEntries: maxCollectionEntries
+            )
+        case let string as String:
+            return subtract(stringCost(string), from: &remaining)
+        case _ as NSNull:
+            return subtract(4, from: &remaining)
+        case _ as Bool:
+            return subtract(5, from: &remaining)
+        case let number as NSNumber:
+            return subtract(number.stringValue.utf8.count, from: &remaining)
+        default:
+            return false
+        }
+    }
+
+    private static func consumeDictionary(
+        _ entries: [(String, Any)],
+        remaining: inout Int,
+        depth: Int,
+        maxDepth: Int,
+        maxCollectionEntries: Int
+    ) -> Bool {
+        guard entries.count <= maxCollectionEntries,
+              subtract(2, from: &remaining) else {
+            return false
+        }
+        for (key, value) in entries {
+            guard subtract(stringCost(key), from: &remaining),
+                  subtract(2, from: &remaining),
+                  consume(
+                    value,
+                    remaining: &remaining,
+                    depth: depth + 1,
+                    maxDepth: maxDepth,
+                    maxCollectionEntries: maxCollectionEntries
+                  ) else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func consumeArray(
+        _ array: [Any],
+        remaining: inout Int,
+        depth: Int,
+        maxDepth: Int,
+        maxCollectionEntries: Int
+    ) -> Bool {
+        guard array.count <= maxCollectionEntries,
+              subtract(2, from: &remaining) else {
+            return false
+        }
+        for value in array {
+            guard subtract(1, from: &remaining),
+                  consume(
+                    value,
+                    remaining: &remaining,
+                    depth: depth + 1,
+                    maxDepth: maxDepth,
+                    maxCollectionEntries: maxCollectionEntries
+                  ) else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func stringCost(_ string: String) -> Int {
+        let byteCount = string.utf8.count
+        guard byteCount <= (Int.max - 2) / 6 else { return Int.max }
+        return byteCount * 6 + 2
+    }
+
+    private static func subtract(_ cost: Int, from remaining: inout Int) -> Bool {
+        guard cost <= remaining else { return false }
+        remaining -= cost
+        return true
     }
 }
 

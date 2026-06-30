@@ -1332,6 +1332,72 @@ struct GooseWebNativePromptBridgeTests {
         #expect(elicitationReply["action"] as? String == "cancel")
         #expect(elicitationCapture.error == nil)
     }
+
+    @Test("native prompt bridge rejects oversized renderer inputs")
+    func bridgeRejectsOversizedRendererInputs() {
+        let bridge = GooseWebNativePromptBridge()
+        let idCapture = GoosePromptReplyCapture()
+        bridge.receivePromptMessage([
+            "type": "permission",
+            "id": String(repeating: "p", count: GooseWebNativePromptBridge.maxPromptIDCharacters + 1),
+            "request": [
+                "sessionId": "session-1",
+                "toolCall": [
+                    "toolCallId": "tool-1",
+                    "title": "Write file",
+                    "kind": "edit",
+                    "status": "pending",
+                ],
+                "options": [
+                    ["optionId": "once", "name": "Allow once", "kind": "allow_once"],
+                ],
+            ],
+        ]) { object, error in
+            idCapture.capture(object: object, error: error)
+        }
+        #expect(idCapture.object == nil)
+        #expect(idCapture.error?.contains("\(GooseWebNativePromptBridge.maxPromptIDCharacters)") == true)
+        #expect(bridge.pendingPermission == nil)
+
+        let payloadCapture = GoosePromptReplyCapture()
+        bridge.receivePromptMessage([
+            "type": "elicitation",
+            "id": "native-elicit-oversized",
+            "request": [
+                "mode": "form",
+                "sessionId": "session-1",
+                "message": String(
+                    repeating: "m",
+                    count: GooseWebNativePromptBridge.maxPromptPayloadBytes + 1
+                ),
+                "requestedSchema": [
+                    "type": "object",
+                    "properties": [:],
+                ],
+            ],
+        ]) { object, error in
+            payloadCapture.capture(object: object, error: error)
+        }
+        #expect(payloadCapture.object == nil)
+        #expect(payloadCapture.error?.contains("\(GooseWebNativePromptBridge.maxPromptPayloadBytes)") == true)
+        #expect(bridge.pendingElicitation == nil)
+
+        let unsupportedTypeCapture = GoosePromptReplyCapture()
+        bridge.receivePromptMessage([
+            "type": String(repeating: "x", count: GooseWebNativePromptBridge.maxPromptPayloadBytes + 1),
+            "id": "native-unsupported-type",
+            "request": [
+                "payload": String(
+                    repeating: "m",
+                    count: GooseWebNativePromptBridge.maxPromptPayloadBytes + 1
+                ),
+            ],
+        ]) { object, error in
+            unsupportedTypeCapture.capture(object: object, error: error)
+        }
+        #expect(unsupportedTypeCapture.object == nil)
+        #expect(unsupportedTypeCapture.error == "Unsupported Epistemos Goose prompt request.")
+    }
 }
 
 @MainActor

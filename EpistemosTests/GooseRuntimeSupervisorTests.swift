@@ -1490,6 +1490,70 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(GooseWebNativeAffordanceBridge.boundedNativeDialogButtons(["", "  "]) == ["OK"])
     }
 
+    @Test("native bridge bounds notification text and file dialog filters")
+    func nativeBridgeBoundsNotificationTextAndFileDialogFilters() {
+        let longTitle = "\u{0007} " + String(
+            repeating: "t",
+            count: GooseWebNativeAffordanceBridge.maxNativeNotificationTitleCharacters + 7
+        )
+        let boundedTitle = GooseWebNativeAffordanceBridge.boundedNativeDialogText(
+            longTitle,
+            maxCharacters: GooseWebNativeAffordanceBridge.maxNativeNotificationTitleCharacters,
+            fallback: "Epistemos"
+        )
+        #expect(boundedTitle?.count == GooseWebNativeAffordanceBridge.maxNativeNotificationTitleCharacters)
+        #expect(boundedTitle?.first == "t")
+
+        let rawExtensions = (0..<(GooseWebNativeAffordanceBridge.maxNativeFileDialogExtensions + 12))
+            .map { " type\($0) " }
+        let boundedExtensions = GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions(
+            [["extensions": rawExtensions]]
+        )
+        #expect(boundedExtensions?.count == GooseWebNativeAffordanceBridge.maxNativeFileDialogExtensions)
+        #expect(boundedExtensions?.first == "type0")
+        #expect(
+            GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions(
+                [["extensions": ["TXT", ".md", "\u{0008}json", "has space", String(repeating: "x", count: 64)]]]
+            ) == ["txt", "md", "json"]
+        )
+        #expect(GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions([["extensions": ["*"]]]) == nil)
+
+        #expect(GooseWebNativeAffordanceBridge.boundedNativeAffordanceName("\u{0007} readFile \n") == "readFile")
+        #expect(
+            GooseWebNativeAffordanceBridge.boundedNativeAffordanceName(
+                String(repeating: "n", count: GooseWebNativeAffordanceBridge.maxNativeAffordanceNameCharacters + 1)
+            ) == nil
+        )
+    }
+
+    @Test("bridge ignores oversized native persistence inputs")
+    func bridgeIgnoresOversizedNativePersistenceInputs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        let recentFile = root
+            .appendingPathComponent("recent-dirs", isDirectory: true)
+            .appendingPathComponent("recent-dirs.json", isDirectory: false)
+        try FileManager.default.createDirectory(
+            at: recentFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try createSparseFile(
+            recentFile,
+            size: GooseWebNativeAffordanceBridge.maxRecentDirsFileBytes + 1
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let bridge = GooseWebNativeAffordanceBridge(applicationSupportRoot: root)
+        #expect(try bridge.handleAffordance(name: "listRecentDirs", args: []) as? [String] == [])
+
+        let oversizedRecipe = String(
+            repeating: "r",
+            count: GooseWebNativeAffordanceBridge.maxRecipeHashInputBytes + 1
+        )
+        #expect(try bridge.handleAffordance(name: "recordRecipeHash", args: [oversizedRecipe]) as? Bool == false)
+        #expect(try bridge.handleAffordance(name: "hasAcceptedRecipeBefore", args: [oversizedRecipe]) as? Bool == false)
+    }
+
     @Test("file bridge rejects oversized WebView writes")
     func fileBridgeRejectsOversizedWebViewWrites() throws {
         let root = FileManager.default.temporaryDirectory

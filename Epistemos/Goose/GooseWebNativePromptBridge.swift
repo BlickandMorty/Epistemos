@@ -5,6 +5,11 @@ import WebKit
 @MainActor
 @Observable
 final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithReply {
+    nonisolated static let maxPromptIDCharacters = 128
+    nonisolated static let maxPromptPayloadBytes = 1 * 1024 * 1024
+    nonisolated private static let maxPromptPayloadDepth = 32
+    nonisolated private static let maxPromptPayloadCollectionEntries = 4_096
+
     private(set) var pendingPermission: GooseWebPermissionPrompt?
     private(set) var pendingElicitation: GooseWebElicitationPrompt?
 
@@ -41,9 +46,20 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
         replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void
     ) {
         guard let type = body["type"] as? String,
-              let id = body["id"] as? String,
+              let rawID = body["id"] as? String,
               let requestObject = body["request"] else {
             replyHandler(nil, "Malformed Epistemos Goose prompt request.")
+            return
+        }
+        guard let id = Self.boundedPromptID(rawID) else {
+            replyHandler(
+                nil,
+                GooseWebNativePromptBridgeError.promptIDTooLong(Self.maxPromptIDCharacters).localizedDescription
+            )
+            return
+        }
+        guard type == "permission" || type == "elicitation" else {
+            replyHandler(nil, "Unsupported Epistemos Goose prompt request.")
             return
         }
 
@@ -61,7 +77,7 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
                 pendingElicitation = GooseWebElicitationPrompt(id: id, request: request)
                 elicitationReply = replyHandler
             default:
-                replyHandler(nil, "Unsupported Epistemos Goose prompt request: \(type).")
+                replyHandler(nil, "Unsupported Epistemos Goose prompt request.")
             }
         } catch {
             replyHandler(nil, "Invalid Epistemos Goose prompt payload: \(error.localizedDescription)")
@@ -134,10 +150,34 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
     }
 
     private func jsonData(from object: Any) throws -> Data {
+        guard GooseNativeJSONSizeBudget.permits(
+            object,
+            maxBytes: Self.maxPromptPayloadBytes,
+            maxDepth: Self.maxPromptPayloadDepth,
+            maxCollectionEntries: Self.maxPromptPayloadCollectionEntries
+        ) else {
+            throw GooseWebNativePromptBridgeError.payloadTooLarge(Self.maxPromptPayloadBytes)
+        }
         guard JSONSerialization.isValidJSONObject(object) else {
             throw GooseWebNativePromptBridgeError.nonJSONObject
         }
-        return try JSONSerialization.data(withJSONObject: object)
+        let data = try JSONSerialization.data(withJSONObject: object)
+        guard data.count <= Self.maxPromptPayloadBytes else {
+            throw GooseWebNativePromptBridgeError.payloadTooLarge(Self.maxPromptPayloadBytes)
+        }
+        return data
+    }
+
+    nonisolated static func boundedPromptID(_ rawID: String) -> String? {
+        let withoutControls = String(String.UnicodeScalarView(rawID.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= Self.maxPromptIDCharacters else {
+            return nil
+        }
+        return trimmed
     }
 }
 
@@ -158,11 +198,17 @@ struct GooseWebElicitationPrompt: Identifiable, Equatable, Sendable {
 
 private enum GooseWebNativePromptBridgeError: LocalizedError {
     case nonJSONObject
+    case payloadTooLarge(Int)
+    case promptIDTooLong(Int)
 
     var errorDescription: String? {
         switch self {
         case .nonJSONObject:
             "Prompt payload is not a JSON object."
+        case .payloadTooLarge(let limit):
+            "Prompt payload is over \(limit) bytes."
+        case .promptIDTooLong(let limit):
+            "Prompt ID is empty or over \(limit) characters."
         }
     }
 }
