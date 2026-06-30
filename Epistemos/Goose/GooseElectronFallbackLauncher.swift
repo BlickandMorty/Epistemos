@@ -26,6 +26,10 @@ final class GooseElectronFallbackLauncher {
     nonisolated static let pnpmEnvironmentKey = "EPISTEMOS_GOOSE_ELECTRON_PNPM"
     nonisolated static let debugPortEnvironmentKey = "EPISTEMOS_GOOSE_ELECTRON_DEBUG_PORT"
     nonisolated static let maxStatusMessageCharacters = 512
+    nonisolated static let maxSubprocessEnvironmentValueCharacters = 4_096
+    nonisolated static let maxSubprocessPathCharacters = 8_192
+    nonisolated static let maxSubprocessPathEntryCharacters = 4_096
+    nonisolated static let maxSubprocessPathEntries = 64
     nonisolated private static let environmentAllowlist: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "SHELL",
     ]
@@ -271,9 +275,7 @@ final class GooseElectronFallbackLauncher {
         debugPort: Int? = nil,
         base: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String: String] {
-        var env = base.filter { key, _ in
-            environmentAllowlist.contains(key) && !environmentDenylist.contains(key)
-        }
+        var env = sanitizedSubprocessEnvironment(from: base)
         env["ELECTRON_IS_DEV"] = "1"
         env["NODE_ENV"] = "development"
         // No GOOSE_ALLOWLIST_BYPASS. Goose fetches its command allowlist from the URL
@@ -283,22 +285,25 @@ final class GooseElectronFallbackLauncher {
         // disabled" while disabling nothing). Omitting it also means that if
         // GOOSE_ALLOWLIST is ever forwarded, the child enforces it (the secure default).
         env["RUST_LOG"] = "info"
-        env["HERMIT_ENV"] = workspace.repoRoot.path
+        if let repoRoot = safeEnvironmentValue(workspace.repoRoot.path) {
+            env["HERMIT_ENV"] = repoRoot
+        }
         if let debugPort, isValidDebugPort(debugPort) {
             env["ENABLE_PLAYWRIGHT"] = "true"
             env["PLAYWRIGHT_DEBUG_PORT"] = String(debugPort)
         }
 
         let binDir = workspace.pnpm.deletingLastPathComponent().path
-        let existingPath = env["PATH"] ?? ""
-        env["PATH"] = existingPath.isEmpty ? binDir : "\(binDir):\(existingPath)"
+        env["PATH"] = boundedPath(from: [binDir] + inheritedPathComponents(env["PATH"]))
         return env
     }
 
     nonisolated static func debugPortFromEnvironment(
         _ environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Int? {
-        guard let raw = environment[debugPortEnvironmentKey],
+        guard let raw = safeEnvironmentValue(environment[debugPortEnvironmentKey])?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ),
               let port = Int(raw),
               isValidDebugPort(port) else {
             return nil
@@ -337,7 +342,65 @@ final class GooseElectronFallbackLauncher {
     nonisolated private static func nonEmptyPath(_ value: String?) -> String? {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        guard !trimmed.isEmpty,
+              trimmed.utf8.count <= maxSubprocessPathEntryCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated private static func sanitizedSubprocessEnvironment(from base: [String: String]) -> [String: String] {
+        var env: [String: String] = [:]
+        for (key, value) in base
+        where environmentAllowlist.contains(key) && !environmentDenylist.contains(key) {
+            guard let safeValue = safeEnvironmentValue(value) else { continue }
+            env[key] = safeValue
+        }
+        return env
+    }
+
+    nonisolated private static func safeEnvironmentValue(_ value: String?) -> String? {
+        guard let value,
+              value.utf8.count <= maxSubprocessEnvironmentValueCharacters,
+              !value.utf8.contains(0) else {
+            return nil
+        }
+        return value
+    }
+
+    nonisolated private static func inheritedPathComponents(_ path: String?) -> [String] {
+        guard let path = safeEnvironmentValue(path) else { return [] }
+        return path
+            .split(separator: ":", omittingEmptySubsequences: true)
+            .prefix(maxSubprocessPathEntries)
+            .compactMap { safePathEntry(String($0)) }
+    }
+
+    nonisolated private static func safePathEntry(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.utf8.count <= maxSubprocessPathEntryCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated private static func boundedPath(from candidates: [String]) -> String {
+        var entries: [String] = []
+        var seen: Set<String> = []
+        var length = 0
+        for candidate in candidates {
+            guard let entry = safePathEntry(candidate),
+                  seen.insert(entry).inserted else { continue }
+            let projectedLength = length + entry.utf8.count + (entries.isEmpty ? 0 : 1)
+            guard projectedLength <= maxSubprocessPathCharacters else { break }
+            entries.append(entry)
+            length = projectedLength
+        }
+        return entries.joined(separator: ":")
     }
 }
 #else

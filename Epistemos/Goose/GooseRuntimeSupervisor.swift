@@ -27,6 +27,10 @@ final class GooseRuntimeSupervisor {
     nonisolated static let defaultPort = 3284
     nonisolated static let listenTimeout: Duration = .seconds(20)
     nonisolated static let maxStatusMessageCharacters = 512
+    nonisolated static let maxSubprocessEnvironmentValueCharacters = 4_096
+    nonisolated static let maxSubprocessPathCharacters = 8_192
+    nonisolated static let maxSubprocessPathEntryCharacters = 4_096
+    nonisolated static let maxSubprocessPathEntries = 64
     /// `goosed agent` boots the full AppState (REST + gateways) and is slower to answer than the
     /// lean `goose serve`; give it a larger readiness budget. (Step 2 / Option B.)
     nonisolated static let goosedListenTimeout: Duration = .seconds(45)
@@ -40,7 +44,7 @@ final class GooseRuntimeSupervisor {
     }
 
     nonisolated static var configuredBackend: Backend {
-        ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_BACKEND"]?.lowercased() == "goosed"
+        safeEnvironmentValue(ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_BACKEND"])?.lowercased() == "goosed"
             ? .goosed : .serve
     }
 
@@ -49,7 +53,7 @@ final class GooseRuntimeSupervisor {
     /// pinned didReceiveAuthenticationChallenge delegate (follow-up; needed for secure-context MCP
     /// guest SDKs). Loopback http is safe here (secret-key-auth'd + nav-gated + 127.0.0.1 only).
     nonisolated static var goosedTLSEnabled: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_GOOSED_TLS"]?.lowercased() == "true"
+        safeEnvironmentValue(ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_GOOSED_TLS"])?.lowercased() == "true"
     }
     // A normal stop()+start() restart can leave the just-killed `goose serve`
     // momentarily bound to the port; wait this long for it to release before
@@ -445,10 +449,7 @@ final class GooseRuntimeSupervisor {
         goosedConfig: (host: String, port: Int, tls: Bool)? = nil,
         base: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String: String] {
-        var env = base.filter { key, _ in
-            subprocessEnvironmentAllowlist.contains(key) &&
-                !subprocessEnvironmentDenylist.contains(key)
-        }
+        var env = sanitizedSubprocessEnvironment(from: base)
         env["GOOSE_SERVER__SECRET_KEY"] = secretKey
         // Step 2 / Option B: goosed `agent` reads host/port/tls from the env (figment GOOSE_ prefix),
         // unlike `goose serve`'s CLI flags.
@@ -461,24 +462,74 @@ final class GooseRuntimeSupervisor {
            allowedGooseModes.contains(mode) {
             env["GOOSE_MODE"] = mode
         }
-        if let homeDirectory {
-            env["HOME"] = homeDirectory.path
+        if let homeDirectory, let homePath = safeEnvironmentValue(homeDirectory.path) {
+            env["HOME"] = homePath
         }
         if disableKeyring {
             env["GOOSE_DISABLE_KEYRING"] = "true"
         }
         let binDir = binary.deletingLastPathComponent().path
-        let home = env["HOME"] ?? base["HOME"] ?? NSHomeDirectory()
-        let existingComponents = (env["PATH"] ?? "").split(separator: ":").map(String.init)
-        let homeDirs = Self.homeRelativeToolDirectories.map { "\(home)/\($0)" }
-        var orderedPath: [String] = []
-        var seenPath: Set<String> = []
-        for dir in [binDir] + existingComponents + Self.canonicalToolPathDirectories + homeDirs
-        where !dir.isEmpty && seenPath.insert(dir).inserted {
-            orderedPath.append(dir)
-        }
-        env["PATH"] = orderedPath.joined(separator: ":")
+        let home = safePathEntry(env["HOME"]) ?? safePathEntry(base["HOME"]) ?? safePathEntry(NSHomeDirectory())
+        let homeDirs = home.map { safeHome in
+            Self.homeRelativeToolDirectories.map { "\(safeHome)/\($0)" }
+        } ?? []
+        env["PATH"] = boundedPath(
+            from: [binDir] + inheritedPathComponents(env["PATH"]) + Self.canonicalToolPathDirectories + homeDirs
+        )
         return env
+    }
+
+    nonisolated private static func sanitizedSubprocessEnvironment(from base: [String: String]) -> [String: String] {
+        var env: [String: String] = [:]
+        for (key, value) in base
+        where subprocessEnvironmentAllowlist.contains(key) && !subprocessEnvironmentDenylist.contains(key) {
+            guard let safeValue = safeEnvironmentValue(value) else { continue }
+            env[key] = safeValue
+        }
+        return env
+    }
+
+    nonisolated private static func safeEnvironmentValue(_ value: String?) -> String? {
+        guard let value,
+              value.utf8.count <= maxSubprocessEnvironmentValueCharacters,
+              !value.utf8.contains(0) else {
+            return nil
+        }
+        return value
+    }
+
+    nonisolated private static func inheritedPathComponents(_ path: String?) -> [String] {
+        guard let path = safeEnvironmentValue(path) else { return [] }
+        return path
+            .split(separator: ":", omittingEmptySubsequences: true)
+            .prefix(maxSubprocessPathEntries)
+            .compactMap { safePathEntry(String($0)) }
+    }
+
+    nonisolated private static func safePathEntry(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.utf8.count <= maxSubprocessPathEntryCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated private static func boundedPath(from candidates: [String]) -> String {
+        var entries: [String] = []
+        var seen: Set<String> = []
+        var length = 0
+        for candidate in candidates {
+            guard let entry = safePathEntry(candidate),
+                  seen.insert(entry).inserted else { continue }
+            let projectedLength = length + entry.utf8.count + (entries.isEmpty ? 0 : 1)
+            guard projectedLength <= maxSubprocessPathCharacters else { break }
+            entries.append(entry)
+            length = projectedLength
+        }
+        return entries.joined(separator: ":")
     }
 
     nonisolated static func parseListeningURL(from line: String, expectedPort: Int) -> URL? {

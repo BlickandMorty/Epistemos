@@ -87,6 +87,36 @@ struct GooseRuntimeSupervisorTests {
         #expect(inheritedOnlyEnv["GOOSE_MODE"] == nil)
     }
 
+    @Test("child env drops oversized inherited values and bounds PATH")
+    func processEnvironmentBoundsInheritedValuesAndPath() {
+        let binary = URL(fileURLWithPath: "/Runtime/goose/bin/goose")
+        let oversizedValue = String(
+            repeating: "x",
+            count: GooseRuntimeSupervisor.maxSubprocessEnvironmentValueCharacters + 1
+        )
+        let env = GooseRuntimeSupervisor.processEnvironment(
+            binary: binary,
+            secretKey: "secret-oversized",
+            base: [
+                "PATH": oversizedValue,
+                "HOME": oversizedValue,
+                "LANG": oversizedValue,
+                "USER": "bad\0actor",
+                "GOOSE_PROVIDER": oversizedValue,
+            ]
+        )
+        let path = env["PATH"] ?? ""
+
+        #expect(path.hasPrefix("/Runtime/goose/bin"))
+        #expect(path.count <= GooseRuntimeSupervisor.maxSubprocessPathCharacters)
+        #expect(!path.contains(oversizedValue))
+        #expect(env["HOME"] == nil)
+        #expect(env["LANG"] == nil)
+        #expect(env["USER"] == nil)
+        #expect(env["GOOSE_PROVIDER"] == nil)
+        #expect(env["GOOSE_SERVER__SECRET_KEY"] == "secret-oversized")
+    }
+
     @Test("child env can isolate Goose home and force file-backed secrets for live mutation proofs")
     func processEnvironmentCanIsolateHomeAndSecrets() {
         let binary = URL(fileURLWithPath: "/Runtime/goose/bin/goose")
@@ -2131,6 +2161,35 @@ struct GooseElectronFallbackLauncherTests {
         #expect(env["NODE_OPTIONS"] == nil)
     }
 
+    @Test("launcher environment drops oversized inherited values and bounds PATH")
+    func launcherEnvironmentBoundsInheritedValuesAndPath() throws {
+        let workspace = try makeGooseElectronFallbackWorkspace()
+        let oversizedValue = String(
+            repeating: "e",
+            count: GooseElectronFallbackLauncher.maxSubprocessEnvironmentValueCharacters + 1
+        )
+        let env = GooseElectronFallbackLauncher.processEnvironment(
+            workspace: workspace,
+            base: [
+                "PATH": oversizedValue,
+                "HOME": oversizedValue,
+                "LANG": oversizedValue,
+                "USER": "bad\0actor",
+                "SHELL": "/bin/zsh",
+            ]
+        )
+        let path = env["PATH"] ?? ""
+
+        #expect(path == workspace.pnpm.deletingLastPathComponent().path)
+        #expect(path.count <= GooseElectronFallbackLauncher.maxSubprocessPathCharacters)
+        #expect(!path.contains(oversizedValue))
+        #expect(env["HOME"] == nil)
+        #expect(env["LANG"] == nil)
+        #expect(env["USER"] == nil)
+        #expect(env["SHELL"] == "/bin/zsh")
+        #expect(env["HERMIT_ENV"] == workspace.repoRoot.path)
+    }
+
     @Test("debug port parsing rejects unsafe or malformed values")
     func debugPortParsingIsBounded() {
         #expect(
@@ -2146,6 +2205,14 @@ struct GooseElectronFallbackLauncherTests {
         #expect(
             GooseElectronFallbackLauncher.debugPortFromEnvironment([
                 GooseElectronFallbackLauncher.debugPortEnvironmentKey: "not-a-port",
+            ]) == nil
+        )
+        #expect(
+            GooseElectronFallbackLauncher.debugPortFromEnvironment([
+                GooseElectronFallbackLauncher.debugPortEnvironmentKey: String(
+                    repeating: "9",
+                    count: GooseElectronFallbackLauncher.maxSubprocessEnvironmentValueCharacters + 1
+                ),
             ]) == nil
         )
     }
