@@ -30,7 +30,8 @@ final class ScreenCaptureService {
     }
 
     private func logCaptureFailure(_ operation: String, error: Error) {
-        log.warning("\(operation, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+        let failure = OmegaVisionDiagnostics.externalLogMessage("\(operation) failed", error: error)
+        log.warning("\(failure, privacy: .public)")
     }
 
     // MARK: - Streaming Pipeline
@@ -114,7 +115,8 @@ final class ScreenCaptureService {
         do {
             try await stream.stopCapture()
         } catch {
-            log.warning("Stream stop error: \(error.localizedDescription)")
+            let failure = OmegaVisionDiagnostics.externalLogMessage("Stream stop error", error: error)
+            log.warning("\(failure, privacy: .public)")
         }
         activeStream = nil
         streamDelegate = nil
@@ -144,7 +146,8 @@ final class ScreenCaptureService {
             try await startStream(bundleID: bundleID, targetFPS: targetFPS, scale: scale)
             log.info("Stream recovered successfully after replayd restart")
         } catch {
-            log.error("Stream recovery failed: \(error.localizedDescription)")
+            let failure = OmegaVisionDiagnostics.externalLogMessage("Stream recovery failed", error: error)
+            log.error("\(failure, privacy: .public)")
         }
     }
 
@@ -159,7 +162,8 @@ final class ScreenCaptureService {
                 kickTask.waitUntilExit()
             } catch {
                 let logger = Logger(subsystem: "com.epistemos.omega", category: "ScreenCapture")
-                logger.error("Failed to restart replayd: \(error.localizedDescription)")
+                let failure = OmegaVisionDiagnostics.externalLogMessage("Failed to restart replayd", error: error)
+                logger.error("\(failure, privacy: .public)")
             }
         }.value
     }

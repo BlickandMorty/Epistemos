@@ -155,7 +155,11 @@ final class VisualVerifyLoop {
                 confidence = semanticResult.confidence
                 method = semanticResult.method
             } catch {
-                log.warning("LLM verify failed, falling back to diff: \(error.localizedDescription)")
+                let failure = OmegaVisionDiagnostics.externalLogMessage(
+                    "LLM verify failed, falling back to diff",
+                    error: error
+                )
+                log.warning("\(failure, privacy: .public)")
                 confidence = diffBasedVerification(
                     before: token.axStateBefore,
                     after: axStateAfter

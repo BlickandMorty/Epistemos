@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Epistemos
 
@@ -64,6 +65,47 @@ struct VisualVerifyLoopTests {
         #expect(result.confidence == 0.93)
         #expect(result.passed)
         #expect(loop.successRate == 1.0)
+    }
+
+    @Test("Omega vision diagnostics redact external errors")
+    func omegaVisionDiagnosticsRedactExternalErrors() {
+        let message = OmegaVisionDiagnostics.externalLogMessage(
+            "Vision OCR failed",
+            error: NSError(
+                domain: "/Users/jojo/PrivateVault/vision.swift",
+                code: -77,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Vision failed for /Users/jojo/PrivateVault/screenshot.png"
+                ]
+            )
+        )
+
+        #expect(message.contains("Vision OCR failed"))
+        #expect(message.contains("code=-77"))
+        #expect(message.count <= OmegaVisionDiagnostics.maxLogMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "vision.swift",
+            "screenshot.png",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
+    }
+
+    @Test("Omega vision sources do not log raw external errors")
+    func omegaVisionSourcesDoNotLogRawExternalErrors() throws {
+        for path in [
+            "Epistemos/Omega/Vision/ScreenCaptureService.swift",
+            "Epistemos/Omega/Vision/Screen2AXFusion.swift",
+            "Epistemos/Omega/Vision/VisualVerifyLoop.swift",
+        ] {
+            let source = try loadMirroredSourceTextFile(path)
+
+            #expect(source.contains("OmegaVisionDiagnostics.externalLogMessage"))
+            #expect(!source.contains("error.localizedDescription"))
+            #expect(!source.contains("String(describing: error)"))
+        }
     }
 }
 

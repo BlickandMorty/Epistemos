@@ -187,7 +187,8 @@ final class Screen2AXFusion {
             do {
                 try handler.perform([request])
             } catch {
-                self.log.warning("Vision OCR failed: \(error.localizedDescription)")
+                let failure = OmegaVisionDiagnostics.externalLogMessage("Vision OCR failed", error: error)
+                self.log.warning("\(failure, privacy: .public)")
                 continuation.resume(returning: [])
             }
         }
