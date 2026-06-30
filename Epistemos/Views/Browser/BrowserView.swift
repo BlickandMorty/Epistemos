@@ -131,7 +131,23 @@ nonisolated enum BrowserNavigationErrorPolicy {
            nsError.code == NSURLErrorCancelled {
             return nil
         }
-        return BrowserDisplayPolicy.error(error.localizedDescription)
+        return BrowserDisplayPolicy.error(
+            "Navigation failed (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))"
+        )
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
     }
 }
 

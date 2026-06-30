@@ -43,6 +43,9 @@ struct BrowserPlan3Tests {
         #expect(source.contains("decidePolicyFor navigationAction"))
         #expect(source.contains("decidePolicyFor navigationResponse"))
         #expect(source.contains("WKNavigationResponsePolicy"))
+        #expect(source.contains("Navigation failed (domain="))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewCreated()"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewDismantled()"))
         #expect(!source.contains("Goose"))
@@ -65,7 +68,26 @@ struct BrowserPlan3Tests {
             code: 1,
             userInfo: [NSLocalizedDescriptionKey: String(repeating: "e", count: BrowserDisplayPolicy.maxErrorLength + 32)]
         )
-        #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: longError)?.count == BrowserDisplayPolicy.maxErrorLength + 3)
+        #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: longError) == "Navigation failed (domain=BrowserPlan3Tests code=1)")
+
+        let pathLeakingError = NSError(
+            domain: "/Users/jojo/PrivateVault/browser.swift",
+            code: -101,
+            userInfo: [
+                NSLocalizedDescriptionKey: "Could not load /Users/jojo/PrivateVault/session.html"
+            ]
+        )
+        let pathLeakingMessage = try #require(BrowserNavigationErrorPolicy.userVisibleMessage(for: pathLeakingError))
+        #expect(pathLeakingMessage.contains("Navigation failed"))
+        #expect(pathLeakingMessage.contains("code=-101"))
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "browser.swift",
+            "session.html",
+        ] {
+            #expect(!pathLeakingMessage.contains(forbidden))
+        }
     }
 
     @Test("browser display policy caps page-controlled UI strings")
