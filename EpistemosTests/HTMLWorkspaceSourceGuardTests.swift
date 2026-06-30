@@ -125,6 +125,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("exportHTML()"))
         #expect(editorSource.contains("resourceMode: .inlinePackageAssets"))
         #expect(editorSource.contains("HTML saved (index route only)"))
+        #expect(editorSource.contains("PDF saved (index route only)"))
         #expect(editorSource.contains("previewRenderIdentity"))
         #expect(editorSource.contains("HTMLWorkspacePreviewIdentity.viewIdentity(for: previewPackage)"))
         #expect(editorSource.contains("themeIdentity: workspaceThemeIdentity"))

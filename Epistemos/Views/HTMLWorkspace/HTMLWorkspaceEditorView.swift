@@ -897,7 +897,7 @@ struct HTMLWorkspaceEditorView: View {
             do {
                 let data = try await HTMLWorkspacePDFExporter.export(package: exportPackage, theme: previewTheme)
                 try data.write(to: destination, options: [.atomic])
-                statusText = "PDF saved"
+                statusText = exportPackage.routes.isEmpty ? "PDF saved" : "PDF saved (index route only)"
             } catch {
                 statusText = failedStatus("PDF export", error: error)
             }
