@@ -1395,6 +1395,33 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect((blocked["error"] as? String)?.contains("\(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes)") == true)
     }
 
+    @Test("native dialog text and buttons are normalized and bounded")
+    func nativeDialogTextAndButtonsAreNormalizedAndBounded() {
+        let longMessage = "\u{0007}  " + String(
+            repeating: "m",
+            count: GooseWebNativeAffordanceBridge.maxNativeDialogMessageCharacters + 12
+        ) + "  \n"
+        let boundedMessage = GooseWebNativeAffordanceBridge.boundedNativeDialogText(
+            longMessage,
+            maxCharacters: GooseWebNativeAffordanceBridge.maxNativeDialogMessageCharacters,
+            fallback: "Goose"
+        )
+        #expect(boundedMessage?.count == GooseWebNativeAffordanceBridge.maxNativeDialogMessageCharacters)
+        #expect(boundedMessage?.first == "m")
+
+        let rawButtons = (0..<(GooseWebNativeAffordanceBridge.maxNativeDialogButtons + 5)).map { index in
+            "\u{0008} " + String(
+                repeating: "\(index)",
+                count: GooseWebNativeAffordanceBridge.maxNativeDialogButtonCharacters + 3
+            )
+        }
+        let boundedButtons = GooseWebNativeAffordanceBridge.boundedNativeDialogButtons([""] + rawButtons)
+        #expect(boundedButtons.count == GooseWebNativeAffordanceBridge.maxNativeDialogButtons)
+        #expect(boundedButtons.allSatisfy { $0.count <= GooseWebNativeAffordanceBridge.maxNativeDialogButtonCharacters })
+        #expect(boundedButtons.allSatisfy { !$0.contains("\u{0008}") })
+        #expect(GooseWebNativeAffordanceBridge.boundedNativeDialogButtons(["", "  "]) == ["OK"])
+    }
+
     @Test("file bridge rejects oversized WebView writes")
     func fileBridgeRejectsOversizedWebViewWrites() throws {
         let root = FileManager.default.temporaryDirectory

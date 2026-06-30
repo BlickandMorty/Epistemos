@@ -31,6 +31,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeFileWriteBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeDirectoryListEntries = 5_000
     nonisolated static let maxLaunchedAppNameCharacters = 128
+    nonisolated static let maxNativeDialogButtons = 8
+    nonisolated static let maxNativeDialogTitleCharacters = 160
+    nonisolated static let maxNativeDialogMessageCharacters = 2_048
+    nonisolated static let maxNativeDialogDetailCharacters = 8_192
+    nonisolated static let maxNativeDialogButtonCharacters = 80
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -305,11 +310,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private func runMessageBox(options: [String: Any]) -> [String: Any] {
         let alert = NSAlert()
         alert.alertStyle = alertStyle(from: options["type"] as? String)
-        alert.messageText = (options["message"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Goose"
-        if let detail = options["detail"] as? String {
+        alert.messageText = Self.boundedNativeDialogText(
+            options["message"] as? String,
+            maxCharacters: Self.maxNativeDialogMessageCharacters,
+            fallback: "Goose"
+        ) ?? "Goose"
+        if let detail = Self.boundedNativeDialogText(
+            options["detail"] as? String,
+            maxCharacters: Self.maxNativeDialogDetailCharacters
+        ) {
             alert.informativeText = detail
         }
-        let buttons = (options["buttons"] as? [String]).flatMap { $0.isEmpty ? nil : $0 } ?? ["OK"]
+        let buttons = Self.boundedNativeDialogButtons(options["buttons"] as? [String])
         for button in buttons {
             alert.addButton(withTitle: button)
         }
@@ -384,6 +396,31 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         } catch {
             return ["filePath": filePath, "contents": "", "error": error.localizedDescription]
         }
+    }
+
+    nonisolated static func boundedNativeDialogButtons(_ rawButtons: [String]?) -> [String] {
+        let buttons = (rawButtons ?? []).compactMap {
+            boundedNativeDialogText(
+                $0,
+                maxCharacters: maxNativeDialogButtonCharacters
+            )
+        }
+        let bounded = Array(buttons.prefix(maxNativeDialogButtons))
+        return bounded.isEmpty ? ["OK"] : bounded
+    }
+
+    nonisolated static func boundedNativeDialogText(
+        _ rawText: String?,
+        maxCharacters: Int,
+        fallback: String? = nil
+    ) -> String? {
+        guard let rawText else { return fallback }
+        let withoutControls = String(String.UnicodeScalarView(rawText.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0) || $0 == "\n" || $0 == "\t"
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        return String(trimmed.prefix(Swift.max(0, maxCharacters)))
     }
 
     private func openExternal(_ rawURL: String) throws {
@@ -916,13 +953,22 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func applyPanelOptions(_ options: [String: Any], to panel: NSSavePanel) {
-        if let title = options["title"] as? String {
+        if let title = Self.boundedNativeDialogText(
+            options["title"] as? String,
+            maxCharacters: Self.maxNativeDialogTitleCharacters
+        ) {
             panel.title = title
         }
-        if let message = options["message"] as? String {
+        if let message = Self.boundedNativeDialogText(
+            options["message"] as? String,
+            maxCharacters: Self.maxNativeDialogMessageCharacters
+        ) {
             panel.message = message
         }
-        if let prompt = options["buttonLabel"] as? String {
+        if let prompt = Self.boundedNativeDialogText(
+            options["buttonLabel"] as? String,
+            maxCharacters: Self.maxNativeDialogButtonCharacters
+        ) {
             panel.prompt = prompt
         }
         if let defaultPath = options["defaultPath"] as? String {
@@ -1213,7 +1259,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func checkboxButton(options: [String: Any]) -> NSButton? {
-        guard let label = options["checkboxLabel"] as? String, !label.isEmpty else {
+        guard let label = Self.boundedNativeDialogText(
+            options["checkboxLabel"] as? String,
+            maxCharacters: Self.maxNativeDialogButtonCharacters
+        ) else {
             return nil
         }
         let checkbox = NSButton(checkboxWithTitle: label, target: nil, action: nil)
