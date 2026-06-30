@@ -388,8 +388,8 @@ Folded in as clean Plan-3 capabilities:
   through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope
   and finite/clamped download progress plus capped status/error text for UI display.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
-  status-gated and rejects symlink-routed, non-regular, oversized, or invalid-manifest model artifacts; no model asset,
-  picker row, neural runtime, Python, or subprocess enters the MAS path.
+  status-gated and rejects symlink-routed, non-regular, oversized, or invalid-manifest model artifacts with bounded
+  model-relative status diagnostics; no model asset, picker row, neural runtime, Python, or subprocess enters the MAS path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
   Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo

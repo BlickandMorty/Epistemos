@@ -7,6 +7,7 @@ nonisolated enum KokoroVoiceGateStatus {
     static let manifestFileName = "manifest.json"
     static let modelPackageName = "Kokoro82M.mlpackage"
     static let maxManifestBytes = 64 * 1024
+    private static let maxPathDiagnosticLength = 160
 
     enum State: String, Equatable, Sendable {
         case unavailable
@@ -88,7 +89,7 @@ nonisolated enum KokoroVoiceGateStatus {
                 state: .missingModel,
                 isReady: false,
                 headline: "Kokoro voice: model package missing",
-                detail: "Expected \(modelDirectory.path), but \(problems.joined(separator: ", ")). AVSpeech remains the voice runtime."
+                detail: "Expected \(modelDirectoryName), but \(problems.joined(separator: ", ")). AVSpeech remains the voice runtime."
             )
         }
 
@@ -96,7 +97,7 @@ nonisolated enum KokoroVoiceGateStatus {
             state: .ready,
             isReady: true,
             headline: "Kokoro voice: model package ready",
-            detail: "The checked Pro model package is present at \(modelDirectory.path). Picker/runtime integration must still choose this lane explicitly."
+            detail: "The checked Pro model package is present in \(modelDirectoryName). Picker/runtime integration must still choose this lane explicitly."
         )
         #endif
     }
@@ -171,7 +172,7 @@ nonisolated enum KokoroVoiceGateStatus {
         fileManager: FileManager
     ) -> String? {
         if let component = firstSymlinkComponent(in: url, fileManager: fileManager) {
-            return "\(name) path must not include symlink component at \(component.path)"
+            return "\(name) path must not include symlink component at \(pathDiagnostic(component, relativeTo: rootURL))"
         }
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
@@ -234,5 +235,28 @@ nonisolated enum KokoroVoiceGateStatus {
         let root = rootURL.standardizedFileURL.resolvingSymlinksInPath()
         let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
         return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
+    }
+
+    private static func pathDiagnostic(_ url: URL, relativeTo rootURL: URL) -> String {
+        let component = url.standardizedFileURL.path
+        let root = rootURL.standardizedFileURL.path
+        let description: String
+        if component == root {
+            description = modelDirectoryName
+        } else if component.hasPrefix(root + "/") {
+            description = String(component.dropFirst(root.count + 1))
+        } else {
+            description = url.lastPathComponent
+        }
+        return pathDiagnostic(description)
+    }
+
+    private static func pathDiagnostic(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? "[path]" : trimmed
+        guard description.count > maxPathDiagnosticLength else {
+            return description
+        }
+        return String(description.prefix(maxPathDiagnosticLength)) + "..."
     }
 }

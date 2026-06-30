@@ -205,6 +205,8 @@ struct VoiceCodepackPlan3Tests {
             "FileAttributeType == .typeRegular",
             "FileAttributeType == .typeDirectory",
             "path must not include symlink component",
+            "pathDiagnostic(",
+            "maxPathDiagnosticLength",
             "resolvesInsideModelDirectory",
             "AVSpeech remains the voice runtime",
             "Picker/runtime integration must still choose this lane explicitly"
@@ -250,6 +252,37 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.state == .missingModel)
         #expect(status.detail.contains("manifest.json is a directory"))
         #expect(status.detail.contains("Kokoro82M.mlpackage is not a directory"))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro Pro gate ready detail does not expose the local model root")
+    func kokoroProGateReadyDetailDoesNotExposeLocalModelRoot() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-ready-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
+        let modelPackageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: modelPackageURL, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: manifestURL)
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(status.isReady)
+        #expect(status.state == .ready)
+        #expect(status.detail.contains(KokoroVoiceGateStatus.modelDirectoryName))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #expect(status.detail.count < 240)
         #else
         #expect(true)
         #endif
@@ -325,6 +358,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.state == .missingModel)
         #expect(status.detail.contains("manifest.json path must not include symlink component"))
         #expect(status.detail.contains("Kokoro82M.mlpackage path must not include symlink component"))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #expect(status.detail.contains(outsideManifest.path) == false)
+        #expect(status.detail.contains(outsidePackage.path) == false)
         #else
         #expect(true)
         #endif
