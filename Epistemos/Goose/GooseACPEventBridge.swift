@@ -486,6 +486,10 @@ struct GooseACPUnhandledDiagnostic: Identifiable, Equatable, Sendable {
         case notification
     }
 
+    static let maxMethodCharacters = 256
+    static let maxObjectKeyCharacters = 64
+    static let maxVisibleObjectKeys = 6
+
     let id: String
     let kind: Kind
     let method: String
@@ -494,17 +498,20 @@ struct GooseACPUnhandledDiagnostic: Identifiable, Equatable, Sendable {
     init(sequence: Int, kind: Kind, method: String, params: JSONValue) {
         id = "\(kind.rawValue):\(sequence)"
         self.kind = kind
-        self.method = method
+        self.method = Self.bounded(method, maxCharacters: Self.maxMethodCharacters)
         parameterSummary = Self.summarize(params)
     }
 
     private static func summarize(_ params: JSONValue) -> String {
         switch params {
         case .object(let object):
-            let keys = object.keys.sorted()
-            guard !keys.isEmpty else { return "object(empty)" }
-            let visibleKeys = keys.prefix(6).joined(separator: ",")
-            return keys.count > 6 ? "object(\(visibleKeys),...)" : "object(\(visibleKeys))"
+            guard !object.isEmpty else { return "object(empty)" }
+            let visibleKeys = object.keys
+                .prefix(maxVisibleObjectKeys)
+                .map { bounded($0, maxCharacters: maxObjectKeyCharacters) }
+                .sorted()
+                .joined(separator: ",")
+            return object.count > maxVisibleObjectKeys ? "object(\(visibleKeys),...)" : "object(\(visibleKeys))"
         case .array(let values):
             return "array(\(values.count))"
         case .string:
@@ -516,6 +523,13 @@ struct GooseACPUnhandledDiagnostic: Identifiable, Equatable, Sendable {
         case .null:
             return "null"
         }
+    }
+
+    private static func bounded(_ value: String, maxCharacters: Int) -> String {
+        guard value.count > maxCharacters else { return value }
+        let suffix = "..."
+        let budget = max(0, maxCharacters - suffix.count)
+        return String(value.prefix(budget)) + suffix
     }
 }
 

@@ -1382,6 +1382,34 @@ struct GooseACPEventBridgeTests {
         #expect(error["message"] == .string("Unsupported ACP request: _goose/unstable/session/recipe/request-params"))
         await bridge.disconnect()
     }
+
+    @Test("unhandled diagnostics bound method and object-key summaries")
+    func unhandledDiagnosticsBoundSummaries() {
+        let longMethod = String(
+            repeating: "m",
+            count: GooseACPUnhandledDiagnostic.maxMethodCharacters + 20
+        )
+        let longKey = String(
+            repeating: "k",
+            count: GooseACPUnhandledDiagnostic.maxObjectKeyCharacters + 20
+        )
+        let params = JSONValue.object(Dictionary(uniqueKeysWithValues: (0..<128).map {
+            ("key-\($0)-\(longKey)", JSONValue.int($0))
+        }))
+
+        let diagnostic = GooseACPUnhandledDiagnostic(
+            sequence: 1,
+            kind: .request,
+            method: longMethod,
+            params: params
+        )
+
+        #expect(diagnostic.method.count == GooseACPUnhandledDiagnostic.maxMethodCharacters)
+        #expect(diagnostic.method.hasSuffix("..."))
+        #expect(diagnostic.parameterSummary.hasPrefix("object("))
+        #expect(diagnostic.parameterSummary.hasSuffix(",...)"))
+        #expect(diagnostic.parameterSummary.count < 512)
+    }
 }
 
 @Suite("Goose Web native prompt bridge")
