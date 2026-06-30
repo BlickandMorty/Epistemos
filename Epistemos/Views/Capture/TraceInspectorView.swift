@@ -2,6 +2,53 @@ import SwiftUI
 import Foundation
 import os
 
+nonisolated enum TraceInspectorDiagnostics {
+    static let maxLogMessageCharacters = 240
+    static let maxItemNameCharacters = 96
+
+    static func externalLogMessage(_ operation: String, error: Error) -> String {
+        let fallback = boundedLogMessage(operation, fallback: "Trace load failed")
+        let nsError = error as NSError
+        return boundedLogMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func logName(for url: URL) -> String {
+        let name = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        return boundedLogMessage(name, limit: maxItemNameCharacters, fallback: "trace item")
+    }
+
+    static func boundedLogMessage(
+        _ message: String,
+        limit: Int = maxLogMessageCharacters,
+        fallback: String = "Trace load failed"
+    ) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > limit else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(trimmed.startIndex, offsetBy: max(0, limit - suffix.count))
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 struct ParsedTraceEvent: Identifiable, Sendable {
     let id = UUID()
     let type: String
@@ -100,17 +147,31 @@ class TraceInspectorViewModel {
                                 }
                             }
                         } catch {
-                            logger.error("Failed reading trace file \(file.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                            let failure = TraceInspectorDiagnostics.externalLogMessage(
+                                "Failed reading trace file",
+                                error: error
+                            )
+                            let traceFile = TraceInspectorDiagnostics.logName(for: file)
+                            logger.error("\(failure, privacy: .public) file=\(traceFile, privacy: .public)")
                         }
                     }
                 } catch {
-                    logger.error("Failed reading trace directory \(dir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    let failure = TraceInspectorDiagnostics.externalLogMessage(
+                        "Failed reading trace directory",
+                        error: error
+                    )
+                    let traceDirectory = TraceInspectorDiagnostics.logName(for: dir)
+                    logger.error("\(failure, privacy: .public) directory=\(traceDirectory, privacy: .public)")
                 }
             }
 
             return loadedTraces.sorted { $0.timestamp > $1.timestamp }
         } catch {
-            logger.error("Failed loading capture traces: \(error.localizedDescription, privacy: .public)")
+            let failure = TraceInspectorDiagnostics.externalLogMessage(
+                "Failed loading capture traces",
+                error: error
+            )
+            logger.error("\(failure, privacy: .public)")
             return []
         }
     }

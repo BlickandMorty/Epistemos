@@ -986,7 +986,39 @@ struct TextCapturePipelineTests {
         #expect(captureView.contains("isTraceInspectorPresented = false"))
         #expect(traceInspector.contains("pixelPanel(theme: theme"))
         #expect(traceInspector.contains("PixelPanelTitle(text: \"Capture Trace Inspector\""))
+        #expect(traceInspector.contains("TraceInspectorDiagnostics.externalLogMessage"))
+        #expect(!traceInspector.contains("error.localizedDescription"))
+        #expect(!traceInspector.contains("String(describing: error)"))
         #expect(!traceInspector.contains("List(viewModel.traces)"))
+    }
+
+    @Test("Trace inspector diagnostics redact trace paths and external errors")
+    func traceInspectorDiagnosticsRedactTracePathsAndExternalErrors() {
+        let message = TraceInspectorDiagnostics.externalLogMessage(
+            "Failed reading trace file",
+            error: NSError(
+                domain: "/Users/jojo/PrivateVault/trace.swift",
+                code: 7,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Could not read /Users/jojo/PrivateVault/trace.jsonl"
+                ]
+            )
+        )
+        let itemName = TraceInspectorDiagnostics.logName(
+            for: URL(fileURLWithPath: "/Users/jojo/PrivateVault/trace.jsonl")
+        )
+
+        #expect(message.contains("Failed reading trace file"))
+        #expect(message.contains("code=7"))
+        #expect(itemName == "trace.jsonl")
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "trace.swift",
+        ] {
+            #expect(!message.contains(forbidden))
+            #expect(!itemName.contains(forbidden))
+        }
     }
 
     @Test("Quick Capture clears text focus and restores home input on dismiss")
