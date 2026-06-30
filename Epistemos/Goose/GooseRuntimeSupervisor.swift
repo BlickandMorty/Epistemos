@@ -31,6 +31,7 @@ final class GooseRuntimeSupervisor {
     nonisolated static let maxSubprocessPathCharacters = 8_192
     nonisolated static let maxSubprocessPathEntryCharacters = 4_096
     nonisolated static let maxSubprocessPathEntries = 64
+    nonisolated static let maxListeningLogLineCharacters = GooseProcessDiagnostics.maxStoredDiagnosticCharacters
     /// `goosed agent` boots the full AppState (REST + gateways) and is slower to answer than the
     /// lean `goose serve`; give it a larger readiness budget. (Step 2 / Option B.)
     nonisolated static let goosedListenTimeout: Duration = .seconds(45)
@@ -533,6 +534,7 @@ final class GooseRuntimeSupervisor {
     }
 
     nonisolated static func parseListeningURL(from line: String, expectedPort: Int) -> URL? {
+        let line = String(line.prefix(maxListeningLogLineCharacters))
         let lower = line.lowercased()
         guard lower.contains("acp server"),
               lower.contains("starting") || lower.contains("listening") else {

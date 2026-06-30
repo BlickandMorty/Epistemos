@@ -207,6 +207,13 @@ struct GooseRuntimeSupervisorTests {
                 expectedPort: 3284
             ) == nil
         )
+        #expect(
+            GooseRuntimeSupervisor.parseListeningURL(
+                from: String(repeating: "x", count: GooseRuntimeSupervisor.maxListeningLogLineCharacters + 1)
+                    + " Starting ACP server on 127.0.0.1:3284",
+                expectedPort: 3284
+            ) == nil
+        )
     }
 
     @Test("listening logs stay diagnostic while health gates readiness")
