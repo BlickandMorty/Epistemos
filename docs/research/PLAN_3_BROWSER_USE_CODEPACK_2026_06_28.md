@@ -92,7 +92,8 @@ directories.
 `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` now lands the Pro runtime launch contract: it validates
 the browser-use gate plus staged payload artifacts, validates loopback host/port plus a bounded Web UI theme, builds the
 exact `web-ui/webui.py --ip 127.0.0.1 --port 7788 --theme Ocean` loopback plan, rejects non-executable Python, file/directory artifact shape mismatches, and runtime
-artifact symlink escapes before launch planning, writes the Keychain-combined launch `.env` under Application Support
+artifact symlink escapes before launch planning, reports runtime artifact diagnostics as bounded paths relative to the
+runtime root instead of full user-local paths, writes the Keychain-combined launch `.env` under Application Support
 with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
 secrets are written, launches the Pro process only after an injected loopback health probe can validate
 `http://127.0.0.1:<port>/`, keeps rejected-redirect health diagnostics origin-only so hostile Location URLs cannot echo

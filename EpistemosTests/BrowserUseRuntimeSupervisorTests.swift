@@ -271,6 +271,27 @@ struct BrowserUseRuntimeSupervisorTests {
 
         #expect(!readiness.isReady)
         #expect(readiness.message.contains("Python 3.11 executable resolves outside browser-use runtime root"))
+        #expect(readiness.message.contains(".venv/bin/python"))
+        #expect(!readiness.message.contains(outsidePython.path))
+        #expect(!readiness.message.contains(paths.buildRoot.path))
+    }
+
+    @Test("runtime artifact diagnostics use bounded relative paths")
+    func runtimeArtifactDiagnosticsUseBoundedRelativePaths() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+        try FileManager.default.removeItem(at: paths.webUIEntrypointURL)
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"]
+        )
+
+        #expect(!readiness.isReady)
+        #expect(readiness.message.contains("missing web-ui entrypoint at web-ui/webui.py"))
+        #expect(!readiness.message.contains(paths.vendorRoot.path))
     }
 
     @Test("default paths prefer bundled Pro resources before source checkout layout")
@@ -578,6 +599,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseLoopbackPolicy.allows(url:",
             "redactedURLDescription",
             "maxURLDiagnosticLength",
+            "maxPathDiagnosticLength",
+            "runtimeArtifactPathDescription",
             "try healthProbe(plan, shouldCancel)",
             "launchedProcess.terminate()",
             "stop()",

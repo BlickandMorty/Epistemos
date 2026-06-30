@@ -298,6 +298,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let healthProbePollIntervalSeconds: TimeInterval = 0.25
     private static let maxThemeLength = 64
     private static let maxURLDiagnosticLength = 120
+    private static let maxPathDiagnosticLength = 160
 
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
@@ -684,25 +685,45 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         rootURL: URL,
         fileManager: FileManager
     ) -> String? {
+        let diagnosticPath = runtimeArtifactPathDescription(url, relativeTo: rootURL)
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
-            return "missing \(name) at \(url.path)"
+            return "missing \(name) at \(diagnosticPath)"
         }
         guard resolvesInsideRuntimeRoot(url, relativeTo: rootURL) else {
-            return "\(name) resolves outside browser-use runtime root at \(url.path)"
+            return "\(name) resolves outside browser-use runtime root at \(diagnosticPath)"
         }
 
         switch kind {
         case .file:
-            return isDirectory.boolValue ? "\(name) is a directory at \(url.path)" : nil
+            return isDirectory.boolValue ? "\(name) is a directory at \(diagnosticPath)" : nil
         case .executableFile:
             if isDirectory.boolValue {
-                return "\(name) is a directory at \(url.path)"
+                return "\(name) is a directory at \(diagnosticPath)"
             }
-            return fileManager.isExecutableFile(atPath: url.path) ? nil : "\(name) is not executable at \(url.path)"
+            return fileManager.isExecutableFile(atPath: url.path) ? nil : "\(name) is not executable at \(diagnosticPath)"
         case .directory:
-            return isDirectory.boolValue ? nil : "\(name) is not a directory at \(url.path)"
+            return isDirectory.boolValue ? nil : "\(name) is not a directory at \(diagnosticPath)"
         }
+    }
+
+    private static func runtimeArtifactPathDescription(_ url: URL, relativeTo rootURL: URL) -> String {
+        let rootPath = rootURL.standardizedFileURL.path
+        let candidatePath = url.standardizedFileURL.path
+
+        let description: String
+        if candidatePath == rootPath {
+            description = "."
+        } else if candidatePath.hasPrefix(rootPath + "/") {
+            description = String(candidatePath.dropFirst(rootPath.count + 1))
+        } else {
+            description = "[outside runtime root]"
+        }
+
+        guard description.count > maxPathDiagnosticLength else {
+            return description
+        }
+        return String(description.prefix(maxPathDiagnosticLength)) + "..."
     }
 
     private static func resolvesInsideRuntimeRoot(_ url: URL, relativeTo rootURL: URL) -> Bool {
