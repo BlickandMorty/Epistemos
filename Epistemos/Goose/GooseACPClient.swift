@@ -476,9 +476,9 @@ actor GooseACPClient {
     }
 
     func close() async {
-        await transport.close()
         readLoopTask?.cancel()
         readLoopTask = nil
+        await transport.close()
         fail(GooseACPProtocolError.closed)
     }
 
@@ -500,6 +500,7 @@ actor GooseACPClient {
                     }
                     return
                 }
+                guard !Task.isCancelled else { return }
                 guard let self else { return }
                 // Per-frame containment (B-HIGH-1): a single undecodable frame — a non-text frame, a
                 // malformed-JSON frame, or one whose envelope doesn't match — must NOT tear down the

@@ -450,6 +450,8 @@ final class GooseACPEventBridge {
     }
 
     private func fail(_ error: Error) {
+        pendingPermission = nil
+        pendingElicitation = nil
         status = .failed(error.localizedDescription)
     }
 

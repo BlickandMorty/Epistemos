@@ -253,6 +253,25 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("client close wakes event waiters with closed instead of skipped-frame diagnostics")
+    func clientCloseDoesNotDeliverSkippedFrameDiagnostic() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+        let eventTask = Task {
+            try await client.receiveEvent()
+        }
+
+        await transport.waitUntilReceiveWaiters(count: 1)
+        await client.close()
+
+        do {
+            _ = try await eventTask.value
+            Issue.record("close should fail waiting event receivers with GooseACPProtocolError.closed")
+        } catch GooseACPProtocolError.closed {
+            // expected
+        }
+    }
+
     @Test("prompt streams session updates before the final prompt response")
     func promptStreamsBeforeFinalResponse() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
@@ -767,6 +786,45 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
+    @Test("bridge clears pending ACP prompts when the connection fails")
+    func bridgeClearsPendingPromptsOnConnectionFailure() async throws {
+        let transport = GooseACPFramesThenFailTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": "perm-1",
+              "method": "session/request_permission",
+              "params": {
+                "sessionId": "session-1",
+                "toolCall": {
+                  "toolCallId": "tool-1",
+                  "title": "Write file",
+                  "kind": "edit",
+                  "status": "pending"
+                },
+                "options": [
+                  { "optionId": "once", "name": "Allow once", "kind": "allow_once" }
+                ]
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil {
+            if case .failed = bridge.status {
+                return true
+            }
+            return false
+        }
+
+        #expect(bridge.pendingPermission == nil)
+        #expect(bridge.pendingElicitation == nil)
+        await bridge.disconnect()
+    }
+
     @Test("bridge cancels an old pending permission request before replacing it")
     func bridgeCancelsReplacedPermissionRequests() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
@@ -1140,6 +1198,7 @@ actor GooseACPMemoryTransport: GooseACPTransport {
     private var incoming: [String]
     private var sent: [String] = []
     private var receiveWaiters: [CheckedContinuation<String?, Error>] = []
+    private var receiveWaiterCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
     private var sentCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
     private var isClosed = false
 
@@ -1161,6 +1220,7 @@ actor GooseACPMemoryTransport: GooseACPTransport {
 
         return try await withCheckedThrowingContinuation { continuation in
             receiveWaiters.append(continuation)
+            resumeReceiveWaiterCountWaiters()
         }
     }
 
@@ -1187,6 +1247,13 @@ actor GooseACPMemoryTransport: GooseACPTransport {
         guard sent.count < count else { return }
         await withCheckedContinuation { continuation in
             sentCountWaiters.append((count: count, continuation: continuation))
+        }
+    }
+
+    func waitUntilReceiveWaiters(count: Int) async {
+        guard receiveWaiters.count < count else { return }
+        await withCheckedContinuation { continuation in
+            receiveWaiterCountWaiters.append((count: count, continuation: continuation))
         }
     }
 
@@ -1223,6 +1290,18 @@ actor GooseACPMemoryTransport: GooseACPTransport {
             }
         }
         sentCountWaiters = stillWaiting
+    }
+
+    private func resumeReceiveWaiterCountWaiters() {
+        var stillWaiting: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+        for waiter in receiveWaiterCountWaiters {
+            if receiveWaiters.count >= waiter.count {
+                waiter.continuation.resume()
+            } else {
+                stillWaiting.append(waiter)
+            }
+        }
+        receiveWaiterCountWaiters = stillWaiting
     }
 }
 
@@ -1261,6 +1340,25 @@ private actor GooseACPFailingTransport: GooseACPTransport {
 
     func receive() async throws -> String? {
         throw GooseACPInjectedFailure()
+    }
+
+    func close() async {}
+}
+
+private actor GooseACPFramesThenFailTransport: GooseACPTransport {
+    private var incoming: [String]
+
+    init(incoming: [String]) {
+        self.incoming = incoming
+    }
+
+    func send(_ text: String) async throws {}
+
+    func receive() async throws -> String? {
+        guard !incoming.isEmpty else {
+            throw GooseACPInjectedFailure()
+        }
+        return incoming.removeFirst()
     }
 
     func close() async {}
