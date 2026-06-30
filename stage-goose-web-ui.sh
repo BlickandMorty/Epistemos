@@ -4128,6 +4128,12 @@ if (source.includes("        gateway: 'sharing',")) {
     "        gateway: USE_ACP_CHAT ? 'models' : 'sharing',"
   );
 }
+if (source.includes("        prompts: 'prompts',")) {
+  source = source.replace(
+    "        prompts: 'prompts',",
+    "        prompts: USE_ACP_CHAT ? 'models' : 'prompts', // epistemos-acp-hide-prompts-settings"
+  );
+}
 
 const tunnelEffectAnchor = `  useEffect(() => {
     getTunnelStatus()`;
@@ -4198,11 +4204,62 @@ if (!source.includes('{!USE_ACP_CHAT && (\n                  <TabsContent\n     
   source = source.replace(sharingContentAnchor, sharingContentReplacement);
 }
 
+// epistemos-acp-hide-prompts-settings: prompt template CRUD has no Goose ACP
+// method. Hide the Prompts tab/content in ACP so the product does not expose a
+// broken editor backed by dead REST calls.
+const promptsTabAnchor = `                  <TabsTrigger
+                    value="prompts"
+                    className="flex gap-2"
+                    data-testid="settings-prompts-tab"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {intl.formatMessage(i18n.tabPrompts)}
+                  </TabsTrigger>`;
+const promptsTabReplacement = `                  {!USE_ACP_CHAT && (
+                    <TabsTrigger
+                      value="prompts"
+                      className="flex gap-2"
+                      data-testid="settings-prompts-tab"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {intl.formatMessage(i18n.tabPrompts)}
+                    </TabsTrigger>
+                  )}`;
+if (!source.includes('{!USE_ACP_CHAT && (\n                    <TabsTrigger\n                      value="prompts"')) {
+  if (!source.includes(promptsTabAnchor)) {
+    throw new Error('SettingsView prompts tab anchor not found');
+  }
+  source = source.replace(promptsTabAnchor, promptsTabReplacement);
+}
+
+const promptsContentAnchor = `                <TabsContent
+                  value="prompts"
+                  className="mt-0 focus-visible:outline-none"
+                >
+                  <PromptsSettingsSection />
+                </TabsContent>`;
+const promptsContentReplacement = `                {!USE_ACP_CHAT && (
+                  <TabsContent
+                    value="prompts"
+                    className="mt-0 focus-visible:outline-none"
+                  >
+                    <PromptsSettingsSection />
+                  </TabsContent>
+                )}`;
+if (!source.includes('{!USE_ACP_CHAT && (\n                  <TabsContent\n                    value="prompts"')) {
+  if (!source.includes(promptsContentAnchor)) {
+    throw new Error('SettingsView prompts content anchor not found');
+  }
+  source = source.replace(promptsContentAnchor, promptsContentReplacement);
+}
+
 for (const snippet of [
   acpImport,
   'const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing',
   "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing",
   'setTunnelDisabled(true); // epistemos-acp-hide-session-sharing',
+  "prompts: USE_ACP_CHAT ? 'models' : 'prompts', // epistemos-acp-hide-prompts-settings",
+  'epistemos-acp-hide-prompts-settings',
   '{!USE_ACP_CHAT && (',
 ]) {
   if (!source.includes(snippet)) {
