@@ -22,14 +22,48 @@ struct DeepResearchOutcome: Sendable, Equatable {
     let findings: [DeepResearchFinding]
 }
 
+enum DeepResearchReportBounds {
+    static let maxReportCharacters = 12_000
+    static let maxRenderedFindings = 20
+    static let maxFindingIDCharacters = 80
+    static let maxFindingQuestionCharacters = 500
+    static let maxFindingBodyCharacters = 4_000
+
+    static func report(_ value: String) -> String {
+        capped(value, limit: maxReportCharacters)
+    }
+
+    static func findingID(_ value: String) -> String {
+        let id = capped(value, limit: maxFindingIDCharacters)
+        return id.isEmpty ? "source" : id
+    }
+
+    static func findingQuestion(_ value: String) -> String {
+        capped(value, limit: maxFindingQuestionCharacters)
+    }
+
+    static func findingBody(_ value: String) -> String {
+        capped(value, limit: maxFindingBodyCharacters)
+    }
+
+    private static func capped(_ value: String, limit: Int) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else {
+            return trimmed
+        }
+        return String(trimmed.prefix(limit)) + "..."
+    }
+}
+
 /// Pure formatter: a `DeepResearchOutcome` → a single markdown assistant bubble.
 /// The cited synthesis first, then a "Sources" provenance section listing each
-/// sub-question `[id]` + its findings, so every `[id]` the report cites resolves
-/// to a visible source. Deterministic + side-effect-free → unit-tested.
+/// rendered sub-question `[id]` + its findings inside bounded display limits.
+/// Deterministic + side-effect-free → unit-tested.
 enum DeepResearchReportRenderer {
     static func render(_ outcome: DeepResearchOutcome) -> String {
-        let report = outcome.report.trimmingCharacters(in: .whitespacesAndNewlines)
-        let findings = outcome.findings
+        let report = DeepResearchReportBounds.report(outcome.report)
+        let findings = Array(outcome.findings.prefix(DeepResearchReportBounds.maxRenderedFindings))
+        let omittedFindings = max(0, outcome.findings.count - findings.count)
 
         // No findings → just the report (or an honest empty marker), no dangling
         // "Sources" header.
@@ -49,11 +83,16 @@ enum DeepResearchReportRenderer {
             "**Sources** · \(findings.count) sub-question\(plural)",
         ]
         for finding in findings {
-            let question = finding.question.trimmingCharacters(in: .whitespacesAndNewlines)
-            let body = finding.findings.trimmingCharacters(in: .whitespacesAndNewlines)
+            let id = DeepResearchReportBounds.findingID(finding.id)
+            let question = DeepResearchReportBounds.findingQuestion(finding.question)
+            let body = DeepResearchReportBounds.findingBody(finding.findings)
             lines.append("")
-            lines.append("**[\(finding.id)]** \(question.isEmpty ? "(sub-question)" : question)")
+            lines.append("**[\(id)]** \(question.isEmpty ? "(sub-question)" : question)")
             lines.append(body.isEmpty ? "_(no findings recorded)_" : body)
+        }
+        if omittedFindings > 0 {
+            lines.append("")
+            lines.append("_(\(omittedFindings) additional source entries omitted from display.)_")
         }
         return lines.joined(separator: "\n")
     }

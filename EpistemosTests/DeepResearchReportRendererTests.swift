@@ -93,4 +93,27 @@ struct DeepResearchReportRendererTests {
         #expect(out.contains("**[x]** (sub-question)"))
         #expect(out.contains("_(no findings recorded)_"))
     }
+
+    @Test("renderer caps report and source fields from runtime output")
+    func rendererCapsReportAndSourceFieldsFromRuntimeOutput() {
+        let longReport = String(repeating: "r", count: DeepResearchReportBounds.maxReportCharacters + 32)
+        let longID = String(repeating: "i", count: DeepResearchReportBounds.maxFindingIDCharacters + 32)
+        let longQuestion = String(repeating: "q", count: DeepResearchReportBounds.maxFindingQuestionCharacters + 32)
+        let longBody = String(repeating: "b", count: DeepResearchReportBounds.maxFindingBodyCharacters + 32)
+        let findings = (0..<(DeepResearchReportBounds.maxRenderedFindings + 2)).map { index in
+            finding(index == 0 ? longID : "q\(index)", index == 0 ? longQuestion : "Question \(index)", index == 0 ? longBody : "Body \(index)")
+        }
+
+        let out = DeepResearchReportRenderer.render(
+            DeepResearchOutcome(objective: "obj", report: longReport, findings: findings)
+        )
+
+        #expect(out.hasPrefix(String(repeating: "r", count: DeepResearchReportBounds.maxReportCharacters) + "..."))
+        #expect(out.contains("**Sources** · \(DeepResearchReportBounds.maxRenderedFindings) sub-questions"))
+        #expect(out.contains("**[\(String(repeating: "i", count: DeepResearchReportBounds.maxFindingIDCharacters))...]**"))
+        #expect(out.contains(String(repeating: "q", count: DeepResearchReportBounds.maxFindingQuestionCharacters) + "..."))
+        #expect(out.contains(String(repeating: "b", count: DeepResearchReportBounds.maxFindingBodyCharacters) + "..."))
+        #expect(out.contains("2 additional source entries omitted from display"))
+        #expect(!out.contains("q\(DeepResearchReportBounds.maxRenderedFindings)"))
+    }
 }
