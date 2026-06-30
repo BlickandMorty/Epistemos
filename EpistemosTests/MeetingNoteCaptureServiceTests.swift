@@ -106,6 +106,28 @@ struct MeetingNoteCaptureServiceTests {
         #expect(message.count == VoiceCapturePresentationBounds.maxStatusMessageCharacters)
     }
 
+    @Test("finalize diagnostics redact external error descriptions")
+    func finalizeDiagnosticsRedactExternalErrorDescriptions() {
+        let privatePath = "/Users/example/private-vault/meeting.sqlite"
+        let external = NSError(
+            domain: "MeetingPathLeak",
+            code: 19,
+            userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
+        )
+
+        let externalMessage = MeetingCaptureDiagnostics.statusMessage(for: external)
+        let persistenceMessage = MeetingCaptureDiagnostics.statusMessage(
+            for: TextCaptureError.persistenceFailed("failed to write \(privatePath)")
+        )
+
+        #expect(externalMessage.contains("MeetingPathLeak"))
+        #expect(externalMessage.contains("19"))
+        #expect(externalMessage.contains(privatePath) == false)
+        #expect(externalMessage.count <= VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+        #expect(persistenceMessage == "Meeting note persistence failed.")
+        #expect(persistenceMessage.contains(privatePath) == false)
+    }
+
     @Test("finalize saves through TextCapturePipeline with meeting frontmatter")
     func finalizePersistsMeetingNote() async throws {
         let container = try makeTestContainer()
@@ -292,6 +314,9 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("boundFinalSegments"))
         #expect(source.contains("VoiceCapturePresentationBounds.modelDownloadProgress(voiceInput.modelDownloadProgress)"))
         #expect(source.contains("VoiceCapturePresentationBounds.statusMessage"))
+        #expect(source.contains("MeetingCaptureDiagnostics"))
+        #expect(source.contains("statusMessage(for error: Error)"))
+        #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("EpistemosSpeechAnalyzer"))
         #expect(!source.contains("Whisper"))
         #expect(!source.contains("Python"))

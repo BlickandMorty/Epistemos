@@ -16,6 +16,28 @@ protocol MeetingVoiceInputProviding: AnyObject {
 
 extension LiveVoiceInputService: MeetingVoiceInputProviding {}
 
+nonisolated enum MeetingCaptureDiagnostics {
+    static func statusMessage(for error: Error) -> String {
+        let message: String
+        if let captureError = error as? TextCaptureError {
+            switch captureError {
+            case .emptyCapture:
+                message = "Meeting note needs a transcript before saving."
+            case .persistenceFailed:
+                message = "Meeting note persistence failed."
+            case .graphUnavailable:
+                message = "Meeting note graph write unavailable."
+            }
+        } else {
+            let nsError = error as NSError
+            let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
+            let label = domain.isEmpty ? "Error" : domain
+            message = "Meeting note save failed (\(label) \(nsError.code))."
+        }
+        return VoiceCapturePresentationBounds.statusMessage(message)
+    }
+}
+
 // MARK: - MeetingNoteCaptureService
 //
 // Meeting/lecture capture owns transcript buffering and note finalization.
@@ -218,7 +240,7 @@ final class MeetingNoteCaptureService {
             )
             return result
         } catch {
-            state = .error(VoiceCapturePresentationBounds.statusMessage(error.localizedDescription))
+            state = .error(MeetingCaptureDiagnostics.statusMessage(for: error))
             throw error
         }
     }
