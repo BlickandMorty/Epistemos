@@ -68,3 +68,21 @@ REQUIRED OUTPUT:
   - Every claim cited (primary sources / repos / papers). Adversarially sanity-check the "human-like" claims — flag
     what's hype vs. what actually works in shipped/studied systems. No fluff; ranked, concrete, buildable.
 ```
+
+## ★ ADDED EMPHASES (owner 2026-06-30) — research these HARD (a focused 2nd pass covers them)
+- **BEVY CAN DO THIS — prove + detail how.** Bevy (Rust ECS) as the engine for an agent-society game: 2D world +
+  thousands of entities (ECS scales), custom UI (`bevy_ui` / egui / immediate-mode) for the minimal frosted shell,
+  **post-process blur + fluid reveal/dissolve shaders** (Bevy render graph + materials), 120fps/ProMotion, transparent
+  window + native vibrancy, **cross-platform-native** (Mac/Win/web via wgpu), and **bridging Python/Hermes brains** into
+  ECS (async tasks, channels, FFI, or a local server). Real Bevy games/sims that prove each capability. Where Bevy is
+  weak (text/UI maturity) + the mitigation.
+- **HERMES = MULTI-AGENT + MULTI-MODEL + MIXTURE-OF-AGENTS.** How NousResearch Hermes (function-calling, agent
+  self-evolution) supports MULTI-AGENT orchestration + MULTI-MODEL routing; **Mixture-of-Agents (MoA)** (Together AI's
+  layered-aggregation technique — multiple models' drafts aggregated by an aggregator) and whether it makes the
+  mascots genuinely smarter; agent-to-agent protocols (A2A, MCP) for the society; how a "super-agent" is really built
+  from a mixture. The goal: make each mascot — and the society — TRULY useful, not a toy.
+- **ROBUST SIMULATED CURRENCY (go deep).** A currency=budget economy that actually holds up: token/compute as money,
+  earning (sell finished research/artifacts), spending (tools/skills/MCP/compute/infrastructure/more-budget), pricing +
+  supply/demand, anti-degenerate-loops (no infinite-money exploits, no runaway spend), budget caps/mandates per agent,
+  and what robust in-game economies (EVE Online, Eco, Universal Paperclips, agentic-commerce protocols AP2/x402) teach
+  about a SIMULATED one that stays minimal but deep + never touches real money/SSN.
