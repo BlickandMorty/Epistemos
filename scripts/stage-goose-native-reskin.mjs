@@ -1786,6 +1786,209 @@ function applyPermissionSurfaces() {
   write('src/components/settings/permission/PermissionSetting.tsx', source);
 }
 
+function applySettingsPanelSurfaces() {
+  let source = read('src/components/settings/SettingsView.tsx');
+  source = replaceRequired(
+    source,
+    'settings header native glass',
+    'className="bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl"',
+    'className="border-b border-border-secondary bg-background-primary/58 px-6 pb-5 pt-14 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'settings title native font',
+    'className="text-2xl font-sans font-semibold tracking-normal"',
+    'className="text-2xl font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'settings tabs native list',
+    'className="w-full mb-2 justify-start overflow-x-auto flex-nowrap rounded-[6px]"',
+    'className="mb-2 w-full flex-nowrap justify-start overflow-x-auto rounded-[10px] bg-background-secondary/70"'
+  );
+  write('src/components/settings/SettingsView.tsx', source);
+
+  source = read('src/components/settings/app/AppSettingsSection.tsx');
+  source = replaceAllRequired(
+    source,
+    'app settings cards native glass',
+    'className="rounded-lg"',
+    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'app settings rows native hover',
+    'className="flex items-center justify-between"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'app settings language trigger native',
+    'className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary"',
+    'className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-[8px] border border-border-primary bg-background-primary/70 px-3 py-2 text-sm text-text-primary shadow-sm transition-all hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/70"'
+  );
+  source = replaceRequired(
+    source,
+    'app settings version badge native',
+    'className="flex h-8 w-8 items-center justify-center border border-border-primary bg-background-secondary font-mono text-sm text-text-primary"',
+    'className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-border-secondary bg-background-secondary/72 font-sans text-sm font-semibold text-text-primary shadow-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'app settings version text native',
+    'className="text-2xl font-mono text-text-primary"',
+    'className="text-xl font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'notification settings dialog icon accent',
+    '<Settings className="text-iconStandard" size={24} />',
+    '<Settings className="text-[var(--epistemos-accent)]" size={24} />'
+  );
+  write('src/components/settings/app/AppSettingsSection.tsx', source);
+
+  source = read('src/components/settings/app/TelemetrySettings.tsx');
+  source = replaceRequired(
+    source,
+    'telemetry learn more accent',
+    'className="text-blue-600 dark:text-blue-400 hover:underline"',
+    'className="text-[var(--epistemos-accent)] hover:underline"'
+  );
+  source = replaceRequired(
+    source,
+    'telemetry row native',
+    'className="flex items-center justify-between"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'telemetry card native glass',
+    'className="rounded-[6px]"',
+    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+  );
+  write('src/components/settings/app/TelemetrySettings.tsx', source);
+
+  source = read('src/components/settings/config/ConfigSettings.tsx');
+  source = replaceRequired(
+    source,
+    'config settings card native glass',
+    'className="rounded-lg"',
+    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'config settings icon accent',
+    '<FileText className="text-iconStandard" size={20} />',
+    '<FileText className="text-[var(--epistemos-accent)]" size={20} />'
+  );
+  source = replaceRequired(
+    source,
+    'config edit button native',
+    '<Button className="flex items-center gap-2" variant="secondary" size="sm">',
+    '<Button className="flex items-center gap-2 bg-background-primary/70" variant="secondary" size="sm">'
+  );
+  source = replaceRequired(
+    source,
+    'config dialog native sizing',
+    'className="max-w-4xl max-h-[80vh]"',
+    'className="max-h-[80vh] max-w-4xl overflow-hidden"'
+  );
+  source = replaceRequired(
+    source,
+    'config row native',
+    'className="grid grid-cols-[200px_1fr_auto] gap-3 items-center"',
+    'className="grid grid-cols-[200px_1fr_auto] items-center gap-3 rounded-[10px] border border-border-secondary bg-background-secondary/45 px-3 py-2.5"'
+  );
+  source = replaceRequired(
+    source,
+    'config input native',
+    "'text-text-primary border-border-primary hover:border-border-primary transition-colors'",
+    "'border-border-primary bg-background-primary/70 text-text-primary transition-all hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceRequired(
+    source,
+    'config modified input accent',
+    "modifiedKeys.has(key) && 'border-blue-500 focus:ring-blue-500/20'",
+    "modifiedKeys.has(key) && 'border-[var(--epistemos-accent)] focus:ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceRequired(
+    source,
+    'config save button native',
+    'className="min-w-[60px]"',
+    'className="min-w-[60px] rounded-[8px] hover:bg-background-primary/80"'
+  );
+  write('src/components/settings/config/ConfigSettings.tsx', source);
+
+  source = read('src/components/settings/PromptsSettingsSection.tsx');
+  source = replaceRequired(
+    source,
+    'prompt editor card native glass',
+    'className="pb-2 rounded-lg"',
+    'className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt customized badge native editor',
+    'className="px-2 py-0.5 text-[10px] font-mono uppercase rounded-[3px] bg-background-secondary text-primary border border-border-primary"',
+    'className="ep-native-badge px-2 py-0.5 text-[10px] text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt template tip native',
+    'className="text-sm text-text-secondary bg-background-secondary p-3 rounded-lg"',
+    'className="rounded-[10px] border border-border-secondary bg-background-secondary/60 p-3 text-sm text-text-secondary backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt textarea native',
+    'className="w-full flex-1 min-h-[500px] border rounded-md p-3 text-sm font-mono resize-y bg-background-primary text-text-primary border-border-primary focus:outline-none focus:ring-2 focus:ring-blue-500"',
+    'className="min-h-[500px] w-full flex-1 resize-y rounded-[10px] border border-border-primary bg-background-primary/70 p-3 font-mono text-sm text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt unsaved warning token',
+    'className="text-sm text-yellow-600 dark:text-yellow-400"',
+    'className="text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt list warning card native',
+    'className="pb-2 rounded-lg border-yellow-500/50 bg-yellow-500/10"',
+    'className="border-border-warning bg-background-warning/55 pb-2 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt warning icon token',
+    '<AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-1" />',
+    '<AlertTriangle className="mt-1 h-5 w-5 flex-shrink-0 text-text-warning" />'
+  );
+  source = replaceRequired(
+    source,
+    'prompt warning title token',
+    'className="text-yellow-600 dark:text-yellow-400"',
+    'className="text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt reset all button native',
+    'className="flex items-center gap-2 border-yellow-500/50 hover:bg-yellow-500/20"',
+    'className="flex items-center gap-2 border-border-warning text-text-warning hover:bg-background-warning/70"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt row native glass',
+    'className="flex items-center justify-between p-3 rounded-lg border border-border-primary hover:bg-background-secondary transition-colors"',
+    'className="flex items-center justify-between rounded-[10px] border border-border-secondary bg-background-primary/55 p-3 shadow-sm transition-all hover:bg-background-secondary/70"'
+  );
+  source = replaceRequired(
+    source,
+    'prompt customized badge native list',
+    'className="px-2 py-0.5 text-[10px] font-mono uppercase rounded-[3px] bg-background-secondary text-primary border border-border-primary"',
+    'className="ep-native-badge px-2 py-0.5 text-[10px] text-primary"'
+  );
+  write('src/components/settings/PromptsSettingsSection.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -2522,6 +2725,7 @@ applyProviderModalSurfaces();
 applyExtensionSettingsSurfaces();
 applyChatSettingsSurfaces();
 applyPermissionSurfaces();
+applySettingsPanelSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
