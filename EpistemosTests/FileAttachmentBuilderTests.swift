@@ -67,6 +67,42 @@ struct FileAttachmentBuilderTests {
         #expect(attachment.preview == content)
     }
 
+    @Test("attachment diagnostics redact file errors")
+    func attachmentDiagnosticsRedactFileErrors() throws {
+        let error = NSError(
+            domain: "NSCocoaErrorDomain\n/Users/jojo/PrivateVault",
+            code: 257,
+            userInfo: [
+                NSLocalizedDescriptionKey: "/Users/jojo/PrivateVault/secret.md denied"
+            ]
+        )
+
+        let message = FileAttachmentDiagnostics.logMessage(
+            for: error,
+            fallback: "FileAttachmentBuilder: failed to read preview"
+        )
+
+        #expect(message.contains("FileAttachmentBuilder: failed to read preview"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=257"))
+        #expect(message.count <= FileAttachmentDiagnostics.maxLogMessageCharacters)
+        #expect(!message.contains("/Users/jojo"))
+        #expect(!message.contains("PrivateVault"))
+        #expect(!message.contains("secret.md"))
+    }
+
+    @Test("attachment logs avoid raw file errors")
+    func attachmentLogsAvoidRawFileErrors() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatComposerKeyboard.swift")
+
+        #expect(source.contains("FileAttachmentDiagnostics.logMessage"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+        #expect(!source.contains("failed to read file size for \\(url.lastPathComponent"))
+        #expect(!source.contains("failed to read preview for \\(url.lastPathComponent"))
+        #expect(!source.contains("failed to close preview handle for \\(url.lastPathComponent"))
+    }
+
     private func temporaryFileURL(named name: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "file-attachment-builder-\(UUID().uuidString)",
