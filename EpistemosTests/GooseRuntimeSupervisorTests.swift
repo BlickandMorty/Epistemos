@@ -1405,6 +1405,32 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(contentSize.height == CGFloat(GooseWebNativeAffordanceBridge.minLaunchedAppWindowHeight))
     }
 
+    @Test("MCP app launch rejects oversized inline content before opening a window")
+    func mcpAppLaunchRejectsOversizedInlineContent() throws {
+        let bridge = GooseWebNativeAffordanceBridge()
+        let appName = "oversized_content_\(UUID().uuidString)"
+        let title = "Oversized Content \(appName.suffix(36))"
+        let oversizedHTML = String(
+            repeating: "x",
+            count: GooseWebNativeAffordanceBridge.maxLaunchedAppContentBytes + 1
+        )
+
+        do {
+            _ = try bridge.handleAffordance(
+                name: "launchApp",
+                args: [[
+                    "name": appName,
+                    "text": oversizedHTML,
+                ]]
+            )
+            Issue.record("launchApp should reject oversized inline MCP app content")
+        } catch {
+            #expect(error.localizedDescription.contains("oversized MCP app content"))
+            #expect(error.localizedDescription.contains("\(GooseWebNativeAffordanceBridge.maxLaunchedAppContentBytes)"))
+        }
+        #expect(!NSApp.windows.contains { $0.title == title })
+    }
+
     @Test("settings affordances persist through the native host")
     func settingsAffordancesPersistThroughNativeHost() throws {
         let suiteName = "epistemos-goose-native-\(UUID().uuidString)"

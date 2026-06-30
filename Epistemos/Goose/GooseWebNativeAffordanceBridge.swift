@@ -26,6 +26,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let minLaunchedAppWindowHeight: Double = 240
     nonisolated static let maxLaunchedAppWindowWidth: Double = 1_600
     nonisolated static let maxLaunchedAppWindowHeight: Double = 1_200
+    nonisolated static let maxLaunchedAppContentBytes = 16 * 1024 * 1024
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -675,7 +676,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         // throws an honest error with NOTHING created or leaked — instead of building a window the
         // guest nav delegate then silently blanks (the owner's "Apps loading failures" dead window).
         let guestLoad: GuestAppLoad
-        if let html = htmlContent(from: app) {
+        if let html = try htmlContent(from: app, appName: name) {
             guestLoad = .html(html)
         } else if let rawURI = app["uri"] as? String,
                   let url = URL(string: rawURI),
@@ -1052,14 +1053,22 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         return name
     }
 
-    private func htmlContent(from app: [String: Any]) -> String? {
+    private func htmlContent(from app: [String: Any], appName: String) throws -> String? {
         if let text = app["text"] as? String {
+            guard text.utf8.count <= Self.maxLaunchedAppContentBytes else {
+                throw GooseWebNativeAffordanceBridgeError.appContentTooLarge(appName, Self.maxLaunchedAppContentBytes)
+            }
             return text
         }
-        if let blob = app["blob"] as? String,
-           let data = Data(base64Encoded: blob),
-           let text = String(data: data, encoding: .utf8) {
-            return text
+        if let blob = app["blob"] as? String {
+            guard blob.utf8.count <= Self.maxEncodedAppContentBytes else {
+                throw GooseWebNativeAffordanceBridgeError.appContentTooLarge(appName, Self.maxLaunchedAppContentBytes)
+            }
+            guard let data = Data(base64Encoded: blob) else { return nil }
+            guard data.count <= Self.maxLaunchedAppContentBytes else {
+                throw GooseWebNativeAffordanceBridgeError.appContentTooLarge(appName, Self.maxLaunchedAppContentBytes)
+            }
+            return String(data: data, encoding: .utf8)
         }
         return nil
     }
@@ -1102,6 +1111,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return CGFloat(fallback)
         }
         return CGFloat(Swift.min(Swift.max(dimension, minValue), maxValue))
+    }
+
+    private static var maxEncodedAppContentBytes: Int {
+        ((maxLaunchedAppContentBytes + 2) / 3) * 4
     }
 
     private func boolArgument(_ value: Any?) -> Bool? {
@@ -1182,6 +1195,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
     case missingArgument(String)
     case missingAppContent(String)
+    case appContentTooLarge(String, Int)
     case appWindowLimitExceeded(Int)
     case openFailed(String)
     case disallowed(String)
@@ -1193,6 +1207,8 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
             "Missing argument for Epistemos Goose native affordance: \(name)."
         case .missingAppContent(let name):
             "Missing renderable MCP app content for Epistemos Goose app: \(name)."
+        case .appContentTooLarge(let name, let limit):
+            "Epistemos blocked oversized MCP app content for Goose app \(name) (limit: \(limit) bytes)."
         case .appWindowLimitExceeded(let limit):
             "Epistemos blocked Goose from opening another MCP app window (limit: \(limit))."
         case .openFailed(let rawURL):
