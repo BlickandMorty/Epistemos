@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-30 00:25 CDT (loop cycle 58) — **10/10 ✅**, 0 drift. Canon side fully clean. Blocker steady (54 dirty code files, no new commit, regenerate uncommitted → not-safe-to-rebuild; owner advised cyc55-57 to have an agent commit a clean checkpoint). white-screen fix COMMITTED. Kill-list canon = `REMOVED_FEATURES_KILL_LIST_2026_06_30.md`. _(cyc53: kill-list from wf_22a0bafe; cyc51: salvage guardrails)_
+**Last auditor pass:** 2026-06-30 00:41 CDT (loop cycle 59) — **10/10 ✅** (re-checked after a big propagation). 🎨 **NEW OWNER DESIGN DIRECTION captured + propagated to ALL 7 plans + doctrine + reskin:** FLAT PIXEL-ART · minimal · still native · TOTAL theme-awareness (all palettes incl. CUSTOM, which is a BUG to fix). Canon-safe (Option 1/graph/springs/two-token-sources intact; radius-11 open-detail parked). See OWNER REVIEW cyc59. white-screen fix COMMITTED; regenerate still uncommitted (rebuild still blocked on agent commits). _(cyc53: kill-list from wf_22a0bafe)_
 <br>**cyc51:** 🛑 **PREVENTED RECURRENCE (owner: "why was Plan 2 working on removed stuff — make sure it doesn't happen again"):** mechanism = the `LOST_ITEMS_RECON` *salvage* workstream ROUTES salvaged items INTO plans (Plan-2 prompt has a "[salvaged from LOST_ITEMS_RECON]" item; a salvage commit "route crash fix to Plan 2") — that's the vector that polluted Plan 2. FIX: (a) top banner on `LOST_ITEMS_RECON` = "salvage ≠ resurrect owner-removed; never route triage/raw-thoughts/old-agent/chat-transcript into ANY plan"; (b) HARD STAY-IN-LANE + reject-resurrected guardrail added to `PROMPT_PLAN_2`. (Can't attribute commits to terminals — all one git identity — but the salvage *mechanism* is fixed.) Kill-list workflow `wf_22a0bafe` running for the comprehensive list. Resurrection markers holding (no NEW triage/raw-thoughts in fresh code). ⛔ **STILL NOT-SAFE-TO-REBUILD:** 27 dirty code files (10 Goose/HTMLWorkspace), no new commits — agents deep in real WIP but no clean checkpoint yet; regenerate still `isLive:false`. Auditor will signal "rebuild now" when tree goes clean + regenerate flips live. **4 OWNER REVIEW** (Companion-v1.6; white-screen [blocked on clean rebuild]; systemic pattern [RESOLVED cyc43]; resurrection [owner: confirm full kill-list + task a build agent to delete residual RawThoughts/triage code]). HEAD at pass: `6ff9311db`.
 <br>_Recent: cyc43 (owner-directed) baked the REAL-WORK-FIRST/HARDENING-CAPPED WORK-ORDER directive into PROMPT_PLAN_1/2/3 + added AGENT_LOOP_WRAPPERS_REAL_FIRST (canon-safe, 10/10). cyc32 vetted the white-screen P0 + MAS-in-process-backend canon edit (Option-1-reinforcing). cyc8 strengthened check #4 to all 4 springs. cyc2 made #6/#8 greps honest._
 
@@ -61,6 +61,16 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
+- **2026-06-30 cycle 59 (Auditor) — NEW OWNER DESIGN DIRECTION captured + propagated (not drift; owner-authored).** Owner
+  chose "layer within native": aesthetic → **FLAT PIXEL-ART, minimal, still native**; surfaces shift from Liquid-Glass to
+  flat theme-tinted pixel-art (extend `PixelSurfaceComponents` app-wide); **TOTAL theme-awareness — every surface (native +
+  web + browser) reads Epistemos tokens for ALL palettes incl. the CUSTOM palette.** Captured in: 🎨 amendment atop
+  `EPISTEMOS_NATIVENESS_DOCTRINE` + `GOOSE_NATIVE_WEB_RESKIN` banner + the directive in **all 7 PROMPT_PLAN docs**. Build-side
+  follow-ups (auditor docs-only, can't code):
+  - **BUG (owner-reported): the CUSTOM palette doesn't propagate everywhere** → build task (Plan-2/4 theme path: wire every
+    surface to `EpistemosTheme` tokens; custom palette referenced in UIState/EpistemosTheme/SettingsView/PixelSurfaceComponents/…).
+  - **OPEN DETAIL: invariant #10 `radius 11` vs pixel-art "crisp/hard edges"** — pixel-art surfaces likely want a smaller
+    radius; owner to confirm the pixel-art radius (accent #0066cc + SF Pro stay). Until then #10 keeps radius 11.
 - **2026-06-29 cycle 48b (Auditor) — 🛑 RESURRECTION OF OWNER-REMOVED FEATURES (owner-flagged: triage / raw-thoughts /
   chat-transcripts / old local+cloud agent "should just be Goose").** Source = the **`recon:`/`salvage:` workstream** (the
   `LOST_ITEMS_RECON` ledger + "draft Plan 6/7"), NOT Plan 2. It treated DELIBERATE owner-removals as "lost items" and routed

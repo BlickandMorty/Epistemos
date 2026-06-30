@@ -1,5 +1,7 @@
 # PLAN 3 — Capabilities build prompt (paste to a build agent)
 
+> 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (in EVERY plan):** **FLAT PIXEL-ART · MINIMAL · still NATIVE · TOTAL THEME-AWARENESS.** Every surface you build or touch — native AppKit/SwiftUI, ANY WebView, **the browser (native tab + browser-use UI)**, settings, landing, all of it — must (1) use **flat, theme-tinted pixel-art surfaces** (crisp edges, no frosted-glass blur; extend `Epistemos/Views/Landing/PixelSurfaceComponents.swift`), and (2) be **fully theme-aware of the Epistemos tokens for ALL palettes incl. the user CUSTOM palette** — fix it anywhere it doesn't propagate; NOTHING off-theme, native surfaces included. No hardcoded color (tokens only; two-token-sources). Authority: the 🎨 OWNER DESIGN AMENDMENT atop `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 > The capabilities plan, hardened. Thermonuclear-strict, hard gates, FULL clones (EdgeParse/unpdf for App Store;
 > browser-use full app for Pro). Runs in PARALLEL with Plan 1 (Goose) + Plan 2 (editor) — boundaries below.
 

@@ -1,5 +1,7 @@
 # PLAN 7 — Multi-device Sync + recurring Quality Gate build prompt (SAVED — paste later)
 
+> 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (in EVERY plan):** **FLAT PIXEL-ART · MINIMAL · still NATIVE · TOTAL THEME-AWARENESS.** Every surface you build or touch (sync settings, status, conflict UI, all of it) must use **flat, theme-tinted pixel-art surfaces** (crisp edges, no frosted-glass blur; extend `Epistemos/Views/Landing/PixelSurfaceComponents.swift`) and be **fully theme-aware of the Epistemos tokens for ALL palettes incl. the user CUSTOM palette** — NOTHING off-theme, native surfaces included; no hardcoded color (tokens only; two-token-sources). Authority: the 🎨 OWNER DESIGN AMENDMENT atop `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 > 🛑 **SAVED / NOT YET ACTIVE (owner 2026-06-29).** Do NOT launch until the owner says go. Drafted to the same
 > strictness as Plan 1/2/3, parked. Holds the TWO non-crash items from the stability cluster (the dark/light crash +
 > in-app crash recorder were routed to Plan 2 as a fix-now PRIORITY-0, NOT here):

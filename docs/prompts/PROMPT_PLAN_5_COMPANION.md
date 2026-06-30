@@ -1,5 +1,7 @@
 # PLAN 5 — Companions (mini-Goose-chat: note companion + landing-Farm companions) build prompt (SAVED — paste later)
 
+> 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (in EVERY plan):** **FLAT PIXEL-ART · MINIMAL · still NATIVE · TOTAL THEME-AWARENESS.** Every surface you build or touch (companion panels, Farm, the reskinned mini-Goose WebView, mascots) must use **flat, theme-tinted pixel-art surfaces** (crisp edges, no frosted-glass blur; extend `Epistemos/Views/Landing/PixelSurfaceComponents.swift`) and be **fully theme-aware of the Epistemos tokens for ALL palettes incl. the user CUSTOM palette** — NOTHING off-theme, native surfaces included; no hardcoded color (tokens only; two-token-sources). Authority: the 🎨 OWNER DESIGN AMENDMENT atop `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 > 🛑 **SAVED / NOT YET ACTIVE (owner 2026-06-29).** Do NOT launch until the owner says go. Drafted to the same
 > strictness as Plan 1/2/3 and parked. ONE Companion concept, TWO surfaces:
 > **(A) Note Companion** — the note-scoped mini-Goose-chat panel embedded in the Epdoc editor (the "Tolaria mini-chat").

@@ -1,5 +1,7 @@
 # PLAN 1 — Goose surface build prompt (paste to Codex)
 
+> 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (in EVERY plan):** **FLAT PIXEL-ART · MINIMAL · still NATIVE · TOTAL THEME-AWARENESS.** Every surface you build or touch — native AppKit/SwiftUI, ANY WebView, the browser, settings, landing, all of it — must (1) use **flat, theme-tinted pixel-art surfaces** (crisp edges, no frosted-glass blur; extend `Epistemos/Views/Landing/PixelSurfaceComponents.swift`), and (2) be **fully theme-aware of the Epistemos tokens for ALL palettes incl. the user CUSTOM palette** — fix it anywhere it doesn't propagate; NOTHING off-theme, native surfaces included. No hardcoded color (tokens only; two-token-sources). Authority: the 🎨 OWNER DESIGN AMENDMENT atop `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 > ★ STATUS (2026-06-29): §7 was GREEN-LIT by the owner — Plan 1 is ON PHASE 1, **Option 1 locked (native FRAME
 > only; chat + the rest STAY WebView, reskinned indistinguishable from native; route-migration STOPS after Models —
 > NO native chat).** Steps 1–3 are done (hardening · goosed swap behind a flag · router + native Models). This

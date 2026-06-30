@@ -1,5 +1,7 @@
 # Goose Native-Feel Web Reskin — LIVING RESEARCH (started 2026-06-29)
 
+> 🎨 **OWNER DESIGN AMENDMENT 2026-06-30 (overrides the glass recipe here):** target is now **FLAT PIXEL-ART, theme-tinted surfaces** (crisp edges, no frosted/translucent glass), still inside the native frame, fully theme-aware of ALL Epistemos palettes incl. the user CUSTOM palette. Wherever this doc says "transparent-over-glass / NSVisualEffectView / Liquid Glass," reskin Goose's components **flat pixel-art** instead (still RESKIN-not-replace). Authority: the 🎨 amendment atop `EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 > FOREVER-LOOP research (cron `3856c0a4`, every 3m). Goal: reskin Goose's web UI so it is
 > **indistinguishable from the native AppKit part** inside a WKWebView — fluid spring motion,
 > hardened (no lag/jank/bug), every Goose component mapped to a native-feeling web alternative.

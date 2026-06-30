@@ -1,5 +1,7 @@
 # PLAN 4 — Theme-Canonical Monochrome Iconography build prompt (SAVED — paste later)
 
+> 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (in EVERY plan):** **FLAT PIXEL-ART · MINIMAL · still NATIVE · TOTAL THEME-AWARENESS.** Icons + every surface you touch must be **flat, theme-tinted pixel-art** (crisp edges; the mono glyphs lean pixel-art) and **fully theme-aware of the Epistemos tokens for ALL palettes incl. the user CUSTOM palette** — NOTHING off-theme, native surfaces included; no hardcoded color (tokens only; two-token-sources). Authority: the 🎨 OWNER DESIGN AMENDMENT atop `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
+
 > 🛑 **SAVED / NOT YET ACTIVE (owner 2026-06-29).** Do NOT launch this until the owner says go. Drafted to the same
 > strictness as Plan 1/2/3 and parked. It UPGRADES the already-shipped brand-logo spine (Plan 3) — it does not fork it.
 > FULL verified detail (current code, lobe-icons facts, pipeline, per-theme tokens, icon map, acceptance bar):
