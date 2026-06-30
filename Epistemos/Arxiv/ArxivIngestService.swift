@@ -64,7 +64,9 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             return pdfURL
         } catch {
             try? FileManager.default.removeItem(at: fileURL)
-            throw ArxivIngestError.downloadFailed("could not prepare downloaded PDF: \(error.localizedDescription)")
+            throw ArxivIngestError.downloadFailed(
+                "could not prepare downloaded PDF: \(ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "filesystem error"))"
+            )
         }
     }
 
@@ -111,6 +113,26 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
     }
 }
 
+nonisolated enum ArxivIngestDiagnostics {
+    static let maxFailureReasonCharacters = 360
+
+    static func failureReason(_ message: String, fallback: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? fallback : trimmed
+        guard description.count > maxFailureReasonCharacters else {
+            return description
+        }
+        return String(description.prefix(maxFailureReasonCharacters)) + "..."
+    }
+
+    static func externalErrorDescription(_ error: Error, fallback: String) -> String {
+        let nsError = error as NSError
+        let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = domain.isEmpty ? "Error" : domain
+        return failureReason("\(fallback) (\(label) \(nsError.code))", fallback: fallback)
+    }
+}
+
 nonisolated enum ArxivIngestError: LocalizedError, Equatable, Sendable {
     case cancelled
     case downloadFailed(String)
@@ -123,13 +145,13 @@ nonisolated enum ArxivIngestError: LocalizedError, Equatable, Sendable {
         case .cancelled:
             return "arXiv ingest was cancelled."
         case .downloadFailed(let message):
-            return "Could not download the arXiv PDF: \(message)"
+            return "Could not download the arXiv PDF: \(ArxivIngestDiagnostics.failureReason(message, fallback: "download failed"))"
         case .pdfImportRejected(let result):
             return "Could not convert the arXiv PDF: \(Self.reason(for: result))"
         case .fileWriteFailed(let message):
-            return "Could not write the arXiv note: \(message)"
+            return "Could not write the arXiv note: \(ArxivIngestDiagnostics.failureReason(message, fallback: "file write failed"))"
         case .modelSaveFailed(let message):
-            return "Could not save the arXiv note: \(message)"
+            return "Could not save the arXiv note: \(ArxivIngestDiagnostics.failureReason(message, fallback: "model save failed"))"
         }
     }
 
@@ -140,7 +162,7 @@ nonisolated enum ArxivIngestError: LocalizedError, Equatable, Sendable {
         case .notWired:
             return "PDF parser bridge is unavailable in this build."
         case .unsupported(let message), .failed(let message):
-            return message
+            return ArxivIngestDiagnostics.failureReason(message, fallback: "PDF import failed")
         }
     }
 }
@@ -171,7 +193,9 @@ enum ArxivIngestService {
         } catch let error as ArxivIngestError {
             return .rejected(error)
         } catch {
-            return .rejected(.downloadFailed(error.localizedDescription))
+            return .rejected(.downloadFailed(
+                ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "download failed")
+            ))
         }
         defer { try? FileManager.default.removeItem(at: downloadedPDF) }
 
@@ -186,7 +210,9 @@ enum ArxivIngestService {
         } catch is CancellationError {
             return .rejected(.cancelled)
         } catch {
-            return .rejected(.pdfImportRejected(.failed(error.localizedDescription)))
+            return .rejected(.pdfImportRejected(.failed(
+                ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "PDF import failed")
+            )))
         }
         guard case .markdown(let markdown) = parseResult else {
             return .rejected(.pdfImportRejected(parseResult))
@@ -206,7 +232,9 @@ enum ArxivIngestService {
         } catch let error as ArxivIngestError {
             return .rejected(error)
         } catch {
-            return .rejected(.fileWriteFailed(error.localizedDescription))
+            return .rejected(.fileWriteFailed(
+                ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "file write failed")
+            ))
         }
 
         let page = SDPage(title: materializedFiles.noteURL.deletingPathExtension().lastPathComponent, emoji: "📄")
@@ -238,7 +266,9 @@ enum ArxivIngestService {
             modelContext.delete(page)
             removeMaterializedFiles(materializedFiles)
             NoteFileStorage.deleteBody(pageId: page.id)
-            return .rejected(.modelSaveFailed(error.localizedDescription))
+            return .rejected(.modelSaveFailed(
+                ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "model save failed")
+            ))
         }
     }
 
@@ -290,7 +320,9 @@ enum ArxivIngestService {
                 if let selectedURLs {
                     removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
                 }
-                throw ArxivIngestError.fileWriteFailed(error.localizedDescription)
+                throw ArxivIngestError.fileWriteFailed(
+                    ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "file write failed")
+                )
             }
         }
     }

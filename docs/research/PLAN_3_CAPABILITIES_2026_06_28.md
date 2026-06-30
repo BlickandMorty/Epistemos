@@ -301,7 +301,8 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   papers/field growth inside the 5 MiB response envelope; search query length and network-fed SwiftUI display strings
   are bounded; downloaded temp PDFs are opened with `O_NOFOLLOW`,
   regular-file checked, symlink rejected, capped at 128 MiB, magic-sniffed, and renamed to `.pdf` before parsing;
-  failures create no note and report the download/parser reason.
+  failures create no note and unexpected external errors are reported with bounded domain/code diagnostics instead of
+  raw localized filesystem strings.
 - **Meeting/lecture note — SHIPPED (Pass 9):** user-driven on-device Apple Speech/SpeechAnalyzer capture through
   `LiveVoiceInputService`, buffered by `MeetingNoteCaptureService`, then saved through `TextCapturePipeline` as a
   searchable note with `source=meeting_stt`, `source_kind=audio_transcript`, `captured_at`, `duration_seconds`, and

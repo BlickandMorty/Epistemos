@@ -241,6 +241,10 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(ingest.contains("Plan3ImportFileIO.writeData"))
+        #expect(ingest.contains("ArxivIngestDiagnostics"))
+        #expect(ingest.contains("externalErrorDescription"))
+        #expect(ingest.contains("maxFailureReasonCharacters"))
+        #expect(!ingest.contains("error.localizedDescription"))
 
         for stale in [
             "clone-ready code",
@@ -642,6 +646,45 @@ struct ArxivPlan3Tests {
         #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(ArxivIngestService.importDirectory).path))
     }
 
+    @MainActor
+    @Test("ingest redacts unexpected external download error descriptions")
+    func ingestRedactsUnexpectedExternalDownloadErrorDescriptions() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-ingest-redacted-download-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let privatePath = root.appendingPathComponent("private/download.pdf").path
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let outcome = await ArxivIngestService.ingest(
+            paper: try Self.paper(),
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: FakeArxivImporter(result: .markdown("Should not run.")),
+            downloader: PathLeakingArxivDownloader(privatePath: privatePath)
+        )
+
+        guard case .rejected(.downloadFailed(let message)) = outcome else {
+            Issue.record("Expected redacted download failure, got \(String(describing: outcome))")
+            return
+        }
+
+        #expect(message.contains("download failed"))
+        #expect(message.contains("PathLeakDownload"))
+        #expect(message.contains(root.path) == false)
+        #expect(message.contains(privatePath) == false)
+        #expect(message.count <= ArxivIngestDiagnostics.maxFailureReasonCharacters)
+        #expect(ArxivIngestError.downloadFailed(message).localizedDescription.contains(root.path) == false)
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(ArxivIngestService.importDirectory).path))
+    }
+
     private static func paper() throws -> ArxivPaper {
         let papers = try ArxivClient.parseSearchResponse(Data(atomFixture.utf8))
         return try #require(papers.first)
@@ -781,5 +824,17 @@ private struct SlowArxivImporter: LiteParsePDFImporter {
 private struct FailingArxivDownloader: ArxivPDFDownloading {
     func download(from _: URL) async throws -> URL {
         throw ArxivIngestError.downloadFailed("offline")
+    }
+}
+
+private struct PathLeakingArxivDownloader: ArxivPDFDownloading {
+    let privatePath: String
+
+    func download(from _: URL) async throws -> URL {
+        throw NSError(
+            domain: "PathLeakDownload",
+            code: 17,
+            userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
+        )
     }
 }
