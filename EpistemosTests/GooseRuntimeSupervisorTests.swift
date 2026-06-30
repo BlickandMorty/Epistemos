@@ -1069,6 +1069,22 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("getConfig: { configurable: true, value: async"))
     }
 
+    @Test("bootstrap script bounds imported MCP app storage")
+    func bootstrapScriptBoundsImportedMCPAppStorage() {
+        let bootstrap = GooseWebBootstrap(
+            baseURL: URL(string: "http://127.0.0.1:3284")!,
+            secretKey: "secret-123"
+        )
+        let script = GooseWebBootShim.bootstrapScript(for: bootstrap)
+
+        #expect(script.contains("const maxImportedApps = 32;"))
+        #expect(script.contains("const maxImportedAppHtmlBytes = 16 * 1024 * 1024;"))
+        #expect(script.contains("const maxImportedAppNameCharacters = 128;"))
+        #expect(script.contains("utf8ByteLength(html) > maxImportedAppHtmlBytes"))
+        #expect(script.contains("apps.slice(-maxImportedApps)"))
+        #expect(script.contains("boundedImportedAppName(title)"))
+    }
+
     @Test("bootstrap payload serialization failure stays loud")
     func bootstrapSerializationFailureStaysLoud() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebBootShim.swift")

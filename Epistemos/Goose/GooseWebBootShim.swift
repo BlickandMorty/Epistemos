@@ -195,7 +195,24 @@ enum GooseWebBootShim {
             } catch {}
           };
           const appsStorageKey = 'epistemos.goose.importedApps';
+          const maxImportedApps = 32;
+          const maxImportedAppHtmlBytes = 16 * 1024 * 1024;
+          const maxImportedAppNameCharacters = 128;
           const appBridgeError = (message) => new Error(`Epistemos Apps bridge: ${message}`);
+          const utf8ByteLength = (value) => {
+            const text = String(value ?? '');
+            if (typeof TextEncoder === 'function') {
+              return new TextEncoder().encode(text).length;
+            }
+            return unescape(encodeURIComponent(text)).length;
+          };
+          const boundedImportedAppName = (name) => {
+            const normalized = String(name || '')
+              .replace(/[\\u0000-\\u001f\\u007f]/g, '')
+              .trim()
+              .slice(0, maxImportedAppNameCharacters);
+            return normalized || 'Imported app';
+          };
           const loadImportedApps = () => {
             try {
               const parsed = JSON.parse(localStorage.getItem(appsStorageKey) || '[]');
@@ -205,15 +222,16 @@ enum GooseWebBootShim {
                 typeof app === 'object' &&
                 typeof app.name === 'string' &&
                 typeof app.uri === 'string' &&
+                (typeof app.text !== 'string' || utf8ByteLength(app.text) <= maxImportedAppHtmlBytes) &&
                 app.mcpServers?.includes?.('apps')
-              );
+              ).slice(-maxImportedApps);
             } catch {
               return [];
             }
           };
           const saveImportedApps = (apps) => {
             try {
-              localStorage.setItem(appsStorageKey, JSON.stringify(apps));
+              localStorage.setItem(appsStorageKey, JSON.stringify(apps.slice(-maxImportedApps)));
             } catch (error) {
               throw appBridgeError(`could not persist imported app: ${consoleString(error)}`);
             }
@@ -222,9 +240,9 @@ enum GooseWebBootShim {
             try {
               const doc = new DOMParser().parseFromString(html, 'text/html');
               const title = doc.querySelector('title')?.textContent?.trim();
-              if (title) return title;
+              if (title) return boundedImportedAppName(title);
               const heading = doc.querySelector('h1,h2')?.textContent?.trim();
-              if (heading) return heading;
+              if (heading) return boundedImportedAppName(heading);
             } catch {}
             return 'Imported app';
           };
@@ -240,6 +258,9 @@ enum GooseWebBootShim {
           const buildImportedApp = (html) => {
             if (typeof html !== 'string' || html.trim().length === 0) {
               throw appBridgeError('imported app HTML is empty');
+            }
+            if (utf8ByteLength(html) > maxImportedAppHtmlBytes) {
+              throw appBridgeError(`imported app HTML is over ${maxImportedAppHtmlBytes} bytes`);
             }
             const name = importedAppTitle(html);
             const id = `${importedAppSlug(name)}-${Date.now().toString(36)}`;
