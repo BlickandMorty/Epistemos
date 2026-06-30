@@ -180,9 +180,18 @@ actor GooseACPClient {
         let response = try await listGooseProviders(timeout: timeout)
         // Tolerant per-entry decode: an entry that fails to decode (e.g. a future Goose drops the
         // required providerId) is unusable in a picker anyway — skip it so ONE malformed entry can
-        // never blank the entire list. This matches the WebView oracle, which degrades per-entry
-        // rather than failing wholesale. The transport call above still throws on a hard failure.
-        return response.entries.compactMap { try? $0.decoded(GooseACPProviderInventoryEntry.self) }
+        // never blank the entire list. Duplicate provider ids are equally unusable in SwiftUI
+        // pickers, so keep the first live entry and drop later duplicates. This matches the WebView
+        // oracle, which degrades per-entry rather than failing wholesale. The transport call above
+        // still throws on a hard failure.
+        var seenProviderIDs = Set<String>()
+        return response.entries.compactMap {
+            guard let entry = try? $0.decoded(GooseACPProviderInventoryEntry.self),
+                  seenProviderIDs.insert(entry.providerId).inserted else {
+                return nil
+            }
+            return entry
+        }
     }
 
     func listGooseProviderSupportedModels(

@@ -362,6 +362,38 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("provider inventory normalizes live ACP ids before native Models picker")
+    func providerInventoryNormalizesLiveACPIDsBeforeNativeModelsPicker() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"""
+            {"jsonrpc":"2.0","id":2,"result":{"entries":[
+              {"providerId":" openai ","providerName":" OpenAI ","configured":true,"defaultModel":" gpt-4.1 ","models":[{"id":" gpt-4.1 "},{"id":" "},{"id":"gpt-4.1"},{"id":"gpt-4.2"}]},
+              {"providerId":"   ","providerName":"Blank","models":[{"id":"bad"}]},
+              {"providerId":"openai","providerName":"Duplicate","models":[{"id":"duplicate"}]},
+              {"provider_id":"anthropic","provider_name":" Anthropic ","default_model":" claude ","models":[" claude ",{"id":"claude"},{"id":"sonnet"}]},
+              {"providerId":"","id":"local","providerName":"","name":" Local ","defaultModel":"","models":[{"id":""},{"id":" qwen "}]},
+              {"name":"missing-id"}
+            ]}}
+            """#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let inventory = try await client.listGooseProviderInventory()
+
+        #expect(inventory.map(\.providerId) == ["openai", "anthropic", "local"])
+        #expect(inventory.map(\.providerName) == ["OpenAI", "Anthropic", "Local"])
+        #expect(inventory[0].defaultModel == "gpt-4.1")
+        #expect(inventory[1].defaultModel == "claude")
+        #expect(inventory[2].defaultModel == nil)
+        #expect(inventory[0].configured)
+        #expect(inventory[0].models.map(\.id) == ["gpt-4.1", "gpt-4.2"])
+        #expect(inventory[1].models.map(\.id) == ["claude", "sonnet"])
+        #expect(inventory[2].models.map(\.id) == ["qwen"])
+        await client.close()
+    }
+
     @Test("client sends the Skills source list Goose custom ACP subset")
     func clientSendsSkillsSourceListGooseCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

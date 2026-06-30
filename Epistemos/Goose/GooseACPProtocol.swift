@@ -360,9 +360,93 @@ nonisolated struct GooseACPProvidersListResponse: Decodable, Equatable, Sendable
     let entries: [JSONValue]
 }
 
+private nonisolated struct GooseACPFlexibleCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int? = nil
+
+    init?(stringValue: String) {
+        self.stringValue = stringValue
+    }
+
+    init?(intValue: Int) {
+        return nil
+    }
+}
+
+private nonisolated func trimmedNonEmptyACPString(_ value: String?) -> String? {
+    guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !trimmed.isEmpty else {
+        return nil
+    }
+    return trimmed
+}
+
+private nonisolated func decodeTrimmedNonEmptyACPString(
+    _ container: KeyedDecodingContainer<GooseACPFlexibleCodingKey>,
+    keys: [String]
+) -> String? {
+    for keyName in keys {
+        guard let key = GooseACPFlexibleCodingKey(stringValue: keyName),
+              let value = try? container.decodeIfPresent(String.self, forKey: key),
+              let trimmed = trimmedNonEmptyACPString(value) else {
+            continue
+        }
+        return trimmed
+    }
+    return nil
+}
+
+private nonisolated func decodeACPBool(
+    _ container: KeyedDecodingContainer<GooseACPFlexibleCodingKey>,
+    keys: [String]
+) -> Bool? {
+    for keyName in keys {
+        guard let key = GooseACPFlexibleCodingKey(stringValue: keyName),
+              let value = try? container.decodeIfPresent(Bool.self, forKey: key) else {
+            continue
+        }
+        return value
+    }
+    return nil
+}
+
+private nonisolated func decodeACPJSONValueArray(
+    _ container: KeyedDecodingContainer<GooseACPFlexibleCodingKey>,
+    keys: [String]
+) -> [JSONValue]? {
+    for keyName in keys {
+        guard let key = GooseACPFlexibleCodingKey(stringValue: keyName),
+              let value = try? container.decodeIfPresent([JSONValue].self, forKey: key) else {
+            continue
+        }
+        return value
+    }
+    return nil
+}
+
 /// One model id within a `providers/list` entry (the entries carry their models inline).
-nonisolated struct GooseACPProviderInventoryModel: Decodable, Equatable, Sendable {
+nonisolated struct GooseACPProviderInventoryModel: Decodable, Equatable, Sendable, Hashable {
     let id: String
+
+    init(from decoder: Decoder) throws {
+        if let rawID = try? decoder.singleValueContainer().decode(String.self),
+           let id = trimmedNonEmptyACPString(rawID) {
+            self.id = id
+            return
+        }
+
+        let container = try decoder.container(keyedBy: GooseACPFlexibleCodingKey.self)
+        guard let id = decodeTrimmedNonEmptyACPString(
+            container,
+            keys: ["id", "modelId", "model_id"]
+        ) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Provider inventory model is missing a non-empty id."
+            ))
+        }
+        self.id = id
+    }
 }
 
 /// A typed view of a single `providers/list` entry — the available providers a Models picker chooses
@@ -388,18 +472,40 @@ nonisolated struct GooseACPProviderInventoryEntry: Decodable, Equatable, Sendabl
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        providerId = try container.decode(String.self, forKey: .providerId)
-        providerName = try container.decodeIfPresent(String.self, forKey: .providerName) ?? providerId
-        configured = try container.decodeIfPresent(Bool.self, forKey: .configured) ?? false
-        defaultModel = try container.decodeIfPresent(String.self, forKey: .defaultModel)
+        let container = try decoder.container(keyedBy: GooseACPFlexibleCodingKey.self)
+        guard let providerId = decodeTrimmedNonEmptyACPString(
+            container,
+            keys: [CodingKeys.providerId.rawValue, "provider_id", "id"]
+        ) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Provider inventory entry is missing a non-empty provider id."
+            ))
+        }
+        self.providerId = providerId
+        providerName = decodeTrimmedNonEmptyACPString(
+            container,
+            keys: [CodingKeys.providerName.rawValue, "provider_name", "name"]
+        ) ?? providerId
+        configured = decodeACPBool(container, keys: [CodingKeys.configured.rawValue]) ?? false
+        defaultModel = decodeTrimmedNonEmptyACPString(
+            container,
+            keys: [CodingKeys.defaultModel.rawValue, "default_model"]
+        )
         // Lenient per-element model decode: a single malformed model element (shape/type drift in a
         // future Goose — element missing `id`, `id` non-string, or `models` shaped as bare strings)
         // must NOT drop the whole provider. Decode the raw array and keep the elements that decode,
         // so a usable provider (it has a providerId) always survives — matching the WebView oracle's
         // per-entry degradation and this type's own "never breaks the picker" contract.
-        let rawModels = (try? container.decodeIfPresent([JSONValue].self, forKey: .models)) ?? []
-        models = rawModels.compactMap { try? $0.decoded(GooseACPProviderInventoryModel.self) }
+        let rawModels = decodeACPJSONValueArray(container, keys: [CodingKeys.models.rawValue]) ?? []
+        var seenModelIDs = Set<String>()
+        models = rawModels.compactMap {
+            guard let model = try? $0.decoded(GooseACPProviderInventoryModel.self),
+                  seenModelIDs.insert(model.id).inserted else {
+                return nil
+            }
+            return model
+        }
     }
 }
 
