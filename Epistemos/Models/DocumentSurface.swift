@@ -49,6 +49,22 @@ nonisolated public struct DocumentSourceRange: Codable, Sendable, Hashable {
         self.endLine = max(self.startLine, endLine)
         self.endColumn = max(1, endColumn)
     }
+
+    public static func fullDocumentRange(for source: String) -> DocumentSourceRange {
+        let endLine = source.utf8.reduce(1) { partial, byte in
+            byte == UInt8(ascii: "\n") ? partial + 1 : partial
+        }
+        let lastLineStart = source.lastIndex(of: "\n").map {
+            source.index(after: $0)
+        } ?? source.startIndex
+        let endColumn = source[lastLineStart...].count + 1
+        return DocumentSourceRange(
+            startLine: 1,
+            startColumn: 1,
+            endLine: endLine,
+            endColumn: endColumn
+        )
+    }
 }
 
 nonisolated public struct DocumentSurface: Codable, Sendable, Hashable {

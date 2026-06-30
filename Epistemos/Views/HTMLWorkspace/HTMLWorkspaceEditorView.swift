@@ -942,15 +942,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func sourceRange(for pane: HTMLWorkspaceSourcePane) -> DocumentSourceRange {
-        let source = sourceText(for: pane)
-        let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
-        let lastLine = source.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? ""
-        return DocumentSourceRange(
-            startLine: 1,
-            startColumn: 1,
-            endLine: lines,
-            endColumn: max(1, lastLine.count + 1)
-        )
+        DocumentSourceRange.fullDocumentRange(for: sourceText(for: pane))
     }
 
     private func sourceText(for pane: HTMLWorkspaceSourcePane) -> String {

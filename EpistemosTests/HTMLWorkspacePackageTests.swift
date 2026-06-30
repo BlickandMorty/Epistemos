@@ -710,6 +710,12 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(surface.capabilities.contains(.patch))
         #expect(surface.currentSelection?.startLine == 2)
         #expect(surface.contentHash == "abc123")
+
+        let fullRange = DocumentSourceRange.fullDocumentRange(for: "one\ntwo\n")
+        #expect(fullRange.startLine == 1)
+        #expect(fullRange.startColumn == 1)
+        #expect(fullRange.endLine == 3)
+        #expect(fullRange.endColumn == 1)
     }
 
     @Test("HTML workspace patch command parser rejects unsafe DOM and app bridge attempts")
