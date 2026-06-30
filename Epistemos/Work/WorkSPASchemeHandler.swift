@@ -28,7 +28,7 @@ nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
         return AsyncThrowingStream { continuation in
             do {
                 let fileURL = try Self.resolve(request: request, root: root, virtualBasePath: virtualBasePath)
-                let data = try Data(contentsOf: fileURL)
+                let data = try Self.readServedFile(fileURL)
                 continuation.yield(.response(Self.response(requestURL: request.url ?? fileURL, fileURL: fileURL, byteCount: data.count)))
                 continuation.yield(.data(data))
                 continuation.finish()
@@ -40,7 +40,8 @@ nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
 
     // MARK: - Pure, testable mapping
 
-    enum HandlerError: Error, Equatable { case outsideRoot, notFound }
+    enum HandlerError: Error, Equatable { case outsideRoot, notFound, fileTooLarge }
+    static let maxServedFileBytes = 128 * 1024 * 1024
 
     /// Map a request URL → a concrete file under `root`. Rules: empty/`/` → `index.html`; an existing file →
     /// itself; a non-existent EXTENSION-LESS path → `index.html` (SPA client-side routing deep links). Guards
@@ -126,6 +127,30 @@ nonisolated struct WorkSPASchemeHandler: URLSchemeHandler {
         case let ext:
             return UTType(filenameExtension: ext)?.preferredMIMEType ?? "application/octet-stream"
         }
+    }
+
+    static func readServedFile(_ fileURL: URL, maxBytes: Int = maxServedFileBytes) throws -> Data {
+        guard let size = regularFileSize(fileURL),
+              size <= UInt64(maxBytes) else {
+            throw HandlerError.fileTooLarge
+        }
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        guard let data = try handle.read(upToCount: maxBytes + 1),
+              data.count <= maxBytes else {
+            throw HandlerError.fileTooLarge
+        }
+        return data
+    }
+
+    private static func regularFileSize(_ fileURL: URL) -> UInt64? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+              let type = attributes[.type] as? FileAttributeType,
+              type == .typeRegular,
+              let size = attributes[.size] as? NSNumber else {
+            return nil
+        }
+        return size.uint64Value
     }
 
     static func response(requestURL: URL, fileURL: URL, byteCount: Int) -> HTTPURLResponse {

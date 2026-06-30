@@ -152,6 +152,24 @@ struct WorkSPAServerTests {
         #expect((response as? HTTPURLResponse)?.statusCode == 404)
     }
 
+    @Test("oversized served files return 413 without loading the file")
+    func oversizedServedFileReturns413() async throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try createSparseSPAFile(
+            root.appendingPathComponent("assets/oversized.js"),
+            size: WorkSPASchemeHandler.maxServedFileBytes + 1
+        )
+        let server = WorkSPAServer(root: root)
+        defer { server.stop() }
+        let baseURL = try await startAndAwait(server)
+
+        let (data, response) = try await URLSession.shared.data(from: baseURL.appendingPathComponent("assets/oversized.js"))
+        let http = try #require(response as? HTTPURLResponse)
+        #expect(http.statusCode == 413)
+        #expect(String(data: data, encoding: .utf8)?.contains("Payload Too Large") == true)
+    }
+
     @Test("extension-less deep link falls back to index.html (SPA client routing)")
     func deepLinkFallsBackToIndex() async throws {
         let root = try makeRoot()
@@ -298,4 +316,11 @@ struct WorkSPAServerTests {
         #expect(html.contains("--background:#123456"))
         #expect(html.contains("root-marker")) // original content preserved
     }
+}
+
+private func createSparseSPAFile(_ url: URL, size: Int) throws {
+    FileManager.default.createFile(atPath: url.path, contents: nil)
+    let handle = try FileHandle(forWritingTo: url)
+    try handle.truncate(atOffset: UInt64(size))
+    try handle.close()
 }

@@ -138,6 +138,19 @@ struct WorkSPASchemeHandlerTests {
         #expect(WorkSPASchemeHandler.mimeType(for: URL(fileURLWithPath: "/x/f.woff2")) == "font/woff2")
     }
 
+    @Test("served file reads are bounded before loading into memory")
+    func servedFileReadsAreBounded() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let oversized = root.appendingPathComponent("assets/oversized.js")
+        try createSparseFile(oversized, size: WorkSPASchemeHandler.maxServedFileBytes + 1)
+
+        #expect(throws: WorkSPASchemeHandler.HandlerError.fileTooLarge) {
+            try WorkSPASchemeHandler.readServedFile(oversized)
+        }
+        #expect(try WorkSPASchemeHandler.readServedFile(root.appendingPathComponent("assets/app.js")).count > 0)
+    }
+
     @Test("response carries 200 + Content-Type + Content-Length")
     func responseShape() {
         let response = WorkSPASchemeHandler.response(
@@ -154,4 +167,11 @@ struct WorkSPASchemeHandlerTests {
             fileURL: URL(fileURLWithPath: "/x/index.html"), byteCount: 10)
         #expect(htmlResponse.value(forHTTPHeaderField: "Cache-Control") == "no-store")
     }
+}
+
+private func createSparseFile(_ url: URL, size: Int) throws {
+    FileManager.default.createFile(atPath: url.path, contents: nil)
+    let handle = try FileHandle(forWritingTo: url)
+    try handle.truncate(atOffset: UInt64(size))
+    try handle.close()
 }

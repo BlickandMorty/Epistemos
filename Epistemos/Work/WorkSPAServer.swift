@@ -187,7 +187,7 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
         }
         do {
             let fileURL = try WorkSPASchemeHandler.resolve(path: request.path, root: root)
-            var bytes = try Data(contentsOf: fileURL)
+            var bytes = try WorkSPASchemeHandler.readServedFile(fileURL)
             // Inject into the served HTML: (1) the auto-connect bootstrap (worker URL+token → localStorage, so the
             // SPA skips the manual "Connect custom remote" dialog), and (2) the Epistemos reskin <style> at end of
             // <head> (overrides the SPA's theme tokens → the Epistemos look without an SPA rebuild).
@@ -200,6 +200,8 @@ nonisolated final class WorkSPAServer: @unchecked Sendable {
             // HEAD: headers + the real Content-Length, no body.
             let body = method == "HEAD" ? Data() : bytes
             send(connection, Self.fileResponse(fileURL: fileURL, body: body, totalBytes: bytes.count))
+        } catch WorkSPASchemeHandler.HandlerError.fileTooLarge {
+            send(connection, Self.errorResponse(status: 413, includeBody: method != "HEAD"))
         } catch {
             send(connection, Self.errorResponse(status: 404, includeBody: method != "HEAD"))
         }
