@@ -1482,7 +1482,11 @@ struct EpistemosCommands: Commands {
             #else
             let gooseAvailability = GooseSurfaceAvailability.current()
             Button(gooseAvailability.menuTitle) {
-                GooseSurfaceWindowController.shared.open()
+                if AgentSurface.isEnabled() {
+                    AgentSurfaceWindowController.shared.open()
+                } else {
+                    GooseSurfaceWindowController.shared.open()
+                }
             }
             .keyboardShortcut("3", modifiers: .command)
             .disabled(!gooseAvailability.isReady)
@@ -1491,15 +1495,6 @@ struct EpistemosCommands: Commands {
                 GooseElectronFallbackLauncher.shared.launchFromMenu()
             }
 
-            // Native Goose FRAME entry (window + nav rail wrapping the Goose WebView; chat + all
-            // features stay in the WebView per the owner charter). AgentSurface.isEnabled remains
-            // a diagnostic/rollback override; this is not a second user-facing agent.
-            if AgentSurface.isEnabled() {
-                Button("Epistemos Goose (Native Frame)") {
-                    AgentSurfaceWindowController.shared.open()
-                }
-                .keyboardShortcut("a", modifiers: [.command, .shift])
-            }
             #endif
 
             Button("Knowledge Graph") {

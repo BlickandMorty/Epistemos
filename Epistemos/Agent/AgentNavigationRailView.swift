@@ -11,6 +11,7 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
     case hub
     case sessions
     case settings
+    case models
     case providers
     case skills
     case recipes
@@ -25,6 +26,7 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
         case .hub: return "Chat"
         case .sessions: return "Sessions"
         case .settings: return "Settings"
+        case .models: return "Models"
         case .providers: return "Providers"
         case .skills: return "Skills"
         case .recipes: return "Recipes"
@@ -39,6 +41,7 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
         case .hub: return "bubble.left.and.bubble.right"
         case .sessions: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
+        case .models: return "slider.horizontal.3"
         case .providers: return "key"
         case .skills: return "wand.and.stars"
         case .recipes: return "list.bullet.rectangle"
@@ -54,6 +57,7 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
         case .hub: return "/?"
         case .sessions: return "/sessions"
         case .settings: return "/settings"
+        case .models: return "/settings?section=models"
         case .providers: return "/configure-providers"
         case .skills: return "/skills"
         case .recipes: return "/recipes"
@@ -64,46 +68,188 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
     }
 }
 
+private struct AgentRailSection: Identifiable {
+    let id: String
+    let title: String
+    let destinations: [AgentRailDestination]
+
+    static let all: [AgentRailSection] = [
+        AgentRailSection(id: "primary", title: "Goose", destinations: [.hub, .sessions]),
+        AgentRailSection(id: "configure", title: "Configure", destinations: [.models, .providers, .settings]),
+        AgentRailSection(id: "tools", title: "Tools", destinations: [.skills, .recipes, .extensions, .scheduler, .apps]),
+    ]
+}
+
 @MainActor
 struct AgentNavigationRailView: View {
     @Binding var selection: AgentRailDestination
     let theme: EpistemosTheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(AgentRailDestination.allCases) { destination in
-                railRow(destination)
+        VStack(alignment: .leading, spacing: 16) {
+            railHeader
+
+            ForEach(AgentRailSection.all) { section in
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(section.title)
+                        .font(GooseSurfaceStyle.captionFont(10, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 1)
+                    ForEach(section.destinations) { destination in
+                        AgentRailRowView(
+                            destination: destination,
+                            isSelected: destination == selection,
+                            theme: theme
+                        ) {
+                            withAnimation(.smooth(duration: 0.18)) {
+                                selection = destination
+                            }
+                        }
+                    }
+                }
             }
+
             Spacer(minLength: 0)
+
+            railFooter
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 6)
-        .frame(width: 188)
+        .padding(.top, 10)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 12)
+        .frame(width: 216)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(GooseSurfaceStyle.background(for: theme, role: .rail))
+        .background(railBackground)
     }
 
-    @ViewBuilder
-    private func railRow(_ destination: AgentRailDestination) -> some View {
-        let isSelected = destination == selection
-        Button { selection = destination } label: {
+    private var railHeader: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.12))
+                Image(systemName: "sparkles.rectangle.stack")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Epistemos")
+                    .font(GooseSurfaceStyle.captionFont(11, weight: .medium))
+                    .foregroundStyle(theme.mutedForeground)
+                Text("Goose")
+                    .font(GooseSurfaceStyle.bodyFont(16, weight: .semibold))
+                    .foregroundStyle(theme.resolved.foreground.color)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 4)
+        .padding(.bottom, 2)
+    }
+
+    private var railFooter: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(theme.resolved.accent.color)
+                .frame(width: 6, height: 6)
+            Text(selection.title)
+                .font(GooseSurfaceStyle.captionFont(11, weight: .medium))
+                .foregroundStyle(theme.mutedForeground)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.055 : 0.035))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.36 : 0.44), lineWidth: 0.6)
+        }
+    }
+
+    private var railBackground: some View {
+        ZStack {
+            if theme.isDark {
+                Rectangle().fill(.ultraThinMaterial)
+            } else {
+                Rectangle().fill(.regularMaterial)
+            }
+            GooseSurfaceStyle.background(for: theme, role: .rail)
+                .opacity(theme.isDark ? 0.84 : 0.78)
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(theme.isDark ? 0.04 : 0.26),
+                    Color.clear,
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+}
+
+@MainActor
+private struct AgentRailRowView: View {
+    let destination: AgentRailDestination
+    let isSelected: Bool
+    let theme: EpistemosTheme
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: destination.systemImage)
-                    .font(.system(size: 12, weight: .medium))
-                    .frame(width: 16)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 18)
                 Text(destination.title)
-                    .font(GooseSurfaceStyle.bodyFont(12, weight: isSelected ? .semibold : .regular))
+                    .font(GooseSurfaceStyle.bodyFont(13, weight: isSelected ? .semibold : .regular))
+                    .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(isSelected ? theme.resolved.accent.color : theme.resolved.foreground.color)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 7)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? theme.resolved.accent.color.opacity(0.14) : .clear)
-            )
-            .contentShape(Rectangle())
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
+        .foregroundStyle(rowForeground)
+        .background(rowBackground)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.12)) {
+                isHovered = hovering
+            }
+        }
+        .accessibilityLabel(destination.title)
+    }
+
+    private var rowForeground: Color {
+        if isSelected {
+            return theme.resolved.accent.color
+        }
+        if isHovered {
+            return theme.resolved.foreground.color
+        }
+        return theme.mutedForeground
+    }
+
+    private var rowBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        return ZStack {
+            if isSelected {
+                shape
+                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11))
+                shape
+                    .strokeBorder(theme.resolved.accent.color.opacity(theme.isDark ? 0.25 : 0.16), lineWidth: 0.7)
+            } else if isHovered {
+                shape
+                    .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
+            }
+        }
     }
 }

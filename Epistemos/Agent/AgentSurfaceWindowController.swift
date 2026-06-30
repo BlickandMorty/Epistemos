@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-// Phase 1 (Step 3) — native Agent frame. Mirrors GooseSurfaceWindowController:
+// Native Goose frame. Mirrors GooseSurfaceWindowController:
 // a themed, transparent titlebar NSWindow hosting the native rail around Goose's
-// reskinned WebView. Opened from the Landing entry / ⌘⇧A. Singleton.
+// reskinned WebView. Singleton.
 
 @MainActor
 final class AgentSurfaceWindowController {
@@ -26,19 +26,19 @@ final class AgentSurfaceWindowController {
         guard let bootstrap = AppBootstrap.shared else { return }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 1080, height: 760),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.title = "Epistemos Agent"
+        window.title = "Epistemos Goose"
         window.titlebarAppearsTransparent = true
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
         window.isReleasedWhenClosed = false
         window.isRestorable = false
-        window.minSize = NSSize(width: 560, height: 420)
+        window.minSize = NSSize(width: 760, height: 520)
 
         let view = AgentSurfaceRootView(theme: bootstrap.uiState.theme)
             .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
@@ -74,7 +74,7 @@ final class AgentSurfaceWindowController {
     private func presentUnavailableAlert(message: String) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Epistemos Agent is unavailable"
+        alert.messageText = "Epistemos Goose is unavailable"
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()

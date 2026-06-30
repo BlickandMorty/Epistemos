@@ -9,6 +9,8 @@ if (!desktopRoot) {
 }
 
 const marker = 'epistemos-native-reskin-overlay';
+const focusPolishMarker = 'epistemos-native-scrollbar-focus-polish';
+const primitivePolishMarker = 'epistemos-native-primitive-polish';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -118,10 +120,8 @@ function applyThemeTokens() {
 
 function applyMainCSS() {
   let source = read('src/styles/main.css');
-  if (source.includes(marker)) {
-    return;
-  }
-  source += `
+  if (!source.includes(marker)) {
+    source += `
 
 /* ==========================================================================
    Epistemos durable native WebView reskin (${marker})
@@ -251,7 +251,259 @@ body {
   }
 }
 `;
+  }
+  if (!source.includes(focusPolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos native scrollbar + focus polish (${focusPolishMarker})
+   These are global "web tells": Goose used custom hidden scrollbars and neutral
+   focus outlines. Restore the WKWebView/system scrollbar path and use the same
+   accent-driven focus ring as the native frame.
+   ========================================================================== */
+.goose-epistemos,
+.goose-epistemos :is(
+  [data-radix-scroll-area-viewport],
+  .overflow-auto,
+  .overflow-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto
+) {
+  --epistemos-native-scrollbar-focus-polish: 1;
+  scrollbar-width: auto !important;
+  scrollbar-color: auto !important;
+}
+
+.goose-epistemos::-webkit-scrollbar,
+.goose-epistemos *::-webkit-scrollbar {
+  display: initial !important;
+  width: initial !important;
+  height: initial !important;
+  background: initial !important;
+}
+
+.goose-epistemos::-webkit-scrollbar-thumb,
+.goose-epistemos *::-webkit-scrollbar-thumb,
+.goose-epistemos::-webkit-scrollbar-track,
+.goose-epistemos *::-webkit-scrollbar-track,
+.goose-epistemos::-webkit-scrollbar-corner,
+.goose-epistemos *::-webkit-scrollbar-corner {
+  background: initial !important;
+  border: initial !important;
+  border-radius: initial !important;
+  box-shadow: initial !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--epistemos-accent) 86%, transparent) !important;
+  outline-offset: 2px !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--epistemos-accent) 50%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--epistemos-accent) 16%, transparent) !important;
+}
+
+.goose-epistemos :is(input, textarea, select):focus-visible {
+  border-color: var(--epistemos-accent) !important;
+}
+`;
+  }
+  if (!source.includes(primitivePolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos native primitive polish (${primitivePolishMarker})
+   Research-backed retheme layer for Goose's shadcn/Radix primitives. This
+   keeps Goose's components intact while matching the native frame's Apple
+   tokens, 11px radius scale, vibrancy fills, accent focus, and compact control
+   metrics.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-primitive-polish: 1;
+}
+
+.goose-epistemos [data-slot='button'],
+.goose-epistemos :is(button, [role='button']):not([data-radix-scroll-area-corner]) {
+  min-height: 28px;
+  border-radius: 8px !important;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  font-weight: 600;
+}
+
+.goose-epistemos [data-slot='button']:not(:disabled):active,
+.goose-epistemos :is(button, [role='button']):not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.goose-epistemos [data-slot='card'],
+.goose-epistemos :is(
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  .goose-chat-input-card,
+  .fixed.z-50.bg-background-primary.border.border-border-primary
+) {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  background-color: var(--epistemos-glass-fill-strong) !important;
+  border-color: var(--epistemos-glass-border) !important;
+  border-radius: var(--radius-md, 11px) !important;
+  box-shadow: var(--epistemos-popover-shadow) !important;
+}
+
+.goose-epistemos [data-slot='card-title'],
+.goose-epistemos [data-slot='dialog-title'] {
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+.goose-epistemos [data-slot='dropdown-menu-item'],
+.goose-epistemos [data-slot='dropdown-menu-checkbox-item'],
+.goose-epistemos [data-slot='dropdown-menu-radio-item'],
+.goose-epistemos [data-slot='dropdown-menu-sub-trigger'] {
+  border-radius: 6px !important;
+  min-height: 26px;
+}
+
+.goose-epistemos :is(
+  [data-slot='dropdown-menu-item'],
+  [data-slot='dropdown-menu-checkbox-item'],
+  [data-slot='dropdown-menu-radio-item'],
+  [data-slot='dropdown-menu-sub-trigger']
+):focus {
+  background-color: var(--epistemos-accent) !important;
+  color: white !important;
+}
+
+.goose-epistemos :is(input, textarea, [contenteditable='true']) {
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  border-radius: 8px !important;
+}
+
+.goose-epistemos :is(.text-xs, .text-sm, .text-base, .font-mono) {
+  letter-spacing: 0 !important;
+}
+`;
+  }
   write('src/styles/main.css', source);
+}
+
+function applyButton() {
+  let source = read('src/components/ui/button.tsx');
+  source = replaceRequired(
+    source,
+    'button base chrome',
+    `"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[1px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"`,
+    `"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold transition-all duration-200 ease-[var(--epistemos-control-ease)] cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-[var(--epistemos-accent)] focus-visible:ring-[var(--epistemos-accent)]/30 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"`
+  );
+  source = replaceRequired(
+    source,
+    'button default variant',
+    "default: 'bg-background-inverse text-text-inverse hover:bg-background-inverse/90 shadow-none'",
+    "default: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90 shadow-sm'"
+  );
+  source = replaceRequired(
+    source,
+    'button outline variant',
+    "outline: 'border hover:bg-background-secondary'",
+    "outline: 'border border-border-primary bg-background-primary/55 hover:bg-background-secondary/75 backdrop-blur-xl'"
+  );
+  source = replaceRequired(
+    source,
+    'button secondary variant',
+    "secondary:\n          'bg-background-secondary text-text-primary hover:bg-background-secondary/80 shadow-none'",
+    "secondary:\n          'bg-background-secondary/72 text-text-primary hover:bg-background-secondary/90 shadow-sm backdrop-blur-xl'"
+  );
+  source = source.replaceAll("rounded-[5px]", "rounded-[8px]");
+  write('src/components/ui/button.tsx', source);
+}
+
+function applyInput() {
+  let source = read('src/components/ui/input.tsx');
+  source = replaceRequired(
+    source,
+    'input native geometry',
+    "'flex h-9 w-full rounded-[5px] border border-border-primary focus:border-border-secondary hover:border-border-secondary bg-background-primary px-3 py-1 text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-secondary placeholder:font-light focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50'",
+    "'flex h-9 w-full rounded-[8px] border border-border-primary bg-background-primary/70 px-3 py-1 text-sm transition-all duration-200 ease-[var(--epistemos-control-ease)] file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-secondary placeholder:font-light hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50'"
+  );
+  write('src/components/ui/input.tsx', source);
+}
+
+function applyCard() {
+  let source = read('src/components/ui/card.tsx');
+  source = replaceRequired(
+    source,
+    'card native glass',
+    "'bg-background-primary text-text-primary flex flex-col gap-3 rounded-[6px] border border-border-secondary py-3 shadow-none'",
+    "'bg-background-primary/72 text-text-primary flex flex-col gap-3 rounded-[11px] border border-border-secondary py-3 shadow-sm backdrop-blur-xl'"
+  );
+  source = replaceRequired(
+    source,
+    'card title font',
+    "return <div data-slot=\"card-title\" className={cn('leading-none font-mono text-sm', className)} {...props} />;",
+    "return <div data-slot=\"card-title\" className={cn('leading-none font-sans text-sm font-semibold tracking-normal', className)} {...props} />;"
+  );
+  write('src/components/ui/card.tsx', source);
+}
+
+function applyDialog() {
+  let source = read('src/components/ui/dialog.tsx');
+  source = replaceRequired(
+    source,
+    'dialog overlay',
+    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/50'",
+    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/24 backdrop-blur-sm'"
+  );
+  source = replaceRequired(
+    source,
+    'dialog content',
+    "'bg-background-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[6px] border border-border-primary p-5 shadow-none duration-150 sm:max-w-lg'",
+    "'bg-background-primary/86 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[14px] border border-border-primary p-5 shadow-2xl backdrop-blur-xl duration-200 ease-[var(--epistemos-control-ease)] sm:max-w-lg'"
+  );
+  source = replaceRequired(
+    source,
+    'dialog close button',
+    `DialogPrimitive.Close className="ring-offset-background p-1 hover:bg-background-secondary rounded-[4px] focus:ring-ring data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:ring-1 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`,
+    `DialogPrimitive.Close className="ring-offset-background p-1 hover:bg-background-secondary rounded-[8px] focus:ring-[var(--epistemos-accent)] data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:ring-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`
+  );
+  source = replaceRequired(
+    source,
+    'dialog title font',
+    "className={cn('text-base leading-none font-mono font-normal', className)}",
+    "className={cn('text-base leading-none font-sans font-semibold tracking-normal', className)}"
+  );
+  write('src/components/ui/dialog.tsx', source);
+}
+
+function applyDropdownMenu() {
+  let source = read('src/components/ui/dropdown-menu.tsx');
+  source = replaceRequired(
+    source,
+    'dropdown content',
+    "'bg-background-primary text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[6px] border border-border-primary p-1 shadow-none space-y-0.5'",
+    "'bg-background-primary/88 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[9px] border border-border-primary p-1 shadow-lg backdrop-blur-xl space-y-0.5'"
+  );
+  source = source.replaceAll("rounded-sm px-2 py-1.5 text-sm", "rounded-[6px] px-2 py-1.5 text-sm");
+  source = source.replaceAll("focus:bg-background-secondary focus:text-text-secondary", "focus:bg-[var(--epistemos-accent)] focus:text-white");
+  source = replaceRequired(
+    source,
+    'dropdown sub content',
+    "'bg-background-primary text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[6px] border border-border-primary p-1 shadow-none'",
+    "'bg-background-primary/88 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[9px] border border-border-primary p-1 shadow-lg backdrop-blur-xl'"
+  );
+  write('src/components/ui/dropdown-menu.tsx', source);
 }
 
 function applySwitch() {
@@ -411,6 +663,11 @@ function applyAppSurfaces() {
 
 applyThemeTokens();
 applyMainCSS();
+applyButton();
+applyInput();
+applyCard();
+applyDialog();
+applyDropdownMenu();
 applySwitch();
 applyTabs();
 applySelect();
