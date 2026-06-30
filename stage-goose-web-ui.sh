@@ -2677,6 +2677,49 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+MCP_UI_RESOURCE_RENDERER="$WORK_ROOT/ui/desktop/src/components/MCPUIResourceRenderer.tsx"
+node - "$MCP_UI_RESOURCE_RENDERER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import { defineMessages, useIntl } from '../i18n';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('MCPUIResourceRenderer i18n import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+const proxyEffectAnchor = `  useEffect(() => {
+    const fetchProxyUrl = async () => {`;
+const proxyEffectReplacement = `  useEffect(() => {
+    if (USE_ACP_CHAT) {
+      setProxyUrl(undefined); // epistemos-acp-disable-mcp-ui-proxy-rest
+      return;
+    }
+
+    const fetchProxyUrl = async () => {`;
+if (!source.includes('epistemos-acp-disable-mcp-ui-proxy-rest')) {
+  if (!source.includes(proxyEffectAnchor)) {
+    throw new Error('MCPUIResourceRenderer proxy effect anchor not found');
+  }
+  source = source.replace(proxyEffectAnchor, proxyEffectReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  'epistemos-acp-disable-mcp-ui-proxy-rest',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`MCPUIResourceRenderer staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 PERMISSION_MODAL="$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
 node - "$PERMISSION_MODAL" <<'NODE'
 const fs = require('fs');
@@ -6104,6 +6147,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-mcp-resource-read-ui" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "epistemos-acp-mcp-tool-call-ui" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "epistemos-acp-mcp-resource-read-handler" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
+    grep -q "epistemos-acp-disable-mcp-app-sampling-rest" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
+    grep -q "epistemos-acp-disable-mcp-ui-proxy-rest" "$WORK_ROOT/ui/desktop/src/components/MCPUIResourceRenderer.tsx"
     grep -q "sm:max-w-\\[560px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "grid grid-cols-12 items-center gap-3 rounded-\\[10px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "rounded-\\[11px\\] border border-border-secondary bg-background-primary/65" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionRulesModal.tsx"
