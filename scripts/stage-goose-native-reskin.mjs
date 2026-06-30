@@ -2995,6 +2995,71 @@ function applyDictationSettingsSurfaces() {
   write('src/components/settings/dictation/LocalModelManager.tsx', source);
 }
 
+function applySecuritySettingsSurfaces() {
+  let source = read('src/components/settings/security/SecurityToggle.tsx');
+  source = replaceAllRequired(
+    source,
+    'security endpoint inputs native base',
+    'className={`w-full px-3 py-2 text-sm border rounded placeholder:text-text-secondary ${',
+    'className={`min-h-9 w-full rounded-[8px] border px-3 py-2 text-sm placeholder:text-text-secondary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+  );
+  source = replaceRequired(
+    source,
+    'security threshold input native base',
+    'className={`w-24 px-2 py-1 text-sm border rounded ${',
+    'className={`min-h-8 w-24 rounded-[8px] border px-2 py-1 text-sm transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+  );
+  source = replaceRequired(
+    source,
+    'security model select native base',
+    'className={`w-full px-3 py-2 text-sm border rounded ${',
+    'className={`min-h-9 w-full rounded-[8px] border px-3 py-2 text-sm transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+  );
+  source = replaceAllRequired(
+    source,
+    'security enabled field state native',
+    "? 'border-border-primary bg-background-primary text-text-primary'",
+    "? 'border-border-secondary bg-background-primary/68 text-text-primary'"
+  );
+  source = replaceAllRequired(
+    source,
+    'security disabled field state native',
+    ": 'border-border-primary bg-background-secondary text-text-secondary cursor-not-allowed'",
+    ": 'border-border-secondary bg-background-secondary/60 text-text-secondary cursor-not-allowed'"
+  );
+  source = replaceRequired(
+    source,
+    'security main row native',
+    'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceAllRequired(
+    source,
+    'security nested rows native',
+    'className="flex items-center justify-between py-2 hover:bg-background-secondary rounded-lg transition-all"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceAllRequired(
+    source,
+    'security override text token',
+    'text-slate-500 dark:text-slate-400',
+    'text-text-secondary'
+  );
+  source = replaceAllRequired(
+    source,
+    'security dividers native',
+    'className="border-t border-border-primary pt-4"',
+    'className="border-t border-border-secondary pt-4"'
+  );
+  source = replaceRequired(
+    source,
+    'security command classifier active token',
+    'className="text-sm text-gray-700 dark:text-gray-300 mt-2"',
+    'className="mt-2 text-sm text-text-success"'
+  );
+  write('src/components/settings/security/SecurityToggle.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3739,6 +3804,7 @@ applyAuthSettingsSurfaces();
 applyLocalInferenceSurfaces();
 applyGatewaySettingsSurfaces();
 applyDictationSettingsSurfaces();
+applySecuritySettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
