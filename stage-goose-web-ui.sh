@@ -57,6 +57,7 @@ import type {
   ConfigKey,
   DeclarativeProviderConfig,
   DictationProviderStatus,
+  DownloadProgress,
   ModelInfo,
   ModelTemplate,
   ProviderCatalogEntry,
@@ -66,6 +67,7 @@ import type {
   ProviderType,
   ToolInfo,
   UpdateCustomProviderRequest,
+  WhisperModelResponse,
 } from '../api';
 import { getAcpClient } from './acpConnection';
 import type { PreferenceKey } from '@aaif/goose-sdk';
@@ -664,6 +666,8 @@ type AcpDictationProviderStatus = {
   usesProviderConfig: boolean;
   settingsPath?: string | null;
   configKey?: string | null;
+  defaultModel?: string | null;
+  selectedModel?: string | null;
 };
 
 function dictationProviderStatus(entry: AcpDictationProviderStatus): DictationProviderStatus {
@@ -694,6 +698,90 @@ export async function saveAcpDictationSecret(provider: string, value: string): P
 export async function deleteAcpDictationSecret(provider: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.dictationSecretDelete_unstable({ provider }); // epistemos-acp-dictation-secret-delete
+}
+
+type AcpDictationLocalModelStatus = {
+  id: string;
+  label?: string;
+  description: string;
+  sizeMb: number;
+  downloaded: boolean;
+  downloadInProgress: boolean;
+};
+
+type AcpDictationDownloadProgress = {
+  bytesDownloaded: number;
+  totalBytes: number;
+  progressPercent: number;
+  status: string;
+  error?: string | null;
+};
+
+function dictationModel(model: AcpDictationLocalModelStatus): WhisperModelResponse {
+  return {
+    id: model.id,
+    description: model.description,
+    size_mb: model.sizeMb,
+    url: '',
+    downloaded: model.downloaded,
+    recommended: false,
+  };
+}
+
+function dictationDownloadProgress(
+  modelId: string,
+  progress: AcpDictationDownloadProgress
+): DownloadProgress {
+  return {
+    model_id: modelId,
+    bytes_downloaded: progress.bytesDownloaded,
+    total_bytes: progress.totalBytes,
+    progress_percent: progress.progressPercent,
+    status: progress.status as DownloadProgress['status'],
+    error: progress.error ?? null,
+  };
+}
+
+export async function listAcpDictationModels(): Promise<WhisperModelResponse[]> {
+  const client = await getAcpClient();
+  const response = await client.goose.dictationModelsList_unstable({}); // epistemos-acp-dictation-models-list
+  return ((response.models ?? []) as AcpDictationLocalModelStatus[]).map(dictationModel);
+}
+
+export async function startAcpDictationModelDownload(modelId: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.dictationModelsDownload_unstable({ modelId }); // epistemos-acp-dictation-model-download
+}
+
+export async function readAcpDictationModelDownloadProgress(
+  modelId: string
+): Promise<DownloadProgress | null> {
+  const client = await getAcpClient();
+  const response = await client.goose.dictationModelsDownloadProgress_unstable({ modelId });
+  const progress = response.progress as AcpDictationDownloadProgress | null | undefined;
+  return progress ? dictationDownloadProgress(modelId, progress) : null;
+}
+
+export async function cancelAcpDictationModelDownload(modelId: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.dictationModelsCancel_unstable({ modelId }); // epistemos-acp-dictation-model-cancel
+}
+
+export async function deleteAcpDictationModel(modelId: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.dictationModelsDelete_unstable({ modelId }); // epistemos-acp-dictation-model-delete
+}
+
+export async function selectAcpDictationModel(provider: string, modelId: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.dictationModelsSelect_unstable({ provider, modelId }); // epistemos-acp-dictation-model-select
+}
+
+export async function readAcpDictationSelectedModel(provider: string): Promise<string | null> {
+  const client = await getAcpClient();
+  const response = await client.goose.dictationConfig_unstable({});
+  const entry = ((response.providers ?? {}) as Record<string, AcpDictationProviderStatus>)[provider];
+  return entry?.selectedModel ?? entry?.defaultModel ?? null;
 }
 
 async function providerForConfigKey(key: string): Promise<ProviderDetails> {
@@ -2468,6 +2556,154 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+LOCAL_MODEL_MANAGER="$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+node - "$LOCAL_MODEL_MANAGER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+source = source.replace(
+  "import { defineMessages, useIntl } from '../../../i18n';",
+  "import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';\nimport {\n  cancelAcpDictationModelDownload,\n  deleteAcpDictationModel,\n  listAcpDictationModels,\n  readAcpDictationModelDownloadProgress,\n  readAcpDictationSelectedModel,\n  selectAcpDictationModel,\n  startAcpDictationModelDownload,\n} from '../../../acp/providers';\nimport { defineMessages, useIntl } from '../../../i18n';"
+);
+source = source.replace(
+  `  const loadSelectedModel = async () => {
+    try {
+      const value = await read(LOCAL_WHISPER_MODEL_CONFIG_KEY, false);`,
+  `  const loadSelectedModel = async () => {
+    try {
+      if (USE_ACP_CHAT) {
+        setSelectedModelId(await readAcpDictationSelectedModel('local')); // epistemos-acp-dictation-selected-model
+        return;
+      }
+      const value = await read(LOCAL_WHISPER_MODEL_CONFIG_KEY, false);`
+);
+source = source.replace(
+  `  const selectModel = async (modelId: string) => {
+    await upsert(LOCAL_WHISPER_MODEL_CONFIG_KEY, modelId, false);
+    setSelectedModelId(modelId);
+  };`,
+  `  const selectModel = async (modelId: string) => {
+    if (USE_ACP_CHAT) {
+      await selectAcpDictationModel('local', modelId); // epistemos-acp-dictation-model-select-ui
+    } else {
+      await upsert(LOCAL_WHISPER_MODEL_CONFIG_KEY, modelId, false);
+    }
+    setSelectedModelId(modelId);
+  };`
+);
+source = source.replace(
+  `  const loadModels = async () => {
+    try {
+      const response = await listModels();
+      if (response.data) {
+        setModels(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load models:', error);
+    }
+  };`,
+  `  const loadModels = async () => {
+    try {
+      if (USE_ACP_CHAT) {
+        setModels(await listAcpDictationModels()); // epistemos-acp-dictation-models-list-ui
+        return;
+      }
+      const response = await listModels();
+      if (response.data) {
+        setModels(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load models:', error);
+    }
+  };`
+);
+source = source.replace(
+  `  const startDownload = async (modelId: string) => {
+    try {
+      await downloadModel({ path: { model_id: modelId } });
+      pollDownloadProgress(modelId);
+    } catch (error) {
+      console.error('Failed to start download:', error);
+    }
+  };`,
+  `  const startDownload = async (modelId: string) => {
+    try {
+      if (USE_ACP_CHAT) {
+        await startAcpDictationModelDownload(modelId); // epistemos-acp-dictation-model-download-ui
+      } else {
+        await downloadModel({ path: { model_id: modelId } });
+      }
+      pollDownloadProgress(modelId);
+    } catch (error) {
+      console.error('Failed to start download:', error);
+    }
+  };`
+);
+source = source.replace(
+  `        const response = await getDownloadProgress({ path: { model_id: modelId } });
+        if (response.data) {
+          const progress = response.data;`,
+  `        const progress = USE_ACP_CHAT
+          ? await readAcpDictationModelDownloadProgress(modelId)
+          : (await getDownloadProgress({ path: { model_id: modelId } })).data ?? null;
+        if (progress) {`
+);
+source = source.replace(
+  `      await cancelDownloadApi({ path: { model_id: modelId } });`,
+  `      if (USE_ACP_CHAT) {
+        await cancelAcpDictationModelDownload(modelId); // epistemos-acp-dictation-model-cancel-ui
+      } else {
+        await cancelDownloadApi({ path: { model_id: modelId } });
+      }`
+);
+source = source.replace(
+  `      await deleteModelApi({ path: { model_id: modelId } });
+      if (selectedModelId === modelId) {
+        await upsert(LOCAL_WHISPER_MODEL_CONFIG_KEY, '', false);
+        setSelectedModelId(null);
+      }`,
+  `      if (USE_ACP_CHAT) {
+        await deleteAcpDictationModel(modelId); // epistemos-acp-dictation-model-delete-ui
+      } else {
+        await deleteModelApi({ path: { model_id: modelId } });
+      }
+      if (selectedModelId === modelId) {
+        if (!USE_ACP_CHAT) {
+          await upsert(LOCAL_WHISPER_MODEL_CONFIG_KEY, '', false);
+        }
+        setSelectedModelId(null);
+      }`
+);
+source = source.replace(
+  `  const displayedModels =
+    showAllModels || hasDownloadedNonRecommended ? models : models.filter((m) => m.recommended);
+  const hasNonRecommendedModels = models.some((m) => !m.recommended);`,
+  `  const displayedModels =
+    USE_ACP_CHAT || showAllModels || hasDownloadedNonRecommended
+      ? models
+      : models.filter((m) => m.recommended);
+  const hasNonRecommendedModels = !USE_ACP_CHAT && models.some((m) => !m.recommended);`
+);
+
+for (const snippet of [
+  'epistemos-acp-dictation-selected-model',
+  'epistemos-acp-dictation-model-select-ui',
+  'epistemos-acp-dictation-models-list-ui',
+  'epistemos-acp-dictation-model-download-ui',
+  'readAcpDictationModelDownloadProgress(modelId)',
+  'epistemos-acp-dictation-model-cancel-ui',
+  'epistemos-acp-dictation-model-delete-ui',
+  'USE_ACP_CHAT || showAllModels',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`LocalModelManager staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 AUTH_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
 node - "$AUTH_SETTINGS_SECTION" <<'NODE'
 const fs = require('fs');
@@ -3894,10 +4130,20 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-dictation-config" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-dictation-secret-save" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-dictation-secret-delete" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-models-list" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-model-download" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-model-cancel" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-model-delete" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-dictation-model-select" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "min-h-9 items-center gap-2 rounded-\\[8px\\] border border-border-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/DictationSettings.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/MicrophoneSelector.tsx"
     grep -q "h-2 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/MicrophoneSelector.tsx"
     grep -q "rounded-\\[10px\\] border p-3 shadow-sm backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+    grep -q "epistemos-acp-dictation-selected-model" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+    grep -q "epistemos-acp-dictation-models-list-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+    grep -q "epistemos-acp-dictation-model-download-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+    grep -q "readAcpDictationModelDownloadProgress(modelId)" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+    grep -q "epistemos-acp-dictation-model-delete-ui" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "ep-native-badge px-2 py-0.5 text-xs text-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "h-1.5 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "mt-2 text-xs text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"

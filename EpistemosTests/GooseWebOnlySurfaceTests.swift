@@ -112,6 +112,11 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-dictation-secret-delete-ui"))
         #expect(stageScript.contains("voice_dictation_provider: 'voiceDictationProvider'"))
         #expect(stageScript.contains("voice_dictation_preferred_mic: 'voiceDictationPreferredMic'"))
+        #expect(stageScript.contains("epistemos-acp-dictation-models-list"))
+        #expect(stageScript.contains("epistemos-acp-dictation-models-list-ui"))
+        #expect(stageScript.contains("epistemos-acp-dictation-model-download-ui"))
+        #expect(stageScript.contains("readAcpDictationModelDownloadProgress(modelId)"))
+        #expect(stageScript.contains("epistemos-acp-dictation-model-delete-ui"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))
