@@ -1,12 +1,14 @@
 # Epistemos App-Wide Nativeness Doctrine (2026-06-29)
 
-> 🎨 **OWNER DESIGN AMENDMENT — 2026-06-30 (WINS over the "Liquid Glass" aesthetic below; owner-chosen "layer within native").**
-> The aesthetic shifts to **FLAT PIXEL-ART, MINIMAL** — while staying **NATIVE**:
-> - **KEEP native:** the macOS window/frame/traffic-lights, nav-rail/launcher/toolbars, native behaviors, and MINIMAL springs (the 4 canonical spring values stay). Graph = DO NOT TOUCH (unchanged). Two token sources (unchanged).
-> - **CHANGE surfaces:** replace heavy **Liquid-Glass** translucency/blur with **flat, theme-tinted pixel-art surfaces** — crisp edges, hard/minimal corners, no frosted blur. **Extend `Epistemos/Views/Landing/PixelSurfaceComponents.swift` app-wide** as the shared surface style. Wherever the body below says "Liquid Glass / NSVisualEffectView / transparent-over-glass," read it as **"flat pixel-art surface in the native frame"** per this amendment.
-> - **TOTAL THEME-AWARENESS (HARD):** EVERY surface (native + editor-web + Goose-web) must read the **Epistemos tokens** and re-tint live for ALL palettes — the 9 built-in palettes **AND the user CUSTOM palette**. The custom palette currently does NOT propagate everywhere = a BUG to fix (build task). No surface may hardcode color; all from tokens (still two-token-sources: `EpistemosTheme.swift` + Goose `theme-tokens.ts`).
-> - **OPEN DETAIL (owner-confirm):** `radius 11` (invariant #10) vs pixel-art "hard/crisp edges" — pixel-art surfaces likely want a smaller radius; owner to confirm the pixel-art radius (accent #0066cc + SF Pro stay).
-> - Implementation = Plan 1 (Goose reskin → flat), Plan 2 (editor/HTML-Workspace surfaces → flat + token-aware), Plan 4 (icons → mono/pixel, token-tinted). Reskin-not-replace still holds (restyle Goose's components flat; don't rebuild them).
+> 🛑 **REVERTED 2026-06-30 — the flat-pixel-art amendment is WITHDRAWN by the owner** (it over-collapsed a nuanced plan).
+> **The full NUANCED unification doctrine below STANDS as the authority** — the convergence of native + editor-web + Goose-web
+> into ONE Apple-native language via shared tokens · the canonical springs · macOS-26 Liquid Glass · transparency-over-real-glass ·
+> and the per-substrate recipes. **Do NOT reduce it to a one-word label** ("pixel-art" / "flat" / even just "Apple-native"): the
+> nuance — per-surface treatment so the seams vanish — IS the plan. Read the whole doctrine, don't shortcut it.
+> **RETAINED (the one real addition the owner wants):** **TOTAL THEME-AWARENESS** — every surface (native + editor-web + Goose-web)
+> reads the Epistemos tokens and re-tints live for ALL palettes: the 9 built-ins **AND the user CUSTOM palette** (which currently
+> does NOT propagate everywhere = a BUG to fix; no hardcoded color; two-token-sources). radius 11 + Liquid Glass + springs all stand.
+> **PRECISE SCOPE (owner 2026-06-30):** the minimal/pixel touch is LIMITED to **fonts + small accents + the palette**. **MOST of the look = the strategically-researched native components in the body below** (Liquid Glass, native controls, shared tokens, the springs, transparent-over-glass). It is **NOT** flat surfaces, **NOT** box outlines / thick lines, **NOT** the current over-flat Goose look.
 
 > How every surface achieves "super-native feel." Owner goal: full/near-full AppKit feel; where a WebView
 > is used it must be **indistinguishable from the native part** (the inverse of Codex/Claude/Paseo, which
