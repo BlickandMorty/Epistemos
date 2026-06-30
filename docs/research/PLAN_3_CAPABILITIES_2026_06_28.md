@@ -233,7 +233,9 @@ has the shipped Swift trio:
 or GitHub repo URLs filtered, redirected responses must stay on the requested HTTPS host/path),
 `MCPUrlServerDirectory.write/install/uninstall` (bare-array HTTPS config writer, no token values,
 final-symlink/non-regular config reads rejected, 256 KiB config cap), and `ExtensionsDetailView` (Skills · MCP Servers ·
-Connectors · browser-use). `MCPBridge.dispatch` rejects oversized JSON-RPC requests before policy parsing or Rust
+Connectors · browser-use). MCP server settings status text caps success/failure messages and maps external config-write
+failures to bounded domain/code diagnostics before SwiftUI display. `MCPBridge.dispatch` rejects oversized JSON-RPC
+requests before policy parsing or Rust
 dispatch. Stdio MCP spawns remain hardened and Pro-only
 (`mcp/client.rs:221`).
 

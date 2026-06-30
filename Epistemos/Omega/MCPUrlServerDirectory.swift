@@ -79,6 +79,43 @@ nonisolated enum MCPUrlServerDirectory {
         }
     }
 
+    enum Diagnostics {
+        static let maxFailureReasonCharacters = 360
+        private static let maxDomainCharacters = 96
+        private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+        static func externalErrorDescription(_ error: Error, fallback: String) -> String {
+            let nsError = error as NSError
+            let domain = safeDomain(nsError.domain)
+            return failureReason("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+        }
+
+        static func failureReason(_ message: String, fallback: String) -> String {
+            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            let description = trimmed.isEmpty ? fallback : trimmed
+            guard description.count > maxFailureReasonCharacters else {
+                return description
+            }
+            return String(description.prefix(maxFailureReasonCharacters)) + "..."
+        }
+
+        static func safeDomain(_ domain: String) -> String {
+            let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+            let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+            guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+                return "Error"
+            }
+            let value = trimmed.isEmpty ? "Error" : trimmed
+            guard value.unicodeScalars.allSatisfy({ scalar in
+                CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+            }) else {
+                return "Error"
+            }
+            let bounded = String(value.prefix(maxDomainCharacters))
+            return bounded.isEmpty ? "Error" : bounded
+        }
+    }
+
     /// Config locations, mirroring the Rust discovery order (project wins over
     /// global). Injectable for tests.
     static func projectConfigURL(cwd: URL) -> URL {
@@ -172,7 +209,9 @@ nonisolated enum MCPUrlServerDirectory {
         } catch let error as WriteError {
             throw error
         } catch {
-            throw WriteError.writeFailed(error.localizedDescription)
+            throw WriteError.writeFailed(
+                Diagnostics.externalErrorDescription(error, fallback: "filesystem error")
+            )
         }
     }
 

@@ -402,9 +402,27 @@ nonisolated private func mcpServerOperationOutcome(
     successMessage: () -> String
 ) -> MCPServerSettingsOperationOutcome {
     do {
-        return .success(message: successMessage(), servers: try operation())
+        return .success(
+            message: MCPServerSettingsStatus.message(successMessage(), fallback: "MCP server updated."),
+            servers: try operation()
+        )
     } catch {
-        return .failure(error.localizedDescription)
+        return .failure(MCPServerSettingsStatus.message(for: error, fallback: "MCP server operation failed."))
+    }
+}
+
+nonisolated enum MCPServerSettingsStatus {
+    static let maxStatusMessageCharacters = MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters
+
+    static func message(_ value: String, fallback: String) -> String {
+        MCPUrlServerDirectory.Diagnostics.failureReason(value, fallback: fallback)
+    }
+
+    static func message(for error: Error, fallback: String) -> String {
+        if let error = error as? MCPUrlServerDirectory.WriteError {
+            return message(error.errorDescription ?? fallback, fallback: fallback)
+        }
+        return MCPUrlServerDirectory.Diagnostics.externalErrorDescription(error, fallback: fallback)
     }
 }
 

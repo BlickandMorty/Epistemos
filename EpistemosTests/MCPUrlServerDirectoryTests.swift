@@ -311,6 +311,45 @@ struct MCPUrlServerDirectoryTests {
         }
     }
 
+    @Test("writer diagnostics redact path-leaking external errors")
+    func writerDiagnosticsRedactPathLeakingExternalErrors() {
+        let privatePath = "/private/var/folders/mcp/url_servers.json"
+        let error = NSError(
+            domain: privatePath,
+            code: 21,
+            userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
+        )
+        let message = MCPUrlServerDirectory.Diagnostics.externalErrorDescription(
+            error,
+            fallback: "filesystem error"
+        )
+
+        #expect(message.contains("filesystem error"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=21"))
+        #expect(message.count <= MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters + 3)
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("failed to open"))
+    }
+
+    @Test("extensions settings status routes MCP server failures through diagnostics")
+    func extensionsSettingsStatusRoutesMCPServerFailuresThroughDiagnostics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
+        let directory = try loadMirroredSourceTextFile("Epistemos/Omega/MCPUrlServerDirectory.swift")
+        let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_EXTENSIBILITY_CODEPACK_2026_06_28.md")
+        let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
+
+        #expect(source.contains("nonisolated enum MCPServerSettingsStatus"))
+        #expect(source.contains("MCPServerSettingsStatus.message(for: error"))
+        #expect(source.contains("MCPUrlServerDirectory.Diagnostics.externalErrorDescription"))
+        #expect(!source.contains("return .failure(error.localizedDescription)"))
+        #expect(directory.contains("enum Diagnostics"))
+        #expect(directory.contains("Diagnostics.externalErrorDescription(error, fallback: \"filesystem error\")"))
+        #expect(!directory.contains("throw WriteError.writeFailed(error.localizedDescription)"))
+        #expect(codepack.contains("MCP server settings status text"))
+        #expect(capabilities.contains("MCP server settings status text"))
+    }
+
     @Test("uninstall removes only the named server")
     func uninstallRemovesNamedServer() throws {
         let root = FileManager.default.temporaryDirectory

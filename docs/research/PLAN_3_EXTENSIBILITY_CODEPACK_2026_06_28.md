@@ -43,7 +43,8 @@ read-only `CoworkConnectorDirectory` status) · **browser-use** (Pro diagnostics
 install/uninstall, connector refresh, Best-of manifest row loading, and Best-of apply/revert run off the SwiftUI path in
 detached utility workers. Settings now routes `.skills` to `ExtensionsDetailView()` where
 `@Environment(VaultSyncService.self)` is available. Skills settings status text caps skill-manager messages and maps
-external caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display.
+external caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display. MCP server settings
+status text caps success/failure messages and maps external config-write failures to bounded domain/code diagnostics.
 
 ## 4. `BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json` [DELIVERED]
 Manifest `{kind:.builtinTool|.skillRepo|.remoteMCP, id, displayName, why, minDistribution}` over **only-real-today**
