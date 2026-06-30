@@ -157,6 +157,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(feedSource.contains(#"case epistemos = "_epistemos""#))
         #expect(feedSource.contains("stale: true"))
         #expect(hostSource.contains("HTMLWorkspaceDataFeedStatusStrip(package: package)"))
+        #expect(hostSource.contains(".htmlWorkspaceDataFeed(package: packageBinding, statusText: $dataFeedStatusText)"))
+        #expect(hostSource.contains("setPackage(newPackage)"))
         #expect(hostSource.contains(".htmlWorkspacePackageDidChange"))
     }
 

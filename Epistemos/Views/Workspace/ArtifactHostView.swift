@@ -162,6 +162,7 @@ nonisolated public struct OutputHost: View {
 nonisolated public struct HTMLWorkspaceArtifactHost: View {
     public let workspaceID: ArtifactID
     @State private var observedPackage: HTMLWorkspacePackage?
+    @State private var dataFeedStatusText: String?
 
     public init(workspaceID: ArtifactID) {
         self.workspaceID = workspaceID
@@ -171,7 +172,8 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
     @ViewBuilder
     public var body: some View {
         Group {
-            if let package = currentPackage {
+            if let packageBinding {
+                let package = packageBinding.wrappedValue
                 VStack(spacing: 0) {
                     HTMLWorkspacePreviewView(
                         package: package,
@@ -191,6 +193,7 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
+                .htmlWorkspaceDataFeed(package: packageBinding, statusText: $dataFeedStatusText)
             } else {
                 HTMLWorkspaceMissingPanel(workspaceID: workspaceID)
             }
@@ -211,6 +214,18 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
     @MainActor
     private var currentPackage: HTMLWorkspacePackage? {
         observedPackage ?? Self.openDocument(matching: workspaceID)?.package
+    }
+
+    @MainActor
+    private var packageBinding: Binding<HTMLWorkspacePackage>? {
+        guard let package = currentPackage else { return nil }
+        return Binding(
+            get: { currentPackage ?? package },
+            set: { newPackage in
+                observedPackage = newPackage
+                Self.openDocument(matching: workspaceID)?.setPackage(newPackage)
+            }
+        )
     }
 
     @MainActor
