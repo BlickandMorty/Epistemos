@@ -41,7 +41,8 @@ final class VaultMCPHost {
     }
 
     func currentRegistration(for vaultRoot: URL?) -> WorkNativeMCPRegistration? {
-        guard let vaultRoot, serverVaultPath == vaultRoot.path else { return nil }
+        guard let vaultRoot,
+              serverVaultPath == Self.canonicalVaultURL(vaultRoot).path else { return nil }
         return currentRegistration
     }
 
@@ -57,7 +58,8 @@ final class VaultMCPHost {
 
     func stopIfCurrentVaultDiffers(from vaultRoot: URL?) {
         guard server != nil else { return }
-        guard serverVaultPath == vaultRoot?.path else {
+        guard let vaultRoot,
+              serverVaultPath == Self.canonicalVaultURL(vaultRoot).path else {
             stop()
             return
         }
@@ -70,7 +72,8 @@ final class VaultMCPHost {
     }
 
     private func ensureServer(vaultRoot: URL) -> VaultMCPServer {
-        let vaultPath = vaultRoot.path
+        let canonicalVaultURL = Self.canonicalVaultURL(vaultRoot)
+        let vaultPath = canonicalVaultURL.path
         if let server, serverVaultPath == vaultPath {
             return server
         }
@@ -82,11 +85,15 @@ final class VaultMCPHost {
             allowedToolNames: Set(VaultMCPCore.readToolNames)
         ).toolExecutor()
         let newServer = VaultMCPServer(
-            vaultRoot: vaultRoot,
+            vaultRoot: canonicalVaultURL,
             executor: readOnlyExecutor,
             token: tokenStore.currentToken())
         server = newServer
         serverVaultPath = vaultPath
         return newServer
+    }
+
+    private static func canonicalVaultURL(_ url: URL) -> URL {
+        url.standardizedFileURL.resolvingSymlinksInPath()
     }
 }

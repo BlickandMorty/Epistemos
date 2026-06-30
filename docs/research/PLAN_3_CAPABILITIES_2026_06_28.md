@@ -236,7 +236,8 @@ regular-file JSON reads and reject final symlinks.
 Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), and `VaultMCPServerSettingsRow` (masked token +
 copy client config). The host uses `ChatToolTier.readOnly` plus
 `allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch. Core
-JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch.
+JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch. Host
+registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched read-only servers.
 
 **MAS/Pro split:**
 | Capability | MAS | Pro |

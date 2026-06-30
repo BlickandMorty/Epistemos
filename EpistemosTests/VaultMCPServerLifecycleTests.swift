@@ -184,6 +184,34 @@ struct VaultMCPServerLifecycleTests {
         #expect(host.currentStatus == .stopped)
     }
 
+    @Test("host scopes registrations by canonical vault root")
+    @MainActor
+    func hostScopesRegistrationsByCanonicalVaultRoot() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-vault-mcp-canonical-\(UUID().uuidString)", isDirectory: true)
+        let realVault = root.appendingPathComponent("Real Vault", isDirectory: true)
+        let linkedVault = root.appendingPathComponent("Linked Vault", isDirectory: true)
+        try FileManager.default.createDirectory(at: realVault, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: linkedVault, withDestinationURL: realVault)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let keychain = MemoryKeychain()
+        let factory = TokenFactory(["canonical-token-abcdefghijklmnopqrstuvwxyz"])
+        let host = VaultMCPHost(tokenStore: VaultMCPTokenStore(
+            load: keychain.load,
+            save: keychain.save,
+            makeToken: factory.next))
+        defer { host.stop() }
+
+        let registration = try #require(await host.start(vaultRoot: realVault, timeout: .seconds(2)))
+        #expect(host.currentRegistration(for: realVault)?.url == registration.url)
+        #expect(host.currentRegistration(for: linkedVault)?.url == registration.url)
+
+        host.stopIfCurrentVaultDiffers(from: linkedVault)
+        #expect(host.currentRegistration?.url == registration.url)
+        #expect(host.currentStatus == .running(registration))
+    }
+
     @Test("source guards keep server/host on the audited Plan 3 seams")
     func sourceGuardsKeepPlan3Seams() throws {
         let server = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPServer.swift")
@@ -205,6 +233,8 @@ struct VaultMCPServerLifecycleTests {
         let host = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPHost.swift")
         #expect(host.contains("tier: .readOnly"))
         #expect(host.contains("allowedToolNames: Set(VaultMCPCore.readToolNames)"))
+        #expect(host.contains("canonicalVaultURL"))
+        #expect(host.contains("standardizedFileURL.resolvingSymlinksInPath()"))
         #expect(host.contains("currentRegistration(for vaultRoot: URL?)"))
         #expect(host.contains("stopIfCurrentVaultDiffers"))
         #expect(host.contains("rotateTokenAndRestart"))
