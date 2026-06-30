@@ -33,6 +33,7 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
 
     private let keychainLoad: KeychainLoad
     nonisolated static let maxCredentialValueCharacters = GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters
+    nonisolated static let maxKeychainLookupKeyCharacters = 1_024
 
     init(keychainLoad: @escaping KeychainLoad = { key in GooseProviderKeyBridge.defaultKeychainLoad(key) }) {
         self.keychainLoad = keychainLoad
@@ -130,14 +131,22 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
     }
 
     nonisolated static func candidateKeychainKeys(providerID: String, gooseSecretKey: String) -> [String] {
+        guard let boundedSecretKey = boundedKeychainSegmentSource(
+            gooseSecretKey,
+            maxCharacters: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters
+        ),
+              let providerSegment = normalizedKeychainSegment(
+                providerID,
+                maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters
+              ),
+              let envSegment = normalizedEnvironmentKeySegment(boundedSecretKey) else {
+            return []
+        }
         var keys: [String] = []
-        appendUnique(AppBootstrap.agentCoreKeychainKey(forEnvironmentKey: gooseSecretKey), to: &keys)
-
-        let providerSegment = normalizedKeychainSegment(providerID)
+        appendUnique(AppBootstrap.agentCoreKeychainKey(forEnvironmentKey: boundedSecretKey), to: &keys)
         appendUnique("epistemos.\(providerSegment).apiKey", to: &keys)
         appendUnique("epistemos.apiKey.\(providerSegment)", to: &keys)
 
-        let envSegment = normalizedEnvironmentKeySegment(gooseSecretKey)
         if envSegment != providerSegment {
             appendUnique("epistemos.\(envSegment).apiKey", to: &keys)
             appendUnique("epistemos.apiKey.\(envSegment)", to: &keys)
@@ -161,15 +170,16 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
             providerID: providerID,
             gooseSecretKey: gooseSecretKey
         ) {
-            guard let value = keychainLoad(keychainKey)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !value.isEmpty else {
+            guard let rawValue = keychainLoad(keychainKey) else {
                 continue
             }
-            guard value.count <= Self.maxCredentialValueCharacters else {
+            guard rawValue.utf8.count <= Self.maxCredentialValueCharacters,
+                  !rawValue.utf8.contains(0) else {
                 sawOversizedCredential = true
                 continue
             }
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else { continue }
             return .found(keychainKey: keychainKey, value: value)
         }
         return sawOversizedCredential ? .oversized : .missing
@@ -205,27 +215,48 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
         }
     }
 
-    private static func normalizedEnvironmentKeySegment(_ key: String) -> String {
+    private static func normalizedEnvironmentKeySegment(_ key: String) -> String? {
         var segment = key.lowercased()
         for suffix in ["_api_key", "_access_token", "_token", "_key"] where segment.hasSuffix(suffix) {
             segment.removeLast(suffix.count)
             break
         }
-        return normalizedKeychainSegment(segment)
+        return normalizedKeychainSegment(
+            segment,
+            maxCharacters: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters
+        )
     }
 
-    private static func normalizedKeychainSegment(_ value: String) -> String {
-        let scalars = value.lowercased().unicodeScalars
+    private static func normalizedKeychainSegment(_ value: String, maxCharacters: Int) -> String? {
+        guard let bounded = boundedKeychainSegmentSource(value, maxCharacters: maxCharacters) else {
+            return nil
+        }
+        let scalars = bounded.lowercased().unicodeScalars
         let normalized = String(String.UnicodeScalarView(scalars.map { scalar in
             CharacterSet.alphanumerics.contains(scalar) ? scalar : "."
         }))
-        return normalized
+        let segment = normalized
             .split(separator: ".")
             .joined(separator: ".")
+        return segment.isEmpty ? nil : segment
+    }
+
+    private static func boundedKeychainSegmentSource(_ value: String, maxCharacters: Int) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
     }
 
     private static func appendUnique(_ value: String?, to values: inout [String]) {
-        guard let value, !value.isEmpty, !values.contains(value) else { return }
+        guard let value,
+              !value.isEmpty,
+              value.count <= maxKeychainLookupKeyCharacters,
+              !value.utf8.contains(0),
+              !values.contains(value) else { return }
         values.append(value)
     }
 
