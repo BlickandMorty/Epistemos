@@ -43,6 +43,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeDialogMessageCharacters = 2_048
     nonisolated static let maxNativeDialogDetailCharacters = 8_192
     nonisolated static let maxNativeDialogButtonCharacters = 80
+    nonisolated static let maxNativeErrorMessageCharacters = 512
+    nonisolated static let maxNativeErrorDomainCharacters = 96
     nonisolated static let maxNativeNotificationTitleCharacters = 160
     nonisolated static let maxNativeNotificationBodyCharacters = 2_048
     nonisolated static let maxNativeFileDialogFilters = 16
@@ -138,7 +140,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         do {
             replyHandler(try handleAffordance(name: name, args: args), nil)
         } catch {
-            replyHandler(nil, error.localizedDescription)
+            replyHandler(nil, Self.nativeErrorMessage(for: error))
         }
     }
 
@@ -407,7 +409,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
             return ["filePath": filePath, "contents": contents]
         } catch {
-            return ["filePath": filePath, "contents": "", "error": error.localizedDescription]
+            return [
+                "filePath": filePath,
+                "contents": "",
+                "error": nativeErrorMessage(for: error, fallback: "Goose WebView import session file read failed."),
+            ]
         }
     }
 
@@ -434,6 +440,45 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return fallback }
         return String(trimmed.prefix(Swift.max(0, maxCharacters)))
+    }
+
+    nonisolated static func boundedNativeErrorMessage(
+        _ message: String,
+        fallback: String = "Goose native affordance failed."
+    ) -> String {
+        boundedNativeDialogText(
+            message,
+            maxCharacters: maxNativeErrorMessageCharacters,
+            fallback: fallback
+        ) ?? fallback
+    }
+
+    nonisolated static func nativeErrorMessage(
+        for error: Error,
+        fallback: String = "Goose native affordance failed."
+    ) -> String {
+        if error is GooseWebNativeAffordanceBridgeError {
+            return boundedNativeErrorMessage(error.localizedDescription, fallback: fallback)
+        }
+
+        let nsError = error as NSError
+        return boundedNativeErrorMessage(
+            "\(fallback) (domain=\(safeNativeErrorDomain(nsError.domain)) code=\(nsError.code)).",
+            fallback: fallback
+        )
+    }
+
+    nonisolated static func safeNativeErrorDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !trimmed.contains("/"),
+              !trimmed.contains("\\") else {
+            return "Error"
+        }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        let filtered = String(String.UnicodeScalarView(trimmed.unicodeScalars.filter { allowed.contains($0) }))
+        guard !filtered.isEmpty else { return "Error" }
+        return String(filtered.prefix(maxNativeErrorDomainCharacters))
     }
 
     private func openExternal(_ rawURL: String) throws {
@@ -516,7 +561,12 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
             return ["file": contents, "filePath": expandedPath, "error": NSNull(), "found": true]
         } catch {
-            return ["file": "", "filePath": expandedPath, "error": error.localizedDescription, "found": false]
+            return [
+                "file": "",
+                "filePath": expandedPath,
+                "error": Self.nativeErrorMessage(for: error, fallback: "Goose WebView file read failed."),
+                "found": false,
+            ]
         }
     }
 

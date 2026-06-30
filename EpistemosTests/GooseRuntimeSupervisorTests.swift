@@ -1676,6 +1676,45 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(oversizedPath) == nil)
     }
 
+    @Test("native affordance error messages are bounded and external errors are redacted")
+    func nativeAffordanceErrorMessagesAreBoundedAndExternalErrorsAreRedacted() throws {
+        let privatePath = "/Users/example/private-vault/session.jsonl"
+        let externalError = NSError(
+            domain: privatePath,
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "failed to read \(privatePath)"]
+        )
+        let message = GooseWebNativeAffordanceBridge.nativeErrorMessage(
+            for: externalError,
+            fallback: "file read failed"
+        )
+        let oversized = String(
+            repeating: "e",
+            count: GooseWebNativeAffordanceBridge.maxNativeErrorMessageCharacters + 40
+        )
+
+        #expect(message.contains("file read failed"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=42"))
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("failed to read"))
+        #expect(message.count <= GooseWebNativeAffordanceBridge.maxNativeErrorMessageCharacters)
+        #expect(
+            GooseWebNativeAffordanceBridge.boundedNativeErrorMessage(oversized)
+                .count == GooseWebNativeAffordanceBridge.maxNativeErrorMessageCharacters
+        )
+        #expect(
+            GooseWebNativeAffordanceBridge.safeNativeErrorDomain(
+                String(repeating: "d", count: GooseWebNativeAffordanceBridge.maxNativeErrorDomainCharacters + 12)
+            ).count == GooseWebNativeAffordanceBridge.maxNativeErrorDomainCharacters
+        )
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+        #expect(source.contains("nativeErrorMessage(for: error"))
+        #expect(!source.contains("replyHandler(nil, error.localizedDescription)"))
+        #expect(!source.contains(#""error": error.localizedDescription"#))
+    }
+
     @Test("bridge ignores oversized native persistence inputs")
     func bridgeIgnoresOversizedNativePersistenceInputs() throws {
         let root = FileManager.default.temporaryDirectory
