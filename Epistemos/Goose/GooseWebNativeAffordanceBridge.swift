@@ -587,7 +587,23 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         _ expandedPath: String,
         fileManager: FileManager = .default
     ) -> Data? {
-        guard !exceedsNativeFileReadLimit(expandedPath, fileManager: fileManager) else { return nil }
+        readRegularFileData(
+            expandedPath,
+            maxBytes: Self.maxNativeFileReadBytes,
+            fileManager: fileManager
+        )
+    }
+
+    nonisolated static func readRegularFileData(
+        _ expandedPath: String,
+        maxBytes: Int,
+        fileManager: FileManager = .default
+    ) -> Data? {
+        let maxBytes = max(0, maxBytes)
+        guard let size = fileSize(atPath: expandedPath, fileManager: fileManager),
+              size <= UInt64(maxBytes) else {
+            return nil
+        }
         let fileURL = URL(fileURLWithPath: expandedPath, isDirectory: false)
         guard let resourceValues = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
               resourceValues.isRegularFile == true else {
@@ -597,8 +613,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         do {
             let handle = try FileHandle(forReadingFrom: fileURL)
             defer { try? handle.close() }
-            let data = try handle.read(upToCount: Self.maxNativeFileReadBytes + 1) ?? Data()
-            guard data.count <= Self.maxNativeFileReadBytes else { return nil }
+            let readLimit = maxBytes == Int.max ? Int.max : maxBytes + 1
+            let data = try handle.read(upToCount: readLimit) ?? Data()
+            guard data.count <= maxBytes else { return nil }
             return data
         } catch {
             return nil
@@ -827,11 +844,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func listRecentDirectories() -> [String] {
-        if let size = Self.fileSize(atPath: recentDirsURL.path, fileManager: fileManager),
-           size > UInt64(Self.maxRecentDirsFileBytes) {
-            return []
-        }
-        guard let data = try? Data(contentsOf: recentDirsURL),
+        guard let data = Self.readRegularFileData(
+                recentDirsURL.path,
+                maxBytes: Self.maxRecentDirsFileBytes,
+                fileManager: fileManager
+              ),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let dirs = object["dirs"] as? [String] else {
             return []

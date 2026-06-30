@@ -1635,10 +1635,14 @@ struct GooseWebNativeAffordanceBridgeTests {
     func nativeFileDataURLReadsAreBoundedRegularFileReads() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
         #expect(source.contains("readNativeFileData(expandedPath)"))
+        #expect(source.contains("readRegularFileData("))
+        #expect(source.contains("readRegularFileData(\n                recentDirsURL.path"))
         #expect(source.contains("resourceValues.isRegularFile == true"))
-        #expect(source.contains("handle.read(upToCount: Self.maxNativeFileReadBytes + 1)"))
+        #expect(source.contains("let readLimit = maxBytes == Int.max ? Int.max : maxBytes + 1"))
+        #expect(source.contains("handle.read(upToCount: readLimit)"))
         #expect(source.contains("String(data: data, encoding: .utf8)"))
         #expect(!source.contains("Data(contentsOf: fileURL)"))
+        #expect(!source.contains("Data(contentsOf: recentDirsURL)"))
         #expect(!source.contains("String(contentsOfFile: expandedPath"))
 
         let root = FileManager.default.temporaryDirectory
@@ -1650,6 +1654,7 @@ struct GooseWebNativeAffordanceBridgeTests {
         let bytes = Data([0x89, 0x50, 0x4E, 0x47])
         try bytes.write(to: file)
         #expect(GooseWebNativeAffordanceBridge.readNativeFileData(file.path) == bytes)
+        #expect(GooseWebNativeAffordanceBridge.readRegularFileData(file.path, maxBytes: 2) == nil)
         #expect(GooseWebNativeAffordanceBridge.readNativeFileData(root.path) == nil)
 
         let oversized = root.appendingPathComponent("oversized.bin", isDirectory: false)
