@@ -1384,6 +1384,27 @@ struct GooseWebNativeAffordanceBridgeTests {
         }
     }
 
+    @Test("MCP app launch clamps untrusted window dimensions")
+    func mcpAppLaunchClampsUntrustedWindowDimensions() throws {
+        let bridge = GooseWebNativeAffordanceBridge()
+        let appName = "oversized_window_\(UUID().uuidString)"
+        _ = try bridge.handleAffordance(
+            name: "launchApp",
+            args: [[
+                "name": appName,
+                "text": "<!doctype html><title>window</title>",
+                "width": 50_000,
+                "height": -12,
+            ]]
+        )
+        defer { _ = try? bridge.handleAffordance(name: "closeApp", args: [appName]) }
+
+        let window = try #require(NSApp.windows.first { $0.title == "Oversized Window \(appName.suffix(36))" })
+        let contentSize = try #require(window.contentView?.frame.size)
+        #expect(contentSize.width == CGFloat(GooseWebNativeAffordanceBridge.maxLaunchedAppWindowWidth))
+        #expect(contentSize.height == CGFloat(GooseWebNativeAffordanceBridge.minLaunchedAppWindowHeight))
+    }
+
     @Test("settings affordances persist through the native host")
     func settingsAffordancesPersistThroughNativeHost() throws {
         let suiteName = "epistemos-goose-native-\(UUID().uuidString)"

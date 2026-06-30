@@ -22,6 +22,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     nonisolated private static let webProtocols: Set<String> = ["http", "https"]
     nonisolated static let maxLaunchedAppWindows = 16
+    nonisolated static let minLaunchedAppWindowWidth: Double = 320
+    nonisolated static let minLaunchedAppWindowHeight: Double = 240
+    nonisolated static let maxLaunchedAppWindowWidth: Double = 1_600
+    nonisolated static let maxLaunchedAppWindowHeight: Double = 1_200
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -705,8 +709,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             webView.load(URLRequest(url: url))
         }
 
-        let width = CGFloat(numberArgument(app["width"]) ?? 800)
-        let height = CGFloat(numberArgument(app["height"]) ?? 600)
+        let width = appWindowDimension(
+            app["width"],
+            fallback: 800,
+            min: Self.minLaunchedAppWindowWidth,
+            max: Self.maxLaunchedAppWindowWidth
+        )
+        let height = appWindowDimension(
+            app["height"],
+            fallback: 600,
+            min: Self.minLaunchedAppWindowHeight,
+            max: Self.maxLaunchedAppWindowHeight
+        )
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: windowStyleMask(resizable: boolArgument(app["resizable"]) ?? true),
@@ -1076,6 +1090,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         default:
             return nil
         }
+    }
+
+    private func appWindowDimension(
+        _ value: Any?,
+        fallback: Double,
+        min minValue: Double,
+        max maxValue: Double
+    ) -> CGFloat {
+        guard let dimension = numberArgument(value), dimension.isFinite else {
+            return CGFloat(fallback)
+        }
+        return CGFloat(Swift.min(Swift.max(dimension, minValue), maxValue))
     }
 
     private func boolArgument(_ value: Any?) -> Bool? {
