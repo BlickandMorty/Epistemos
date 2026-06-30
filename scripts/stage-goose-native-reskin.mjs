@@ -1447,6 +1447,152 @@ function applySessionDetailSurfaces() {
   write('src/components/sessions/SessionHistoryView.tsx', source);
 }
 
+function applySchedulerDetailSurfaces() {
+  let source = read('src/components/schedule/ScheduleDetailView.tsx');
+  source = replaceRequired(
+    source,
+    'schedule detail transparent root',
+    'className="h-screen w-full flex flex-col bg-background-primary text-text-primary"',
+    'className="h-screen w-full flex flex-col bg-transparent text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail native header',
+    'className="px-8 pt-6 pb-4 border-b border-border-primary flex-shrink-0"',
+    'className="ep-native-header-band mx-6 mt-6 flex-shrink-0 rounded-[16px] border border-border-secondary px-5 pb-4 pt-4 shadow-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail native heading',
+    'className="text-4xl font-light mt-1 mb-1 pt-8"',
+    'className="mb-1 mt-2 text-2xl font-sans font-semibold tracking-normal"'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule detail native error panels',
+    'className="text-text-danger text-sm p-3 bg-background-danger border border-border-danger rounded-md"',
+    'className="rounded-[12px] border border-border-danger bg-background-danger/72 p-3 text-sm text-text-danger backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail native info card',
+    'className="p-4 bg-background-primary shadow-none mb-6 border border-border-primary rounded-[6px]"',
+    'className="ep-native-screen-card mb-6 border p-4"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail running dot',
+    'className="inline-block w-2 h-2 bg-primary mr-1 animate-pulse"',
+    'className="ep-native-loading-dot is-active mr-1"'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule detail neutral outline actions',
+    'text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20',
+    ''
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail recent session card',
+    'className="p-4 bg-background-primary shadow-none cursor-pointer hover:bg-background-secondary transition-colors duration-150 border border-border-primary rounded-[6px]"',
+    'className="ep-native-list-card cursor-pointer border p-4 hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule detail session id font',
+    '<span className="font-mono">{sessionId}</span>',
+    '<span className="font-sans font-medium">{sessionId}</span>'
+  );
+  write('src/components/schedule/ScheduleDetailView.tsx', source);
+
+  source = read('src/components/schedule/ScheduleModal.tsx');
+  source = replaceRequired(
+    source,
+    'schedule modal native overlay',
+    'className="fixed inset-0 bg-black/35 z-40 flex items-center justify-center p-4"',
+    'className="fixed inset-0 z-40 flex items-center justify-center bg-black/24 p-4 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal native card',
+    'className="w-full max-w-md bg-background-primary shadow-none rounded-[6px] z-50 flex flex-col max-h-[90vh] overflow-hidden border border-border-primary"',
+    'className="ep-native-screen-card z-50 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden border"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal native header border',
+    'className="px-5 pt-5 pb-3 flex-shrink-0 border-b border-border-primary"',
+    'className="flex-shrink-0 border-b border-border-secondary px-5 pb-3 pt-5"'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule modal native error panels',
+    'className="text-text-danger text-sm mb-3 p-2 border border-border-danger rounded-[6px]"',
+    'className="mb-3 rounded-[12px] border border-border-danger bg-background-danger/72 p-2 text-sm text-text-danger backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal segmented native container',
+    'className="grid grid-cols-2 border border-border-primary rounded-[6px] overflow-hidden"',
+    'className="grid grid-cols-2 rounded-[10px] border border-border-secondary bg-background-secondary/70 p-1 backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule modal segmented native button font',
+    'px-3 py-2 text-xs font-mono uppercase transition-colors',
+    'rounded-[7px] px-3 py-2 text-xs font-sans font-medium tracking-normal transition-all'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule modal segmented selected native style',
+    'bg-background-inverse text-background-primary',
+    'bg-background-primary text-text-primary shadow-sm'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule modal segmented inactive native style',
+    'text-text-muted hover:bg-background-secondary hover:text-text-primary',
+    'text-text-secondary hover:bg-background-primary/80 hover:text-text-primary'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal segmented divider native',
+    'transition-all border-l border-border-primary',
+    'transition-all border-l border-border-secondary'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal browse button radius',
+    'className="w-full justify-center rounded-[6px]"',
+    'className="w-full justify-center rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal deeplink input radius',
+    'className="rounded-[6px]"',
+    'className="rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal parsed recipe panel',
+    'className="mt-2 p-2 bg-background-secondary rounded-[6px] border border-border-primary"',
+    'className="mt-2 rounded-[10px] border border-border-primary bg-background-secondary/70 p-2 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal native footer border',
+    'className="flex gap-2 px-8 py-4 border-t border-border-primary"',
+    'className="flex gap-2 border-t border-border-secondary px-8 py-4"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule modal cancel neutral style',
+    'className="flex-1 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"',
+    'className="flex-1"'
+  );
+  write('src/components/schedule/ScheduleModal.tsx', source);
+}
+
 function applySearchSurfaces() {
   let source = read('src/components/conversation/SearchBar.tsx');
   source = replaceRequired(
@@ -1587,6 +1733,7 @@ applyProviderCatalogSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
+applySchedulerDetailSurfaces();
 applySearchSurfaces();
 applyLoadingAndErrorSurfaces();
 
