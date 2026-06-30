@@ -838,6 +838,48 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
+    @Test("bridge ignores stale ACP response-send failures after disconnect")
+    func bridgeIgnoresStaleResponseSendFailuresAfterDisconnect() async throws {
+        let transport = GooseACPBlockingSendFailureTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {
+              "jsonrpc": "2.0",
+              "id": "perm-1",
+              "method": "session/request_permission",
+              "params": {
+                "sessionId": "session-1",
+                "toolCall": {
+                  "toolCallId": "tool-1",
+                  "title": "Write file",
+                  "kind": "edit",
+                  "status": "pending"
+                },
+                "options": [
+                  { "optionId": "once", "name": "Allow once", "kind": "allow_once" }
+                ]
+              }
+            }
+            """,
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(transport: transport, clientVersion: "test-version")
+        try await waitUntil { bridge.pendingPermission != nil }
+
+        let pending = try #require(bridge.pendingPermission)
+        bridge.resolvePermission(promptID: pending.id, optionID: "once")
+        await transport.waitUntilBlockedSend()
+
+        await bridge.disconnect()
+        #expect(bridge.unhandledDiagnostics.isEmpty)
+
+        await transport.releaseBlockedSend()
+        await transport.waitUntilBlockedSendFailed()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(bridge.unhandledDiagnostics.isEmpty)
+    }
+
     @Test("bridge clears pending ACP prompts when the connection fails")
     func bridgeClearsPendingPromptsOnConnectionFailure() async throws {
         let transport = GooseACPFramesThenFailTransport(incoming: [
@@ -1354,6 +1396,89 @@ actor GooseACPMemoryTransport: GooseACPTransport {
             }
         }
         receiveWaiterCountWaiters = stillWaiting
+    }
+}
+
+private actor GooseACPBlockingSendFailureTransport: GooseACPTransport {
+    private var incoming: [String]
+    private var sent: [String] = []
+    private var receiveWaiters: [CheckedContinuation<String?, Error>] = []
+    private var blockedSendContinuation: CheckedContinuation<Void, Never>?
+    private var blockedSendWaiters: [CheckedContinuation<Void, Never>] = []
+    private var blockedSendFailedWaiters: [CheckedContinuation<Void, Never>] = []
+    private var isClosed = false
+    private var blockedSendFailed = false
+
+    init(incoming: [String]) {
+        self.incoming = incoming
+    }
+
+    func send(_ text: String) async throws {
+        sent.append(text)
+        guard sent.count == 2 else { return }
+        await withCheckedContinuation { continuation in
+            blockedSendContinuation = continuation
+            resumeBlockedSendWaiters()
+        }
+        blockedSendFailed = true
+        resumeBlockedSendFailedWaiters()
+        throw GooseACPInjectedFailure()
+    }
+
+    func receive() async throws -> String? {
+        guard !isClosed else { return nil }
+
+        guard incoming.isEmpty else {
+            return incoming.removeFirst()
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            receiveWaiters.append(continuation)
+        }
+    }
+
+    func close() async {
+        isClosed = true
+        let waiters = receiveWaiters
+        receiveWaiters.removeAll()
+        for continuation in waiters {
+            continuation.resume(returning: nil)
+        }
+    }
+
+    func waitUntilBlockedSend() async {
+        guard blockedSendContinuation == nil else { return }
+        await withCheckedContinuation { continuation in
+            blockedSendWaiters.append(continuation)
+        }
+    }
+
+    func releaseBlockedSend() {
+        blockedSendContinuation?.resume()
+        blockedSendContinuation = nil
+    }
+
+    func waitUntilBlockedSendFailed() async {
+        guard !blockedSendFailed else { return }
+        await withCheckedContinuation { continuation in
+            blockedSendFailedWaiters.append(continuation)
+        }
+    }
+
+    private func resumeBlockedSendWaiters() {
+        let waiters = blockedSendWaiters
+        blockedSendWaiters.removeAll()
+        for continuation in waiters {
+            continuation.resume()
+        }
+    }
+
+    private func resumeBlockedSendFailedWaiters() {
+        let waiters = blockedSendFailedWaiters
+        blockedSendFailedWaiters.removeAll()
+        for continuation in waiters {
+            continuation.resume()
+        }
     }
 }
 

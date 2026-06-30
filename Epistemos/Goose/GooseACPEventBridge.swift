@@ -298,7 +298,7 @@ final class GooseACPEventBridge {
             do {
                 try await client.respondToPermission(requestId: prompt.requestID, response: response)
             } catch {
-                self?.recordResponseSendFailure(error, context: context)
+                self?.recordResponseSendFailure(error, context: context, from: client)
             }
         }
     }
@@ -313,7 +313,7 @@ final class GooseACPEventBridge {
             do {
                 try await client.respondToElicitation(requestId: prompt.requestID, response: response)
             } catch {
-                self?.recordResponseSendFailure(error, context: context)
+                self?.recordResponseSendFailure(error, context: context, from: client)
             }
         }
     }
@@ -412,7 +412,7 @@ final class GooseACPEventBridge {
                         try await client.respondUnsupportedRequest(requestId: id, method: method)
                     }
                 } catch {
-                    self?.recordResponseSendFailure(error, context: "unhandled-request")
+                    self?.recordResponseSendFailure(error, context: "unhandled-request", from: client)
                 }
             }
         case .unhandledNotification(let method, let params):
@@ -462,7 +462,8 @@ final class GooseACPEventBridge {
     // recover from in place (a re-connect to the same key is a no-op while the key is still set).
     // Record it as a diagnostic and leave the live status intact; genuine connection death still
     // surfaces through the read loop's terminal `fail()`.
-    private func recordResponseSendFailure(_ error: Error, context: String) {
+    private func recordResponseSendFailure(_ error: Error, context: String, from responseClient: GooseACPClient) {
+        guard let client, client === responseClient else { return }
         recordDiagnostic(
             kind: .request,
             method: "response-send-failed(\(context))",
