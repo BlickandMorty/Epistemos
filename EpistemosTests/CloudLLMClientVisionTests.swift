@@ -90,6 +90,71 @@ struct CloudLLMClientVisionTests {
         #expect(imageURLBlock["url"] == "data:image/heic;base64,aGVpYw==")
     }
 
+    @Test("vision payloads reject symlinked image files")
+    func visionPayloadsRejectSymlinkedImageFiles() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "cloud-vision-symlink-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let outside = root.appendingPathComponent("outside.png")
+        let symlink = root.appendingPathComponent("linked.png")
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: outside, options: .atomic)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outside)
+
+        do {
+            _ = try CloudLLMClient.visionPayloads(from: [symlink])
+            Issue.record("Expected symlinked image attachment to be rejected")
+        } catch let error as CloudLLMError {
+            #expect(error.errorDescription?.contains("symbolic link") == true)
+        }
+    }
+
+    @Test("vision payloads reject oversized image files before encoding")
+    func visionPayloadsRejectOversizedImageFiles() throws {
+        let imageURL = try temporaryImageURL(named: "huge.png", bytes: [0x89, 0x50, 0x4E, 0x47])
+        defer { try? FileManager.default.removeItem(at: imageURL.deletingLastPathComponent()) }
+        let handle = try FileHandle(forWritingTo: imageURL)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: UInt64(CloudLLMClient.maxVisionImageBytes + 1))
+
+        do {
+            _ = try CloudLLMClient.visionPayloads(from: [imageURL])
+            Issue.record("Expected oversized image attachment to be rejected")
+        } catch let error as CloudLLMError {
+            #expect(error.errorDescription?.contains("exceeds") == true)
+        }
+    }
+
+    @Test("vision payloads cap attachment count before reading files")
+    func visionPayloadsCapAttachmentCount() throws {
+        let imageURL = try temporaryImageURL(named: "diagram.png", bytes: [0x89, 0x50, 0x4E, 0x47])
+        defer { try? FileManager.default.removeItem(at: imageURL.deletingLastPathComponent()) }
+        let urls = Array(repeating: imageURL, count: CloudLLMClient.maxVisionImageCount + 1)
+
+        do {
+            _ = try CloudLLMClient.visionPayloads(from: urls)
+            Issue.record("Expected too many image attachments to be rejected")
+        } catch let error as CloudLLMError {
+            #expect(error.errorDescription?.contains("Too many image attachments") == true)
+        }
+    }
+
+    @Test("vision payload source keeps bounded regular-file contract")
+    func visionPayloadSourceGuard() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/LLMService.swift")
+        for required in [
+            "maxVisionImageBytes",
+            "maxVisionImageCount",
+            "destinationOfSymbolicLink",
+            "attributes[.type] as? FileAttributeType == .typeRegular",
+            "data.count <= maxVisionImageBytes",
+        ] {
+            #expect(source.contains(required), "Cloud vision payload builder missing file envelope marker: \(required)")
+        }
+    }
+
     private func temporaryImageURL(named name: String, bytes: [UInt8]) throws -> URL {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "cloud-vision-\(UUID().uuidString)",

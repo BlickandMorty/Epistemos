@@ -643,6 +643,8 @@ extension CloudModelProvider {
 @MainActor
 final class CloudLLMClient: CloudConfigurableLLMClient {
     private static let log = Logger(subsystem: "com.epistemos.llm", category: "CloudLLMClient")
+    nonisolated static let maxVisionImageBytes = 20 * 1024 * 1024
+    nonisolated static let maxVisionImageCount = 8
 
     nonisolated struct VisionPayload: Equatable, Sendable {
         let mimeType: String
@@ -2403,6 +2405,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     nonisolated static func visionPayloads(from imageURLs: [URL]) throws -> [VisionPayload] {
+        guard imageURLs.count <= maxVisionImageCount else {
+            throw CloudLLMError.invalidVisionInput("Too many image attachments. Limit: \(maxVisionImageCount).")
+        }
         try imageURLs.map(Self.visionPayload(for:))
     }
 
@@ -2486,11 +2491,39 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private nonisolated static func visionPayload(for imageURL: URL) throws -> VisionPayload {
+        try validateVisionImageURL(imageURL)
         let data = try Data(contentsOf: imageURL)
+        guard data.count <= maxVisionImageBytes else {
+            throw CloudLLMError.invalidVisionInput("Image attachment exceeds \(maxVisionImageBytes) bytes.")
+        }
         return VisionPayload(
             mimeType: imageMimeType(for: imageURL),
             base64Data: data.base64EncodedString()
         )
+    }
+
+    private nonisolated static func validateVisionImageURL(_ imageURL: URL) throws {
+        let fileManager = FileManager.default
+        guard imageURL.isFileURL else {
+            throw CloudLLMError.invalidVisionInput("Image attachment must be a local file URL.")
+        }
+        if (try? fileManager.destinationOfSymbolicLink(atPath: imageURL.path)) != nil {
+            throw CloudLLMError.invalidVisionInput("Image attachment must not be a symbolic link.")
+        }
+        guard fileManager.fileExists(atPath: imageURL.path) else {
+            throw CloudLLMError.invalidVisionInput("Image attachment is missing.")
+        }
+        let attributes = try fileManager.attributesOfItem(atPath: imageURL.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+            throw CloudLLMError.invalidVisionInput("Image attachment must be a regular file.")
+        }
+        guard let size = attributes[.size] as? NSNumber,
+              size.intValue > 0 else {
+            throw CloudLLMError.invalidVisionInput("Image attachment is empty.")
+        }
+        guard size.intValue <= maxVisionImageBytes else {
+            throw CloudLLMError.invalidVisionInput("Image attachment exceeds \(maxVisionImageBytes) bytes.")
+        }
     }
 
     private nonisolated static func imageMimeType(for imageURL: URL) -> String {
@@ -3249,6 +3282,7 @@ nonisolated enum CloudLLMError: LocalizedError {
     case missingAccess(String)
     case invalidResponse
     case runtimeUnavailable
+    case invalidVisionInput(String)
 
     var errorDescription: String? {
         switch self {
@@ -3260,6 +3294,8 @@ nonisolated enum CloudLLMError: LocalizedError {
             "The cloud provider returned an unreadable response."
         case .runtimeUnavailable:
             "The cloud model runtime is unavailable right now."
+        case .invalidVisionInput(let message):
+            message
         }
     }
 }
