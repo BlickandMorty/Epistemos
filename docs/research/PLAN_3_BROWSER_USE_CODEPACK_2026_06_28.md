@@ -26,6 +26,23 @@ landscape is deliberately confusing; here is the truth so no agent drifts:
   - **Bump DELIBERATELY, never automatically:** 0.13.x moves fast — only advance a pinned commit with a re-verified
     BUILD_MANIFEST/VENDOR_MANIFEST + a Pro smoke test, never "to get v2."
 
+## ★ FRONTEND + ENGINE DECISION (owner 2026-06-30) — SHIP PRO ON **CORE + GRADIO** (stable, integrated, correct)
+**FRONTEND = the Gradio `web-ui` embedded in a WKWebView (reskinned). KEEP it; do NOT switch.** The org's newer
+frontends do NOT fit the embed model: `desktop` is a STANDALONE Electron app (its own window/process — does not embed
+in Epistemos) and `terminal` is a Rust CLI (no embeddable GUI). Gradio-in-WKWebView is the ONLY one that embeds + can
+be reskinned to the unified look. Settled — no frontend migration.
+**ENGINE = browser-use CORE (0.13.2, vendored). Do NOT vendor `browser-harness`.** `browser-harness` is an INDEPENDENT
+second engine (raw CDP, ~1,000 lines, self-healing, BETA v0.1.3) — NOT a layer on core ("doesn't need the core
+browser-use Agent"). Adopting it = running TWO Chromium-subprocess engines = double the fragility for a beta payoff,
+the OPPOSITE of the fail-proof Pro bar. Core is mature, full-featured, and already integrated — ship on it.
+  - **`browser-harness` = WATCH-LIST only.** Revisit ONLY if it exits beta AND clearly beats core on hard sites; then
+    it could be an OPT-IN "experimental self-healing mode" flag — never a silent second default, never on MAS.
+  - **Steal the IDEA, not the engine:** harness's self-healing (generate + SAVE helper code each run) is just
+    PROCEDURAL MEMORY for browsing — which `agent_core` ALREADY has (skills + procedural memory). Bring that PATTERN
+    into agent_core's browsing skills (accumulate reusable browse-helpers across runs) instead of vendoring a 2nd
+    engine. More owned, fits the doctrine, zero extra Chromium fragility.
+**NET: Pro browser = browser-use CORE 0.13.2 + Gradio-in-WKWebView, pinned + Pro-gated. ONE engine, ONE frontend.**
+
 ## Current upstream pins `[WEB]`
 Authoritative source is the official `browser-use/*` GitHub organization, checked on 2026-06-28 with `git ls-remote`
 and local vendored source inspection:
