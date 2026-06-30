@@ -304,7 +304,8 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   `source_pdf` pointing at the copied PDF under `<vault>/arXiv/`. The landing button opens `ArxivSearchView` as a sheet.
   MAS-safe (arxiv.org API + the §1 PDF pipeline); Atom parsing disables external entity resolution and caps parsed
   papers/field growth inside the 5 MiB response envelope; search query length and network-fed SwiftUI display strings
-  are bounded; downloaded temp PDFs are opened with `O_NOFOLLOW`,
+  are bounded; request/parser/status failures are mapped to bounded domain/code diagnostics; downloaded temp PDFs are
+  opened with `O_NOFOLLOW`,
   regular-file checked, symlink rejected, capped at 128 MiB, magic-sniffed, and renamed to `.pdf` before parsing;
   failures create no note and unexpected external errors are reported with bounded domain/code diagnostics instead of
   raw localized filesystem strings.

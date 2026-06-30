@@ -220,7 +220,7 @@ struct ArxivSearchView: View {
             statusMessage = nil
         } catch {
             papers = []
-            statusMessage = ArxivSearchPresentation.status(error.localizedDescription)
+            statusMessage = ArxivSearchPresentation.status(ArxivSearchDiagnostics.statusMessage(for: error))
         }
     }
 
@@ -246,7 +246,7 @@ struct ArxivSearchView: View {
         case .rejected(.cancelled):
             statusMessage = nil
         case .rejected(let error):
-            statusMessage = ArxivSearchPresentation.status(error.localizedDescription)
+            statusMessage = ArxivSearchPresentation.status(ArxivSearchDiagnostics.statusMessage(for: error))
         }
     }
 }

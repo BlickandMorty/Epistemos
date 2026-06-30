@@ -19,7 +19,8 @@
   parsed papers, element text, and repeated authors/categories inside the 5 MiB response envelope.
   PDF links normalize to HTTPS only for canonical new-style or old-style `/pdf/<arxiv-id>` paths; credentials, queries,
   fragments, encoded path tricks, traversal suffixes, and arbitrary non-ID paths are rejected before download. Defaults
-  plain text to `all:`; honest errors. Networking only.
+  plain text to `all:`; request/XML parser failures are reported as bounded domain/code diagnostics before status text.
+  Networking only.
 - **`Epistemos/Arxiv/ArxivIngestService.swift` [DELIVERED]** — `ingest(paper,vaultURL,modelContext,graphState,importer)`:
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI
   (off `@MainActor` via `Task.detached` — never block main); (3) create the paired PDF/Markdown files in a detached
@@ -34,7 +35,8 @@
   → no note + a bounded reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`), and
-  caps network-fed title/author/summary/metadata/status display strings before SwiftUI render.
+  caps network-fed title/author/summary/metadata/status display strings before SwiftUI render. Search and ingest status
+  failures route through the arXiv diagnostics helper instead of raw localized error descriptions.
 - **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,
   explicit `0/false/no/off` kill switch. Search+metadata+download are HTTPS-only; note creation still requires real
   markdown from the local PDF importer. If the parser bridge is absent in a Swift-only host or the parser rejects the
@@ -49,6 +51,6 @@ MAS-safe: networking + the existing PDF pipeline; no Python, no subprocess, no f
 - `EpistemosTests/ArxivPlan3Tests.swift` covers search URL construction, Atom parsing, default-on kill switch behavior,
   draft frontmatter/body composition, successful ingest into an in-memory SwiftData vault, parser rejection with no note,
   bounded Atom parser shape, unsafe temp PDF envelope rejection, download rejection with no note, and redaction of
-  unexpected external error descriptions before they reach UI-facing ingest status.
+  unexpected external error descriptions before they reach UI-facing search or ingest status.
 - `EpistemosTests/LandingFeatureButtonsPlan3Tests.swift` guards the landing button, arXiv sheet presentation, and
   `ArxivPullGateStatus` availability wiring.

@@ -127,9 +127,8 @@ nonisolated enum ArxivIngestDiagnostics {
 
     static func externalErrorDescription(_ error: Error, fallback: String) -> String {
         let nsError = error as NSError
-        let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
-        let label = domain.isEmpty ? "Error" : domain
-        return failureReason("\(fallback) (\(label) \(nsError.code))", fallback: fallback)
+        let domain = ArxivSearchDiagnostics.safeDomain(nsError.domain)
+        return failureReason("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
     }
 }
 

@@ -45,6 +45,36 @@ struct ArxivPlan3Tests {
         }
     }
 
+    @Test("search diagnostics redact path-leaking transport errors")
+    func searchDiagnosticsRedactPathLeakingTransportErrors() async throws {
+        let privatePath = "/private/var/folders/arxiv/token.xml"
+        let injected = NSError(
+            domain: privatePath,
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
+        )
+        let client = ArxivClient { _ in
+            throw injected
+        }
+
+        do {
+            _ = try await client.search(query: "retrieval augmented generation")
+            Issue.record("Expected arXiv search transport failure to be rejected")
+        } catch let error as ArxivClientError {
+            guard case .requestFailed(let message) = error else {
+                Issue.record("Expected .requestFailed, got \(error)")
+                return
+            }
+            #expect(message.contains("request failed"))
+            #expect(message.contains("domain=Error"))
+            #expect(message.contains("code=42"))
+            #expect(message.count <= ArxivSearchDiagnostics.maxFailureReasonCharacters + 3)
+            #expect(!message.contains(privatePath))
+            #expect(!message.contains("failed to open"))
+            #expect(!error.localizedDescription.contains(privatePath))
+        }
+    }
+
     @Test("Atom parser extracts paper metadata and PDF link")
     func parsesAtom() throws {
         let papers = try ArxivClient.parseSearchResponse(Data(Self.atomFixture.utf8))
@@ -116,6 +146,25 @@ struct ArxivPlan3Tests {
         #expect(ArxivSearchPresentation.summary(String(repeating: "s", count: ArxivSearchPresentation.maxSummaryCharacters + 32)).count == ArxivSearchPresentation.maxSummaryCharacters + 3)
         #expect(ArxivSearchPresentation.metadata(String(repeating: "m", count: ArxivSearchPresentation.maxMetadataCharacters + 32)).count == ArxivSearchPresentation.maxMetadataCharacters + 3)
         #expect(ArxivSearchPresentation.status(String(repeating: "e", count: ArxivSearchPresentation.maxStatusMessageCharacters + 32)).count == ArxivSearchPresentation.maxStatusMessageCharacters + 3)
+    }
+
+    @Test("arXiv external diagnostics redact malformed domains")
+    func arxivExternalDiagnosticsRedactMalformedDomains() {
+        let privatePath = "/private/var/folders/arxiv/download.pdf"
+        let error = NSError(
+            domain: privatePath,
+            code: 7,
+            userInfo: [NSLocalizedDescriptionKey: "download failed at \(privatePath)"]
+        )
+        let search = ArxivSearchDiagnostics.externalErrorDescription(error, fallback: "request failed")
+        let ingest = ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "download failed")
+
+        for message in [search, ingest] {
+            #expect(message.contains("domain=Error"))
+            #expect(message.contains("code=7"))
+            #expect(!message.contains(privatePath))
+            #expect(!message.contains("download failed at"))
+        }
     }
 
     @Test("rejects non-arXiv PDF URLs before download")
@@ -217,9 +266,12 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("parser rejection with no note"))
         #expect(codepack.contains("conversion and file materialization run off"))
         #expect(codepack.contains("exceeds the 128 MiB cap"))
+        #expect(codepack.contains("request/XML parser failures are reported as bounded domain/code diagnostics"))
+        #expect(codepack.contains("search or ingest status"))
         #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
         #expect(capabilities.contains("capped at 128 MiB"))
+        #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
         #expect(client.contains("isCanonicalPDFPath"))
@@ -230,8 +282,14 @@ struct ArxivPlan3Tests {
         #expect(client.contains("maxSearchQueryCharacters"))
         #expect(client.contains("maxAtomElementTextCharacters"))
         #expect(client.contains("maxAtomRepeatedValues"))
+        #expect(client.contains("ArxivSearchDiagnostics"))
+        #expect(client.contains("externalErrorDescription(error, fallback: \"request failed\")"))
+        #expect(!client.contains("requestFailed(error.localizedDescription)"))
+        #expect(!client.contains("parser.parserError?.localizedDescription"))
         #expect(searchView.contains("ArxivSearchPresentation"))
         #expect(searchView.contains("maxStatusMessageCharacters"))
+        #expect(searchView.contains("ArxivSearchDiagnostics.statusMessage(for: error)"))
+        #expect(!searchView.contains("error.localizedDescription"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
@@ -243,6 +301,7 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("Plan3ImportFileIO.writeData"))
         #expect(ingest.contains("ArxivIngestDiagnostics"))
         #expect(ingest.contains("externalErrorDescription"))
+        #expect(ingest.contains("ArxivSearchDiagnostics.safeDomain"))
         #expect(ingest.contains("maxFailureReasonCharacters"))
         #expect(!ingest.contains("error.localizedDescription"))
 

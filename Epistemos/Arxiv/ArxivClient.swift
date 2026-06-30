@@ -41,6 +41,53 @@ nonisolated enum ArxivClientError: LocalizedError, Equatable, Sendable {
     }
 }
 
+nonisolated enum ArxivSearchDiagnostics {
+    static let maxFailureReasonCharacters = 360
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func externalErrorDescription(_ error: Error, fallback: String) -> String {
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return failureReason("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    static func statusMessage(for error: Error) -> String {
+        if let error = error as? ArxivClientError {
+            return error.errorDescription ?? "arXiv request failed."
+        }
+        if let error = error as? ArxivIngestError {
+            return error.errorDescription ?? "arXiv ingest failed."
+        }
+        return externalErrorDescription(error, fallback: "arXiv operation failed")
+    }
+
+    private static func failureReason(_ message: String, fallback: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? fallback : trimmed
+        guard description.count > maxFailureReasonCharacters else {
+            return description
+        }
+        return String(description.prefix(maxFailureReasonCharacters)) + "..."
+    }
+
+    static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 nonisolated enum ArxivPDFURLPolicy {
     static let rejectedMessage = "unsupported arXiv PDF URL"
     static let rejectedFinalURLMessage = "final response URL is not an allowed HTTPS arXiv PDF URL"
@@ -129,7 +176,9 @@ nonisolated struct ArxivClient: Sendable {
         } catch let error as ArxivClientError {
             throw error
         } catch {
-            throw ArxivClientError.requestFailed(error.localizedDescription)
+            throw ArxivClientError.requestFailed(
+                ArxivSearchDiagnostics.externalErrorDescription(error, fallback: "request failed")
+            )
         }
     }
 
@@ -185,7 +234,9 @@ nonisolated struct ArxivClient: Sendable {
         let delegate = ArxivAtomParser()
         parser.delegate = delegate
         guard parser.parse() else {
-            let message = parser.parserError?.localizedDescription ?? "Malformed Atom XML."
+            let message = parser.parserError.map {
+                ArxivSearchDiagnostics.externalErrorDescription($0, fallback: "parse failed")
+            } ?? "Malformed Atom XML."
             throw ArxivClientError.parseFailed(message)
         }
         return delegate.papers
