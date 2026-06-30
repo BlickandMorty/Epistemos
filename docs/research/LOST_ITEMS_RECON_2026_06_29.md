@@ -95,7 +95,7 @@
 - **Fold into existing (owner-confirm — Plan 2 is LIVE):** Plan 2 ← 26,30,31,37,38,40 (frontmatter/Bases/block-refs/cold-box/dropdown/wikilink-research) · Plan 4 ← 28,29 (blur-replace transitions) · Plan 6 ← 33,36 (raw-thoughts, capture presets) · Plan 7 ← 32,41 (vault export/backup, SS-BWB backlog).
 - **NEW homes proposed:**
   - **Plan 8 — Theming & Appearance** (27 theme-switch hang + granular colors · 34 dead graph toggles · 35 graph white-bar/pill) — a coherent appearance-honesty cluster; theme-hang is HIGH-confidence + grounded.
-  - **Plan 9 — Local-model knowledge & adapters** ⚠️ SENSITIVE (39 model-vault staleness · 42 UMA zero-copy recall · 43 LoRA-Studio/adapters) — the "make local models better" thesis. The agent flags these as DISTINCT from the cut model-management (per-model context + training, not HF-browser/BYOM) — but it is adjacent, so **owner must confirm this isn't reviving cut scope** before it gets a plan.
+  - ~~**Plan 9 — Local-model knowledge & adapters**~~ ❌ **DECLINED by owner 2026-06-29** — not wanted (too adjacent to the cut model-management scope). Items 39 (model-vault staleness), 42 (UMA zero-copy recall), 43 (LoRA-Studio/adapters) are DROPPED — do not draft, do not resurface.
 - **Highest-confidence picks:** #26 frontmatter panel · #28 homepage blur-replace · #27 theme-switch hang.
 
 > **Auditor note:** this ledger is now canonical. When the owner picks restorations, route each item into its plan
