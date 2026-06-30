@@ -1,5 +1,7 @@
 # Epistemos App-Wide Nativeness Doctrine (2026-06-29)
 
+> ⚡ **OWNER REFINEMENT — 2026-06-30 (after seeing the live app; SUPERSEDES the surface-material details below where they conflict):** the look is **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the native FRAME (rounded-corner window + vibrancy + traffic-lights + springs — the curved-white window the owner likes). **SURFACES are FLAT + BORDERLESS** — NO thick outlines / hard box borders / 1px rules; differentiate by subtle tint + spacing + soft shadow only. NOT old thick-outline pixel-art, NOT translucent-glass on every surface. **For GOOSE: NO native nav rail** — it duplicated Goose's own web sidebar and lagged; native = the window FRAME only, Goose's reskinned web UI is the whole surface + nav.
+
 > 🛑 **REVERTED 2026-06-30 — the flat-pixel-art amendment is WITHDRAWN by the owner** (it over-collapsed a nuanced plan).
 > **The full NUANCED unification doctrine below STANDS as the authority** — the convergence of native + editor-web + Goose-web
 > into ONE Apple-native language via shared tokens · the canonical springs · macOS-26 Liquid Glass · transparency-over-real-glass ·
