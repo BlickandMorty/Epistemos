@@ -7,7 +7,8 @@ import Foundation
 // These pin the HONEST capability ledger: the live entries are the real working ones, the deferred
 // seams are marked NOT live (no fake-green), and the summary says works-but-partial rather than
 // reading as complete. Verified against code (safeAPI path still no-op, console capture env-gated,
-// no Pyodide, source-quad replaceDocument primitive only — no full regenerate UX).
+// live DOM outline but no picker/style inspector, no Pyodide, source-quad replaceDocument primitive
+// only — no full regenerate UX).
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
@@ -18,6 +19,7 @@ struct SSHWCapabilityStatusTests {
         #expect(live.contains { $0.contains("preview") })
         #expect(live.contains { $0.contains("patch") })
         #expect(live.contains { $0.contains("data.json") })
+        #expect(live.contains { $0.contains("Live-DOM outline") })
     }
 
     @Test("the deferred seams are honestly marked NOT live (no fake-green)")
@@ -27,7 +29,7 @@ struct SSHWCapabilityStatusTests {
         let appBridge = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "App message-bridge" }
         #expect(appBridge?.note.contains("Safe API message path is still no-op") == true)
         #expect(deferred.contains { $0.contains("Python") })       // no Python today
-        #expect(deferred.contains { $0.contains("DOM") })          // static regex, not live DOM
+        #expect(deferred.contains { $0.contains("DOM picker") })   // no picker/style inspector yet
         #expect(deferred.contains { $0.contains("regenerate") })   // replaceDocument primitive only
     }
 
@@ -38,8 +40,10 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
         #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("live DOM outline"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("console capture is wired but env-gated"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("deferred"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("DOM picker/style inspector"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("regenerate UX"))
     }
 }

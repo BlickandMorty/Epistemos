@@ -433,12 +433,13 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
   `fusedSearch`/RRF or DAG/provenance) → patch the live WKWebView (counters Claude Artifacts). **The editor-side
   mini-chat/context plumbing is the primary driver** (any surface via `MiniChatTarget`); the live chat UI remains
   Plan-1-owned Goose WebView/reskin and main-chat auto-link is DEFERRED (no implicit global link).
-  Hand-editing routes to the Source (MarkEdit) surface (no second code pane). **HONEST STATE
-  (`HTMLWorkspaceCapabilityStatus.swift`): 4 LIVE** (multi-file edit · WKWebView preview · agent chat PATCH pipeline
-  `HTMLWorkspacePatchRouter` · export/import/PDF/snapshot) **/ 5 DEFERRED** (app message-bridge stub · console/error
-  capture behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0` OFF · live-DOM = static regex · Python Pyodide/WASM unbuilt ·
-  full-surface REGENERATE). BUILD ORDER per SS-HW (honesty-first; MAS-safe; reuse Epdoc WKWebView/bridge/URL-scheme +
-  build-time bundle): (1) PROVE the 4 LIVE caps on a clean build (if dead = stale binary); (2) **full-surface
+	  Hand-editing routes to the Source (MarkEdit) surface (no second code pane). **HONEST STATE
+	  (`HTMLWorkspaceCapabilityStatus.swift`): 6 LIVE** (multi-file edit · WKWebView preview with package-local
+	  asset/data route · agent chat PATCH pipeline `HTMLWorkspacePatchRouter` · vault-backed `data.json` feed ·
+	  export/import/PDF/snapshot · live DOM outline) **/ 5 DEFERRED** (app message-bridge stub · console/error capture
+	  behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0` OFF · DOM picker/style inspector · Python Pyodide/WASM unbuilt ·
+	  full-surface REGENERATE). BUILD ORDER per SS-HW (honesty-first; MAS-safe; reuse Epdoc WKWebView/bridge/URL-scheme +
+	  build-time bundle): (1) PROVE the live caps on a clean build (if dead = stale binary); (2) **full-surface
   `regenerate`/`replaceDocument`** patch op (atomic, versioned, reversible, AI-provenance) + streaming +
   explainer-from-knowledge — the headline "repurpose" upgrade; (3) real console+error bridge (implement the empty
   `didReceive`); (4) live-DOM inspection + chat-edit hot-reload; (5) "full web app" scaffold pipeline (multi-file/
