@@ -43,6 +43,26 @@ the OPPOSITE of the fail-proof Pro bar. Core is mature, full-featured, and alrea
     engine. More owned, fits the doctrine, zero extra Chromium fragility.
 **NET: Pro browser = browser-use CORE 0.13.2 + Gradio-in-WKWebView, pinned + Pro-gated. ONE engine, ONE frontend.**
 
+## ★ AGENT BOUNDARY + NATIVENESS (owner 2026-06-30) — SUBORDINATE SUB-AGENT, surfaced UNIFIED-NATIVE
+**Agent boundary — DELIBERATE, BOUNDED Goose-only EXCEPTION (owner-approved 2026-06-30).** browser-use's OWN agent loop
+IS allowed to run — as a **SUBORDINATE, Pro-gated, BROWSER-SCOPED sub-agent** that Goose delegates web tasks to (its
+web-specialized agent reasons better on hard sites than a general agent driving raw actions; the owner prioritizes the
+result/experience). This does NOT reopen Goose-only generally:
+  - **GOOSE remains the ONE USER-FACING agent.** The user only ever talks to Goose. Goose invokes browser-use via MCP
+    (a high-level "browse + complete X" tool); browser-use runs its loop to fulfil it, then returns. browser-use is
+    NEVER a second user-facing surface.
+  - Stays **Pro-only + honest-gated**; the other Goose-only cuts (Osaurus / three-engine / any separate *user-facing*
+    local brain) STAY cut. This is the ONE specialized sub-agent exception, scoped to browser automation, justified by
+    the experience win — do NOT generalize it into a second app-wide agent.
+**Nativeness — SAME unified-look doctrine as Goose + the other surfaces (`EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`).**
+  - **FRAME / CHROME = native AppKit** (window/toolbar) where feasible.
+  - **The browser-use CONTROL UI (Gradio web-ui) = reskinned WKWebView** — transparent-over-glass + verified Apple
+    tokens/springs + Apple-native web components, INDISTINGUISHABLE from native, unified with Goose.
+  - **HONEST LIMIT:** the AUTOMATED browser itself is **Chromium** (CDP-driven) — that window is the automation TARGET
+    and CANNOT be WebKit/AppKit (browser-use drives Chromium by design). Its host frame can be native; the Chromium
+    content cannot. State this plainly; never fake it.
+  - **NET:** native frame + unified-reskinned control UI (like Goose); the driven Chromium stays Chromium (unavoidable).
+
 ## Current upstream pins `[WEB]`
 Authoritative source is the official `browser-use/*` GitHub organization, checked on 2026-06-28 with `git ls-remote`
 and local vendored source inspection:
