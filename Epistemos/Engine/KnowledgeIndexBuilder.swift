@@ -46,8 +46,12 @@ final class KnowledgeIndexBuilder {
         do {
             return try context.fetch(descriptor)
         } catch {
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "KnowledgeIndexBuilder: failed to fetch graph nodes"
+            )
             Log.engine.error(
-                "KnowledgeIndexBuilder: failed to fetch graph nodes: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return nil
         }
@@ -115,8 +119,12 @@ final class KnowledgeIndexBuilder {
         do {
             try FileManager.default.createDirectory(at: epistemosDir, withIntermediateDirectories: true)
         } catch {
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "KnowledgeIndexBuilder: failed to create index directory"
+            )
             Log.engine.error(
-                "KnowledgeIndexBuilder: failed to create index directory: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return
         }
@@ -125,8 +133,12 @@ final class KnowledgeIndexBuilder {
         do {
             try index.write(to: indexFile, atomically: true, encoding: .utf8)
         } catch {
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "KnowledgeIndexBuilder: failed to write knowledge index"
+            )
             Log.engine.error(
-                "KnowledgeIndexBuilder: failed to write knowledge index: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
         }
     }

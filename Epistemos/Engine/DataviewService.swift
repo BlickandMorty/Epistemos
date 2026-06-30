@@ -59,8 +59,12 @@ final class DataviewService {
         do {
             return try context.fetch(descriptor)
         } catch {
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "DataviewService: failed to fetch pages"
+            )
             Log.engine.error(
-                "DataviewService: failed to fetch pages: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return []
         }
