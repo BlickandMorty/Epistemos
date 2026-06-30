@@ -2384,6 +2384,98 @@ function applyKeyboardSettingsSurfaces() {
   write('src/components/settings/keyboard/KeyboardShortcutsSection.tsx', source);
 }
 
+function applyAuthSettingsSurfaces() {
+  let source = read('src/components/settings/auth/AuthSettingsSection.tsx');
+  source = replaceRequired(
+    source,
+    'auth expired badge native token',
+    "return 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300';",
+    "return 'border-border-danger bg-background-danger/55 text-text-danger';"
+  );
+  source = replaceRequired(
+    source,
+    'auth valid badge native token',
+    "return 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300';",
+    "return 'border-border-success bg-background-success/55 text-text-success';"
+  );
+  source = replaceRequired(
+    source,
+    'auth card native glass',
+    '<Card className="pb-2">',
+    '<Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">'
+  );
+  source = replaceRequired(
+    source,
+    'auth content spacing native',
+    '<CardContent className="px-4 py-2">',
+    '<CardContent className="px-4 py-3">'
+  );
+  source = replaceRequired(
+    source,
+    'auth list spacing native',
+    '<div className="divide-y divide-border-primary">',
+    '<div className="space-y-2">'
+  );
+  source = replaceRequired(
+    source,
+    'auth credential row native',
+    'className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"',
+    'className="flex flex-col gap-3 rounded-[10px] border border-transparent px-3 py-3 transition-all hover:border-border-secondary hover:bg-background-secondary/60 sm:flex-row sm:items-center sm:justify-between"'
+  );
+  source = replaceRequired(
+    source,
+    'auth storage badge native',
+    'className="rounded border border-border-primary bg-background-secondary px-2 py-0.5 text-xs text-text-secondary"',
+    'className="ep-native-badge px-2 py-0.5 text-xs text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'auth expiry badge native',
+    'className={`rounded border px-2 py-0.5 text-xs ${expiryClass(secret)}`}',
+    'className={`ep-native-badge px-2 py-0.5 text-xs ${expiryClass(secret)}`}'
+  );
+  source = replaceRequired(
+    source,
+    'auth configure button native',
+    'className="gap-2"',
+    'className="gap-2 rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'auth delete button native',
+    'className="text-text-secondary hover:text-text-primary"',
+    'className="text-text-secondary transition-colors hover:text-text-danger"'
+  );
+  write('src/components/settings/auth/AuthSettingsSection.tsx', source);
+
+  source = read('src/components/settings/auth/HuggingFaceSignInPrompt.tsx');
+  source = replaceRequired(
+    source,
+    'huggingface sign-in prompt native glass',
+    'className={`flex flex-col gap-3 rounded-lg border border-border-subtle bg-background-default p-3 sm:flex-row sm:items-center sm:justify-between ${className ?? \'\'}`}',
+    'className={`flex flex-col gap-3 rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between ${className ?? \'\'}`}'
+  );
+  source = replaceRequired(
+    source,
+    'huggingface sign-in title token',
+    'className="text-sm font-medium text-text-default"',
+    'className="text-sm font-medium text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'huggingface sign-in description token',
+    'className="mt-1 text-xs text-text-muted"',
+    'className="mt-1 text-xs text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'huggingface sign-in button native',
+    'className="gap-2 self-start sm:self-auto"',
+    'className="gap-2 self-start rounded-[8px] sm:self-auto"'
+  );
+  write('src/components/settings/auth/HuggingFaceSignInPrompt.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3124,6 +3216,7 @@ applyPermissionSurfaces();
 applySettingsPanelSurfaces();
 applyModelSettingsSurfaces();
 applyKeyboardSettingsSurfaces();
+applyAuthSettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
