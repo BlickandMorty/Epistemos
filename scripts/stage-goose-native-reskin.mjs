@@ -1593,6 +1593,188 @@ function applySchedulerDetailSurfaces() {
   write('src/components/schedule/ScheduleModal.tsx', source);
 }
 
+function applyRecipeDetailSurfaces() {
+  let source = read('src/components/recipes/CreateEditRecipeModal.tsx');
+  source = replaceRequired(
+    source,
+    'recipe edit modal native overlay',
+    'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50"',
+    'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native card',
+    'className="bg-background-primary border border-border-primary rounded-lg w-[90vw] max-w-4xl h-[90vh] flex flex-col"',
+    'className="ep-native-screen-card flex h-[90vh] w-[90vw] max-w-4xl flex-col border"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native header',
+    'className="flex items-center justify-between p-6 border-b border-border-primary"',
+    'className="flex items-center justify-between border-b border-border-secondary p-6"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native icon',
+    'className="w-8 h-8 bg-background-primary border border-border-primary rounded-[6px] flex items-center justify-center"',
+    'className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-border-primary bg-background-secondary/70 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native link token',
+    'className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-600 hover:underline"',
+    'className="inline-flex items-center gap-1 text-[var(--epistemos-accent)] hover:opacity-80 hover:underline"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native close button',
+    'className="p-2 hover:bg-background-secondary rounded-lg transition-colors"',
+    'className="rounded-[8px] p-2 transition-colors hover:bg-background-secondary/80"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native deeplink card',
+    'className="w-full p-4 bg-background-secondary rounded-lg mt-6"',
+    'className="ep-native-screen-card mt-6 w-full border p-4"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native copy button',
+    'className="ml-4 p-2 hover:bg-background-primary rounded-lg transition-colors flex items-center disabled:opacity-50 disabled:hover:bg-transparent"',
+    'className="ml-4 flex items-center rounded-[8px] p-2 transition-colors hover:bg-background-primary/80 disabled:opacity-50 disabled:hover:bg-transparent"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native footer',
+    'className="flex items-center justify-between p-6 border-t border-border-primary"',
+    'className="flex items-center justify-between border-t border-border-secondary p-6"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe edit modal native close action',
+    'className="px-4 py-2 text-text-secondary rounded-lg hover:bg-background-secondary transition-colors"',
+    'className="rounded-[8px] px-4 py-2 text-text-secondary transition-colors hover:bg-background-secondary/80"'
+  );
+  write('src/components/recipes/CreateEditRecipeModal.tsx', source);
+
+  source = read('src/components/recipes/ImportRecipeForm.tsx');
+  source = replaceAllRequired(
+    source,
+    'recipe import native overlay',
+    'className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50"',
+    'className="fixed inset-0 z-[300] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import native modal card',
+    'className="bg-background-primary border border-border-primary rounded-lg p-6 w-[500px] max-w-[90vw]"',
+    'className="ep-native-screen-card w-[500px] max-w-[90vw] border p-6"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import native textarea',
+    'className={`w-full p-3 border rounded-lg bg-background-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${',
+    'className={`w-full resize-none rounded-[10px] border bg-background-primary/70 p-3 text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import divider native',
+    'className="w-full border-t border-border-primary"',
+    'className="w-full border-t border-border-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import divider label native',
+    'className="px-3 bg-background-primary text-text-secondary font-medium"',
+    'className="px-3 text-text-secondary font-medium"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import example link token',
+    'className="text-xs text-blue-500 hover:text-blue-700 underline"',
+    'className="text-xs text-[var(--epistemos-accent)] underline hover:opacity-80"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import schema overlay native',
+    'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50"',
+    'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import schema modal native',
+    'className="bg-background-primary border border-border-primary rounded-lg p-6 w-[800px] max-w-[90vw] max-h-[80vh] flex flex-col"',
+    'className="ep-native-screen-card flex max-h-[80vh] w-[800px] max-w-[90vw] flex-col border p-6"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import schema description token',
+    'className="mt-4 text-blue-700 text-sm"',
+    'className="mt-4 text-sm text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe import schema pre native',
+    'className="text-xs bg-whitedark:bg-gray-800 p-4 rounded overflow-auto whitespace-pre font-mono"',
+    'className="overflow-auto whitespace-pre rounded-[10px] border border-border-secondary bg-background-secondary/72 p-4 text-xs font-mono backdrop-blur-xl"'
+  );
+  write('src/components/recipes/ImportRecipeForm.tsx', source);
+
+  source = read('src/components/recipes/RecipeActivities.tsx');
+  source = replaceRequired(
+    source,
+    'recipe activities native status mark container',
+    'className="flex h-6 w-6 items-center justify-center border border-border-primary bg-background-secondary"',
+    'className="flex h-6 w-6 items-center justify-center rounded-full border border-border-primary bg-background-secondary/70 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe activities native status mark',
+    'className="h-1.5 w-1.5 bg-primary"',
+    'className="ep-native-loading-dot is-active"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe activities native message panel',
+    'className="mb-4 p-3 rounded-[6px] border border-border-primary animate-[fadein_500ms_ease-in_forwards]"',
+    'className="ep-native-screen-card mb-4 border p-3 animate-[fadein_500ms_ease-in_forwards]"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe activities native pill',
+    'className="cursor-pointer px-3 py-1.5 text-xs font-mono border border-border-secondary rounded-[5px] hover:bg-background-secondary transition-colors"',
+    'className="ep-native-badge cursor-pointer border px-3 py-1.5 text-xs transition-colors hover:bg-background-secondary/80"'
+  );
+  write('src/components/recipes/RecipeActivities.tsx', source);
+
+  source = read('src/components/recipes/RecipeActivityEditor.tsx');
+  source = replaceRequired(
+    source,
+    'recipe activity editor textarea native',
+    'className="w-full px-4 py-3 border rounded-lg bg-background-primary text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-border-secondary resize-vertical"',
+    'className="w-full resize-vertical rounded-[10px] border border-border-primary bg-background-primary/70 px-4 py-3 text-text-primary placeholder:text-text-secondary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe activity editor chip native',
+    'className="inline-flex items-center bg-background-primary border border-border-primary rounded-[6px] px-3 py-2 text-sm text-text-primary"',
+    'className="ep-native-badge inline-flex items-center border px-3 py-2 text-sm text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe activity editor input native',
+    'className="flex-1 px-3 py-2 border border-border-primary rounded-lg bg-background-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"',
+    'className="flex-1 rounded-[10px] border border-border-primary bg-background-primary/70 px-3 py-2 text-sm text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe activity editor add button native',
+    'className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"',
+    'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
+  );
+  write('src/components/recipes/RecipeActivityEditor.tsx', source);
+}
+
 function applySearchSurfaces() {
   let source = read('src/components/conversation/SearchBar.tsx');
   source = replaceRequired(
@@ -1734,6 +1916,7 @@ applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
 applySchedulerDetailSurfaces();
+applyRecipeDetailSurfaces();
 applySearchSurfaces();
 applyLoadingAndErrorSurfaces();
 
