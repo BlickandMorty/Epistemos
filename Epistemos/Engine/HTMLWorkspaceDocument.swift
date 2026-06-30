@@ -8,6 +8,7 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
     public var title: String
     public var contentHash: String
     public var sandboxPolicy: HTMLWorkspaceSandboxPolicy
+    public var generationProvenance: HTMLWorkspaceGenerationProvenance?
     public var html: String
     public var css: String
     public var js: String
@@ -18,6 +19,7 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
         title: String,
         contentHash: String,
         sandboxPolicy: HTMLWorkspaceSandboxPolicy,
+        generationProvenance: HTMLWorkspaceGenerationProvenance? = nil,
         html: String,
         css: String,
         js: String,
@@ -27,6 +29,7 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
         self.title = title
         self.contentHash = contentHash
         self.sandboxPolicy = sandboxPolicy
+        self.generationProvenance = generationProvenance
         self.html = html
         self.css = css
         self.js = js
@@ -205,16 +208,18 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
     }
 
     public func chatContextSnapshot(maxSourceCharacters: Int = 16_000) -> HTMLWorkspaceChatContextSnapshot {
+        let currentContentHash = Self.contentHash(
+            indexHTML: package.indexHTML,
+            styleCSS: package.styleCSS,
+            scriptJS: package.scriptJS,
+            dataJSON: package.dataJSON
+        )
         HTMLWorkspaceChatContextSnapshot(
             workspaceID: package.manifest.id,
             title: package.manifest.title,
-            contentHash: Self.contentHash(
-                indexHTML: package.indexHTML,
-                styleCSS: package.styleCSS,
-                scriptJS: package.scriptJS,
-                dataJSON: package.dataJSON
-            ),
+            contentHash: currentContentHash,
             sandboxPolicy: package.manifest.sandboxPolicy,
+            generationProvenance: package.manifest.generationProvenance,
             html: Self.truncated(package.indexHTML, maxCharacters: maxSourceCharacters),
             css: Self.truncated(package.styleCSS, maxCharacters: maxSourceCharacters),
             js: Self.truncated(package.scriptJS, maxCharacters: maxSourceCharacters),

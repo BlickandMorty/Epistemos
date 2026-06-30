@@ -321,6 +321,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(surfaceSource.contains("enum DocumentSurfaceCapability"))
         #expect(documentSource.contains("applyPatch("))
         #expect(documentSource.contains("chatContextSnapshot("))
+        #expect(documentSource.contains("generationProvenance: package.manifest.generationProvenance"))
         #expect(!documentSource.contains("EpdocDocument"))
         #expect(bridgeSource.contains("epistemos-doc"))
     }
@@ -364,6 +365,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(routerSource.contains("case regenerate"))
         #expect(routerSource.contains("applyingAtomically(to:"))
         #expect(routerSource.contains("document.setPackage(stagedPackage)"))
+        #expect(routerSource.contains("Provenance: \\(snapshot.generationProvenance?.displayText(currentContentHash: snapshot.contentHash)"))
         #expect(routerSource.contains("Full-surface replacement: use replaceDocument/regenerate"))
         #expect(routerSource.contains("Live data operation: setDataFeed"))
         #expect(routerSource.contains("window.webkit.messagehandlers"))

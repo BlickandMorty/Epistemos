@@ -493,6 +493,7 @@ enum HTMLWorkspacePatchRouter {
             ### Attached HTML Workspace: \(snapshot.title)
             Workspace ID: \(snapshot.workspaceID)
             Content Hash: \(snapshot.contentHash)
+            Provenance: \(snapshot.generationProvenance?.displayText(currentContentHash: snapshot.contentHash) ?? "Local / unstamped")
             Sandbox: offline=\(!snapshot.sandboxPolicy.allowNetwork), app_bridge=\(snapshot.sandboxPolicy.allowAppBridge)
             \(targetLines)
             Priority: Active workspace context. Use structured HTML Workspace patch blocks when the user asks you to edit, animate, visualize, restyle, or add UI.
