@@ -4,12 +4,13 @@ import os
 
 nonisolated enum VaultMCPServerDiagnostics {
     static let maxStatusMessageCharacters = 240
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
 
-    static func statusMessage(for error: Error) -> String {
+    static func statusMessage(for error: Error, fallback: String = "listener failed") -> String {
         let nsError = error as NSError
-        let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
-        let label = domain.isEmpty ? "Network" : domain
-        return statusMessage("listener failed (\(label) \(nsError.code))")
+        let domain = safeDomain(nsError.domain)
+        return statusMessage("\(fallback) (domain=\(domain) code=\(nsError.code))")
     }
 
     static func statusMessage(_ message: String) -> String {
@@ -19,6 +20,22 @@ nonisolated enum VaultMCPServerDiagnostics {
             return description
         }
         return String(description.prefix(maxStatusMessageCharacters)) + "..."
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Network"
+        }
+        let value = trimmed.isEmpty ? "Network" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Network"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Network" : bounded
     }
 }
 
@@ -75,8 +92,9 @@ nonisolated final class VaultMCPServer: @unchecked Sendable {
                     self.setStatus(.failed("listener ready but no bound port"))
                 }
             case .failed(let error):
-                Self.logger.error("listener failed: \(error.localizedDescription, privacy: .public)")
-                self.setStatus(.failed(VaultMCPServerDiagnostics.statusMessage(for: error)))
+                let message = VaultMCPServerDiagnostics.statusMessage(for: error)
+                Self.logger.error("\(message, privacy: .public)")
+                self.setStatus(.failed(message))
             case .cancelled:
                 self.setStatus(.stopped)
             default:
@@ -104,7 +122,8 @@ nonisolated final class VaultMCPServer: @unchecked Sendable {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
             guard let self else { return }
             if let error {
-                Self.logger.debug("receive error: \(error.localizedDescription, privacy: .public)")
+                let message = VaultMCPServerDiagnostics.statusMessage(for: error, fallback: "receive failed")
+                Self.logger.debug("\(message, privacy: .public)")
                 connection.cancel()
                 return
             }
