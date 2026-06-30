@@ -102,7 +102,7 @@ nonisolated enum GooseACPMethod: Hashable, Sendable {
         case "elicitation/create":
             self = .createElicitation
         default:
-            self = .unknown(rawValue)
+            self = .unknown(String(rawValue.prefix(GooseACPProtocolBounds.maxMethodCharacters)))
         }
     }
 
@@ -388,6 +388,7 @@ nonisolated enum GooseACPCustomMethod: String, Sendable {
 nonisolated struct GooseACPEmptyResponse: Decodable, Equatable, Sendable {}
 
 nonisolated enum GooseACPProtocolBounds {
+    static let maxMethodCharacters = 256
     static let maxProviderInventoryEntries = 256
     static let maxProviderModelsPerProvider = 512
     static let maxProviderSupportedModels = 1_024

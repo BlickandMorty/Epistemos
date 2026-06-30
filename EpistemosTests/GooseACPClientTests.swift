@@ -52,6 +52,18 @@ struct GooseACPCodecTests {
         #expect(params["prompt"] == .array([.object(["type": .string("text"), "text": .string("hello goose")])]))
     }
 
+    @Test("unknown ACP methods are bounded at parse time")
+    func unknownACPMethodsAreBoundedAtParseTime() {
+        let rawMethod = String(
+            repeating: "m",
+            count: GooseACPProtocolBounds.maxMethodCharacters + 40
+        )
+        let method = GooseACPMethod(rawValue: rawMethod)
+
+        #expect(method.rawValue.count == GooseACPProtocolBounds.maxMethodCharacters)
+        #expect(method.rawValue == String(rawMethod.prefix(GooseACPProtocolBounds.maxMethodCharacters)))
+    }
+
     @Test("incoming session update decodes assistant text chunks")
     func incomingSessionUpdateDecoding() throws {
         let json = """
