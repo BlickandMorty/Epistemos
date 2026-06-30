@@ -43,7 +43,7 @@ enum LiteParsePDFImportController {
         } catch is CancellationError {
             return .rejected(.failed(Self.cancelledMessage))
         } catch {
-            return .rejected(.failed("PDF import failed: \(error.localizedDescription)"))
+            return .rejected(.failed(LiteParseImportDiagnostics.failureMessage("PDF import failed", error: error)))
         }
         guard case let .materialized(files) = preparedImport else {
             if case let .rejected(result) = preparedImport {
@@ -88,7 +88,7 @@ enum LiteParsePDFImportController {
             modelContext.delete(page)
             removeMaterializedFiles(files)
             NoteFileStorage.deleteBody(pageId: page.id)
-            return .rejected(.failed("Couldn't save the imported note: \(error.localizedDescription)"))
+            return .rejected(.failed(LiteParseImportDiagnostics.failureMessage("Couldn't save the imported note", error: error)))
         }
     }
 
@@ -148,7 +148,7 @@ enum LiteParsePDFImportController {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            return .rejected(.failed("Couldn't write the note file: \(error.localizedDescription)"))
+            return .rejected(.failed(LiteParseImportDiagnostics.failureMessage("Couldn't write the note file", error: error)))
         }
     }
 

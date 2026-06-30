@@ -17,6 +17,51 @@ nonisolated enum LiteParseImportResult: Equatable, Sendable {
     case failed(String)
 }
 
+nonisolated enum LiteParseImportDiagnostics {
+    static let maxFailureReasonCharacters = 320
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func failureMessage(_ prefix: String, error: Error) -> String {
+        bounded("\(prefix): \(errorSummary(error))", fallback: prefix)
+    }
+
+    static func inspectionFailure(_ error: Error) -> String {
+        errorSummary(error)
+    }
+
+    private static func errorSummary(_ error: Error) -> String {
+        let nsError = error as NSError
+        let domain = sanitizedDomain(nsError.domain)
+        return "failure domain=\(domain) code=\(nsError.code)"
+    }
+
+    private static func sanitizedDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+
+    private static func bounded(_ message: String, fallback: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxFailureReasonCharacters else {
+            return value
+        }
+        return String(value.prefix(maxFailureReasonCharacters)) + "..."
+    }
+}
+
 nonisolated enum LiteParseImportEnvelope {
     static let emptyMarkdownMessage = "PDF conversion produced no readable Markdown."
     static let markdownTooLargeMessage = "PDF conversion produced Markdown that is too large to import safely."
@@ -116,7 +161,7 @@ nonisolated enum LiteParsePDFSignature {
             return nil
         } catch {
             return hasPDFExtension
-                ? .failed("Could not inspect the PDF file: \(error.localizedDescription)")
+                ? .failed("Could not inspect the PDF file: \(LiteParseImportDiagnostics.inspectionFailure(error))")
                 : .unsupported(unsupportedPDFMessage)
         }
     }
@@ -147,7 +192,7 @@ nonisolated enum LiteParsePDFSignature {
             let data = try handle.read(upToCount: pdfMagic.count) ?? Data()
             return Array(data) == pdfMagic ? .match : .mismatch
         } catch {
-            return .unreadable(error.localizedDescription)
+            return .unreadable(LiteParseImportDiagnostics.inspectionFailure(error))
         }
     }
 

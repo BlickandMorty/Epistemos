@@ -19,7 +19,8 @@
   capping engine error strings. `LiveLiteParsePDFImporter` rejects non-PDF paths before FFI and mirrors the Rust input
   envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB before parser dispatch. It calls
   the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that binding honestly fall back to
-  `.notWired`.
+  `.notWired`. Swift-side Foundation/file failures are mapped to bounded domain/code diagnostics before reaching import
+  status text, so raw localized filesystem descriptions are not displayed.
 - **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
   main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
   basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the

@@ -64,6 +64,27 @@ struct LiteParseImportTests {
         )
     }
 
+    @Test("import diagnostics redact path-leaking external errors")
+    func importDiagnosticsRedactPathLeakingExternalErrors() {
+        let privatePath = "/private/var/folders/secret/paper.pdf"
+        let error = NSError(
+            domain: privatePath,
+            code: 13,
+            userInfo: [NSLocalizedDescriptionKey: "permission denied while opening \(privatePath)"]
+        )
+        let message = LiteParseImportDiagnostics.failureMessage("PDF import failed", error: error)
+        let inspection = LiteParseImportDiagnostics.inspectionFailure(error)
+
+        #expect(message.contains("PDF import failed"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=13"))
+        #expect(message.count <= LiteParseImportDiagnostics.maxFailureReasonCharacters + 3)
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("permission denied"))
+        #expect(!inspection.contains(privatePath))
+        #expect(!inspection.contains("permission denied"))
+    }
+
     @Test("unreadable output is an honest failure, never a fabricated note")
     func decodesGarbage() {
         let result = LiteParseImportEnvelope.decode("not json at all")
@@ -168,10 +189,14 @@ struct LiteParseImportTests {
         let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
         #expect(src.contains("Plan3ImportFileIO.copyFileContents"))
         #expect(src.contains("Plan3ImportFileIO.writeData"))
+        #expect(src.contains("LiteParseImportDiagnostics.failureMessage"))
+        #expect(!src.contains("error.localizedDescription"))
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
         #expect(src.contains("materializeImportedFiles"))
         #expect(src.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(sharedIO.contains("openValidatedPDFForReading"))
+        #expect(sharedIO.contains("LiteParseImportDiagnostics.inspectionFailure"))
+        #expect(!sharedIO.contains("error.localizedDescription"))
         #expect(sharedIO.contains("O_RDONLY | O_NOFOLLOW | O_CLOEXEC"))
         #expect(sharedIO.contains("seek(toOffset: 0)"))
         #expect(sharedIO.contains("O_NOFOLLOW"))
@@ -203,8 +228,10 @@ struct LiteParseImportTests {
         #expect(codepack.contains("source_pdf=<vault-relative path>"))
         #expect(codepack.contains("off-main import materialization, paired Markdown/PDF basenames"))
         #expect(codepack.contains("512 MiB"))
+        #expect(codepack.contains("bounded domain/code diagnostics"))
         #expect(capabilities.contains("PDF→Markdown import now has a real Plan 3 parser path"))
         #expect(capabilities.contains("test-linking condition, not the shipped MAS parser state"))
+        #expect(capabilities.contains("raw localized filesystem descriptions"))
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(rust.contains("doc.source_path = None"))
         #expect(rust.contains("symlink_metadata"))
