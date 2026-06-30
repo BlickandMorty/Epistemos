@@ -105,6 +105,9 @@ nonisolated enum ArxivPDFURLPolicy {
 nonisolated struct ArxivClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
     static let maxSearchResponseBytes = 5 * 1024 * 1024
+    static let maxParsedPapers = 50
+    static let maxAtomElementTextCharacters = 64 * 1024
+    static let maxAtomRepeatedValues = 32
 
     private let fetch: Fetch
 
@@ -176,6 +179,7 @@ nonisolated struct ArxivClient: Sendable {
             throw ArxivClientError.parseFailed("Atom response was empty.")
         }
         let parser = XMLParser(data: data)
+        parser.shouldResolveExternalEntities = false
         let delegate = ArxivAtomParser()
         parser.delegate = delegate
         guard parser.parse() else {
@@ -217,14 +221,20 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
         } else if name == "author" {
             insideAuthor = true
         } else if name == "category", let term = attributeDict["term"] {
-            currentEntry?.categories.append(term)
+            currentEntry?.appendCategory(term)
         } else if name == "link" {
             captureLink(attributeDict)
         }
     }
 
     func parser(_: XMLParser, foundCharacters string: String) {
-        textBuffer += string
+        guard textBuffer.count < ArxivClient.maxAtomElementTextCharacters else { return }
+        let remaining = ArxivClient.maxAtomElementTextCharacters - textBuffer.count
+        if string.count <= remaining {
+            textBuffer += string
+        } else {
+            textBuffer += String(string.prefix(remaining))
+        }
     }
 
     func parser(
@@ -248,10 +258,11 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
                 entry.published = Self.date(from: text)
             case "name" where insideAuthor:
                 if !text.isEmpty {
-                    entry.authors.append(text)
+                    entry.appendAuthor(text)
                 }
             case "entry":
-                if let paper = entry.paper {
+                if papers.count < ArxivClient.maxParsedPapers,
+                   let paper = entry.paper {
                     papers.append(paper)
                 }
                 currentEntry = nil
@@ -300,6 +311,16 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
         var published: Date?
         var pdfURL: URL?
         var categories: [String] = []
+
+        mutating func appendAuthor(_ author: String) {
+            guard authors.count < ArxivClient.maxAtomRepeatedValues else { return }
+            authors.append(author)
+        }
+
+        mutating func appendCategory(_ category: String) {
+            guard categories.count < ArxivClient.maxAtomRepeatedValues else { return }
+            categories.append(category)
+        }
 
         var paper: ArxivPaper? {
             guard !id.isEmpty,

@@ -67,6 +67,44 @@ struct ArxivPlan3Tests {
         }
     }
 
+    @Test("Atom parser caps parsed papers and repeated values")
+    func atomParserCapsParsedPapersAndRepeatedValues() throws {
+        let entries = (0..<(ArxivClient.maxParsedPapers + 5))
+            .map { Self.atomEntry(index: $0) }
+            .joined(separator: "\n")
+        let papers = try ArxivClient.parseSearchResponse(Data(Self.atomFeed(entries: entries).utf8))
+
+        #expect(papers.count == ArxivClient.maxParsedPapers)
+        #expect(papers.first?.shortID == "2401.10000")
+        #expect(papers.last?.shortID == "2401.10049")
+
+        let authors = (0..<(ArxivClient.maxAtomRepeatedValues + 5)).map { "Author \($0)" }
+        let categories = (0..<(ArxivClient.maxAtomRepeatedValues + 5)).map { "cs.\($0)" }
+        let repeatedValuesAtom = Self.atomFeed(entries: Self.atomEntry(
+            index: 0,
+            authors: authors,
+            categories: categories
+        ))
+        let repeatedValuesPaper = try #require(
+            try ArxivClient.parseSearchResponse(Data(repeatedValuesAtom.utf8)).first
+        )
+
+        #expect(repeatedValuesPaper.authors.count == ArxivClient.maxAtomRepeatedValues)
+        #expect(repeatedValuesPaper.categories.count == ArxivClient.maxAtomRepeatedValues)
+    }
+
+    @Test("Atom parser caps element text before paper materialization")
+    func atomParserCapsElementTextBeforeMaterialization() throws {
+        let oversizedSummary = String(
+            repeating: "s",
+            count: ArxivClient.maxAtomElementTextCharacters + 1024
+        )
+        let atom = Self.atomFeed(entries: Self.atomEntry(index: 0, summary: oversizedSummary))
+        let paper = try #require(try ArxivClient.parseSearchResponse(Data(atom.utf8)).first)
+
+        #expect(paper.summary.count == ArxivClient.maxAtomElementTextCharacters)
+    }
+
     @Test("rejects non-arXiv PDF URLs before download")
     func rejectsNonArxivPDFURLs() async throws {
         for href in [
@@ -173,6 +211,10 @@ struct ArxivPlan3Tests {
         #expect(client.contains("isCanonicalPDFPath"))
         #expect(client.contains("newStyleIDPattern"))
         #expect(client.contains("oldStyleIDPattern"))
+        #expect(client.contains("parser.shouldResolveExternalEntities = false"))
+        #expect(client.contains("maxParsedPapers"))
+        #expect(client.contains("maxAtomElementTextCharacters"))
+        #expect(client.contains("maxAtomRepeatedValues"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
@@ -608,6 +650,41 @@ struct ArxivPlan3Tests {
       </entry>
     </feed>
     """
+
+    private static func atomFeed(entries: String) -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+        \(entries)
+        </feed>
+        """
+    }
+
+    private static func atomEntry(
+        index: Int,
+        summary: String = "A bounded summary.",
+        authors: [String] = ["Ada Lovelace"],
+        categories: [String] = ["cs.AI"]
+    ) -> String {
+        let numericID = String(format: "2401.%05d", 10000 + index)
+        let authorXML = authors
+            .map { "<author><name>\($0)</name></author>" }
+            .joined(separator: "\n")
+        let categoryXML = categories
+            .map { "<category term=\"\($0)\" />" }
+            .joined(separator: "\n")
+        return """
+          <entry>
+            <id>https://arxiv.org/abs/\(numericID)v1</id>
+            <published>2024-01-03T12:34:56Z</published>
+            <title>Paper \(index)</title>
+            <summary>\(summary)</summary>
+            \(authorXML)
+            \(categoryXML)
+            <link title="pdf" href="https://arxiv.org/pdf/\(numericID)v1" type="application/pdf" />
+          </entry>
+        """
+    }
 }
 
 private struct FakeArxivDownloader: ArxivPDFDownloading {

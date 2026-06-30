@@ -15,6 +15,8 @@
 - **`Epistemos/Arxiv/ArxivClient.swift` [DELIVERED]** — `search(query,maxResults)` against
   `https://export.arxiv.org/api/query?search_query=…&sortBy=submittedDate` → Atom XML parsed by an `XMLParser`
   delegate (`ArxivAtomParser`) into `ArxivPaper{id,title,authors,summary,published,pdfURL,categories}` (+ `shortID`).
+  Atom parsing disables external entity resolution and caps parsed papers, element text, and repeated authors/categories
+  inside the 5 MiB response envelope.
   PDF links normalize to HTTPS only for canonical new-style or old-style `/pdf/<arxiv-id>` paths; credentials, queries,
   fragments, encoded path tricks, traversal suffixes, and arbitrary non-ID paths are rejected before download. Defaults
   plain text to `all:`; honest errors. Networking only.
@@ -44,6 +46,6 @@ MAS-safe: networking + the existing PDF pipeline; no Python, no subprocess, no f
 ## Verification
 - `EpistemosTests/ArxivPlan3Tests.swift` covers search URL construction, Atom parsing, default-on kill switch behavior,
   draft frontmatter/body composition, successful ingest into an in-memory SwiftData vault, parser rejection with no note,
-  unsafe temp PDF envelope rejection, and download rejection with no note.
+  bounded Atom parser shape, unsafe temp PDF envelope rejection, and download rejection with no note.
 - `EpistemosTests/LandingFeatureButtonsPlan3Tests.swift` guards the landing button, arXiv sheet presentation, and
   `ArxivPullGateStatus` availability wiring.
