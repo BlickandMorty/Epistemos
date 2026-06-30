@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 22:35 CDT (loop cycle 42) — **10/10 ✅**, 0 locked-canon drift. **3 OWNER REVIEW items** (Companion-v1.6 vs Plan-5 [cyc12]; white-screen status [cyc34→35]; ⚠️ systemic hardening-over-visible-fixes + per-plan remaining-work [cyc39/41]). Steady-state: no new Epistemos plans (still 1–7). 2nd `docs/agent-farm/` doc (`AGENT_FARM_SIM_RESEARCH_PROMPT` — Bevy/Hermes multi-agent research) = SEPARATE app, OUT OF CANON SCOPE, no Epistemos canon touched. ★★ **VISIBLE-FIX WATCH — BOTH STILL PENDING:** white-screen render = NOT in code; "Full-surface regenerate" = still `isLive:false`. Only OWNER can redirect agents to do visible fixes first (see cyc41 punch-lists). HEAD at pass: `2b9788cd2`.
+**Last auditor pass:** 2026-06-29 22:35 CDT (loop cycle 43) — **10/10 ✅** (re-checked after editing the plans), 0 locked-canon drift. ⚑ **OWNER-DIRECTED CHANGE (2026-06-30): fixed the "harden-forever" root cause AT SOURCE** — replaced the baked-in LOOP MODE line in `PROMPT_PLAN_1/2/3` with a **WORK-ORDER directive** (real/visible work first → prove in-app → hardening capped to one focused pass, no app-wide sweeps → STOP+REPORT when no real work remains, no infinite loop), each with its remaining-real punch-list; + created `AGENT_LOOP_WRAPPERS_REAL_FIRST_2026_06_30.md` (3 paste wrappers). Canon-safe (Option 1 / graph / retheme / §7 intact). **3 OWNER REVIEW items** (Companion-v1.6 [cyc12]; white-screen status [cyc34→35]; systemic hardening pattern [cyc39/41, now RESOLVED-at-source]). ★★ VISIBLE-FIX WATCH: white-screen + Full-surface-regenerate still pending in code, but `GooseWebSurfaceView`/`GooseACPEventBridge`/`HTMLWorkspaceEditorView` have uncommitted WIP (possible fixes in progress — verify on commit). HEAD at pass: `2b9788cd2`.
 <br>_(cycle 32 vetted the owner canon edit — white-screen P0 + MAS in-process backend — as Option-1-reinforcing, no drift.)_
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
@@ -93,6 +93,12 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
     keep looping: full-app hardening, weakest-path hardening, deepen, re-verify."* So even after the finite real items,
     they loop on hardening forever — and they're doing that loop NOW before finishing the real items. **OWNER FIX:** give
     each agent an explicit ordered punch-list (the LEFT items above) + "do these FIRST, hardening only AFTER, and cap it."
+  - **↳ RESOLVED AT SOURCE cycle 43 (owner-directed 2026-06-30):** replaced the baked-in "harden forever / always a next
+    hardening pass" LOOP MODE line in **PROMPT_PLAN_1/2/3** with a **WORK-ORDER directive** (REAL/visible work first → prove
+    in-app → hardening SECONDARY + capped to one focused pass on touched code, no app-wide sweeps → when reals are done pull
+    next REAL work → only a single full hardening pass when nothing real remains, then STOP+REPORT, no infinite loop). Each
+    carries its remaining-real punch-list. Also created `docs/prompts/AGENT_LOOP_WRAPPERS_REAL_FIRST_2026_06_30.md` (3 paste
+    wrappers). Post-edit invariant re-check: 10/10 still ✅ (canon-safe; Option 1 / graph / retheme / §7 all intact).
 - **2026-06-29 cycle 34→35 (Auditor) — white-screen STATUS (owner-flagged "goose still white"; owner cyc35: "fix whenever
   it gets to it, just keep it captured in the plan"). NOT canon drift — docs are correct; this is execution-status tracking.**
   ✅ **CAPTURED:** the fix is **PRIORITY-0** in `PROMPT_PLAN_1_GOOSE` (root cause = startup race; fix = retry-until-ready ACP:
