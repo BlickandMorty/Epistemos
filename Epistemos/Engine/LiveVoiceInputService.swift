@@ -9,6 +9,8 @@ import Foundation
 @MainActor
 @Observable
 public final class LiveVoiceInputService {
+    nonisolated static let maxTranscriptCharacters = TextCapturePipeline.maxCleanedTextCharacters
+
     public enum State: Equatable, Sendable {
         case idle
         case preparing
@@ -146,12 +148,12 @@ public final class LiveVoiceInputService {
 
     public func consumeTranscript() -> String? {
         let pending = finalTranscriptBuffer
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map(Self.cleanedFinalTranscript)
             .filter { !$0.isEmpty }
         finalTranscriptBuffer.removeAll()
         finalTranscript = ""
         guard !pending.isEmpty else { return nil }
-        return pending.joined(separator: "\n\n")
+        return Self.boundedTranscript(pending.joined(separator: "\n\n"))
     }
 
     private func isCurrentStart(_ generation: UUID) -> Bool {
@@ -170,14 +172,31 @@ public final class LiveVoiceInputService {
     private func handle(_ result: EpistemosSpeechAnalyzer.LiveResult) {
         switch result {
         case .partial(let text):
-            partialTranscript = text
+            partialTranscript = Self.boundedTranscript(text)
         case .final(let text):
-            let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleaned = Self.cleanedFinalTranscript(text)
             guard !cleaned.isEmpty else { return }
             finalTranscriptBuffer.append(cleaned)
+            compactFinalTranscriptBuffer()
             finalTranscript = cleaned
             partialTranscript = ""
         }
+    }
+
+    nonisolated static func boundedTranscript(_ text: String) -> String {
+        guard text.count > maxTranscriptCharacters else { return text }
+        return String(text.prefix(maxTranscriptCharacters))
+    }
+
+    nonisolated static func cleanedFinalTranscript(_ text: String) -> String {
+        boundedTranscript(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func compactFinalTranscriptBuffer() {
+        let pending = finalTranscriptBuffer.joined(separator: "\n\n")
+        guard pending.count > Self.maxTranscriptCharacters else { return }
+        let bounded = Self.boundedTranscript(pending)
+        finalTranscriptBuffer = bounded.isEmpty ? [] : [bounded]
     }
 
     @available(macOS 26.0, *)

@@ -374,9 +374,10 @@ Scope recovery is complete; do not re-open Plan 2 editor work inside Plan 3.
 Folded in as clean Plan-3 capabilities:
 - **Voice — SHIPPED (Pass 8):** Apple AVSpeech TTS wrapper, quality-first preferred voice resolution, global voice
   picker, premium-download hint, SSML/prosody fallback, consumer-backed Auto/Manual toggles, and live Apple STT facade
-  through `LiveVoiceInputService` are wired. `VoiceInputButton` consumes the live facade and no longer points at the
-  removed composer stub. Kokoro-82M is Pro-only status-gated and rejects symlink-routed, non-regular, oversized, or
-  invalid-manifest model artifacts; no model asset, picker row, neural runtime, Python, or subprocess enters the MAS path.
+  through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope.
+  `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
+  status-gated and rejects symlink-routed, non-regular, oversized, or invalid-manifest model artifacts; no model asset,
+  picker row, neural runtime, Python, or subprocess enters the MAS path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
   Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo

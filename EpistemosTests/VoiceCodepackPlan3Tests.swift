@@ -103,7 +103,28 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("modelDownloadProgress"))
         #expect(facade.contains("finalTranscriptBuffer"))
         #expect(facade.contains("finalTranscriptBuffer.append(cleaned)"))
-        #expect(facade.contains("pending.joined(separator: \"\\n\\n\")"))
+        #expect(facade.contains("maxTranscriptCharacters"))
+        #expect(facade.contains("TextCapturePipeline.maxCleanedTextCharacters"))
+        #expect(facade.contains("partialTranscript = Self.boundedTranscript(text)"))
+        #expect(facade.contains("let cleaned = Self.cleanedFinalTranscript(text)"))
+        #expect(facade.contains("compactFinalTranscriptBuffer()"))
+        #expect(facade.contains("Self.boundedTranscript(pending.joined(separator: \"\\n\\n\"))"))
+    }
+
+    @Test("live voice transcript helpers enforce the capture text envelope")
+    func liveVoiceTranscriptHelpersEnforceCaptureEnvelope() {
+        let oversized = String(
+            repeating: "a",
+            count: LiveVoiceInputService.maxTranscriptCharacters + 17
+        )
+
+        #expect(LiveVoiceInputService.boundedTranscript(oversized).count == LiveVoiceInputService.maxTranscriptCharacters)
+        #expect(LiveVoiceInputService.boundedTranscript("short") == "short")
+        #expect(
+            LiveVoiceInputService.cleanedFinalTranscript(" \n\(oversized)\n ")
+                .count == LiveVoiceInputService.maxTranscriptCharacters
+        )
+        #expect(LiveVoiceInputService.cleanedFinalTranscript(" \n\t ") == "")
     }
 
     @Test("voice button gates shared transcript callbacks to the capture owner")
