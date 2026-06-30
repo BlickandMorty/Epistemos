@@ -173,8 +173,12 @@ public final class QuarantineArchive {
             do {
                 try self.appendToDisk(entry)
             } catch {
+                let message = EngineLogDiagnostics.logMessage(
+                    for: error,
+                    fallback: "quarantine disk append failed"
+                )
                 Self.log.warning(
-                    "quarantine disk append failed (in-memory copy retained): \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
                 // Edge-case mitigation: surface the failure so the UI
                 // can show a non-blocking toast. The toast is opt-in
@@ -184,7 +188,7 @@ public final class QuarantineArchive {
                     object: nil,
                     userInfo: [
                         "entryId": entry.id,
-                        "error": error.localizedDescription,
+                        "error": message,
                     ]
                 )
             }

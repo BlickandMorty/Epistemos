@@ -83,8 +83,12 @@ nonisolated final class MutationOpLogProjectionWorker: @unchecked Sendable {
                     """
                 )
             } catch {
+                let message = EngineLogDiagnostics.logMessage(
+                    for: error,
+                    fallback: "OpLog projection drain failed"
+                )
                 Self.log.error(
-                    "OpLog projection drain \(reason, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
             }
         }

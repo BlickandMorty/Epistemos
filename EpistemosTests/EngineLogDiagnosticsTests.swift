@@ -39,4 +39,20 @@ struct EngineLogDiagnosticsTests {
             #expect(!source.contains("String(describing: error)"))
         }
     }
+
+    @Test("engine persistence logs route through redacted diagnostics")
+    func enginePersistenceLogsRouteThroughRedactedDiagnostics() throws {
+        let paths = [
+            "Epistemos/Engine/CapabilityManifestBuilder.swift",
+            "Epistemos/Engine/MutationOpLogProjectionWorker.swift",
+            "Epistemos/Engine/QuarantineArchive.swift",
+        ]
+
+        for path in paths {
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(source.contains("EngineLogDiagnostics.logMessage"))
+            #expect(!source.contains("error.localizedDescription"))
+            #expect(!source.contains("String(describing: error)"))
+        }
+    }
 }

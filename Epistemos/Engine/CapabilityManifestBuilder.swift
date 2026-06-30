@@ -163,8 +163,12 @@ enum CapabilityManifestBuilder {
             try manifest.write(to: url, atomically: true, encoding: .utf8)
             return true
         } catch {
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "failed to persist Capabilities.md"
+            )
             log.error(
-                "failed to persist Capabilities.md: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return false
         }
