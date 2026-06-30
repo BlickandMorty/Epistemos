@@ -17,6 +17,7 @@ const loadingErrorPolishMarker = 'epistemos-native-loading-error-polish';
 const motionPolishMarker = 'epistemos-native-motion-polish';
 const flatPolishMarker = 'epistemos-native-high-quality-flat-polish';
 const claudePixelPolishMarker = 'epistemos-native-claude-pixel-polish';
+const claudePixelContractMarker = 'epistemos-native-claude-pixel-contract';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -1129,6 +1130,268 @@ body,
 
 .goose-epistemos :is(svg, img).epistemos-pixel-accent,
 .goose-epistemos [data-epistemos-pixel-accent] {
+  image-rendering: pixelated;
+}
+`;
+  }
+  if (!source.includes(claudePixelContractMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos final Claude/pixel visual contract (${claudePixelContractMarker})
+   This is the last visual layer on purpose. Older native/glass staging helpers
+   may still add Tailwind classes for borders, shadows, rings, or backdrop blur;
+   the product contract is Claude-like flat: single Goose sidebar, quiet canvas,
+   borderless controls, no blue OS focus outline, and only a small pixel accent.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-claude-pixel-contract: 1;
+  --epistemos-claude-bg: var(--color-background-primary);
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 74%, var(--color-background-primary));
+  --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 46%, var(--color-background-primary));
+  --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 66%, var(--color-background-primary));
+  --epistemos-claude-hover: color-mix(in srgb, var(--color-background-secondary) 86%, var(--color-background-primary));
+  --epistemos-claude-active: color-mix(in srgb, var(--epistemos-pixel-accent) 11%, var(--epistemos-claude-surface-strong));
+  --epistemos-claude-soft-shadow: 0 18px 46px color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  background: var(--epistemos-claude-bg) !important;
+  color: var(--color-text-primary) !important;
+  letter-spacing: 0 !important;
+}
+
+.dark .goose-epistemos {
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 58%, var(--color-background-primary));
+  --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 34%, var(--color-background-primary));
+  --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 52%, var(--color-background-primary));
+  --epistemos-claude-hover: color-mix(in srgb, var(--color-background-secondary) 68%, var(--color-background-primary));
+  --epistemos-claude-soft-shadow: 0 18px 48px color-mix(in srgb, black 36%, transparent);
+}
+
+html,
+body,
+#root,
+.goose-epistemos,
+.goose-epistemos :is(main, [role='main']) {
+  background: var(--epistemos-claude-bg) !important;
+}
+
+.goose-epistemos,
+.goose-epistemos * {
+  letter-spacing: 0 !important;
+}
+
+.goose-epistemos :is(
+  [class*='backdrop-blur'],
+  [class*='backdrop-filter'],
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.goose-epistemos :is(
+  [class*='shadow'],
+  .shadow,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl
+) {
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  [class*='border'],
+  .border,
+  .border-t,
+  .border-r,
+  .border-b,
+  .border-l,
+  .divide-y > :not([hidden]) ~ :not([hidden]),
+  [data-orientation='horizontal'],
+  [data-orientation='vertical']
+) {
+  border-color: transparent !important;
+  outline-color: transparent !important;
+}
+
+.goose-epistemos :is(
+  .border,
+  .border-t,
+  .border-r,
+  .border-b,
+  .border-l
+) {
+  border-width: 0 !important;
+}
+
+.goose-epistemos :is(
+  aside,
+  nav[class*='sidebar'],
+  [class*='Sidebar'],
+  [class*='sidebar'],
+  [data-sidebar],
+  [data-slot='sidebar'],
+  .bg-background-secondary
+) {
+  background: var(--epistemos-claude-sidebar) !important;
+}
+
+.goose-epistemos :is(
+  .bg-background-primary,
+  .bg-background-tertiary,
+  .bg-background-default
+) {
+  background: transparent !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  input,
+  textarea,
+  select,
+  [contenteditable='true']
+) {
+  border-color: transparent !important;
+  border-width: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+.goose-epistemos :is(input, textarea, select, [contenteditable='true']) {
+  background: var(--epistemos-claude-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus,
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  background: var(--epistemos-claude-active) !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option']
+):not(:disabled):hover {
+  background: var(--epistemos-claude-hover) !important;
+}
+
+.goose-epistemos :is(
+  .goose-chat-input-card,
+  .goose-user-message-bubble,
+  .goose-message-content,
+  .goose-message-tool,
+  .goose-tool-call,
+  .ep-native-screen-card,
+  .ep-native-list-card,
+  [data-slot='card']
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--epistemos-claude-surface) !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos .goose-chat-input-card {
+  background: var(--epistemos-claude-bg) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--epistemos-claude-soft-shadow) !important;
+}
+
+.goose-epistemos .goose-chat-input-card:focus-within {
+  outline: none !important;
+  border-color: transparent !important;
+  background: color-mix(in srgb, var(--epistemos-pixel-accent) 4%, var(--epistemos-claude-bg)) !important;
+  box-shadow: var(--epistemos-claude-soft-shadow) !important;
+}
+
+.goose-epistemos :is(
+  [role='dialog'],
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  [data-radix-popper-content-wrapper] > *
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--epistemos-claude-bg) !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: var(--epistemos-claude-soft-shadow) !important;
+}
+
+.goose-epistemos :is(
+  h1,
+  .ep-native-section-label,
+  .ep-native-window-title,
+  .ep-native-companion,
+  [data-epistemos-pixel-heading],
+  [data-epistemos-section-label],
+  [data-epistemos-window-title],
+  [data-epistemos-companion],
+  [class*='section-label'],
+  [class*='SectionLabel'],
+  [class*='window-title'],
+  [class*='WindowTitle'],
+  [class*='companion-mascot'],
+  [class*='CompanionMascot']
+) {
+  font-family: var(--epistemos-pixel-font) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  image-rendering: pixelated;
+}
+
+.goose-epistemos :is(.ep-native-loading-dot, [class*='status'] [class*='dot']) {
+  border-radius: 2px !important;
+  background: var(--epistemos-pixel-accent) !important;
+  box-shadow: none !important;
   image-rendering: pixelated;
 }
 `;
