@@ -1989,6 +1989,208 @@ function applySettingsPanelSurfaces() {
   write('src/components/settings/PromptsSettingsSection.tsx', source);
 }
 
+function applyModelSettingsSurfaces() {
+  let source = read('src/components/settings/models/ModelsSection.tsx');
+  source = replaceRequired(
+    source,
+    'models summary card native glass',
+    'className="p-2 pb-4"',
+    'className="border-border-secondary bg-background-primary/68 p-3 pb-4 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'models summary heading native',
+    'className="text-text-primary"',
+    'className="font-medium text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'models reset card native glass',
+    'className="pb-2 rounded-lg"',
+    'className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'models reset card content breathing room',
+    'className="px-2"',
+    'className="px-2.5"'
+  );
+  write('src/components/settings/models/ModelsSection.tsx', source);
+
+  source = read('src/components/settings/models/subcomponents/ModelSettingsButtons.tsx');
+  source = replaceAllRequired(
+    source,
+    'model settings buttons native',
+    'className="flex items-center gap-2 justify-center"',
+    'className="flex items-center justify-center gap-2 rounded-[8px]"'
+  );
+  write('src/components/settings/models/subcomponents/ModelSettingsButtons.tsx', source);
+
+  source = read('src/components/settings/reset_provider/ResetProviderSection.tsx');
+  source = replaceRequired(
+    source,
+    'reset provider container native',
+    'className="p-2"',
+    'className="rounded-[10px] border border-border-danger bg-background-danger/35 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'reset provider button native',
+    'className="flex items-center justify-center gap-2"',
+    'className="flex items-center justify-center gap-2 rounded-[8px]"'
+  );
+  write('src/components/settings/reset_provider/ResetProviderSection.tsx', source);
+
+  source = read('src/components/settings/models/bottom_bar/ModelsBottomBar.tsx');
+  source = replaceRequired(
+    source,
+    'model bottom trigger native',
+    'className="flex items-center hover:cursor-pointer max-w-[180px] md:max-w-[200px] lg:max-w-[380px] min-w-0 text-text-primary/70 hover:text-text-primary transition-colors"',
+    'className="flex h-8 min-w-0 max-w-[180px] items-center rounded-[8px] border border-transparent bg-background-primary/45 px-2 text-text-primary/75 transition-all hover:cursor-pointer hover:border-border-secondary hover:bg-background-secondary/65 hover:text-text-primary md:max-w-[200px] lg:max-w-[380px]"'
+  );
+  source = replaceRequired(
+    source,
+    'model bottom dropdown native width',
+    'className="w-64 text-sm"',
+    'className="w-72 text-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'model bottom local overlay native',
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"',
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'model bottom local modal native',
+    'className="bg-background-primary border border-border-primary rounded-[6px] shadow-none w-[480px] max-h-[80vh] flex flex-col"',
+    'className="flex max-h-[80vh] w-[480px] flex-col rounded-[14px] border border-border-primary bg-background-primary/88 shadow-2xl backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'model bottom local close native',
+    'className="text-text-muted hover:text-text-default text-lg leading-none"',
+    'className="flex h-8 w-8 items-center justify-center rounded-[8px] text-lg leading-none text-text-muted transition-all hover:bg-background-secondary/75 hover:text-text-default"'
+  );
+  write('src/components/settings/models/bottom_bar/ModelsBottomBar.tsx', source);
+
+  source = read('src/components/settings/models/subcomponents/SwitchModelModal.tsx');
+  source = replaceRequired(
+    source,
+    'switch model modal native width',
+    'className="sm:max-w-[500px]"',
+    'className="sm:max-w-[560px]"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model title native',
+    'className="flex items-center gap-2"',
+    'className="flex items-center gap-2 font-sans tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model title icon accent',
+    '<Bot size={24} className="text-text-primary" />',
+    '<Bot size={24} className="text-[var(--epistemos-accent)]" />'
+  );
+  source = replaceRequired(
+    source,
+    'switch model predefined row native',
+    "className={`flex items-center justify-between text-text-primary py-2 px-2 ${\n                        selectedPredefinedModel?.name === model.name\n                          ? 'bg-background-secondary'\n                          : 'bg-background-primary hover:bg-background-secondary'\n                      } rounded-lg transition-all`}",
+    "className={`flex items-center justify-between rounded-[10px] border px-3 py-2.5 text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] ${\n                        selectedPredefinedModel?.name === model.name\n                          ? 'border-border-secondary bg-background-secondary/78 shadow-sm ring-[1px] ring-[var(--epistemos-accent)]/25'\n                          : 'border-transparent bg-transparent hover:border-border-secondary hover:bg-background-secondary/55'\n                      }`}"
+  );
+  source = replaceRequired(
+    source,
+    'switch model recommended badge native',
+    'className="text-[10px] font-mono uppercase bg-background-secondary text-text-primary px-2 py-1 rounded-[3px] border border-border-primary ml-2"',
+    'className="ep-native-badge ml-2 px-2 py-1 text-[10px] text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model radio native accent',
+    `className="h-4 w-4 rounded-full border border-border-primary
+                                peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
+                                peer-checked:bg-white dark:peer-checked:bg-black
+                                transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
+    `className="h-[18px] w-[18px] rounded-full border border-border-secondary bg-background-primary/70 shadow-inner
+                                transition-all duration-200 ease-[var(--epistemos-control-ease)] group-hover:border-[var(--epistemos-accent)]
+                                peer-checked:border-[5px] peer-checked:border-[var(--epistemos-accent)] peer-checked:bg-background-primary"`
+  );
+  source = replaceAllRequired(
+    source,
+    'switch model validation danger token',
+    'className="text-red-500 text-sm mt-1"',
+    'className="mt-1 text-sm text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model local info panel native',
+    'className="rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4"',
+    'className="rounded-[12px] border border-border-secondary bg-background-secondary/60 p-4 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model local info title token',
+    'className="text-sm font-medium text-blue-800 dark:text-blue-200"',
+    'className="text-sm font-medium text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model local info body token',
+    'className="mt-1 text-sm text-blue-700 dark:text-blue-300"',
+    'className="mt-1 text-sm text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model local settings button native',
+    'className="self-start border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"',
+    'className="self-start border-border-secondary bg-background-primary/60 text-text-primary hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75"'
+  );
+  source = replaceAllRequired(
+    source,
+    'switch model warning panel native',
+    'className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3',
+    'className="rounded-[12px] border border-border-warning bg-background-warning/55 p-3'
+  );
+  source = replaceRequired(
+    source,
+    'switch model warning title token',
+    'className="text-sm font-medium text-yellow-800 dark:text-yellow-200"',
+    'className="text-sm font-medium text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model warning body token',
+    'className="mt-1 text-sm text-yellow-700 dark:text-yellow-300"',
+    'className="mt-1 text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model warning helper token',
+    'className="mt-2 text-xs text-yellow-600 dark:text-yellow-400"',
+    'className="mt-2 text-xs text-text-warning"'
+  );
+  source = replaceAllRequired(
+    source,
+    'switch model custom input native',
+    'className="border-2 px-4 py-5"',
+    'className="bg-background-primary/70 px-4 py-5 focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model back link native',
+    '<button\n                          onClick={() => setIsCustomModel(false)}\n                          className="text-sm text-text-secondary"',
+    '<button\n                          onClick={() => setIsCustomModel(false)}\n                          className="text-sm text-[var(--epistemos-accent)] hover:underline"'
+  );
+  source = replaceRequired(
+    source,
+    'switch model quickstart native link',
+    'className="inline-flex items-center text-text-secondary hover:text-text-primary text-sm mr-auto"',
+    'className="mr-auto inline-flex items-center text-sm text-text-secondary transition-colors hover:text-[var(--epistemos-accent)]"'
+  );
+  write('src/components/settings/models/subcomponents/SwitchModelModal.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -2726,6 +2928,7 @@ applyExtensionSettingsSurfaces();
 applyChatSettingsSurfaces();
 applyPermissionSurfaces();
 applySettingsPanelSurfaces();
+applyModelSettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
