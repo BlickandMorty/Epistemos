@@ -3355,6 +3355,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-native-primitive-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "epistemos-native-surface-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "epistemos-native-catalog-screen-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q "epistemos-native-loading-error-polish" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q "ep-native-loading-dot is-active" "$WORK_ROOT/ui/desktop/src/suspense-loader.tsx"
+    grep -q "ep-native-status-line flex items-center gap-2" "$WORK_ROOT/ui/desktop/src/components/LoadingEpistemos.tsx"
+    grep -q "ep-native-error-card" "$WORK_ROOT/ui/desktop/src/components/ErrorBoundary.tsx"
     grep -q "scrollbar-width: auto !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "outline: 2px solid color-mix(in srgb, var(--epistemos-accent)" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "bg-\\[var(--epistemos-accent)\\] text-white hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/button.tsx"
@@ -3462,6 +3466,7 @@ for required_marker in \
     "epistemos-native-primitive-polish" \
     "epistemos-native-surface-polish" \
     "epistemos-native-catalog-screen-polish" \
+    "epistemos-native-loading-error-polish" \
     "provider-catalog-template-choice"; do
     if ! grep -R -q -- "$required_marker" "$STAGED_OUTPUT/index.html" "$STAGED_OUTPUT/assets" 2>/dev/null; then
         echo "Goose Web UI artifact is missing required ACP provider catalog marker: $required_marker" >&2

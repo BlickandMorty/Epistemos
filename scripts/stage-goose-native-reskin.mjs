@@ -13,6 +13,7 @@ const focusPolishMarker = 'epistemos-native-scrollbar-focus-polish';
 const primitivePolishMarker = 'epistemos-native-primitive-polish';
 const surfacePolishMarker = 'epistemos-native-surface-polish';
 const catalogPolishMarker = 'epistemos-native-catalog-screen-polish';
+const loadingErrorPolishMarker = 'epistemos-native-loading-error-polish';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -565,6 +566,80 @@ body {
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
   font-weight: 600;
   letter-spacing: 0 !important;
+}
+`;
+  }
+  if (!source.includes(loadingErrorPolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos native loading/error polish (${loadingErrorPolishMarker})
+   Crash, suspense, and streaming-loading fallbacks must use the same tokenized
+   glass language as the rest of the reskinned WebView.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-loading-error-polish: 1;
+}
+
+.goose-epistemos .ep-native-loading-dot {
+  display: inline-block;
+  width: 8px !important;
+  height: 8px !important;
+  flex: 0 0 auto;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background-color: var(--epistemos-accent) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--epistemos-accent) 16%, transparent),
+    0 0 18px color-mix(in srgb, var(--epistemos-accent) 24%, transparent);
+}
+
+.goose-epistemos .ep-native-loading-dot.is-active,
+.goose-epistemos .ep-native-loading-dot.animate-pulse {
+  animation: epistemos-native-breathe 1.25s var(--epistemos-control-ease) infinite;
+}
+
+.goose-epistemos .ep-native-status-line {
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  font-weight: 500;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.goose-epistemos .ep-native-error-shell {
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      color-mix(in srgb, var(--color-background-primary) 72%, transparent),
+      transparent 56%
+    );
+}
+
+.goose-epistemos .ep-native-error-card {
+  -webkit-backdrop-filter: blur(26px) saturate(1.5);
+  backdrop-filter: blur(26px) saturate(1.5);
+  background-color: var(--epistemos-glass-fill-strong) !important;
+  border-color: var(--epistemos-glass-border) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--epistemos-popover-shadow) !important;
+}
+
+.goose-epistemos .ep-native-error-icon {
+  border-color: color-mix(in srgb, var(--color-text-danger) 30%, var(--epistemos-glass-border)) !important;
+  border-radius: 9999px !important;
+  background-color: color-mix(in srgb, var(--color-background-danger) 72%, transparent) !important;
+}
+
+@keyframes epistemos-native-breathe {
+  0%,
+  100% {
+    opacity: 0.56;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 `;
   }
@@ -1331,6 +1406,83 @@ function applySearchSurfaces() {
   write('src/components/conversation/SearchBar.tsx', source);
 }
 
+function applyLoadingAndErrorSurfaces() {
+  let source = read('src/suspense-loader.tsx');
+  source = replaceRequired(
+    source,
+    'suspense loader transparent root',
+    'className="flex flex-col items-start justify-end w-screen h-screen overflow-hidden p-6 page-transition"',
+    'className="goose-epistemos flex h-screen w-screen flex-col items-start justify-end overflow-hidden bg-transparent p-6 page-transition"'
+  );
+  source = replaceRequired(
+    source,
+    'suspense loader native card',
+    'className="flex gap-2 items-center justify-end"',
+    'className="ep-native-screen-card flex items-center justify-end gap-2 border px-3 py-2"'
+  );
+  source = replaceRequired(
+    source,
+    'suspense loader native dot',
+    'className="h-3 w-3 border border-border-prominent bg-background-muted animate-pulse"',
+    'className="ep-native-loading-dot is-active"'
+  );
+  source = replaceRequired(
+    source,
+    'suspense loader native text',
+    'className="font-mono text-xs uppercase text-text-secondary"',
+    'className="ep-native-status-line text-xs text-text-secondary"'
+  );
+  write('src/suspense-loader.tsx', source);
+
+  source = read('src/components/LoadingEpistemos.tsx');
+  source = replaceRequired(
+    source,
+    'loading epistemos native dot',
+    "className={`h-1.5 w-1.5 bg-primary ${active ? 'animate-pulse' : ''}`}",
+    "className={`ep-native-loading-dot ${active ? 'is-active' : 'opacity-50'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'loading epistemos native status text',
+    'className="flex items-center gap-2 text-[11px] text-text-secondary py-2 font-mono uppercase"',
+    'className="ep-native-status-line flex items-center gap-2 py-2 text-[11px] text-text-secondary"'
+  );
+  write('src/components/LoadingEpistemos.tsx', source);
+
+  source = read('src/components/ErrorBoundary.tsx');
+  source = replaceRequired(
+    source,
+    'error boundary native transparent shell',
+    'className="fixed inset-0 w-full h-full flex flex-col items-center justify-center gap-6 bg-background"',
+    'className="goose-epistemos ep-native-error-shell fixed inset-0 flex h-full w-full flex-col items-center justify-center gap-6 bg-transparent"'
+  );
+  source = replaceRequired(
+    source,
+    'error boundary native card',
+    'className="flex flex-col items-center gap-4 max-w-[600px] text-center px-6"',
+    'className="ep-native-error-card flex max-w-[620px] flex-col items-center gap-4 border px-6 py-7 text-center"'
+  );
+  source = replaceRequired(
+    source,
+    'error boundary native icon',
+    'className="w-12 h-12 bg-destructive/10 border border-border-primary flex items-center justify-center mb-2"',
+    'className="ep-native-error-icon mb-2 flex h-12 w-12 items-center justify-center border"'
+  );
+  source = replaceRequired(
+    source,
+    'error boundary native heading',
+    'className="text-2xl font-mono font-normal text-foreground dark:text-white"',
+    'className="text-2xl font-sans font-semibold tracking-normal text-foreground dark:text-white"'
+  );
+  source = replaceRequired(
+    source,
+    'error boundary native pre',
+    'className="text-destructive text-sm dark:text-white p-4 bg-muted rounded-[6px] w-full overflow-auto border border-border whitespace-pre-wrap"',
+    'className="w-full overflow-auto whitespace-pre-wrap rounded-[12px] border border-border bg-background-secondary/72 p-4 text-left text-sm text-destructive backdrop-blur-xl dark:text-white"'
+  );
+  write('src/components/ErrorBoundary.tsx', source);
+}
+
 applyThemeTokens();
 applyMainCSS();
 applyButton();
@@ -1349,5 +1501,6 @@ applyProviderCatalogSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySearchSurfaces();
+applyLoadingAndErrorSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
