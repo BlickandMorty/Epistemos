@@ -1812,6 +1812,50 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(oversizedPath) == nil)
     }
 
+    @Test("native binary lookup bounds inherited PATH")
+    func nativeBinaryLookupBoundsInheritedPATH() throws {
+        let defaultDirectories = GooseWebNativeAffordanceBridge.defaultNativeBinarySearchDirectories
+        let oversizedPath = "/" + String(
+            repeating: "p",
+            count: GooseWebNativeAffordanceBridge.maxNativeBinarySearchPathCharacters + 1
+        )
+        let manyDirectories = (0..<(GooseWebNativeAffordanceBridge.maxNativeBinarySearchPathEntries + 7))
+            .map { "/tmp/tool-\($0)" }
+            .joined(separator: ":")
+        let oversizedEntry = "/" + String(
+            repeating: "e",
+            count: GooseWebNativeAffordanceBridge.maxNativeBinarySearchPathEntryCharacters + 1
+        )
+
+        #expect(GooseWebNativeAffordanceBridge.nativeBinarySearchDirectories(environment: [:]) == defaultDirectories)
+        #expect(
+            GooseWebNativeAffordanceBridge.nativeBinarySearchDirectories(environment: ["PATH": oversizedPath])
+            == defaultDirectories
+        )
+        #expect(
+            GooseWebNativeAffordanceBridge.nativeBinarySearchDirectories(environment: ["PATH": "bad\0path:/usr/bin"])
+            == defaultDirectories
+        )
+        #expect(
+            GooseWebNativeAffordanceBridge.nativeBinarySearchDirectories(
+                environment: ["PATH": "\(oversizedEntry):/usr/bin"]
+            ) == ["/usr/bin"]
+        )
+
+        let bounded = GooseWebNativeAffordanceBridge.nativeBinarySearchDirectories(
+            environment: ["PATH": manyDirectories]
+        )
+        #expect(bounded.count == GooseWebNativeAffordanceBridge.maxNativeBinarySearchPathEntries)
+        #expect(bounded.first == "/tmp/tool-0")
+        #expect(
+            bounded.last == "/tmp/tool-\(GooseWebNativeAffordanceBridge.maxNativeBinarySearchPathEntries - 1)"
+        )
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+        #expect(source.contains("nativeBinarySearchDirectories()"))
+        #expect(source.contains(".prefix(maxNativeBinarySearchPathEntries)"))
+    }
+
     @Test("native affordance error messages are bounded and external errors are redacted")
     func nativeAffordanceErrorMessagesAreBoundedAndExternalErrorsAreRedacted() throws {
         let privatePath = "/Users/example/private-vault/session.jsonl"

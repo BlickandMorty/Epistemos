@@ -50,6 +50,12 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeFileDialogFilters = 16
     nonisolated static let maxNativeFileDialogExtensions = 64
     nonisolated static let maxNativeFileDialogExtensionCharacters = 32
+    nonisolated static let maxNativeBinarySearchPathCharacters = 8_192
+    nonisolated static let maxNativeBinarySearchPathEntryCharacters = 4_096
+    nonisolated static let maxNativeBinarySearchPathEntries = 64
+    nonisolated static let defaultNativeBinarySearchDirectories = [
+        "/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/bin",
+    ]
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -524,10 +530,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private func resolveBinaryPath(_ binaryName: String) -> String {
         let safeName = URL(fileURLWithPath: binaryName).lastPathComponent
         guard !safeName.isEmpty, safeName == binaryName else { return "" }
-        let searchPaths = (ProcessInfo.processInfo.environment["PATH"] ?? "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin")
-            .split(separator: ":")
-            .map(String.init)
-        for directory in searchPaths {
+        for directory in Self.nativeBinarySearchDirectories() {
             let candidate = URL(fileURLWithPath: directory, isDirectory: true)
                 .appendingPathComponent(safeName, isDirectory: false)
                 .path
@@ -536,6 +539,33 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             }
         }
         return ""
+    }
+
+    nonisolated static func nativeBinarySearchDirectories(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String] {
+        guard let path = environment["PATH"] else {
+            return defaultNativeBinarySearchDirectories
+        }
+        guard path.utf8.count <= maxNativeBinarySearchPathCharacters,
+              !path.utf8.contains(0) else {
+            return defaultNativeBinarySearchDirectories
+        }
+        let directories = path
+            .split(separator: ":", omittingEmptySubsequences: true)
+            .prefix(maxNativeBinarySearchPathEntries)
+            .compactMap { nativeBinarySearchDirectory(String($0)) }
+        return directories
+    }
+
+    nonisolated private static func nativeBinarySearchDirectory(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.utf8.count <= maxNativeBinarySearchPathEntryCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
     }
 
     private func readFile(_ path: String) -> [String: Any] {
