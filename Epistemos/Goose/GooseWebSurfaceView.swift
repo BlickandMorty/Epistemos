@@ -9,6 +9,7 @@ struct GooseWebSurfaceView: View {
         "app-\(gooseUISurfaceCacheToken.lowercased())"
     nonisolated private static let gooseUISurfaceVirtualBasePath =
         "/__epistemos-goose/\(gooseUISurfaceCacheToken)"
+    nonisolated static let maxGooseRouteCharacters = 4096
 
     var theme: EpistemosTheme = .nativeDefault
     /// The web hash route to display. Default `/?` (the Goose hub). The native Agent frame's nav rail
@@ -60,7 +61,7 @@ struct GooseWebSurfaceView: View {
         _nativeAffordanceBridge = State(initialValue: nativeAffordanceBridge)
         _secretKey = State(initialValue: secretKey)
         _trustedOrigins = State(initialValue: trustedOrigins)
-        _activeRoute = State(initialValue: route)
+        _activeRoute = State(initialValue: Self.normalizedGooseRoute(route))
         _page = State(initialValue: Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
@@ -101,8 +102,9 @@ struct GooseWebSurfaceView: View {
             // Native nav-rail drove the route: record it as the live desired route (so a change made
             // before the UI server is running is NOT lost — the load chain reads `activeRoute`), then
             // re-point the loaded WebView (no-op until the UI server is running).
-            activeRoute = newRoute
-            loadGooseRoute(newRoute)
+            let normalizedRoute = Self.normalizedGooseRoute(newRoute)
+            activeRoute = normalizedRoute
+            loadGooseRoute(normalizedRoute)
         }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
@@ -643,12 +645,11 @@ struct GooseWebSurfaceView: View {
     }
 
     nonisolated static func routeURL(_ route: String) -> URL {
-        let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
-        return surfaceURL(hashRoute: normalizedRoute)
+        surfaceURL(hashRoute: normalizedGooseRoute(route))
     }
 
     nonisolated static func loopbackURL(baseURL: URL, route: String) -> URL {
-        let normalizedRoute = route.hasPrefix("/") ? route : "/\(route)"
+        let normalizedRoute = normalizedGooseRoute(route)
         var absolute = baseURL.absoluteString
         if !absolute.hasSuffix("/") {
             absolute += "/"
@@ -658,6 +659,12 @@ struct GooseWebSurfaceView: View {
         // force-unwrapping.
         let fragment = normalizedRoute.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? ""
         return URL(string: "\(absolute)?v=\(gooseUISurfaceCacheToken)#\(fragment)") ?? baseURL
+    }
+
+    nonisolated static func normalizedGooseRoute(_ route: String) -> String {
+        let boundedRoute = String(route.prefix(maxGooseRouteCharacters))
+        guard !boundedRoute.isEmpty else { return "/?" }
+        return boundedRoute.hasPrefix("/") ? boundedRoute : "/\(boundedRoute)"
     }
 
     nonisolated static func gooseStaticCompatibilityRoutes() -> [WorkSPAStaticRoute] {

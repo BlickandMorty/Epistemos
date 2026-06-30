@@ -1141,6 +1141,21 @@ struct GooseWebViewBootShimTests {
         #expect(loopback.host == "localhost")
         #expect(loopback.query?.hasPrefix("v=") == true)
         #expect(loopback.fragment == "/configure-providers")
+
+        let relativeURL = GooseWebSurfaceView.routeURL("settings?section=models")
+        #expect(relativeURL.fragment == "/settings?section=models")
+
+        let oversizedRoute = "/" + String(
+            repeating: "r",
+            count: GooseWebSurfaceView.maxGooseRouteCharacters + 256
+        )
+        let boundedRouteURL = GooseWebSurfaceView.routeURL(oversizedRoute)
+        #expect(boundedRouteURL.fragment?.count == GooseWebSurfaceView.maxGooseRouteCharacters)
+        let boundedLoopbackURL = GooseWebSurfaceView.loopbackURL(
+            baseURL: URL(string: "http://127.0.0.1:54445")!,
+            route: oversizedRoute
+        )
+        #expect(boundedLoopbackURL.fragment?.count == GooseWebSurfaceView.maxGooseRouteCharacters)
     }
 
     @Test("surface availability requires both Goose runtime and ACP Web UI")
@@ -1356,8 +1371,9 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("name: \"epistemosGooseNative\""))
         #expect(source.contains("nativeAffordanceBridge: nativeAffordanceBridge"))
         #expect(source.contains("Label(\"Manage models\", systemImage: \"slider.horizontal.3\")"))
-        #expect(source.contains("loadGooseRoute(\"/settings?section=models\")"))
+        #expect(source.contains("loadGooseRoute(GooseSurfaceRoute.models.webRoute)"))
         #expect(source.contains("loadGooseRoute(\"/configure-providers\")"))
+        #expect(source.contains("maxGooseRouteCharacters = 4096"))
         #expect(source.contains("detailRow(\"native ACP Goose\", nativeACPStatusLabel)"))
         #expect(source.contains("detailRow(\"custom ACP Goose\", customACPStatusLabel)"))
         #expect(source.contains("? \"ready\""))
