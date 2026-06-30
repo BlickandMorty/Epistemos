@@ -1,4 +1,16 @@
+import Foundation
 import SwiftUI
+
+nonisolated enum GooseNativeModelsPresentationBounds {
+    static let maxStatusMessageCharacters = 512
+
+    static func statusMessage(_ message: String, fallback: String = "Goose Models action failed.") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else { return value }
+        return String(value.prefix(maxStatusMessageCharacters))
+    }
+}
 
 /// Native Epistemos "Models" surface — the SAFE FIRST native route of the per-route migration.
 ///
@@ -255,7 +267,10 @@ struct GooseNativeModelsView: View {
             phase = .failed("Timed out loading providers from Goose. Retry?")
         } catch {
             guard generation == loadGeneration else { return }
-            phase = .failed("Could not load providers: \(error.localizedDescription)")
+            phase = .failed(GooseNativeModelsPresentationBounds.statusMessage(
+                "Could not load providers: \(error.localizedDescription)",
+                fallback: "Could not load providers."
+            ))
         }
     }
 
@@ -276,7 +291,10 @@ struct GooseNativeModelsView: View {
         } catch GooseACPBridgeError.notConnected {
             statusMessage = "Goose is not connected — nothing was saved."
         } catch {
-            statusMessage = "Save failed: \(error.localizedDescription)"
+            statusMessage = GooseNativeModelsPresentationBounds.statusMessage(
+                "Save failed: \(error.localizedDescription)",
+                fallback: "Save failed."
+            )
         }
     }
 }

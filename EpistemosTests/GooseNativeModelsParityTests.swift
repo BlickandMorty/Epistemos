@@ -100,6 +100,23 @@ struct GooseSurfaceRouterTests {
         #expect(GooseSurfaceRouter.maxNativeRouteTokens == 64)
     }
 
+    @Test("native Models status text is bounded before display")
+    func nativeModelsStatusTextIsBoundedBeforeDisplay() throws {
+        let oversized = String(
+            repeating: "e",
+            count: GooseNativeModelsPresentationBounds.maxStatusMessageCharacters + 40
+        )
+        let message = GooseNativeModelsPresentationBounds.statusMessage(" \n\(oversized)\n ")
+
+        #expect(message.count == GooseNativeModelsPresentationBounds.maxStatusMessageCharacters)
+        #expect(GooseNativeModelsPresentationBounds.statusMessage(" \n\t ", fallback: "fallback") == "fallback")
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Goose/GooseNativeModelsView.swift")
+        #expect(source.contains("GooseNativeModelsPresentationBounds.statusMessage"))
+        #expect(!source.contains(#"phase = .failed("Could not load providers: \(error.localizedDescription)""#))
+        #expect(!source.contains(#"statusMessage = "Save failed: \(error.localizedDescription)""#))
+    }
+
     @Test("Models route maps to today's web oracle hash route")
     func modelsRouteMapsToWebOracle() {
         #expect(GooseSurfaceRoute.models.webRoute == "/settings?section=models")
