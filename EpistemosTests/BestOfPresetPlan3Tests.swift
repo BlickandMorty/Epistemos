@@ -70,6 +70,9 @@ struct BestOfPresetPlan3Tests {
             "loadConfigData",
             "destinationOfSymbolicLink",
             "attributes[.type] as? FileAttributeType == .typeRegular",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "readToEnd()",
             "data.count <= maxConfigBytes",
         ] {
             #expect(directory.contains(required), "MCPUrlServerDirectory missing bounded config-file guard: \(required)")
@@ -333,13 +336,19 @@ struct BestOfPresetPlan3Tests {
             "maxManifestBytes",
             "loadManifestData",
             "maxReceiptBytes",
+            "readBoundedRegularFileNoFollow",
             "destinationOfSymbolicLink",
-            "attributesOfItem",
-            "data.count <= maxManifestBytes",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "readToEnd()",
+            "readBoundedRegularFileNoFollow(at: url, maxBytes: maxManifestBytes)",
+            "readBoundedRegularFileNoFollow(at: url, maxBytes: maxReceiptBytes)",
+            "data.count <= maxBytes",
             "data.count <= maxReceiptBytes",
         ] {
             #expect(source.contains(required), "BestOfPreset receipt store missing hardening marker: \(required)")
         }
+        #expect(!source.contains("Data(contentsOf: url)"))
     }
 
     private static func makeBestOfPresetBundle(

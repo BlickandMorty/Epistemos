@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Plan 3 — honest view and MAS-safe writer for external URL MCP servers.
@@ -277,7 +278,48 @@ nonisolated enum MCPUrlServerDirectory {
             return nil
         }
         try validateReadableConfigFile(configURL, fileManager: fileManager)
-        let data = try Data(contentsOf: configURL)
+        guard let data = try readConfigDataNoFollow(from: configURL) else {
+            return nil
+        }
+        guard data.count <= maxConfigBytes else {
+            throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
+        }
+        return data
+    }
+
+    private static func readConfigDataNoFollow(from configURL: URL) throws -> Data? {
+        let fd = configURL.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            let capturedErrno = errno
+            if capturedErrno == ENOENT {
+                return nil
+            }
+            if capturedErrno == ELOOP {
+                throw WriteError.writeFailed("existing config file is a symbolic link")
+            }
+            throw WriteError.writeFailed("existing config file could not be opened safely")
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw WriteError.writeFailed("existing config file attributes are unavailable")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw WriteError.writeFailed("existing config file is not a regular file")
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxConfigBytes) else {
+            close(fd)
+            throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        let data = try handle.readToEnd() ?? Data()
         guard data.count <= maxConfigBytes else {
             throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
         }

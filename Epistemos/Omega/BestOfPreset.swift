@@ -1,7 +1,51 @@
+import Darwin
 import Foundation
 #if canImport(agent_coreFFI)
 import agent_coreFFI
 #endif
+
+private func readBoundedRegularFileNoFollow(at url: URL, maxBytes: Int) -> Data? {
+    if (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil {
+        return nil
+    }
+    guard FileManager.default.fileExists(atPath: url.path) else {
+        return nil
+    }
+
+    let fd = url.path.withCString { path in
+        open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+    }
+    guard fd >= 0 else {
+        return nil
+    }
+
+    var fileStatus = stat()
+    guard fstat(fd, &fileStatus) == 0 else {
+        close(fd)
+        return nil
+    }
+    guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+        close(fd)
+        return nil
+    }
+    guard fileStatus.st_size >= 0,
+          UInt64(fileStatus.st_size) <= UInt64(maxBytes) else {
+        close(fd)
+        return nil
+    }
+
+    let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+    defer { try? handle.close() }
+    do {
+        let data = try handle.readToEnd() ?? Data()
+        guard data.count <= maxBytes else {
+            return nil
+        }
+        return data
+    } catch {
+        return nil
+    }
+}
 
 nonisolated enum BestOfPresetItemKind: String, Codable, Sendable {
     case builtinTool
@@ -83,21 +127,10 @@ nonisolated enum BestOfPreset {
     }
 
     private static func loadManifestData(bundle: Bundle) -> Data? {
-        guard let url = bundle.url(forResource: "best_of_preset", withExtension: "json"),
-              !isSymbolicLink(url),
-              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              attributes[.type] as? FileAttributeType == .typeRegular,
-              let size = attributes[.size] as? NSNumber,
-              size.intValue <= maxManifestBytes,
-              let data = try? Data(contentsOf: url),
-              data.count <= maxManifestBytes else {
+        guard let url = bundle.url(forResource: "best_of_preset", withExtension: "json") else {
             return nil
         }
-        return data
-    }
-
-    private static func isSymbolicLink(_ url: URL) -> Bool {
-        (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil
+        return readBoundedRegularFileNoFollow(at: url, maxBytes: maxManifestBytes)
     }
 
     static func apply(
@@ -366,13 +399,7 @@ nonisolated enum BestOfPresetReceiptStore {
 
     static func load(home: URL) -> BestOfPresetReceipt {
         let url = receiptURL(home: home)
-        guard !isSymbolicLink(url),
-              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              attributes[.type] as? FileAttributeType == .typeRegular,
-              let size = attributes[.size] as? NSNumber,
-              size.intValue <= maxReceiptBytes,
-              let data = try? Data(contentsOf: url),
-              data.count <= maxReceiptBytes,
+        guard let data = readBoundedRegularFileNoFollow(at: url, maxBytes: maxReceiptBytes),
               let receipt = try? JSONDecoder().decode(BestOfPresetReceipt.self, from: data) else {
             return BestOfPresetReceipt(remoteMCPServerNames: [])
         }
