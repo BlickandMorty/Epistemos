@@ -853,7 +853,7 @@ struct GooseACPClientTests {
             .map { index in
                 let fields = index == 0 ? fieldsJSON : ""
                 let aliases = index == 0 ? aliasesJSON : ""
-                """
+                return """
                 {"providerId":"setup-\(index)","name":"\(longDisplay)","category":"cloud","description":"\(longDisplay)","setupMethod":"key","fields":[\(fields)],"group":"default","showOnlyWhenInstalled":false,"aliases":[\(aliases)],"supportsInstall":false,"supportsAuth":false,"supportsAuthStatus":true}
                 """
             }

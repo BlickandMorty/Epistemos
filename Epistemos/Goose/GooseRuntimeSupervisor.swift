@@ -151,6 +151,7 @@ final class GooseRuntimeSupervisor {
     private(set) var lastDiagnostic: String?
 
     private var process: Process?
+    private var inProcessACPServer: GooseInProcessACPServer?
     private var lifecycleTask: Task<Void, Never>?
     private var outputTask: Task<Void, Never>?
 
@@ -174,7 +175,14 @@ final class GooseRuntimeSupervisor {
         }
 
         #if EPISTEMOS_APP_STORE
-        status = .unavailable("Goose is available in the Pro / Developer-ID build.")
+        let resolvedSecretKey = secretKey ?? Self.randomSecretKey()
+        status = .starting
+        lifecycleTask = Task { [weak self] in
+            await self?.runInProcessAgentCore(
+                secretKey: resolvedSecretKey,
+                healthCheck: healthCheck
+            )
+        }
         #else
         let binaryName = (Self.configuredBackend == .goosed) ? "goosed" : "goose"
         guard let binary = binary ?? Self.resolvedGooseBinary(bundle: bundle, binaryName: binaryName) else {
@@ -208,6 +216,8 @@ final class GooseRuntimeSupervisor {
             terminateTrackedProcess(process)
         }
         process = nil
+        inProcessACPServer?.stop()
+        inProcessACPServer = nil
         switch status {
         case .starting, .running:
             status = .stopped
@@ -221,12 +231,57 @@ final class GooseRuntimeSupervisor {
             terminateTrackedProcess(process)
             self.process = nil
         }
+        inProcessACPServer?.stop()
+        inProcessACPServer = nil
         switch status {
         case .starting, .running:
             status = .failed(Self.boundedStatusMessage(message))
         default:
             break
         }
+    }
+
+    private func runInProcessAgentCore(
+        secretKey: String,
+        healthCheck: @escaping @Sendable (URL) async -> Bool
+    ) async {
+        #if EPISTEMOS_APP_STORE
+        let server = GooseInProcessACPServer(secretKey: secretKey)
+        inProcessACPServer = server
+        do {
+            try server.start()
+        } catch {
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Goose in-process ACP failed to start"
+            )
+            status = .failed(Self.boundedStatusMessage(message))
+            return
+        }
+
+        for _ in 0..<200 {
+            if Task.isCancelled { return }
+            switch server.status {
+            case .running(let baseURL):
+                if await healthCheck(baseURL) {
+                    status = .running(GooseRuntimeConnection(baseURL: baseURL, secretKey: secretKey))
+                    return
+                }
+            case .failed(let message):
+                status = .failed(Self.boundedStatusMessage(message))
+                return
+            default:
+                break
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        server.stop()
+        inProcessACPServer = nil
+        status = .failed("Goose in-process ACP did not become healthy within 20s.")
+        #else
+        _ = secretKey
+        _ = healthCheck
+        #endif
     }
 
     private func run(

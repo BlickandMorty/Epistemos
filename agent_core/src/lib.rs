@@ -43,6 +43,7 @@ pub mod evolution;
 pub mod example_bank;
 pub mod falsifier_artifacts;
 pub mod format;
+pub mod goose_mas;
 pub mod grammar;
 pub mod heal;
 pub mod helios;

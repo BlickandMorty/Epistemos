@@ -17,6 +17,44 @@ private actor GoosePortProbeSequence {
 
 @Suite("Goose runtime supervisor")
 struct GooseRuntimeSupervisorTests {
+    @Test("MAS in-process ACP WebSocket accept key matches RFC 6455")
+    func masWebSocketAcceptKeyMatchesRFC6455() {
+        #expect(
+            GooseInProcessACPFraming.webSocketAcceptKey(for: "dGhlIHNhbXBsZSBub25jZQ==")
+                == "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+        )
+    }
+
+    @Test("MAS in-process ACP decodes browser-masked text frames")
+    func masWebSocketDecodesMaskedClientTextFrame() throws {
+        let payload = Data(#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#.utf8)
+        let frame = Self.maskedClientTextFrame(payload)
+
+        switch GooseInProcessACPFraming.parseClientFrame(frame) {
+        case .complete(let parsed, let consumed):
+            #expect(consumed == frame.count)
+            #expect(parsed.opcode == 0x1)
+            #expect(parsed.payload == payload)
+        default:
+            Issue.record("Expected complete masked WebSocket frame")
+        }
+    }
+
+    @Test("App Store Goose branch starts in-process ACP instead of gating Goose unavailable")
+    func appStoreGooseBranchStartsInProcessACP() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
+        let appStoreStart = try #require(source.range(of: "#if EPISTEMOS_APP_STORE"))
+        let appStoreEnd = try #require(source.range(
+            of: "#else",
+            range: appStoreStart.upperBound..<source.endIndex
+        ))
+        let appStoreBranch = source[appStoreStart.lowerBound..<appStoreEnd.lowerBound]
+        #expect(appStoreBranch.contains("runInProcessAgentCore"))
+        #expect(source.contains("let server = GooseInProcessACPServer"))
+        #expect(!appStoreBranch.contains("Goose is available in the Pro / Developer-ID build"))
+        #expect(!appStoreBranch.contains("Process("))
+    }
+
     @Test("serve argv pins Goose ACP to loopback port 3284 with an explicit builtin")
     func serveArgumentsPinLoopbackACP() {
         let args = GooseRuntimeSupervisor.serveArguments(
@@ -28,6 +66,23 @@ struct GooseRuntimeSupervisorTests {
         #expect(!args.contains("--cors"))
         #expect(!args.contains("-hf"))
         #expect(!args.contains("llama-server"))
+    }
+
+    private static func maskedClientTextFrame(_ payload: Data) -> Data {
+        let mask: [UInt8] = [0x37, 0xFA, 0x21, 0x3D]
+        var frame = Data([0x81])
+        if payload.count < 126 {
+            frame.append(0x80 | UInt8(payload.count))
+        } else {
+            frame.append(0x80 | 126)
+            frame.append(UInt8((payload.count >> 8) & 0xFF))
+            frame.append(UInt8(payload.count & 0xFF))
+        }
+        frame.append(contentsOf: mask)
+        for (index, byte) in payload.enumerated() {
+            frame.append(byte ^ mask[index % mask.count])
+        }
+        return frame
     }
 
     @Test("child env is hardened, injects the Goose server secret, and prepends the binary directory")
@@ -456,20 +511,24 @@ struct GooseRuntimeSupervisorTests {
 
     @Test("Goose WebView navigation gate is deny-by-default + loopback-only (no file:/external nav)")
     func gooseSurfaceNavigationIsLoopbackOnly() throws {
-        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
-        // decidePolicy is the privileged (ACP-bridged) WebView's navigation gate. It
-        // must deny by default and only allow the custom goose scheme + LOOPBACK
-        // http(s) document navigation. `file:`, ws(s), and external hosts must never be navigable -- a
-        // broadened allowlist would expose the bridged window to untrusted content.
-        #expect(source.contains("func decidePolicy("))
-        #expect(source.contains("case \"http\", \"https\":"))
-        #expect(!source.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
-        #expect(source.contains("host == \"127.0.0.1\" || host == \"localhost\" || host == \"::1\""))
-        #expect(source.contains("maxLoopbackHostCharacters"))
-        #expect(source.contains("return .cancel"))
-        // `file:` must NOT be allow-listed; the documented deny intent stays.
-        #expect(!source.contains("case \"file\":"))
-        #expect(source.contains("is not allow-listed"))
+        let view = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        let support = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
+        // GooseNavigationDecider is the privileged (ACP-bridged) WebView's navigation gate. It
+        // must deny by default and only allow the custom goose scheme + registered loopback
+        // http(s) document navigation. `file:`, ws(s), and external hosts must never be navigable.
+        #expect(view.contains("Self.makePage("))
+        #expect(support.contains("navigationDecider: GooseNavigationDecider(trustedOrigins: trustedOrigins)"))
+        #expect(support.contains("func decidePolicy("))
+        #expect(support.contains("case \"http\", \"https\":"))
+        #expect(!support.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
+        #expect(support.contains("normalizedHost == \"127.0.0.1\" || normalizedHost == \"localhost\" || normalizedHost == \"::1\""))
+        #expect(support.contains("maxLoopbackHostCharacters"))
+        #expect(support.contains("trustedOrigins.isAllowed(url) ? .allow : .cancel"))
+        #expect(support.contains("default:"))
+        #expect(support.contains("return .cancel"))
+        // `file:` must NOT be allow-listed; the registered-port deny intent stays.
+        #expect(!support.contains("case \"file\":"))
+        #expect(support.contains("pin to the exact registered ports"))
     }
 
     @Test("MCP app guest navigation delegate keeps the Swift 6 WebKit signature")
