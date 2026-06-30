@@ -10,6 +10,7 @@ struct BestOfPresetPlan3Tests {
         let capability = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
         let extensibility = try loadMirroredSourceTextFile("docs/research/PLAN_3_EXTENSIBILITY_CODEPACK_2026_06_28.md")
         let vault = try loadMirroredSourceTextFile("docs/research/PLAN_3_VAULT_MCP_CODEPACK_2026_06_28.md")
+        let registry = try loadMirroredSourceTextFile("Epistemos/Omega/MCPRegistryClient.swift")
         let directory = try loadMirroredSourceTextFile("Epistemos/Omega/MCPUrlServerDirectory.swift")
         let extensionsView = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
 
@@ -50,6 +51,18 @@ struct BestOfPresetPlan3Tests {
             "BestOfPreset.revertRemoteMCP()",
         ] {
             #expect(extensionsView.contains(required), "ExtensionsDetailView missing off-main operation marker: \(required)")
+        }
+
+        for required in [
+            "maxRegistryFieldLength",
+            "maxRegistryLookupDepth",
+            "normalizedLimit",
+            "String(trimmed.prefix(maxRegistryFieldLength))",
+            "components.host?.lowercased() == \"github.com\"",
+            "components.percentEncodedQuery == nil",
+            "components.percentEncodedFragment == nil",
+        ] {
+            #expect(registry.contains(required), "MCPRegistryClient missing bounded registry guard: \(required)")
         }
 
         for required in [

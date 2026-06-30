@@ -38,9 +38,13 @@ nonisolated struct MCPRegistryEntry: Identifiable, Hashable, Codable, Sendable {
 nonisolated struct MCPRegistryClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
+    static let maxRegistryFieldLength = 2_048
+
     private static let maxSearchQueryLength = 128
+    private static let maxSearchAllResults = 64
     private static let maxRegistryResponseBytes = 2 * 1024 * 1024
     private static let maxRecordsPerSource = 32
+    private static let maxRegistryLookupDepth = 4
 
     private let fetch: Fetch
 
@@ -52,6 +56,7 @@ nonisolated struct MCPRegistryClient: Sendable {
 
     func searchAll(query: String, limit: Int = 24) async -> [MCPRegistryEntry] {
         guard let normalizedQuery = Self.normalizedQuery(query) else { return [] }
+        guard let boundedLimit = Self.normalizedLimit(limit) else { return [] }
 
         let sources: [@Sendable () async -> [MCPRegistryEntry]] = [
             { await self.searchSmithery(query: normalizedQuery) },
@@ -70,7 +75,7 @@ nonisolated struct MCPRegistryClient: Sendable {
             }
         }
 
-        return Array(Self.deduped(entries).prefix(limit))
+        return Array(Self.deduped(entries).prefix(boundedLimit))
     }
 
     func searchGitHub(query: String) async -> [MCPRegistryEntry] {
@@ -89,8 +94,7 @@ nonisolated struct MCPRegistryClient: Sendable {
         let records = Self.collection(in: root).prefix(Self.maxRecordsPerSource)
         return records.compactMap { record in
             guard let name = Self.string(record, keys: ["full_name", "name"]),
-                  let homepage = Self.string(record, keys: ["html_url"]),
-                  Self.githubURL(homepage) != nil else {
+                  let homepage = Self.githubURL(Self.string(record, keys: ["html_url"])) else {
                 return nil
             }
             return MCPRegistryEntry(
@@ -239,6 +243,11 @@ nonisolated struct MCPRegistryClient: Sendable {
         return String(trimmed.prefix(maxSearchQueryLength))
     }
 
+    private static func normalizedLimit(_ limit: Int) -> Int? {
+        guard limit > 0 else { return nil }
+        return min(limit, maxSearchAllResults)
+    }
+
     private static func remoteURLTarget(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let components = URLComponents(string: trimmed),
@@ -254,6 +263,10 @@ nonisolated struct MCPRegistryClient: Sendable {
     }
 
     private static func collection(in root: Any) -> [[String: Any]] {
+        collection(in: root, depth: 0)
+    }
+
+    private static func collection(in root: Any, depth: Int) -> [[String: Any]] {
         if let array = root as? [[String: Any]] {
             return array
         }
@@ -262,8 +275,9 @@ nonisolated struct MCPRegistryClient: Sendable {
             if let array = dictionary[key] as? [[String: Any]] {
                 return array
             }
-            if let nested = dictionary[key] as? [String: Any] {
-                let nestedCollection = collection(in: nested)
+            if depth < maxRegistryLookupDepth,
+               let nested = dictionary[key] as? [String: Any] {
+                let nestedCollection = collection(in: nested, depth: depth + 1)
                 if !nestedCollection.isEmpty {
                     return nestedCollection
                 }
@@ -273,15 +287,20 @@ nonisolated struct MCPRegistryClient: Sendable {
     }
 
     private static func string(_ record: [String: Any], keys: [String]) -> String? {
+        string(record, keys: keys, depth: 0)
+    }
+
+    private static func string(_ record: [String: Any], keys: [String], depth: Int) -> String? {
         for key in keys {
             if let value = record[key] as? String {
                 let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
-                    return trimmed
+                    return String(trimmed.prefix(maxRegistryFieldLength))
                 }
             }
-            if let nested = record[key] as? [String: Any],
-               let nestedValue = string(nested, keys: keys) {
+            if depth < maxRegistryLookupDepth,
+               let nested = record[key] as? [String: Any],
+               let nestedValue = string(nested, keys: keys, depth: depth + 1) {
                 return nestedValue
             }
         }
@@ -291,7 +310,16 @@ nonisolated struct MCPRegistryClient: Sendable {
     private static func githubURL(_ value: String?) -> String? {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.hasPrefix("https://github.com/") else { return nil }
+        guard let components = URLComponents(string: trimmed),
+              components.scheme?.lowercased() == "https",
+              components.host?.lowercased() == "github.com",
+              components.user == nil,
+              components.password == nil,
+              components.percentEncodedQuery == nil,
+              components.percentEncodedFragment == nil,
+              components.path.split(separator: "/").count >= 2 else {
+            return nil
+        }
         return trimmed
     }
 

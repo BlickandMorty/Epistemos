@@ -148,6 +148,86 @@ struct MCPRegistryClientTests {
         #expect(entries.map(\.name) == ["Plain"])
         #expect(entries.first?.installTarget == "https://plain.example.com/mcp")
     }
+
+    @Test("GitHub repo results reject query strings and fragments")
+    func searchGitHubFiltersSecretBearingRepoURLs() async throws {
+        let client = MCPRegistryClient { request in
+            let url = try #require(request.url)
+            let body = """
+            {
+              "items": [
+                {
+                  "full_name": "owner/query",
+                  "description": "Query",
+                  "html_url": "https://github.com/owner/query?token=abc123"
+                },
+                {
+                  "full_name": "owner/fragment",
+                  "description": "Fragment",
+                  "html_url": "https://github.com/owner/fragment#token=abc123"
+                },
+                {
+                  "full_name": "owner/plain",
+                  "description": "Plain",
+                  "html_url": "https://github.com/owner/plain"
+                }
+              ]
+            }
+            """
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            return (Data(body.utf8), try #require(response))
+        }
+
+        let entries = await client.searchGitHub(query: "docs")
+        #expect(entries.map(\.name) == ["owner/plain"])
+        #expect(entries.first?.installTarget == "https://github.com/owner/plain")
+    }
+
+    @Test("registry string fields are bounded")
+    func searchBoundsRegistryStringFields() async throws {
+        let longText = String(repeating: "A", count: MCPRegistryClient.maxRegistryFieldLength + 128)
+        let body = """
+        {
+          "servers": [
+            {
+              "name": "\(longText)",
+              "description": "\(longText)",
+              "remoteUrl": "https://bounded.example.com/mcp"
+            }
+          ]
+        }
+        """
+        let client = MCPRegistryClient { request in
+            let url = try #require(request.url)
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            return (Data(body.utf8), try #require(response))
+        }
+
+        let entry = try #require(await client.searchSmithery(query: "docs").first)
+        #expect(entry.name.count == MCPRegistryClient.maxRegistryFieldLength)
+        #expect(entry.description.count == MCPRegistryClient.maxRegistryFieldLength)
+    }
+
+    @Test("searchAll ignores non-positive limits before fetching")
+    func searchAllIgnoresNonPositiveLimits() async throws {
+        let client = MCPRegistryClient { _ in
+            Issue.record("searchAll(limit: 0) should not fetch registry data")
+            throw URLError(.badURL)
+        }
+
+        #expect(await client.searchAll(query: "docs", limit: 0).isEmpty)
+        #expect(await client.searchAll(query: "docs", limit: -1).isEmpty)
+    }
 }
 
 private actor RegistryRequestRecorder {
