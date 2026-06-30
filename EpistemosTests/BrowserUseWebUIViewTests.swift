@@ -44,6 +44,20 @@ struct BrowserUseWebUIViewTests {
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[localhost]", port: 7788) == nil)
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[127.0.0.1]", port: 7788) == nil)
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[]127.0.0.1[]", port: 7788) == nil)
+
+        let secretRedirect = try #require(URL(string: "https://user:pass@example.com/private/path?token=secret#frag"))
+        let description = BrowserUseLoopbackGuard.redactedDescription(for: secretRedirect)
+        #expect(description == "https://example.com")
+        #expect(!description.contains("user"))
+        #expect(!description.contains("pass"))
+        #expect(!description.contains("private"))
+        #expect(!description.contains("token"))
+        #expect(!description.contains("secret"))
+        #expect(!description.contains("frag"))
+        #expect(!description.contains("@"))
+        #expect(!description.contains("?"))
+        #expect(!description.contains("#"))
+        #expect(BrowserUseLoopbackGuard.redactedDescription(for: try #require(URL(string: "javascript:alert(1)"))) == "javascript URL")
     }
 
     @Test("WKWebView dry-run loads a loopback fixture, submits, and blocks remote navigation")
@@ -231,6 +245,7 @@ struct BrowserUseWebUIViewTests {
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
             "supervisor?.stop()",
+            "redactedDescription(for:",
             "browser-use Pro returned a non-loopback URL.",
             "startWorker?.cancel()",
             "if !readiness.isReady",
@@ -242,6 +257,7 @@ struct BrowserUseWebUIViewTests {
         ] {
             #expect(source.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
+        #expect(!source.contains("url.absoluteString)"))
         #expect(source.contains("supervisor.stop()\n                    loadedURL = nil"),
                 "The startRuntime non-loopback failure branch already has an unwrapped supervisor; optional chaining there does not compile.")
         #expect(!source.contains("loadOrDefault()"))

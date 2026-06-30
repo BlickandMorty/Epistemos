@@ -3,6 +3,8 @@ import SwiftUI
 import WebKit
 
 nonisolated enum BrowserUseLoopbackGuard {
+    private static let maxNavigationDiagnosticLength = 120
+
     static func allows(url: URL?) -> Bool {
         BrowserUseLoopbackPolicy.allows(url: url)
     }
@@ -12,6 +14,33 @@ nonisolated enum BrowserUseLoopbackGuard {
             return false
         }
         return origin.allows(url: url)
+    }
+
+    static func redactedDescription(for url: URL) -> String {
+        let sourceComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if let scheme = sourceComponents?.scheme ?? url.scheme,
+           let host = sourceComponents?.host ?? url.host,
+           !host.isEmpty {
+            var displayComponents = URLComponents()
+            displayComponents.scheme = scheme
+            displayComponents.host = host
+            displayComponents.port = sourceComponents?.port ?? url.port
+            return capped(displayComponents.string ?? "\(scheme)://\(host)")
+        }
+
+        if let scheme = (sourceComponents?.scheme ?? url.scheme)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !scheme.isEmpty {
+            return capped("\(scheme) URL")
+        }
+
+        return "[blocked URL]"
+    }
+
+    private static func capped(_ value: String) -> String {
+        guard value.count > maxNavigationDiagnosticLength else {
+            return value
+        }
+        return String(value.prefix(maxNavigationDiagnosticLength)) + "..."
     }
 }
 
@@ -31,7 +60,7 @@ struct BrowserUseWebUIView: View {
     @State private var readinessRequestID = UUID()
     @State private var readinessTask: Task<Void, Never>?
     @State private var readinessWorker: Task<(BrowserUseSettings, BrowserUseRuntimeReadiness), Never>?
-    @State private var blockedURL: URL?
+    @State private var blockedNavigationDescription: String?
     @State private var lastError: String?
 
     init(
@@ -57,8 +86,9 @@ struct BrowserUseWebUIView: View {
 
             if let loadedURL {
                 BrowserUseLoopbackWebView(url: loadedURL) { url in
-                    blockedURL = url
-                    lastError = "Blocked non-loopback browser-use navigation: \(url.absoluteString)"
+                    let description = BrowserUseLoopbackGuard.redactedDescription(for: url)
+                    blockedNavigationDescription = description
+                    lastError = "Blocked non-loopback browser-use navigation: \(description)"
                 }
             } else {
                 unavailableView
@@ -89,8 +119,8 @@ struct BrowserUseWebUIView: View {
 
             Spacer()
 
-            if let blockedURL {
-                Text(blockedURL.host ?? blockedURL.absoluteString)
+            if let blockedNavigationDescription {
+                Text(blockedNavigationDescription)
                     .font(.caption.monospaced())
                     .foregroundStyle(.orange)
                     .lineLimit(1)
@@ -195,6 +225,7 @@ struct BrowserUseWebUIView: View {
                 cancelStartAttempt()
                 supervisor?.stop()
                 loadedURL = nil
+                blockedNavigationDescription = nil
             }
         }
     }
@@ -212,6 +243,7 @@ struct BrowserUseWebUIView: View {
         let requestID = UUID()
         startRequestID = requestID
         isStarting = true
+        blockedNavigationDescription = nil
         lastError = nil
 
         let settings = settings
@@ -253,7 +285,7 @@ struct BrowserUseWebUIView: View {
                     readiness = .unavailable(message)
                     return
                 }
-                blockedURL = nil
+                blockedNavigationDescription = nil
                 lastError = nil
                 loadedURL = plan.loopbackURL
                 readiness = .ready(plan)
@@ -277,6 +309,7 @@ struct BrowserUseWebUIView: View {
         cancelStartAttempt()
         supervisor?.stop()
         loadedURL = nil
+        blockedNavigationDescription = nil
     }
 
     private func cancelStartAttempt() {
