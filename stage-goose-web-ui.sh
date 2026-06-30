@@ -4267,6 +4267,66 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+SESSIONS_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
+node - "$SESSIONS_VIEW" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import { useNavigation } from '../../hooks/useNavigation';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('SessionsView navigation import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+// epistemos-acp-session-details-route-to-chat: ACP loadSession replays transcript
+// through the live chat client instead of returning REST-style session details.
+// Route stale session-detail/retry paths into Goose chat resume so they do not
+// hit the dead REST getSession endpoint or show an empty fake transcript.
+const loadDetailsAnchor = `    setIsLoadingSession(true);
+    setError(null);
+    setShowSessionHistory(true);
+    try {`;
+const loadDetailsReplacement = `    setIsLoadingSession(true);
+    setError(null);
+    setShowSessionHistory(true);
+
+    if (USE_ACP_CHAT) {
+      setShowSessionHistory(false);
+      setView('pair', {
+        disableAnimation: true,
+        resumeSessionId: sessionId,
+      }); // epistemos-acp-session-details-route-to-chat
+      setIsLoadingSession(false);
+      setInitialSessionId(null);
+      return;
+    }
+
+    try {`;
+if (!source.includes('epistemos-acp-session-details-route-to-chat')) {
+  if (!source.includes(loadDetailsAnchor)) {
+    throw new Error('SessionsView loadSessionDetails anchor not found');
+  }
+  source = source.replace(loadDetailsAnchor, loadDetailsReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  'epistemos-acp-session-details-route-to-chat',
+  'resumeSessionId: sessionId',
+  'if (USE_ACP_CHAT) {',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`SessionsView staged source is missing required ACP detail-routing snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 SESSION_LIST_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
 node - "$SESSION_LIST_VIEW" <<'NODE'
 const fs = require('fs');
@@ -5436,6 +5496,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "const \\[tunnelDisabled, setTunnelDisabled\\] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-session-details-route-to-chat" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
+    grep -q "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
     grep -q "bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "const \\[nostrEnabled, setNostrEnabled\\] = useState(!USE_ACP_CHAT); // epistemos-acp-disable-nostr-session-links" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
