@@ -29,7 +29,7 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "Vault data.json feed", isLive: true, note: "Opt-in manifest data_feed renders VaultSyncService.searchFullAsync results and patches data-only preview updates without reload"),
         Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired; PDF export inlines package asset references before headless render"),
         Capability(name: "Live-DOM outline", isLive: true, note: "Preview WebView reports a runtime DOM snapshot; source regex is only the fallback when preview is not mounted"),
-        Capability(name: "App message-bridge", isLive: false, note: "Safe API message path is still no-op; safeAPIEnabled defaults off"),
+        Capability(name: "App message-bridge", isLive: false, note: "Safe API message path is diagnostic-only; no app commands are wired and safeAPIEnabled defaults off"),
         Capability(name: "JS console / error capture", isLive: false, note: "Bridge now wired (window error + unhandledrejection + console.error/warn → the consoleErrors pipeline + panel) behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; default off"),
         Capability(name: "DOM picker / style inspector", isLive: false, note: "No element picker, computed-style panel, or targeted live edit path yet"),
         Capability(name: "Python (Pyodide / WASM)", isLive: false, note: "Not built — research"),

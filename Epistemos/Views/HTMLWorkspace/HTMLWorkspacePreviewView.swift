@@ -4,6 +4,7 @@ import WebKit
 
 nonisolated enum HTMLWorkspaceSafeAPI {
     static let messageHandlerName = "htmlWorkspaceSafeAPI"
+    static let deferredDiagnosticMessage = "Safe API message ignored: HTML Workspace app bridge is deferred"
 }
 
 nonisolated enum HTMLWorkspacePreviewIdentity {
@@ -498,15 +499,37 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            // SS-HW: the JS-console capture channel → record one runtime error into the document's
-            // console pipeline (the safeAPI channel stays a deferred stub for now).
+            if message.name == HTMLWorkspaceSafeAPI.messageHandlerName {
+                recordConsoleDiagnostic(
+                    message: HTMLWorkspaceSafeAPI.deferredDiagnosticMessage,
+                    source: HTMLWorkspaceSafeAPI.messageHandlerName
+                )
+                return
+            }
+
+            // SS-HW: the JS-console capture channel -> record one runtime error into the document's
+            // console pipeline. The safeAPI channel above remains diagnostic-only for now.
             guard message.name == HTMLWorkspaceConsoleBridge.messageHandlerName,
                   let body = message.body as? [String: Any] else { return }
-            let error = HTMLWorkspaceConsoleError(
+            recordConsoleDiagnostic(
                 message: (body["message"] as? String) ?? "Console error",
                 source: body["source"] as? String,
                 line: (body["line"] as? NSNumber)?.uint32Value ?? 0,
-                column: (body["column"] as? NSNumber)?.uint32Value ?? 0,
+                column: (body["column"] as? NSNumber)?.uint32Value ?? 0
+            )
+        }
+
+        private func recordConsoleDiagnostic(
+            message: String,
+            source: String?,
+            line: UInt32 = 0,
+            column: UInt32 = 0
+        ) {
+            let error = HTMLWorkspaceConsoleError(
+                message: message,
+                source: source,
+                line: line,
+                column: column,
                 timestamp: Int64(Date().timeIntervalSince1970 * 1000)
             )
             onConsoleError?(error)

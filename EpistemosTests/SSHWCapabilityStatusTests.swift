@@ -25,9 +25,10 @@ struct SSHWCapabilityStatusTests {
     @Test("the deferred seams are honestly marked NOT live (no fake-green)")
     func deferredSeamsAreMarkedNotLive() {
         let deferred = HTMLWorkspaceCapabilityStatus.capabilities.filter { !$0.isLive }.map(\.name)
-        #expect(deferred.contains { $0.contains("bridge") })       // app message-bridge remains no-op
+        #expect(deferred.contains { $0.contains("bridge") })       // app message-bridge remains deferred
         let appBridge = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "App message-bridge" }
-        #expect(appBridge?.note.contains("Safe API message path is still no-op") == true)
+        #expect(appBridge?.note.contains("diagnostic-only") == true)
+        #expect(appBridge?.note.contains("no app commands are wired") == true)
         let regenerate = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Full-surface regenerate" }
         #expect(regenerate?.note.contains("manifest provenance") == true)
         #expect(deferred.contains { $0.contains("Python") })       // no Python today

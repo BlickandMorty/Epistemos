@@ -36,6 +36,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("syncSafeAPIHandler"))
         #expect(previewSource.contains("safeAPIEnabled"))
         #expect(previewSource.contains("HTMLWorkspaceSafeAPI.messageHandlerName"))
+        #expect(previewSource.contains("HTMLWorkspaceSafeAPI.deferredDiagnosticMessage"))
+        #expect(previewSource.contains("message.name == HTMLWorkspaceSafeAPI.messageHandlerName"))
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.enabled"))
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.injectionScript"))
         #expect(previewSource.contains("onConsoleError != nil"))
@@ -57,8 +59,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         // Security gate: the app-bridge handler installs ONLY when BOTH the user-enabled flag AND the
         // per-package sandbox policy allow it — the sole barrier against arbitrary rendered HTML
         // obtaining an app bridge. Dropping either condition is a real privilege-escalation hole, so
-        // pin the conjunction. (The safe-API channel itself is still a deferred stub — safeAPI
-        // messages are not wired — but the install gate must never weaken regardless.)
+        // pin the conjunction. (The safe-API channel itself is still diagnostic-only — no app
+        // commands are wired — but the install gate must never weaken regardless.)
         #expect(previewSource.contains("safeAPIEnabled && package.manifest.sandboxPolicy.allowAppBridge"),
                 "App-bridge install must require BOTH safeAPIEnabled AND the package's allowAppBridge sandbox policy.")
         // The app-bridge handler is torn down on detach — no leaked WKScriptMessageHandler across
