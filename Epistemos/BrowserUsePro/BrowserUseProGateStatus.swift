@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
@@ -78,9 +79,49 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     static func load(from url: URL) throws -> BrowserUseVendorManifest {
-        try validateManifestFile(at: url)
-        let data = try Data(contentsOf: url)
+        let data = try readManifestData(at: url)
         return try JSONDecoder().decode(BrowserUseVendorManifest.self, from: data)
+    }
+
+    private static func readManifestData(
+        at url: URL,
+        fileManager: FileManager = .default
+    ) throws -> Data {
+        try validateManifestFile(at: url, fileManager: fileManager)
+
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest could not be opened safely")
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest attributes unavailable")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest must be a regular file")
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxManifestBytes) else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use vendor manifest exceeds \(maxManifestBytes) bytes"
+            )
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        let data = try handle.readToEnd() ?? Data()
+        guard data.count <= maxManifestBytes else {
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use vendor manifest exceeds \(maxManifestBytes) bytes"
+            )
+        }
+        return data
     }
 
     private static func validateManifestFile(
