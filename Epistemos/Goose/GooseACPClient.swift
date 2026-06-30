@@ -60,7 +60,6 @@ actor GooseACPClient {
     private var waitingEvents: [CheckedContinuation<GooseACPClientEvent, Error>] = []
     private var waitingResponses: [GooseACPRequestID: CheckedContinuation<JSONValue, Error>] = [:]
     private var waitingResponseTimeouts: [GooseACPRequestID: Task<Void, Never>] = [:]
-    private var abandonedResponseIDs: Set<GooseACPRequestID> = []
     private var terminalError: Error?
     private var readLoopTask: Task<Void, Never>?
 
@@ -644,8 +643,6 @@ actor GooseACPClient {
             case .failure(let error):
                 waiter.resume(throwing: error)
             }
-        } else if abandonedResponseIDs.remove(id) != nil {
-            return
         } else {
             queueResponse(response, id: id)
         }
@@ -695,7 +692,6 @@ actor GooseACPClient {
         terminalError = error
         queuedResponses.removeAll()
         queuedResponseOrder.removeAll()
-        abandonedResponseIDs.removeAll()
         let timeoutTasks = Array(waitingResponseTimeouts.values)
         waitingResponseTimeouts.removeAll()
         for task in timeoutTasks {
@@ -718,7 +714,6 @@ actor GooseACPClient {
     private func timeOutResponse(id: GooseACPRequestID, method: String, timeout: Duration) {
         waitingResponseTimeouts.removeValue(forKey: id)?.cancel()
         guard let waiter = waitingResponses.removeValue(forKey: id) else { return }
-        abandonedResponseIDs.insert(id)
         waiter.resume(throwing: GooseACPProtocolError.responseTimedOut(method: method, id: id, timeout: timeout))
     }
 
