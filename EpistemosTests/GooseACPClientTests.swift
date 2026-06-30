@@ -422,6 +422,87 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("provider inventory caps live ACP provider and model lists")
+    func providerInventoryCapsLiveACPProviderAndModelLists() async throws {
+        let providerLimit = GooseACPProtocolBounds.maxProviderInventoryEntries
+        let modelLimit = GooseACPProtocolBounds.maxProviderModelsPerProvider
+        let longName = String(
+            repeating: "N",
+            count: GooseACPProtocolBounds.maxInventoryDisplayCharacters + 20
+        )
+        let firstProviderModelsJSON = (0..<(modelLimit + 5))
+            .map { #"{"id":" model-\#($0) "}"# }
+            .joined(separator: ",")
+        let providersJSON = (0..<(providerLimit + 3))
+            .map { index -> String in
+                let modelsJSON = index == 0 ? firstProviderModelsJSON : #"{"id":"m-\#(index)"}"#
+                return #"{"providerId":"provider-\#(index)","providerName":"\#(longName)","models":[\#(modelsJSON)]}"#
+            }
+            .joined(separator: ",")
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"entries":[\#(providersJSON)]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let inventory = try await client.listGooseProviderInventory()
+
+        #expect(inventory.count == providerLimit)
+        #expect(inventory.first?.providerName.count == GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        #expect(inventory.first?.models.count == modelLimit)
+        #expect(inventory.first?.models.first?.id == "model-0")
+        #expect(inventory.last?.providerId == "provider-\(providerLimit - 1)")
+        await client.close()
+    }
+
+    @Test("Goose custom list responses cap live ACP collections")
+    func gooseCustomListResponsesCapLiveACPCollections() async throws {
+        let extensionLimit = GooseACPProtocolBounds.maxConfigExtensions
+        let warningLimit = GooseACPProtocolBounds.maxConfigWarnings
+        let modelLimit = GooseACPProtocolBounds.maxProviderSupportedModels
+        let fieldLimit = GooseACPProtocolBounds.maxProviderConfigFields
+        let longWarning = String(
+            repeating: "W",
+            count: GooseACPProtocolBounds.maxConfigWarningCharacters + 20
+        )
+        let extensionsJSON = (0..<(extensionLimit + 5))
+            .map { #"{"enabled":true,"extension":{"type":"builtin","name":"ext-\#($0)"}}"# }
+            .joined(separator: ",")
+        let warningsJSON = (0..<(warningLimit + 5))
+            .map { #"" \#(longWarning)-\#($0) ""# }
+            .joined(separator: ",")
+        let modelsJSON = (0..<(modelLimit + 5))
+            .map { #"" model-\#($0) ""# }
+            .joined(separator: ",")
+        let fieldsJSON = (0..<(fieldLimit + 5))
+            .map { #"{"key":"KEY_\#($0)","value":null,"isSet":false,"isSecret":true,"required":true}"# }
+            .joined(separator: ",")
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"extensions":[\#(extensionsJSON)],"warnings":[\#(warningsJSON)]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"providerId":"mock","models":[\#(modelsJSON)]}}"#,
+            #"{"jsonrpc":"2.0","id":4,"result":{"fields":[\#(fieldsJSON)]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let extensions = try await client.listGooseConfigExtensions()
+        let models = try await client.listGooseProviderSupportedModels(providerId: "mock")
+        let config = try await client.readGooseProviderConfig(providerId: "mock")
+
+        #expect(extensions.extensions.count == extensionLimit)
+        #expect(extensions.warnings.count == warningLimit)
+        #expect(extensions.warnings.allSatisfy { $0.count <= GooseACPProtocolBounds.maxConfigWarningCharacters })
+        #expect(models.models.count == modelLimit)
+        #expect(models.models.first == "model-0")
+        #expect(models.models.last == "model-\(modelLimit - 1)")
+        #expect(config.fields.count == fieldLimit)
+        #expect(config.fields.first?.key == "KEY_0")
+        #expect(config.fields.last?.key == "KEY_\(fieldLimit - 1)")
+        await client.close()
+    }
+
     @Test("client sends the Skills source list Goose custom ACP subset")
     func clientSendsSkillsSourceListGooseCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

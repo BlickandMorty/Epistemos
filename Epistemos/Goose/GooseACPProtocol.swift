@@ -351,6 +351,18 @@ nonisolated enum GooseACPCustomMethod: String, Sendable {
 
 nonisolated struct GooseACPEmptyResponse: Decodable, Equatable, Sendable {}
 
+nonisolated enum GooseACPProtocolBounds {
+    static let maxProviderInventoryEntries = 256
+    static let maxProviderModelsPerProvider = 512
+    static let maxProviderSupportedModels = 1_024
+    static let maxProviderConfigFields = 64
+    static let maxConfigExtensions = 512
+    static let maxConfigWarnings = 64
+    static let maxConfigWarningCharacters = 512
+    static let maxInventoryIDCharacters = 512
+    static let maxInventoryDisplayCharacters = 256
+}
+
 nonisolated struct GooseACPProvidersListRequest: Encodable, Equatable, Sendable {
     let providerIds: [String]
 
@@ -361,6 +373,19 @@ nonisolated struct GooseACPProvidersListRequest: Encodable, Equatable, Sendable 
 
 nonisolated struct GooseACPProvidersListResponse: Decodable, Equatable, Sendable {
     let entries: [JSONValue]
+
+    private enum CodingKeys: String, CodingKey {
+        case entries
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try decodeBoundedACPArray(
+            container,
+            forKey: .entries,
+            limit: GooseACPProtocolBounds.maxProviderInventoryEntries
+        )
+    }
 }
 
 private nonisolated struct GooseACPFlexibleCodingKey: CodingKey {
@@ -376,22 +401,35 @@ private nonisolated struct GooseACPFlexibleCodingKey: CodingKey {
     }
 }
 
-private nonisolated func trimmedNonEmptyACPString(_ value: String?) -> String? {
+private nonisolated func trimmedNonEmptyACPString(
+    _ value: String?,
+    maxCharacters: Int = GooseACPProtocolBounds.maxInventoryDisplayCharacters,
+    truncating: Bool = true
+) -> String? {
     guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
           !trimmed.isEmpty else {
         return nil
+    }
+    guard trimmed.count <= maxCharacters else {
+        return truncating ? String(trimmed.prefix(maxCharacters)) : nil
     }
     return trimmed
 }
 
 private nonisolated func decodeTrimmedNonEmptyACPString(
     _ container: KeyedDecodingContainer<GooseACPFlexibleCodingKey>,
-    keys: [String]
+    keys: [String],
+    maxCharacters: Int = GooseACPProtocolBounds.maxInventoryDisplayCharacters,
+    truncating: Bool = true
 ) -> String? {
     for keyName in keys {
         guard let key = GooseACPFlexibleCodingKey(stringValue: keyName),
               let value = try? container.decodeIfPresent(String.self, forKey: key),
-              let trimmed = trimmedNonEmptyACPString(value) else {
+              let trimmed = trimmedNonEmptyACPString(
+                value,
+                maxCharacters: maxCharacters,
+                truncating: truncating
+              ) else {
             continue
         }
         return trimmed
@@ -413,13 +451,41 @@ private nonisolated func decodeACPBool(
     return nil
 }
 
+private nonisolated func decodeBoundedACPArray<Key: CodingKey, Element: Decodable>(
+    _ container: KeyedDecodingContainer<Key>,
+    forKey key: Key,
+    limit: Int
+) throws -> [Element] {
+    guard limit > 0 else { return [] }
+    var array = try container.nestedUnkeyedContainer(forKey: key)
+    var values: [Element] = []
+    while !array.isAtEnd && values.count < limit {
+        values.append(try array.decode(Element.self))
+    }
+    return values
+}
+
+private nonisolated func decodeBoundedACPArrayIfPresent<Key: CodingKey, Element: Decodable>(
+    _ container: KeyedDecodingContainer<Key>,
+    forKey key: Key,
+    limit: Int
+) throws -> [Element]? {
+    guard container.contains(key),
+          (try? container.decodeNil(forKey: key)) != true else {
+        return nil
+    }
+    return try decodeBoundedACPArray(container, forKey: key, limit: limit)
+}
+
 private nonisolated func decodeACPJSONValueArray(
     _ container: KeyedDecodingContainer<GooseACPFlexibleCodingKey>,
-    keys: [String]
+    keys: [String],
+    limit: Int
 ) -> [JSONValue]? {
     for keyName in keys {
         guard let key = GooseACPFlexibleCodingKey(stringValue: keyName),
-              let value = try? container.decodeIfPresent([JSONValue].self, forKey: key) else {
+              container.contains(key),
+              let value: [JSONValue] = try? decodeBoundedACPArray(container, forKey: key, limit: limit) else {
             continue
         }
         return value
@@ -433,7 +499,11 @@ nonisolated struct GooseACPProviderInventoryModel: Decodable, Equatable, Sendabl
 
     init(from decoder: Decoder) throws {
         if let rawID = try? decoder.singleValueContainer().decode(String.self),
-           let id = trimmedNonEmptyACPString(rawID) {
+           let id = trimmedNonEmptyACPString(
+            rawID,
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+           ) {
             self.id = id
             return
         }
@@ -441,7 +511,9 @@ nonisolated struct GooseACPProviderInventoryModel: Decodable, Equatable, Sendabl
         let container = try decoder.container(keyedBy: GooseACPFlexibleCodingKey.self)
         guard let id = decodeTrimmedNonEmptyACPString(
             container,
-            keys: ["id", "modelId", "model_id"]
+            keys: ["id", "modelId", "model_id"],
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
         ) else {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: decoder.codingPath,
@@ -478,7 +550,9 @@ nonisolated struct GooseACPProviderInventoryEntry: Decodable, Equatable, Sendabl
         let container = try decoder.container(keyedBy: GooseACPFlexibleCodingKey.self)
         guard let providerId = decodeTrimmedNonEmptyACPString(
             container,
-            keys: [CodingKeys.providerId.rawValue, "provider_id", "id"]
+            keys: [CodingKeys.providerId.rawValue, "provider_id", "id"],
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
         ) else {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: decoder.codingPath,
@@ -488,19 +562,27 @@ nonisolated struct GooseACPProviderInventoryEntry: Decodable, Equatable, Sendabl
         self.providerId = providerId
         providerName = decodeTrimmedNonEmptyACPString(
             container,
-            keys: [CodingKeys.providerName.rawValue, "provider_name", "name"]
+            keys: [CodingKeys.providerName.rawValue, "provider_name", "name"],
+            maxCharacters: GooseACPProtocolBounds.maxInventoryDisplayCharacters,
+            truncating: true
         ) ?? providerId
         configured = decodeACPBool(container, keys: [CodingKeys.configured.rawValue]) ?? false
         defaultModel = decodeTrimmedNonEmptyACPString(
             container,
-            keys: [CodingKeys.defaultModel.rawValue, "default_model"]
+            keys: [CodingKeys.defaultModel.rawValue, "default_model"],
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
         )
         // Lenient per-element model decode: a single malformed model element (shape/type drift in a
         // future Goose — element missing `id`, `id` non-string, or `models` shaped as bare strings)
         // must NOT drop the whole provider. Decode the raw array and keep the elements that decode,
         // so a usable provider (it has a providerId) always survives — matching the WebView oracle's
         // per-entry degradation and this type's own "never breaks the picker" contract.
-        let rawModels = decodeACPJSONValueArray(container, keys: [CodingKeys.models.rawValue]) ?? []
+        let rawModels = decodeACPJSONValueArray(
+            container,
+            keys: [CodingKeys.models.rawValue],
+            limit: GooseACPProtocolBounds.maxProviderModelsPerProvider
+        ) ?? []
         var seenModelIDs = Set<String>()
         models = rawModels.compactMap {
             guard let model = try? $0.decoded(GooseACPProviderInventoryModel.self),
@@ -519,6 +601,33 @@ nonisolated struct GooseACPProviderSupportedModelsListRequest: Encodable, Equata
 nonisolated struct GooseACPProviderSupportedModelsListResponse: Decodable, Equatable, Sendable {
     let providerId: String
     let models: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case providerId
+        case models
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        providerId = try container.decode(String.self, forKey: .providerId)
+        let rawModels: [String] = try decodeBoundedACPArray(
+            container,
+            forKey: .models,
+            limit: GooseACPProtocolBounds.maxProviderSupportedModels
+        )
+        var seen = Set<String>()
+        models = rawModels.compactMap {
+            guard let model = trimmedNonEmptyACPString(
+                $0,
+                maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+                truncating: false
+            ),
+                  seen.insert(model).inserted else {
+                return nil
+            }
+            return model
+        }
+    }
 }
 
 nonisolated struct GooseACPProviderCatalogListRequest: Encodable, Equatable, Sendable {
@@ -678,6 +787,19 @@ nonisolated struct GooseACPProviderConfigFieldValue: Codable, Equatable, Sendabl
 
 nonisolated struct GooseACPProviderConfigReadResponse: Decodable, Equatable, Sendable {
     let fields: [GooseACPProviderConfigFieldValue]
+
+    private enum CodingKeys: String, CodingKey {
+        case fields
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        fields = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .fields,
+            limit: GooseACPProtocolBounds.maxProviderConfigFields
+        ) ?? []
+    }
 }
 
 nonisolated struct GooseACPProviderConfigStatusRequest: Encodable, Equatable, Sendable {
@@ -733,8 +855,23 @@ nonisolated struct GooseACPConfigExtensionsListResponse: Decodable, Equatable, S
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        extensions = try container.decode([JSONValue].self, forKey: .extensions)
-        warnings = try container.decodeIfPresent([String].self, forKey: .warnings) ?? []
+        extensions = try decodeBoundedACPArray(
+            container,
+            forKey: .extensions,
+            limit: GooseACPProtocolBounds.maxConfigExtensions
+        )
+        let rawWarnings: [String] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .warnings,
+            limit: GooseACPProtocolBounds.maxConfigWarnings
+        ) ?? []
+        warnings = rawWarnings.compactMap {
+            trimmedNonEmptyACPString(
+                $0,
+                maxCharacters: GooseACPProtocolBounds.maxConfigWarningCharacters,
+                truncating: true
+            )
+        }
     }
 }
 

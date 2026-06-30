@@ -172,6 +172,14 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
                 return nil
             }
             let trimmed = providerID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.count <= GooseACPProtocolBounds.maxInventoryIDCharacters else {
+                skipped.append(.init(
+                    gooseProviderId: "*",
+                    gooseSecretKey: nil,
+                    reason: .missingProviderId
+                ))
+                return nil
+            }
             guard seen.insert(trimmed).inserted else { return nil }
             return trimmed
         }
