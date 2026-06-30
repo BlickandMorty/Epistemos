@@ -527,6 +527,36 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("provider config fields bound keys and values")
+    func providerConfigFieldsBoundKeysAndValues() async throws {
+        let oversizedKey = String(
+            repeating: "K",
+            count: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters + 1
+        )
+        let oversizedValue = String(
+            repeating: "V",
+            count: GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters + 20
+        )
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            """
+            {"jsonrpc":"2.0","id":2,"result":{"fields":[
+              {"key":"\(oversizedKey)","value":"bad","isSet":true,"isSecret":true,"required":true},
+              {"key":" VALID_SECRET ","value":"\(oversizedValue)","isSet":true,"isSecret":true,"required":true}
+            ]}}
+            """,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        _ = try await client.initialize()
+        let config = try await client.readGooseProviderConfig(providerId: "mock")
+
+        #expect(config.fields.count == 1)
+        #expect(config.fields.first?.key == "VALID_SECRET")
+        #expect(config.fields.first?.value?.count == GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters)
+        await client.close()
+    }
+
     @Test("client sends the Skills source list Goose custom ACP subset")
     func clientSendsSkillsSourceListGooseCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [

@@ -17,6 +17,7 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
             case configReadFailed
             case missingGooseSecretField
             case missingEpistemosKey
+            case oversizedEpistemosCredential
             case configSaveFailed
         }
 
@@ -31,6 +32,7 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
     }
 
     private let keychainLoad: KeychainLoad
+    nonisolated static let maxCredentialValueCharacters = GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters
 
     init(keychainLoad: @escaping KeychainLoad = { key in GooseProviderKeyBridge.defaultKeychainLoad(key) }) {
         self.keychainLoad = keychainLoad
@@ -80,19 +82,26 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
             var updates: [GooseACPProviderConfigFieldUpdate] = []
             var updateSources: [(gooseSecretKey: String, epistemosKeychainKey: String)] = []
             for field in secretFields {
-                guard let credential = epistemosCredential(
+                switch epistemosCredential(
                     providerID: providerID,
                     gooseSecretKey: field.key
-                ) else {
+                ) {
+                case .found(let credential):
+                    updates.append(.init(key: field.key, value: credential.value))
+                    updateSources.append((field.key, credential.keychainKey))
+                case .missing:
                     skipped.append(.init(
                         gooseProviderId: providerID,
                         gooseSecretKey: field.key,
                         reason: .missingEpistemosKey
                     ))
-                    continue
+                case .oversized:
+                    skipped.append(.init(
+                        gooseProviderId: providerID,
+                        gooseSecretKey: field.key,
+                        reason: .oversizedEpistemosCredential
+                    ))
                 }
-                updates.append(.init(key: field.key, value: credential.value))
-                updateSources.append((field.key, credential.keychainKey))
             }
 
             guard !updates.isEmpty else { continue }
@@ -137,10 +146,17 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
         return keys
     }
 
+    private enum CredentialLookupResult {
+        case found(keychainKey: String, value: String)
+        case missing
+        case oversized
+    }
+
     private func epistemosCredential(
         providerID: String,
         gooseSecretKey: String
-    ) -> (keychainKey: String, value: String)? {
+    ) -> CredentialLookupResult {
+        var sawOversizedCredential = false
         for keychainKey in Self.candidateKeychainKeys(
             providerID: providerID,
             gooseSecretKey: gooseSecretKey
@@ -150,9 +166,13 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
                   !value.isEmpty else {
                 continue
             }
-            return (keychainKey, value)
+            guard value.count <= Self.maxCredentialValueCharacters else {
+                sawOversizedCredential = true
+                continue
+            }
+            return .found(keychainKey: keychainKey, value: value)
         }
-        return nil
+        return sawOversizedCredential ? .oversized : .missing
     }
 
     private static func providerIDs(

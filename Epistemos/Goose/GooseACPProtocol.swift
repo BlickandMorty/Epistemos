@@ -364,6 +364,8 @@ nonisolated enum GooseACPProtocolBounds {
     static let maxConfigWarningCharacters = 512
     static let maxInventoryIDCharacters = 512
     static let maxInventoryDisplayCharacters = 256
+    static let maxProviderConfigFieldKeyCharacters = 512
+    static let maxProviderConfigFieldValueCharacters = 16 * 1024
 }
 
 nonisolated struct GooseACPProvidersListRequest: Encodable, Equatable, Sendable {
@@ -780,8 +782,21 @@ nonisolated struct GooseACPProviderConfigFieldValue: Codable, Equatable, Sendabl
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.key = try container.decode(String.self, forKey: .key)
-        self.value = try container.decodeIfPresent(String.self, forKey: .value)
+        guard let key = trimmedNonEmptyACPString(
+            try container.decode(String.self, forKey: .key),
+            maxCharacters: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .key,
+                in: container,
+                debugDescription: "Provider config field key is missing or too large."
+            )
+        }
+        self.key = key
+        self.value = try container.decodeIfPresent(String.self, forKey: .value).map {
+            String($0.prefix(GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters))
+        }
         self.isSet = try container.decodeIfPresent(Bool.self, forKey: .isSet) ?? false
         self.isSecret = try container.decodeIfPresent(Bool.self, forKey: .isSecret) ?? false
         self.required = try container.decodeIfPresent(Bool.self, forKey: .required) ?? false
@@ -797,11 +812,14 @@ nonisolated struct GooseACPProviderConfigReadResponse: Decodable, Equatable, Sen
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        fields = try decodeBoundedACPArrayIfPresent(
+        let rawFields: [JSONValue] = try decodeBoundedACPArrayIfPresent(
             container,
             forKey: .fields,
             limit: GooseACPProtocolBounds.maxProviderConfigFields
         ) ?? []
+        fields = rawFields.compactMap {
+            try? $0.decoded(GooseACPProviderConfigFieldValue.self)
+        }
     }
 }
 

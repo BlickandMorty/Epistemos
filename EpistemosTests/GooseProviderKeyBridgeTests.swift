@@ -87,6 +87,44 @@ struct GooseProviderKeyBridgeTests {
         #expect(googleSaveRequests.isEmpty)
         await client.close()
     }
+
+    @Test("bridge skips oversized Keychain credentials before provider config save")
+    func bridgeSkipsOversizedCredentialsBeforeSave() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            #"{"jsonrpc":"2.0","id":2,"result":{"entries":[{"providerId":"openai"}]}}"#,
+            #"{"jsonrpc":"2.0","id":3,"result":{"fields":[{"key":"OPENAI_API_KEY","value":null,"isSet":false,"isSecret":true,"required":false}]}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+        let oversizedCredential = String(
+            repeating: "s",
+            count: GooseProviderKeyBridge.maxCredentialValueCharacters + 1
+        )
+        let bridge = GooseProviderKeyBridge(keychainLoad: { key in
+            key == CloudModelProvider.openAI.apiKeyKeychainKey ? oversizedCredential : nil
+        })
+
+        _ = try await client.initialize()
+        let result = await bridge.syncConfiguredProviderKeys(to: client)
+
+        #expect(result.applied.isEmpty)
+        #expect(result.skipped == [
+            .init(
+                gooseProviderId: "openai",
+                gooseSecretKey: "OPENAI_API_KEY",
+                reason: .oversizedEpistemosCredential
+            ),
+        ])
+
+        let sent = await transport.sentMessages()
+        let methods = sent.compactMap { jsonObject($0.raw)?["method"] }
+        #expect(methods == [
+            .string("initialize"),
+            .string("_goose/unstable/providers/list"),
+            .string("_goose/unstable/providers/config/read"),
+        ])
+        await client.close()
+    }
 }
 
 private func jsonObject(_ value: JSONValue?) -> [String: JSONValue]? {
