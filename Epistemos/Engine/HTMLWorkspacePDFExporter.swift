@@ -90,11 +90,8 @@ enum HTMLWorkspacePDFExporter {
                 resourceMode: .inlinePackageAssets
             )
             try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { @MainActor in
-                    for try await event in page.load(html: html) {
-                        if event == .finished { return }
-                    }
-                    throw HTMLWorkspacePDFExportError.loadTimedOut
+                group.addTask {
+                    try await Self.waitForLoadFinished(page: page, html: html)
                 }
                 group.addTask {
                     try await Task.sleep(nanoseconds: Self.loadTimeoutNanoseconds)
@@ -103,6 +100,14 @@ enum HTMLWorkspacePDFExporter {
                 defer { group.cancelAll() }
                 _ = try await group.next()
             }
+        }
+
+        @MainActor
+        private static func waitForLoadFinished(page: WebPage, html: String) async throws {
+            for try await event in page.load(html: html) {
+                if event == .finished { return }
+            }
+            throw HTMLWorkspacePDFExportError.loadTimedOut
         }
 
         private func documentHeight(in page: WebPage) async throws -> CGFloat {

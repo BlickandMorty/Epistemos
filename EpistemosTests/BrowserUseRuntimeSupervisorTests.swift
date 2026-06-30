@@ -71,6 +71,7 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(plan.environment["OPENAI_API_KEY"] == "sk-${HOME}-runtime")
         #expect(plan.environment["PATH"] == "/usr/bin")
         #expect(plan.environment["PYTHON_DOTENV_DISABLED"] == "true")
+        #expect(plan.environment["PYTHONDONTWRITEBYTECODE"] == "1")
         #expect(plan.environment[BrowserUseProGateStatus.flagName] == nil)
         #expect(plan.environment["DYLD_INSERT_LIBRARIES"] == nil)
         #expect(plan.environment["PYTHONPATH"] == nil)
@@ -294,10 +295,39 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(!readiness.message.contains(paths.vendorRoot.path))
     }
 
-    @Test("default paths prefer bundled Pro resources before source checkout layout")
-    func defaultPathsPreferBundledProResourcesBeforeSourceCheckoutLayout() throws {
+    @Test("default paths prefer signed bundled Pro resources before source checkout layout")
+    func defaultPathsPreferSignedBundledProResourcesBeforeSourceCheckoutLayout() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-bundled-\(UUID().uuidString)", isDirectory: true)
+        let resourceRoot = root.appendingPathComponent("Resources", isDirectory: true)
+        let signedBundleURL = resourceRoot.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+        let bundledRoot = signedBundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .appendingPathComponent("BrowserUsePro", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: bundledRoot, withIntermediateDirectories: true)
+        try Data(vendorManifestJSON(packaged: true).utf8).write(
+            to: bundledRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+
+        let paths = try #require(BrowserUseRuntimePaths.defaultPaths(
+            filePath: root.appendingPathComponent("NoSourceLayout.swift").path,
+            resourceRootURL: resourceRoot
+        ))
+
+        #expect(paths.vendorRoot == bundledRoot)
+        #expect(paths.buildRoot == bundledRoot)
+        #expect(paths.signedBundleURL == signedBundleURL)
+        #expect(paths.webUIEntrypointURL.path.hasSuffix("BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/web-ui/webui.py"))
+        #expect(paths.pythonExecutableURL.path.hasSuffix("BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/.venv/bin/python"))
+    }
+
+    @Test("default paths still keep raw bundled Pro resource fallback for older dev bundles")
+    func defaultPathsKeepRawBundledProResourceFallback() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-raw-bundled-\(UUID().uuidString)", isDirectory: true)
         let resourceRoot = root.appendingPathComponent("Resources", isDirectory: true)
         let bundledRoot = resourceRoot.appendingPathComponent("BrowserUsePro", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -314,8 +344,7 @@ struct BrowserUseRuntimeSupervisorTests {
 
         #expect(paths.vendorRoot == bundledRoot)
         #expect(paths.buildRoot == bundledRoot)
-        #expect(paths.webUIEntrypointURL.path.hasSuffix("BrowserUsePro/web-ui/webui.py"))
-        #expect(paths.pythonExecutableURL.path.hasSuffix("BrowserUsePro/.venv/bin/python"))
+        #expect(paths.signedBundleURL == nil)
     }
 
     @Test("environment file writer stores launch-time env outside source with owner-only permissions")
@@ -577,12 +606,16 @@ struct BrowserUseRuntimeSupervisorTests {
             "resolvesInsideRuntimeRoot",
             "resolves outside browser-use runtime root",
             "PYTHON_DOTENV_DISABLED",
+            "PYTHONDONTWRITEBYTECODE",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
             "maxThemeLength",
             "normalizedThemeArgument",
             "invalid Web UI theme",
             "resourceRootURL: URL? = Bundle.main.resourceURL",
+            "BrowserUsePro.bundle",
+            "signedBundlePayloadRoot",
+            "signedBundleURL: signedBundleURL",
             "appendingPathComponent(\"BrowserUsePro\", isDirectory: true)",
             "fileManager: fileManager",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",

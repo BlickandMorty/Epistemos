@@ -226,15 +226,19 @@ struct BrowserUseWebUIViewTests {
     @Test("web UI shell source keeps native Browser, Goose, Agent, and editor boundaries")
     func webUIShellSourceKeepsBoundaries() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift")
+        let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/BrowserUseSettingsView.swift")
         let policy = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseLoopbackPolicy.swift")
 
         for required in [
             "BrowserUseWebUIView",
+            "BrowserUseStatusTone",
             "BrowserUseLoopbackGuard",
             "BrowserUseRuntimeSupervisor",
             "BrowserUseLoopbackWebView",
             "NSViewRepresentable",
             "WKWebsiteDataStore.nonPersistent()",
+            "webView.setValue(false, forKey: \"drawsBackground\")",
+            "SettingsThemedBlurBackdrop(theme: theme, role: .page)",
             "BrowserUseLoopbackPolicy.allows",
             "struct BrowserUseLoopbackWebView: NSViewRepresentable",
             "self.settingsStore = settingsStore",
@@ -262,6 +266,15 @@ struct BrowserUseWebUIViewTests {
         }
         #expect(!source.contains("url.absoluteString)"))
         #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("Color.orange"))
+        #expect(!source.contains("Color.green"))
+        #expect(!source.contains("Color.blue"))
+        #expect(!source.contains("Color.red"))
+        #expect(settingsSource.contains("statusTint(_ tone: BrowserUseStatusTone)"))
+        #expect(!settingsSource.contains("tint: .orange"))
+        #expect(!settingsSource.contains("tint: .green"))
+        #expect(!settingsSource.contains("tint: .blue"))
+        #expect(!settingsSource.contains("tint: .red"))
         #expect(source.contains("supervisor.stop()\n                    loadedURL = nil"),
                 "The startRuntime non-loopback failure branch already has an unwrapped supervisor; optional chaining there does not compile.")
         #expect(!source.contains("loadOrDefault()"))

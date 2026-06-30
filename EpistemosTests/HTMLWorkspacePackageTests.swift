@@ -600,6 +600,31 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.snapshots["snap-23.html"] != nil)
     }
 
+    @Test("console error strings are bounded before package persistence")
+    func consoleErrorStringsAreBoundedBeforePackagePersistence() throws {
+        let hugeMessage = String(repeating: "m", count: HTMLWorkspacePackageLimits.maxConsoleErrorMessageCharacters + 1_000)
+        let hugeSource = String(repeating: "s", count: HTMLWorkspacePackageLimits.maxConsoleErrorSourceCharacters + 1_000)
+
+        let package = try HTMLWorkspacePatchApplier.apply(
+            .recordConsoleError(HTMLWorkspaceConsoleError(
+                message: hugeMessage,
+                source: hugeSource,
+                line: 9,
+                column: 4,
+                timestamp: Self.createdAt
+            )),
+            to: Self.samplePackage()
+        )
+        let error = try #require(package.consoleErrors.last)
+
+        #expect(error.message.count == HTMLWorkspacePackageLimits.maxConsoleErrorMessageCharacters)
+        #expect(error.message.hasSuffix("... [truncated]"))
+        #expect(error.source?.count == HTMLWorkspacePackageLimits.maxConsoleErrorSourceCharacters)
+        #expect(error.source?.hasSuffix("... [truncated]") == true)
+        #expect(error.line == 9)
+        #expect(error.column == 4)
+    }
+
     @Test("chart helper inserts a visible local chart block")
     func chartHelperInsertsVisibleLocalChart() throws {
         let chart = HTMLWorkspaceChartSpec(

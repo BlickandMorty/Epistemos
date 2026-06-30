@@ -17,9 +17,23 @@ Agent 2 should treat this as the current editor handoff:
 - The visible markdown controls must expose three user-facing modes: Edit/Prose, Preview, and Source.
 - Source for `.md` is MarkEdit, with MarkEdit's full MD chrome/settings/features reachable.
 - Code files use MarkEdit/CoreEditor as the engine, but the CODE chrome reproduces the v1 minimal Epistemos look.
+- HTML Workspace editable source panes use MarkEdit/CoreEditor too (`MarkEditCodeEditorRepresentable`), not the
+  AppKit/NSTextView `HTMLWorkspaceCodeEditor`, SwiftUI `TextEditor`, or another bespoke code pane. This is a
+  2026-06-30 owner lock after the AppKit path visibly regressed to blank source pixels.
 - The old code editor is kept as a v1-legacy fallback in Settings plus a MarkEdit-surface toggle. Do not delete it.
 - Goose note work in Plan 2 is context plumbing only. The live Goose chat/agent UI is Plan 1's reskinned WebView.
 - Plan 2 owns the PDFKit viewer. Plan 3 owns PDF parsing and the `source_pdf` handoff.
+
+## 2026-06-30 Addendum — HTML Workspace Source Editor Lock
+
+After runtime proof, the HTML Workspace source editor decision changed: editable HTML/CSS/JS/Data panes are part of
+the MarkEdit/CoreEditor Source lane. The source pane must mount `MarkEditCodeEditorRepresentable` and share the app
+code-editor preferences for font, wrapping, invisibles, spaces, tabs, and line gutter. Do not reintroduce
+`HTMLWorkspaceCodeEditor(` or `TextEditor(` inside `HTMLWorkspaceEditorView.swift`; those paths are now stale and
+source-guarded. Read-only DOM/route/asset outline panes may remain native read-only views.
+
+Current proof artifact from the MarkEdit source-pane run:
+`/tmp/epistemos-htmlworkspace-markedit-source-proof.png`.
 
 ## Files Patched In This Audit
 
@@ -138,6 +152,7 @@ Agent 2 must still prove in app:
 - Source returns to Edit/Prose without losing data.
 - Source MD surface has real MarkEdit controls/settings reachable.
 - Code file shows highlighted CodeMirror content, not a blank body.
+- HTML Workspace source panes show visible MarkEdit/CoreEditor code, not blank AppKit line numbers.
 - Code chrome keeps preview/LSP/Outline and real file-type logos.
 - Theme switching updates Prose/Epdoc, MarkEdit/CoreEditor, and HTML Workspace without flicker or stale github-only
   colors.

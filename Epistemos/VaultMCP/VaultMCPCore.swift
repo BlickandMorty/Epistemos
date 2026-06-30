@@ -1,6 +1,10 @@
 import Darwin
 import Foundation
 
+nonisolated protocol VaultMCPResourceDispatcher: AnyObject, Sendable {
+    nonisolated func dispatch(requestJson: String) -> String
+}
+
 nonisolated struct VaultMCPCore {
     static let maxRequestJSONBytes = 8 * 1024 * 1024
     static let maxJSONRPCIDStringLength = 256
@@ -63,10 +67,16 @@ nonisolated struct VaultMCPCore {
 
     let vaultRoot: URL?
     let executor: LocalAgentToolExecutor
+    private let resourceDispatcher: (any VaultMCPResourceDispatcher)?
 
-    init(vaultRoot: URL? = nil, executor: @escaping LocalAgentToolExecutor) {
+    init(
+        vaultRoot: URL? = nil,
+        executor: @escaping LocalAgentToolExecutor,
+        resourceDispatcher: (any VaultMCPResourceDispatcher)? = nil
+    ) {
         self.vaultRoot = vaultRoot
         self.executor = executor
+        self.resourceDispatcher = resourceDispatcher
     }
 
     func handle(requestJSON: String) async -> String {
@@ -98,11 +108,17 @@ nonisolated struct VaultMCPCore {
         case "tools/call":
             return await handleToolsCall(id: id, request: request)
         case "resources/list":
+            if let resourceDispatcher {
+                return resourceDispatcher.dispatch(requestJson: requestJSON)
+            }
             let relativePaths = await Task.detached(priority: .utility) {
                 Self.markdownRelPaths(vaultRoot: vaultRoot)
             }.value
             return Self.successResponse(id: id, result: ["resources": Self.resourcesList(from: relativePaths)])
         case "resources/read":
+            if let resourceDispatcher {
+                return resourceDispatcher.dispatch(requestJson: requestJSON)
+            }
             return await handleResourcesRead(id: id, request: request)
         default:
             return Self.errorResponse(

@@ -1,10 +1,19 @@
 import SwiftUI
 
 struct BrowserUseSettingsView: View {
+    @Environment(UIState.self) private var ui
+    private let settingsStore = BrowserUseSettingsStore()
+    private let secretStore = BrowserUseSecretStore()
     @State private var status = BrowserUseProGateStatus.status()
     @State private var manifestURL = BrowserUseProGateStatus.defaultManifestURL()
     @State private var manifest: BrowserUseVendorManifest?
     @State private var manifestReadError: String?
+    @State private var settings = BrowserUseSettings.default
+    @State private var settingsReadError: String?
+    @State private var settingsSaveMessage: String?
+    @State private var secretPresence: Set<BrowserUseSecretBinding> = []
+    @State private var secretDrafts: [BrowserUseSecretBinding: String] = [:]
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         ScrollView {
@@ -14,6 +23,10 @@ struct BrowserUseSettingsView: View {
                 sourceCard
                 packagingCard
                 settingsContractCard
+                providerSettingsCard
+                browserSettingsCard
+                runtimeSettingsCard
+                secretSettingsCard
                 boundaryCard
             }
             .padding(24)
@@ -39,9 +52,9 @@ struct BrowserUseSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
-                        ChannelStatusPill(title: "Pro only", tint: .orange)
-                        ChannelStatusPill(title: "Chromium/CDP", tint: .secondary)
-                        ChannelStatusPill(title: "Separate browser", tint: .blue)
+                        ChannelStatusPill(title: "Pro only", tint: statusTint(.warning))
+                        ChannelStatusPill(title: "Chromium/CDP", tint: statusTint(.muted))
+                        ChannelStatusPill(title: "Separate browser", tint: statusTint(.info))
                     }
                 }
                 Spacer()
@@ -65,7 +78,7 @@ struct BrowserUseSettingsView: View {
                     Spacer()
                     ChannelStatusPill(
                         title: status.isActive ? "Ready" : "Inactive",
-                        tint: status.isActive ? .green : .orange
+                        tint: status.isActive ? statusTint(.ready) : statusTint(.warning)
                     )
                 }
 
@@ -78,7 +91,7 @@ struct BrowserUseSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                ChannelStatusPill(title: BrowserUseProGateStatus.flagName, tint: .secondary)
+                ChannelStatusPill(title: BrowserUseProGateStatus.flagName, tint: statusTint(.muted))
             }
         }
     }
@@ -90,7 +103,7 @@ struct BrowserUseSettingsView: View {
                     Text("Vendored Source")
                         .font(.headline)
                     Spacer()
-                    ChannelStatusPill(title: "Full clone required", tint: .blue)
+                    ChannelStatusPill(title: "Full clone required", tint: statusTint(.info))
                 }
 
                 if let manifest {
@@ -108,12 +121,12 @@ struct BrowserUseSettingsView: View {
                                     .textSelection(.enabled)
                             }
                             Spacer()
-                            ChannelStatusPill(title: component.license, tint: .secondary)
+                            ChannelStatusPill(title: component.license, tint: statusTint(.muted))
                             ChannelStatusPill(
                                 title: component.fullClone ? "full clone" : "partial",
-                                tint: component.fullClone ? .green : .red
+                                tint: component.fullClone ? statusTint(.ready) : statusTint(.problem)
                             )
-                            ChannelStatusPill(title: "\(component.fileCount) files", tint: .blue)
+                            ChannelStatusPill(title: "\(component.fileCount) files", tint: statusTint(.info))
                         }
                         if component.name != manifest.components.last?.name {
                             Divider()
@@ -123,7 +136,7 @@ struct BrowserUseSettingsView: View {
                     statusMessage(
                         title: "Vendor manifest unavailable",
                         detail: manifestReadError ?? "No browser-use manifest was found in the app bundle or source tree.",
-                        tint: .orange
+                        tint: statusTint(.warning)
                     )
                 }
             }
@@ -139,7 +152,7 @@ struct BrowserUseSettingsView: View {
                     Spacer()
                     ChannelStatusPill(
                         title: manifest?.isProPayloadStaged == true ? "Staged" : "Not staged",
-                        tint: manifest?.isProPayloadStaged == true ? .green : .orange
+                        tint: manifest?.isProPayloadStaged == true ? statusTint(.ready) : statusTint(.warning)
                     )
                 }
 
@@ -153,7 +166,7 @@ struct BrowserUseSettingsView: View {
                     statusMessage(
                         title: "Packaging state unknown",
                         detail: "The manifest must be readable before the Pro payload can be considered staged.",
-                        tint: .orange
+                        tint: statusTint(.warning)
                     )
                 }
             }
@@ -161,21 +174,19 @@ struct BrowserUseSettingsView: View {
     }
 
     private var settingsContractCard: some View {
-        let defaults = BrowserUseSettings.default
-
-        return SettingsSurfaceCard {
+        SettingsSurfaceCard {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Settings Contract")
                         .font(.headline)
                     Spacer()
-                    ChannelStatusPill(title: "Env renderer", tint: .blue)
-                    ChannelStatusPill(title: "Keychain secrets", tint: .green)
+                    ChannelStatusPill(title: "Env renderer", tint: statusTint(.info))
+                    ChannelStatusPill(title: "Keychain secrets", tint: statusTint(.ready))
                 }
 
                 settingsFactRow(
                     "Default LLM",
-                    value: defaults.providers.defaultLLM,
+                    value: settings.providers.defaultLLM,
                     detail: "Preserves the web-ui DEFAULT_LLM selector."
                 )
                 Divider()
@@ -187,21 +198,176 @@ struct BrowserUseSettingsView: View {
                 Divider()
                 settingsFactRow(
                     "Browser profile",
-                    value: "\(defaults.browser.resolution), CDP \(defaults.browser.debuggingHost):\(defaults.browser.debuggingPort)",
+                    value: "\(settings.browser.resolution), CDP \(settings.browser.debuggingHost):\(settings.browser.debuggingPort)",
                     detail: "Keeps browser path, user data, own-browser, CDP, and browser-use executable settings."
                 )
                 Divider()
                 settingsFactRow(
                     "Secret bindings",
-                    value: "\(BrowserUseSecretBinding.allCases.count) Keychain environment keys",
+                    value: "\(secretPresence.count)/\(BrowserUseSecretBinding.allCases.count) Keychain environment keys stored",
                     detail: "Provider keys, cloud keys, proxy credentials, AWS credentials, and VNC password are not stored in manifests."
                 )
                 Divider()
                 settingsFactRow(
                     "Non-secret settings",
-                    value: "\(defaults.nonSecretEnvironmentPairs.count) environment keys",
+                    value: "\(BrowserUseEnvironmentRenderer.dictionary(settings.nonSecretEnvironmentPairs).count) environment keys",
                     detail: "Saved as BrowserUsePro settings JSON and rendered with Keychain secrets into a launch-time .env."
                 )
+
+                if let settingsReadError {
+                    Divider()
+                    statusMessage(title: "Settings load failed", detail: settingsReadError, tint: statusTint(.warning))
+                }
+
+                if let settingsSaveMessage {
+                    Divider()
+                    statusMessage(title: "Settings", detail: settingsSaveMessage, tint: statusTint(.info))
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        saveSettings()
+                    } label: {
+                        Label("Save Settings", systemImage: "checkmark.circle")
+                    }
+
+                    Button {
+                        loadSettings()
+                    } label: {
+                        Label("Reload", systemImage: "arrow.clockwise")
+                    }
+
+                    Button {
+                        settings = .default
+                        settingsSaveMessage = "Defaults staged. Save to write them."
+                    } label: {
+                        Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+        }
+    }
+
+    private var providerSettingsCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader("Provider Settings", detail: "Non-secret browser-use provider endpoints and default model lane.")
+
+                Picker("Default LLM", selection: binding(\.providers.defaultLLM)) {
+                    ForEach(defaultLLMOptions, id: \.self) { option in
+                        Text(option).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                settingTextField("OpenAI endpoint", text: binding(\.providers.openAIEndpoint))
+                settingTextField("Anthropic endpoint", text: binding(\.providers.anthropicEndpoint))
+                settingTextField("Google endpoint", text: binding(\.providers.googleEndpoint))
+                settingTextField("Azure OpenAI endpoint", text: binding(\.providers.azureOpenAIEndpoint))
+                settingTextField("Azure API version", text: binding(\.providers.azureOpenAIAPIVersion))
+                settingTextField("DeepSeek endpoint", text: binding(\.providers.deepSeekEndpoint))
+                settingTextField("Mistral endpoint", text: binding(\.providers.mistralEndpoint))
+                settingTextField("Ollama endpoint", text: binding(\.providers.ollamaEndpoint))
+                settingTextField("Alibaba endpoint", text: binding(\.providers.alibabaEndpoint))
+                settingTextField("ModelScope endpoint", text: binding(\.providers.modelScopeEndpoint))
+                settingTextField("Moonshot endpoint", text: binding(\.providers.moonshotEndpoint))
+                settingTextField("Unbound endpoint", text: binding(\.providers.unboundEndpoint))
+                settingTextField("SiliconFlow endpoint", text: binding(\.providers.siliconFlowEndpoint))
+                settingTextField("IBM endpoint", text: binding(\.providers.ibmEndpoint))
+                settingTextField("Grok endpoint", text: binding(\.providers.grokEndpoint))
+                settingTextField("AWS region", text: binding(\.providers.awsRegion))
+                settingTextField("AWS default region", text: binding(\.providers.awsDefaultRegion))
+            }
+        }
+    }
+
+    private var browserSettingsCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader("Browser Settings", detail: "Chromium/CDP and profile controls passed to browser-use.")
+
+                settingTextField("Browser path", text: binding(\.browser.browserPath))
+                settingTextField("Browser user data", text: binding(\.browser.browserUserData))
+                settingTextField("Debugging host", text: binding(\.browser.debuggingHost))
+                Stepper("Debugging port: \(settings.browser.debuggingPort)", value: binding(\.browser.debuggingPort), in: 1...65535)
+                Toggle("Keep browser open", isOn: binding(\.browser.keepBrowserOpen))
+                Toggle("Use own browser", isOn: binding(\.browser.useOwnBrowser))
+                settingTextField("Browser CDP URL", text: binding(\.browser.browserCDP))
+                Stepper("Resolution width: \(settings.browser.resolutionWidth)", value: binding(\.browser.resolutionWidth), in: 320...7680, step: 10)
+                Stepper("Resolution height: \(settings.browser.resolutionHeight)", value: binding(\.browser.resolutionHeight), in: 240...4320, step: 10)
+                Stepper("Resolution depth: \(settings.browser.resolutionDepth)", value: binding(\.browser.resolutionDepth), in: 8...64)
+                settingTextField("browser-use executable path", text: binding(\.browser.executablePath))
+                Toggle("Headless", isOn: binding(\.browser.headless))
+                settingTextField("browser-use user data dir", text: binding(\.browser.userDataDirectory))
+            }
+        }
+    }
+
+    private var runtimeSettingsCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader("Runtime Settings", detail: "Logging, cloud endpoints, privacy flags, and proxy values.")
+
+                Toggle("Anonymized telemetry", isOn: binding(\.runtime.anonymizedTelemetry))
+                Picker("Logging level", selection: binding(\.runtime.loggingLevel)) {
+                    ForEach(loggingLevelOptions, id: \.self) { option in
+                        Text(option).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+                settingTextField("Debug log file", text: binding(\.runtime.debugLogFile))
+                settingTextField("Info log file", text: binding(\.runtime.infoLogFile))
+                settingTextField("CDP logging level", text: binding(\.runtime.cdpLoggingLevel))
+                settingTextField("Cloud API URL", text: binding(\.runtime.cloudAPIURL))
+                settingTextField("Cloud UI URL", text: binding(\.runtime.cloudUIURL))
+                settingTextField("Cloud base URL", text: binding(\.runtime.cloudBaseURL))
+                Toggle("Cloud sync", isOn: binding(\.runtime.cloudSync))
+                Toggle("Version check", isOn: binding(\.runtime.versionCheck))
+                settingTextField("Proxy server", text: binding(\.runtime.proxyServer))
+                settingTextField("No proxy", text: binding(\.runtime.noProxy))
+            }
+        }
+    }
+
+    private var secretSettingsCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader("Keychain Secrets", detail: "Only non-empty drafts are written. Use Clear to remove an existing secret.")
+
+                ForEach(BrowserUseSecretBinding.allCases, id: \.rawValue) { binding in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(secretDisplayName(binding))
+                                .font(.subheadline.weight(.semibold))
+                            Text(binding.environmentName)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        ChannelStatusPill(
+                            title: secretPresence.contains(binding) ? "stored" : "not set",
+                            tint: secretPresence.contains(binding) ? statusTint(.ready) : statusTint(.muted)
+                        )
+                        SecureField(
+                            secretPresence.contains(binding) ? "Replace value" : "Add value",
+                            text: secretDraftBinding(for: binding)
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 240)
+                        Button {
+                            clearSecret(binding)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(!secretPresence.contains(binding) && secretDrafts[binding, default: ""].isEmpty)
+                        .help("Clear \(binding.environmentName)")
+                    }
+                    if binding != BrowserUseSecretBinding.allCases.last {
+                        Divider()
+                    }
+                }
             }
         }
     }
@@ -252,7 +418,10 @@ struct BrowserUseSettingsView: View {
                 }
             }
             Spacer()
-            ChannelStatusPill(title: artifact.status, tint: artifact.status == "staged" ? .green : .orange)
+            ChannelStatusPill(
+                title: artifact.status,
+                tint: artifact.status == "staged" ? statusTint(.ready) : statusTint(.warning)
+            )
         }
     }
 
@@ -292,6 +461,25 @@ struct BrowserUseSettingsView: View {
         }
     }
 
+    private func sectionHeader(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.headline)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func settingTextField(_ title: String, text: Binding<String>) -> some View {
+        LabeledContent(title) {
+            TextField(title, text: text)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 520)
+        }
+    }
+
     private func statusMessage(title: String, detail: String, tint: Color) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -322,5 +510,133 @@ struct BrowserUseSettingsView: View {
             manifest = nil
             manifestReadError = BrowserUseDiagnostics.statusMessage(for: error, fallback: "manifest read failed")
         }
+        loadSettings()
+    }
+
+    private func statusTint(_ tone: BrowserUseStatusTone) -> Color {
+        tone.color(in: theme)
+    }
+
+    private func loadSettings() {
+        do {
+            settings = try settingsStore.load()
+            settingsReadError = nil
+            settingsSaveMessage = nil
+        } catch {
+            settings = .default
+            settingsReadError = BrowserUseDiagnostics.statusMessage(for: error, fallback: "settings load failed")
+        }
+
+        secretPresence = Set(BrowserUseSecretBinding.allCases.filter { secretStore.load($0) != nil })
+        secretDrafts = [:]
+    }
+
+    private func saveSettings() {
+        if let problem = BrowserUseSettingsValidation.problem(in: settings) {
+            settingsSaveMessage = "Settings invalid: \(problem)"
+            return
+        }
+
+        do {
+            try settingsStore.save(settings)
+            var failedSecretNames: [String] = []
+            for (binding, value) in secretDrafts where !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !secretStore.save(value, for: binding) {
+                    failedSecretNames.append(binding.environmentName)
+                }
+            }
+            secretPresence = Set(BrowserUseSecretBinding.allCases.filter { secretStore.load($0) != nil })
+            secretDrafts = [:]
+            let environmentMessage = renderEnvironmentFileMessage()
+            if failedSecretNames.isEmpty {
+                settingsSaveMessage = joinedStatusMessages(
+                    "Saved browser-use Pro settings.",
+                    environmentMessage
+                )
+            } else {
+                settingsSaveMessage = joinedStatusMessages(
+                    "Saved settings, but Keychain rejected: \(failedSecretNames.joined(separator: ", "))",
+                    environmentMessage
+                )
+            }
+        } catch {
+            settingsSaveMessage = BrowserUseDiagnostics.statusMessage(for: error, fallback: "settings save failed")
+        }
+    }
+
+    private func clearSecret(_ binding: BrowserUseSecretBinding) {
+        secretStore.delete(binding)
+        secretDrafts[binding] = ""
+        secretPresence.remove(binding)
+        settingsSaveMessage = joinedStatusMessages(
+            "Cleared \(binding.environmentName).",
+            renderEnvironmentFileMessage()
+        )
+    }
+
+    private func renderEnvironmentFileMessage() -> String {
+        guard let paths = BrowserUseRuntimePaths.defaultPaths() else {
+            return "Runtime .env not rendered because the browser-use Pro payload is not installed."
+        }
+
+        do {
+            try BrowserUseEnvironmentFileWriter.write(
+                BrowserUseEnvironmentRenderer.render(settings: settings, secretStore: secretStore),
+                to: paths.environmentFileURL
+            )
+            return "Runtime .env refreshed."
+        } catch {
+            return "Runtime .env refresh failed: \(BrowserUseDiagnostics.statusMessage(for: error, fallback: "environment write failed"))"
+        }
+    }
+
+    private func joinedStatusMessages(_ values: String...) -> String {
+        values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<BrowserUseSettings, Value>) -> Binding<Value> {
+        Binding(
+            get: { settings[keyPath: keyPath] },
+            set: { settings[keyPath: keyPath] = $0 }
+        )
+    }
+
+    private func secretDraftBinding(for binding: BrowserUseSecretBinding) -> Binding<String> {
+        Binding(
+            get: { secretDrafts[binding, default: ""] },
+            set: { secretDrafts[binding] = $0 }
+        )
+    }
+
+    private var defaultLLMOptions: [String] {
+        [
+            "openai",
+            "anthropic",
+            "google",
+            "azure_openai",
+            "deepseek",
+            "mistral",
+            "ollama",
+            "alibaba",
+            "modelscope",
+            "moonshot",
+            "unbound",
+            "siliconflow",
+            "ibm",
+            "grok",
+        ]
+    }
+
+    private var loggingLevelOptions: [String] {
+        ["debug", "info", "warning", "error", "critical"]
+    }
+
+    private func secretDisplayName(_ binding: BrowserUseSecretBinding) -> String {
+        binding.environmentName
+            .replacingOccurrences(of: "_", with: " ")
+            .capitalized
     }
 }

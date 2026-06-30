@@ -1,11 +1,12 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
-
 struct HTMLWorkspaceEditorView: View {
     @Binding var package: HTMLWorkspacePackage
     let theme: EpistemosTheme?
+    let externalRevision: Int
     @Environment(\.colorScheme) private var colorScheme
+    @State private var gooseRegenerator = HTMLWorkspaceGooseRegenerator()
     @State private var previewPackage: HTMLWorkspacePackage
     @State private var selectedPane: HTMLWorkspaceSourcePane = .html
     @State private var layoutMode: HTMLWorkspaceLayoutMode = .split
@@ -15,10 +16,32 @@ struct HTMLWorkspaceEditorView: View {
     @State private var isExportingPDF = false
     @State private var statusText: String?
     @State private var liveDOMSnapshot: HTMLWorkspaceDOMSnapshot?
+    @State private var selectedElementInspection: HTMLWorkspaceElementInspection?
+    @State private var regenerateSheetPresented = false
+    @State private var regenerateInstruction = ""
+    @State private var regenerateStreamText = ""
+    @State private var regenerateErrorText: String?
+    @State private var regenerateTask: Task<Void, Never>?
+    @State private var isRegenerating = false
+    @State private var sourceCursorLine = 1
+    @State private var sourceCursorColumn = 1
+    @State private var sourceTotalLines = 1
 
-    init(package: Binding<HTMLWorkspacePackage>, theme: EpistemosTheme? = nil) {
+    @AppStorage("codeEditor.wrapLines") private var sourceWrapLines = false
+    @AppStorage("codeEditor.showInvisibles") private var sourceShowInvisibles = false
+    @AppStorage("codeEditor.fontSize") private var sourceFontSize: Double = 15
+    @AppStorage("codeEditor.useSpaces") private var sourceUseSpaces = true
+    @AppStorage("codeEditor.tabWidth") private var sourceTabWidth = 4
+    @AppStorage("epistemos.codeEditor.showLineGutter") private var sourceShowLineGutter = true
+
+    init(
+        package: Binding<HTMLWorkspacePackage>,
+        theme: EpistemosTheme? = nil,
+        externalRevision: Int = 0
+    ) {
         self._package = package
         self.theme = theme
+        self.externalRevision = externalRevision
         self._previewPackage = State(initialValue: package.wrappedValue)
     }
 
@@ -43,9 +66,41 @@ struct HTMLWorkspaceEditorView: View {
             // theme prop too, mirroring the colorScheme refresh.
             previewPackage = package
         }
+        .onChange(of: externalRevision) { _, _ in
+            liveDOMSnapshot = nil
+            previewPackage = package
+        }
+        .onChange(of: inspectorVisible) { _, visible in
+            if !visible {
+                selectedElementInspection = nil
+            }
+        }
         .onDisappear {
             previewUpdateTask?.cancel()
             previewUpdateTask = nil
+            regenerateTask?.cancel()
+            regenerateTask = nil
+            gooseRegenerator.stop()
+        }
+        .sheet(isPresented: $regenerateSheetPresented) {
+            HTMLWorkspaceRegenerateSheet(
+                instruction: $regenerateInstruction,
+                streamedText: regenerateStreamText,
+                errorText: regenerateErrorText,
+                isRegenerating: isRegenerating,
+                onCancel: {
+                    if isRegenerating {
+                        regenerateTask?.cancel()
+                        regenerateTask = nil
+                        isRegenerating = false
+                        statusText = "Regenerate stopped"
+                    }
+                    regenerateSheetPresented = false
+                },
+                onSubmit: beginRegenerateSurface
+            )
+            .frame(width: 620, height: 520)
+            .preferredColorScheme(workspaceColorScheme)
         }
         .background(workspaceTheme.resolved.background.color)
         .htmlWorkspaceDataFeed(package: $package, statusText: $statusText)
@@ -100,7 +155,47 @@ struct HTMLWorkspaceEditorView: View {
             .labelStyle(.iconOnly)
             .help("Save")
 
+            Button {
+                openRegenerateSheet()
+            } label: {
+                Label("Regenerate", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles")
+            }
+            .labelStyle(.iconOnly)
+            .disabled(isRegenerating)
+            .help("Regenerate surface")
+
+            Button {
+                self.setAppBridgeEnabled(!package.manifest.sandboxPolicy.allowAppBridge)
+            } label: {
+                Label(
+                    package.manifest.sandboxPolicy.allowAppBridge ? "Disable App Bridge" : "Enable App Bridge",
+                    systemImage: package.manifest.sandboxPolicy.allowAppBridge
+                        ? "point.3.connected.trianglepath.dotted"
+                        : "point.3.filled.connected.trianglepath.dotted"
+                )
+            }
+            .labelStyle(.iconOnly)
+            .help(package.manifest.sandboxPolicy.allowAppBridge ? "Disable app bridge" : "Enable app bridge")
+
+            Button {
+                self.setPythonRuntimeEnabled(!package.manifest.sandboxPolicy.allowPythonRuntime)
+            } label: {
+                Label(
+                    package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python" : "Enable Python",
+                    systemImage: package.manifest.sandboxPolicy.allowPythonRuntime
+                        ? "chevron.left.forwardslash.chevron.right"
+                        : "chevron.left.forwardslash.chevron.right"
+                )
+            }
+            .labelStyle(.iconOnly)
+            .help(package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python runtime" : "Enable Python runtime")
+
             Menu {
+                Button("Regenerate Surface", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles") {
+                    openRegenerateSheet()
+                }
+                .disabled(isRegenerating)
+                Divider()
                 Button("Import HTML", systemImage: "tray.and.arrow.down") {
                     importHTML()
                 }
@@ -161,70 +256,14 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var sourceRail: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(HTMLWorkspaceSourcePane.allCases) { pane in
-                Button {
-                    selectedPane = pane
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: pane.systemImage)
-                            .frame(width: 16)
-                        Text(pane.title)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .font(.system(size: 12, weight: selectedPane == pane ? .semibold : .regular))
-                    .foregroundStyle(selectedPane == pane ? workspaceTheme.resolved.accent.color : .secondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 7)
-                    .background {
-                        if selectedPane == pane {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(workspaceTheme.resolved.accent.color.opacity(workspaceTheme.isDark ? 0.20 : 0.14))
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer(minLength: 0)
-            sourceRailStatus
-        }
-        .padding(8)
-        .background(panelFill)
-    }
-
-    private var sourceRailStatus: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
-                .font(.caption2.weight(.semibold))
-            Text(dataStatus)
-                .font(.caption2)
-                .foregroundStyle(dataStatus == "Data OK" ? Color.secondary : Color.red)
-                .lineLimit(2)
-            if let feedSummary = HTMLWorkspaceDataFeedStatus.compactLine(for: package) {
-                Divider()
-                    .padding(.vertical, 2)
-                Text(feedSummary)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(feedSummary.contains("stale") ? Color.orange : Color.secondary)
-                    .lineLimit(2)
-                if let feedDetail = HTMLWorkspaceDataFeedStatus.detailLine(for: package) {
-                    Text(feedDetail)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(4)
-                        .truncationMode(.middle)
-                }
-            }
-            if let statusText {
-                Text(statusText)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-            }
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
+        HTMLWorkspaceSourceRail(
+            selectedPane: $selectedPane,
+            package: package,
+            theme: workspaceTheme,
+            panelFill: panelFill,
+            dataStatus: dataStatus,
+            statusText: statusText
+        )
     }
 
     private var sourceHeader: some View {
@@ -295,13 +334,13 @@ struct HTMLWorkspaceEditorView: View {
     private var sourceEditor: some View {
         switch selectedPane {
         case .html:
-            workspaceCodeEditor(text: $package.indexHTML)
+            workspaceCodeEditor(text: $package.indexHTML, language: selectedPane.codeEditorLanguage)
         case .css:
-            workspaceCodeEditor(text: $package.styleCSS)
+            workspaceCodeEditor(text: $package.styleCSS, language: selectedPane.codeEditorLanguage)
         case .js:
-            workspaceCodeEditor(text: $package.scriptJS)
+            workspaceCodeEditor(text: $package.scriptJS, language: selectedPane.codeEditorLanguage)
         case .data:
-            workspaceCodeEditor(text: $package.dataJSON)
+            workspaceCodeEditor(text: $package.dataJSON, language: selectedPane.codeEditorLanguage)
         case .dom:
             readOnlySourcePane(
                 title: domPaneTitle,
@@ -332,32 +371,30 @@ struct HTMLWorkspaceEditorView: View {
         text: String,
         emptyText: String
     ) -> some View {
-        ScrollView([.vertical, .horizontal]) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: systemImage)
-                        .foregroundStyle(workspaceTheme.resolved.accent.color)
-                    Text(title)
-                        .font(.system(size: 12.5, weight: .semibold))
-                    Spacer(minLength: 0)
-                }
-                Text(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? emptyText : text)
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
-                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(16)
-        }
-        .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
+        HTMLWorkspaceReadOnlySourcePane(
+            title: title,
+            systemImage: systemImage,
+            text: text,
+            emptyText: emptyText,
+            theme: workspaceTheme
+        )
     }
 
-    private func workspaceCodeEditor(text: Binding<String>) -> some View {
-        HTMLWorkspaceCodeEditor(
+    private func workspaceCodeEditor(text: Binding<String>, language: String) -> some View {
+        MarkEditCodeEditorRepresentable(
             text: text,
-            isEditable: true,
-            colorScheme: colorScheme,
-            theme: workspaceTheme
+            cursorLine: $sourceCursorLine,
+            cursorColumn: $sourceCursorColumn,
+            totalLines: $sourceTotalLines,
+            language: language,
+            theme: workspaceTheme,
+            fontSize: sourceFontSize,
+            wrapLines: sourceWrapLines,
+            showLineNumbers: sourceShowLineGutter,
+            showInvisibles: sourceShowInvisibles,
+            useSpaces: sourceUseSpaces,
+            tabWidth: sourceTabWidth,
+            selectionRequest: nil
         )
         .id("workspace-code-editor-\(selectedPane.rawValue)")
         .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
@@ -368,7 +405,9 @@ struct HTMLWorkspaceEditorView: View {
             VStack(spacing: 0) {
                 previewHeader
                 Divider()
-                HTMLWorkspacePreviewView(package: previewPackage,
+                HTMLWorkspacePreviewView(
+                    package: previewPackage,
+                    safeAPIEnabled: true,
                     previewTheme: previewTheme,
                     themeGuardCSSOverride: previewThemeGuardCSS,
                     themeIdentity: workspaceThemeIdentity,
@@ -380,6 +419,10 @@ struct HTMLWorkspaceEditorView: View {
                     },
                     onDOMSnapshot: { snapshot in
                         liveDOMSnapshot = snapshot
+                    },
+                    isElementInspectorEnabled: inspectorVisible,
+                    onElementInspection: { inspection in
+                        selectedElementInspection = inspection
                     }
                 )
                     .id(previewRenderIdentity)
@@ -394,112 +437,44 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewHeader: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "safari")
-                .foregroundStyle(.secondary)
-            Text("Preview")
-                .font(.subheadline.weight(.semibold))
-            Text("WKWebView")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 12)
-            Text(bridgeStatusText)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(package.manifest.sandboxPolicy.allowNetwork ? .orange : .green)
-            HTMLWorkspaceDataFeedStatusStrip(package: package, compact: true)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(headerFill)
+        HTMLWorkspacePreviewHeader(
+            package: package,
+            bridgeStatusText: bridgeStatusText,
+            pythonRuntimeStatusText: pythonRuntimeStatusText,
+            headerFill: headerFill
+        )
     }
 
     private var consolePanel: some View {
-        DisclosureGroup(isExpanded: $consoleExpanded) {
-            VStack(alignment: .leading, spacing: 6) {
-                if package.consoleErrors.isEmpty {
-                    Text("No errors")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(Array(package.consoleErrors.suffix(8).enumerated()), id: \.offset) { _, error in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(error.message)
-                                .font(.system(.caption, design: .monospaced))
-                                .lineLimit(2)
-                            if let source = error.source {
-                                Text("\(source):\(error.line):\(error.column)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.top, 6)
-        } label: {
-            HStack {
-                Text("Console")
-                Spacer()
-                if !package.consoleErrors.isEmpty {
-                    Text("\(package.consoleErrors.count)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(panelFill)
+        HTMLWorkspaceConsolePanel(
+            isExpanded: $consoleExpanded,
+            errors: package.consoleErrors,
+            panelFill: panelFill
+        )
     }
 
     private var inspectorPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Inspector")
-                .font(.headline)
-
-            VStack(alignment: .leading, spacing: 7) {
-                inspectorRow("Hash", String(contentHash.prefix(12)))
-                inspectorRow("Sandbox", package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
-                inspectorRow("Bridge", bridgeStatusText)
-                inspectorRow("DOM", "\(domNodeCount) \(domSnapshot.source.label)")
-                inspectorRow("Data", dataStatus)
-                inspectorRow("Provenance", generationProvenanceText)
-                inspectorRow("Routes", "\(package.routes.count)")
-                inspectorRow("Assets", "\(package.assets.count)")
-                inspectorRow("Snapshots", "\(package.snapshots.count)")
-                inspectorRow("Errors", "\(package.consoleErrors.count)")
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Patch Ops")
-                    .font(.subheadline.weight(.semibold))
-                capabilityGrid
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .background(panelFill)
-    }
-
-    private func inspectorRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 8)
-            Text(value)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-        }
-        .font(.caption)
+        HTMLWorkspaceInspectorPanel(
+            package: package,
+            contentHash: contentHash,
+            domNodeCount: domNodeCount,
+            domSourceLabel: domSnapshot.source.label,
+            selectedElementInspection: selectedElementInspection,
+            dataStatus: dataStatus,
+            generationProvenanceText: generationProvenanceText,
+            bridgeStatusText: bridgeStatusText,
+            pythonRuntimeStatusText: pythonRuntimeStatusText,
+            panelFill: panelFill
+        )
     }
 
     private var bridgeStatusText: String {
-        package.manifest.sandboxPolicy.allowAppBridge ? "Safe API deferred" : "No bridge"
+        package.manifest.sandboxPolicy.allowAppBridge ? "Bridge live" : "No bridge"
+    }
+
+    private var pythonRuntimeStatusText: String {
+        guard package.manifest.sandboxPolicy.allowPythonRuntime else { return "Python off" }
+        return HTMLWorkspacePythonRuntime.isAvailable ? "Python live" : "Python missing"
     }
 
     private var generationProvenanceText: String {
@@ -515,19 +490,6 @@ struct HTMLWorkspaceEditorView: View {
 
     private var selectedPaneMetricText: String {
         selectedPane.metricText(for: package, domSnapshot: domSnapshot)
-    }
-
-    private var capabilityGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 6)], alignment: .leading, spacing: 6) {
-            ForEach(["HTML", "CSS", "JS", "Data", "DOM", "Chart", "Asset", "PDF"], id: \.self) { label in
-                Text(label)
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .frame(maxWidth: .infinity)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            }
-        }
     }
 
     private var domOutlineText: String {
@@ -606,87 +568,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewThemeGuardCSS: String {
-        let background = MarkdownPreviewSurfaceStyle
-            .canvasNSColor(for: workspaceTheme)
-            .rgbSafeForCodeEditorTheme()
-            .withAlphaComponent(1.0)
-            .htmlWorkspaceCSSColor
-        let foregroundSource = workspaceTheme.isDark
-            ? NSColor(deviceWhite: 0.94, alpha: 1.0)
-            : workspaceTheme.resolved.foreground.nsColor
-        let mutedSource = workspaceTheme.isDark
-            ? NSColor(deviceWhite: 0.80, alpha: 1.0)
-            : workspaceTheme.resolved.mutedForeground.nsColor
-        let foreground = foregroundSource
-            .rgbSafeForCodeEditorTheme()
-            .htmlWorkspaceCSSColor
-        let muted = mutedSource
-            .rgbSafeForCodeEditorTheme()
-            .htmlWorkspaceCSSColor
-        let card = workspaceTheme.resolved.card.nsColor
-            .rgbSafeForCodeEditorTheme()
-            .withAlphaComponent(1.0)
-            .htmlWorkspaceCSSColor
-        let border = workspaceTheme.resolved.glassBorder.nsColor
-            .rgbSafeForCodeEditorTheme()
-            .htmlWorkspaceCSSColor(opacity: workspaceTheme.isDark ? 0.48 : 0.32)
-        let accent = workspaceTheme.resolved.accent.nsColor
-            .rgbSafeForCodeEditorTheme()
-            .htmlWorkspaceCSSColor
-        let scheme = workspaceTheme.isDark ? "dark" : "light"
-
-        return """
-        :root {
-          color-scheme: \(scheme);
-          --epistemos-workspace-bg: \(background);
-          --epistemos-workspace-fg: \(foreground);
-          --epistemos-workspace-muted: \(muted);
-          --epistemos-workspace-card: \(card);
-          --epistemos-workspace-border: \(border);
-          --epistemos-workspace-accent: \(accent);
-          --epistemos-workspace-title-font: "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-          --epistemos-workspace-heading-font: "ChonkyPixels", "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-          --epistemos-workspace-body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-        }
-
-        html[data-epistemos-theme] body,
-        html[data-epistemos-theme],
-        html[data-epistemos-theme] main.workspace {
-          background: var(--epistemos-workspace-bg) !important;
-          color: var(--epistemos-workspace-fg) !important;
-        }
-
-        html[data-epistemos-theme="dark"] body,
-        html[data-epistemos-theme="dark"] body :where(*):not(svg):not(path),
-        html[data-epistemos-theme="dark"] body :is(p, li, span, div, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
-          color: var(--epistemos-workspace-fg) !important;
-        }
-
-        html[data-epistemos-theme="dark"] body :is(.muted, .secondary, .subtle, .caption, .eyebrow, .meta, [data-muted]) {
-          color: var(--epistemos-workspace-muted) !important;
-        }
-
-        html[data-epistemos-theme="light"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
-          color: inherit;
-        }
-
-        html[data-epistemos-theme] body :is(h1, h2, h3, h4, h5, h6) {
-          color: var(--epistemos-workspace-fg) !important;
-        }
-
-        html[data-epistemos-theme] body a {
-          color: var(--epistemos-workspace-accent) !important;
-        }
-
-        html[data-epistemos-theme] body :is(hr, table, th, td, fieldset, input, textarea, select) {
-          border-color: var(--epistemos-workspace-border) !important;
-        }
-
-        html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card]) {
-          background: var(--epistemos-workspace-card);
-          border-color: var(--epistemos-workspace-border);
-        }
-        """
+        HTMLWorkspacePreviewThemeGuard.css(for: workspaceTheme)
     }
 
     private var workspaceThemeIdentity: String {
@@ -707,28 +589,9 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewRenderIdentity: String {
-        // SS-U (owner: "dark/light mode often crashes"): do NOT fold the theme hash
-        // into the preview WebView's SwiftUI identity. A light/dark flip changes the
-        // theme but NOT the content — if the theme is in the `.id`, every flip
-        // changes the identity and forces SwiftUI to dismantle+recreate the
-        // WKWebView mid-render. Tearing down a WKWebView with an attached
-        // script-message handler / in-flight loadHTMLString during a re-identity is a
-        // known WebKit fault window (it fired on every toggle while the workspace
-        // preview was open → "often crashes"). With the theme OUT of the identity an
-        // appearance flip instead drives updateNSView, which re-renders the LIVE
-        // WebView with the new previewTheme (HTMLWorkspacePreviewView.loadPreview) —
-        // no teardown, no crash. Identity stays shell-only: HTML/CSS/JS edits still
-        // recreate as intended, while data.json-only changes flow through
-        // HTMLWorkspacePreviewView's in-place data patch.
+        // Keep theme out of the SwiftUI identity: appearance flips should update the
+        // live WKWebView, not tear it down while script handlers or loads are active.
         HTMLWorkspacePreviewIdentity.viewIdentity(for: previewPackage)
-    }
-
-    private var workspaceAttachment: ContextAttachment {
-        ComposerReferenceHelpers.htmlWorkspaceAttachment(
-            workspaceID: package.manifest.id,
-            title: package.manifest.title,
-            fileURL: currentHTMLWorkspaceDocument()?.fileURL
-        )
     }
 
     private func saveDocument() {
@@ -738,6 +601,122 @@ struct HTMLWorkspaceEditorView: View {
             NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil)
         }
         statusText = "Save requested"
+    }
+
+    private func setAppBridgeEnabled(_ enabled: Bool) {
+        guard package.manifest.sandboxPolicy.allowAppBridge != enabled else { return }
+        var updated = package
+        updated.manifest.sandboxPolicy.allowAppBridge = enabled
+        updated.manifest.sandboxPolicy.safeAPIVersion = max(1, updated.manifest.sandboxPolicy.safeAPIVersion)
+        updated.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
+        updated.manifest.contentHash = HTMLWorkspaceDocument.contentHash(
+            indexHTML: updated.indexHTML,
+            styleCSS: updated.styleCSS,
+            scriptJS: updated.scriptJS,
+            dataJSON: updated.dataJSON,
+            routes: updated.routes
+        )
+        package = updated
+        schedulePreviewUpdate(updated)
+        statusText = enabled ? "App bridge enabled" : "App bridge disabled"
+    }
+
+    private func setPythonRuntimeEnabled(_ enabled: Bool) {
+        guard package.manifest.sandboxPolicy.allowPythonRuntime != enabled else { return }
+        var updated = package
+        updated.manifest.sandboxPolicy.allowPythonRuntime = enabled
+        updated.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
+        updated.manifest.contentHash = HTMLWorkspaceDocument.contentHash(
+            indexHTML: updated.indexHTML,
+            styleCSS: updated.styleCSS,
+            scriptJS: updated.scriptJS,
+            dataJSON: updated.dataJSON,
+            routes: updated.routes
+        )
+        package = updated
+        schedulePreviewUpdate(updated)
+        if enabled, !HTMLWorkspacePythonRuntime.isAvailable {
+            statusText = "Python enabled, but Pyodide assets are missing from this build"
+        } else {
+            statusText = enabled ? "Python runtime enabled" : "Python runtime disabled"
+        }
+    }
+
+    private func openRegenerateSheet() {
+        regenerateErrorText = nil
+        regenerateStreamText = ""
+        regenerateSheetPresented = true
+    }
+
+    private func beginRegenerateSurface() {
+        guard !isRegenerating else { return }
+        let instruction = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !instruction.isEmpty else {
+            regenerateErrorText = "Enter a regenerate request."
+            return
+        }
+
+        let sourcePackage = package
+        let expectedHash = HTMLWorkspaceDocument.contentHash(
+            indexHTML: sourcePackage.indexHTML,
+            styleCSS: sourcePackage.styleCSS,
+            scriptJS: sourcePackage.scriptJS,
+            dataJSON: sourcePackage.dataJSON,
+            routes: sourcePackage.routes
+        )
+        let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
+            instruction: instruction,
+            package: sourcePackage,
+            expectedContentHash: expectedHash
+        )
+
+        regenerateTask?.cancel()
+        regenerateStreamText = ""
+        regenerateErrorText = nil
+        isRegenerating = true
+        statusText = "Regenerating surface"
+
+        regenerateTask = Task { @MainActor in
+            defer {
+                isRegenerating = false
+                regenerateTask = nil
+            }
+            do {
+                var response = ""
+                let workspaceURL = currentHTMLWorkspaceDocument()?.fileURL
+                for try await chunk in gooseRegenerator.streamRegeneration(
+                    systemPrompt: HTMLWorkspaceRegeneratePromptBuilder.systemPrompt,
+                    prompt: prompt,
+                    workspaceURL: workspaceURL
+                ) {
+                    guard !Task.isCancelled else { throw CancellationError() }
+                    response += chunk
+                    regenerateStreamText = response
+                }
+
+                let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
+                    from: response,
+                    package: sourcePackage,
+                    expectedContentHash: expectedHash
+                )
+                let result = try HTMLWorkspaceRegenerateApplication.apply(
+                    patchResponse,
+                    to: package,
+                    expectedContentHash: expectedHash
+                )
+                package = result.package
+                previewPackage = result.package
+                selectedPane = .html
+                layoutMode = .split
+                regenerateErrorText = nil
+                statusText = "Regenerated surface"
+            } catch is CancellationError {
+                statusText = "Regenerate stopped"
+            } catch {
+                regenerateErrorText = error.localizedDescription
+                statusText = failedStatus("Regenerate", error: error)
+            }
+        }
     }
 
     private func copyPatchContext(for pane: HTMLWorkspaceSourcePane) {
@@ -1016,307 +995,5 @@ struct HTMLWorkspaceEditorView: View {
             guard !Task.isCancelled else { return }
             previewPackage = newPackage
         }
-    }
-}
-
-private enum HTMLWorkspaceLayoutMode: String, CaseIterable, Identifiable {
-    case split
-    case source
-    case preview
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .split: "Split"
-        case .source: "Source"
-        case .preview: "Preview"
-        }
-    }
-}
-
-nonisolated enum HTMLWorkspaceHTMLImporter {
-    struct ImportedSources {
-        var html: String
-        var css: String
-        var js: String
-        var dataJSON: String
-    }
-
-    private static let generatedStyleIDs: Set<String> = [
-        "epistemos-font-face",
-        "epistemos-theme-guard",
-        "epistemos-theme-host",
-    ]
-    private static let generatedScriptIDs: Set<String> = [
-        "epistemos-workspace-runtime",
-    ]
-
-    static func importSources(from source: String) -> ImportedSources {
-        let dataJSON = firstCapture(
-            pattern: #"(?is)<script[^>]*id\s*=\s*["']workspace-data["'][^>]*>(.*?)</script>"#,
-            in: source
-        ).map(decodeScriptData) ?? ""
-        let css = styleBodies(in: source)
-        .joined(separator: "\n\n")
-        let js = scriptBodies(in: source).joined(separator: "\n\n")
-
-        let rawBody = firstCapture(pattern: #"(?is)<body[^>]*>(.*?)</body>"#, in: source) ?? source
-        let cleanedBody = rawBody
-            .replacingOccurrences(
-                of: #"(?is)<script[^>]*>.*?</script>"#,
-                with: "",
-                options: [.regularExpression]
-            )
-            .replacingOccurrences(
-                of: #"(?is)<style[^>]*>.*?</style>"#,
-                with: "",
-                options: [.regularExpression]
-            )
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return ImportedSources(
-            html: cleanedBody.isEmpty ? "<main></main>" : cleanedBody,
-            css: css,
-            js: js,
-            dataJSON: dataJSON
-        )
-    }
-
-    private static func captures(pattern: String, in source: String) -> [String] {
-        guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return expression.matches(in: source, range: range).compactMap { match in
-            guard let captureRange = Range(match.range(at: 1), in: source) else { return nil }
-            return String(source[captureRange]).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-    }
-
-    private static func firstCapture(pattern: String, in source: String) -> String? {
-        captures(pattern: pattern, in: source).first
-    }
-
-    private static func styleBodies(in source: String) -> [String] {
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)<style\b([^>]*)>(.*?)</style>"#) else {
-            return []
-        }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return expression.matches(in: source, range: range).compactMap { match in
-            guard let attributesRange = Range(match.range(at: 1), in: source),
-                  let bodyRange = Range(match.range(at: 2), in: source) else { return nil }
-            let attributes = String(source[attributesRange])
-            if let styleID = capturedID(in: attributes)?.lowercased(), generatedStyleIDs.contains(styleID) {
-                return nil
-            }
-            return String(source[bodyRange])
-        }
-    }
-
-    private static func scriptBodies(in source: String) -> [String] {
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)<script\b([^>]*)>(.*?)</script>"#) else {
-            return []
-        }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return expression.matches(in: source, range: range).compactMap { match in
-            guard let attributesRange = Range(match.range(at: 1), in: source),
-                  let bodyRange = Range(match.range(at: 2), in: source) else { return nil }
-            let attributes = String(source[attributesRange])
-            if !shouldImportScript(type: capturedAttribute("type", in: attributes)) {
-                return nil
-            }
-            if let scriptID = capturedID(in: attributes)?.lowercased(),
-               generatedScriptIDs.contains(scriptID) || scriptID == "workspace-data" {
-                return nil
-            }
-            let body = String(source[bodyRange])
-            if body.contains("Object.defineProperty(window, 'HTMLWorkspace'") {
-                return nil
-            }
-            return body
-        }
-    }
-
-    private static func shouldImportScript(type rawType: String?) -> Bool {
-        guard let rawType else { return true }
-        let normalized = rawType
-            .split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false)
-            .first
-            .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased() ?? ""
-        guard !normalized.isEmpty else { return true }
-        return normalized == "module"
-            || normalized == "text/javascript"
-            || normalized == "application/javascript"
-            || normalized == "text/ecmascript"
-            || normalized == "application/ecmascript"
-    }
-
-    private static func capturedID(in attributes: String) -> String? {
-        capturedAttribute("id", in: attributes)
-    }
-
-    private static func capturedAttribute(_ name: String, in attributes: String) -> String? {
-        let escapedName = NSRegularExpression.escapedPattern(for: name)
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)\b\#(escapedName)\s*=\s*["']([^"']+)["']"#) else {
-            return nil
-        }
-        let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
-        guard let match = expression.firstMatch(in: attributes, range: range),
-              let idRange = Range(match.range(at: 1), in: attributes) else {
-            return nil
-        }
-        return String(attributes[idRange])
-    }
-
-    private static func decodeBasicHTMLEntities(_ source: String) -> String {
-        source
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&amp;", with: "&")
-    }
-
-    private static func decodeScriptData(_ source: String) -> String {
-        decodeBasicHTMLEntities(source)
-            .replacingOccurrences(of: #"<\/script"#, with: "</script", options: [.caseInsensitive])
-            .replacingOccurrences(of: #"<\!--"#, with: "<!--")
-    }
-}
-
-private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
-    case html
-    case css
-    case js
-    case data
-    case routes
-    case dom
-    case assets
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .html: "HTML"
-        case .css: "CSS"
-        case .js: "JS"
-        case .data: "Data"
-        case .routes: "Routes"
-        case .dom: "DOM"
-        case .assets: "Assets"
-        }
-    }
-
-    var fileName: String {
-        switch self {
-        case .html: "index.html"
-        case .css: "style.css"
-        case .js: "main.js"
-        case .data: "data.json"
-        case .routes: "routes/"
-        case .dom: "DOM Outline"
-        case .assets: "Package"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .html: "chevron.left.forwardslash.chevron.right"
-        case .css: "paintbrush"
-        case .js: "curlybraces"
-        case .data: "tablecells"
-        case .routes: "map"
-        case .dom: "point.3.connected.trianglepath.dotted"
-        case .assets: "shippingbox"
-        }
-    }
-
-    var documentSurfacePane: DocumentSurfacePane {
-        switch self {
-        case .html: .html
-        case .css: .css
-        case .js: .js
-        case .data: .data
-        case .routes: .routes
-        case .dom: .dom
-        case .assets: .assets
-        }
-    }
-
-    func subtitle(
-        for package: HTMLWorkspacePackage,
-        domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
-    ) -> String {
-        let resolvedDOMSnapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
-        return switch self {
-        case .html: "DOM structure"
-        case .css: "Presentation"
-        case .js: "Local behavior"
-        case .data: "Structured state"
-        case .routes: "\(package.routes.count) routes"
-        case .dom: "\(resolvedDOMSnapshot.nodeCount) \(resolvedDOMSnapshot.source.label) nodes"
-        case .assets: "\(package.assets.count) assets, \(package.snapshots.count) snapshots"
-        }
-    }
-
-    func metricText(
-        for package: HTMLWorkspacePackage,
-        domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
-    ) -> String {
-        let resolvedDOMSnapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
-        return switch self {
-        case .html: Self.counts(for: package.indexHTML)
-        case .css: Self.counts(for: package.styleCSS)
-        case .js: Self.counts(for: package.scriptJS)
-        case .data: Self.counts(for: package.dataJSON)
-        case .routes: "\(package.routes.count) routes"
-        case .dom: "\(resolvedDOMSnapshot.nodeCount) \(resolvedDOMSnapshot.source.label) nodes"
-        case .assets: "\(package.assets.count + package.snapshots.count) files"
-        }
-    }
-
-    private static func counts(for source: String) -> String {
-        let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
-        return "\(lines) lines / \(source.count) chars"
-    }
-}
-
-private struct HTMLWorkspaceToolbarIconButtonStyle: ButtonStyle {
-    let theme: EpistemosTheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12.5, weight: .semibold))
-            .foregroundStyle(theme.resolved.accent.color)
-            .frame(width: 32, height: 30)
-            .contentShape(Rectangle())
-            .background {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(theme.resolved.accent.color.opacity(configuration.isPressed ? 0.22 : 0.11))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(theme.resolved.accent.color.opacity(theme.isDark ? 0.26 : 0.20), lineWidth: 0.75)
-            }
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(.snappy(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
-private extension NSColor {
-    var htmlWorkspaceCSSColor: String {
-        htmlWorkspaceCSSColor(opacity: nil)
-    }
-
-    func htmlWorkspaceCSSColor(opacity overrideOpacity: CGFloat?) -> String {
-        let color = usingColorSpace(.sRGB) ?? self
-        let red = Int((color.redComponent * 255).rounded())
-        let green = Int((color.greenComponent * 255).rounded())
-        let blue = Int((color.blueComponent * 255).rounded())
-        let alpha = overrideOpacity ?? color.alphaComponent
-        if alpha >= 0.999 {
-            return String(format: "#%02X%02X%02X", red, green, blue)
-        }
-        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }

@@ -528,7 +528,8 @@ impl GraphToolExecutor {
         use crate::vault::VaultExecutor;
         use std::collections::{BTreeMap, HashSet};
 
-        let args: PopulateFromVaultArgs = serde_json::from_value(args).map_err(|e| e.to_string())?;
+        let args: PopulateFromVaultArgs =
+            serde_json::from_value(args).map_err(|e| e.to_string())?;
         let excerpt_chars = args.excerpt_chars.min(2000);
 
         let root_str = self
@@ -539,10 +540,12 @@ impl GraphToolExecutor {
             .ok_or_else(|| format!("vault root is not a directory: {}", self.root.display()))?;
 
         // Idempotent re-sync: remove prior vault-sourced nodes + any edge touching one + their session refs.
-        store.nodes.retain(|id, _| !id.starts_with(VAULT_NODE_PREFIX));
         store
-            .edges
-            .retain(|_, e| !e.from.starts_with(VAULT_NODE_PREFIX) && !e.to.starts_with(VAULT_NODE_PREFIX));
+            .nodes
+            .retain(|id, _| !id.starts_with(VAULT_NODE_PREFIX));
+        store.edges.retain(|_, e| {
+            !e.from.starts_with(VAULT_NODE_PREFIX) && !e.to.starts_with(VAULT_NODE_PREFIX)
+        });
         for ids in store.sessions.values_mut() {
             ids.retain(|id| !id.starts_with(VAULT_NODE_PREFIX));
         }
@@ -583,7 +586,13 @@ impl GraphToolExecutor {
                 match basename_to_id.get(&target) {
                     Some(to_id) if to_id != from_id => {
                         if seen_edges.insert((from_id.clone(), to_id.clone())) {
-                            self.insert_edge(store, from_id, to_id, "links_to", json!({ "source": "vault" }));
+                            self.insert_edge(
+                                store,
+                                from_id,
+                                to_id,
+                                "links_to",
+                                json!({ "source": "vault" }),
+                            );
                             edge_count += 1;
                         }
                     }
@@ -801,7 +810,10 @@ fn default_excerpt_chars() -> usize {
 
 /// Deterministic vault node id from a note basename (blake3-hashed → charset-safe + stable across runs).
 fn vault_node_id(basename: &str) -> String {
-    format!("{VAULT_NODE_PREFIX}{}", &blake3_hex(basename.as_bytes())[..16])
+    format!(
+        "{VAULT_NODE_PREFIX}{}",
+        &blake3_hex(basename.as_bytes())[..16]
+    )
 }
 
 /// Human title for a note node = filename without the `.md` extension, original case preserved.

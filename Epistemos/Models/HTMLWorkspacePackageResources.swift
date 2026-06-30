@@ -145,6 +145,8 @@ nonisolated enum HTMLWorkspacePackageResources {
         case "webm": "video/webm"
         case "mp3": "audio/mpeg"
         case "wav": "audio/wav"
+        case "wasm": "application/wasm"
+        case "zip": "application/zip"
         case "woff": "font/woff"
         case "woff2": "font/woff2"
         case "ttf": "font/ttf"

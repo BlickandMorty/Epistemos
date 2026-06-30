@@ -42,13 +42,31 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
 @MainActor
 private struct HTMLWorkspaceDocumentRoot: View {
     @Binding var package: HTMLWorkspacePackage
+    let document: HTMLWorkspaceDocument
+    @State private var packageRevision = 0
 
     var body: some View {
-        if let bootstrap = AppBootstrap.shared {
-            HTMLWorkspaceDocumentThemedRoot(package: $package)
-                .withAppEnvironment(bootstrap)
-        } else {
-            HTMLWorkspaceEditorView(package: $package, theme: nil)
+        Group {
+            if let bootstrap = AppBootstrap.shared {
+                HTMLWorkspaceDocumentThemedRoot(
+                    package: $package,
+                    packageRevision: packageRevision
+                )
+                    .withAppEnvironment(bootstrap)
+            } else {
+                HTMLWorkspaceEditorView(
+                    package: $package,
+                    theme: nil,
+                    externalRevision: packageRevision
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .htmlWorkspacePackageDidChange)) { notification in
+            guard let changedDocument = notification.object as? HTMLWorkspaceDocument,
+                  changedDocument === document else {
+                return
+            }
+            packageRevision &+= 1
         }
     }
 }
@@ -57,9 +75,14 @@ private struct HTMLWorkspaceDocumentRoot: View {
 private struct HTMLWorkspaceDocumentThemedRoot: View {
     @Environment(UIState.self) private var ui
     @Binding var package: HTMLWorkspacePackage
+    let packageRevision: Int
 
     var body: some View {
-        HTMLWorkspaceEditorView(package: $package, theme: ui.theme.surfaceVariant(.other))
+        HTMLWorkspaceEditorView(
+            package: $package,
+            theme: ui.theme.surfaceVariant(.other),
+            externalRevision: packageRevision
+        )
             .preferredColorScheme(ui.preferredColorScheme)
     }
 }
@@ -216,7 +239,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             dataJSON: package.dataJSON,
             routes: package.routes
         )
-        HTMLWorkspaceChatContextSnapshot(
+        return HTMLWorkspaceChatContextSnapshot(
             workspaceID: package.manifest.id,
             title: package.manifest.title,
             contentHash: currentContentHash,
@@ -264,7 +287,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                     self.setPackage(newPackage)
                 }
             )
-            let rootView = HTMLWorkspaceDocumentRoot(package: binding)
+            let rootView = HTMLWorkspaceDocumentRoot(package: binding, document: self)
             let hostingController = NSHostingController(rootView: rootView)
 
             let contentController: NSViewController

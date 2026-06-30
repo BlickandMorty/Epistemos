@@ -4,15 +4,13 @@ import Foundation
 @testable import Epistemos
 
 // SS-HW (owner 2026-06-20: "the html workspace does not work as well but idk if its marked as such").
-// These pin the HONEST capability ledger: the live entries are the real working ones, the deferred
-// seams are marked NOT live (no fake-green), and the summary says works-but-partial rather than
-// reading as complete. Verified against code (safeAPI path is diagnostic-only, console capture env-gated,
-// live DOM outline and package-local routes but no picker/style inspector, no Pyodide, and no full
-// regenerate UX).
+// These pin the HONEST capability ledger: live means proven in-app, not merely wired in code.
+// The formerly deferred HTML Workspace seams were proven on 2026-06-30: Goose regenerate,
+// app bridge, console capture, DOM picker/style inspection, and build-vendored Pyodide.
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
-    @Test("the live capabilities are the real working ones (renderer / editor / agent-patch / data feed)")
+    @Test("the live capabilities are the real working ones")
     func liveCapabilitiesAreReal() {
         let live = HTMLWorkspaceCapabilityStatus.capabilities.filter(\.isLive).map(\.name)
         #expect(live.contains { $0.contains("editing") })
@@ -21,35 +19,38 @@ struct SSHWCapabilityStatusTests {
         #expect(live.contains { $0.contains("routes") })
         #expect(live.contains { $0.contains("data.json") })
         #expect(live.contains { $0.contains("Live-DOM outline") })
+        #expect(live.contains { $0.contains("Full-surface regenerate") })
+        #expect(live.contains { $0.contains("App message-bridge") })
+        #expect(live.contains { $0.contains("JS console") })
+        #expect(live.contains { $0.contains("DOM picker") })
+        #expect(live.contains { $0.contains("Python") })
     }
 
-    @Test("the deferred seams are honestly marked NOT live (no fake-green)")
-    func deferredSeamsAreMarkedNotLive() {
-        let deferred = HTMLWorkspaceCapabilityStatus.capabilities.filter { !$0.isLive }.map(\.name)
-        #expect(deferred.contains { $0.contains("bridge") })       // app message-bridge remains deferred
+    @Test("formerly deferred seams are only live with proof notes")
+    func formerlyDeferredSeamsCarryProofNotes() {
         let appBridge = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "App message-bridge" }
-        #expect(appBridge?.note.contains("diagnostic-only") == true)
-        #expect(appBridge?.note.contains("no app commands are wired") == true)
+        #expect(appBridge?.isLive == true)
+        #expect(appBridge?.note.contains("Sandbox-gated") == true)
         let regenerate = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Full-surface regenerate" }
-        #expect(regenerate?.note.contains("manifest provenance") == true)
-        #expect(deferred.contains { $0.contains("Python") })       // no Python today
-        #expect(deferred.contains { $0.contains("DOM picker") })   // no picker/style inspector yet
-        #expect(deferred.contains { $0.contains("regenerate") })   // no streaming regenerate UX yet
+        #expect(regenerate?.isLive == true)
+        #expect(regenerate?.note.contains("Goose-only") == true)
+        let python = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Python (Pyodide / WASM)" }
+        #expect(python?.isLive == true)
+        #expect(python?.note.contains("Pyodide result: 45") == true)
     }
 
-    @Test("counts + summary are consistent + honest (works-but-partial, never 'complete')")
+    @Test("counts + summary are consistent + honest")
     func countsAndSummaryConsistent() {
         let total = HTMLWorkspaceCapabilityStatus.capabilities.count
         #expect(HTMLWorkspaceCapabilityStatus.liveCount + HTMLWorkspaceCapabilityStatus.deferredCount == total)
-        #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
-        #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
+        #expect(HTMLWorkspaceCapabilityStatus.liveCount == total)
+        #expect(HTMLWorkspaceCapabilityStatus.deferredCount == 0)
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("routes"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("PDF export"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("live DOM outline"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("console capture is wired but env-gated"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("deferred"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("DOM picker/style inspector"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("regenerate UX"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Goose"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("click-to-inspect"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"))
     }
 }

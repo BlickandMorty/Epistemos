@@ -60,6 +60,14 @@ struct GooseNativeModelsView: View {
         .padding(20)
         .frame(minWidth: 460, minHeight: 360)
         .task { await reload() }
+        .onChange(of: bridge.status) { _, status in
+            if case .connected = status {
+                Task { await reload() }
+            }
+        }
+        .onChange(of: bridge.providersSyncedGeneration) { _, _ in
+            Task { await reload() }
+        }
     }
 
     // MARK: - Sections

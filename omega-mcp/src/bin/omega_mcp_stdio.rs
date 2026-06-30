@@ -115,7 +115,11 @@ pub fn handle(
             // Count advertised tools for the stderr diagnostic (helps debug "Failed to get tools").
             let count = serde_json::from_str::<Value>(&scoped)
                 .ok()
-                .and_then(|v| v.get("result").and_then(|r| r.get("tools")).and_then(|t| t.as_array().map(|a| a.len())))
+                .and_then(|v| {
+                    v.get("result")
+                        .and_then(|r| r.get("tools"))
+                        .and_then(|t| t.as_array().map(|a| a.len()))
+                })
                 .unwrap_or(0);
             eprintln!("[omega_mcp_stdio] tools/list → {count} tools");
             Some(scoped)
@@ -167,13 +171,21 @@ mod tests {
         let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
         let resp = handle(&d, "", r#"{"jsonrpc":"2.0","method":"initialize","id":1}"#).unwrap();
         assert!(resp.contains("epistemos-vault"), "{resp}");
-        assert!(resp.contains("\"tools\"") && resp.contains("\"resources\""), "{resp}");
+        assert!(
+            resp.contains("\"tools\"") && resp.contains("\"resources\""),
+            "{resp}"
+        );
     }
 
     #[test]
     fn notifications_get_no_response() {
         let d = omega_mcp::dispatcher::MCPDispatcher::new_in_memory();
-        assert!(handle(&d, "", r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).is_none());
+        assert!(handle(
+            &d,
+            "",
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#
+        )
+        .is_none());
     }
 
     #[test]
@@ -182,8 +194,14 @@ mod tests {
         let resp = handle(&d, "", r#"{"jsonrpc":"2.0","method":"ping","id":9}"#).unwrap();
         let v: Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["id"], 9);
-        assert!(v["result"].is_object() && v["result"].as_object().unwrap().is_empty(), "{resp}");
-        assert!(v.get("error").is_none(), "ping must NOT be an error (clients drop on ping failure): {resp}");
+        assert!(
+            v["result"].is_object() && v["result"].as_object().unwrap().is_empty(),
+            "{resp}"
+        );
+        assert!(
+            v.get("error").is_none(),
+            "ping must NOT be an error (clients drop on ping failure): {resp}"
+        );
     }
 
     #[test]
@@ -196,7 +214,12 @@ mod tests {
         let d = dispatcher_with_vault(&root);
 
         // tools/list comes from the dispatcher's catalog.
-        let listed = handle(&d, &root, r#"{"jsonrpc":"2.0","method":"tools/list","id":1}"#).unwrap();
+        let listed = handle(
+            &d,
+            &root,
+            r#"{"jsonrpc":"2.0","method":"tools/list","id":1}"#,
+        )
+        .unwrap();
         assert!(listed.contains("backlinks"), "{listed}");
 
         // tools/call executes the Rust vault tool (backlinks: a links to b).
@@ -205,10 +228,18 @@ mod tests {
             r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"backlinks","arguments":{"target":"b"}},"id":2}"#,
         ).unwrap();
         assert!(called.contains("a.md"), "{called}");
-        assert!(called.contains("\"content\""), "MCP content wrapper: {called}");
+        assert!(
+            called.contains("\"content\""),
+            "MCP content wrapper: {called}"
+        );
 
         // resources/list is served by the dispatcher (vault notes as resources).
-        let res = handle(&d, &root, r#"{"jsonrpc":"2.0","method":"resources/list","id":3}"#).unwrap();
+        let res = handle(
+            &d,
+            &root,
+            r#"{"jsonrpc":"2.0","method":"resources/list","id":3}"#,
+        )
+        .unwrap();
         assert!(res.contains("vault:///a.md"), "{res}");
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -231,11 +262,20 @@ mod tests {
 
         // executable tools are advertised…
         assert!(names.iter().any(|n| n == "backlinks"), "{names:?}");
-        assert!(names.iter().any(|n| n == "graph.populate_from_vault"), "{names:?}");
+        assert!(
+            names.iter().any(|n| n == "graph.populate_from_vault"),
+            "{names:?}"
+        );
         assert!(names.iter().any(|n| n == "patch_note"), "{names:?}");
         // …phantom (in-app / Swift-side) tools are NOT.
-        assert!(!names.iter().any(|n| n == "screenshot"), "computer-use leaked: {names:?}");
-        assert!(!names.iter().any(|n| n == "move_file"), "non-executable file tool leaked: {names:?}");
+        assert!(
+            !names.iter().any(|n| n == "screenshot"),
+            "computer-use leaked: {names:?}"
+        );
+        assert!(
+            !names.iter().any(|n| n == "move_file"),
+            "non-executable file tool leaked: {names:?}"
+        );
         // every advertised tool is one the server can actually run.
         for n in &names {
             assert!(

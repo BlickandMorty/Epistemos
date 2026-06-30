@@ -449,6 +449,7 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("readpagecontent", "web.extract"),
     ("searchpapers", "research.search_papers"),
     ("web_extract", "web.extract"),
+    ("web_extract_schema", "web.extract_schema"),
     ("web_crawl", "web.crawl"),
     ("route_private", "inference.route_private"),
     ("clarify", "clarify.ask"),
@@ -497,6 +498,7 @@ pub const PRO_LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("screen_watch", "macos.screen_watch"),
     ("nightbrain_trigger", "intelligence.nightbrain_trigger"),
     ("inline_partner", "intelligence.inline_partner"),
+    ("browser_complete_task", "browser.complete_task"),
 ];
 
 pub fn v2_name_for_legacy(name: &str) -> Option<&'static str> {
@@ -1106,6 +1108,7 @@ impl ToolRegistry {
             "web_search",
             "searchpapers",
             "web_extract",
+            "web_extract_schema",
             "web_fetch",
             // Vault reads
             "vault_search",
@@ -2594,6 +2597,9 @@ impl ToolRegistry {
             search_papers_schema, web_crawl_schema, web_extract_schema, web_search_schema,
             SearchPapersHandler, WebCrawlHandler, WebExtractHandler, WebSearchHandler,
         };
+        use crate::tools::web_extract_schema::{
+            web_extract_schema_structured_schema, WebExtractSchemaHandler,
+        };
         use crate::tools::web_fetch::{web_fetch_tool_schema, WebFetchTool};
 
         let fetch = web_fetch_tool_schema();
@@ -2654,6 +2660,21 @@ impl ToolRegistry {
             Err(e) => tracing::warn!("web_extract registration skipped: {e}"),
         }
 
+        match WebExtractSchemaHandler::new() {
+            Ok(handler) => {
+                let schema = web_extract_schema_structured_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+                    tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("web_extract_schema registration skipped: {e}"),
+        }
+
         match WebCrawlHandler::new() {
             Ok(handler) => {
                 let schema = web_crawl_schema();
@@ -2678,6 +2699,19 @@ impl ToolRegistry {
                 browser_type_schema, browser_vision_schema, BrowserAction, BrowserActionHandler,
                 BrowserManager,
             };
+            use crate::tools::browser_complete_task::{
+                browser_complete_task_schema, BrowserCompleteTaskHandler,
+            };
+
+            let browser_complete_task = browser_complete_task_schema();
+            self.register(RegisteredTool {
+                name: browser_complete_task.name,
+                description: browser_complete_task.description,
+                parameters: browser_complete_task.parameters,
+                handler: Box::new(BrowserCompleteTaskHandler::new()),
+                risk_level: RiskLevel::Destructive,
+                tier: ToolTier::Agent,
+            });
 
             let browser_manager = BrowserManager::new();
             let mut register_browser =
@@ -3555,6 +3589,10 @@ mod tier_tests {
     use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
     use async_trait::async_trait;
     use std::collections::{HashMap, HashSet};
+    #[cfg(feature = "pro-build")]
+    use std::fs;
+    #[cfg(all(unix, feature = "pro-build"))]
+    use std::os::unix::fs::PermissionsExt;
     use std::sync::Mutex as TestMutex;
 
     /// Minimal vault stub for registry construction in unit tests.
@@ -3731,6 +3769,16 @@ mod tier_tests {
             Some(vault_root.to_path_buf()),
             tier,
         )
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn set_executable(path: &std::path::Path) {
+        #[cfg(unix)]
+        {
+            let mut permissions = fs::metadata(path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(path, permissions).unwrap();
+        }
     }
 
     // Available under BOTH builds: the schema-gate test below
@@ -4060,6 +4108,25 @@ mod tier_tests {
         assert_eq!(v2_name_for_legacy("read_file"), Some("file.read"));
         assert_eq!(legacy_name_for_v2("file.read"), Some("read_file"));
         assert_eq!(
+            v2_name_for_legacy("web_extract_schema"),
+            Some("web.extract_schema")
+        );
+        assert_eq!(
+            legacy_name_for_v2("web.extract_schema"),
+            Some("web_extract_schema")
+        );
+        #[cfg(feature = "pro-build")]
+        {
+            assert_eq!(
+                v2_name_for_legacy("browser_complete_task"),
+                Some("browser.complete_task")
+            );
+            assert_eq!(
+                legacy_name_for_v2("browser.complete_task"),
+                Some("browser_complete_task")
+            );
+        }
+        assert_eq!(
             v2_name_for_legacy("think"),
             None,
             "think intentionally stays legacy-shaped until reason.think can preserve output parity"
@@ -4106,7 +4173,7 @@ mod tier_tests {
             .map(|tool| tool.name)
             .collect();
 
-        for canonical in [
+        let expected_canonical = [
             "vault.search",
             "vault.read",
             "vault.list",
@@ -4115,20 +4182,28 @@ mod tier_tests {
             "research.collect_snippet",
             "citation.save",
             "research.search_papers",
+            "web.extract_schema",
             "file.read",
             "file.search",
             "eidos.query",
             "knowledge.recall",
             "knowledge.evidence_score",
             "graph.neighbors",
-        ] {
+        ];
+        #[cfg(feature = "pro-build")]
+        assert!(
+            names.contains("browser.complete_task"),
+            "model-facing catalog must expose browser.complete_task in Pro builds; got {names:?}"
+        );
+
+        for canonical in expected_canonical {
             assert!(
                 names.contains(canonical),
                 "model-facing catalog must expose V2 tool name {canonical}; got {names:?}"
             );
         }
 
-        for legacy in [
+        let hidden_legacy = [
             "vault_search",
             "vault_read",
             "create_note",
@@ -4137,6 +4212,7 @@ mod tier_tests {
             "collectsnippet",
             "savecitation",
             "searchpapers",
+            "web_extract_schema",
             "read_file",
             "search_files",
             "eidos_query",
@@ -4144,7 +4220,14 @@ mod tier_tests {
             "vault_recall",
             "scoreevidence",
             "pkm_graph_neighbors",
-        ] {
+        ];
+        #[cfg(feature = "pro-build")]
+        assert!(
+            !names.contains("browser_complete_task"),
+            "legacy browser_complete_task name must not be model-facing once a V2 alias exists"
+        );
+
+        for legacy in hidden_legacy {
             assert!(
                 !names.contains(legacy),
                 "legacy tool name {legacy} must not be model-facing once a V2 alias exists"
@@ -4165,10 +4248,15 @@ mod tier_tests {
         assert!(names.contains(&"research.collect_snippet".to_string()));
         assert!(names.contains(&"citation.save".to_string()));
         assert!(names.contains(&"research.search_papers".to_string()));
+        assert!(names.contains(&"web.extract_schema".to_string()));
+        #[cfg(feature = "pro-build")]
+        assert!(names.contains(&"browser.complete_task".to_string()));
         assert!(!names.contains(&"vault_search".to_string()));
         assert!(!names.contains(&"eidos_query".to_string()));
         assert!(!names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"list_notes".to_string()));
+        assert!(!names.contains(&"web_extract_schema".to_string()));
+        assert!(!names.contains(&"browser_complete_task".to_string()));
     }
 
     #[tokio::test]
@@ -4187,6 +4275,77 @@ mod tier_tests {
 
         assert_eq!(canonical, "");
         assert_eq!(legacy, "");
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[tokio::test]
+    async fn execute_v2_routes_browser_complete_task_through_canonical_alias() {
+        let _env_guard = crate::test_support::env_lock();
+        let temp = tempfile::tempdir().unwrap();
+        let bin_dir = temp.path().join("bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+        let script_path = bin_dir.join("agent-browser");
+        fs::write(
+            &script_path,
+            r#"#!/bin/sh
+set -eu
+if [ -n "${FAKE_BROWSER_LOG:-}" ]; then
+  printf '%s\n' "$*" >> "$FAKE_BROWSER_LOG"
+fi
+printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted browser-use task complete","steps":2,"is_done":true,"successful":true,"errors":[],"used_browser_use_agent":true,"dry_run":false,"truncated":false}}\n'
+"#,
+        )
+        .unwrap();
+        set_executable(&script_path);
+
+        let old_path = std::env::var_os("PATH");
+        let old_log = std::env::var_os("FAKE_BROWSER_LOG");
+        let path_value = match &old_path {
+            Some(path) => {
+                let mut value = std::ffi::OsString::from(&bin_dir);
+                value.push(":");
+                value.push(path);
+                value
+            }
+            None => std::ffi::OsString::from(&bin_dir),
+        };
+        let log_path = temp.path().join("browser.log");
+        std::env::set_var("PATH", path_value);
+        std::env::set_var("FAKE_BROWSER_LOG", &log_path);
+
+        let registry = build_registry(ToolTier::Agent);
+        let output = registry
+            .execute_v2(
+                "browser.complete_task",
+                &serde_json::json!({
+                    "task": "Find the Example Domain title",
+                    "max_steps": 4
+                }),
+            )
+            .await;
+
+        match old_path {
+            Some(value) => std::env::set_var("PATH", value),
+            None => std::env::remove_var("PATH"),
+        }
+        match old_log {
+            Some(value) => std::env::set_var("FAKE_BROWSER_LOG", value),
+            None => std::env::remove_var("FAKE_BROWSER_LOG"),
+        }
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output.expect("browser.complete_task should execute")).unwrap();
+        assert_eq!(parsed["success"], serde_json::json!(true));
+        assert_eq!(
+            parsed["final_result"],
+            serde_json::json!("fake dotted browser-use task complete")
+        );
+        assert_eq!(parsed["max_steps"], serde_json::json!(4));
+
+        let log = fs::read_to_string(log_path).unwrap();
+        assert!(log.contains("--json task"));
+        assert!(log.contains("Find the Example Domain title"));
+        assert!(log.contains(" 4"));
     }
 
     #[tokio::test]
@@ -4522,6 +4681,35 @@ mod tier_tests {
         );
     }
 
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn pro_registry_registers_browser_complete_task() {
+        let registry = build_registry(ToolTier::Agent);
+        let registered_names: std::collections::HashSet<String> = registry
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert!(
+            registered_names.contains("browser_complete_task"),
+            "Pro registry must expose the high-level browser-use subordinate task tool"
+        );
+
+        let surfaced_names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert!(
+            surfaced_names.contains("browser.complete_task"),
+            "Pro model-facing catalog must surface browser-use delegation under the canonical dotted name"
+        );
+        assert!(
+            !surfaced_names.contains("browser_complete_task"),
+            "legacy browser_complete_task name must not leak into the model-facing catalog"
+        );
+    }
+
     #[cfg(not(feature = "pro-build"))]
     #[test]
     fn mas_sandbox_registry_excludes_unbounded_tools() {
@@ -4557,6 +4745,7 @@ mod tier_tests {
             "apple_reminders",
             "apple_calendar",
             "apple_mail",
+            "browser_complete_task",
             "browser_navigate",
             "browser_click",
             "browser_type",

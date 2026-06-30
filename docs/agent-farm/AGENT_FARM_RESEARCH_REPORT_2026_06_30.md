@@ -103,3 +103,38 @@ from the well-established economy-design literature, since the sources exist —
 
 ### Pass 2 sources (Bevy verified)
 [bevymark](https://bevy.org/examples/stress-tests/bevymark/) · [custom post-processing](https://bevy.org/examples/shaders/custom-post-processing/) · [transparent_window.rs](https://github.com/bevyengine/bevy/blob/main/examples/window/transparent_window.rs) · [Window docs](https://docs.rs/bevy/latest/bevy/window/struct.Window.html) · MoA (arXiv:2406.04692, ICLR 2025)
+
+## PASS 3 — framework lift-vs-build · believable→useful (106 agents)
+
+**VERDICT: every framework is DESIGN-LIFT ONLY — none code-lift to Rust. License is never the blocker; the STACK is.**
+| Framework | Stack | License | Verdict for native Rust/Bevy |
+|---|---|---|---|
+| Stanford Generative Agents | Python/Django + OpenAI | Apache-2.0 | **DESIGN-lift only** (runtime doesn't port) |
+| a16z AI Town | TypeScript/Convex/PixiJS | MIT | **DESIGN-lift only** (coupled to Convex cloud) — itself a Smallville reimpl |
+| Project Sid / PIANO | paper/PDF, no source | — | **DESIGN-lift only** (idea, not code) |
+| CAMEL / AutoGen / crewAI | Python | Apache-2.0 | stack-mismatched; FFI/subprocess or port |
+→ **Build the runtime FRESH in Rust/Bevy; lift the IDEAS, not the code.**
+
+**★ THE GOLDEN LIFTABLE PATTERN (confirms your split a 3rd time):** AI Town runs a **fixed 60 tick/sec engine but
+BATCHES ticks into one ~1/sec "step"** to amortize the expensive backend boundary, and separates **fast in-memory
+ticks from slow async LLM work** (`startOperation` for long-running ops). → This is the single most directly liftable
+design for your Bevy ECS schedule: **cheap deterministic systems every frame; LLM calls dispatched async + amortized.**
+Now triple-confirmed (Generative-Agents deterministic memory fn · AI Town batch-tick · PIANO multi-speed modules).
+**VERIFIED [3-0]:** ~30 PIANO agents that started identical **self-organized into specialized roles** (farmer/miner/
+guard/explorer/etc.) — but only *with social-awareness modules*, and it's a non-peer-reviewed preprint w/ the authors' own eval.
+
+**★ BELIEVABLE ≠ USEFUL (the most important caveat for YOUR goal).** The Generative-Agents architecture optimizes
+human-*likeness*, NOT correctness. For agents that produce genuinely useful research/markdown, you must ADD an explicit
+**grounding + verification + task-reward** objective on top of the believability loop — believable agents are not
+automatically *correct* ones. (Re-verify was rate-limited; takeaway is from the primary source docs.)
+
+---
+
+# ★ COMBINED BLUEPRINT — the Agent Farm v1 (synthesis of Passes 1–3)
+1. **Mascot brain = the 3-module Generative-Agents loop** (memory stream + reflection + planning — all load-bearing, ablation-proven). LIFT THE DESIGN, write Rust. ✅ high
+2. **Runtime = the batch-tick / async-LLM split** (triple-confirmed): cheap Rust ECS systems every frame (memory retrieval `recency·0.995 + importance + cosine`, movement, needs/drives, proximity); slow LLM work async + amortized ~1/sec (reflection gated on importance>150, planning, dialogue). ✅ high — *this is exactly your "Rust drives + LLM reasoning" instinct, now with real numbers.*
+3. **Engine = Bevy** — every primitive verified (10k+ entities, blur via custom shader, transparent widget windows, wgpu Mac/Win, channel-bridge for the brain). Caveats: blur = custom shader; renderer is young (lean on `bevy_ecs`; accept shader work or pair a lighter 2D renderer). ✅ high
+4. **Brains = Hermes, right repo for the job** — `hermes-agent` for multi-agent; `Hermes-Function-Calling` grammar for tool-calling mascots. **MoA (real, ICLR 2025) for quality-critical super-agents ONLY** (4× latency; Self-MoA contests it — not every mascot). ✅ med
+5. **Add a USEFULNESS objective** (grounding/verification/task-reward) so believable agents are also *correct*. ✅ design
+6. **Economy = budget-as-currency** ⚠️ *DESIGN-GROUNDED, not adversarially verified (rate-limited 3×).* Currency = token/compute; **every spend must be a real SINK (compute burned), not just agent→agent transfer** (that's the anti-infinite-money rule); earn by producing valued artifacts; per-agent caps via the AP2 Intent-Mandate (spend-rules-upfront) + Cart-Mandate (auto-execute-within-limits) pattern. **Confirm AP2/x402 against current docs before building.**
+7. **Frameworks = study, never fork** — design-lift the ideas above; the runtime is yours in Rust.

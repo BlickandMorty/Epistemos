@@ -732,6 +732,9 @@ EOF
     printf 'fake png bytes' > "$last"
     printf '{"success":true,"data":{"path":"%s","screenshot_root_present":%s}}\n' "$last" "$screenshot_root_present"
     ;;
+  task)
+    printf '{"success":true,"data":{"status":"completed","final_result":"fake browser-use task complete","steps":3,"max_steps":%s,"is_done":true,"successful":true,"errors":[],"used_browser_use_agent":true,"dry_run":false,"truncated":false}}\n' "$last"
+    ;;
   *)
     printf '{"success":true,"data":{}}\n'
     ;;
@@ -1001,6 +1004,72 @@ esac
             })
             .collect();
         assert_eq!(session_values[0], session_values[1]);
+    }
+
+    #[tokio::test]
+    async fn browser_live_vendor_adapter_smoke_when_enabled() {
+        let _env_guard = env_lock().lock().await;
+        if env::var_os("EPISTEMOS_BROWSER_USE_LIVE_SMOKE").is_none() {
+            return;
+        }
+
+        let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let vendor_root = manifest_root.join("vendor/browser-use");
+        assert!(
+            vendor_root.join("epistemos_agent_browser.py").is_file(),
+            "browser-use adapter missing from vendor root"
+        );
+        assert!(
+            vendor_root.join("playwright").is_dir(),
+            "vendored Playwright payload missing"
+        );
+        assert!(
+            manifest_root
+                .parent()
+                .unwrap()
+                .join("build/browser-use-pro/.venv/bin/python")
+                .is_file(),
+            "browser-use Pro venv missing; run build-pro-payload.sh"
+        );
+
+        let _vendor_root =
+            EnvGuard::set("EPISTEMOS_BROWSER_USE_VENDOR_ROOT", vendor_root.as_os_str());
+        let manager = BrowserManager::new();
+
+        let navigate = BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
+            .execute(&json!({ "url": "https://example.com" }))
+            .await
+            .unwrap();
+        let navigate: Value = serde_json::from_str(&navigate).unwrap();
+        assert_eq!(navigate["success"], json!(true));
+        assert_eq!(navigate["url"], json!("https://example.com/"));
+
+        let snapshot = BrowserActionHandler::new(manager.clone(), BrowserAction::Snapshot)
+            .execute(&json!({ "full": false }))
+            .await
+            .unwrap();
+        let snapshot: Value = serde_json::from_str(&snapshot).unwrap();
+        assert_eq!(snapshot["success"], json!(true));
+        assert!(
+            snapshot["snapshot"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("Example Domain"),
+            "snapshot should include loaded page text"
+        );
+
+        let console = BrowserActionHandler::new(manager.clone(), BrowserAction::Console)
+            .execute(&json!({ "expression": "document.title" }))
+            .await
+            .unwrap();
+        let console: Value = serde_json::from_str(&console).unwrap();
+        assert_eq!(console["success"], json!(true));
+        assert_eq!(console["evaluation"], json!("Example Domain"));
+
+        BrowserActionHandler::new(manager, BrowserAction::Close)
+            .execute(&json!({}))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

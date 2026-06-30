@@ -296,7 +296,7 @@ enum StartupAutoDiscovery {
             named: "agent-browser",
             path: environment["PATH"] ?? "/usr/local/bin:/usr/bin:/bin",
             fileManager: fileManager
-        )
+        ) || isBrowserUseProAdapterAvailable(fileManager: fileManager)
 
         return StartupAutoDiscoveryReport(
             credentialStatuses: statuses,
@@ -472,6 +472,15 @@ enum StartupAutoDiscovery {
                         .path
                 )
             }
+    }
+
+    nonisolated static func isBrowserUseProAdapterAvailable(
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard let paths = BrowserUseRuntimePaths.defaultPaths(fileManager: fileManager) else {
+            return false
+        }
+        return paths.hasExecutableAgentBrowserAdapter(fileManager: fileManager)
     }
 
     nonisolated static func log(_ report: StartupAutoDiscoveryReport) {

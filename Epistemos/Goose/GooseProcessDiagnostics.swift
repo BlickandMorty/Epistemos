@@ -1,11 +1,11 @@
 import Foundation
 
 enum GooseProcessDiagnostics {
-    static let maxBufferedLineBytes = 16 * 1024
-    static let maxStoredDiagnosticCharacters = 4096
-    private static let truncationSuffix = " ... [truncated]"
+    nonisolated static let maxBufferedLineBytes = 16 * 1024
+    nonisolated static let maxStoredDiagnosticCharacters = 4096
+    private nonisolated static let truncationSuffix = " ... [truncated]"
 
-    static func consume(
+    nonisolated static func consume(
         from handle: FileHandle,
         record: @escaping @Sendable (String) async -> Void
     ) async {
@@ -38,7 +38,7 @@ enum GooseProcessDiagnostics {
         await emit(buffer: buffer, truncated: truncated, record: record)
     }
 
-    static func boundedLine(buffer: [UInt8], truncated: Bool) -> String? {
+    nonisolated static func boundedLine(buffer: [UInt8], truncated: Bool) -> String? {
         var text = String(decoding: buffer, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || truncated else { return nil }
@@ -51,7 +51,7 @@ enum GooseProcessDiagnostics {
         return text.isEmpty ? nil : text
     }
 
-    private static func emit(
+    private nonisolated static func emit(
         buffer: [UInt8],
         truncated: Bool,
         record: @escaping @Sendable (String) async -> Void

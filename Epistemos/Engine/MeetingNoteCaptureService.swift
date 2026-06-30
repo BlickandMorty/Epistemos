@@ -30,9 +30,8 @@ nonisolated enum MeetingCaptureDiagnostics {
             }
         } else {
             let nsError = error as NSError
-            let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
-            let label = domain.isEmpty ? "Error" : domain
-            message = "Meeting note save failed (\(label) \(nsError.code))."
+            let domain = VoiceCaptureDiagnostics.safeDomain(nsError.domain)
+            message = "Meeting note save failed (domain=\(domain) code=\(nsError.code))."
         }
         return VoiceCapturePresentationBounds.statusMessage(message)
     }

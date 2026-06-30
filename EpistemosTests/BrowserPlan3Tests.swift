@@ -34,6 +34,8 @@ struct BrowserPlan3Tests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Browser/BrowserView.swift")
 
         #expect(source.contains("WKWebsiteDataStore.nonPersistent()"))
+        #expect(source.contains("BrowserTrackerContentBlocker.install"))
+        #expect(source.contains("webView.setValue(false, forKey: \"drawsBackground\")"))
         #expect(source.contains("BrowserURLGuard.allows"))
         #expect(source.contains("BrowserDisplayPolicy"))
         #expect(source.contains("maxRawInputLength"))
@@ -46,6 +48,7 @@ struct BrowserPlan3Tests {
         #expect(source.contains("Navigation failed (domain="))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
+        #expect(!source.contains(".foregroundStyle(.orange)"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewCreated()"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewDismantled()"))
         #expect(!source.contains("Goose"))
@@ -53,10 +56,17 @@ struct BrowserPlan3Tests {
         #expect(!source.localizedCaseInsensitiveContains("python"))
         #expect(!source.localizedCaseInsensitiveContains("chromium"))
         #expect(!source.contains("WebKitBrowserEngine"))
+
+        let blocker = try loadMirroredSourceTextFile("Epistemos/Engine/BrowserTrackerContentBlocker.swift")
+        #expect(blocker.contains("WKContentRuleListStore"))
+        #expect(blocker.contains("compileContentRuleList"))
+        #expect(blocker.contains("*doubleclick.net"))
+        #expect(blocker.contains("*google-analytics.com"))
+        #expect(!blocker.contains("customUserAgent"))
     }
 
     @Test("navigation cancellation is not surfaced as a browser error")
-    func navigationCancellationIsNotSurfacedAsError() {
+    func navigationCancellationIsNotSurfacedAsError() throws {
         let cancelled = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
         #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: cancelled) == nil)
 

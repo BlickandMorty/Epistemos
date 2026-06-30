@@ -81,3 +81,7 @@ Epistemos/KnowledgeFusion/MOHAWK/epistemos_training_data_validated/last_upload_m
 
 # OpenCode work-engine runtime — vendored at BUILD time by build-opencode-runtime.sh (Bun + OpenCode); never committed (like js-editor dist/node_modules)
 Epistemos/Resources/opencode-runtime/
+
+# generated caches (do not commit)
+.epcache/
+.epistemos/

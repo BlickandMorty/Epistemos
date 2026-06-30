@@ -17,7 +17,7 @@ enum PipelineStage: String, Codable, Sendable, CaseIterable {
     /// Human-readable display name for UI and intents.
     nonisolated var displayName: String {
         switch self {
-        case .triage: "Triage"
+        case .triage: "Intake"
         case .memory: "Memory"
         case .routing: "Routing"
         case .statistical: "Statistical"
@@ -33,7 +33,7 @@ enum PipelineStage: String, Codable, Sendable, CaseIterable {
     /// Short description for intent entities.
     nonisolated var stageDescription: String {
         switch self {
-        case .triage: "Initial assessment"
+        case .triage: "Input review"
         case .memory: "Context retrieval"
         case .routing: "Engine selection"
         case .statistical: "Statistical analysis"

@@ -62,6 +62,9 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(source.contains("let boundedLimit = Self.boundedProjectionLimit(limit)"))
         #expect(source.contains("eventStore.recentAgentEvents(limit: boundedLimit)"))
         #expect(source.contains("eventStore.recentGraphEvents(limit: boundedLimit)"))
+        #expect(source.contains("eventStore.recentMutationEnvelopes(limit: boundedLimit)"))
+        #expect(source.contains("editSupersessionProjections("))
+        #expect(source.contains("AgentEditSuperseded"))
         #expect(source.contains("subscribeRetractionEvents(afterSequence: 0, limit: boundedLimit)"))
         #expect(source.contains("pairs.append((\"tool\", displayValue(tool.toolName)))"))
         #expect(source.contains("pairs.append((\"label\", displayValue(relation.label)))"))
@@ -111,6 +114,47 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(service.subscribeRetractionEvents(limit: 10_000).count == 200)
         #expect(service.subscribeRetractionEvents(limit: -10).isEmpty)
         #expect(service.subscribeRetractionEvents(limit: 3).map(\.sequence) == [0, 1, 2])
+    }
+
+    @Test("Provenance Console renders EventStore edit supersession chain")
+    func projectionRendersEditSupersessionChain() throws {
+        let store = try makeStore()
+        let artifactID = "agent-edit-chain-\(UUID().uuidString)"
+        let first = AgentNoteEditProvenance.envelope(
+            context: AgentEditProvenanceContext(
+                artifactID: artifactID,
+                runID: "run-edit-chain-a",
+                sequence: 1,
+                title: "Shared Note"
+            ),
+            beforeBody: "old",
+            afterBody: "new",
+            createdAtMs: 1_000
+        )
+        let second = AgentNoteEditProvenance.envelope(
+            context: AgentEditProvenanceContext(
+                artifactID: artifactID,
+                runID: "run-edit-chain-b",
+                sequence: 2,
+                title: "Shared Note"
+            ),
+            beforeBody: "new",
+            afterBody: "newer",
+            createdAtMs: 2_000
+        )
+
+        #expect(store.saveMutationEnvelope(first, traceId: AgentNoteEditProvenance.traceID(for: first)))
+        #expect(store.saveMutationEnvelope(second, traceId: AgentNoteEditProvenance.traceID(for: second)))
+
+        let snapshot = ProvenanceConsoleProjectionService(eventStoreProvider: { store }).snapshot(limit: 10)
+        let rows = try keyValueRows(in: firstTraceEvent(in: snapshot.editSupersessionPayload))
+        let summaryRows = try keyValueRows(in: snapshot.summaryPayload)
+
+        #expect(rows["artifact"] == "Shared Note")
+        #expect(rows["superseded"] == String(first.mutationID.prefix(12)))
+        #expect(rows["superseded by"] == String(second.mutationID.prefix(12)))
+        #expect(rows["mode"] == "EventStore-derived; no ClaimLedger write FFI")
+        #expect(summaryRows["Agent edit supersession"] == "1 superseded edits")
     }
 
     @Test("Provenance Console bounds untrusted display strings")

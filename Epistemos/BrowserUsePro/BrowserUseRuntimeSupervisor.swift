@@ -1,14 +1,17 @@
+import Darwin
 import Foundation
 
 nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
     let vendorRoot: URL
     let buildRoot: URL
     let stateRoot: URL
+    let signedBundleURL: URL?
 
-    init(vendorRoot: URL, buildRoot: URL, stateRoot: URL) {
+    init(vendorRoot: URL, buildRoot: URL, stateRoot: URL, signedBundleURL: URL? = nil) {
         self.vendorRoot = vendorRoot
         self.buildRoot = buildRoot
         self.stateRoot = stateRoot
+        self.signedBundleURL = signedBundleURL
     }
 
     var vendorManifestURL: URL {
@@ -44,12 +47,34 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
         stateRoot.appendingPathComponent(".env", isDirectory: false)
     }
 
+    var agentBrowserAdapterURL: URL {
+        vendorRoot.appendingPathComponent("epistemos_agent_browser.py", isDirectory: false)
+    }
+
+    func hasExecutableAgentBrowserAdapter(fileManager: FileManager = .default) -> Bool {
+        fileManager.isExecutableFile(atPath: agentBrowserAdapterURL.path)
+    }
+
     static func defaultPaths(
         fileManager: FileManager = .default,
         filePath: String = #filePath,
         resourceRootURL: URL? = Bundle.main.resourceURL
     ) -> BrowserUseRuntimePaths? {
         if let resourceRootURL {
+            let signedBundleURL = resourceRootURL.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+            let signedBundlePayloadRoot = signedBundleURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro", isDirectory: true)
+            if fileManager.fileExists(atPath: signedBundlePayloadRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
+                return BrowserUseRuntimePaths(
+                    vendorRoot: signedBundlePayloadRoot,
+                    buildRoot: signedBundlePayloadRoot,
+                    stateRoot: defaultStateRoot(fileManager: fileManager, filePath: filePath),
+                    signedBundleURL: signedBundleURL
+                )
+            }
+
             let bundledRoot = resourceRootURL.appendingPathComponent("BrowserUsePro", isDirectory: true)
             if fileManager.fileExists(atPath: bundledRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
                 return BrowserUseRuntimePaths(
@@ -62,6 +87,22 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
 
         var cursor = URL(fileURLWithPath: filePath).deletingLastPathComponent()
         for _ in 0..<8 {
+            let developmentSignedBundleURL = cursor
+                .appendingPathComponent("build/browser-use-pro", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+            let developmentSignedBundlePayloadRoot = developmentSignedBundleURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro", isDirectory: true)
+            if fileManager.fileExists(atPath: developmentSignedBundlePayloadRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
+                return BrowserUseRuntimePaths(
+                    vendorRoot: developmentSignedBundlePayloadRoot,
+                    buildRoot: developmentSignedBundlePayloadRoot,
+                    stateRoot: defaultStateRoot(fileManager: fileManager, filePath: filePath),
+                    signedBundleURL: developmentSignedBundleURL
+                )
+            }
+
             let vendorRoot = cursor.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
             if fileManager.fileExists(atPath: vendorRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
                 return BrowserUseRuntimePaths(
@@ -173,6 +214,8 @@ private struct BrowserUseRuntimeArtifactRequirement {
 }
 
 nonisolated enum BrowserUseEnvironmentFileWriter {
+    private static let maxPathDiagnosticLength = 160
+
     static func write(
         _ contents: String,
         to url: URL,
@@ -188,8 +231,7 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
         do {
             try rejectEnvironmentSymlinkPath(at: temporaryURL, label: "temporary file", fileManager: fileManager)
             try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
-            try Data(contents.utf8).write(to: temporaryURL, options: [.atomic])
-            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporaryURL.path)
+            try writeExclusiveEnvironmentFile(contents, to: temporaryURL)
             if fileManager.fileExists(atPath: url.path) {
                 try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
                 try fileManager.removeItem(at: url)
@@ -211,7 +253,7 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
         try rejectEnvironmentSymlink(at: url, label: label, fileManager: fileManager)
         if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
             throw BrowserUseRuntimeSupervisorError.unavailable(
-                "browser-use environment \(label) path must not include symlink component at \(component.path)"
+                "browser-use environment \(label) path must not include symlink component at \(pathDiagnostic(component))"
             )
         }
     }
@@ -226,6 +268,35 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
                 "browser-use environment \(label) must not be a symlink"
             )
         }
+    }
+
+    private static func writeExclusiveEnvironmentFile(_ contents: String, to url: URL) throws {
+        let fd = url.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        }
+        guard fd >= 0 else {
+            throw BrowserUseRuntimeSupervisorError.unavailable(
+                "browser-use environment temporary file could not be created safely"
+            )
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        do {
+            try handle.write(contentsOf: Data(contents.utf8))
+            try handle.synchronize()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+    }
+
+    private static func pathDiagnostic(_ url: URL) -> String {
+        let filename = url.lastPathComponent.isEmpty ? "[path]" : url.lastPathComponent
+        guard filename.count > maxPathDiagnosticLength else {
+            return filename
+        }
+        return String(filename.prefix(maxPathDiagnosticLength)) + "..."
     }
 }
 
@@ -635,6 +706,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         let inheritedEnvironment = inheritedRuntimeEnvironment(from: processEnvironment)
         var environment = inheritedEnvironment.merging(browserUseEnvironment) { _, new in new }
         environment["PYTHON_DOTENV_DISABLED"] = "true"
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
         let environmentFileContents = BrowserUseEnvironmentRenderer.render(browserUsePairs)
 
         return .ready(BrowserUseRuntimeLaunchPlan(
@@ -686,6 +758,11 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         fileManager: FileManager
     ) -> String? {
         let diagnosticPath = runtimeArtifactPathDescription(url, relativeTo: rootURL)
+        if BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) != nil,
+           !resolvesInsideRuntimeRoot(url, relativeTo: rootURL) {
+            return "\(name) resolves outside browser-use runtime root at \(diagnosticPath)"
+        }
+
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return "missing \(name) at \(diagnosticPath)"
@@ -744,6 +821,12 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 name: "web-ui entrypoint",
                 url: paths.webUIEntrypointURL,
                 kind: .file,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "agent-browser adapter",
+                url: paths.agentBrowserAdapterURL,
+                kind: .executableFile,
                 rootURL: paths.vendorRoot
             ),
             .init(

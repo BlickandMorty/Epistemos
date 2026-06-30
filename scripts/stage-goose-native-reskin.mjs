@@ -14,6 +14,7 @@ const primitivePolishMarker = 'epistemos-native-primitive-polish';
 const surfacePolishMarker = 'epistemos-native-surface-polish';
 const catalogPolishMarker = 'epistemos-native-catalog-screen-polish';
 const loadingErrorPolishMarker = 'epistemos-native-loading-error-polish';
+const motionPolishMarker = 'epistemos-native-motion-polish';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -643,6 +644,36 @@ body {
 }
 `;
   }
+  if (!source.includes(motionPolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos native motion polish (${motionPolishMarker})
+   Uses Goose's existing framer-motion/CSS stack; keep motion small, fast, and
+   transform/opacity-based so WebView content tracks the native frame.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-motion-polish: 1;
+}
+
+.goose-epistemos .page-transition {
+  opacity: 1;
+  animation: epistemos-native-page-enter 220ms var(--epistemos-control-ease) both;
+  transform-origin: center top;
+}
+
+@keyframes epistemos-native-page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0) scale(0.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+`;
+  }
   write('src/styles/main.css', source);
 }
 
@@ -843,6 +874,205 @@ function applySelect() {
     "classes += ' bg-background-secondary/85 text-text-primary pointer-events-auto';"
   );
   write('src/components/ui/Select.tsx', source);
+}
+
+function applyPrimitiveCompletionSurfaces() {
+  let source = read('src/components/ui/Tooltip.tsx');
+  source = replaceRequired(
+    source,
+    'tooltip native delay',
+    'delayDuration = 0,',
+    'delayDuration = 450,'
+  );
+  source = replaceRequired(
+    source,
+    'tooltip native offset',
+    'sideOffset = 0,',
+    'sideOffset = 6,'
+  );
+  source = replaceRequired(
+    source,
+    'tooltip native glass',
+    "'bg-background-inverse text-text-inverse animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-[200] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance'",
+    "'z-[200] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-[8px] border border-border-secondary bg-background-primary/90 px-2.5 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1'"
+  );
+  source = replaceRequired(
+    source,
+    'tooltip native arrow',
+    "'bg-background-inverse fill-background-inverse z-[200] size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45'",
+    "'z-[200] size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 border border-border-secondary border-l-0 border-t-0 bg-background-primary/90 fill-background-primary'"
+  );
+  write('src/components/ui/Tooltip.tsx', source);
+
+  source = read('src/components/ui/Pill.tsx');
+  source = replaceRequired(
+    source,
+    'pill native base',
+    "'inline-flex items-center justify-center rounded-[4px] transition-colors duration-150 font-mono uppercase tracking-normal'",
+    "'inline-flex items-center justify-center rounded-full font-sans font-medium normal-case tracking-normal transition-colors duration-200 ease-[var(--epistemos-control-ease)]'"
+  );
+  source = replaceRequired(
+    source,
+    'pill default native',
+    "default: 'bg-background-primary border border-border-primary hover:bg-background-secondary',",
+    "default: 'border border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl hover:bg-background-secondary/72',"
+  );
+  source = replaceRequired(
+    source,
+    'pill glass native',
+    "glass: 'bg-background-secondary border border-border-primary hover:bg-background-primary',",
+    "glass: 'border border-border-secondary bg-background-secondary/62 shadow-sm backdrop-blur-xl hover:bg-background-primary/72',"
+  );
+  source = replaceRequired(
+    source,
+    'pill solid native',
+    "solid: 'bg-background-primary border border-border-primary hover:bg-background-secondary',",
+    "solid: 'border border-transparent bg-[var(--epistemos-accent)] text-white shadow-sm hover:bg-[var(--epistemos-accent)]/90',"
+  );
+  source = replaceRequired(
+    source,
+    'pill gradient native',
+    "gradient: 'bg-background-inverse text-background-primary border border-background-inverse',",
+    "gradient: 'border border-transparent bg-[var(--epistemos-accent)] text-white shadow-sm hover:bg-[var(--epistemos-accent)]/90',"
+  );
+  source = replaceRequired(
+    source,
+    'pill glow native',
+    "glow: 'bg-background-inverse text-background-primary border border-background-inverse',",
+    "glow: 'border border-border-secondary bg-background-primary/74 text-text-primary shadow-sm backdrop-blur-xl ring-[3px] ring-[var(--epistemos-accent)]/12 hover:bg-background-secondary/72',"
+  );
+  write('src/components/ui/Pill.tsx', source);
+
+  source = read('src/components/ui/skeleton.tsx');
+  source = replaceRequired(
+    source,
+    'skeleton native shimmer',
+    "className={cn('bg-background-secondary animate-pulse rounded-md', className)}",
+    "className={cn('rounded-[10px] bg-background-secondary/70 animate-pulse', className)}"
+  );
+  write('src/components/ui/skeleton.tsx', source);
+
+  source = read('src/components/ui/scroll-area.tsx');
+  source = replaceRequired(
+    source,
+    'scroll area native root',
+    "className={cn('relative overflow-hidden', className)}",
+    "className={cn('relative overflow-hidden rounded-[inherit]', className)}"
+  );
+  source = replaceRequired(
+    source,
+    'scroll area native fade',
+    "className={cn('absolute top-0 left-0 right-0 z-10 transition-all duration-200')}",
+    "className={cn('pointer-events-none absolute left-0 right-0 top-0 z-10 transition-all duration-200 ease-[var(--epistemos-control-ease)]')}"
+  );
+  source = replaceRequired(
+    source,
+    'scrollbar native base',
+    "'flex touch-none select-none transition-colors'",
+    "'flex touch-none select-none transition-colors duration-200 ease-[var(--epistemos-control-ease)]'"
+  );
+  source = replaceRequired(
+    source,
+    'scrollbar native thumb',
+    'className="relative flex-1 rounded-full bg-border-primary dark:bg-background-secondary"',
+    'className="relative flex-1 rounded-full bg-border-tertiary/65 hover:bg-border-tertiary"'
+  );
+  write('src/components/ui/scroll-area.tsx', source);
+
+  source = read('src/components/ui/separator.tsx');
+  source = replaceRequired(
+    source,
+    'separator native hairline',
+    "'bg-border-primary shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px'",
+    "'shrink-0 bg-border-secondary/80 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px'"
+  );
+  write('src/components/ui/separator.tsx', source);
+
+  source = read('src/components/ui/collapsible.tsx');
+  source = replaceRequired(
+    source,
+    'collapsible cn import',
+    "import * as CollapsiblePrimitive from '@radix-ui/react-collapsible';",
+    "import * as CollapsiblePrimitive from '@radix-ui/react-collapsible';\n\nimport { cn } from '../../utils';"
+  );
+  source = replaceRequired(
+    source,
+    'collapsible native content',
+    `function CollapsibleContent({
+  ...props
+}: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>) {
+  return <CollapsiblePrimitive.CollapsibleContent data-slot="collapsible-content" {...props} />;
+}`,
+    `function CollapsibleContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>) {
+  return (
+    <CollapsiblePrimitive.CollapsibleContent
+      data-slot="collapsible-content"
+      className={cn(
+        'overflow-hidden transition-[height,opacity] duration-200 ease-[var(--epistemos-control-ease)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0',
+        className
+      )}
+      {...props}
+    />
+  );
+}`
+  );
+  write('src/components/ui/collapsible.tsx', source);
+
+  source = read('src/components/ui/ConfirmationModal.tsx');
+  source = replaceRequired(
+    source,
+    'confirmation modal native content sizing',
+    'className="sm:max-w-[425px] max-h-[85vh] flex flex-col"',
+    'className="flex max-h-[85vh] flex-col sm:max-w-[425px]"'
+  );
+  source = replaceRequired(
+    source,
+    'confirmation modal detail token',
+    'className="overflow-y-auto min-h-0 text-sm text-text-muted break-all"',
+    'className="min-h-0 overflow-y-auto break-all text-sm text-text-secondary"'
+  );
+  source = replaceAllRequired(
+    source,
+    'confirmation modal native focus ring',
+    'className="focus-visible:ring-2 focus-visible:ring-background-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"',
+    'className="focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background"'
+  );
+  write('src/components/ui/ConfirmationModal.tsx', source);
+}
+
+function applyMotionSurfaces() {
+  let source = read('src/components/Layout/AppLayout.tsx');
+  source = replaceRequired(
+    source,
+    'app layout native nav spring',
+    "transition={{ type: 'spring', stiffness: 400, damping: 40 }}",
+    "transition={{ type: 'spring', duration: 0.5, bounce: 0 }}"
+  );
+  write('src/components/Layout/AppLayout.tsx', source);
+
+  source = read('src/components/Layout/NavigationPanel.tsx');
+  source = replaceRequired(
+    source,
+    'navigation panel native fade spring',
+    'transition={{ duration: 0.15 }}',
+    "transition={{ type: 'spring', duration: 0.5, bounce: 0 }}"
+  );
+  source = replaceRequired(
+    source,
+    'navigation row native transition',
+    "'border-l-2 px-2.5 py-1.5 text-xs font-medium transition-colors'",
+    "'border-l-2 px-2.5 py-1.5 text-xs font-medium transition-all duration-200 ease-[var(--epistemos-control-ease)]'"
+  );
+  source = replaceRequired(
+    source,
+    'navigation session row native transition',
+    "'hover:bg-background-tertiary/60 transition-colors text-text-secondary hover:text-text-primary'",
+    "'hover:bg-background-tertiary/60 transition-all duration-200 ease-[var(--epistemos-control-ease)] text-text-secondary hover:text-text-primary'"
+  );
+  write('src/components/Layout/NavigationPanel.tsx', source);
 }
 
 function applyAppSurfaces() {
@@ -1886,7 +2116,7 @@ function applyChatSettingsSurfaces() {
   source = replaceRequired(
     source,
     'mode radio native accent',
-    `className="h-4 w-4 rounded-full border border-border-primary 
+    `className="h-4 w-4 rounded-full border border-border-primary ${''}
                     peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
                     peer-checked:bg-white dark:peer-checked:bg-black
                     transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
@@ -4153,7 +4383,7 @@ function applySearchSurfaces() {
     source,
     'search input native colors',
     `className="no-drag w-full text-sm pl-9 pr-24 py-3 bg-background-inverse text-text-inverse
-                      placeholder:text-text-inverse/50 focus:outline-none 
+                      placeholder:text-text-inverse/50 focus:outline-none ${''}
                        active:border-border-secondary"`,
     `className="no-drag w-full bg-transparent py-3 pl-9 pr-24 text-sm text-text-primary
                       placeholder:text-text-secondary focus:outline-none
@@ -4355,6 +4585,12 @@ function applyFormValidationSurfaces() {
   write('src/components/parameter/ParameterInput.tsx', source);
 
   source = read('src/components/ui/JsonSchemaForm.tsx');
+  source = replaceRequired(
+    source,
+    'json schema select native',
+    'className="flex h-9 w-full rounded-md border focus:border-border-secondary hover:border-border-secondary bg-background-primary px-3 py-1 text-base transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"',
+    'className="flex h-9 w-full rounded-[8px] border border-border-secondary bg-background-primary/70 px-3 py-1 text-base text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"'
+  );
   source = replaceRequired(
     source,
     'json schema checkbox native',
@@ -4889,6 +5125,24 @@ function applyModalScrimAndElicitationSurfaces() {
     "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50'",
     "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/24 backdrop-blur-sm'"
   );
+  source = replaceRequired(
+    source,
+    'sheet content native glass',
+    "'bg-background-primary data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 shadow-none'",
+    "'bg-background-primary/88 data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 border-border-primary shadow-2xl backdrop-blur-xl transition ease-[var(--epistemos-control-ease)] data-[state=closed]:duration-200 data-[state=open]:duration-200'"
+  );
+  source = replaceRequired(
+    source,
+    'sheet close button native',
+    'className="ring-offset-background focus:ring-ring data-[state=open]:bg-background-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"',
+    'className="ring-offset-background absolute top-4 right-4 rounded-[8px] p-1 opacity-70 transition-all duration-150 hover:bg-background-secondary/75 hover:opacity-100 focus:ring-2 focus:ring-[var(--epistemos-accent)] focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-background-secondary/75"'
+  );
+  source = replaceRequired(
+    source,
+    'sheet title native font',
+    "className={cn('text-text-primary font-medium', className)}",
+    "className={cn('text-text-primary font-sans font-semibold tracking-normal', className)}"
+  );
   write('src/components/ui/sheet.tsx', source);
 
   source = read('src/components/bottom_menu/BottomMenuAlertPopover.tsx');
@@ -5003,6 +5257,8 @@ applyDropdownMenu();
 applySwitch();
 applyTabs();
 applySelect();
+applyPrimitiveCompletionSurfaces();
+applyMotionSurfaces();
 applyAppSurfaces();
 applyOnboardingSurfaces();
 applyChatSurfaces();

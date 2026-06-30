@@ -686,6 +686,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         )
 
         let view = EpdocEditorWebView(frame: .zero, configuration: config)
+        view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = false
         view.appearance = EpdocEditorThemeStyle.appearance(for: theme)
@@ -725,6 +726,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
     /// pipeline lets ARC reclaim the lot.
     static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) {
         view.stopLoading()
+        view.navigationDelegate = nil
         view.uiDelegate = nil
         let userContent = view.configuration.userContentController
         userContent.removeScriptMessageHandler(forName: "epdoc")
@@ -738,9 +740,12 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
+    final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
         weak var webView: WKWebView?
         weak var controller: EpdocEditorChromeController?
+        private var isDetached = false
+        private var requestedTheme: EpistemosTheme?
+        private var pendingTheme: EpistemosTheme?
         private var lastAppliedTheme: EpistemosTheme?
 
         // AP1 — outbound coalescing (Wave 13 §"Phase 4 perf — AP1
@@ -802,13 +807,59 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         }
 
         func applyTheme(_ theme: EpistemosTheme, to webView: WKWebView) {
-            guard lastAppliedTheme != theme else { return }
-            lastAppliedTheme = theme
+            guard !isDetached else { return }
+            requestedTheme = theme
             webView.appearance = EpdocEditorThemeStyle.appearance(for: theme)
+            guard lastAppliedTheme != theme else { return }
+            guard !webView.isLoading else {
+                pendingTheme = theme
+                return
+            }
+            applyThemeScript(theme, to: webView)
+        }
+
+        private func applyThemeScript(_ theme: EpistemosTheme, to webView: WKWebView) {
+            guard !isDetached else { return }
+            lastAppliedTheme = theme
+            pendingTheme = nil
             webView.evaluateJavaScript(
                 EpdocEditorThemeStyle.applyScript(for: theme),
                 completionHandler: nil
             )
+        }
+
+        private func flushPendingTheme(in webView: WKWebView) {
+            guard !isDetached, !webView.isLoading else { return }
+            let theme = pendingTheme ?? requestedTheme
+            guard let theme, lastAppliedTheme != theme else {
+                pendingTheme = nil
+                return
+            }
+            applyThemeScript(theme, to: webView)
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            lastAppliedTheme = nil
+            if let requestedTheme {
+                pendingTheme = requestedTheme
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            flushPendingTheme(in: webView)
+            if !outboundQueue.isEmpty {
+                flushOutboundQueue()
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            pendingTheme = nil
+            outboundQueue.removeAll(keepingCapacity: true)
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            pendingTheme = nil
+            outboundQueue.removeAll(keepingCapacity: true)
         }
 
         /// Tear-down counterpart called from `dismantleNSView` when the
@@ -823,6 +874,10 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         /// - any pending outbound commands so they don't fire against
         ///   a now-detached web view
         func shutdown() {
+            isDetached = true
+            pendingTheme = nil
+            requestedTheme = nil
+            lastAppliedTheme = nil
             // Cancel the AP1 display-aligned flush.
             outboundDisplayLink?.invalidate()
             outboundDisplayLink = nil
@@ -959,6 +1014,11 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
                 outboundQueue.removeAll(keepingCapacity: true)
                 return
             }
+            guard !isDetached else {
+                outboundQueue.removeAll(keepingCapacity: true)
+                return
+            }
+            guard !webView.isLoading else { return }
             let batch = outboundQueue
             outboundQueue.removeAll(keepingCapacity: true)
             // Common case — only one command queued during the tick.

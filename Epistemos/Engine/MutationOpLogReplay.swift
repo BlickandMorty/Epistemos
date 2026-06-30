@@ -80,7 +80,9 @@ nonisolated struct MutationOpLogReplayBundle: Codable, Equatable, Sendable {
     }
 
     static let currentSchemaVersion = 1
+    static let schema = "epistemos.mutation_oplog_replay_bundle.v1"
 
+    let schema: String
     let schemaVersion: Int
     let source: String
     let cutoffSeq: UInt64?
@@ -97,6 +99,7 @@ nonisolated struct MutationOpLogReplayBundle: Codable, Equatable, Sendable {
         source: String = "mutation-oplog-replay",
         schemaVersion: Int = Self.currentSchemaVersion
     ) {
+        self.schema = Self.schema
         self.schemaVersion = schemaVersion
         self.source = source
         cutoffSeq = snapshot.cutoffSeq
@@ -115,6 +118,51 @@ nonisolated struct MutationOpLogReplayBundle: Codable, Equatable, Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(self)
+    }
+}
+
+nonisolated struct MutationOpLogReplayBundleFileExportResult: Equatable, Sendable {
+    let url: URL
+    let byteCount: Int
+    let report: MutationOpLogReplayBundleVisibilityReport
+}
+
+nonisolated enum MutationOpLogReplayBundleFileExporter {
+    static let fileExtension = "epbundle"
+
+    static func defaultFileName(now: Date = Date()) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+        let stamp = formatter.string(from: now)
+            .replacingOccurrences(of: ":", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        return "epistemos-mutation-oplog-\(stamp).\(fileExtension)"
+    }
+
+    @discardableResult
+    static func exportCurrentBundle(
+        to requestedURL: URL,
+        databaseURL: URL = MutationOpLogProjectionWorker.databaseURL(
+            applicationSupportDirectory: FoundationSafety.userApplicationSupportDirectory()
+        ),
+        actorID: String = "oplog-replay-bundle-export",
+        source: String = "settings-export"
+    ) throws -> MutationOpLogReplayBundleFileExportResult {
+        let client = try RustOpLogFFIClient(databaseURL: databaseURL, actorID: actorID)
+        let bundle = try client.exportMutationReplayBundle(source: source)
+        let data = try bundle.deterministicJSONData()
+        let destinationURL = normalizedDestinationURL(requestedURL)
+        try data.write(to: destinationURL, options: [.atomic])
+        return MutationOpLogReplayBundleFileExportResult(
+            url: destinationURL,
+            byteCount: data.count,
+            report: MutationOpLogReplayBundleVisibilityReport(bundle: bundle)
+        )
+    }
+
+    private static func normalizedDestinationURL(_ url: URL) -> URL {
+        guard url.pathExtension.lowercased() != fileExtension else { return url }
+        return url.appendingPathExtension(fileExtension)
     }
 }
 

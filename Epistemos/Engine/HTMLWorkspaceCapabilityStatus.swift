@@ -1,18 +1,21 @@
 import Foundation
 
 // SS-HW (owner 2026-06-20): "the html workspace does not work as well but idk if its marked as such."
-// The HTML Workspace renders, edits, and accepts agent chat patches — but several seams are dead or
-// static/gated (the app message-bridge path is diagnostic-only, DOM outline is live but picker/style
-// inspection is not, the JS console bridge is wired but env-gated, there is no Python, and
-// full-surface regenerate is only a provenance-stamped package patch primitive so far — no general streaming
-// UX yet). The codebase has a GateStatus honesty convention, but the
+// The HTML Workspace renders, edits, and accepts agent chat patches. Goose full-surface regenerate,
+// the gated app message bridge, JS console/error capture, DOM picker/style inspection, and the
+// vendored Pyodide runtime were proven in-app on 2026-06-30 with visible source+preview/
+// console/inspector updates. The codebase has
+// a GateStatus honesty convention, but the
 // HTML workspace shipped silently as if complete.
 //
 // This is that honest marker: a pure, verified capability ledger the Settings diagnostics row surfaces,
 // so the workspace's real state is scannable instead of reading as "done." Every entry below was
-// confirmed in code (safeAPI messages are diagnostic-only + safeAPIEnabled=false; console capture is wired
-// behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; no Pyodide/CPython refs; HTMLWorkspacePatchRouter
-// present for the live agent edit path).
+// confirmed in code and in the running app (HTMLWorkspacePatchRouter is present for the live agent
+// edit path; HTMLWorkspaceGooseRegenerator is Goose-only and the live app replaced source+preview
+// through regenerate; the app bridge is sandbox-gated and records bounded commands into the console
+// panel; the console bridge records runtime console.error/window error diagnostics from a clean
+// package; the DOM inspector receives click-picked selector/style payloads from WKWebView; Pyodide
+// is build-vendored and opt-in, and ran Python in WKWebView).
 enum HTMLWorkspaceCapabilityStatus {
 
     struct Capability: Sendable, Equatable {
@@ -30,11 +33,11 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "Vault data.json feed", isLive: true, note: "Opt-in manifest data_feed renders VaultSyncService.searchFullAsync results and patches data-only preview updates without reload"),
         Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired; HTML and PDF exports inline package asset references before writing rendered artifacts"),
         Capability(name: "Live-DOM outline", isLive: true, note: "Preview WebView reports a runtime DOM snapshot; source regex is only the fallback when preview is not mounted"),
-        Capability(name: "App message-bridge", isLive: false, note: "Safe API message path is diagnostic-only; no app commands are wired and safeAPIEnabled defaults off"),
-        Capability(name: "JS console / error capture", isLive: false, note: "Bridge now wired (window error + unhandledrejection + console.error/warn → the consoleErrors pipeline + panel) behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; default off"),
-        Capability(name: "DOM picker / style inspector", isLive: false, note: "No element picker, computed-style panel, or targeted live edit path yet"),
-        Capability(name: "Python (Pyodide / WASM)", isLive: false, note: "Not built — research"),
-        Capability(name: "Full-surface regenerate", isLive: false, note: "Core replaceDocument/regenerate package patch op is wired with manifest provenance; general streaming UX remains deferred"),
+        Capability(name: "Full-surface regenerate", isLive: true, note: "Goose-only streaming sheet applied a real replaceDocument/regenerate update in-app with source+preview replacement and provenance-backed patch routing"),
+        Capability(name: "App message-bridge", isLive: true, note: "Sandbox-gated safe API receives bounded ping/status/event.record messages from WKWebView and records them into the console panel"),
+        Capability(name: "JS console / error capture", isLive: true, note: "Proven in-app from a clean package: console.error and thrown window Error were captured into the visible console panel and persisted console-errors.json"),
+        Capability(name: "DOM picker / style inspector", isLive: true, note: "Proven in-app: clicking button#dom-proof-target in WKWebView populated the inspector with selector, text preview, and computed styles"),
+        Capability(name: "Python (Pyodide / WASM)", isLive: true, note: "Build-vendored, sandbox-gated Pyodide runtime proved in-app by running Python in WKWebView and rendering Pyodide result: 45"),
     ]
 
     static var liveCount: Int { capabilities.filter(\.isLive).count }
@@ -43,6 +46,6 @@ enum HTMLWorkspaceCapabilityStatus {
     /// One honest line for the diagnostics row — the workspace works as a renderer/editor but is not
     /// the full web-app builder yet, and says so.
     static var summary: String {
-        "\(liveCount) live, \(deferredCount) gated/static/deferred — renders, edits, agent-patches, serves package-local assets/data/routes in preview, inlines package assets for HTML/PDF export, shows a live DOM outline, and can opt into Vault-backed data.json refresh; JS console capture is wired but env-gated, while the app-bridge, DOM picker/style inspector, Python, and full-surface regenerate UX remain deferred (partial artifact runtime, not a full web-app builder yet)."
+        "\(liveCount) live, \(deferredCount) gated/static/deferred — renders, edits, agent-patches/regenerates through Goose, serves package-local assets/data/routes in preview, inlines package assets for HTML/PDF export, shows a live DOM outline, can opt into Vault-backed data.json refresh, has a sandbox-gated app message bridge, captures JS console/window errors, supports click-to-inspect DOM picker/style inspection, and runs build-vendored Pyodide/Python when explicitly enabled."
     }
 }

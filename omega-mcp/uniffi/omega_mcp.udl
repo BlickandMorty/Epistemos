@@ -133,6 +133,9 @@ interface MCPDispatcher {
     u64 execution_count();
     u64 successful_execution_count();
 
+    // Vault resource context
+    void set_vault_root(string root);
+
     // MCP dispatch
     string dispatch(string request_json);
 };

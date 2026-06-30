@@ -784,7 +784,8 @@ private final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegat
     private func showLoadFailure(in webView: WKWebView, message: String) {
         hasLoadedEditor = false
         isApplyingFromSwift = false
-        let messageJSON = message.jsonString ?? "\"MarkEdit CoreEditor failed to load.\""
+        let messageData = try? JSONEncoder().encode(message)
+        let messageJSON = messageData.flatMap { String(data: $0, encoding: .utf8) } ?? "\"MarkEdit CoreEditor failed to load.\""
         let script = """
         (() => {
           const target = document.querySelector('#editor') || document.body;

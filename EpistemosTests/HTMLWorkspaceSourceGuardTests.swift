@@ -38,11 +38,18 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("syncSafeAPIHandler"))
         #expect(previewSource.contains("safeAPIEnabled"))
         #expect(previewSource.contains("HTMLWorkspaceSafeAPI.messageHandlerName"))
-        #expect(previewSource.contains("HTMLWorkspaceSafeAPI.deferredDiagnosticMessage"))
+        #expect(previewSource.contains("HTMLWorkspaceSafeAPI.Command.fromMessageBody"))
+        #expect(previewSource.contains("HTMLWorkspaceSafeAPI.diagnosticMessage"))
+        #expect(previewSource.contains("HTMLWorkspaceSafeAPI.sourceName"))
+        #expect(previewSource.contains("App bridge denied: sandbox gate is off"))
+        #expect(previewSource.contains("App bridge rejected malformed message"))
+        #expect(!previewSource.contains("HTMLWorkspaceSafeAPI.deferredDiagnosticMessage"))
         #expect(previewSource.contains("message.name == HTMLWorkspaceSafeAPI.messageHandlerName"))
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.enabled"))
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.injectionScript"))
         #expect(previewSource.contains("onConsoleError != nil"))
+        #expect(previewSource.contains("HTMLWorkspaceInspectorBridge.installScript"))
+        #expect(previewSource.contains("onElementInspection"))
         #expect(previewSource.contains("canPatchDataOnly"))
         #expect(previewSource.contains("patchDataJSON"))
         #expect(previewSource.contains("evaluateJavaScript(script)"))
@@ -55,21 +62,31 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("EpdocWebViewShared.notifyWebViewCreated()"))
         #expect(previewSource.contains("EpdocWebViewShared.notifyWebViewDismantled()"))
         #expect(previewSource.components(separatedBy: "addUserScript(").count == 2,
-                "Preview may install exactly one user script: the env-gated console capture bridge.")
-        #expect(previewSource.contains("configuration.userContentController.addUserScript("),
-                "The only preview user script should be the env-gated, read-only console capture bridge.")
+                "Preview may install exactly one persistent user script: console capture. DOM inspection is toggled with evaluateJavaScript so it can be disabled.")
+        #expect(previewSource.contains("source: HTMLWorkspaceConsoleBridge.injectionScript"),
+                "The only persistent preview user script should be console capture.")
+        #expect(!previewSource.contains("source: HTMLWorkspaceInspectorBridge.installScript"),
+                "DOM inspector installScript must not be a persistent WKUserScript; it must remain runtime-toggleable.")
+        #expect(previewSource.contains("webView.evaluateJavaScript(HTMLWorkspaceInspectorBridge.installScript)"))
+        #expect(previewSource.contains("guard !isLoadingPreview, !webView.isLoading else { return }"))
+        #expect(previewSource.contains("syncInspectorHandler(for: webView, allowScriptInstall: false)"))
+        #expect(previewSource.contains("syncInspectorHandler(for: webView, allowScriptInstall: didLoadPage)"))
+        #expect(previewSource.contains("if allowScriptInstall, shouldInstall, !isLoadingPreview, !webView.isLoading"))
+        #expect(previewSource.contains("message.name == HTMLWorkspaceInspectorBridge.messageHandlerName,\n               isElementInspectorEnabled"))
         // Security gate: the app-bridge handler installs ONLY when BOTH the user-enabled flag AND the
         // per-package sandbox policy allow it — the sole barrier against arbitrary rendered HTML
         // obtaining an app bridge. Dropping either condition is a real privilege-escalation hole, so
-        // pin the conjunction. (The safe-API channel itself is still diagnostic-only — no app
-        // commands are wired — but the install gate must never weaken regardless.)
+        // pin the conjunction.
         #expect(previewSource.contains("safeAPIEnabled && package.manifest.sandboxPolicy.allowAppBridge"),
                 "App-bridge install must require BOTH safeAPIEnabled AND the package's allowAppBridge sandbox policy.")
         // The app-bridge handler is torn down on detach — no leaked WKScriptMessageHandler across
         // workspace swaps (an installed-but-orphaned bridge is both a leak and a latent surface).
         #expect(previewSource.contains("removeScriptMessageHandler"))
         #expect(previewSource.contains("messageHandlerInstalled = false"))
-        #expect(previewSource.contains("func detach(from webView: WKWebView) {\n            webView.navigationDelegate = nil"))
+        #expect(previewSource.contains("func detach(from webView: WKWebView) {"))
+        #expect(previewSource.contains("isDetached = true"))
+        #expect(previewSource.contains("pendingRender = nil"))
+        #expect(previewSource.contains("webView.navigationDelegate = nil"))
         #expect(previewSource.contains("lastRenderedDataJSON = nil\n            webView.stopLoading()"))
     }
 
@@ -94,8 +111,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(documentSource.contains("HTMLWorkspaceDocumentThemedRoot"))
         #expect(documentSource.contains(".preferredColorScheme(ui.preferredColorScheme)"))
         #expect(editorSource.contains("HTMLWorkspacePreviewView("))
-        #expect(editorSource.contains("HTMLWorkspaceCodeEditor("))
+        #expect(editorSource.contains("MarkEditCodeEditorRepresentable("))
+        #expect(!editorSource.contains("HTMLWorkspaceCodeEditor("))
         #expect(!editorSource.contains("TextEditor("))
+        #expect(!repoFileExists("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift"))
         #expect(epdocSlash.contains("id: 'html-workspace'"))
         #expect(!epdocSlash.contains("html-dom"))
     }
@@ -119,11 +138,14 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
     @Test("editor preview updates are debounced and diagnostics are collapsible")
     func editorDebouncesPreviewAndCollapsesDiagnostics() throws {
         let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let panelsSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorPanels.swift")
+        let supportSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorSupport.swift")
 
         #expect(editorSource.contains("previewPackage"))
         #expect(editorSource.contains("previewUpdateTask"))
         #expect(editorSource.contains("Task.sleep"))
-        #expect(editorSource.contains("HTMLWorkspacePreviewView(package: previewPackage"))
+        #expect(editorSource.contains("HTMLWorkspacePreviewView("))
+        #expect(editorSource.contains("package: previewPackage"))
         #expect(editorSource.contains("HTMLWorkspacePDFExporter.export"))
         #expect(editorSource.contains("importHTML()"))
         #expect(editorSource.contains("exportHTML()"))
@@ -139,22 +161,23 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("document.save(nil)"))
         #expect(editorSource.contains("failedStatus("))
         #expect(editorSource.contains("error.localizedDescription"))
-        #expect(editorSource.contains("generatedScriptIDs"))
-        #expect(editorSource.contains(#""epistemos-workspace-runtime""#))
-        #expect(editorSource.contains("scriptBodies(in: source)"))
-        #expect(editorSource.contains("shouldImportScript(type:"))
-        #expect(editorSource.contains(#"normalized == "module""#))
+        #expect(supportSource.contains("generatedScriptIDs"))
+        #expect(supportSource.contains(#""epistemos-workspace-runtime""#))
+        #expect(supportSource.contains("scriptBodies(in: source)"))
+        #expect(supportSource.contains("shouldImportScript(type:"))
+        #expect(supportSource.contains(#"normalized == "module""#))
         #expect(editorSource.contains(".onChange(of: colorScheme)"))
-        #expect(editorSource.contains("DisclosureGroup"))
-        #expect(editorSource.contains("Console"))
+        #expect(panelsSource.contains("DisclosureGroup"))
+        #expect(panelsSource.contains("Console"))
         #expect(editorSource.contains("bridgeStatusText"))
-        #expect(editorSource.contains(#""Safe API deferred""#))
+        #expect(editorSource.contains(#""Bridge live""#))
         #expect(editorSource.contains("generationProvenanceText"))
-        #expect(editorSource.contains(#"inspectorRow("Provenance""#))
+        #expect(panelsSource.contains(#"inspectorRow("Provenance""#))
         #expect(editorSource.contains("@State private var liveDOMSnapshot"))
         #expect(editorSource.contains("onDOMSnapshot:"))
         #expect(editorSource.contains("domSnapshot.source.label"))
         #expect(editorSource.contains(#""Live DOM Outline""#))
+        #expect(editorSource.split(separator: "\n", omittingEmptySubsequences: false).count < 1_000)
     }
 
     @Test("HTML Workspace live data feed is explicit and provenance-visible")
@@ -180,7 +203,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("Configure Vault Search Feed"))
         #expect(editorSource.contains("configureVaultSearchFeed()"))
         #expect(editorSource.contains("package.isStarterTemplateContent"))
-        #expect(editorSource.contains("package.applyVaultSearchDashboardTemplate"))
+        #expect(editorSource.contains("applyVaultSearchDashboardTemplate"))
         #expect(editorSource.contains("HTMLWorkspaceDataFeed.vaultSearch"))
         #expect(editorSource.contains("HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON"))
         #expect(editorSource.contains("package.manifest.dataFeed = nil"))
@@ -190,7 +213,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(feedSource.contains("HTMLWorkspaceDataFeedRenderer.staleRender"))
         #expect(feedSource.contains(#""VaultSyncService.searchFullAsync""#))
         #expect(feedSource.contains(#"case epistemos = "_epistemos""#))
-        #expect(feedSource.contains("stale: true"))
+        #expect(feedSource.contains(#""stale":true"#) || feedSource.contains(#""stale": true"#))
         #expect(hostSource.contains("HTMLWorkspaceDataFeedStatusStrip(package: package)"))
         #expect(hostSource.contains(".htmlWorkspaceDataFeed(package: packageBinding, statusText: $dataFeedStatusText)"))
         #expect(hostSource.contains("setPackage(newPackage)"))
@@ -207,7 +230,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         // Timeout must race the load stream; a passive deadline checked only on navigation events
         // still hangs if the WebPage stream stalls before emitting another event.
         #expect(exporterSource.contains("withThrowingTaskGroup(of: Void.self)"))
-        #expect(exporterSource.contains("group.addTask { @MainActor in"))
+        #expect(exporterSource.contains("group.addTask {"))
+        #expect(exporterSource.contains("waitForLoadFinished(page: page, html: html)"))
         #expect(exporterSource.contains("Task.sleep(nanoseconds: Self.loadTimeoutNanoseconds)"))
         #expect(exporterSource.contains("defer { group.cancelAll() }"))
         // macOS-26 SwiftUI WebKit migration: `WebPage` + a `NavigationDeciding` scheme allowlist (async policy,
@@ -224,35 +248,32 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!exporterSource.contains("DispatchQueue.main.asyncAfter"))
     }
 
-    @Test("editor exposes data routes DOM assets and AppKit-backed two-axis source editing")
-    func editorExposesDOMDataAssetsAndTwoAxisSourceEditing() throws {
+    @Test("editor exposes data routes DOM assets and MarkEdit-backed source editing")
+    func editorExposesDOMDataAssetsAndMarkEditBackedSourceEditing() throws {
         let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
-        let codeEditorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
+        let supportSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorSupport.swift")
+        let markEditSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
 
-        #expect(editorSource.contains("case data"))
-        #expect(editorSource.contains("case routes"))
-        #expect(editorSource.contains("case dom"))
-        #expect(editorSource.contains("case assets"))
-        #expect(editorSource.contains("data.json"))
-        #expect(editorSource.contains("routes/"))
+        #expect(supportSource.contains("case data"))
+        #expect(supportSource.contains("case routes"))
+        #expect(supportSource.contains("case dom"))
+        #expect(supportSource.contains("case assets"))
+        #expect(supportSource.contains("data.json"))
+        #expect(supportSource.contains("routes/"))
         #expect(editorSource.contains("routeManifestText"))
-        #expect(editorSource.contains("DOM Outline"))
+        #expect(supportSource.contains("DOM Outline"))
         #expect(editorSource.contains("DocumentSourceRange.fullDocumentRange(for: sourceText(for: pane))"))
         #expect(!editorSource.contains("source.split(separator: \"\\n\", omittingEmptySubsequences: false).last"))
-        #expect(codeEditorSource.contains("HTMLWorkspaceDOMSnapshot"))
-        #expect(codeEditorSource.contains("snapshot(for html: String"))
-        #expect(codeEditorSource.contains("NSViewRepresentable"))
-        #expect(codeEditorSource.contains("NSTextView"))
-        #expect(codeEditorSource.contains("hasHorizontalScroller = true"))
-        #expect(codeEditorSource.contains("widthTracksTextView = false"))
-        #expect(codeEditorSource.contains("autoresizingMask = [.height]"))
-        #expect(codeEditorSource.contains("LineNumberRulerView"))
-        #expect(codeEditorSource.contains("hasVerticalRuler = true"))
-        #expect(codeEditorSource.contains("rulersVisible = true"))
-        #expect(codeEditorSource.contains("boundsDidChange"))
-        #expect(codeEditorSource.contains("context.coordinator.invalidateLineNumbers(rebuild: true)"))
-        #expect(codeEditorSource.contains("scrollView.contentView.drawsBackground = false"))
-        #expect(codeEditorSource.contains("NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)"))
+        #expect(editorSource.contains("MarkEditCodeEditorRepresentable("))
+        #expect(supportSource.contains(#"case .html: "html""#))
+        #expect(supportSource.contains(#"case .css: "css""#))
+        #expect(supportSource.contains(#"case .js: "javascript""#))
+        #expect(supportSource.contains(#"case .data: "json""#))
+        #expect(editorSource.contains(#"@AppStorage("codeEditor.fontSize") private var sourceFontSize"#))
+        #expect(editorSource.contains(#"@AppStorage("epistemos.codeEditor.showLineGutter") private var sourceShowLineGutter"#))
+        #expect(markEditSource.contains("struct MarkEditCodeEditorRepresentable"))
+        #expect(markEditSource.contains("mode: .code(language: language)"))
+        #expect(markEditSource.contains("MarkEditCoreEditorBridge"))
     }
 
     @Test("package model uses requested file layout and guards traversal")
@@ -260,6 +281,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         let packageSource = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePackage.swift")
         let resourceSource = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspacePackageResources.swift")
         let provenanceSource = try loadMirroredSourceTextFile("Epistemos/Models/HTMLWorkspaceGenerationProvenance.swift")
+        let pythonRuntimeSource = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspacePythonRuntime.swift")
+        let supportSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorSupport.swift")
 
         #expect(packageSource.contains("main.js"))
         #expect(packageSource.contains("data.json"))
@@ -300,10 +323,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("font-synthesis: none"))
         #expect(packageSource.contains("data-metric-value"))
         #expect(packageSource.contains("html[data-epistemos-theme] .metric-card strong"))
-        #expect(packageSource.contains("background: var(--epistemos-workspace-bg) !important"))
-        #expect(packageSource.contains("color: var(--epistemos-workspace-fg) !important"))
+        #expect(supportSource.contains("background: var(--epistemos-workspace-bg) !important"))
+        #expect(supportSource.contains("color: var(--epistemos-workspace-fg) !important"))
         #expect(packageSource.contains("body :is(main, section, article"))
-        #expect(packageSource.contains("border-color: var(--epistemos-workspace-border)"))
+        #expect(supportSource.contains("border-color: var(--epistemos-workspace-border)"))
         #expect(packageSource.contains("legacyScriptJS"))
         #expect(packageSource.contains("validatePackageFileName"))
         #expect(packageSource.contains("case replaceDataJSON"))
@@ -327,6 +350,11 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("CharacterSet.controlCharacters"))
         #expect(packageSource.contains("guard child.isRegularFile"))
         #expect(packageSource.contains("validateRoutes"))
+        #expect(pythonRuntimeSource.contains("Bundle.main.url("))
+        #expect(!pythonRuntimeSource.contains("Bundle.allBundles"))
+        #expect(!pythonRuntimeSource.contains("Bundle.allFrameworks"))
+        #expect(pythonRuntimeSource.contains("requiredResourceNames.allSatisfy"))
+        #expect(pythonRuntimeSource.contains("allowedResourceNames.contains(fileName)"))
         #expect(packageSource.contains("HTMLWorkspaceDocumentReplacement"))
         #expect(packageSource.contains("case replaceDocument(HTMLWorkspaceDocumentReplacement)"))
         #expect(packageSource.contains("case setDataFeed(HTMLWorkspaceDataFeed?)"))
@@ -370,7 +398,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
 
     @Test("HTML Workspace DOM outline extracts attribute values instead of names")
     func htmlWorkspaceDOMOutlineExtractsAttributeValues() throws {
-        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDOMOutline.swift")
 
         #expect(editorSource.contains("captureAttribute(\"id\""))
         #expect(editorSource.contains("captureAttribute(\"class\""))
@@ -413,7 +441,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains(#""addAsset", "removeAsset", "captureSnapshot""#))
         #expect(editorSource.contains(#""replaceDocument", "regenerate""#))
         #expect(!routerSource.contains("var visible = parseResult.cleanedText"))
-        #expect(chatTypes.contains("surfaceTarget"))
+        #expect(chatTypes.contains("contextAttachments"))
     }
 
     @Test("new visual creation routes to HTML Workspace, not Mermaid")
@@ -485,24 +513,20 @@ nonisolated struct HTMLWorkspaceDOMOutlineRegressionTests {
     }
 }
 
-@Suite("HTML Workspace code editor regressions", .serialized)
+@Suite("HTML Workspace MarkEdit source editor regressions", .serialized)
 // UAS-EXEMPT: source-guard test fixture, not persisted substrate data.
-nonisolated struct HTMLWorkspaceCodeEditorRegressionTests {
-    @Test("seeds visible text geometry before two-axis source editing")
-    func seedsVisibleTextGeometryBeforeTwoAxisSourceEditing() throws {
-        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
+nonisolated struct HTMLWorkspaceMarkEditSourceEditorRegressionTests {
+    @Test("source panes use the app code editor CoreEditor path")
+    func sourcePanesUseAppCodeEditorCoreEditorPath() throws {
+        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
 
-        #expect(editorSource.contains("ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)"))
-        #expect(editorSource.contains("HTMLWorkspaceCodeEditor.ensureVisibleTextGeometry(textView: textView, scrollView: scrollView)"))
-        #expect(editorSource.contains("let contentSize = NSSize("))
-        #expect(editorSource.contains("width: max(scrollView.contentSize.width, scrollView.bounds.width)"))
-        #expect(editorSource.contains("height: max(scrollView.contentSize.height, scrollView.bounds.height)"))
-        #expect(editorSource.contains("textView.minSize = contentSize"))
-        #expect(editorSource.contains("textView.frame.size = NSSize("))
-        #expect(editorSource.contains("width: max(textView.frame.width, contentSize.width)"))
-        #expect(editorSource.contains("height: max(textView.frame.height, contentSize.height)"))
-        #expect(editorSource.contains("applyPlainTextAttributes(to: textView, foreground: palette.foreground)"))
-        #expect(editorSource.contains("AppDisplayTypography.monoUIFont(size: 12.5, weight: .regular)"))
-        #expect(!editorSource.contains("NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)"))
+        #expect(editorSource.contains("private func workspaceCodeEditor(text: Binding<String>, language: String) -> some View"))
+        #expect(editorSource.contains("MarkEditCodeEditorRepresentable("))
+        #expect(editorSource.contains("cursorLine: $sourceCursorLine"))
+        #expect(editorSource.contains("cursorColumn: $sourceCursorColumn"))
+        #expect(editorSource.contains("totalLines: $sourceTotalLines"))
+        #expect(editorSource.contains("showLineNumbers: sourceShowLineGutter"))
+        #expect(!editorSource.contains("HTMLWorkspaceCodeEditor("))
+        #expect(!editorSource.contains("TextEditor("))
     }
 }

@@ -63,8 +63,16 @@ nonisolated final class VaultMCPServer: @unchecked Sendable {
     var status: Status { statusLock.withLock { _status } }
     private func setStatus(_ newValue: Status) { statusLock.withLock { _status = newValue } }
 
-    init(vaultRoot: URL?, executor: @escaping LocalAgentToolExecutor, token: String) {
-        self.core = VaultMCPCore(vaultRoot: vaultRoot, executor: executor)
+    init(
+        vaultRoot: URL?,
+        executor: @escaping LocalAgentToolExecutor,
+        token: String,
+        resourceDispatcher: (any VaultMCPResourceDispatcher)? = nil
+    ) {
+        self.core = VaultMCPCore(
+            vaultRoot: vaultRoot,
+            executor: executor,
+            resourceDispatcher: resourceDispatcher)
         self.token = token
     }
 

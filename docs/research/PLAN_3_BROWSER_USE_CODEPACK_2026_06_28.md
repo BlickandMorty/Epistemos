@@ -1,4 +1,4 @@
-# Plan 3 — browser-use Pro vendor codepack (staged Pro code, Pass 7)
+# Plan 3 — browser-use Pro vendor codepack (signed Pro payload, Pass 7)
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This records the landed Pro-only vendor/runtime staging lane
 > for the Chromium robot. browser-use drives Chromium over CDP; it is deliberately separate from the MAS-safe
@@ -122,14 +122,16 @@ non-persistent shell, opens the Run Agent tab, fills the task box without clicki
 navigation blocking. A full real Gradio WKWebView task-submit smoke also landed with the Epistemos-only
 `EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT` no-provider hook: it clicks the real Submit Task event, completes before
 LLM/provider/browser setup, observes the deterministic `Epistemos browser-use WebUI dry-run task-submit complete` marker,
-and verifies non-loopback navigation blocking. Still pending: signing/notarization into final Pro resources. The
-manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
-wheelhouse, and Playwright payload as staged instead of pretending the signed Pro package exists.
+and verifies non-loopback navigation blocking. Signed `BrowserUsePro.bundle` packaging now exists with a
+`SIGNATURE_MANIFEST.json` and code-signature verification backing the gate; release notarization remains distribution
+ops. The manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
+wheelhouse, and Playwright payload as staged inputs to the signed Pro package.
 
 `Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` is now the always-compiled honest gate and manifest reader:
-MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the staged payload manifest it
-can report `browser-use Pro: packaged payload ready` only after the declared `requirements.lock`, wheelhouse, Chromium
-payload, and `BUILD_MANIFEST.json` exist beside the manifest; the manifest file itself is regular-file checked,
+MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the signed bundle manifest it
+can report `browser-use Pro: signed packaged payload ready` only after the declared `requirements.lock`, wheelhouse,
+Chromium payload, `BUILD_MANIFEST.json`, `SIGNATURE_MANIFEST.json`, and enclosing `BrowserUsePro.bundle` signature
+verify; the manifest file itself is regular-file checked,
 symlink-path rejected, read through a no-follow descriptor, and capped at 1 MiB before JSON decode; manifest-declared
 artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
 and never surface full user-local paths; unexpected external manifest read failures are mapped to bounded domain/code
@@ -197,8 +199,9 @@ shell smoke, the real Gradio WKWebView shell/control and task-submit dry-run smo
 `[VERIFIED-CODE]`
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
-screenshot` to browser-use's `skill_cli` daemon. The `console/errors` commands are bounded compatibility stubs because
-the vendored `skill_cli` has no matching console/error stream actions yet; these console/errors compatibility stubs avoid browser-use runtime import until upstream exposes matching stream actions. The adapter keeps session files under
+screenshot` to browser-use's `skill_cli` daemon, and `task` to a bounded browser-use `Agent.run(max_steps:)` subordinate
+task loop for Goose's high-level `browser.complete_task` delegation tool. The `console/errors` commands are bounded
+compatibility stubs because the vendored `skill_cli` has no matching console/error stream actions yet; these console/errors compatibility stubs avoid browser-use runtime import until upstream exposes matching stream actions. The adapter keeps session files under
 `AGENT_BROWSER_SOCKET_DIR` via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a
 no-runtime `contract` check for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME`
 after validating that it is an absolute existing directory, so direct adapter invocation cannot redirect browser-use
@@ -207,6 +210,10 @@ the macOS `/tmp`/`/var`/`/etc` compatibility symlinks and requires current-user 
 derives daemon/socket files.
 Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
+`agent-browser`; `agent_core` exposes the model-facing `browser.complete_task` alias in Pro builds only, and the
+app-hosted `omega-mcp` dispatcher now lists the same canonical MCP tool outside `mas-sandbox` while keeping it out of the
+MAS catalog. The `omega_mcp_stdio` vault/graph server remains intentionally scoped to the Rust tools it can execute and
+does not advertise app-hosted browser automation.
 `agent-browser`; live fixture smoke opened `https://example.com`, captured an `Example Domain` snapshot, and closed the
 isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload; adapter argument errors remain generic and
 JSON-bounded before runtime import, so invalid or missing `--json` commands produce the same machine-readable failure
@@ -437,7 +444,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Loopback server smoke harness: `scripts/browser-use-pro-loopback-smoke.sh` starts the staged Pro `webui.py` on
   `127.0.0.1`, forces the staged Playwright browser path, disables dotenv reloading and Gradio analytics, polls only the
   loopback root URL with a 5-600 second timeout bound, writes non-secret `result.json`/`webui.log` evidence, and kills the
-  child process on pass, timeout, or early exit. This is landed, but it is not a WKWebView or task-submit smoke.
+  child process on pass, timeout, or early exit. This is complemented by the real Gradio WKWebView shell/control smoke
+  and the no-provider task-submit dry-run smoke.
 - Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream
   source counts, including the `web_ui_dry_run_submit` no-provider hook; the pinned web-ui must import/build a Gradio
   Blocks object without eager LangChain MCP/provider package imports; and the staged Gradio 6 Chatbot constructor must not
@@ -467,12 +475,14 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 1. Add the codepack + source guards (this file). **Landed.**
 2. Vendor full source into `agent_core/vendor/browser-use/` and write `VENDOR_MANIFEST.json`. **Landed.**
 3. Add Pro-only packaging scripts and hash-locked wheel/Chromium staging. **Packaging script, generated lock,
-   wheelhouse, and Chromium payload landed; signing and notarization still pending.**
+   wheelhouse, Chromium payload, signed `BrowserUsePro.bundle`, and gate smoke landed; release notarization remains
+   distribution ops.**
 4. Add `BrowserUseProGateStatus` + Settings gate; MAS says Pro only. **Gate, diagnostic Settings surface, and
    settings/env contract landed.**
 5. Add runtime supervisor + loopback WebView shell. **Runtime launch contract and WKWebView loopback shell landed;
    loopback health gating, loopback server smoke harness, local WKWebView fixture dry-run shell smoke, and real Gradio
    WKWebView shell/control plus task-submit dry-run smokes landed.**
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
-   **Source-only adapter contract, Rust discovery wiring, and live tool smoke landed.**
+   **Source-only adapter contract, Rust discovery wiring, canonical high-level `browser.complete_task` v2 alias,
+   Pro-only app-hosted MCP catalog exposure, MAS MCP exclusion, and live tool smoke landed.**
 7. Run the full Pro smoke suite, then the MAS boundary audit.

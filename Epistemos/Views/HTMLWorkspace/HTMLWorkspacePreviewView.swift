@@ -1,10 +1,65 @@
 import CryptoKit
+import Foundation
 import SwiftUI
 import WebKit
 
 nonisolated enum HTMLWorkspaceSafeAPI {
     static let messageHandlerName = "htmlWorkspaceSafeAPI"
-    static let deferredDiagnosticMessage = "Safe API message ignored: HTML Workspace app bridge is deferred"
+    static let sourceName = "epistemos://html-workspace/app-bridge"
+    static let maxCommandLength = 96
+    static let maxMessageLength = 280
+
+    struct Command: Equatable, Sendable {
+        let name: String
+        let message: String?
+
+        static func fromMessageBody(_ body: Any) -> Command? {
+            if let raw = boundedString(body, limit: maxCommandLength) {
+                return Command(name: raw, message: nil)
+            }
+            guard let payload = body as? [String: Any],
+                  let name = boundedString(
+                    payload["command"] ?? payload["type"] ?? payload["name"],
+                    limit: maxCommandLength
+                  ) else {
+                return nil
+            }
+            let nestedPayload = payload["payload"] as? [String: Any]
+            let message = boundedString(
+                payload["message"] ?? payload["label"] ?? nestedPayload?["message"] ?? nestedPayload?["label"],
+                limit: maxMessageLength
+            )
+            return Command(name: name, message: message)
+        }
+
+        private static func boundedString(_ value: Any?, limit: Int) -> String? {
+            guard let raw = value as? String else { return nil }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            guard trimmed.count > limit else { return trimmed }
+            return String(trimmed.prefix(limit))
+        }
+    }
+
+    static func diagnosticMessage(
+        for command: Command,
+        package: HTMLWorkspacePackage
+    ) -> String {
+        switch command.name.lowercased() {
+        case "ping":
+            if let message = command.message, !message.isEmpty {
+                return "App bridge ping: \(message)"
+            }
+            return "App bridge ping: ok"
+        case "workspace.status", "status":
+            let network = package.manifest.sandboxPolicy.allowNetwork ? "network" : "offline"
+            return "App bridge status: \(package.manifest.id) / \(network) / safeAPI v\(package.manifest.sandboxPolicy.safeAPIVersion)"
+        case "event.record", "record":
+            return "App bridge event: \(command.message ?? "received")"
+        default:
+            return "App bridge unsupported command: \(command.name)"
+        }
+    }
 }
 
 nonisolated enum HTMLWorkspacePreviewIdentity {
@@ -26,6 +81,10 @@ nonisolated enum HTMLWorkspacePreviewIdentity {
             contentShellHash(for: package),
             assetShellHash(for: package),
             package.manifest.sandboxPolicy.contentSecurityPolicy,
+            package.manifest.sandboxPolicy.allowAppBridge ? "bridge-on" : "bridge-off",
+            package.manifest.sandboxPolicy.allowPythonRuntime ? "python-on" : "python-off",
+            HTMLWorkspacePythonRuntime.assetFingerprint,
+            "\(package.manifest.sandboxPolicy.safeAPIVersion)",
             previewTheme?.rawValue ?? "system",
             themeGuardCSS,
             HTMLWorkspacePreviewTheme.hostCSS,
@@ -57,39 +116,6 @@ nonisolated enum HTMLWorkspacePreviewIdentity {
     }
 }
 
-/// SS-HW seam upgrade: the JS-console / error-capture bridge that was a deferred stub. Injects a
-/// read-only capture script (window 'error' + unhandledrejection + console.error/warn → Swift) so
-/// the already-built console pipeline (HTMLWorkspaceConsoleError + .recordConsoleError + the console
-/// panel) finally shows real runtime errors. Behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0 (default OFF
-/// → the bridge is not installed, byte-identical to before) because it changes WKWebView behavior +
-/// records errors into the document.
-nonisolated enum HTMLWorkspaceConsoleBridge {
-    static let messageHandlerName = "epistemosWorkspaceConsole"
-
-    static var enabled: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0"] == "1"
-    }
-
-    /// Read-only: forwards errors, never exposes an app API. Posts {message, source, line, column}.
-    static let injectionScript = """
-    (function(){
-      function post(message, source, line, column){
-        try {
-          window.webkit.messageHandlers.epistemosWorkspaceConsole.postMessage({
-            message: String(message), source: source || null, line: line || 0, column: column || 0
-          });
-        } catch (e) {}
-      }
-      window.addEventListener('error', function(e){ post(e.message || 'Error', e.filename, e.lineno, e.colno); });
-      window.addEventListener('unhandledrejection', function(e){ post('Unhandled promise rejection: ' + e.reason, null, 0, 0); });
-      var origError = console.error;
-      console.error = function(){ post(Array.prototype.slice.call(arguments).join(' '), null, 0, 0); origError.apply(console, arguments); };
-      var origWarn = console.warn;
-      console.warn = function(){ post(Array.prototype.slice.call(arguments).join(' '), null, 0, 0); origWarn.apply(console, arguments); };
-    })();
-    """
-}
-
 nonisolated enum HTMLWorkspacePreviewURL {
     static let baseURL = URL(string: "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(HTMLWorkspacePackageEntry.indexHTML)")!
 }
@@ -110,18 +136,36 @@ final class HTMLWorkspacePreviewURLSchemeHandler: NSObject, WKURLSchemeHandler {
             return
         }
 
-        let response = URLResponse(
-            url: url,
-            mimeType: asset.mimeType,
-            expectedContentLength: asset.data.count,
-            textEncodingName: asset.textEncodingName
-        )
+        let response = Self.response(url: url, asset: asset)
         urlSchemeTask.didReceive(response)
         urlSchemeTask.didReceive(asset.data)
         urlSchemeTask.didFinish()
     }
 
     func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+    private static func response(url: URL, asset: HTMLWorkspacePackageResource) -> URLResponse {
+        var contentType = asset.mimeType
+        if let encoding = asset.textEncodingName, !encoding.isEmpty {
+            contentType += "; charset=\(encoding)"
+        }
+        let headers = [
+            "Content-Type": contentType,
+            "Content-Length": "\(asset.data.count)",
+            "Cache-Control": "no-store",
+        ]
+        return HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        ) ?? URLResponse(
+            url: url,
+            mimeType: asset.mimeType,
+            expectedContentLength: asset.data.count,
+            textEncodingName: asset.textEncodingName
+        )
+    }
 
     private static func resourcePath(for url: URL) -> String? {
         guard url.scheme?.lowercased() == HTMLWorkspaceLocalResourceScheme.scheme else { return nil }
@@ -144,6 +188,12 @@ final class HTMLWorkspacePreviewURLSchemeHandler: NSObject, WKURLSchemeHandler {
         }
         if components.count == 2, components[0] == HTMLWorkspacePackageEntry.routes {
             return "\(HTMLWorkspacePackageEntry.routes)/\(components[1])"
+        }
+        if components.count == 3,
+           components[0] == "runtime",
+           components[1] == "python",
+           HTMLWorkspacePackage.validateRuntimeResourceComponent(components[2]) {
+            return "\(HTMLWorkspacePythonRuntime.urlPathPrefix)/\(components[2])"
         }
         if components.count == 3,
            components[0] == HTMLWorkspacePackageEntry.routes,
@@ -182,6 +232,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
     var themeIdentity: String? = nil
     var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)? = nil
     var onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)? = nil
+    var isElementInspectorEnabled: Bool = false
+    var onElementInspection: (@MainActor (HTMLWorkspaceElementInspection) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -191,7 +243,9 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             themeGuardCSSOverride: themeGuardCSSOverride,
             themeIdentity: themeIdentity,
             onConsoleError: onConsoleError,
-            onDOMSnapshot: onDOMSnapshot
+            onDOMSnapshot: onDOMSnapshot,
+            isElementInspectorEnabled: isElementInspectorEnabled,
+            onElementInspection: onElementInspection
         )
     }
 
@@ -225,6 +279,13 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             )
             context.coordinator.consoleHandlerInstalled = true
         }
+        if isElementInspectorEnabled, context.coordinator.onElementInspection != nil {
+            configuration.userContentController.add(
+                context.coordinator,
+                name: HTMLWorkspaceInspectorBridge.messageHandlerName
+            )
+            context.coordinator.inspectorHandlerInstalled = true
+        }
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -244,7 +305,10 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         context.coordinator.themeIdentity = themeIdentity
         context.coordinator.onConsoleError = onConsoleError
         context.coordinator.onDOMSnapshot = onDOMSnapshot
+        context.coordinator.isElementInspectorEnabled = isElementInspectorEnabled
+        context.coordinator.onElementInspection = onElementInspection
         context.coordinator.syncSafeAPIHandler(for: webView)
+        context.coordinator.syncInspectorHandler(for: webView)
         loadPreview(into: webView, context: context)
     }
 
@@ -272,20 +336,29 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             context.coordinator.patchDataJSON(
                 package.dataJSON,
                 renderedFallbackHTML: rendered,
+                shellIdentity: shellIdentity,
+                themeIdentity: themeIdentity,
                 in: webView
             )
             return
         }
-        guard context.coordinator.lastRenderedHTML != rendered ||
-                context.coordinator.lastRenderedThemeIdentity != themeIdentity else { return }
-        context.coordinator.lastRenderedHTML = rendered
-        context.coordinator.lastRenderedThemeIdentity = themeIdentity
-        context.coordinator.lastRenderedShellIdentity = shellIdentity
-        context.coordinator.lastRenderedDataJSON = package.dataJSON
-        webView.loadHTMLString(rendered, baseURL: HTMLWorkspacePreviewURL.baseURL)
+        context.coordinator.loadRenderedHTML(
+            rendered,
+            shellIdentity: shellIdentity,
+            themeIdentity: themeIdentity,
+            dataJSON: package.dataJSON,
+            in: webView
+        )
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        private struct PendingRender {
+            let html: String
+            let shellIdentity: String
+            let themeIdentity: String?
+            let dataJSON: String
+        }
+
         var package: HTMLWorkspacePackage
         var safeAPIEnabled: Bool
         var previewTheme: HTMLWorkspacePreviewTheme?
@@ -297,12 +370,18 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var lastRenderedDataJSON: String?
         var messageHandlerInstalled = false
         var consoleHandlerInstalled = false
+        var inspectorHandlerInstalled = false
         var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
         var onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)?
+        var isElementInspectorEnabled: Bool
+        var onElementInspection: (@MainActor (HTMLWorkspaceElementInspection) -> Void)?
         lazy var urlSchemeHandler = HTMLWorkspacePreviewURLSchemeHandler { [weak self] resourcePath in
             self?.resourceResponse(for: resourcePath)
         }
         private let allowedNetworkSchemes: Set<String> = ["http", "https"]
+        private var isDetached = false
+        private var isLoadingPreview = false
+        private var pendingRender: PendingRender?
 
         init(
             package: HTMLWorkspacePackage,
@@ -311,7 +390,9 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             themeGuardCSSOverride: String?,
             themeIdentity: String?,
             onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?,
-            onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)?
+            onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)?,
+            isElementInspectorEnabled: Bool,
+            onElementInspection: (@MainActor (HTMLWorkspaceElementInspection) -> Void)?
         ) {
             self.package = package
             self.safeAPIEnabled = safeAPIEnabled
@@ -320,10 +401,15 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             self.themeIdentity = themeIdentity
             self.onConsoleError = onConsoleError
             self.onDOMSnapshot = onDOMSnapshot
+            self.isElementInspectorEnabled = isElementInspectorEnabled
+            self.onElementInspection = onElementInspection
         }
 
         func canPatchDataOnly(shellIdentity: String, dataJSON: String) -> Bool {
-            guard lastRenderedHTML != nil,
+            guard !isDetached,
+                  !isLoadingPreview,
+                  pendingRender == nil,
+                  lastRenderedHTML != nil,
                   lastRenderedShellIdentity == shellIdentity,
                   lastRenderedDataJSON != dataJSON else {
                 return false
@@ -331,12 +417,66 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             return true
         }
 
+        func loadRenderedHTML(
+            _ html: String,
+            shellIdentity: String,
+            themeIdentity: String?,
+            dataJSON: String,
+            in webView: WKWebView
+        ) {
+            guard !isDetached else { return }
+            let render = PendingRender(
+                html: html,
+                shellIdentity: shellIdentity,
+                themeIdentity: themeIdentity,
+                dataJSON: dataJSON
+            )
+            guard lastRenderedHTML != html ||
+                    lastRenderedThemeIdentity != themeIdentity ||
+                    lastRenderedShellIdentity != shellIdentity ||
+                    lastRenderedDataJSON != dataJSON else {
+                pendingRender = nil
+                return
+            }
+            guard !isLoadingPreview, !webView.isLoading else {
+                pendingRender = render
+                return
+            }
+            startRender(render, in: webView)
+        }
+
+        private func startRender(_ render: PendingRender, in webView: WKWebView) {
+            guard !isDetached else { return }
+            pendingRender = nil
+            isLoadingPreview = true
+            lastRenderedHTML = render.html
+            lastRenderedThemeIdentity = render.themeIdentity
+            lastRenderedShellIdentity = render.shellIdentity
+            lastRenderedDataJSON = render.dataJSON
+            webView.loadHTMLString(render.html, baseURL: HTMLWorkspacePreviewURL.baseURL)
+        }
+
         func patchDataJSON(
             _ dataJSON: String,
             renderedFallbackHTML: String,
+            shellIdentity: String,
+            themeIdentity: String?,
             in webView: WKWebView
         ) {
+            guard !isDetached else { return }
+            guard !isLoadingPreview, !webView.isLoading else {
+                loadRenderedHTML(
+                    renderedFallbackHTML,
+                    shellIdentity: shellIdentity,
+                    themeIdentity: themeIdentity,
+                    dataJSON: dataJSON,
+                    in: webView
+                )
+                return
+            }
             lastRenderedHTML = renderedFallbackHTML
+            lastRenderedThemeIdentity = themeIdentity
+            lastRenderedShellIdentity = shellIdentity
             lastRenderedDataJSON = dataJSON
             let rawLiteral = Self.javaScriptStringLiteral(dataJSON)
             let script = """
@@ -356,10 +496,18 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
               return 'missing-runtime';
             })();
             """
-            webView.evaluateJavaScript(script) { [weak webView] result, error in
-                guard let webView else { return }
+            webView.evaluateJavaScript(script) { [weak self, weak webView] result, error in
+                guard let self, let webView, !self.isDetached else { return }
                 if error != nil || (result as? String) != "patched" {
-                    webView.loadHTMLString(renderedFallbackHTML, baseURL: HTMLWorkspacePreviewURL.baseURL)
+                    self.startRender(
+                        PendingRender(
+                            html: renderedFallbackHTML,
+                            shellIdentity: shellIdentity,
+                            themeIdentity: themeIdentity,
+                            dataJSON: dataJSON
+                        ),
+                        in: webView
+                    )
                 } else {
                     self.refreshLiveDOMSnapshot(in: webView)
                 }
@@ -367,7 +515,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         }
 
         func refreshLiveDOMSnapshot(in webView: WKWebView) {
-            guard onDOMSnapshot != nil else { return }
+            guard !isDetached, !isLoadingPreview, !webView.isLoading, onDOMSnapshot != nil else { return }
             webView.evaluateJavaScript(Self.liveDOMSnapshotScript) { [weak self] result, _ in
                 guard let self else { return }
                 let snapshot = Self.domSnapshot(from: result)
@@ -423,8 +571,19 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                     mimeType: "text/html"
                 )
             default:
+                if let pythonResourceName = Self.pythonRuntimeResourceName(for: resourcePath),
+                   package.manifest.sandboxPolicy.allowPythonRuntime {
+                    return HTMLWorkspacePythonRuntime.resource(for: pythonResourceName)
+                }
                 return HTMLWorkspacePackageResources.resource(for: resourcePath, in: package)
             }
+        }
+
+        private static func pythonRuntimeResourceName(for resourcePath: String) -> String? {
+            let prefix = "\(HTMLWorkspacePythonRuntime.urlPathPrefix)/"
+            guard resourcePath.hasPrefix(prefix) else { return nil }
+            let name = String(resourcePath.dropFirst(prefix.count))
+            return HTMLWorkspacePackage.validateRuntimeResourceComponent(name) ? name : nil
         }
 
         private static func javaScriptStringLiteral(_ value: String) -> String {
@@ -439,6 +598,31 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             _ webView: WKWebView,
             didFinish navigation: WKNavigation!
         ) {
+            finishPreviewNavigation(in: webView, didLoadPage: true)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            finishPreviewNavigation(in: webView, didLoadPage: false)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFailProvisionalNavigation navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            finishPreviewNavigation(in: webView, didLoadPage: false)
+        }
+
+        private func finishPreviewNavigation(in webView: WKWebView, didLoadPage: Bool) {
+            isLoadingPreview = false
+            guard !isDetached else { return }
+            if let pendingRender {
+                syncInspectorHandler(for: webView, allowScriptInstall: false)
+                startRender(pendingRender, in: webView)
+                return
+            }
+            syncInspectorHandler(for: webView, allowScriptInstall: didLoadPage)
+            guard didLoadPage else { return }
             refreshLiveDOMSnapshot(in: webView)
         }
 
@@ -483,7 +667,35 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             }
         }
 
+        func syncInspectorHandler(
+            for webView: WKWebView,
+            allowScriptInstall: Bool = true
+        ) {
+            let shouldInstall = isElementInspectorEnabled && onElementInspection != nil
+            if shouldInstall, !inspectorHandlerInstalled {
+                webView.configuration.userContentController.add(
+                    self,
+                    name: HTMLWorkspaceInspectorBridge.messageHandlerName
+                )
+                inspectorHandlerInstalled = true
+            } else if !shouldInstall, inspectorHandlerInstalled {
+                guard !isLoadingPreview, !webView.isLoading else { return }
+                webView.evaluateJavaScript(HTMLWorkspaceInspectorBridge.disableScript)
+                webView.configuration.userContentController.removeScriptMessageHandler(
+                    forName: HTMLWorkspaceInspectorBridge.messageHandlerName
+                )
+                inspectorHandlerInstalled = false
+            }
+
+            if allowScriptInstall, shouldInstall, !isLoadingPreview, !webView.isLoading {
+                webView.evaluateJavaScript(HTMLWorkspaceInspectorBridge.installScript)
+            }
+        }
+
         func detach(from webView: WKWebView) {
+            isDetached = true
+            isLoadingPreview = false
+            pendingRender = nil
             webView.navigationDelegate = nil
             if messageHandlerInstalled {
                 webView.configuration.userContentController.removeScriptMessageHandler(
@@ -497,6 +709,12 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 )
                 consoleHandlerInstalled = false
             }
+            if inspectorHandlerInstalled {
+                webView.configuration.userContentController.removeScriptMessageHandler(
+                    forName: HTMLWorkspaceInspectorBridge.messageHandlerName
+                )
+                inspectorHandlerInstalled = false
+            }
             lastRenderedHTML = nil
             lastRenderedThemeIdentity = nil
             lastRenderedShellIdentity = nil
@@ -509,22 +727,42 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             didReceive message: WKScriptMessage
         ) {
             if message.name == HTMLWorkspaceSafeAPI.messageHandlerName {
+                guard safeAPIEnabled, package.manifest.sandboxPolicy.allowAppBridge else {
+                    recordConsoleDiagnostic(
+                        message: "App bridge denied: sandbox gate is off",
+                        source: HTMLWorkspaceSafeAPI.sourceName
+                    )
+                    return
+                }
+                guard let command = HTMLWorkspaceSafeAPI.Command.fromMessageBody(message.body) else {
+                    recordConsoleDiagnostic(
+                        message: "App bridge rejected malformed message",
+                        source: HTMLWorkspaceSafeAPI.sourceName
+                    )
+                    return
+                }
                 recordConsoleDiagnostic(
-                    message: HTMLWorkspaceSafeAPI.deferredDiagnosticMessage,
-                    source: HTMLWorkspaceSafeAPI.messageHandlerName
+                    message: HTMLWorkspaceSafeAPI.diagnosticMessage(for: command, package: package),
+                    source: HTMLWorkspaceSafeAPI.sourceName
                 )
                 return
             }
 
             // SS-HW: the JS-console capture channel -> record one runtime error into the document's
-            // console pipeline. The safeAPI channel above remains diagnostic-only for now.
+            // console pipeline. The safeAPI channel above is the gated app-message bridge.
+            if message.name == HTMLWorkspaceInspectorBridge.messageHandlerName,
+               isElementInspectorEnabled,
+               let inspection = HTMLWorkspaceElementInspection.fromMessageBody(message.body) {
+                onElementInspection?(inspection)
+                return
+            }
             guard message.name == HTMLWorkspaceConsoleBridge.messageHandlerName,
-                  let body = message.body as? [String: Any] else { return }
+                  let diagnostic = HTMLWorkspaceConsoleBridge.DiagnosticPayload.fromMessageBody(message.body) else { return }
             recordConsoleDiagnostic(
-                message: (body["message"] as? String) ?? "Console error",
-                source: body["source"] as? String,
-                line: (body["line"] as? NSNumber)?.uint32Value ?? 0,
-                column: (body["column"] as? NSNumber)?.uint32Value ?? 0
+                message: diagnostic.message,
+                source: diagnostic.source,
+                line: diagnostic.line,
+                column: diagnostic.column
             )
         }
 
@@ -541,7 +779,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 column: column,
                 timestamp: Int64(Date().timeIntervalSince1970 * 1000)
             )
-            onConsoleError?(error)
+            onConsoleError?(error.boundedForPackage())
         }
     }
 }

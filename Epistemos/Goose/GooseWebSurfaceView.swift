@@ -45,10 +45,9 @@ struct GooseWebSurfaceView: View {
     @State private var webUIRenderOverlayStatus: String?
     @State private var webUIRenderProbeLastResult: String?
     // Step 3 per-route migration: the router defaults EVERY route to the WebView (the oracle) and
-    // promotes a route to native only when explicitly enabled. `nativeModelsPresented` drives the
-    // native Models sheet; the WebView keeps backing the route, unchanged, when not promoted.
+    // promotes a route to native only when explicitly enabled. The Models route is the first native
+    // candidate; it reuses this surface's live ACP bridge instead of spawning a second Goose client.
     @State private var router = GooseSurfaceRouter()
-    @State private var nativeModelsPresented = false
     // Review H1/H3: the supervisor reaching .running and the bridge finishing provider-sync are both
     // ASYNC and can arrive after the initial bounded poll gave up. These track which connection the
     // surface has already been driven for / reloaded after sync, so the status observers can drive
@@ -64,6 +63,7 @@ struct GooseWebSurfaceView: View {
     // storage is shared across struct re-creations, so even a stale captured `self` reads the live value
     // here — fixing rail clicks made during startup being dropped + the post-sync reload snapping to hub.
     @State private var activeRoute: String
+    @State private var activeWebRoute: String
 
     init(theme: EpistemosTheme = .nativeDefault, route: String = "/?") {
         self.theme = theme
@@ -80,7 +80,9 @@ struct GooseWebSurfaceView: View {
         _nativeAffordanceBridge = State(initialValue: nativeAffordanceBridge)
         _secretKey = State(initialValue: secretKey)
         _trustedOrigins = State(initialValue: trustedOrigins)
-        _activeRoute = State(initialValue: Self.normalizedGooseRoute(route))
+        let normalizedRoute = Self.normalizedGooseRoute(route)
+        _activeRoute = State(initialValue: normalizedRoute)
+        _activeWebRoute = State(initialValue: normalizedRoute)
         let page = Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
@@ -95,10 +97,8 @@ struct GooseWebSurfaceView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            WebView(page)
-                .background(background)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if let webUIRenderOverlayStatus {
+            contentHost
+            if let webUIRenderOverlayStatus, !nativeModelsRouteIsActive {
                 webUIRenderOverlay(status: webUIRenderOverlayStatus)
             }
             if showDetails {
@@ -113,12 +113,6 @@ struct GooseWebSurfaceView: View {
         }
         .background(background)
         .animation(.snappy(duration: 0.16), value: showDetails)
-        .sheet(isPresented: $nativeModelsPresented) {
-            // Promoted-only: defaults to .web so this sheet never opens unless the Models route is
-            // explicitly enabled. Reuses the SAME live acpBridge connection (no second spawn).
-            GooseNativeModelsView(bridge: acpBridge)
-                .frame(minWidth: 480, minHeight: 380)
-        }
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
@@ -128,8 +122,7 @@ struct GooseWebSurfaceView: View {
             // before the UI server is running is NOT lost — the load chain reads `activeRoute`), then
             // re-point the loaded WebView (no-op until the UI server is running).
             let normalizedRoute = Self.normalizedGooseRoute(newRoute)
-            activeRoute = normalizedRoute
-            loadGooseRoute(normalizedRoute)
+            handleRouteSelection(normalizedRoute)
         }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
@@ -154,6 +147,34 @@ struct GooseWebSurfaceView: View {
 
     private var background: Color {
         GooseSurfaceStyle.background(for: theme)
+    }
+
+    @ViewBuilder
+    private var contentHost: some View {
+        ZStack {
+            WebView(page)
+                .background(background)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .opacity(nativeModelsRouteIsActive ? 0 : 1)
+                .allowsHitTesting(!nativeModelsRouteIsActive)
+
+            if nativeModelsRouteIsActive {
+                nativeModelsContent
+            }
+        }
+    }
+
+    private var nativeModelsContent: some View {
+        Group {
+            GooseNativeModelsView(bridge: acpBridge)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(background)
+        }
+        .transition(.opacity.animation(.smooth(duration: 0.16)))
+    }
+
+    private var nativeModelsRouteIsActive: Bool {
+        activeRoute == GooseSurfaceRoute.models.webRoute && router.isNative(.models)
     }
 
     private var detailsButton: some View {
@@ -208,17 +229,17 @@ struct GooseWebSurfaceView: View {
             detailRow("custom ACP Goose", customACPStatusLabel)
             HStack(spacing: 8) {
                 Button {
-                    if router.isNative(.models) {
-                        nativeModelsPresented = true
-                    } else {
-                        loadGooseRoute(GooseSurfaceRoute.models.webRoute)
-                    }
+                    handleRouteSelection(GooseSurfaceRoute.models.webRoute)
+                    showDetails = false
                 } label: {
                     Label("Manage models", systemImage: "slider.horizontal.3")
                 }
                 .buttonStyle(.bordered)
                 .help(router.isNative(.models) ? "Open native models picker" : "Open Goose models")
-                Button { loadGooseRoute("/configure-providers") } label: {
+                Button {
+                    handleRouteSelection("/configure-providers")
+                    showDetails = false
+                } label: {
                     Label("Providers", systemImage: "key")
                 }
                 .buttonStyle(.bordered)
@@ -617,9 +638,11 @@ struct GooseWebSurfaceView: View {
               let gooseUIServer,
               case .running(let baseURL) = gooseUIServer.status else { return }
         reloadedSyncForConnectionKey = key
-        // Reload to the CURRENT route, not a literal "/?" — otherwise this post-sync reload snaps the
-        // WebView back to the hub while the native rail still highlights e.g. Sessions (rail/content desync).
-        loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: activeRoute)
+        // Reload to the CURRENT web-backed route, not a literal "/?" — otherwise this post-sync reload
+        // snaps the WebView back to the hub while the native rail still highlights e.g. Sessions.
+        // Promoted native routes keep their SwiftUI content active and leave the WebView on the last
+        // non-native route; the native picker refreshes from the same provider-sync notification.
+        loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: activeWebRoute)
     }
 
     private func loadWhenReady() async {
@@ -719,6 +742,16 @@ struct GooseWebSurfaceView: View {
         loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: route)
     }
 
+    private func handleRouteSelection(_ route: String) {
+        let normalizedRoute = Self.normalizedGooseRoute(route)
+        activeRoute = normalizedRoute
+        guard !(normalizedRoute == GooseSurfaceRoute.models.webRoute && router.isNative(.models)) else {
+            return
+        }
+        activeWebRoute = normalizedRoute
+        loadGooseRoute(normalizedRoute)
+    }
+
     private func loadBootstrappedGooseUI(baseURL: URL, connection: GooseRuntimeConnection, route: String) {
         trustedOrigins.register(baseURL)
         trustedOrigins.register(connection.baseURL)
@@ -802,9 +835,10 @@ struct GooseWebSurfaceView: View {
                     webUIRenderOverlayStatus = renderAttempt == 0
                         ? Self.loadingWebUIStatus
                         : "Goose Web UI render retry \(renderAttempt)"
-                    // Read `activeRoute` at the actual load instant (not a value captured when this task
-                    // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
-                    let request = URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute))
+                    // Read `activeWebRoute` at the actual load instant (not a value captured when this
+                    // task began) so a rail click made WHILE the UI server was coming up is honored when
+                    // it is web-backed. Promoted native routes keep this on the last web route.
+                    let request = URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeWebRoute))
                     webUIRenderOverlayStatus = nil
                     _ = page.load(request)
                     if await waitForRenderedGooseUI(connectionKey: connectionKey) {

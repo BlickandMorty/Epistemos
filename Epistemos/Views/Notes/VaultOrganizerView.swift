@@ -129,7 +129,7 @@ struct VaultOrganizerView: View {
                 Text("Scan ran into errors — \(scanFailureCount) batch\(scanFailureCount == 1 ? "" : "es") failed")
                     .font(.epBody)
                     .foregroundStyle(theme.textSecondary)
-                Text("The triage backend returned an error or the AI response was malformed. No suggestions were produced for this sample. Tap Scan to retry.")
+                Text("The scan backend returned an error or the AI response was malformed. No suggestions were produced for this sample. Tap Scan to retry.")
                     .font(.epCaption)
                     .foregroundStyle(theme.textTertiary)
                     .multilineTextAlignment(.center)

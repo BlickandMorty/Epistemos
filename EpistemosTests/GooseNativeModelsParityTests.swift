@@ -121,6 +121,59 @@ struct GooseSurfaceRouterTests {
     func modelsRouteMapsToWebOracle() {
         #expect(GooseSurfaceRoute.models.webRoute == "/settings?section=models")
     }
+
+    @Test("native Agent rail exposes visible Goose frame routes")
+    func nativeAgentRailExposesVisibleGooseRoutes() {
+        #expect(AgentRailDestination.hub.webRoute == "/?")
+        #expect(AgentRailDestination.launcher.webRoute == "/launcher")
+        #expect(AgentRailDestination.sessions.webRoute == "/sessions")
+        #expect(AgentRailDestination.models.webRoute == "/settings?section=models")
+        #expect(AgentRailDestination.providers.webRoute == "/configure-providers")
+        #expect(AgentRailDestination.permission.webRoute == "/permission")
+        #expect(AgentRailDestination.skills.webRoute == "/skills")
+        #expect(AgentRailDestination.recipes.webRoute == "/recipes")
+        #expect(AgentRailDestination.extensions.webRoute == "/extensions")
+        #expect(AgentRailDestination.scheduler.webRoute == "/schedules")
+        #expect(AgentRailDestination.apps.webRoute == "/apps")
+    }
+
+    @Test("native Agent launcher is route navigation only and keeps Goose WebView mounted")
+    func nativeAgentLauncherIsNavigationOnly() throws {
+        #expect(AgentRailDestination.launcherDestinations == [
+            .hub,
+            .sessions,
+            .models,
+            .providers,
+            .permission,
+            .settings,
+            .skills,
+            .recipes,
+            .extensions,
+            .scheduler,
+            .apps,
+        ])
+        #expect(!AgentRailDestination.launcherDestinations.contains(.launcher))
+
+        let root = try loadMirroredSourceTextFile("Epistemos/Agent/AgentSurfaceRootView.swift")
+        #expect(root.contains("GooseWebSurfaceView(theme: theme, route: webRoute)"))
+        #expect(root.contains(".opacity(selection == .launcher ? 0 : 1)"))
+        #expect(root.contains(".allowsHitTesting(selection != .launcher)"))
+        #expect(root.contains("AgentLauncherPanelView("))
+        #expect(root.contains("activeDestination: lastContentSelection"))
+        #expect(root.contains(".keyboardShortcut(\"l\", modifiers: .command)"))
+        #expect(root.contains("private func openLauncher()"))
+
+        let launcher = try loadMirroredSourceTextFile("Epistemos/Agent/AgentLauncherPanelView.swift")
+        #expect(launcher.contains("AgentRailDestination.launcherDestinations"))
+        #expect(launcher.contains("@FocusState private var isSearchFocused"))
+        #expect(launcher.contains(".focused($isSearchFocused)"))
+        #expect(launcher.contains(".onSubmit(openFirstFilteredDestination)"))
+        #expect(launcher.contains("ScrollView {"))
+        #expect(launcher.contains(".scrollIndicators(.hidden)"))
+        #expect(launcher.contains("No matching surfaces"))
+        #expect(launcher.contains("let isActive = destination == activeDestination"))
+        #expect(launcher.contains("private func openFirstFilteredDestination()"))
+    }
 }
 
 @Suite("Goose native Models live parity", .serialized)

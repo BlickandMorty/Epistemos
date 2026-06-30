@@ -389,6 +389,15 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{"app":{"type":"string","description":"Target app (optional, captures frontmost window if omitted)"}}}"#
         ),
     ];
+    #[cfg(not(feature = "mas-sandbox"))]
+    tools.push(tool!(
+        "browser.complete_task",
+        "browser",
+        "Pro-only: delegate a bounded browser-scoped task to the vendored browser-use Chromium sub-agent. Goose remains the user-facing agent; App Store builds exclude this MCP tool.",
+        r#"{"task":"Open example.com and report the title","max_steps":5}"#,
+        r#"{"type":"object","additionalProperties":false,"properties":{"task":{"type":"string","minLength":1,"maxLength":4000,"description":"Browser task to complete end-to-end."},"max_steps":{"type":"integer","minimum":1,"maximum":50,"default":20,"description":"Maximum browser-use agent steps."}},"required":["task"]}"#,
+        destructive
+    ));
     tools.extend(crate::graph_tools::builtin_graph_tools());
     tools
 }
@@ -468,8 +477,14 @@ mod tests {
         let tools = builtin_tools();
         let names: std::collections::HashSet<&str> =
             tools.iter().map(|tool| tool.name.as_str()).collect();
-        assert!(names.contains("backlinks"), "backlinks must be in the catalog");
-        assert!(names.contains("outlinks"), "outlinks must be in the catalog");
+        assert!(
+            names.contains("backlinks"),
+            "backlinks must be in the catalog"
+        );
+        assert!(
+            names.contains("outlinks"),
+            "outlinks must be in the catalog"
+        );
     }
 
     #[test]
@@ -558,6 +573,41 @@ mod tests {
         assert!(
             names.contains("web.search"),
             "missing D3 web.search MCP tool"
+        );
+    }
+
+    #[cfg(not(feature = "mas-sandbox"))]
+    #[test]
+    fn builtin_catalog_exposes_pro_browser_use_task_tool() {
+        let tools = builtin_tools();
+        let tool = tools
+            .iter()
+            .find(|tool| tool.name == "browser.complete_task")
+            .expect("Pro omega-mcp catalog must expose browser.complete_task");
+
+        assert_eq!(tool.agent, "browser");
+        assert!(tool.description.contains("Pro-only"));
+        assert!(tool.description.contains("browser-use Chromium sub-agent"));
+        assert!(tool.safety.destructive);
+        assert!(tool.safety.requires_confirmation);
+
+        let schema: serde_json::Value = serde_json::from_str(&tool.input_schema_json).unwrap();
+        assert_eq!(schema["additionalProperties"], false);
+        assert_eq!(schema["required"][0], "task");
+        assert_eq!(schema["properties"]["task"]["maxLength"], 4000);
+        assert_eq!(schema["properties"]["max_steps"]["maximum"], 50);
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[test]
+    fn mas_catalog_excludes_pro_browser_use_task_tool() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        assert!(
+            !names.contains("browser.complete_task"),
+            "MAS omega-mcp catalog must not expose Pro browser-use automation"
         );
     }
 }

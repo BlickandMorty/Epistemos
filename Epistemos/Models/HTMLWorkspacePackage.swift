@@ -49,6 +49,8 @@ nonisolated enum HTMLWorkspacePackageContentHasher {
 
 nonisolated public enum HTMLWorkspacePackageLimits {
     public static let maxConsoleErrors = 48
+    public static let maxConsoleErrorMessageCharacters = 4_096
+    public static let maxConsoleErrorSourceCharacters = 512
     public static let maxSnapshots = 16
     public static let maxManifestBytes = 256 * 1024
     public static let maxIndexHTMLBytes = 2 * 1024 * 1024
@@ -267,32 +269,54 @@ nonisolated private enum HTMLWorkspacePreviewFonts {
 nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashable {
     public var allowNetwork: Bool
     public var allowAppBridge: Bool
+    public var allowPythonRuntime: Bool
     public var safeAPIVersion: UInt32
 
     public init(
         allowNetwork: Bool,
         allowAppBridge: Bool,
+        allowPythonRuntime: Bool = false,
         safeAPIVersion: UInt32
     ) {
         self.allowNetwork = allowNetwork
         self.allowAppBridge = allowAppBridge
+        self.allowPythonRuntime = allowPythonRuntime
         self.safeAPIVersion = safeAPIVersion
     }
 
     public static let offlineDefault = HTMLWorkspaceSandboxPolicy(
         allowNetwork: false,
         allowAppBridge: false,
+        allowPythonRuntime: false,
         safeAPIVersion: 1
     )
 
+    private enum CodingKeys: String, CodingKey {
+        case allowNetwork
+        case allowAppBridge
+        case allowPythonRuntime
+        case safeAPIVersion
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        allowNetwork = try container.decodeIfPresent(Bool.self, forKey: .allowNetwork) ?? false
+        allowAppBridge = try container.decodeIfPresent(Bool.self, forKey: .allowAppBridge) ?? false
+        allowPythonRuntime = try container.decodeIfPresent(Bool.self, forKey: .allowPythonRuntime) ?? false
+        safeAPIVersion = try container.decodeIfPresent(UInt32.self, forKey: .safeAPIVersion) ?? 1
+    }
+
     public var contentSecurityPolicy: String {
         let localResources = HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource
+        let scriptSources = allowPythonRuntime
+            ? "'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' \(localResources)"
+            : "'unsafe-inline' \(localResources)"
         if allowNetwork {
             return [
                 "default-src 'none'",
                 "img-src data: blob: https: \(localResources)",
                 "style-src 'unsafe-inline' \(localResources)",
-                "script-src 'unsafe-inline' \(localResources)",
+                "script-src \(scriptSources)",
                 "font-src data: \(localResources)",
                 "connect-src https: \(localResources)",
                 "media-src data: blob: https: \(localResources)",
@@ -305,7 +329,7 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
             "default-src 'none'",
             "img-src data: blob: \(localResources)",
             "style-src 'unsafe-inline' \(localResources)",
-            "script-src 'unsafe-inline' \(localResources)",
+            "script-src \(scriptSources)",
             "font-src data: \(localResources)",
             "connect-src \(localResources)",
             "media-src data: blob: \(localResources)",
@@ -1018,6 +1042,17 @@ extension HTMLWorkspacePackage {
             throw HTMLWorkspacePackageError.invalidPackagePath(name: name)
         }
     }
+
+    nonisolated static func validateRuntimeResourceComponent(_ name: String) -> Bool {
+        !name.isEmpty
+            && name != "."
+            && name != ".."
+            && !name.hasPrefix(".")
+            && !name.contains("/")
+            && !name.contains("\\")
+            && !name.contains("\0")
+            && !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+    }
 }
 
 nonisolated public enum HTMLWorkspacePreviewDocument {
@@ -1061,7 +1096,7 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
         \(bodyHTML)
           <script type="application/json" id="workspace-data">\(escapeScriptData(package.dataJSON))</script>
           <script id="epistemos-workspace-runtime">
-        \(localDOMHelperJavaScript)
+        \(localDOMHelperJavaScript(pythonPolicyEnabled: package.manifest.sandboxPolicy.allowPythonRuntime))
           </script>
           <script>\(package.scriptJS)</script>
         </body>
@@ -1082,7 +1117,17 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
             .replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
     }
 
-    private static let localDOMHelperJavaScript = """
+    private static func localDOMHelperJavaScript(pythonPolicyEnabled: Bool) -> String {
+        let pythonAvailable = pythonPolicyEnabled && HTMLWorkspacePythonRuntime.isAvailable
+        let pythonStatus: String = if !pythonPolicyEnabled {
+            "disabled"
+        } else if pythonAvailable {
+            "available"
+        } else {
+            "missing-vendored-assets"
+        }
+        let pythonBaseURL = HTMLWorkspacePythonRuntime.baseURLString
+        return """
     (() => {
       const dataNode = document.getElementById('workspace-data');
       const parseWorkspaceData = (raw) => {
@@ -1122,11 +1167,62 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
 
       replaceWorkspaceData(state.data, dataNode?.textContent || '{}', false);
 
+      const pythonRuntime = (() => {
+        const enabled = \(pythonPolicyEnabled ? "true" : "false");
+        const available = \(pythonAvailable ? "true" : "false");
+        const status = "\(pythonStatus)";
+        const baseURL = "\(pythonBaseURL)";
+        let loadPromise = null;
+        function loadScript(src) {
+          return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load Pyodide script: ' + src));
+            document.head.appendChild(script);
+          });
+        }
+        async function load() {
+          if (!enabled) {
+            throw new Error('HTML Workspace Python runtime is disabled by sandbox policy');
+          }
+          if (!available) {
+            throw new Error('HTML Workspace Python runtime is not bundled in this build');
+          }
+          if (!loadPromise) {
+            loadPromise = (async () => {
+              if (typeof window.loadPyodide !== 'function') {
+                await loadScript(baseURL + '\(HTMLWorkspacePythonRuntime.entryScriptName)');
+              }
+              if (typeof window.loadPyodide !== 'function') {
+                throw new Error('Pyodide loader did not register loadPyodide');
+              }
+              return window.loadPyodide({ indexURL: baseURL });
+            })();
+          }
+          return loadPromise;
+        }
+        async function run(code) {
+          const pyodide = await load();
+          return pyodide.runPythonAsync(String(code ?? ''));
+        }
+        return Object.freeze({
+          enabled,
+          available,
+          status,
+          baseURL: available ? baseURL : null,
+          load,
+          run
+        });
+      })();
+
       const toArray = (children) => Array.isArray(children) ? children : [children];
       const api = {
         get data() {
           return state.data;
         },
+        python: pythonRuntime,
         q(selector, scope = document) {
           return scope.querySelector(selector);
         },
@@ -1167,6 +1263,7 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
       });
     })();
     """
+    }
 }
 
 nonisolated public struct HTMLWorkspaceDocumentReplacement: Sendable, Hashable {
@@ -1289,6 +1386,23 @@ nonisolated public struct HTMLWorkspaceConsoleError: Codable, Sendable, Hashable
         self.column = column
         self.timestamp = timestamp
     }
+
+    func boundedForPackage() -> HTMLWorkspaceConsoleError {
+        HTMLWorkspaceConsoleError(
+            message: Self.bounded(message, limit: HTMLWorkspacePackageLimits.maxConsoleErrorMessageCharacters),
+            source: source.map { Self.bounded($0, limit: HTMLWorkspacePackageLimits.maxConsoleErrorSourceCharacters) },
+            line: line,
+            column: column,
+            timestamp: timestamp
+        )
+    }
+
+    private static func bounded(_ value: String, limit: Int) -> String {
+        guard value.count > limit else { return value }
+        let suffix = "... [truncated]"
+        let prefixLimit = max(0, limit - suffix.count)
+        return String(value.prefix(prefixLimit)) + suffix
+    }
 }
 
 nonisolated public enum HTMLWorkspacePatchApplier {
@@ -1369,7 +1483,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.snapshots = boundedSnapshots(updated.snapshots)
             try HTMLWorkspacePackage.validateSnapshots(updated.snapshots)
         case .recordConsoleError(let error):
-            updated.consoleErrors.append(error)
+            updated.consoleErrors.append(error.boundedForPackage())
             updated.consoleErrors = Array(updated.consoleErrors.suffix(HTMLWorkspacePackageLimits.maxConsoleErrors))
         }
         stampManifestRevision(&updated, updatedAt: mutationTimestamp)

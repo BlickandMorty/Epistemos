@@ -36,11 +36,13 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     struct PackagingArtifacts: Decodable, Equatable, Sendable {
+        let agentBrowserAdapter: PackagingPathListArtifact
         let requirementsLock: PackagingArtifact
         let wheelhouse: PackagingArtifact
         let playwrightChromium: PackagingArtifact
 
         enum CodingKeys: String, CodingKey {
+            case agentBrowserAdapter = "agent_browser_adapter"
             case requirementsLock = "requirements_lock"
             case wheelhouse
             case playwrightChromium = "playwright_chromium"
@@ -55,6 +57,18 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey {
             case status
             case expectedPath = "expected_path"
+            case notes
+        }
+    }
+
+    struct PackagingPathListArtifact: Decodable, Equatable, Sendable {
+        let status: String
+        let expectedPaths: [String]
+        let notes: String?
+
+        enum CodingKeys: String, CodingKey {
+            case status
+            case expectedPaths = "expected_paths"
             case notes
         }
     }
@@ -212,7 +226,8 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     var isProPayloadStaged: Bool {
-        packagingArtifacts.requirementsLock.status == "generated"
+        packagingArtifacts.agentBrowserAdapter.status == "landed"
+            && packagingArtifacts.requirementsLock.status == "generated"
             && packagingArtifacts.wheelhouse.status == "staged"
             && packagingArtifacts.playwrightChromium.status == "staged"
     }
@@ -227,10 +242,19 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
 
         return [
             artifactProblem(
+                name: "agent-browser adapter",
+                relativePath: packagingArtifacts.agentBrowserAdapter.expectedPaths.first ?? "",
+                relativeTo: manifestRoot,
+                requiresDirectory: false,
+                requiresExecutable: true,
+                fileManager: fileManager
+            ),
+            artifactProblem(
                 name: "requirements.lock",
                 relativePath: packagingArtifacts.requirementsLock.expectedPath,
                 relativeTo: manifestRoot,
                 requiresDirectory: false,
+                requiresExecutable: false,
                 fileManager: fileManager
             ),
             artifactProblem(
@@ -238,6 +262,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
                 relativePath: packagingArtifacts.wheelhouse.expectedPath,
                 relativeTo: manifestRoot,
                 requiresDirectory: true,
+                requiresExecutable: false,
                 fileManager: fileManager
             ),
             artifactProblem(
@@ -245,6 +270,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
                 relativePath: packagingArtifacts.playwrightChromium.expectedPath,
                 relativeTo: manifestRoot,
                 requiresDirectory: true,
+                requiresExecutable: false,
                 fileManager: fileManager
             ),
             artifactProblem(
@@ -252,13 +278,37 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
                 relativePath: "BUILD_MANIFEST.json",
                 relativeTo: manifestRoot,
                 requiresDirectory: false,
+                requiresExecutable: false,
                 fileManager: fileManager
             ),
-        ].compactMap(\.self)
+        ].compactMap(\.self) + agentBrowserAdapterHelperProblems(
+            relativeTo: manifestRoot,
+            fileManager: fileManager
+        )
     }
 
     var packagingSummary: String {
-        "requirements.lock=\(packagingArtifacts.requirementsLock.status), wheels=\(packagingArtifacts.wheelhouse.status), browser payload=\(packagingArtifacts.playwrightChromium.status)"
+        "adapter=\(packagingArtifacts.agentBrowserAdapter.status), requirements.lock=\(packagingArtifacts.requirementsLock.status), wheels=\(packagingArtifacts.wheelhouse.status), browser payload=\(packagingArtifacts.playwrightChromium.status)"
+    }
+
+    private func agentBrowserAdapterHelperProblems(
+        relativeTo manifestRoot: URL,
+        fileManager: FileManager
+    ) -> [String] {
+        let helperPaths = packagingArtifacts.agentBrowserAdapter.expectedPaths.dropFirst()
+        guard !helperPaths.isEmpty else {
+            return ["agent-browser adapter helper list is empty"]
+        }
+        return helperPaths.compactMap { relativePath in
+            artifactProblem(
+                name: "agent-browser adapter helper",
+                relativePath: relativePath,
+                relativeTo: manifestRoot,
+                requiresDirectory: false,
+                requiresExecutable: false,
+                fileManager: fileManager
+            )
+        }
     }
 
     private func artifactProblem(
@@ -266,6 +316,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         relativePath: String,
         relativeTo manifestRoot: URL,
         requiresDirectory: Bool,
+        requiresExecutable: Bool,
         fileManager: FileManager
     ) -> String? {
         guard let url = artifactURL(
@@ -275,7 +326,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         ) else {
             return "\(name) has unsafe path \(Self.pathDiagnostic(relativePath))"
         }
-        if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
+        if BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) != nil {
             return "\(name) path must not include symlink component at \(Self.pathDiagnostic(relativePath))"
         }
         var isDirectory = ObjCBool(false)
@@ -290,6 +341,9 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         }
         if !requiresDirectory && isDirectory.boolValue {
             return "\(name) is a directory at \(Self.pathDiagnostic(relativePath))"
+        }
+        if requiresExecutable && !fileManager.isExecutableFile(atPath: url.path) {
+            return "\(name) is not executable at \(Self.pathDiagnostic(relativePath))"
         }
         return nil
     }
@@ -329,7 +383,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 }
 
-private enum BrowserUseVendorManifestError: Error, LocalizedError, Equatable {
+nonisolated enum BrowserUseVendorManifestError: Error, LocalizedError, Equatable {
     case invalid(String)
 
     var errorDescription: String? {
@@ -402,6 +456,16 @@ nonisolated enum BrowserUseProGateStatus {
         fileManager: FileManager = .default
     ) -> URL? {
         if let resourceURL = bundle.resourceURL {
+            let signedBundlePayload = resourceURL
+                .appendingPathComponent(BrowserUseSignedBundleStatus.bundleName, isDirectory: true)
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro", isDirectory: true)
+                .appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+            if fileManager.fileExists(atPath: signedBundlePayload.path) {
+                return signedBundlePayload
+            }
+
             let bundled = resourceURL.appendingPathComponent("BrowserUsePro/VENDOR_MANIFEST.json")
             if fileManager.fileExists(atPath: bundled.path) {
                 return bundled
@@ -410,6 +474,17 @@ nonisolated enum BrowserUseProGateStatus {
 
         var cursor = URL(fileURLWithPath: filePath).deletingLastPathComponent()
         for _ in 0..<8 {
+            let developmentSignedBundle = cursor
+                .appendingPathComponent("build/browser-use-pro", isDirectory: true)
+                .appendingPathComponent(BrowserUseSignedBundleStatus.bundleName, isDirectory: true)
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro", isDirectory: true)
+                .appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+            if fileManager.fileExists(atPath: developmentSignedBundle.path) {
+                return developmentSignedBundle
+            }
+
             let candidate = cursor.appendingPathComponent("agent_core/vendor/browser-use/VENDOR_MANIFEST.json")
             if fileManager.fileExists(atPath: candidate.path) {
                 return candidate
@@ -480,10 +555,31 @@ nonisolated enum BrowserUseProGateStatus {
                 )
             }
 
+            if let bundleURL = BrowserUseSignedBundleStatus.bundleURL(containingManifest: manifestURL) {
+                let signedStatus = BrowserUseSignedBundleStatus.status(
+                    bundleURL: bundleURL,
+                    payloadRootURL: manifestURL.deletingLastPathComponent(),
+                    fileManager: fileManager
+                )
+                guard signedStatus.isValid else {
+                    return Status(
+                        isActive: false,
+                        headline: "browser-use Pro: signed package invalid",
+                        detail: "\(signedStatus.detail). No automation runtime is launched."
+                    )
+                }
+
+                return Status(
+                    isActive: true,
+                    headline: "browser-use Pro: signed packaged payload ready",
+                    detail: "Pinned browser-use source and signed Pro runtime are present. \(signedStatus.detail) Launch remains user-initiated and separate from the native WKWebView Browser."
+                )
+            }
+
             return Status(
-                isActive: true,
-                headline: "browser-use Pro: packaged payload ready",
-                detail: "Pinned browser-use source and packaged Pro runtime are present. Launch remains user-initiated and separate from the native WKWebView Browser."
+                isActive: false,
+                headline: "browser-use Pro: signed package missing",
+                detail: "Pinned browser-use source and staged Pro artifacts are present, but the manifest is not inside a signed BrowserUsePro.bundle. No automation runtime is launched."
             )
         } catch {
             return Status(

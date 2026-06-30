@@ -689,7 +689,7 @@ async fn fetch_and_extract(client: &Client, url: String) -> Result<(String, Stri
 }
 
 /// Grab the text inside the first `<title>…</title>` tag.
-fn extract_title(html: &str) -> String {
+pub(crate) fn extract_title(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
     let Some(open) = lower.find("<title") else {
         return String::new();
@@ -706,7 +706,7 @@ fn extract_title(html: &str) -> String {
 
 /// Slice out the inner HTML of the first `<article>` or `<main>` element,
 /// or return None if neither is present.
-fn extract_main_region(html: &str) -> Option<String> {
+pub(crate) fn extract_main_region(html: &str) -> Option<String> {
     for tag in ["article", "main"] {
         let lower = html.to_ascii_lowercase();
         let open_tag = format!("<{tag}");

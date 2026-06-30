@@ -9,10 +9,12 @@ import SwiftUI
 
 nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Sendable {
     case hub
+    case launcher
     case sessions
     case settings
     case models
     case providers
+    case permission
     case skills
     case recipes
     case extensions
@@ -21,13 +23,29 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
 
     var id: String { rawValue }
 
+    static let launcherDestinations: [AgentRailDestination] = [
+        .hub,
+        .sessions,
+        .models,
+        .providers,
+        .permission,
+        .settings,
+        .skills,
+        .recipes,
+        .extensions,
+        .scheduler,
+        .apps,
+    ]
+
     var title: String {
         switch self {
         case .hub: return "Chat"
+        case .launcher: return "Launcher"
         case .sessions: return "Sessions"
         case .settings: return "Settings"
         case .models: return "Models"
         case .providers: return "Providers"
+        case .permission: return "Tool rules"
         case .skills: return "Skills"
         case .recipes: return "Recipes"
         case .extensions: return "Extensions"
@@ -39,10 +57,12 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
     var systemImage: String {
         switch self {
         case .hub: return "bubble.left.and.bubble.right"
+        case .launcher: return "sparkles.rectangle.stack"
         case .sessions: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
         case .models: return "slider.horizontal.3"
         case .providers: return "key"
+        case .permission: return "checkmark.shield"
         case .skills: return "wand.and.stars"
         case .recipes: return "list.bullet.rectangle"
         case .extensions: return "puzzlepiece.extension"
@@ -55,10 +75,12 @@ nonisolated enum AgentRailDestination: String, CaseIterable, Identifiable, Senda
     var webRoute: String {
         switch self {
         case .hub: return "/?"
+        case .launcher: return "/launcher"
         case .sessions: return "/sessions"
         case .settings: return "/settings"
         case .models: return "/settings?section=models"
         case .providers: return "/configure-providers"
+        case .permission: return "/permission"
         case .skills: return "/skills"
         case .recipes: return "/recipes"
         case .extensions: return "/extensions"
@@ -74,8 +96,8 @@ private struct AgentRailSection: Identifiable {
     let destinations: [AgentRailDestination]
 
     static let all: [AgentRailSection] = [
-        AgentRailSection(id: "primary", title: "Goose", destinations: [.hub, .sessions]),
-        AgentRailSection(id: "configure", title: "Configure", destinations: [.models, .providers, .settings]),
+        AgentRailSection(id: "primary", title: "Goose", destinations: [.hub, .launcher, .sessions]),
+        AgentRailSection(id: "configure", title: "Configure", destinations: [.models, .providers, .permission, .settings]),
         AgentRailSection(id: "tools", title: "Tools", destinations: [.skills, .recipes, .extensions, .scheduler, .apps]),
     ]
 }
@@ -89,26 +111,32 @@ struct AgentNavigationRailView: View {
         VStack(alignment: .leading, spacing: 14) {
             railHeader
 
-            ForEach(AgentRailSection.all) { section in
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(section.title)
-                        .font(GooseSurfaceStyle.captionFont(10, weight: .medium))
-                        .foregroundStyle(theme.textTertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 1)
-                    ForEach(section.destinations) { destination in
-                        AgentRailRowView(
-                            destination: destination,
-                            isSelected: destination == selection,
-                            theme: theme
-                        ) {
-                            withAnimation(.smooth(duration: 0.18)) {
-                                selection = destination
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(AgentRailSection.all) { section in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(section.title)
+                                .font(GooseSurfaceStyle.captionFont(10, weight: .medium))
+                                .foregroundStyle(theme.textTertiary)
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 1)
+                            ForEach(section.destinations) { destination in
+                                AgentRailRowView(
+                                    destination: destination,
+                                    isSelected: destination == selection,
+                                    theme: theme
+                                ) {
+                                    withAnimation(.smooth(duration: 0.18)) {
+                                        selection = destination
+                                    }
+                                }
                             }
                         }
                     }
                 }
+                .padding(.vertical, 1)
             }
+            .scrollIndicators(.hidden)
 
             Spacer(minLength: 0)
 

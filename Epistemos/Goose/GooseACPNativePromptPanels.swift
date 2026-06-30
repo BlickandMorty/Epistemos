@@ -41,7 +41,7 @@ struct GooseACPPermissionPanel: View {
                 Spacer(minLength: 0)
             }
 
-            HStack(spacing: 8) {
+            LazyVGrid(columns: permissionButtonColumns, alignment: .leading, spacing: 8) {
                 ForEach(boundedOptions, id: \.optionId) { option in
                     Button { onDecision(option.optionId) } label: {
                         HStack(spacing: 6) {
@@ -49,9 +49,11 @@ struct GooseACPPermissionPanel: View {
                                 .font(.system(size: 11, weight: .semibold))
                             Text(optionName(option))
                                 .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
                         .foregroundStyle(option.kind.isReject ? theme.error : theme.resolved.accent.color)
-                        .frame(minHeight: 30)
+                        .frame(maxWidth: .infinity, minHeight: 30)
                         .padding(.horizontal, 10)
                     }
                     .buttonStyle(.plain)
@@ -61,13 +63,14 @@ struct GooseACPPermissionPanel: View {
                     .overlay {
                         controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
                     }
+                    .help(optionName(option))
                 }
 
                 Button { onDecision(nil) } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(theme.textTertiary)
-                        .frame(width: 30, height: 30)
+                        .frame(maxWidth: .infinity, minHeight: 30)
                 }
                 .buttonStyle(.plain)
                 .background {
@@ -98,6 +101,10 @@ struct GooseACPPermissionPanel: View {
 
     private var boundedOptions: [GooseACPPermissionOption] {
         Array(request.options.prefix(GooseNativePromptPanelBounds.maxPermissionOptions))
+    }
+
+    private var permissionButtonColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 122, maximum: 180), spacing: 8, alignment: .leading)]
     }
 
     private func optionName(_ option: GooseACPPermissionOption) -> String {
@@ -184,11 +191,16 @@ struct GooseACPElicitationPanel: View {
                 Spacer(minLength: 0)
             }
 
-            VStack(alignment: .leading, spacing: 9) {
-                ForEach(fields) { field in
-                    fieldControl(field)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(fields) { field in
+                        fieldControl(field)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollIndicators(.hidden)
+            .frame(maxHeight: 260)
 
             HStack(spacing: 8) {
                 Button { onAction(.accept(encodedValues())) } label: {

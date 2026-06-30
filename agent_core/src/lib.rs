@@ -195,6 +195,8 @@ pub mod tools {
     pub mod todo;
     pub mod vault_search_ladder;
     pub mod web;
+    pub mod web_extract_schema;
+    pub(crate) mod web_extract_schema_support;
     pub mod web_fetch;
     pub mod workspace_search;
 
@@ -204,6 +206,8 @@ pub mod tools {
     pub mod browser;
     #[cfg(feature = "pro-build")]
     pub mod browser_command;
+    #[cfg(feature = "pro-build")]
+    pub mod browser_complete_task;
     #[cfg(feature = "pro-build")]
     pub mod browser_executable;
     #[cfg(feature = "pro-build")]

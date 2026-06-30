@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - OpLogProjectionHealthRow
 //
@@ -10,6 +12,7 @@ import SwiftUI
 struct OpLogProjectionHealthRow: View {
     @State private var snapshot: EventStore.MutationProjectionOutboxDiagnostics
     @State private var replayBundleReport: MutationOpLogReplayBundleVisibilityReport
+    @State private var exportStatusText: String?
 
     init() {
         _snapshot = State(initialValue: Self.snapshot())
@@ -45,6 +48,7 @@ struct OpLogProjectionHealthRow: View {
                 ok: replayBundleReport.status != .unavailable,
                 detail: replayBundleDetail
             )
+            replayBundleExportRow
         }
         .onAppear { refresh() }
     }
@@ -109,6 +113,56 @@ struct OpLogProjectionHealthRow: View {
                 "latest \(latest)",
             ].joined(separator: " · ")
         }
+    }
+
+    private var replayBundleExportRow: some View {
+        HStack(spacing: 10) {
+            Button {
+                exportReplayBundle()
+            } label: {
+                Label("Export ReplayBundle", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderless)
+            .help("Export deterministic mutation OpLog replay bundle")
+
+            if let exportStatusText {
+                Text(exportStatusText)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func exportReplayBundle() {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = MutationOpLogReplayBundleFileExporter.defaultFileName()
+        if let epbundle = UTType(filenameExtension: MutationOpLogReplayBundleFileExporter.fileExtension) {
+            panel.allowedContentTypes = [epbundle]
+        } else {
+            panel.allowedFileTypes = [MutationOpLogReplayBundleFileExporter.fileExtension]
+        }
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let result = try MutationOpLogReplayBundleFileExporter.exportCurrentBundle(to: url)
+            replayBundleReport = result.report
+            exportStatusText = "Exported \(result.byteCount) bytes"
+        } catch {
+            exportStatusText = "Export failed: \(Self.displayError(error))"
+        }
+    }
+
+    private static func displayError(_ error: Error) -> String {
+        let text = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return String(describing: error) }
+        return String(text.prefix(160))
     }
 
     @ViewBuilder

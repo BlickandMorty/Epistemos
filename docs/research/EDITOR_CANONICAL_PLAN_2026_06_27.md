@@ -18,6 +18,14 @@
 > MarkEdit engine+polish for both MD and code; applies the app-wide native/unified theme; and narrows Goose work
 > to note-context plumbing only. Any older "delete old editor", "separate native chat UI", "Phase-0/§7 sign-off wait",
 > "settings can remain inert", or fixed stale line-number route claim is historical and must be reconciled here.
+>
+> **★ 2026-06-30 HTML Workspace source-editor lock:** HTML Workspace editable source panes are also in the
+> MarkEdit/CoreEditor Source lane. `index.html`, `style.css`, `main.js`, and `data.json` hand-edit in
+> `MarkEditCodeEditorRepresentable`/CoreEditor with the app code-editor preferences. Do **not** restore the
+> AppKit/NSTextView `HTMLWorkspaceCodeEditor`, SwiftUI `TextEditor`, or any second bespoke source editor for these
+> panes; that route visibly regressed to blank code. Read-only DOM/route/asset outlines can stay native read-only.
+> Guard: `HTMLWorkspaceEditorView.swift` contains `MarkEditCodeEditorRepresentable(` and contains neither
+> `HTMLWorkspaceCodeEditor(` nor `TextEditor(`.
 
 ---
 
@@ -150,7 +158,7 @@ A markdown document opens in any of three **lenses** (cross-synced on the same `
 | **Prose** (= TK2) | TextKit 2 / `ProseTextView2` (native) | native focus/long-form lens; edits markdown AS TEXT (no rich re-serialize) | UNFROZEN (owner 2026-06-29); wire LAST |
 | **(legacy) code editor v1** | `WebKitCodeEditorView` + dormant impls | KEPT as a **v1 legacy fallback** — Settings + a toggle inside the MarkEdit surface (NOT deleted, L3) | RETAIN as legacy |
 | **(embedded) Full MarkEdit app** | MarkEdit Swift modules | full settings + native chrome; must be user-reachable under Source/MD; any inert flag is only a temporary implementation slice, not final acceptance | EMBED + make live |
-| **HTML Workspace** | `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` | AI-artifact surface; hand-edit routes to the Source (MarkEdit code) surface | LIVE; Plan 2 owns it (§13.5) |
+| **HTML Workspace** | `HTMLWorkspaceDocument`/`HTMLWorkspaceEditorView` | AI-artifact surface; editable HTML/CSS/JS/Data source panes use the Source lane's MarkEdit/CoreEditor code editor, not AppKit/NSTextView/TextEditor | LIVE; Plan 2 owns it (§13.5) |
 
 Why: same markdown underneath, three ways to see it — **Note** = WYSIWYG (rich, Tolaria/Notion feel), **Source** =
 raw markdown + preview + native MarkEdit chrome (also the only sensible lens for real code), **Prose** = native
@@ -304,6 +312,8 @@ editor-side context plumbing and does not wait for a Phase-0/§7 sign-off gate.
    code a few ticks smaller than MD. **Verify/wire the `.markdownChrome` Source lens route** so `.md` can open in
    Source without regressing the default Prose/Note behavior. **KEEP the old code editor as v1 legacy** (Settings + MarkEdit toggle) — NOT
    deleted. NOTE editor (Epdoc) + existing Prose/TK2 behavior untouched (TK2 unfrozen only to ADD the Prose lens, L4).
+   **HTML Workspace source panes use this same MarkEdit/CoreEditor code-editor engine; do not fork back to the
+   legacy AppKit/NSTextView HTML source editor.**
 6. **[M] Views + Type registry + incremental crawl** (codepack 4a) over GRDB/graph/shadow.
 7. **[L] Goose note-context plumbing only** (codepack 4d, superseded in scope): build the editor-side context
    plumbing now. The live chat/agent UI is Plan-1-owned Goose WebView/reskin under Option 1; do not build a native
@@ -433,7 +443,8 @@ them here so nothing is lost (SCOPE_RECOVERY is now retired — its content live
   `fusedSearch`/RRF or DAG/provenance) → patch the live WKWebView (counters Claude Artifacts). **The editor-side
   mini-chat/context plumbing is the primary driver** (any surface via `MiniChatTarget`); the live chat UI remains
   Plan-1-owned Goose WebView/reskin and main-chat auto-link is DEFERRED (no implicit global link).
-	  Hand-editing routes to the Source (MarkEdit) surface (no second code pane). **HONEST STATE
+	  Hand-editing editable source panes (`index.html`, CSS, JS, Data JSON) uses the Source/MarkEdit CoreEditor
+	  code-editor surface (no AppKit/NSTextView/TextEditor source pane and no second code pane). **HONEST STATE
 	  (`HTMLWorkspaceCapabilityStatus.swift`): 6 LIVE** (multi-file edit · WKWebView preview with package-local
 	  asset/data route · agent chat PATCH pipeline `HTMLWorkspacePatchRouter` · vault-backed `data.json` feed ·
 	  export/import/PDF/snapshot · live DOM outline) **/ 5 DEFERRED** (app message-bridge stub · console/error capture

@@ -53,12 +53,11 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(message)")
         }
 
-        let pdfURL = fileURL.deletingPathExtension().appendingPathExtension("pdf")
+        let pdfURL = preparedPDFURL(for: fileURL)
         guard pdfURL.standardizedFileURL != fileURL.standardizedFileURL else {
             return fileURL
         }
 
-        try? FileManager.default.removeItem(at: pdfURL)
         do {
             try FileManager.default.moveItem(at: fileURL, to: pdfURL)
             return pdfURL
@@ -68,6 +67,16 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
                 "could not prepare downloaded PDF: \(ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "filesystem error"))"
             )
         }
+    }
+
+    private static func preparedPDFURL(for fileURL: URL) -> URL {
+        guard fileURL.pathExtension.caseInsensitiveCompare("pdf") != .orderedSame else {
+            return fileURL
+        }
+        let directoryURL = fileURL.deletingLastPathComponent()
+        let rawBaseName = fileURL.deletingPathExtension().lastPathComponent
+        let baseName = rawBaseName.isEmpty ? "download" : rawBaseName
+        return directoryURL.appendingPathComponent("\(baseName)-\(UUID().uuidString).pdf", isDirectory: false)
     }
 
     private static func validateDownloadedFileEnvelope(_ fileURL: URL) throws {

@@ -159,3 +159,30 @@ pub fn browser_console_schema() -> crate::types::ToolSchema {
         }),
     }
 }
+
+pub fn browser_complete_task_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "browser_complete_task".to_string(),
+        description: "Delegate a bounded browser-scoped task to the Pro browser-use agent loop. Goose remains the user-facing agent; browser-use runs as a subordinate automation sub-agent."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000,
+                    "description": "Browser task to complete end-to-end."
+                },
+                "max_steps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 20,
+                    "description": "Maximum browser-use agent steps."
+                }
+            },
+            "required": ["task"]
+        }),
+    }
+}

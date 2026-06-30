@@ -704,15 +704,37 @@ final class EventStore: Sendable {
             }
 
             let json = String(cString: text)
-            do {
-                return try JSONDecoder().decode(MutationEnvelope.self, from: Data(json.utf8))
-            } catch {
-                Self.log.error(
-                    "EventStore: failed to decode mutation envelope \(mutationID, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-                return nil
-            }
+            return Self.decodeMutationEnvelopeJSON(json, context: mutationID)
         }
+    }
+
+    nonisolated func recentMutationEnvelopes(limit: Int = 100) -> [MutationEnvelope] {
+        let boundedLimit = min(max(limit, 0), Self.mutationProjectionOutboxReadLimitMaximum)
+        guard boundedLimit > 0 else { return [] }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT json
+                FROM mutation_envelopes
+                ORDER BY recorded_at DESC, mutation_id DESC
+                LIMIT ?;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int(stmt, 1, Int32(boundedLimit))
+
+            var envelopes: [MutationEnvelope] = []
+            envelopes.reserveCapacity(boundedLimit)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let json = Self.columnText(stmt, 0),
+                      let envelope = Self.decodeMutationEnvelopeJSON(json, context: "recent") else {
+                    continue
+                }
+                envelopes.append(envelope)
+            }
+            return Array(envelopes.reversed())
+        } ?? []
     }
 
     @discardableResult
@@ -2162,6 +2184,20 @@ final class EventStore: Sendable {
         } catch {
             Self.log.error(
                 "EventStore: failed to decode AgentProvenanceEvent \(context, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    nonisolated private static func decodeMutationEnvelopeJSON(
+        _ json: String,
+        context: String
+    ) -> MutationEnvelope? {
+        do {
+            return try JSONDecoder().decode(MutationEnvelope.self, from: Data(json.utf8))
+        } catch {
+            Self.log.error(
+                "EventStore: failed to decode mutation envelope \(context, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
             return nil
         }

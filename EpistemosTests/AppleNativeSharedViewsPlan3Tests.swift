@@ -83,7 +83,7 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(await FileThumbnailer.thumbnail(for: remoteURL, size: size, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: missingFileURL, size: .zero, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: .zero, scale: 2) == nil)
-        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: CGSize(width: .infinity, height: 32), scale: 2) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: CGSize(width: CGFloat.infinity, height: 32), scale: 2) == nil)
         #expect(
             await FileThumbnailer.thumbnail(
                 for: fileURL,
@@ -92,7 +92,7 @@ struct AppleNativeSharedViewsPlan3Tests {
             ) == nil
         )
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: 0) == nil)
-        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: .infinity) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: CGFloat.infinity) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: FileThumbnailer.maxThumbnailScale + 1) == nil)
     }
 

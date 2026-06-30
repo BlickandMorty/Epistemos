@@ -29,7 +29,11 @@ fn fusion_stdio_real_transport_handshake_and_tool_call() {
     {
         let mut stdin = child.stdin.take().unwrap();
         writeln!(stdin, r#"{{"jsonrpc":"2.0","method":"initialize","id":1}}"#).unwrap();
-        writeln!(stdin, r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#).unwrap();
+        writeln!(
+            stdin,
+            r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#
+        )
+        .unwrap();
         writeln!(stdin, r#"{{"jsonrpc":"2.0","method":"tools/list","id":2}}"#).unwrap();
         writeln!(
             stdin,
@@ -41,11 +45,19 @@ fn fusion_stdio_real_transport_handshake_and_tool_call() {
     } // stdin dropped here → EOF
 
     let out = child.wait_with_output().expect("wait omega_mcp_stdio");
-    assert!(out.status.success(), "server exited non-zero: {:?}", out.status);
+    assert!(
+        out.status.success(),
+        "server exited non-zero: {:?}",
+        out.status
+    );
     let stdout = String::from_utf8(out.stdout).unwrap();
     let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
     // initialize + tools/list + tools/call + ping get replies; the notification does NOT → exactly 4 lines.
-    assert_eq!(lines.len(), 4, "expected 4 responses (notification is silent): {stdout}");
+    assert_eq!(
+        lines.len(),
+        4,
+        "expected 4 responses (notification is silent): {stdout}"
+    );
 
     let init: Value = serde_json::from_str(lines[0]).unwrap();
     assert_eq!(init["id"], 1);
@@ -62,20 +74,33 @@ fn fusion_stdio_real_transport_handshake_and_tool_call() {
         .collect();
     // executable vault/graph tools are advertised over the real transport…
     assert!(names.contains(&"backlinks"), "{names:?}");
-    assert!(names.contains(&"link_candidates"), "newest tool reachable over real stdio: {names:?}");
+    assert!(
+        names.contains(&"link_candidates"),
+        "newest tool reachable over real stdio: {names:?}"
+    );
     assert!(names.contains(&"graph.populate_from_vault"), "{names:?}");
     // …phantom in-app tools are scoped out (honest surface, end-to-end).
-    assert!(!names.contains(&"screenshot"), "computer-use leaked over transport: {names:?}");
+    assert!(
+        !names.contains(&"screenshot"),
+        "computer-use leaked over transport: {names:?}"
+    );
 
     let call: Value = serde_json::from_str(lines[2]).unwrap();
     assert_eq!(call["id"], 3);
     let text = call["result"]["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("a.md"), "backlinks(b) should report a.md links to it: {text}");
+    assert!(
+        text.contains("a.md"),
+        "backlinks(b) should report a.md links to it: {text}"
+    );
 
     // ping over the real transport → empty result, never an error (else the client drops the fusion).
     let ping: Value = serde_json::from_str(lines[3]).unwrap();
     assert_eq!(ping["id"], 4);
-    assert!(ping["result"].is_object() && ping.get("error").is_none(), "ping reply: {}", lines[3]);
+    assert!(
+        ping["result"].is_object() && ping.get("error").is_none(),
+        "ping reply: {}",
+        lines[3]
+    );
 }
 
 /// Security regression guard AT THE TRANSPORT: an external agent (OpenCode) cannot read outside the vault
@@ -105,14 +130,28 @@ fn fusion_stdio_resources_read_refuses_path_traversal() {
     }
     let out = child.wait_with_output().expect("wait");
     let stdout = String::from_utf8(out.stdout).unwrap();
-    let resp: Value = serde_json::from_str(stdout.lines().next().expect("a response line")).unwrap();
+    let resp: Value =
+        serde_json::from_str(stdout.lines().next().expect("a response line")).unwrap();
     // JSON-RPC here always carries both keys (result:null on error) — assert the ERROR is populated and no
     // `contents` (the success payload) leaked. The error message names the traversal refusal.
-    assert!(resp["error"].is_object(), "traversal must be refused with an error: {stdout}");
     assert!(
-        resp["error"]["message"].as_str().unwrap_or("").to_lowercase().contains("traversal"),
+        resp["error"].is_object(),
+        "traversal must be refused with an error: {stdout}"
+    );
+    assert!(
+        resp["error"]["message"]
+            .as_str()
+            .unwrap_or("")
+            .to_lowercase()
+            .contains("traversal"),
         "error must name the traversal refusal: {stdout}"
     );
-    assert!(resp["result"].get("contents").is_none(), "no contents may be returned on traversal: {stdout}");
-    assert!(!stdout.contains("root:"), "no /etc/passwd contents may leak: {stdout}");
+    assert!(
+        resp["result"].get("contents").is_none(),
+        "no contents may be returned on traversal: {stdout}"
+    );
+    assert!(
+        !stdout.contains("root:"),
+        "no /etc/passwd contents may leak: {stdout}"
+    );
 }

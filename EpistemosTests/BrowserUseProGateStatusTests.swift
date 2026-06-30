@@ -24,8 +24,8 @@ struct BrowserUseProGateStatusTests {
         #expect(manifest.sourceMirrorGuard.requiredExclude == "--exclude='vendor/browser-use/'")
     }
 
-    @Test("gate is honest: off by default and live only when Pro payload is staged and armed")
-    func gateIsHonestUntilProPayloadIsStagedAndArmed() throws {
+    @Test("gate is honest: off by default and inactive until the staged Pro payload is signed")
+    func gateIsHonestUntilStagedProPayloadIsSigned() throws {
         let manifestURL = try sourceMirrorURL(for: "agent_core/vendor/browser-use/VENDOR_MANIFEST.json")
 
         let off = BrowserUseProGateStatus.status(environment: [:], manifestURL: manifestURL)
@@ -42,10 +42,11 @@ struct BrowserUseProGateStatusTests {
             environment: [BrowserUseProGateStatus.flagName: "1"],
             manifestURL: manifestURL
         )
-        #expect(armed.isActive)
-        #expect(armed.headline == "browser-use Pro: packaged payload ready")
-        #expect(armed.detail.contains("packaged Pro runtime are present"))
-        #expect(armed.detail.contains("Launch remains user-initiated"))
+        #expect(!armed.isActive)
+        #expect(armed.headline == "browser-use Pro: signed package missing")
+        #expect(armed.detail.contains("staged Pro artifacts are present"))
+        #expect(armed.detail.contains("signed BrowserUsePro.bundle"))
+        #expect(armed.detail.contains("No automation runtime is launched"))
         #endif
     }
 
@@ -313,6 +314,64 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("signed BrowserUsePro bundle activates the Pro gate with signed headline")
+    func signedBrowserUseProBundleActivatesGateWithSignedHeadline() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-signed-bundle-\(UUID().uuidString)", isDirectory: true)
+        let bundleURL = root.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+        let payloadRoot = bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .appendingPathComponent("BrowserUsePro", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: payloadRoot, withIntermediateDirectories: true)
+        try Data(Self.infoPlist.utf8).write(
+            to: bundleURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Info.plist", isDirectory: false)
+        )
+        try Data(Self.packagedManifestJSON.utf8).write(
+            to: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+        try Data("{\"schema_version\":1}\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
+        )
+        try Data("# generated lock\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("requirements.lock", isDirectory: false)
+        )
+        try FileManager.default.createDirectory(
+            at: payloadRoot.appendingPathComponent("wheels", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: payloadRoot.appendingPathComponent("playwright", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data(Self.signatureManifestJSON.utf8).write(
+            to: payloadRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
+        )
+
+        try runProcess("/usr/bin/codesign", arguments: [
+            "--force",
+            "--sign",
+            "-",
+            bundleURL.path,
+        ])
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+
+        #expect(status.isActive)
+        #expect(status.headline == "browser-use Pro: signed packaged payload ready")
+        #expect(status.detail.contains("Signed BrowserUsePro.bundle verified"))
+        #expect(status.detail.contains("native WKWebView Browser"))
+        #endif
+    }
+
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
@@ -341,6 +400,10 @@ struct BrowserUseProGateStatusTests {
             "maxPathDiagnosticLength",
             "BrowserUseDiagnostics",
             "BrowserUseDiagnostics.statusMessage(for: error",
+            "BrowserUseSignedBundleStatus",
+            "SecStaticCodeCheckValidity",
+            "signed packaged payload ready",
+            "signature manifest",
             "unsafe path",
             "is a directory at",
             "resolves outside vendor root",
@@ -366,6 +429,26 @@ struct BrowserUseProGateStatusTests {
             #expect(!source.contains(forbidden), "browser-use Pro gate crossed a forbidden boundary: \(forbidden)")
         }
         #expect(!source.contains("error.localizedDescription"))
+    }
+
+    private func runProcess(_ executable: String, arguments: [String]) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus != 0 {
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(
+                domain: "BrowserUseProGateStatusTests",
+                code: Int(process.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey: output]
+            )
+        }
     }
 
     private static let packagedManifestJSON = """
@@ -421,5 +504,34 @@ struct BrowserUseProGateStatusTests {
         }
       }
     }
+    """
+
+    private static let signatureManifestJSON = """
+    {
+      "schema_version": 1,
+      "package_name": "BrowserUsePro",
+      "runtime_lane": "pro-developer-id-only",
+      "signature_type": "ad-hoc",
+      "signing_identity": "-",
+      "payload_root": "Contents/Resources/BrowserUsePro",
+      "file_count": 5
+    }
+    """
+
+    private static let infoPlist = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>CFBundleIdentifier</key>
+      <string>com.epistemos.browserusepro.test</string>
+      <key>CFBundleName</key>
+      <string>BrowserUsePro</string>
+      <key>CFBundlePackageType</key>
+      <string>BNDL</string>
+      <key>CFBundleVersion</key>
+      <string>1</string>
+    </dict>
+    </plist>
     """
 }

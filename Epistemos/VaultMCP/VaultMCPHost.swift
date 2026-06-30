@@ -1,5 +1,18 @@
 import Foundation
 
+private final class VaultMCPRustResourceDispatcher: VaultMCPResourceDispatcher, @unchecked Sendable {
+    private let dispatcher: McpDispatcher
+
+    init(vaultPath: String) {
+        dispatcher = McpDispatcher(logDbPath: ":memory:")
+        dispatcher.setVaultRoot(root: vaultPath)
+    }
+
+    nonisolated func dispatch(requestJson: String) -> String {
+        dispatcher.dispatch(requestJson: requestJson)
+    }
+}
+
 @MainActor
 final class VaultMCPHost {
     static let shared = VaultMCPHost()
@@ -87,7 +100,8 @@ final class VaultMCPHost {
         let newServer = VaultMCPServer(
             vaultRoot: canonicalVaultURL,
             executor: readOnlyExecutor,
-            token: tokenStore.currentToken())
+            token: tokenStore.currentToken(),
+            resourceDispatcher: VaultMCPRustResourceDispatcher(vaultPath: vaultPath))
         server = newServer
         serverVaultPath = vaultPath
         return newServer

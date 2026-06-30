@@ -14,6 +14,8 @@ struct AgentSurfaceRootView: View {
     let theme: EpistemosTheme
 
     @State private var selection: AgentRailDestination = .hub
+    @State private var lastContentSelection: AgentRailDestination = .hub
+    @State private var webRoute = AgentRailDestination.hub.webRoute
 
     var body: some View {
         ZStack {
@@ -32,19 +34,46 @@ struct AgentSurfaceRootView: View {
 
             HStack(spacing: 12) {
                 AgentNavigationRailView(selection: $selection, theme: theme)
-                webContent
+                contentSurface
             }
             .padding(.top, 38)
             .padding(.horizontal, 14)
             .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: selection) { _, destination in
+            guard destination != .launcher else { return }
+            lastContentSelection = destination
+            webRoute = destination.webRoute
+        }
+        .background {
+            Button("Open Goose launcher") {
+                openLauncher()
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .hidden()
+        }
     }
 
-    private var webContent: some View {
+    private var contentSurface: some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
-        return GooseWebSurfaceView(theme: theme, route: selection.webRoute)
+        return ZStack {
+            GooseWebSurfaceView(theme: theme, route: webRoute)
+                .opacity(selection == .launcher ? 0 : 1)
+                .allowsHitTesting(selection != .launcher)
+
+            if selection == .launcher {
+                AgentLauncherPanelView(
+                    selection: $selection,
+                    activeDestination: lastContentSelection,
+                    theme: theme
+                ) {
+                    selection = lastContentSelection
+                }
+                .transition(.opacity.animation(.smooth(duration: 0.16)))
+            }
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 ZStack {
@@ -66,5 +95,10 @@ struct AgentSurfaceRootView: View {
                 shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.52 : 0.66), lineWidth: 0.7)
             }
             .shadow(color: .black.opacity(theme.isDark ? 0.24 : 0.11), radius: 24, x: 0, y: 14)
+    }
+
+    private func openLauncher() {
+        guard selection != .launcher else { return }
+        selection = .launcher
     }
 }

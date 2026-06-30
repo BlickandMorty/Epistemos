@@ -35,9 +35,13 @@
   plain utterance while preserving rate/pitch clamping.
 - **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as a status-only gate. MAS returns unavailable, Pro
   requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps AVSpeech as the
-  runtime. Readiness rejects symlink-routed or non-regular model artifacts and requires a bounded no-follow JSON
-  manifest object before reporting ready. Status details use bounded model-relative diagnostics instead of local absolute
-  model paths. There is still no Kokoro model asset, picker row, or neural runtime.
+  runtime. Package verification rejects symlink-routed or non-regular model artifacts, requires a bounded no-follow install
+  manifest with the expected schema/model/runtime/package fields, and verifies the listed `.mlpackage` file sizes plus
+  SHA-256 digests before reporting `packageReady`. `isReady` remains false until real neural synthesis is wired and
+  selectable. Status details use bounded model-relative diagnostics instead of local absolute model paths. A Pro-only
+  Voice settings section now shows the `Apple AVSpeech` / `Pro neural voice` runtime affordance and keeps AVSpeech
+  selected until both the checked package and real neural inference runtime are proven.
+  There is still no Kokoro model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row.
 
 ## Delivered MAS-safe fixes
 1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
@@ -61,10 +65,14 @@ Meeting/lecture note should get its own codepack, but Voice provides the reusabl
 
 ## Pro Kokoro lane `[STATUS GATE DELIVERED; RUNTIME DEFERRED]`
 Kokoro-82M is Pro-only until packaging and model-download gates are proven:
-- `[DONE]` Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.ready`.
+- `[DONE]` Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.packageReady`;
+  package-ready still keeps `isReady=false` until synthesis works.
+- `[DONE]` Add a Pro-only Voice settings status/runtime affordance that says "Pro neural voice" but falls back to
+  AVSpeech by disabling the Pro lane until the checked package gate and real neural inference runtime are both proven.
 - Store model assets outside MAS target resources; never commit model weights.
 - Integrate through the existing model download manager only after that manager is proven healthy.
-- Picker row must say "Pro neural voice" and fall back to AVSpeech instantly when missing.
+- The Pro runtime row must continue saying "Pro neural voice" and fall back to AVSpeech instantly when missing or when
+  package readiness exists without a proven inference runtime.
 - Do not add Python/subprocess inference on the MAS path.
 
 ## Shipped files / source guards
@@ -74,8 +82,11 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `Epistemos/Engine/LiveVoiceInputService.swift` — facade over `EpistemosSpeechAnalyzer` with bounded transcript output,
   finite/clamped model download progress, and capped user-facing status/error text.
 - `Epistemos/Views/Shared/VoiceInputButton.swift` — consume the live facade or present disabled honesty.
-- `EpistemosTests/Plan3VoiceTests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade, and no
-  Kokoro/MAS subprocess leakage.
+- `Epistemos/Views/Settings/VoiceSettingsDetailView.swift` — composes Apple voice controls with the Pro-only Kokoro
+  status/runtime affordance outside the MAS-safe Apple picker.
+- `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only "Pro neural voice" row backed by the gate status.
+- `EpistemosTests/Plan3VoiceTests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade, Pro
+  Kokoro status UI, and no Kokoro/MAS subprocess leakage.
 
 ## Plan boundaries
 - Do not edit `Epistemos/Goose/*` or `Epistemos/Agent/*`.
@@ -90,8 +101,9 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - STT source guard proves `VoiceInputButton` no longer routes only to the removed `ComposerVoiceInputService` stub.
 - STT facade tests prove partial/final transcript helpers stay inside the capture pipeline text envelope before callbacks.
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
-- Kokoro gate tests prove malformed, symlink-routed, non-regular, or oversized/invalid-manifest model artifacts keep
-  AVSpeech as the runtime without exposing local model roots in UI-facing status details.
+- Kokoro gate tests prove malformed, symlink-routed, non-regular, placeholder, digest-mismatched, or
+  oversized/invalid-manifest model artifacts keep AVSpeech as the runtime without exposing local model roots in UI-facing
+  status details.
 - MAS boundary guard proves no Kokoro weights, Python, subprocess, or Chromium-like runtime enters the App Store target.
 
 ## Delivery order
@@ -100,5 +112,6 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 3. [DONE] Add `LiveVoiceInputService` over `EpistemosSpeechAnalyzer`.
 4. [DONE] Rewire `VoiceInputButton` to live STT or hide/disable it honestly where unsupported.
 5. [DONE] Add SSML/prosody fallback.
-6. [DONE] Add the Kokoro Pro gate as status-only. Packaging, picker UI, and runtime integration remain deferred until
-   model download health is proven.
+6. [DONE] Add the Kokoro Pro gate as status-only.
+7. [DONE] Add the Pro-only Kokoro settings status/runtime affordance. Model packaging/download and neural inference
+   integration remain deferred until model download health and real audio synthesis are proven.

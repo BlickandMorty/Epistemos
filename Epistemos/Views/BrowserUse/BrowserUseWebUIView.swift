@@ -44,7 +44,31 @@ nonisolated enum BrowserUseLoopbackGuard {
     }
 }
 
+nonisolated enum BrowserUseStatusTone {
+    case ready
+    case warning
+    case info
+    case muted
+    case problem
+
+    func color(in theme: EpistemosTheme) -> Color {
+        switch self {
+        case .ready:
+            return theme.resolved.accent.color
+        case .warning:
+            return theme.resolved.headingAccent.color
+        case .info:
+            return theme.resolved.uiAccent.color
+        case .muted:
+            return theme.resolved.mutedForeground.color
+        case .problem:
+            return theme.resolved.headingAccent.color
+        }
+    }
+}
+
 struct BrowserUseWebUIView: View {
+    @Environment(UIState.self) private var ui
     private let settingsStore: BrowserUseSettingsStore
     private let host: String
     private let port: Int
@@ -62,6 +86,7 @@ struct BrowserUseWebUIView: View {
     @State private var readinessWorker: Task<(BrowserUseSettings, BrowserUseRuntimeReadiness), Never>?
     @State private var blockedNavigationDescription: String?
     @State private var lastError: String?
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     init(
         supervisor: BrowserUseRuntimeSupervisor? = BrowserUseRuntimeSupervisor(),
@@ -85,7 +110,7 @@ struct BrowserUseWebUIView: View {
             Divider()
 
             if let loadedURL {
-                BrowserUseLoopbackWebView(url: loadedURL) { url in
+                BrowserUseLoopbackWebView(url: loadedURL, theme: theme) { url in
                     let description = BrowserUseLoopbackGuard.redactedDescription(for: url)
                     blockedNavigationDescription = description
                     lastError = "Blocked non-loopback browser-use navigation: \(description)"
@@ -95,6 +120,9 @@ struct BrowserUseWebUIView: View {
             }
         }
         .frame(minWidth: 720, minHeight: 520)
+        .background {
+            SettingsThemedBlurBackdrop(theme: theme, role: .page)
+        }
         .onAppear {
             refreshReadiness()
         }
@@ -113,7 +141,7 @@ struct BrowserUseWebUIView: View {
                     .font(.headline)
                 Text(statusText)
                     .font(.caption)
-                    .foregroundStyle(readiness.isReady ? Color.secondary : Color.orange)
+                    .foregroundStyle(statusTint(readiness.isReady ? .muted : .warning))
                     .lineLimit(2)
             }
 
@@ -122,7 +150,7 @@ struct BrowserUseWebUIView: View {
             if let blockedNavigationDescription {
                 Text(blockedNavigationDescription)
                     .font(.caption.monospaced())
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(statusTint(.warning))
                     .lineLimit(1)
             }
 
@@ -153,13 +181,16 @@ struct BrowserUseWebUIView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .background {
+            SettingsThemedBlurBackdrop(theme: theme, role: .sidebar)
+        }
     }
 
     private var unavailableView: some View {
         VStack(spacing: 12) {
             Image(systemName: readiness.isReady ? "play.circle" : "lock.shield")
                 .font(.system(size: 36, weight: .regular))
-                .foregroundStyle(readiness.isReady ? Color.secondary : Color.orange)
+                .foregroundStyle(statusTint(readiness.isReady ? .muted : .warning))
             Text(readiness.isReady ? "browser-use Pro is ready." : "browser-use Pro is unavailable.")
                 .font(.headline)
             Text(lastError ?? readiness.message)
@@ -177,6 +208,10 @@ struct BrowserUseWebUIView: View {
             return loadedURL.absoluteString
         }
         return readiness.message
+    }
+
+    private func statusTint(_ tone: BrowserUseStatusTone) -> Color {
+        tone.color(in: theme)
     }
 
     private func refreshReadiness() {
@@ -332,10 +367,14 @@ struct BrowserUseWebUIView: View {
 
 struct BrowserUseLoopbackWebView: NSViewRepresentable {
     let url: URL
+    let theme: EpistemosTheme
     let onBlockedNavigation: (URL) -> Void
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        BrowserUseWebTheme.installStartupScript(for: theme, in: userContentController)
+        configuration.userContentController = userContentController
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
 
@@ -343,6 +382,11 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
+        webView.appearance = BrowserUseWebTheme.appearance(for: theme)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.wantsLayer = true
+        webView.layer?.backgroundColor = NSColor.clear.cgColor
+        context.coordinator.registerStartupTheme(theme)
         context.coordinator.allowedOrigin = BrowserUseLoopbackPolicy.origin(for: url)
         context.coordinator.onBlockedNavigation = onBlockedNavigation
         load(url, into: webView)
@@ -352,6 +396,7 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.allowedOrigin = BrowserUseLoopbackPolicy.origin(for: url)
         context.coordinator.onBlockedNavigation = onBlockedNavigation
+        context.coordinator.applyTheme(theme, to: webView)
         guard webView.url != url else { return }
         load(url, into: webView)
     }
@@ -360,6 +405,8 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
+        webView.configuration.userContentController.removeAllUserScripts()
+        coordinator.shutdown()
         coordinator.onBlockedNavigation = nil
     }
 
@@ -379,6 +426,42 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var allowedOrigin: BrowserUseLoopbackOrigin?
         var onBlockedNavigation: ((URL) -> Void)?
+        private var isDetached = false
+        private var installedStartupTheme: EpistemosTheme?
+        private var requestedTheme: EpistemosTheme?
+        private var pendingTheme: EpistemosTheme?
+        private var lastAppliedTheme: EpistemosTheme?
+
+        func registerStartupTheme(_ theme: EpistemosTheme) {
+            installedStartupTheme = theme
+            requestedTheme = theme
+            pendingTheme = theme
+        }
+
+        func applyTheme(_ theme: EpistemosTheme, to webView: WKWebView) {
+            guard !isDetached else { return }
+            requestedTheme = theme
+            webView.appearance = BrowserUseWebTheme.appearance(for: theme)
+            webView.layer?.backgroundColor = NSColor.clear.cgColor
+            if installedStartupTheme != theme {
+                BrowserUseWebTheme.installStartupScript(for: theme, in: webView.configuration.userContentController)
+                installedStartupTheme = theme
+            }
+            guard lastAppliedTheme != theme else { return }
+            guard !webView.isLoading else {
+                pendingTheme = theme
+                return
+            }
+            applyThemeScript(theme, to: webView)
+        }
+
+        func shutdown() {
+            isDetached = true
+            pendingTheme = nil
+            requestedTheme = nil
+            lastAppliedTheme = nil
+            installedStartupTheme = nil
+        }
 
         func webView(
             _ webView: WKWebView,
@@ -415,11 +498,260 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
             return nil
         }
 
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            lastAppliedTheme = nil
+            if let requestedTheme {
+                pendingTheme = requestedTheme
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            flushPendingTheme(in: webView)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            pendingTheme = nil
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            pendingTheme = nil
+        }
+
         private func allowsNavigation(to url: URL?) -> Bool {
             guard let allowedOrigin else {
                 return false
             }
             return allowedOrigin.allows(url: url)
         }
+
+        private func applyThemeScript(_ theme: EpistemosTheme, to webView: WKWebView) {
+            guard !isDetached else { return }
+            lastAppliedTheme = theme
+            pendingTheme = nil
+            webView.evaluateJavaScript(
+                BrowserUseWebTheme.applyScript(for: theme),
+                completionHandler: nil
+            )
+        }
+
+        private func flushPendingTheme(in webView: WKWebView) {
+            guard !isDetached, !webView.isLoading else { return }
+            let theme = pendingTheme ?? requestedTheme
+            guard let theme, lastAppliedTheme != theme else {
+                pendingTheme = nil
+                return
+            }
+            applyThemeScript(theme, to: webView)
+        }
+    }
+}
+
+private enum BrowserUseWebTheme {
+    private static let styleElementID = "epistemos-browser-use-theme"
+
+    static func appearance(for theme: EpistemosTheme) -> NSAppearance? {
+        NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+    }
+
+    static func installStartupScript(for theme: EpistemosTheme, in userContentController: WKUserContentController) {
+        userContentController.addUserScript(
+            WKUserScript(
+                source: applyScript(for: theme),
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
+    }
+
+    static func applyScript(for theme: EpistemosTheme) -> String {
+        let css = stylesheet(for: theme)
+        return """
+        (function(){
+          const css = \(jsStringLiteral(css));
+          const themeName = \(jsStringLiteral(theme.rawValue));
+          const themeIsDark = \(theme.isDark ? "true" : "false");
+          window.__epistemosBrowserUseThemeState = { css, themeName, themeIsDark };
+
+          function applyStyle(root, state) {
+            if (!root || !root.querySelector) return;
+            let style = root.querySelector("#\(styleElementID)");
+            if (!style) {
+              style = document.createElement("style");
+              style.id = "\(styleElementID)";
+              const target = root.head || root.documentElement || root.body || (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? root : null);
+              if (!target || !target.appendChild) return;
+              target.appendChild(style);
+            }
+            if (style.textContent !== state.css) {
+              style.textContent = state.css;
+            }
+          }
+
+          window.__epistemosBrowserUseThemeApply = function() {
+            const state = window.__epistemosBrowserUseThemeState;
+            if (!state) return;
+            const documentRoot = document.documentElement;
+            if (documentRoot) {
+              documentRoot.dataset.epistemosTheme = state.themeName;
+              documentRoot.dataset.epistemosThemeDark = String(state.themeIsDark);
+            }
+            applyStyle(document, state);
+            document.querySelectorAll("*").forEach(function(node) {
+              if (node.shadowRoot) applyStyle(node.shadowRoot, state);
+            });
+          };
+
+          window.__epistemosBrowserUseThemeApply();
+          if (!window.__epistemosBrowserUseThemeObserver) {
+            let scheduled = false;
+            const scheduleApply = function() {
+              if (scheduled) return;
+              scheduled = true;
+              requestAnimationFrame(function() {
+                scheduled = false;
+                if (window.__epistemosBrowserUseThemeApply) {
+                  window.__epistemosBrowserUseThemeApply();
+                }
+              });
+            };
+            const observer = new MutationObserver(scheduleApply);
+            observer.observe(document.documentElement || document, { childList: true, subtree: true });
+            window.__epistemosBrowserUseThemeObserver = observer;
+          }
+        })();
+        """
+    }
+
+    private static func stylesheet(for theme: EpistemosTheme) -> String {
+        let resolved = theme.resolved
+        let foreground = cssColor(resolved.foreground.nsColor)
+        let mutedForeground = cssColor(resolved.mutedForeground.nsColor)
+        let accent = cssColor(resolved.accent.nsColor)
+        let accentSoft = cssColor(resolved.accent.nsColor.withAlphaComponent(theme.isDark ? 0.28 : 0.18))
+        let headingAccent = cssColor(resolved.headingAccent.nsColor)
+        let border = cssColor(resolved.border.nsColor)
+        let card = cssColor(resolved.card.nsColor)
+        let control = cssColor(resolved.glassBg.nsColor)
+        let controlHover = cssColor(resolved.glassHover.nsColor)
+        let code = cssColor(resolved.codeType.nsColor)
+        let onAccent = cssColor(resolved.userBubbleText.nsColor)
+        let colorScheme = theme.isDark ? "dark" : "light"
+
+        return """
+        :root, :host, gradio-app {
+          color-scheme: \(colorScheme);
+          --epistemos-browser-bg: transparent;
+          --epistemos-browser-text: \(foreground);
+          --epistemos-browser-muted: \(mutedForeground);
+          --epistemos-browser-accent: \(accent);
+          --epistemos-browser-accent-soft: \(accentSoft);
+          --epistemos-browser-heading: \(headingAccent);
+          --epistemos-browser-border: \(border);
+          --epistemos-browser-card: \(card);
+          --epistemos-browser-control: \(control);
+          --epistemos-browser-control-hover: \(controlHover);
+          --epistemos-browser-code: \(code);
+          --epistemos-browser-on-accent: \(onAccent);
+          --body-background-fill: transparent;
+          --background-fill-primary: transparent;
+          --background-fill-secondary: var(--epistemos-browser-card);
+          --block-background-fill: var(--epistemos-browser-card);
+          --block-border-color: var(--epistemos-browser-border);
+          --body-text-color: var(--epistemos-browser-text);
+          --body-text-color-subdued: var(--epistemos-browser-muted);
+          --link-text-color: var(--epistemos-browser-accent);
+          --color-accent: var(--epistemos-browser-accent);
+          --button-primary-background-fill: var(--epistemos-browser-accent);
+          --button-primary-text-color: var(--epistemos-browser-on-accent);
+          --input-background-fill: var(--epistemos-browser-control);
+          --input-border-color: var(--epistemos-browser-border);
+          --radius-lg: 8px;
+          --radius-md: 7px;
+          --radius-sm: 6px;
+        }
+
+        html, body, gradio-app {
+          background: transparent !important;
+          color: var(--epistemos-browser-text) !important;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif !important;
+        }
+
+        body, main, footer, .main, .wrap, .gradio-container, .contain, .app, .app.svelte-182fdeq {
+          background: transparent !important;
+        }
+
+        .gradio-container {
+          color: var(--epistemos-browser-text) !important;
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif !important;
+        }
+
+        h1, h2, h3, h4, h5, h6, label, legend {
+          color: var(--epistemos-browser-heading) !important;
+          letter-spacing: 0 !important;
+        }
+
+        p, span, div, label, textarea, input, select, button {
+          font-family: inherit !important;
+        }
+
+        a {
+          color: var(--epistemos-browser-accent) !important;
+        }
+
+        button, input, textarea, select, .block, .form, .panel, .tabs, .tab-nav, .input-container {
+          border-color: var(--epistemos-browser-border) !important;
+          border-radius: 8px !important;
+        }
+
+        input, textarea, select, .input-container, .block, .form, .panel, .tabitem {
+          background: var(--epistemos-browser-control) !important;
+          color: var(--epistemos-browser-text) !important;
+        }
+
+        button, .secondary-button {
+          background: var(--epistemos-browser-control) !important;
+          color: var(--epistemos-browser-text) !important;
+        }
+
+        button:hover, .secondary-button:hover {
+          background: var(--epistemos-browser-control-hover) !important;
+        }
+
+        button.primary, button[class*="primary"], .primary {
+          background: var(--epistemos-browser-accent) !important;
+          color: var(--epistemos-browser-on-accent) !important;
+          border-color: var(--epistemos-browser-accent) !important;
+        }
+
+        .selected, [aria-selected="true"], .tab-nav button.selected {
+          background: var(--epistemos-browser-accent-soft) !important;
+          color: var(--epistemos-browser-text) !important;
+          border-color: var(--epistemos-browser-accent) !important;
+        }
+
+        pre, code, .prose pre, .prose code {
+          background: var(--epistemos-browser-card) !important;
+          color: var(--epistemos-browser-code) !important;
+          border-color: var(--epistemos-browser-border) !important;
+          border-radius: 8px !important;
+        }
+
+        *:focus-visible {
+          outline: 2px solid var(--epistemos-browser-accent) !important;
+          outline-offset: 2px !important;
+        }
+        """
+    }
+
+    private static func cssColor(_ color: NSColor) -> String {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        let red = min(max(Int((rgb.redComponent * 255).rounded()), 0), 255)
+        let green = min(max(Int((rgb.greenComponent * 255).rounded()), 0), 255)
+        let blue = min(max(Int((rgb.blueComponent * 255).rounded()), 0), 255)
+        let alpha = rgb.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }

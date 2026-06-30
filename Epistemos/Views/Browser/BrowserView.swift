@@ -201,6 +201,7 @@ struct BrowserView: View {
     @FocusState private var addressFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.mainChat) }
+    private var warningTint: Color { theme.resolved.headingAccent.color }
 
     var body: some View {
         @Bindable var tab = tab
@@ -296,7 +297,7 @@ struct BrowserView: View {
                     Spacer(minLength: 0)
                 }
                 .font(.caption)
-                .foregroundStyle(.orange)
+                .foregroundStyle(warningTint)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(theme.resolved.card.color.opacity(0.5))
@@ -326,6 +327,7 @@ private struct BrowserLimitsPopover: View {
             Text("Browser")
                 .font(.headline)
             Text("Human-driven WebKit tab. Cookies and cache are isolated from Safari in memory for this in-app browser session.")
+            Text("Common tracker and ad domains are blocked with a local WebKit content rule list.")
             Text("No Safari extensions. Some premium DRM video may not play in WKWebView.")
         }
         .font(.caption)
@@ -339,13 +341,16 @@ private struct BrowserWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
+        configuration.userContentController = WKUserContentController()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        BrowserTrackerContentBlocker.install(on: configuration.userContentController)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
+        webView.setValue(false, forKey: "drawsBackground")
 
         context.coordinator.attach(webView: webView, tab: tab)
         if let url = BrowserURLGuard.resolve(raw: tab.address) {

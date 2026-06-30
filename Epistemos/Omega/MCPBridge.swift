@@ -73,9 +73,10 @@ nonisolated enum OmegaToolRegistry {
         "notes": "NOTES agent (Epistemos knowledge base):",
         "terminal": "TERMINAL agent:",
         "automation": "AUTOMATION agent (macOS UI):",
+        "browser": "BROWSER MCP sub-agent (Pro browser-use):",
     ]
 
-    private static let agentOrder = ["safari", "file", "notes", "terminal", "automation"]
+    private static let agentOrder = ["safari", "browser", "file", "notes", "terminal", "automation"]
 
     /// Lazily decoded tool catalog from the Rust `builtinToolsJson()` export.
     /// Falls back to an empty array if the Rust catalog is unavailable or malformed.

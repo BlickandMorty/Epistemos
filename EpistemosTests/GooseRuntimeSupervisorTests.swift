@@ -1654,7 +1654,11 @@ struct GooseWebViewBootShimTests {
         #expect(panels.contains("struct GooseACPElicitationPanel"))
         #expect(panels.contains("private enum GooseNativePromptPanelBounds"))
         #expect(panels.contains("Array(request.options.prefix(GooseNativePromptPanelBounds.maxPermissionOptions))"))
+        #expect(panels.contains("LazyVGrid(columns: permissionButtonColumns"))
+        #expect(panels.contains(".adaptive(minimum: 122, maximum: 180)"))
+        #expect(panels.contains(".lineLimit(1)"))
         #expect(panels.contains("maxElicitationInputCharacters"))
+        #expect(panels.contains(".frame(maxHeight: 260)"))
     }
 
     @Test("affordance disposition ledger marks native file and URL calls as implemented")
@@ -1790,8 +1794,15 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("name: \"epistemosGooseNative\""))
         #expect(source.contains("nativeAffordanceBridge: nativeAffordanceBridge"))
         #expect(source.contains("Label(\"Manage models\", systemImage: \"slider.horizontal.3\")"))
-        #expect(source.contains("loadGooseRoute(GooseSurfaceRoute.models.webRoute)"))
-        #expect(source.contains("loadGooseRoute(\"/configure-providers\")"))
+        #expect(source.contains("private var contentHost: some View"))
+        #expect(source.contains(".opacity(nativeModelsRouteIsActive ? 0 : 1)"))
+        #expect(source.contains(".allowsHitTesting(!nativeModelsRouteIsActive)"))
+        #expect(source.contains("private var nativeModelsRouteIsActive: Bool"))
+        #expect(source.contains("GooseNativeModelsView(bridge: acpBridge)"))
+        #expect(source.contains("@State private var activeWebRoute: String"))
+        #expect(source.contains("handleRouteSelection(GooseSurfaceRoute.models.webRoute)"))
+        #expect(source.contains("route: activeWebRoute"))
+        #expect(source.contains("handleRouteSelection(\"/configure-providers\")"))
         #expect(source.contains("maxGooseRouteCharacters = 4096"))
         #expect(source.contains("detailRow(\"native ACP Goose\", nativeACPStatusLabel)"))
         #expect(source.contains("detailRow(\"custom ACP Goose\", customACPStatusLabel)"))
@@ -2004,16 +2015,16 @@ struct GooseWebNativeAffordanceBridgeTests {
         let rawExtensions = (0..<(GooseWebNativeAffordanceBridge.maxNativeFileDialogExtensions + 12))
             .map { " type\($0) " }
         let boundedExtensions = GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions(
-            [["extensions": rawExtensions]]
+            from: [["extensions": rawExtensions]]
         )
         #expect(boundedExtensions?.count == GooseWebNativeAffordanceBridge.maxNativeFileDialogExtensions)
         #expect(boundedExtensions?.first == "type0")
         #expect(
             GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions(
-                [["extensions": ["TXT", ".md", "\u{0008}json", "has space", String(repeating: "x", count: 64)]]]
+                from: [["extensions": ["TXT", ".md", "\u{0008}json", "has space", String(repeating: "x", count: 64)]]]
             ) == ["txt", "md", "json"]
         )
-        #expect(GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions([["extensions": ["*"]]]) == nil)
+        #expect(GooseWebNativeAffordanceBridge.boundedNativeFileDialogExtensions(from: [["extensions": ["*"]]]) == nil)
 
         #expect(GooseWebNativeAffordanceBridge.boundedNativeAffordanceName("\u{0007} readFile \n") == "readFile")
         #expect(

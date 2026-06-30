@@ -2459,6 +2459,7 @@ final class VaultSyncService {
         }
 
         self.vaultURL = vaultURL
+        VaultCrashRecorder.updateVaultURL(vaultURL)
         self.isWatching = true
         self.initialImportCompleted = false
         self.recoveryIssue = nil
@@ -2639,6 +2640,7 @@ final class VaultSyncService {
         }
 
         vaultURL = nil
+        VaultCrashRecorder.updateVaultURL(nil)
         isWatching = false
         isIndexing = false
         vaultActivityMessage = nil

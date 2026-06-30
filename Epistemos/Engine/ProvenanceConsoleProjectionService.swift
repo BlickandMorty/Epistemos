@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     let summaryPayload: GenUIPayload
     let retractionPayload: GenUIPayload
+    let editSupersessionPayload: GenUIPayload
     let agentPayload: GenUIPayload
     let graphPayload: GenUIPayload
     let outboxPayload: GenUIPayload
@@ -16,6 +17,7 @@ nonisolated struct ProvenanceConsoleSnapshot: Sendable, Equatable {
             summaryPayload,
             rustLedgerPayload,
             retractionPayload,
+            editSupersessionPayload,
             agentPayload,
             graphPayload,
             outboxPayload,
@@ -28,6 +30,7 @@ nonisolated struct ProvenanceConsoleSnapshot: Sendable, Equatable {
             ("mode", "read-only")
         ]),
         retractionPayload: .provenanceTrace(title: "RetractionPropagated", events: []),
+        editSupersessionPayload: .provenanceTrace(title: "AgentEditSuperseded", events: []),
         agentPayload: .provenanceTrace(title: "AgentEvent", events: []),
         graphPayload: .provenanceTrace(title: "GraphEvent", events: []),
         outboxPayload: .keyValueTable(title: "MutationEnvelope projection", [
@@ -47,6 +50,16 @@ nonisolated struct RetractionPropagatedProjection: Sendable, Equatable {
     let claimsMarkedAtRisk: Int
     let maxDepthReached: Int
     let depthCapped: Bool
+}
+
+nonisolated struct AgentEditSupersessionProjection: Sendable, Equatable {
+    let artifactID: String
+    let artifactTitle: String?
+    let supersededMutationID: String
+    let supersededByMutationID: String
+    let runID: String?
+    let sequence: UInt64
+    let createdAtMs: Int64
 }
 
 nonisolated struct ProvenanceConsoleProjectionService: Sendable {
@@ -78,6 +91,10 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
         let outboxDiagnostics = eventStore.mutationProjectionOutboxDiagnostics()
         let agentEvents = eventStore.recentAgentEvents(limit: boundedLimit)
         let graphEvents = eventStore.recentGraphEvents(limit: boundedLimit)
+        let editSupersessions = Self.editSupersessionProjections(
+            from: eventStore.recentMutationEnvelopes(limit: boundedLimit),
+            limit: boundedLimit
+        )
         let retractionEvents = subscribeRetractionEvents(afterSequence: 0, limit: boundedLimit)
         let rustLedgerSummary = RustProvenanceLedgerClient.summary()
         let cognitiveDagStats = RustCognitiveDagClient.stats()
@@ -88,6 +105,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
                 graphDiagnostics: graphDiagnostics,
                 outboxDiagnostics: outboxDiagnostics,
                 retractionEventCount: retractionEvents.count,
+                editSupersessionCount: editSupersessions.count,
                 rustLedger: rustLedgerSummary,
                 cognitiveDag: cognitiveDagStats
             ),
@@ -95,6 +113,11 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
                 title: "RetractionPropagated",
                 events: retractionEvents.map(Self.retractionEventPayload),
                 metadata: ["plane": "ClaimLedger"]
+            ),
+            editSupersessionPayload: GenUIPayload.provenanceTrace(
+                title: "AgentEditSuperseded",
+                events: editSupersessions.map(Self.editSupersessionEventPayload),
+                metadata: ["plane": "MutationEnvelope"]
             ),
             agentPayload: GenUIPayload.provenanceTrace(
                 title: "AgentEvent",
@@ -132,6 +155,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
         graphDiagnostics: EventStore.GraphEventDiagnostics,
         outboxDiagnostics: EventStore.MutationProjectionOutboxDiagnostics,
         retractionEventCount: Int,
+        editSupersessionCount: Int,
         rustLedger: RustProvenanceLedgerSummary,
         cognitiveDag: RustCognitiveDagStats
     ) -> GenUIPayload {
@@ -140,6 +164,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
             ("RunEventLog", "source event history"),
             ("MutationEnvelope", "\(outboxDiagnostics.totalRows) projection rows"),
             ("ClaimLedger (Swift)", "\(retractionEventCount) RetractionPropagated events"),
+            ("Agent edit supersession", "\(editSupersessionCount) superseded edits"),
             ("Cognitive DAG (Rust)", cognitiveDagSummary(cognitiveDag)),
             ("Legacy ClaimLedger bridge", "\(rustLedger.claimCount) claims, \(rustLedger.evidenceCount) evidence, \(rustLedger.eventCount) events"),
             ("ACS verdict column", "visible; not linked until entries carry ACS record ids"),
@@ -188,6 +213,55 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
         ])
     }
 
+    private static func editSupersessionProjections(
+        from envelopes: [MutationEnvelope],
+        limit: Int
+    ) -> [AgentEditSupersessionProjection] {
+        let boundedLimit = boundedProjectionLimit(limit)
+        guard boundedLimit > 0 else { return [] }
+
+        let agentEdits = envelopes.compactMap { envelope -> (artifact: EpdocArtifactRef, envelope: MutationEnvelope)? in
+            guard envelope.status == .committed,
+                  case .agent = envelope.actor,
+                  case .artifactUpdate(let artifactID) = envelope.op,
+                  let artifact = envelope.touchedArtifacts.first(where: { $0.id == artifactID }) else {
+                return nil
+            }
+            return (artifact, envelope)
+        }
+
+        let grouped = Dictionary(grouping: agentEdits, by: { $0.artifact.id })
+        let projections = grouped.values.flatMap { edits -> [AgentEditSupersessionProjection] in
+            let ordered = edits.sorted { lhs, rhs in
+                let lhsCommitted = lhs.envelope.committedAtMs ?? lhs.envelope.createdAtMs
+                let rhsCommitted = rhs.envelope.committedAtMs ?? rhs.envelope.createdAtMs
+                if lhsCommitted != rhsCommitted { return lhsCommitted < rhsCommitted }
+                if lhs.envelope.sequence != rhs.envelope.sequence {
+                    return lhs.envelope.sequence < rhs.envelope.sequence
+                }
+                return lhs.envelope.mutationID < rhs.envelope.mutationID
+            }
+            guard ordered.count > 1 else { return [] }
+            return zip(ordered, ordered.dropFirst()).map { previous, next in
+                AgentEditSupersessionProjection(
+                    artifactID: next.artifact.id,
+                    artifactTitle: next.artifact.title ?? previous.artifact.title,
+                    supersededMutationID: previous.envelope.mutationID,
+                    supersededByMutationID: next.envelope.mutationID,
+                    runID: next.envelope.runID,
+                    sequence: next.envelope.sequence,
+                    createdAtMs: next.envelope.committedAtMs ?? next.envelope.createdAtMs
+                )
+            }
+        }
+
+        return Array(projections.sorted { lhs, rhs in
+            if lhs.createdAtMs != rhs.createdAtMs { return lhs.createdAtMs < rhs.createdAtMs }
+            if lhs.sequence != rhs.sequence { return lhs.sequence < rhs.sequence }
+            return lhs.supersededByMutationID < rhs.supersededByMutationID
+        }.suffix(boundedLimit))
+    }
+
     private static func retractionEventPayload(_ event: RetractionPropagatedProjection) -> GenUIPayload {
         .keyValueTable(title: "RetractionPropagated #\(event.sequence)", [
             ("sequence", "\(event.sequence)"),
@@ -197,6 +271,18 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
             ("claims at risk", "\(event.claimsMarkedAtRisk)"),
             ("max depth", "\(event.maxDepthReached)"),
             ("depth capped", event.depthCapped ? "true" : "false")
+        ])
+    }
+
+    private static func editSupersessionEventPayload(_ event: AgentEditSupersessionProjection) -> GenUIPayload {
+        .keyValueTable(title: "AgentEditSuperseded #\(event.sequence)", [
+            ("artifact", displayValue(event.artifactTitle ?? event.artifactID)),
+            ("artifact id", short(event.artifactID)),
+            ("superseded", short(event.supersededMutationID)),
+            ("superseded by", short(event.supersededByMutationID)),
+            ("run", short(event.runID ?? "unknown")),
+            ("occurred", "\(event.createdAtMs)ms"),
+            ("mode", "EventStore-derived; no ClaimLedger write FFI")
         ])
     }
 

@@ -184,6 +184,7 @@ struct ToolSchemaGrammarTests {
         #expect(!names.contains("get_ui_tree"))
         #expect(!names.contains("see"))
         #expect(!names.contains("click"))
+        #expect(!names.contains("browser.complete_task"))
     }
 
     @Test("MCP Bridge Core App Store catalog hides Pro gateway tools")
@@ -201,6 +202,7 @@ struct ToolSchemaGrammarTests {
         #expect(!names.contains("get_ui_tree"))
         #expect(!names.contains("see"))
         #expect(!names.contains("click"))
+        #expect(!names.contains("browser.complete_task"))
     }
 
     @Test("MCP Bridge Pro catalog preserves Rust source of truth")
@@ -232,6 +234,11 @@ struct ToolSchemaGrammarTests {
         }
 
         #expect(bridgeNames == rawVisibleNames)
+        let browserTask = try #require(bridgeCatalog.first {
+            ($0["name"] as? String) == "browser.complete_task"
+        })
+        #expect(browserTask["agent"] as? String == "browser")
+        #expect((browserTask["description"] as? String)?.contains("browser-use Chromium sub-agent") == true)
         let readFile = try #require(bridgeCatalog.first { ($0["name"] as? String) == "file.read" })
         let schemaJson = try #require(readFile["input_schema_json"] as? String)
         let schemaData = try #require(schemaJson.data(using: .utf8))
@@ -329,6 +336,16 @@ struct ToolSchemaGrammarTests {
         #expect(!block.contains("- get_ui_tree:"))
         #expect(!block.contains("- see:"))
         #expect(!block.contains("- click:"))
+        #expect(!block.contains("- browser.complete_task:"))
+    }
+
+    @Test("Omega Pro planning prompt exposes browser-use as subordinate MCP tool")
+    func omegaProPlanningPromptExposesBrowserUseAsSubordinateMCPTool() {
+        let block = OmegaToolRegistry.planningPromptBlock(distribution: .proResearch)
+
+        #expect(block.contains("BROWSER MCP sub-agent (Pro browser-use):"))
+        #expect(block.contains("- browser.complete_task:"))
+        #expect(block.contains("Goose remains the user-facing agent"))
     }
 
     @Test("Omega Core App Store dispatch list hides Pro gateway tools")
@@ -350,6 +367,7 @@ struct ToolSchemaGrammarTests {
         #expect(!names.contains("get_ui_tree"))
         #expect(!names.contains("see"))
         #expect(!names.contains("click"))
+        #expect(!names.contains("browser.complete_task"))
     }
 
     @Test("Omega Pro Research dispatch list preserves full registered tools")
@@ -368,6 +386,22 @@ struct ToolSchemaGrammarTests {
             distribution: .proResearch
         ).count)
         #expect(names.contains("action.bash"))
+        #expect(names.contains("browser.complete_task"))
+    }
+
+    @Test("Omega Pro dispatch routes browser-use task through app-hosted MCP")
+    func omegaProDispatchRoutesBrowserUseTaskThroughAppHostedMCP() throws {
+        let bridge = MCPBridge()
+        let response = bridge.dispatch(
+            #"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"browser.complete_task","arguments":{"task":"Open example.com and report the title","max_steps":4}},"id":5}"#,
+            distribution: .proResearch
+        )
+        let json = try Self.jsonObject(from: response)
+        let result = try #require(json["result"] as? [String: Any])
+
+        #expect(result["status"] as? String == "pending")
+        #expect(result["tool_name"] as? String == "browser.complete_task")
+        #expect(json["error"] == nil || json["error"] is NSNull)
     }
 
     @Test("Omega Core App Store dispatch denies Pro gateway tool calls")
@@ -379,6 +413,7 @@ struct ToolSchemaGrammarTests {
             "get_ui_tree",
             "see",
             "click",
+            "browser.complete_task",
         ] {
             let request = """
             {"jsonrpc":"2.0","method":"tools/call","params":{"name":"\(toolName)","arguments":{}},"id":2}
@@ -442,46 +477,40 @@ struct ToolSchemaGrammarTests {
         #expect(options["additionalProperties"] as? Bool == false)
     }
 
-    @Test("Settings tool inventory uses the same surfaced catalog as chat")
-    func settingsToolInventoryUsesSurfacedCatalog() throws {
+    @Test("Command center tool inventory uses the surfaced tier catalog")
+    func commandCenterToolInventoryUsesSurfacedTierCatalog() throws {
         let source = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/AgentControlSettingsView.swift"
+            "Epistemos/State/AgentCommandCenterState.swift"
         )
 
-        #expect(source.contains("private var surfacedDiagnosticTools"))
-        #expect(source.contains("diagnosticRuntimeTools"))
+        #expect(source.contains("ToolCatalogLoader"))
+        #expect(source.contains("defaultToolCatalogLoader"))
         #expect(source.contains("ToolTierBridge("))
-        #expect(source.contains("tier: .agent"))
-        #expect(source.contains("Rust-backed Agent-tier tools"))
-        #expect(source.contains("surfacedDiagnosticTools.count) visible tools"))
-        #expect(source.contains("private var modelToolCompatibilityCard"))
-        #expect(source.contains("Text(\"Compatibility Matrix\")"))
-        #expect(source.contains("private var modelToolCompatibilityRows"))
-        #expect(source.contains("ComposerModelToolTruth.compatibilityRows("))
-        #expect(source.contains("ComposerModelToolTruth.summary("))
-        #expect(source.contains("inference.providerNativeCapabilityToolNameList"))
-        #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
-        #expect(source.contains("CloudModelProvider.preferredOrder.map"))
-        #expect(source.contains("MCP tools below are inventory only for this route"))
+        #expect(source.contains("ChatToolTier.from(operatingMode: operatingMode)"))
+        #expect(source.contains("ToolSurfacePolicy.surfacedTools("))
+        #expect(source.contains("toolSurfaceDistribution"))
+        #expect(source.contains("availableTools = tools"))
+        #expect(source.contains("mcpToolsByAgent = Dictionary(grouping: tools, by: \\.agent)"))
         #expect(!source.contains("OmegaToolRegistry.surfacedTools()"))
         #expect(!source.contains("OmegaToolRegistry.all.filter(\\.requiresConfirmation)"))
         #expect(!source.contains("Dictionary(grouping: OmegaToolRegistry.all"))
     }
 
-    @Test("Settings skill inventory shows discovered skills separately from tool execution")
-    func settingsSkillInventoryUsesDiscoveryCatalog() throws {
+    @Test("Skills settings inventory uses discovery catalog separately from tool execution")
+    func skillsSettingsInventoryUsesDiscoveryCatalog() throws {
         let source = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/AgentControlSettingsView.swift"
+            "Epistemos/Views/Settings/SkillsSettingsView.swift"
         )
 
-        #expect(source.contains("private var skillInventoryCard"))
-        #expect(source.contains("diagnosticDiscoveredSkills"))
-        #expect(source.contains("SkillDiscoveryCatalog.discoverSkillEntries()"))
-        #expect(source.contains("Text(\"Skill Plane\")"))
-        #expect(source.contains("soft-guidance and preview models use them as supervised instructions"))
-        #expect(source.contains("Tool execution still follows MCP Tool Plane"))
-        #expect(source.contains("skillDiscoveryGroups"))
-        #expect(source.contains("SkillDiscoveryGroup"))
+        #expect(source.contains("Text(\"Skill Hub\")"))
+        #expect(source.contains("discoveryCard(vaultPath: vaultSync.vaultURL?.path)"))
+        #expect(source.contains("Text(\"Create Skill\")"))
+        #expect(source.contains("Text(\"Install Skill\")"))
+        #expect(source.contains("SkillDiscoveryCatalog.discoverSkillEntries(forceRefresh: true)"))
+        #expect(source.contains("callSkillManager(payload: payload, vaultPath: vaultPath)"))
+        #expect(source.contains("InstallSource.isUnlockedInCurrentBuild") || source.contains("installSource.isUnlockedInCurrentBuild"))
+        #expect(!source.contains("ToolTierBridge("))
+        #expect(!source.contains("OmegaToolRegistry.surfacedTools()"))
     }
 
     private static func jsonObject(from response: String) throws -> [String: Any] {

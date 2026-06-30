@@ -98,7 +98,7 @@ targets:
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
-          CODE_SIGN_IDENTITY: "-"
+          CODE_SIGN_IDENTITY: "Apple Development"
           DEVELOPMENT_TEAM: 3BNL2669SL
           CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-Debug.entitlements
         Release:
@@ -172,6 +172,7 @@ targets:
       - sdk: SwiftData.framework
       - sdk: Foundation.framework
       - sdk: CryptoKit.framework
+      - sdk: Security.framework
       - sdk: Network.framework
       - sdk: AppIntents.framework
       - sdk: CoreSpotlight.framework
@@ -311,6 +312,7 @@ targets:
       - sdk: SwiftData.framework
       - sdk: Foundation.framework
       - sdk: CryptoKit.framework
+      - sdk: Security.framework
       - sdk: Network.framework
       - sdk: AppIntents.framework
       - sdk: CoreSpotlight.framework

@@ -291,23 +291,21 @@ impl MCPDispatcher {
     /// (honest — no fake resources). URIs use the `vault:///<relative-path>` scheme.
     fn handle_resources_list(&self, req: &JsonRpcRequest) -> JsonRpcResponse {
         let root = self.vault_root.lock().unwrap().clone();
-        let resources: Vec<serde_json::Value> = match root
-            .as_deref()
-            .and_then(crate::vault::VaultExecutor::new)
-        {
-            Some(exec) => exec
-                .list_markdown_notes()
-                .into_iter()
-                .map(|rel| {
-                    serde_json::json!({
-                        "uri": format!("vault:///{rel}"),
-                        "name": rel,
-                        "mimeType": "text/markdown",
+        let resources: Vec<serde_json::Value> =
+            match root.as_deref().and_then(crate::vault::VaultExecutor::new) {
+                Some(exec) => exec
+                    .list_markdown_notes()
+                    .into_iter()
+                    .map(|rel| {
+                        serde_json::json!({
+                            "uri": vault_resource_uri(&rel),
+                            "name": rel,
+                            "mimeType": "text/markdown",
+                        })
                     })
-                })
-                .collect(),
-            None => Vec::new(),
-        };
+                    .collect(),
+                None => Vec::new(),
+            };
         JsonRpcResponse::success(
             req.id.clone(),
             serde_json::json!({ "resources": resources }),
@@ -338,7 +336,12 @@ impl MCPDispatcher {
                 )
             }
         };
-        let rel = uri.strip_prefix("vault:///").unwrap_or(uri);
+        let rel = match vault_relative_path_from_uri(uri) {
+            Ok(rel) => rel,
+            Err(message) => {
+                return JsonRpcResponse::error(req.id.clone(), server::INVALID_PARAMS, message)
+            }
+        };
         let root = self.vault_root.lock().unwrap().clone();
         let exec = match root.as_deref().and_then(crate::vault::VaultExecutor::new) {
             Some(e) => e,
@@ -350,13 +353,8 @@ impl MCPDispatcher {
                 )
             }
         };
-        let result = exec.read_file(rel);
-        if result.success {
-            let content = serde_json::from_str::<serde_json::Value>(&result.data_json)
-                .ok()
-                .and_then(|v| v.get("content").and_then(|c| c.as_str()).map(String::from))
-                .unwrap_or_default();
-            JsonRpcResponse::success(
+        match exec.read_markdown_resource(&rel) {
+            Ok(content) => JsonRpcResponse::success(
                 req.id.clone(),
                 serde_json::json!({
                     "contents": [{
@@ -365,13 +363,8 @@ impl MCPDispatcher {
                         "text": content,
                     }]
                 }),
-            )
-        } else {
-            JsonRpcResponse::error(
-                req.id.clone(),
-                server::INVALID_PARAMS,
-                result.error.unwrap_or_else(|| "read failed".to_string()),
-            )
+            ),
+            Err(message) => JsonRpcResponse::error(req.id.clone(), server::INVALID_PARAMS, message),
         }
     }
 
@@ -439,6 +432,67 @@ impl MCPDispatcher {
     }
 }
 
+fn vault_resource_uri(relative_path: &str) -> String {
+    let mut encoded = String::with_capacity(relative_path.len());
+    for byte in relative_path.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(*byte as char)
+            }
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    format!("vault:///{encoded}")
+}
+
+fn vault_relative_path_from_uri(uri: &str) -> Result<String, String> {
+    let raw_path = uri
+        .strip_prefix("vault:///")
+        .ok_or_else(|| "resources/read requires vault:/// URI".to_string())?;
+    if raw_path.is_empty() {
+        return Err("resources/read requires a vault resource path".to_string());
+    }
+    if contains_encoded_path_separator(raw_path) {
+        return Err("encoded path separators are not allowed in vault resource URIs".to_string());
+    }
+    percent_decode_utf8(raw_path).ok_or_else(|| "vault resource URI is not valid UTF-8".to_string())
+}
+
+fn contains_encoded_path_separator(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.contains("%2f") || lower.contains("%5c")
+}
+
+fn percent_decode_utf8(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return None;
+            }
+            let hi = hex_value(bytes[index + 1])?;
+            let lo = hex_value(bytes[index + 2])?;
+            out.push((hi << 4) | lo);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -496,6 +550,58 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert!(parsed["result"]["tools"].is_array());
         assert_eq!(parsed["result"]["tools"].as_array().unwrap().len(), 2);
+    }
+
+    #[cfg(not(feature = "mas-sandbox"))]
+    #[test]
+    fn builtin_tools_list_exposes_browser_complete_task_as_mcp_tool() {
+        let d = MCPDispatcher::new_in_memory();
+        d.register_builtin_tools();
+
+        let list_resp =
+            d.dispatch(r#"{"jsonrpc":"2.0","method":"tools/list","id":10}"#.to_string());
+        let list: serde_json::Value = serde_json::from_str(&list_resp).unwrap();
+        let tools = list["result"]["tools"].as_array().unwrap();
+        let tool = tools
+            .iter()
+            .find(|tool| tool["name"] == "browser.complete_task")
+            .expect("tools/list must expose browser.complete_task in Pro/default builds");
+
+        assert!(tool["description"]
+            .as_str()
+            .unwrap()
+            .contains("browser-use Chromium sub-agent"));
+        assert_eq!(tool["inputSchema"]["required"][0], "task");
+        assert_eq!(tool["inputSchema"]["properties"]["task"]["maxLength"], 4000);
+
+        let call_resp = d.dispatch(
+            r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"browser.complete_task","arguments":{"task":"Open example.com and report the title","max_steps":4}},"id":11}"#
+                .to_string(),
+        );
+        let call: serde_json::Value = serde_json::from_str(&call_resp).unwrap();
+        assert_eq!(call["result"]["status"], "pending");
+        assert_eq!(call["result"]["tool_name"], "browser.complete_task");
+        assert_eq!(call["result"]["arguments"]["max_steps"], 4);
+        assert_eq!(call["result"]["destructive"], true);
+        assert_eq!(call["result"]["requires_confirmation"], true);
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[test]
+    fn mas_builtin_tools_list_excludes_browser_complete_task() {
+        let d = MCPDispatcher::new_in_memory();
+        d.register_builtin_tools();
+
+        let list_resp =
+            d.dispatch(r#"{"jsonrpc":"2.0","method":"tools/list","id":10}"#.to_string());
+        let list: serde_json::Value = serde_json::from_str(&list_resp).unwrap();
+        let tools = list["result"]["tools"].as_array().unwrap();
+        assert!(
+            tools
+                .iter()
+                .all(|tool| tool["name"] != "browser.complete_task"),
+            "MAS tools/list must not expose Pro browser-use automation"
+        );
     }
 
     #[test]
@@ -725,6 +831,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("epi_vault_mcp_{}", std::process::id()));
         let _ = std::fs::create_dir_all(dir.join("notes"));
         std::fs::write(dir.join("alpha.md"), "# Alpha\nhello").unwrap();
+        std::fs::write(dir.join("Space #1.md"), "# Space\nencoded").unwrap();
         std::fs::write(dir.join("notes").join("beta.md"), "# Beta\nworld").unwrap();
         std::fs::write(dir.join("ignore.txt"), "not a note").unwrap();
 
@@ -732,15 +839,26 @@ mod tests {
 
         // No vault root set yet → resources/list is honestly EMPTY (no fake resources).
         let empty = d.dispatch(r#"{"jsonrpc":"2.0","method":"resources/list","id":1}"#.to_string());
-        assert!(empty.contains("\"resources\":[]"), "expected empty: {empty}");
+        assert!(
+            empty.contains("\"resources\":[]"),
+            "expected empty: {empty}"
+        );
 
         d.set_vault_root(dir.to_string_lossy().to_string());
 
         // resources/list enumerates the markdown notes (not the .txt), with vault:/// URIs.
-        let listed = d.dispatch(r#"{"jsonrpc":"2.0","method":"resources/list","id":2}"#.to_string());
+        let listed =
+            d.dispatch(r#"{"jsonrpc":"2.0","method":"resources/list","id":2}"#.to_string());
         assert!(listed.contains("vault:///alpha.md"), "list: {listed}");
         assert!(listed.contains("vault:///notes/beta.md"), "list: {listed}");
-        assert!(!listed.contains("ignore.txt"), "list must skip non-md: {listed}");
+        assert!(
+            listed.contains("vault:///Space%20%231.md"),
+            "list: {listed}"
+        );
+        assert!(
+            !listed.contains("ignore.txt"),
+            "list must skip non-md: {listed}"
+        );
         assert!(listed.contains("text/markdown"), "list mimeType: {listed}");
 
         // resources/read returns the note's real content.
@@ -751,12 +869,47 @@ mod tests {
         assert!(read.contains("# Beta"), "read content: {read}");
         assert!(read.contains("world"), "read content: {read}");
 
+        // Percent-encoded resource URIs are decoded before vault reads, matching the HTTP server.
+        let encoded = d.dispatch(
+            r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"vault:///Space%20%231.md"},"id":5}"#
+                .to_string(),
+        );
+        assert!(
+            encoded.contains("# Space"),
+            "encoded read content: {encoded}"
+        );
+        assert!(
+            encoded.contains("encoded"),
+            "encoded read content: {encoded}"
+        );
+
         // resources/read on a traversal attempt is refused (path-safe via VaultExecutor).
         let escape = d.dispatch(
             r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"vault:///../../etc/passwd"},"id":4}"#
                 .to_string(),
         );
-        assert!(escape.contains("\"error\""), "traversal must error: {escape}");
+        assert!(
+            escape.contains("\"error\""),
+            "traversal must error: {escape}"
+        );
+
+        let encoded_slash = d.dispatch(
+            r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"vault:///notes%2Fbeta.md"},"id":6}"#
+                .to_string(),
+        );
+        assert!(
+            encoded_slash.contains("encoded path separators"),
+            "encoded separators must error: {encoded_slash}"
+        );
+
+        let non_markdown = d.dispatch(
+            r#"{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"vault:///ignore.txt"},"id":7}"#
+                .to_string(),
+        );
+        assert!(
+            non_markdown.contains("only markdown vault resources can be read"),
+            "non-markdown resources must error: {non_markdown}"
+        );
 
         let _ = std::fs::remove_dir_all(dir);
     }

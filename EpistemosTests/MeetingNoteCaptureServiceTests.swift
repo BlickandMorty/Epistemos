@@ -114,16 +114,26 @@ struct MeetingNoteCaptureServiceTests {
             code: 19,
             userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
         )
+        let pathDomain = NSError(
+            domain: privatePath,
+            code: 20,
+            userInfo: [NSLocalizedDescriptionKey: "failed to open \(privatePath)"]
+        )
 
         let externalMessage = MeetingCaptureDiagnostics.statusMessage(for: external)
+        let pathDomainMessage = MeetingCaptureDiagnostics.statusMessage(for: pathDomain)
         let persistenceMessage = MeetingCaptureDiagnostics.statusMessage(
             for: TextCaptureError.persistenceFailed("failed to write \(privatePath)")
         )
 
-        #expect(externalMessage.contains("MeetingPathLeak"))
-        #expect(externalMessage.contains("19"))
+        #expect(externalMessage.contains("domain=MeetingPathLeak"))
+        #expect(externalMessage.contains("code=19"))
         #expect(externalMessage.contains(privatePath) == false)
         #expect(externalMessage.count <= VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+        #expect(pathDomainMessage.contains("domain=Error"))
+        #expect(pathDomainMessage.contains("code=20"))
+        #expect(pathDomainMessage.contains(privatePath) == false)
+        #expect(pathDomainMessage.contains("failed to open") == false)
         #expect(persistenceMessage == "Meeting note persistence failed.")
         #expect(persistenceMessage.contains(privatePath) == false)
     }

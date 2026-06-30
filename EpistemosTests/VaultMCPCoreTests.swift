@@ -463,6 +463,8 @@ struct VaultMCPCoreTests {
         #expect(source.contains("read-only vault server"))
         #expect(source.contains("resources/list"))
         #expect(source.contains("resources/read"))
+        #expect(source.contains("VaultMCPResourceDispatcher"))
+        #expect(source.contains("resourceDispatcher.dispatch(requestJson: requestJSON)"))
         #expect(source.contains("maxRequestJSONBytes"))
         #expect(source.contains("maxJSONRPCIDStringLength"))
         #expect(source.contains("request[\"jsonrpc\"] as? String == \"2.0\""))

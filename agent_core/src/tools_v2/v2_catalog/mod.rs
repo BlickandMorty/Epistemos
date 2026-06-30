@@ -21,6 +21,7 @@ pub mod apple_reminders;
 pub mod browser_back;
 pub mod browser_click;
 pub mod browser_close;
+pub mod browser_complete_task;
 pub mod browser_console;
 pub mod browser_get_images;
 pub mod browser_navigate;
@@ -78,6 +79,7 @@ pub mod vault_search;
 pub mod vault_write;
 pub mod web_crawl;
 pub mod web_extract;
+pub mod web_extract_schema;
 pub mod web_fetch;
 pub mod web_search;
 pub mod workspace_find_symbol;
@@ -131,6 +133,7 @@ mod tests {
             super::intelligence_self_evolve::SPEC,
             super::web_search::SPEC,
             super::web_extract::SPEC,
+            super::web_extract_schema::SPEC,
             super::web_crawl::SPEC,
             super::web_fetch::SPEC,
             super::apple_notes::SPEC,
@@ -155,6 +158,7 @@ mod tests {
             super::browser_back::SPEC,
             super::browser_press::SPEC,
             super::browser_close::SPEC,
+            super::browser_complete_task::SPEC,
             super::browser_get_images::SPEC,
             super::browser_vision::SPEC,
             super::browser_console::SPEC,
@@ -319,6 +323,10 @@ mod tests {
                 (super::web_extract::SPEC.input_schema)(),
             ),
             (
+                super::web_extract_schema::SPEC.name,
+                (super::web_extract_schema::SPEC.input_schema)(),
+            ),
+            (
                 super::web_crawl::SPEC.name,
                 (super::web_crawl::SPEC.input_schema)(),
             ),
@@ -413,6 +421,10 @@ mod tests {
             (
                 super::browser_close::SPEC.name,
                 (super::browser_close::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_complete_task::SPEC.name,
+                (super::browser_complete_task::SPEC.input_schema)(),
             ),
             (
                 super::browser_get_images::SPEC.name,
@@ -513,6 +525,7 @@ mod tests {
             super::intelligence_self_evolve::SPEC,
             super::web_search::SPEC,
             super::web_extract::SPEC,
+            super::web_extract_schema::SPEC,
             super::web_crawl::SPEC,
             super::web_fetch::SPEC,
             super::apple_notes::SPEC,
@@ -537,6 +550,7 @@ mod tests {
             super::browser_back::SPEC,
             super::browser_press::SPEC,
             super::browser_close::SPEC,
+            super::browser_complete_task::SPEC,
             super::browser_get_images::SPEC,
             super::browser_vision::SPEC,
             super::browser_console::SPEC,
@@ -600,6 +614,7 @@ mod tests {
             super::browser_back::SPEC,
             super::browser_press::SPEC,
             super::browser_close::SPEC,
+            super::browser_complete_task::SPEC,
             super::browser_get_images::SPEC,
             super::browser_vision::SPEC,
             super::browser_console::SPEC,

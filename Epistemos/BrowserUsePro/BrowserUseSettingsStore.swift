@@ -332,7 +332,7 @@ nonisolated enum BrowserUseSettingsValidation {
     }
 }
 
-nonisolated enum BrowserUseSecretBinding: String, CaseIterable, Sendable {
+nonisolated enum BrowserUseSecretBinding: String, CaseIterable, Sendable, Hashable {
     case browserUseAPIKey = "BROWSER_USE_API_KEY"
     case openAIAPIKey = "OPENAI_API_KEY"
     case anthropicAPIKey = "ANTHROPIC_API_KEY"
@@ -483,8 +483,7 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         do {
             try Self.rejectSettingsSymlinkPath(at: temporaryURL, label: "temporary file")
             try Self.rejectSettingsSymlinkPath(at: settingsURL, label: "file")
-            try data.write(to: temporaryURL, options: [.atomic])
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporaryURL.path)
+            try Self.writeExclusiveSettingsData(data, to: temporaryURL)
             if FileManager.default.fileExists(atPath: settingsURL.path) {
                 try Self.rejectSettingsSymlinkPath(at: settingsURL, label: "file")
                 try FileManager.default.removeItem(at: settingsURL)
@@ -559,6 +558,27 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         return data
     }
 
+    private static func writeExclusiveSettingsData(_ data: Data, to url: URL) throws {
+        let fd = url.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        }
+        guard fd >= 0 else {
+            throw BrowserUseSettingsStoreError.unsafePath(
+                "browser-use settings temporary file could not be created safely"
+            )
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        do {
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+    }
+
     private static func settingsPathDescription(_ url: URL) -> String {
         let filename = url.lastPathComponent.isEmpty ? "settings.json" : url.lastPathComponent
         guard filename.count > maxPathDiagnosticLength else {
@@ -593,7 +613,7 @@ nonisolated enum BrowserUseEnvironmentRenderer {
                 pairs.append(.init(name: binding.environmentName, value: secret))
             }
         }
-        return pairs
+        return pairsWithCompatibilityAliases(pairs)
     }
 
     static func dictionary(
@@ -604,7 +624,11 @@ nonisolated enum BrowserUseEnvironmentRenderer {
     }
 
     static func dictionary(_ pairs: [BrowserUseEnvironmentPair]) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: pairs.map { ($0.name, $0.value) })
+        var values: [String: String] = [:]
+        for pair in pairsWithCompatibilityAliases(pairs) {
+            values[pair.name] = pair.value
+        }
+        return values
     }
 
     static func render(
@@ -615,9 +639,32 @@ nonisolated enum BrowserUseEnvironmentRenderer {
     }
 
     static func render(_ pairs: [BrowserUseEnvironmentPair]) -> String {
-        pairs
+        pairsWithCompatibilityAliases(pairs)
             .map { "\($0.name)=\(literal(for: $0.value))" }
             .joined(separator: "\n") + "\n"
+    }
+
+    private static func pairsWithCompatibilityAliases(_ pairs: [BrowserUseEnvironmentPair]) -> [BrowserUseEnvironmentPair] {
+        var output = pairs
+        var valuesByName: [String: String] = [:]
+        for pair in pairs {
+            valuesByName[pair.name] = pair.value
+        }
+
+        func appendAlias(_ alias: String, from source: String) {
+            guard valuesByName[alias] == nil, let value = valuesByName[source] else {
+                return
+            }
+            valuesByName[alias] = value
+            output.append(.init(name: alias, value: value))
+        }
+
+        appendAlias("AZURE_OPENAI_KEY", from: "AZURE_OPENAI_API_KEY")
+        appendAlias("MISTRAL_BASE_URL", from: "MISTRAL_ENDPOINT")
+        appendAlias("SILICONFLOW_API_KEY", from: "SiliconFLOW_API_KEY")
+        appendAlias("SILICONFLOW_ENDPOINT", from: "SiliconFLOW_ENDPOINT")
+        appendAlias("NO_PROXY", from: "BROWSER_USE_NO_PROXY")
+        return output
     }
 
     private static func literal(for value: String) -> String {

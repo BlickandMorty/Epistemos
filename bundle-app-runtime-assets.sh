@@ -12,11 +12,16 @@ CORE_EDITOR_SOURCE_DIR="$SRCROOT/Epistemos/Resources/CoreEditor"
 CORE_EDITOR_BUNDLE_DIR="$RESOURCES_DIR/CoreEditor"
 CORE_EDITOR_CHUNKS_SOURCE_DIR="$SRCROOT/Epistemos/Resources/chunks"
 CORE_EDITOR_CHUNKS_BUNDLE_DIR="$RESOURCES_DIR/chunks"
+PYODIDE_SOURCE_DIR="${EPISTEMOS_PYODIDE_SOURCE:-$SRCROOT/Epistemos/Resources/Pyodide}"
+PYODIDE_BUNDLE_DIR="$RESOURCES_DIR/Pyodide"
+MODEL_MANIFEST_SOURCE="${EPISTEMOS_MODEL_MANIFEST_SOURCE:-$SRCROOT/config/model_manifest.json}"
+MODEL_MANIFEST_DEST="$RESOURCES_DIR/model_manifest.json"
 DEFAULT_SKILLS_SOURCE_DIR="$SRCROOT/.agents/skills"
 DEFAULT_SKILLS_DIR="$RESOURCES_DIR/DefaultSkills"
 GOOSE_BINARY_DEST="$RESOURCES_DIR/goose"
 GOOSED_BINARY_DEST="$RESOURCES_DIR/goosed"
 GOOSE_WEB_UI_DEST="$RESOURCES_DIR/goose-desktop"
+BROWSER_USE_PRO_BUNDLE_DEST="$RESOURCES_DIR/BrowserUsePro.bundle"
 GOOSE_WEB_UI_STAGE_SCRIPT="${EPISTEMOS_GOOSE_UI_STAGE_SCRIPT:-$SRCROOT/stage-goose-web-ui.sh}"
 STAGED_GOOSE_WEB_UI_SOURCE=""
 
@@ -70,6 +75,57 @@ bundle_coreeditor_resources() {
     # missing chunk tree during manual bundle inspection.
     if [ -f "$CORE_EDITOR_SOURCE_DIR/index.html" ]; then
         rm -f "$RESOURCES_DIR/index.html"
+    fi
+}
+
+is_complete_pyodide_tree() {
+    local candidate="$1"
+    [ -d "$candidate" ] &&
+        [ -f "$candidate/pyodide.js" ] &&
+        [ -f "$candidate/pyodide.asm.wasm" ] &&
+        [ -f "$candidate/python_stdlib.zip" ] &&
+        [ -f "$candidate/pyodide-lock.json" ]
+}
+
+bundle_pyodide_resources() {
+    if ! is_complete_pyodide_tree "$PYODIDE_SOURCE_DIR"; then
+        rm -rf "$PYODIDE_BUNDLE_DIR"
+        remove_flattened_pyodide_resources
+        return
+    fi
+
+    mkdir -p "$PYODIDE_BUNDLE_DIR"
+    rsync -a --delete \
+        --include='pyodide.js' \
+        --include='pyodide.mjs' \
+        --include='pyodide.asm.mjs' \
+        --include='pyodide.asm.wasm' \
+        --include='python_stdlib.zip' \
+        --include='pyodide-lock.json' \
+        --include='package.json' \
+        --include='README.md' \
+        --exclude='*' \
+        "$PYODIDE_SOURCE_DIR/" \
+        "$PYODIDE_BUNDLE_DIR/"
+
+    remove_flattened_pyodide_resources
+}
+
+remove_flattened_pyodide_resources() {
+    if [ ! -d "$PYODIDE_SOURCE_DIR" ]; then
+        return
+    fi
+
+    while IFS= read -r -d '' source_file; do
+        rm -f "$RESOURCES_DIR/$(basename "$source_file")"
+    done < <(find "$PYODIDE_SOURCE_DIR" -maxdepth 1 -type f -print0)
+}
+
+bundle_model_manifest() {
+    if [ -f "$MODEL_MANIFEST_SOURCE" ]; then
+        rsync -a "$MODEL_MANIFEST_SOURCE" "$MODEL_MANIFEST_DEST"
+    else
+        rm -f "$MODEL_MANIFEST_DEST"
     fi
 }
 
@@ -329,14 +385,68 @@ bundle_goose_web_ui() {
     copy_goose_web_ui_atomically "$source" "$GOOSE_WEB_UI_DEST"
 }
 
+browser_use_pro_bundle_candidates() {
+    if [ -n "${EPISTEMOS_BROWSER_USE_PRO_BUNDLE_SOURCE:-}" ]; then
+        printf '%s\n' "$EPISTEMOS_BROWSER_USE_PRO_BUNDLE_SOURCE"
+    fi
+    printf '%s\n' "$SRCROOT/build/browser-use-pro/BrowserUsePro.bundle"
+}
+
+is_signed_browser_use_pro_bundle() {
+    local candidate="$1"
+    [ -d "$candidate" ] &&
+        [ -f "$candidate/Contents/Info.plist" ] &&
+        [ -f "$candidate/Contents/Resources/BrowserUsePro/VENDOR_MANIFEST.json" ] &&
+        [ -f "$candidate/Contents/Resources/BrowserUsePro/BUILD_MANIFEST.json" ] &&
+        [ -f "$candidate/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json" ] &&
+        [ -x "$candidate/Contents/Resources/BrowserUsePro/epistemos_agent_browser.py" ] &&
+        /usr/bin/codesign --verify --deep --strict --verbose=2 "$candidate" >/dev/null 2>&1
+}
+
+bundle_browser_use_pro() {
+    if is_app_store_build; then
+        rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+        return
+    fi
+
+    local source=""
+    while IFS= read -r candidate; do
+        if is_signed_browser_use_pro_bundle "$candidate"; then
+            source="$candidate"
+            break
+        fi
+        if [ -n "${EPISTEMOS_BROWSER_USE_PRO_BUNDLE_SOURCE:-}" ] && [ "$candidate" = "$EPISTEMOS_BROWSER_USE_PRO_BUNDLE_SOURCE" ]; then
+            echo "Explicit browser-use Pro bundle is not signed or is incomplete: $candidate" >&2
+            exit 66
+        fi
+    done < <(browser_use_pro_bundle_candidates)
+
+    if [ -z "$source" ]; then
+        rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+        return
+    fi
+
+    mkdir -p "$(dirname "$BROWSER_USE_PRO_BUNDLE_DEST")"
+    rsync -a --delete "$source/" "$BROWSER_USE_PRO_BUNDLE_DEST/"
+    if ! is_signed_browser_use_pro_bundle "$BROWSER_USE_PRO_BUNDLE_DEST"; then
+        echo "Bundled browser-use Pro bundle failed post-copy signature verification." >&2
+        rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+        exit 66
+    fi
+}
+
 bundle_editor_resources
 bundle_coreeditor_resources
+bundle_pyodide_resources
+bundle_model_manifest
 bundle_default_skills
 
 if is_app_store_build; then
     rm -f "$GOOSE_BINARY_DEST"
     rm -f "$GOOSED_BINARY_DEST"
+    rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
 else
     bundle_goose_runtime_binary
+    bundle_browser_use_pro
 fi
 bundle_goose_web_ui

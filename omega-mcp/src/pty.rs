@@ -474,10 +474,8 @@ fn spawn_pty(config: PtyConfig, session_id: &str) -> Result<PtySession, PtyError
     // safe). Fork copies parent memory so the child sees the same
     // CStrings. We then pass their pointers to execve() in the child.
     let envp_cstrings: Vec<CString> = build_hardened_pty_envp();
-    let mut envp_ptrs: Vec<*const libc::c_char> = envp_cstrings
-        .iter()
-        .map(|c| c.as_ptr())
-        .collect();
+    let mut envp_ptrs: Vec<*const libc::c_char> =
+        envp_cstrings.iter().map(|c| c.as_ptr()).collect();
     envp_ptrs.push(std::ptr::null());
 
     // Build login_name + args BEFORE fork too (heap safe in parent).
@@ -825,10 +823,13 @@ __EPPWD__/private/tmp"#;
     #[test]
     fn build_hardened_envp_includes_term_dumb() {
         let envp = build_hardened_pty_envp();
-        let has_term_dumb = envp.iter().any(|c| {
-            c.to_str().map(|s| s == "TERM=dumb").unwrap_or(false)
-        });
-        assert!(has_term_dumb, "envp must always carry TERM=dumb for PTY suppression");
+        let has_term_dumb = envp
+            .iter()
+            .any(|c| c.to_str().map(|s| s == "TERM=dumb").unwrap_or(false));
+        assert!(
+            has_term_dumb,
+            "envp must always carry TERM=dumb for PTY suppression"
+        );
     }
 
     #[test]
@@ -844,9 +845,9 @@ __EPPWD__/private/tmp"#;
         let envp = build_hardened_pty_envp();
         for &denied in PTY_DENYLIST {
             let prefix = format!("{}=", denied);
-            let leaked = envp.iter().any(|c| {
-                c.to_str().map(|s| s.starts_with(&prefix)).unwrap_or(false)
-            });
+            let leaked = envp
+                .iter()
+                .any(|c| c.to_str().map(|s| s.starts_with(&prefix)).unwrap_or(false));
             assert!(
                 !leaked,
                 "denylist var '{}' must NEVER appear in hardened envp",

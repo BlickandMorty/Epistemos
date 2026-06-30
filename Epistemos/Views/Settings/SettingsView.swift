@@ -351,7 +351,7 @@ struct SettingsView: View {
             switch SettingsSection.safeDetailSelection(for: selection) {
             case .general: GeneralDetailView()
             case .ambientFrequencies: AmbientFrequencySettingsView()
-            case .voice: VoicePreferencesSection()
+            case .voice: VoiceSettingsDetailView()
             case .skills: ExtensionsDetailView()
             case .landing: LandingDetailView()
             case .appearance: AppearanceDetailView()

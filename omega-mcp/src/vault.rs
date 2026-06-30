@@ -23,9 +23,9 @@ pub struct VaultExecutor {
 /// for a NOTE that's the user's actual content corrupted. The temp uses a non-`.md` suffix so a crash-leftover
 /// is never mistaken for a note by `list_markdown_notes`. (Mirrors the Swift VaultNoteEditor's atomic write.)
 fn atomic_write(full: &Path, content: &[u8]) -> std::io::Result<()> {
-    let name = full
-        .file_name()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "path has no file name"))?;
+    let name = full.file_name().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, "path has no file name")
+    })?;
     let tmp = full.with_file_name(format!("{}.omega-tmp", name.to_string_lossy()));
     fs::write(&tmp, content)?;
     fs::rename(&tmp, full)
@@ -35,6 +35,7 @@ fn atomic_write(full: &Path, content: &[u8]) -> std::io::Result<()> {
 /// by the graph event log AND the vault provenance log so both are bounded identically (§506).
 pub(crate) const EVENT_LOG_MAX_BYTES: u64 = 4 * 1024 * 1024; // ~4 MB
 pub(crate) const EVENT_LOG_KEEP_LINES: usize = 5_000;
+pub(crate) const MCP_RESOURCE_MAX_READ_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Append newline-delimited `lines` to the JSONL log at `path`, then BOUND it: the agent-event logs are
 /// write-only telemetry (nothing replays them — durable provenance lives in the EventStore), so a long agent
@@ -155,6 +156,55 @@ impl VaultExecutor {
                 start.elapsed().as_millis() as u64,
             ),
         }
+    }
+
+    /// Read a Markdown note as an MCP resource. This is stricter than the
+    /// legacy `vault.read` tool: resources are first-class context, so they
+    /// must stay Markdown-only, bounded, non-hidden, and non-symlinked.
+    pub fn read_markdown_resource(&self, path: &str) -> Result<String, String> {
+        let clean = path.replace('\\', "/").trim_start_matches('/').to_string();
+        if clean.contains("..") {
+            return Err("Path traversal not allowed".to_string());
+        }
+        if !clean.to_ascii_lowercase().ends_with(".md") {
+            return Err("only markdown vault resources can be read".to_string());
+        }
+        if clean
+            .split('/')
+            .any(|component| component.is_empty() || component.starts_with('.'))
+        {
+            return Err("hidden vault resources cannot be read".to_string());
+        }
+        self.reject_symlinked_relative_path(&clean)?;
+
+        let full = self.resolve(&clean)?;
+        let metadata = fs::metadata(&full).map_err(|_| "read failed".to_string())?;
+        if !metadata.is_file() {
+            return Err("only regular markdown vault resources can be read".to_string());
+        }
+        if metadata.len() > MCP_RESOURCE_MAX_READ_BYTES {
+            return Err("markdown resource is too large".to_string());
+        }
+
+        let content = fs::read_to_string(&full)
+            .map_err(|_| "markdown resource is not valid UTF-8".to_string())?;
+        if content.len() as u64 > MCP_RESOURCE_MAX_READ_BYTES {
+            return Err("markdown resource is too large".to_string());
+        }
+        Ok(content)
+    }
+
+    fn reject_symlinked_relative_path(&self, relative: &str) -> Result<(), String> {
+        let mut cursor = self.root.clone();
+        for component in Path::new(relative).components() {
+            cursor.push(component.as_os_str());
+            if let Ok(metadata) = fs::symlink_metadata(&cursor) {
+                if metadata.file_type().is_symlink() {
+                    return Err("symlinked vault resources cannot be read".to_string());
+                }
+            }
+        }
+        Ok(())
     }
 
     /// VAULT-DEEP-INTEGRATION (owner 2026-06-21 §720): enumerate the vault's markdown NOTES as
@@ -416,7 +466,11 @@ impl VaultExecutor {
         }) {
             Ok(c) => c,
             Err(e) => {
-                return ToolResult::err(e, crate::types::error_codes::NOT_FOUND, start.elapsed().as_millis() as u64)
+                return ToolResult::err(
+                    e,
+                    crate::types::error_codes::NOT_FOUND,
+                    start.elapsed().as_millis() as u64,
+                )
             }
         };
         // text with every [[...]] span blanked out, so mentions already inside a wikilink don't count.
@@ -444,8 +498,16 @@ impl VaultExecutor {
         }
         // most-mentioned first; ties broken by target for deterministic output.
         candidates.sort_by(|a, b| {
-            let (ca, cb) = (a["occurrences"].as_u64().unwrap_or(0), b["occurrences"].as_u64().unwrap_or(0));
-            cb.cmp(&ca).then_with(|| a["target"].as_str().unwrap_or("").cmp(b["target"].as_str().unwrap_or("")))
+            let (ca, cb) = (
+                a["occurrences"].as_u64().unwrap_or(0),
+                b["occurrences"].as_u64().unwrap_or(0),
+            );
+            cb.cmp(&ca).then_with(|| {
+                a["target"]
+                    .as_str()
+                    .unwrap_or("")
+                    .cmp(b["target"].as_str().unwrap_or(""))
+            })
         });
         let json = serde_json::json!({ "path": path, "candidates": candidates });
         ToolResult::ok(json.to_string(), start.elapsed().as_millis() as u64)
@@ -453,7 +515,10 @@ impl VaultExecutor {
 
     /// Filename stem (no `.md`), ORIGINAL case — the human note title used for display + mention matching.
     fn note_title(rel: &str) -> String {
-        let stem = rel.strip_suffix(".md").or_else(|| rel.strip_suffix(".MD")).unwrap_or(rel);
+        let stem = rel
+            .strip_suffix(".md")
+            .or_else(|| rel.strip_suffix(".MD"))
+            .unwrap_or(rel);
         stem.rsplit('/').next().unwrap_or(stem).to_string()
     }
 
@@ -517,7 +582,13 @@ impl VaultExecutor {
         };
         let content = match fs::read_to_string(&full) {
             Ok(c) => c,
-            Err(e) => return err(format!("Cannot read {path}: {e}"), crate::types::error_codes::NOT_FOUND, start),
+            Err(e) => {
+                return err(
+                    format!("Cannot read {path}: {e}"),
+                    crate::types::error_codes::NOT_FOUND,
+                    start,
+                )
+            }
         };
         let updated = match op {
             "append" => {
@@ -531,23 +602,55 @@ impl VaultExecutor {
             }
             "replace_first" => match content.find(find) {
                 _ if find.is_empty() => {
-                    return err("replace_first: 'find' is required".into(), crate::types::error_codes::INVALID_INPUT, start)
+                    return err(
+                        "replace_first: 'find' is required".into(),
+                        crate::types::error_codes::INVALID_INPUT,
+                        start,
+                    )
                 }
                 Some(i) => format!("{}{}{}", &content[..i], text, &content[i + find.len()..]),
-                None => return err("replace_first: 'find' text not found".into(), crate::types::error_codes::NOT_FOUND, start),
+                None => {
+                    return err(
+                        "replace_first: 'find' text not found".into(),
+                        crate::types::error_codes::NOT_FOUND,
+                        start,
+                    )
+                }
             },
             "insert_after" => match content.find(find) {
                 _ if find.is_empty() => {
-                    return err("insert_after: 'find' anchor is required".into(), crate::types::error_codes::INVALID_INPUT, start)
+                    return err(
+                        "insert_after: 'find' anchor is required".into(),
+                        crate::types::error_codes::INVALID_INPUT,
+                        start,
+                    )
                 }
                 Some(i) => {
                     let at = i + find.len();
-                    let insertion = if text.starts_with('\n') { text.to_string() } else { format!("\n{text}") };
+                    let insertion = if text.starts_with('\n') {
+                        text.to_string()
+                    } else {
+                        format!("\n{text}")
+                    };
                     format!("{}{}{}", &content[..at], insertion, &content[at..])
                 }
-                None => return err("insert_after: anchor not found".into(), crate::types::error_codes::NOT_FOUND, start),
+                None => {
+                    return err(
+                        "insert_after: anchor not found".into(),
+                        crate::types::error_codes::NOT_FOUND,
+                        start,
+                    )
+                }
             },
-            other => return err(format!("unknown edit op: {other} (expected append|replace_first|insert_after)"), crate::types::error_codes::INVALID_INPUT, start),
+            other => {
+                return err(
+                    format!(
+                        "unknown edit op: {other} (expected append|replace_first|insert_after)"
+                    ),
+                    crate::types::error_codes::INVALID_INPUT,
+                    start,
+                )
+            }
         };
         match atomic_write(&full, updated.as_bytes()) {
             Ok(_) => {
@@ -555,7 +658,8 @@ impl VaultExecutor {
                 // analog of the in-app `AgentNoteEditProvenance` MutationEnvelope. BEST-EFFORT + HONEST: the
                 // file IS written (the edit is the truth), so a provenance-log failure must NOT fail the edit;
                 // instead the result reports `provenance_recorded:false` + the error → never a SILENT gap.
-                let mut data = serde_json::json!({ "path": path, "op": op, "bytes_written": updated.len() });
+                let mut data =
+                    serde_json::json!({ "path": path, "op": op, "bytes_written": updated.len() });
                 match self.record_edit_provenance(path, op, &content, &updated) {
                     Ok(mutation_id) => {
                         data["provenance_recorded"] = serde_json::Value::Bool(true);
@@ -568,7 +672,11 @@ impl VaultExecutor {
                 }
                 ToolResult::ok(data.to_string(), start.elapsed().as_millis() as u64)
             }
-            Err(e) => err(format!("Cannot write {path}: {e}"), crate::types::error_codes::EXECUTION_ERROR, start),
+            Err(e) => err(
+                format!("Cannot write {path}: {e}"),
+                crate::types::error_codes::EXECUTION_ERROR,
+                start,
+            ),
         }
     }
 
@@ -592,9 +700,10 @@ impl VaultExecutor {
             "vault-edit-{}",
             &hex(format!("{path}\u{1f}{op}\u{1f}{before_hash}\u{1f}{after_hash}").as_bytes())[..16]
         );
-        let integrity_hash = hex(
-            format!("{mutation_id}\u{1f}{path}\u{1f}{op}\u{1f}{before_hash}\u{1f}{after_hash}").as_bytes(),
-        );
+        let integrity_hash = hex(format!(
+            "{mutation_id}\u{1f}{path}\u{1f}{op}\u{1f}{before_hash}\u{1f}{after_hash}"
+        )
+        .as_bytes());
         let record = serde_json::json!({
             "mutation_id": mutation_id,
             "op": "artifact_update",
@@ -825,17 +934,40 @@ impl VaultExecutor {
 pub fn is_vault_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        "file.read" | "vault.read" | "read_file" | "vault_read"
-            | "file.write" | "vault.write" | "write_file" | "vault_write"
-            | "file.list" | "vault.list" | "list_files"
-            | "file.search" | "vault.search" | "search_notes" | "vault_search"
-            | "vault.backlinks" | "backlinks" | "vault_backlinks"
-            | "vault.outlinks" | "outlinks" | "vault_outlinks"
-            | "vault.dangling_links" | "dangling_links" | "unresolved_links"
-            | "vault.note_links" | "note_links"
-            | "vault.link_candidates" | "link_candidates" | "unlinked_mentions"
-            | "vault.orphan_notes" | "orphan_notes" | "orphans"
-            | "vault.patch_note" | "patch_note"
+        "file.read"
+            | "vault.read"
+            | "read_file"
+            | "vault_read"
+            | "file.write"
+            | "vault.write"
+            | "write_file"
+            | "vault_write"
+            | "file.list"
+            | "vault.list"
+            | "list_files"
+            | "file.search"
+            | "vault.search"
+            | "search_notes"
+            | "vault_search"
+            | "vault.backlinks"
+            | "backlinks"
+            | "vault_backlinks"
+            | "vault.outlinks"
+            | "outlinks"
+            | "vault_outlinks"
+            | "vault.dangling_links"
+            | "dangling_links"
+            | "unresolved_links"
+            | "vault.note_links"
+            | "note_links"
+            | "vault.link_candidates"
+            | "link_candidates"
+            | "unlinked_mentions"
+            | "vault.orphan_notes"
+            | "orphan_notes"
+            | "orphans"
+            | "vault.patch_note"
+            | "patch_note"
     )
 }
 
@@ -881,12 +1013,18 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
         }
         "vault.backlinks" | "backlinks" | "vault_backlinks" => {
             // VAULT-DEEP-INTEGRATION §720 (#3): notes that [[link]] to the target note.
-            let target = args["target"].as_str().or_else(|| args["path"].as_str()).unwrap_or("");
+            let target = args["target"]
+                .as_str()
+                .or_else(|| args["path"].as_str())
+                .unwrap_or("");
             executor.backlinks(target)
         }
         "vault.outlinks" | "outlinks" | "vault_outlinks" => {
             // VAULT-DEEP-INTEGRATION §720 (#3): the [[wikilinks]] a note links TO (dual of backlinks).
-            let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
+            let path = args["path"]
+                .as_str()
+                .or_else(|| args["target"].as_str())
+                .unwrap_or("");
             executor.outlinks(path)
         }
         "vault.dangling_links" | "dangling_links" | "unresolved_links" => {
@@ -895,12 +1033,18 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
         }
         "vault.note_links" | "note_links" => {
             // VAULT-DEEP-INTEGRATION §720 (#3): full per-note link context (back/out/dangling) in one call.
-            let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
+            let path = args["path"]
+                .as_str()
+                .or_else(|| args["target"].as_str())
+                .unwrap_or("");
             executor.note_links(path)
         }
         "vault.link_candidates" | "link_candidates" | "unlinked_mentions" => {
             // VAULT-DEEP-INTEGRATION §720 (#3 LLM wiki): unlinked mentions — auto-link suggestions.
-            let path = args["path"].as_str().or_else(|| args["target"].as_str()).unwrap_or("");
+            let path = args["path"]
+                .as_str()
+                .or_else(|| args["target"].as_str())
+                .unwrap_or("");
             executor.link_candidates(path)
         }
         "vault.orphan_notes" | "orphan_notes" | "orphans" => {
@@ -954,6 +1098,45 @@ mod tests {
         let result = exec.read_file("note1.md");
         assert!(result.success);
         assert!(result.data_json.contains("transformers"));
+    }
+
+    #[test]
+    fn test_read_markdown_resource_bounds_resource_surface() {
+        let (dir, exec) = make_temp_vault();
+        fs::write(dir.path().join("secret.txt"), "not resource context").unwrap();
+        fs::write(dir.path().join(".hidden.md"), "hidden").unwrap();
+        let large = dir.path().join("large.md");
+        let file = File::create(&large).unwrap();
+        file.set_len(MCP_RESOURCE_MAX_READ_BYTES + 1).unwrap();
+
+        let note = exec.read_markdown_resource("note1.md").unwrap();
+        assert!(note.contains("transformers"));
+        assert_eq!(
+            exec.read_markdown_resource("secret.txt").unwrap_err(),
+            "only markdown vault resources can be read"
+        );
+        assert_eq!(
+            exec.read_markdown_resource("../../etc/passwd").unwrap_err(),
+            "Path traversal not allowed"
+        );
+        assert_eq!(
+            exec.read_markdown_resource(".hidden.md").unwrap_err(),
+            "hidden vault resources cannot be read"
+        );
+        assert_eq!(
+            exec.read_markdown_resource("large.md").unwrap_err(),
+            "markdown resource is too large"
+        );
+
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(dir.path().join("note1.md"), dir.path().join("link.md"))
+                .unwrap();
+            assert_eq!(
+                exec.read_markdown_resource("link.md").unwrap_err(),
+                "symlinked vault resources cannot be read"
+            );
+        }
     }
 
     #[test]
@@ -1142,11 +1325,21 @@ mod tests {
         fs::create_dir(dir.path().join("sub")).unwrap();
         fs::write(dir.path().join("sub/gamma.md"), "Standalone, no links.").unwrap();
 
-        let out = execute_graph_json(&root, "graph.populate_from_vault", r#"{"session_id":"vault"}"#);
+        let out = execute_graph_json(
+            &root,
+            "graph.populate_from_vault",
+            r#"{"session_id":"vault"}"#,
+        );
         assert_eq!(out["notes_indexed"], 3);
         assert_eq!(out["nodes"], 3, "one Note node per markdown file");
-        assert_eq!(out["edges"], 2, "alpha->beta + beta->alpha resolve; ghost does not");
-        assert_eq!(out["dangling_links"], 1, "[[ghost]] is dangling, counted not faked");
+        assert_eq!(
+            out["edges"], 2,
+            "alpha->beta + beta->alpha resolve; ghost does not"
+        );
+        assert_eq!(
+            out["dangling_links"], 1,
+            "[[ghost]] is dangling, counted not faked"
+        );
 
         // Deterministic basename-keyed node id → traverse the REAL link graph from alpha to beta.
         let alpha_id = format!(
@@ -1165,20 +1358,32 @@ mod tests {
         assert_eq!(traversed["results"][0]["node_id"], beta_id);
         assert_eq!(traversed["results"][0]["edge_kind"], "links_to");
 
-        let node = execute_graph_json(&root, "graph.get_node", &format!(r#"{{"node_id":"{beta_id}"}}"#));
+        let node = execute_graph_json(
+            &root,
+            "graph.get_node",
+            &format!(r#"{{"node_id":"{beta_id}"}}"#),
+        );
         assert_eq!(node["node"]["kind"], "Note");
         assert_eq!(node["node"]["metadata"]["source"], "vault");
         assert_eq!(node["node"]["metadata"]["path"], "beta.md");
 
         // IDEMPOTENT: a re-sync upserts — same counts, no duplicate nodes/edges.
-        let again = execute_graph_json(&root, "graph.populate_from_vault", r#"{"session_id":"vault"}"#);
+        let again = execute_graph_json(
+            &root,
+            "graph.populate_from_vault",
+            r#"{"session_id":"vault"}"#,
+        );
         assert_eq!(again["nodes"], 3);
         assert_eq!(again["edges"], 2);
 
         // A removed note + a removed link disappear on the next sync (graph mirrors the vault, no stale).
         fs::remove_file(dir.path().join("sub/gamma.md")).unwrap();
         fs::write(dir.path().join("beta.md"), "# Beta\nNo links now.").unwrap();
-        let synced = execute_graph_json(&root, "graph.populate_from_vault", r#"{"session_id":"vault"}"#);
+        let synced = execute_graph_json(
+            &root,
+            "graph.populate_from_vault",
+            r#"{"session_id":"vault"}"#,
+        );
         assert_eq!(synced["nodes"], 2, "gamma removed");
         assert_eq!(synced["edges"], 1, "only alpha->beta remains");
     }
@@ -1202,7 +1407,10 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&body).expect("store is valid JSON");
         assert!(parsed["nodes"].is_object(), "store has the expected shape");
         // the atomic write renamed the temp away — nothing lingers.
-        assert!(!root.join(".epistemos/mcp_graph.json.tmp").exists(), "temp file must be renamed away");
+        assert!(
+            !root.join(".epistemos/mcp_graph.json.tmp").exists(),
+            "temp file must be renamed away"
+        );
     }
 
     #[test]
@@ -1212,17 +1420,34 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
         let filler = "{\"k\":\"vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\"}";
-        let big: String = std::iter::repeat(filler).take(48_000).flat_map(|l| [l, "\n"]).collect();
+        let big: String = std::iter::repeat(filler)
+            .take(48_000)
+            .flat_map(|l| [l, "\n"])
+            .collect();
         std::fs::write(&path, &big).unwrap();
-        assert!(std::fs::metadata(&path).unwrap().len() > super::EVENT_LOG_MAX_BYTES, "seed must exceed cap");
+        assert!(
+            std::fs::metadata(&path).unwrap().len() > super::EVENT_LOG_MAX_BYTES,
+            "seed must exceed cap"
+        );
 
         super::append_lines_bounded(&path, &["{\"newest\":1}".to_string()]).unwrap();
 
         let after = std::fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = after.lines().collect();
-        assert!(lines.len() <= super::EVENT_LOG_KEEP_LINES, "trimmed to keep bound, got {}", lines.len());
-        assert_eq!(lines.last().copied(), Some("{\"newest\":1}"), "the newest line must survive the trim");
-        assert!(!path.with_extension("jsonl.tmp").exists(), "no trim temp may linger");
+        assert!(
+            lines.len() <= super::EVENT_LOG_KEEP_LINES,
+            "trimmed to keep bound, got {}",
+            lines.len()
+        );
+        assert_eq!(
+            lines.last().copied(),
+            Some("{\"newest\":1}"),
+            "the newest line must survive the trim"
+        );
+        assert!(
+            !path.with_extension("jsonl.tmp").exists(),
+            "no trim temp may linger"
+        );
     }
 
     #[test]
@@ -1240,21 +1465,39 @@ mod tests {
             "kind": "graph_node_created", "tool_name": "graph.create_node",
             "payload": {"node_id": "node_seed", "kind": "Note", "session_id": "default"}, "sequence": 1
         }).to_string();
-        let big: String = std::iter::repeat(line.as_str()).take(40_000).flat_map(|l| [l, "\n"]).collect();
+        let big: String = std::iter::repeat(line.as_str())
+            .take(40_000)
+            .flat_map(|l| [l, "\n"])
+            .collect();
         std::fs::write(&log, &big).unwrap();
-        assert!(std::fs::metadata(&log).unwrap().len() > 4 * 1024 * 1024, "seed must exceed the cap");
+        assert!(
+            std::fs::metadata(&log).unwrap().len() > 4 * 1024 * 1024,
+            "seed must exceed the cap"
+        );
 
         // A graph op appends + triggers the bound.
-        let out = execute_graph_json(root.to_str().unwrap(), "graph.create_node", r#"{"kind":"Note","title":"A","body":""}"#);
+        let out = execute_graph_json(
+            root.to_str().unwrap(),
+            "graph.create_node",
+            r#"{"kind":"Note","title":"A","body":""}"#,
+        );
         assert!(out["node_id"].as_str().unwrap().starts_with("node_"));
 
         let after = std::fs::read_to_string(&log).unwrap();
         let lines: Vec<&str> = after.lines().collect();
-        assert!(lines.len() <= 5_000, "event log trimmed to the keep bound, got {}", lines.len());
+        assert!(
+            lines.len() <= 5_000,
+            "event log trimmed to the keep bound, got {}",
+            lines.len()
+        );
         assert!(!lines.is_empty());
         // the trim left valid JSON (didn't corrupt a line) + no temp lingers.
-        serde_json::from_str::<serde_json::Value>(lines.last().unwrap()).expect("last kept line is valid JSON");
-        assert!(!epi.join("mcp_graph_events.jsonl.tmp").exists(), "no trim temp may linger");
+        serde_json::from_str::<serde_json::Value>(lines.last().unwrap())
+            .expect("last kept line is valid JSON");
+        assert!(
+            !epi.join("mcp_graph_events.jsonl.tmp").exists(),
+            "no trim temp may linger"
+        );
     }
 
     #[test]
@@ -1262,37 +1505,93 @@ mod tests {
         // §720 #2: agents navigate the graph DOWNSTREAM (out) and via BACKLINKS (in), not just forward.
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_str().unwrap().to_string();
-        let a = execute_graph_json(&root, "graph.create_node", r#"{"kind":"Note","title":"A","body":""}"#)
-            ["node_id"].as_str().unwrap().to_string();
-        let b = execute_graph_json(&root, "graph.create_node", r#"{"kind":"Note","title":"B","body":""}"#)
-            ["node_id"].as_str().unwrap().to_string();
-        let c = execute_graph_json(&root, "graph.create_node", r#"{"kind":"Note","title":"C","body":""}"#)
-            ["node_id"].as_str().unwrap().to_string();
-        execute_graph_json(&root, "graph.create_edge", &format!(r#"{{"from":"{a}","to":"{b}","kind":"links_to"}}"#));
-        execute_graph_json(&root, "graph.create_edge", &format!(r#"{{"from":"{b}","to":"{c}","kind":"links_to"}}"#));
+        let a = execute_graph_json(
+            &root,
+            "graph.create_node",
+            r#"{"kind":"Note","title":"A","body":""}"#,
+        )["node_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let b = execute_graph_json(
+            &root,
+            "graph.create_node",
+            r#"{"kind":"Note","title":"B","body":""}"#,
+        )["node_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let c = execute_graph_json(
+            &root,
+            "graph.create_node",
+            r#"{"kind":"Note","title":"C","body":""}"#,
+        )["node_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        execute_graph_json(
+            &root,
+            "graph.create_edge",
+            &format!(r#"{{"from":"{a}","to":"{b}","kind":"links_to"}}"#),
+        );
+        execute_graph_json(
+            &root,
+            "graph.create_edge",
+            &format!(r#"{{"from":"{b}","to":"{c}","kind":"links_to"}}"#),
+        );
 
         // out (default): B → C downstream.
-        let out = execute_graph_json(&root, "graph.traverse", &format!(r#"{{"start":"{b}","max_depth":1}}"#));
-        let out_ids: Vec<&str> = out["results"].as_array().unwrap().iter().map(|r| r["node_id"].as_str().unwrap()).collect();
+        let out = execute_graph_json(
+            &root,
+            "graph.traverse",
+            &format!(r#"{{"start":"{b}","max_depth":1}}"#),
+        );
+        let out_ids: Vec<&str> = out["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["node_id"].as_str().unwrap())
+            .collect();
         assert_eq!(out_ids, vec![c.as_str()], "out reaches C only");
 
         // in: B ← A backlink (A links TO B).
-        let inc = execute_graph_json(&root, "graph.traverse", &format!(r#"{{"start":"{b}","max_depth":1,"direction":"in"}}"#));
-        let in_ids: Vec<&str> = inc["results"].as_array().unwrap().iter().map(|r| r["node_id"].as_str().unwrap()).collect();
+        let inc = execute_graph_json(
+            &root,
+            "graph.traverse",
+            &format!(r#"{{"start":"{b}","max_depth":1,"direction":"in"}}"#),
+        );
+        let in_ids: Vec<&str> = inc["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["node_id"].as_str().unwrap())
+            .collect();
         assert_eq!(in_ids, vec![a.as_str()], "in reaches A (backlink) only");
         assert_eq!(inc["results"][0]["direction"], "in");
 
         // both at depth 1: A and C.
-        let both = execute_graph_json(&root, "graph.traverse", &format!(r#"{{"start":"{b}","max_depth":1,"direction":"both"}}"#));
-        let mut both_ids: Vec<&str> = both["results"].as_array().unwrap().iter().map(|r| r["node_id"].as_str().unwrap()).collect();
+        let both = execute_graph_json(
+            &root,
+            "graph.traverse",
+            &format!(r#"{{"start":"{b}","max_depth":1,"direction":"both"}}"#),
+        );
+        let mut both_ids: Vec<&str> = both["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["node_id"].as_str().unwrap())
+            .collect();
         both_ids.sort();
         let mut want = vec![a.as_str(), c.as_str()];
         want.sort();
         assert_eq!(both_ids, want, "both reaches A and C");
 
         // bad direction is an honest error.
-        let bad = execute_vault_tool(root, "graph.traverse".to_string(),
-            format!(r#"{{"start":"{b}","direction":"sideways"}}"#));
+        let bad = execute_vault_tool(
+            root,
+            "graph.traverse".to_string(),
+            format!(r#"{{"start":"{b}","direction":"sideways"}}"#),
+        );
         let res: ToolResult = serde_json::from_str(&bad).unwrap();
         assert!(!res.success, "{}", res.data_json);
     }
@@ -1368,7 +1667,11 @@ mod tests {
             .map(|x| x.as_str().unwrap().to_string())
             .collect();
         // Alpha (deduped across the two refs) + beta (alias stripped); original case preserved.
-        assert_eq!(links, vec!["Alpha".to_string(), "beta".to_string()], "{links:?}");
+        assert_eq!(
+            links,
+            vec!["Alpha".to_string(), "beta".to_string()],
+            "{links:?}"
+        );
 
         // Traversal-safe via resolve(): an escape attempt errors.
         let escape = exec.outlinks("../../etc/passwd");
@@ -1412,10 +1715,20 @@ mod tests {
         // backlinks: other.md → hub
         assert_eq!(v["backlinks"][0], "other.md");
         // outlinks: Real + Ghost
-        let out: Vec<String> = v["outlinks"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().into()).collect();
+        let out: Vec<String> = v["outlinks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().into())
+            .collect();
         assert_eq!(out, vec!["Real".to_string(), "Ghost".to_string()]);
         // dangling among its outlinks: just Ghost
-        let dang: Vec<String> = v["dangling_outlinks"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().into()).collect();
+        let dang: Vec<String> = v["dangling_outlinks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().into())
+            .collect();
         assert_eq!(dang, vec!["Ghost".to_string()]);
     }
 
@@ -1428,20 +1741,38 @@ mod tests {
         let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
 
         // replace_first
-        assert!(exec.edit_note("n.md", "replace_first", "foo", "bar").success);
-        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), "# Title\nbar");
+        assert!(
+            exec.edit_note("n.md", "replace_first", "foo", "bar")
+                .success
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("n.md")).unwrap(),
+            "# Title\nbar"
+        );
         // append (adds separating newline)
         assert!(exec.edit_note("n.md", "append", "", "end").success);
-        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), "# Title\nbar\nend");
+        assert_eq!(
+            std::fs::read_to_string(root.join("n.md")).unwrap(),
+            "# Title\nbar\nend"
+        );
         // insert_after the heading
-        assert!(exec.edit_note("n.md", "insert_after", "# Title", "sub").success);
-        assert!(std::fs::read_to_string(root.join("n.md")).unwrap().starts_with("# Title\nsub"));
+        assert!(
+            exec.edit_note("n.md", "insert_after", "# Title", "sub")
+                .success
+        );
+        assert!(std::fs::read_to_string(root.join("n.md"))
+            .unwrap()
+            .starts_with("# Title\nsub"));
 
         // HONEST: missing anchor errors + writes nothing.
         let before = std::fs::read_to_string(root.join("n.md")).unwrap();
         let r = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
         assert!(!r.success, "missing find must error");
-        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), before, "must not write on failure");
+        assert_eq!(
+            std::fs::read_to_string(root.join("n.md")).unwrap(),
+            before,
+            "must not write on failure"
+        );
     }
 
     #[test]
@@ -1469,21 +1800,31 @@ mod tests {
         assert_eq!(rec["affects_body"], true);
         assert_eq!(rec["mutation_id"], mutation_id);
         assert_eq!(rec["before_hash"].as_str().unwrap().len(), 64);
-        assert_ne!(rec["before_hash"], rec["after_hash"], "content changed → hashes differ");
+        assert_ne!(
+            rec["before_hash"], rec["after_hash"],
+            "content changed → hashes differ"
+        );
 
         // DETERMINISTIC id: the SAME edit on the same before/after content yields the SAME mutation_id
         // (content-derived, no clock) — even though the log is append-only (a second line is added).
         std::fs::write(root.join("n.md"), "# Title\nfoo").unwrap(); // reset to reproduce the same transition
         let r2 = exec.edit_note("n.md", "replace_first", "foo", "bar");
         let data2: serde_json::Value = serde_json::from_str(&r2.data_json).unwrap();
-        assert_eq!(data2["mutation_id"], mutation_id, "same transition → same deterministic id");
+        assert_eq!(
+            data2["mutation_id"], mutation_id,
+            "same transition → same deterministic id"
+        );
         let log2 = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
         assert_eq!(log2.lines().count(), 2, "append-only: two recorded edits");
 
         // HONEST: a FAILED edit (missing anchor) records NO provenance (no write → no audit line).
         let _ = exec.edit_note("n.md", "replace_first", "ABSENT", "x");
         let log3 = std::fs::read_to_string(root.join(".epistemos/mcp_vault_events.jsonl")).unwrap();
-        assert_eq!(log3.lines().count(), 2, "failed edit adds no provenance record");
+        assert_eq!(
+            log3.lines().count(),
+            2,
+            "failed edit adds no provenance record"
+        );
     }
 
     #[test]
@@ -1496,9 +1837,15 @@ mod tests {
         let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
 
         assert!(exec.write_file("fresh.md", "brand new").success);
-        assert_eq!(std::fs::read_to_string(root.join("fresh.md")).unwrap(), "brand new");
+        assert_eq!(
+            std::fs::read_to_string(root.join("fresh.md")).unwrap(),
+            "brand new"
+        );
         assert!(exec.edit_note("n.md", "append", "", "added").success);
-        assert_eq!(std::fs::read_to_string(root.join("n.md")).unwrap(), "# Title\nfoo\nadded");
+        assert_eq!(
+            std::fs::read_to_string(root.join("n.md")).unwrap(),
+            "# Title\nfoo\nadded"
+        );
 
         // No atomic-write temp sidecars linger (the rename moved them into place).
         let leftovers: Vec<_> = std::fs::read_dir(root)
@@ -1506,12 +1853,18 @@ mod tests {
             .filter_map(|e| e.ok())
             .filter(|e| e.file_name().to_string_lossy().contains(".omega-tmp"))
             .collect();
-        assert!(leftovers.is_empty(), "no atomic-write temp files may linger: {leftovers:?}");
+        assert!(
+            leftovers.is_empty(),
+            "no atomic-write temp files may linger: {leftovers:?}"
+        );
 
         // Even a crash-leftover temp sidecar can't pollute the vault: it's not a `.md` note.
         std::fs::write(root.join("crash.md.omega-tmp"), "partial").unwrap();
         let notes = exec.list_markdown_notes();
-        assert!(!notes.iter().any(|n| n.contains("omega-tmp")), "temp sidecar must not list as a note: {notes:?}");
+        assert!(
+            !notes.iter().any(|n| n.contains("omega-tmp")),
+            "temp sidecar must not list as a note: {notes:?}"
+        );
     }
 
     #[test]
@@ -1527,7 +1880,8 @@ mod tests {
         std::fs::write(
             root.join("essay.md"),
             "I love [[Transformers]] and transformers. Attention matters. Transformersx is fake.",
-        ).unwrap();
+        )
+        .unwrap();
         let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
 
         let r = exec.link_candidates("essay.md");
@@ -1536,10 +1890,22 @@ mod tests {
         let cands = data["candidates"].as_array().unwrap();
         // Attention: 1 unlinked mention → candidate. Transformers: already linked once; the bare "transformers"
         // is an unlinked mention BUT it's also already_linked (basename "transformers"), so it's excluded.
-        let names: Vec<&str> = cands.iter().map(|c| c["target"].as_str().unwrap()).collect();
-        assert!(names.contains(&"Attention"), "Attention should be a candidate: {names:?}");
-        assert!(!names.contains(&"Transformers"), "already-linked note excluded: {names:?}");
-        assert!(!names.contains(&"Other"), "unmentioned note not a candidate: {names:?}");
+        let names: Vec<&str> = cands
+            .iter()
+            .map(|c| c["target"].as_str().unwrap())
+            .collect();
+        assert!(
+            names.contains(&"Attention"),
+            "Attention should be a candidate: {names:?}"
+        );
+        assert!(
+            !names.contains(&"Transformers"),
+            "already-linked note excluded: {names:?}"
+        );
+        assert!(
+            !names.contains(&"Other"),
+            "unmentioned note not a candidate: {names:?}"
+        );
         // whole-word: "Transformersx" must not have caused a Transformers match (moot here since excluded),
         // and Attention's count is exactly 1 (not matched inside another word).
         let attention = cands.iter().find(|c| c["target"] == "Attention").unwrap();
@@ -1560,15 +1926,32 @@ mod tests {
 
         // vault view: island is the orphan.
         let r: serde_json::Value = serde_json::from_str(&exec.orphan_notes().data_json).unwrap();
-        let orphans: Vec<&str> = r["orphans"].as_array().unwrap().iter().map(|o| o.as_str().unwrap()).collect();
+        let orphans: Vec<&str> = r["orphans"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o.as_str().unwrap())
+            .collect();
         assert_eq!(orphans, vec!["island.md"]);
 
         // graph view: populate, then island's node has no links_to edge in/out.
         execute_graph_json(root_str, "graph.populate_from_vault", r#"{}"#);
-        let island_id = format!("node_vault_{}", &blake3::hash("island".as_bytes()).to_hex().to_string()[..16]);
-        let out = execute_graph_json(root_str, "graph.traverse",
-            &format!(r#"{{"start":"{island_id}","max_depth":2,"direction":"both","edge_kinds":["links_to"]}}"#));
-        assert_eq!(out["results"].as_array().unwrap().len(), 0, "graph orphan has no links_to edges: {out}");
+        let island_id = format!(
+            "node_vault_{}",
+            &blake3::hash("island".as_bytes()).to_hex().to_string()[..16]
+        );
+        let out = execute_graph_json(
+            root_str,
+            "graph.traverse",
+            &format!(
+                r#"{{"start":"{island_id}","max_depth":2,"direction":"both","edge_kinds":["links_to"]}}"#
+            ),
+        );
+        assert_eq!(
+            out["results"].as_array().unwrap().len(),
+            0,
+            "graph orphan has no links_to edges: {out}"
+        );
     }
 
     #[test]
@@ -1576,22 +1959,36 @@ mod tests {
         // §720 #3: orphans = no resolved outlink AND nothing links to them.
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
-        std::fs::write(root.join("alpha.md"), "links [[beta]]").unwrap();   // connected (out + back via beta)
+        std::fs::write(root.join("alpha.md"), "links [[beta]]").unwrap(); // connected (out + back via beta)
         std::fs::write(root.join("beta.md"), "back to [[alpha]]").unwrap(); // connected
-        std::fs::write(root.join("lonely.md"), "no links here").unwrap();   // ORPHAN (none in/out)
-        std::fs::write(root.join("dangly.md"), "see [[ghost]]").unwrap();   // ORPHAN (ghost doesn't exist)
-        std::fs::write(root.join("selfish.md"), "see [[selfish]]").unwrap();// ORPHAN (self-link doesn't connect)
+        std::fs::write(root.join("lonely.md"), "no links here").unwrap(); // ORPHAN (none in/out)
+        std::fs::write(root.join("dangly.md"), "see [[ghost]]").unwrap(); // ORPHAN (ghost doesn't exist)
+        std::fs::write(root.join("selfish.md"), "see [[selfish]]").unwrap(); // ORPHAN (self-link doesn't connect)
         let exec = VaultExecutor::new(root.to_str().unwrap()).unwrap();
 
         let r = exec.orphan_notes();
         assert!(r.success, "{}", r.data_json);
         let data: serde_json::Value = serde_json::from_str(&r.data_json).unwrap();
-        let orphans: Vec<&str> = data["orphans"].as_array().unwrap().iter().map(|o| o.as_str().unwrap()).collect();
+        let orphans: Vec<&str> = data["orphans"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o.as_str().unwrap())
+            .collect();
         assert_eq!(data["total_notes"], 5);
         assert!(orphans.contains(&"lonely.md"), "{orphans:?}");
-        assert!(orphans.contains(&"dangly.md"), "dangling-only link → still orphan: {orphans:?}");
-        assert!(orphans.contains(&"selfish.md"), "self-link doesn't connect: {orphans:?}");
-        assert!(!orphans.contains(&"alpha.md"), "connected note not orphan: {orphans:?}");
+        assert!(
+            orphans.contains(&"dangly.md"),
+            "dangling-only link → still orphan: {orphans:?}"
+        );
+        assert!(
+            orphans.contains(&"selfish.md"),
+            "self-link doesn't connect: {orphans:?}"
+        );
+        assert!(
+            !orphans.contains(&"alpha.md"),
+            "connected note not orphan: {orphans:?}"
+        );
         assert!(!orphans.contains(&"beta.md"), "{orphans:?}");
     }
 
@@ -1602,17 +1999,40 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_str().unwrap().to_string();
         let names = [
-            "file.read", "vault.read", "read_file", "vault_read",
-            "file.write", "vault.write", "write_file", "vault_write",
-            "file.list", "vault.list", "list_files",
-            "file.search", "vault.search", "search_notes", "vault_search",
-            "vault.backlinks", "backlinks", "vault_backlinks",
-            "vault.outlinks", "outlinks", "vault_outlinks",
-            "vault.dangling_links", "dangling_links", "unresolved_links",
-            "vault.note_links", "note_links",
-            "vault.link_candidates", "link_candidates", "unlinked_mentions",
-            "vault.orphan_notes", "orphan_notes", "orphans",
-            "vault.patch_note", "patch_note",
+            "file.read",
+            "vault.read",
+            "read_file",
+            "vault_read",
+            "file.write",
+            "vault.write",
+            "write_file",
+            "vault_write",
+            "file.list",
+            "vault.list",
+            "list_files",
+            "file.search",
+            "vault.search",
+            "search_notes",
+            "vault_search",
+            "vault.backlinks",
+            "backlinks",
+            "vault_backlinks",
+            "vault.outlinks",
+            "outlinks",
+            "vault_outlinks",
+            "vault.dangling_links",
+            "dangling_links",
+            "unresolved_links",
+            "vault.note_links",
+            "note_links",
+            "vault.link_candidates",
+            "link_candidates",
+            "unlinked_mentions",
+            "vault.orphan_notes",
+            "orphan_notes",
+            "orphans",
+            "vault.patch_note",
+            "patch_note",
         ];
         for name in names {
             assert!(is_vault_tool(name), "{name} must be is_vault_tool");

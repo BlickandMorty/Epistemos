@@ -8,10 +8,12 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage: browser-use-pro-loopback-smoke.sh [--repo-root PATH] [--port PORT] [--timeout SECONDS] [--artifact-dir PATH]
+                                      [--signed-bundle PATH | --payload-root PATH]
 
-Verifies the staged browser-use Pro payload can boot the vendored web-ui.py on
-127.0.0.1 and answer an HTTP loopback request. This is a server smoke harness;
-it does not load the Epistemos WKWebView shell or submit an agent task.
+Verifies the staged or signed browser-use Pro payload can boot the vendored
+web-ui.py on 127.0.0.1 and answer an HTTP loopback request. This is a server
+smoke harness; it does not load the Epistemos WKWebView shell or submit an
+agent task.
 USAGE
 }
 
@@ -19,6 +21,8 @@ repo_root=""
 port=""
 timeout_seconds=90
 artifact_dir=""
+payload_root=""
+signed_bundle=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +40,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --artifact-dir)
       artifact_dir="${2:?missing --artifact-dir value}"
+      shift 2
+      ;;
+    --payload-root)
+      payload_root="${2:?missing --payload-root value}"
+      shift 2
+      ;;
+    --signed-bundle)
+      signed_bundle="${2:?missing --signed-bundle value}"
       shift 2
       ;;
     -h|--help)
@@ -57,21 +69,47 @@ else
   repo_root="$(cd -- "$repo_root" && pwd)"
 fi
 
-vendor_root="$repo_root/agent_core/vendor/browser-use"
-python_bin="$repo_root/build/browser-use-pro/.venv/bin/python"
-webui_py="$vendor_root/web-ui/webui.py"
-playwright_dir="$vendor_root/playwright"
-wheelhouse_dir="$vendor_root/wheels"
-build_manifest="$vendor_root/BUILD_MANIFEST.json"
+if [[ -n "$signed_bundle" && -n "$payload_root" ]]; then
+  echo "Use either --signed-bundle or --payload-root, not both" >&2
+  exit 64
+fi
+
+if [[ -n "$signed_bundle" ]]; then
+  signed_bundle="$(cd -- "$signed_bundle" && pwd)"
+  /usr/bin/codesign --verify --strict --verbose=2 "$signed_bundle" >/dev/null
+  payload_root="$signed_bundle/Contents/Resources/BrowserUsePro"
+elif [[ -n "$payload_root" ]]; then
+  payload_root="$(cd -- "$payload_root" && pwd)"
+fi
+
+if [[ -n "$payload_root" ]]; then
+  vendor_root="$payload_root"
+  python_bin="$payload_root/.venv/bin/python"
+  webui_py="$payload_root/web-ui/webui.py"
+  playwright_dir="$payload_root/playwright"
+  wheelhouse_dir="$payload_root/wheels"
+  build_manifest="$payload_root/BUILD_MANIFEST.json"
+else
+  vendor_root="$repo_root/agent_core/vendor/browser-use"
+  python_bin="$repo_root/build/browser-use-pro/.venv/bin/python"
+  webui_py="$vendor_root/web-ui/webui.py"
+  playwright_dir="$vendor_root/playwright"
+  wheelhouse_dir="$vendor_root/wheels"
+  build_manifest="$vendor_root/BUILD_MANIFEST.json"
+fi
 
 [[ -x "$python_bin" ]] || { echo "Missing executable staged Python at $python_bin" >&2; exit 66; }
 [[ -f "$webui_py" ]] || { echo "Missing browser-use web-ui entrypoint at $webui_py" >&2; exit 66; }
 [[ -f "$build_manifest" ]] || { echo "Missing browser-use BUILD_MANIFEST.json at $build_manifest" >&2; exit 66; }
 [[ -d "$wheelhouse_dir" ]] || { echo "Missing browser-use wheelhouse at $wheelhouse_dir" >&2; exit 66; }
 [[ -d "$playwright_dir" ]] || { echo "Missing browser-use Playwright payload at $playwright_dir" >&2; exit 66; }
+if [[ -n "$signed_bundle" && ! -f "$payload_root/SIGNATURE_MANIFEST.json" ]]; then
+  echo "Missing signed package evidence at $payload_root/SIGNATURE_MANIFEST.json" >&2
+  exit 66
+fi
 
 if [[ -z "$port" ]]; then
-  port="$("$python_bin" - <<'PY'
+  port="$(PYTHONDONTWRITEBYTECODE=1 "$python_bin" - <<'PY'
 import socket
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
     sock.bind(("127.0.0.1", 0))
@@ -118,7 +156,10 @@ write_result() {
   PYTHON_BIN="$python_bin" \
   WEBUI_PY="$webui_py" \
   PLAYWRIGHT_DIR="$playwright_dir" \
+  PAYLOAD_ROOT="$vendor_root" \
+  SIGNED_BUNDLE="$signed_bundle" \
   TIMEOUT_SECONDS="$timeout_seconds" \
+  PYTHONDONTWRITEBYTECODE=1 \
   "$python_bin" - <<'PY'
 import json
 import os
@@ -148,6 +189,8 @@ payload = {
     "python": os.environ["PYTHON_BIN"],
     "webui": os.environ["WEBUI_PY"],
     "playwright_browsers_path": os.environ["PLAYWRIGHT_DIR"],
+    "payload_root": os.environ["PAYLOAD_ROOT"],
+    "signed_bundle": os.environ["SIGNED_BUNDLE"] or None,
     "secrets": "not recorded",
 }
 Path(os.environ["RESULT_FILE"]).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -176,6 +219,7 @@ mkdir -p "$state_root/home" "$state_root/browser-use-home"
   BROWSER_USE_HOME="$state_root/browser-use-home" \
   PLAYWRIGHT_BROWSERS_PATH="$playwright_dir" \
   PYTHON_DOTENV_DISABLED=true \
+  PYTHONDONTWRITEBYTECODE=1 \
   ANONYMIZED_TELEMETRY=false \
   BROWSER_USE_CLOUD_SYNC=false \
   BROWSER_USE_VERSION_CHECK=false \

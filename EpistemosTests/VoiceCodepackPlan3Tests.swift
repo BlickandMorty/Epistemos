@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 
@@ -19,13 +20,16 @@ struct VoiceCodepackPlan3Tests {
             "Preferred voice floor is quality-first",
             "SSML/prosody fallback exists",
             "Pro Kokoro gate is honest",
+            "Pro-only Voice settings section",
+            "Pro neural voice",
             "Readiness rejects symlink-routed or non-regular model artifacts",
             "[DONE] Patch the AVSpeech preferred voice floor",
             "[DONE] Wire or remove `agentResponseTTS`",
             "[DONE] Add `LiveVoiceInputService`",
             "[DONE] Rewire `VoiceInputButton`",
             "[DONE] Add SSML/prosody fallback",
-            "[DONE] Add the Kokoro Pro gate"
+            "[DONE] Add the Kokoro Pro gate",
+            "[DONE] Add the Pro-only Kokoro settings status/runtime affordance"
         ] {
             #expect(plan.contains(required), "Missing voice codepack state: \(required)")
         }
@@ -61,9 +65,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
         #expect(capabilities.contains("domain/code-redacted status/error text"))
-        #expect(capabilities.contains("Kokoro-82M is Pro-only status-gated"))
+        #expect(capabilities.contains("Kokoro-82M is Pro-only"))
         #expect(capabilities.contains("rejects symlink-routed, non-regular, oversized, or"))
-        #expect(capabilities.contains("no model asset, picker row, neural runtime, Python, or"))
+        #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
+        #expect(capabilities.contains("no model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row"))
 
         for stale in [
             "Research/code in a later pass",
@@ -151,7 +156,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(nil) == nil)
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(.nan) == nil)
-        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(.infinity) == nil)
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(Double.infinity) == nil)
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(-0.25) == 0)
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(0.5) == 0.5)
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(2.0) == 1)
@@ -222,16 +227,25 @@ struct VoiceCodepackPlan3Tests {
             "EPISTEMOS_KOKORO_VOICE_PRO_V0",
             "case unavailable",
             "case missingModel",
-            "case ready",
+            "case packageReady",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "Kokoro voice: unavailable in App Store build",
             "modelDirectoryName = \"kokoro-82m-coreml\"",
             "manifestFileName = \"manifest.json\"",
             "modelPackageName = \"Kokoro82M.mlpackage\"",
+            "packageManifestFileName = \"Manifest.json\"",
+            "manifestSchemaVersion = 1",
+            "modelIdentifier = \"kokoro-82m\"",
+            "runtimeIdentifier = \"coreml\"",
             "maxManifestBytes",
+            "maxManifestFileCount",
             "manifestProblem(",
+            "manifestContractProblem(",
             "readManifestDataNoFollow",
             "artifactProblem(",
+            "packageContentsProblem(",
+            "fileDigestNoFollow",
+            "SHA256()",
             "firstSymlinkComponent(",
             "destinationOfSymbolicLink",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
@@ -243,8 +257,13 @@ struct VoiceCodepackPlan3Tests {
             "pathDiagnostic(",
             "maxPathDiagnosticLength",
             "resolvesInsideModelDirectory",
+            "files must list",
+            "size mismatch",
+            "digest mismatch",
+            "package file digests match",
             "AVSpeech remains the voice runtime",
-            "Picker/runtime integration must still choose this lane explicitly"
+            "Runtime readiness, not merely model-package readiness",
+            "Kokoro voice: model package ready, runtime deferred"
         ] {
             #expect(gate.contains(required), "Kokoro gate missing honesty string: \(required)")
         }
@@ -259,6 +278,56 @@ struct VoiceCodepackPlan3Tests {
         ] {
             #expect(!gate.contains(forbidden), "Kokoro gate added forbidden runtime path: \(forbidden)")
         }
+    }
+
+    @Test("Kokoro Pro settings row is Pro-only and gate-backed")
+    func kokoroProSettingsRowIsProOnlyAndGateBacked() throws {
+        let wrapper = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
+        let section = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift")
+        let appleSection = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
+
+        #expect(wrapper.contains("VoicePreferencesSection()"))
+        #expect(wrapper.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
+        #expect(wrapper.contains("KokoroVoiceProSettingsSection()"))
+        #expect(!appleSection.contains("Kokoro"))
+
+        #expect(section.contains("KokoroVoiceGateStatus.status()"))
+        #expect(section.contains("case kokoroProNeural"))
+        #expect(section.contains("case .packageReady"))
+        #expect(section.contains("return \"Pro neural voice\""))
+        #expect(section.contains("selectedRuntime: .appleAVSpeech"))
+        #expect(section.contains("detail: status.detail"))
+        #expect(section.contains(".disabled(!presentation.proRuntimeEnabled)"))
+        #expect(!section.contains("Process("))
+        #expect(!section.contains("NSTask"))
+        #expect(!section.contains("Python"))
+    }
+
+    @Test("Kokoro Pro settings presentation falls back to Apple voice while gate is missing")
+    func kokoroProSettingsPresentationFallsBackWhileMissing() {
+        let missing = KokoroVoiceGateStatus.Status(
+            state: .missingModel,
+            isReady: false,
+            headline: "Kokoro voice: model package missing",
+            detail: "Expected kokoro-82m-coreml. AVSpeech remains the voice runtime."
+        )
+        let packageReady = KokoroVoiceGateStatus.Status(
+            state: .packageReady,
+            isReady: false,
+            headline: "Kokoro voice: model package ready, runtime deferred",
+            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but neural inference is not wired yet. AVSpeech remains the voice runtime."
+        )
+
+        let missingPresentation = KokoroVoiceProSettingsModel.presentation(for: missing)
+        #expect(missingPresentation.selectedRuntime == .appleAVSpeech)
+        #expect(!missingPresentation.proRuntimeEnabled)
+        #expect(missingPresentation.badgeTitle == "Model required")
+
+        let packageReadyPresentation = KokoroVoiceProSettingsModel.presentation(for: packageReady)
+        #expect(packageReadyPresentation.selectedRuntime == .appleAVSpeech)
+        #expect(!packageReadyPresentation.proRuntimeEnabled)
+        #expect(packageReadyPresentation.badgeTitle == "Package ready")
+        #expect(packageReadyPresentation.detail.contains("neural inference is not wired yet"))
     }
 
     @Test("Kokoro Pro gate rejects malformed package shapes")
@@ -294,11 +363,40 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate ready detail does not expose the local model root")
-    func kokoroProGateReadyDetailDoesNotExposeLocalModelRoot() throws {
+    @Test("Kokoro Pro gate package-ready detail does not expose the local model root or enable runtime")
+    func kokoroProGatePackageReadyDetailDoesNotExposeLocalModelRootOrEnableRuntime() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-ready-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeValidKokoroPackage(at: modelDirectory)
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!status.isReady)
+        #expect(status.state == .packageReady)
+        #expect(status.headline.contains("runtime deferred"))
+        #expect(status.detail.contains(KokoroVoiceGateStatus.modelDirectoryName))
+        #expect(status.detail.contains("package file digests match"))
+        #expect(status.detail.contains("AVSpeech remains the voice runtime"))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #expect(status.detail.count < 240)
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro Pro gate rejects placeholder manifests and empty packages")
+    func kokoroProGateRejectsPlaceholderManifestsAndEmptyPackages() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-placeholder-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
         let modelPackageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
@@ -307,17 +405,29 @@ struct VoiceCodepackPlan3Tests {
         try FileManager.default.createDirectory(at: modelPackageURL, withIntermediateDirectories: true)
         try Data("{}".utf8).write(to: manifestURL)
 
-        let status = KokoroVoiceGateStatus.status(
+        let placeholder = KokoroVoiceGateStatus.status(
             environment: [KokoroVoiceGateStatus.flagName: "1"],
             modelRoot: root
         )
 
-        #expect(status.isReady)
-        #expect(status.state == .ready)
-        #expect(status.detail.contains(KokoroVoiceGateStatus.modelDirectoryName))
-        #expect(status.detail.contains(root.path) == false)
-        #expect(status.detail.contains(modelDirectory.path) == false)
-        #expect(status.detail.count < 240)
+        #expect(!placeholder.isReady)
+        #expect(placeholder.state == .missingModel)
+        #expect(placeholder.detail.contains("manifest.json schemaVersion must be 1"))
+
+        let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
+        let payload = Data("fixture kokoro payload\n".utf8)
+        try kokoroInstallManifestData(packageManifest: packageManifest, payload: payload).write(to: manifestURL)
+
+        let emptyPackage = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!emptyPackage.isReady)
+        #expect(emptyPackage.state == .missingModel)
+        #expect(emptyPackage.detail.contains("missing Kokoro82M.mlpackage/Manifest.json"))
+        #expect(emptyPackage.detail.contains(root.path) == false)
+        #expect(emptyPackage.detail.contains(modelDirectory.path) == false)
         #else
         #expect(true)
         #endif
@@ -400,5 +510,55 @@ struct VoiceCodepackPlan3Tests {
         #else
         #expect(true)
         #endif
+    }
+
+    private func writeValidKokoroPackage(at modelDirectory: URL) throws {
+        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        let packageManifestURL = packageURL.appendingPathComponent(
+            KokoroVoiceGateStatus.packageManifestFileName,
+            isDirectory: false
+        )
+        let payloadURL = packageURL
+            .appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent("com.apple.CoreML", isDirectory: true)
+            .appendingPathComponent("model.mlmodel", isDirectory: false)
+        let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
+        let payload = Data("fixture kokoro payload\n".utf8)
+
+        try FileManager.default.createDirectory(
+            at: payloadURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try packageManifest.write(to: packageManifestURL)
+        try payload.write(to: payloadURL)
+        try kokoroInstallManifestData(packageManifest: packageManifest, payload: payload)
+            .write(to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName))
+    }
+
+    private func kokoroInstallManifestData(packageManifest: Data, payload: Data) throws -> Data {
+        let payloadPath = "Data/com.apple.CoreML/model.mlmodel"
+        let object: [String: Any] = [
+            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
+            "modelId": KokoroVoiceGateStatus.modelIdentifier,
+            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
+            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
+            "files": [
+                [
+                    "path": KokoroVoiceGateStatus.packageManifestFileName,
+                    "bytes": packageManifest.count,
+                    "sha256": sha256Hex(packageManifest),
+                ],
+                [
+                    "path": payloadPath,
+                    "bytes": payload.count,
+                    "sha256": sha256Hex(payload),
+                ],
+            ],
+        ]
+        return try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+    }
+
+    private func sha256Hex(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

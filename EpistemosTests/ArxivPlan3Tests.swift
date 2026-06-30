@@ -350,6 +350,19 @@ struct ArxivPlan3Tests {
         #expect(FileManager.default.fileExists(atPath: prepared.path))
         #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
 
+        let collidingTempPDF = root.appendingPathComponent("CFNetworkDownload_collision.tmp")
+        let staleSiblingPDF = root.appendingPathComponent("CFNetworkDownload_collision.pdf")
+        let staleSiblingBytes = Data("keep this sibling".utf8)
+        try Data("%PDF-1.7\n".utf8).write(to: collidingTempPDF)
+        try staleSiblingBytes.write(to: staleSiblingPDF)
+        let collisionPrepared = try URLSessionArxivPDFDownloader.prepareDownloadedPDF(from: collidingTempPDF)
+
+        #expect(collisionPrepared.pathExtension == "pdf")
+        #expect(collisionPrepared.lastPathComponent != staleSiblingPDF.lastPathComponent)
+        #expect(FileManager.default.fileExists(atPath: collisionPrepared.path))
+        #expect(!FileManager.default.fileExists(atPath: collidingTempPDF.path))
+        #expect((try? Data(contentsOf: staleSiblingPDF)) == staleSiblingBytes)
+
         let htmlTemp = root.appendingPathComponent("CFNetworkDownload_html.tmp")
         try Data("<html>rate limited</html>".utf8).write(to: htmlTemp)
         do {

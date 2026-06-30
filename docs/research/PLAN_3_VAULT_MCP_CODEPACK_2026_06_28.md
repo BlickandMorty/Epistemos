@@ -2,7 +2,7 @@
 
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §5c`. Expose the vault/KC/Eidos as a READ-ONLY local MCP endpoint so
 > external AI tools (Claude Desktop/Cursor) can query the user's notes. The Plan 3 Swift endpoint, lifecycle, Keychain
-> token store, and Settings row are shipped; optional Rust byte-parity hardening remains separate.
+> token store, Settings row, and Rust resource-dispatch parity path are shipped.
 > `[VERIFIED-CODE]`/`[INFERRED]` tagged.
 
 ## Verified seams (reuse, don't fork)
@@ -34,6 +34,11 @@ loopback HTTP body limit. Protocol error diagnostics for client-provided methods
 resource paths over the core cap are rejected before containment/file work. Pure
 helpers (`successResponse`/`errorResponse`/`toolCallResult`/`argumentsJSON`/`markdownRelPaths`/`noteText`) testable with
 a stub executor, no network/FFI in the file.
+When the host supplies `VaultMCPRustResourceDispatcher`, `resources/list` and `resources/read` delegate to the Rust
+`MCPDispatcher.dispatch()` path after `set_vault_root`, giving the app-hosted HTTP server byte-parity with the stdio MCP
+resource server while preserving the Swift read-only tool allowlist for `tools/call`. Rust resource reads now match the
+Swift fallback contract: Markdown-only, regular-file context, 8 MiB cap, invalid UTF-8 rejection, and hidden/symlinked
+resource refusal.
 
 ## 2. `VaultMCPServer.swift` [DELIVERED]
 Loopback `/mcp` NWListener binding `VaultMCPCore`, delegating auth/framing/routing to `WorkNativeMCPServer`'s static
@@ -71,6 +76,11 @@ by the active canonical vault path so a stale task cannot present a registration
 - Empty-vault honesty (no fabricated notes); path-traversal safety inherited from `VaultExecutor`; persistent token in
   Keychain + constant-time compare + loopback bind + Origin allowlist all inherited from the audited transport.
 
-## Remaining optional hardening (flagged, not guessed)
-1. Optional Pro increment: bind the Rust `MCPDispatcher.dispatch()` (`dispatcher.rs:235`, already serves resources) over
-   a UniFFI seam for byte-parity with the stdio server (no Swift re-enumeration).
+## Rust resource-dispatch parity [DELIVERED]
+`MCPDispatcher.set_vault_root` is exposed through UniFFI, and `VaultMCPHost` constructs a `VaultMCPRustResourceDispatcher`
+for the active canonical vault. Only `resources/list` and `resources/read` delegate to Rust; `tools/list` and
+`tools/call` remain on `VaultMCPCore` so the app-hosted server advertises and executes exactly
+`VaultMCPCore.readToolNames`. Rust now percent-encodes resource-list URIs and percent-decodes resource-read URIs while
+rejecting encoded path separators before vault reads. `resources/read` uses the dedicated Rust Markdown resource reader,
+not the broader `vault.read` file tool, so non-Markdown files, hidden paths, symlinks, oversized files, invalid UTF-8, and
+non-regular files are rejected before content is returned to MCP clients.

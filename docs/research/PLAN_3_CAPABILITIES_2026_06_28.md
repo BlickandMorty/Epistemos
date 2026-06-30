@@ -165,8 +165,9 @@ real (it stays NotConfigured) · O-3 re-point `browser_*` registry at the in-app
 O-5 privacy stack · O-6 agentic scraper. All superseded by browser-use (§9).
 
 **MAS/Pro:** lite Browser tab = shipped and MAS-safe (human-driven, no robot). browser-use automation = **Pro only**
-(Chromium, honest `.unavailable` on MAS). browser-use vendor codepack and staged payload now exist, with final signed
-Pro packaging still remaining; the loopback shell/control and task-submit dry-run UI smokes have landed.
+(Chromium, honest `.unavailable` on MAS). browser-use vendor codepack, staged payload, signed `BrowserUsePro.bundle`
+packaging, loopback shell/control, task-submit dry-run UI, and gate smokes have landed. Release notarization remains
+distribution ops, not a fake runtime gate.
 
 ---
 
@@ -210,14 +211,16 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
    opted in.
 
 **Make-it-the-moat, remaining work:**
-- **Moat-2 retraction demo:** EventStore-based "undo this edit + downstream" is **buildable today** via
-  `AgentNoteEditProvenance` sequence ordering. The **true ClaimLedger BFS cascade needs ONE new Rust FFI**
+- **Moat-2 substitute (delivered):** the Provenance Console now renders an EventStore-derived
+  `AgentEditSuperseded` trace from committed `AgentNoteEditProvenance` / `MutationEnvelope` rows on the same artifact,
+  so "this edit was superseded by edit X" is visible without a second write authority.
+- **True ClaimLedger cascade (still blocked):** the full BFS cascade needs ONE new Rust write FFI
   (`record_claim_json` + `retract_claim_json`) — write through the DAG dispatch (Phase-8.E single-authority),
   **owner sign-off required** (CLAUDE.md canon-hardening; don't add the write FFI without it).
 - **Moat-3 (delivered):** one-click "Copy lineage JSON" exports the visible answer's verifiable lineage snapshot from
   the hover card. Snapshot/`.epbundle` + BLAKE3 read-side packaging remains available for deeper bundle exports.
 
-Effort remaining: **LOW–MEDIUM** for the edit-retraction demo; the full retraction cascade remains a gated Rust addition.
+Effort remaining: none for the EventStore demo; the full ClaimLedger cascade remains a gated Rust addition.
 
 ---
 
@@ -249,14 +252,18 @@ failures mapped to bounded domain/code diagnostics before display.
 
 **5c — Vault-as-MCP-server (the moat, outward-facing).** Shipped: `VaultMCPCore` (read-only tools/resources allowlist),
 `VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent
-Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), and `VaultMCPServerSettingsRow` (masked token +
-copy client config). The host uses `ChatToolTier.readOnly` plus
+Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), `VaultMCPServerSettingsRow` (masked token +
+copy client config), and the Rust resource-dispatch parity adapter. The host uses `ChatToolTier.readOnly` plus
 `allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch. Core
 JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch; the core
 also requires a JSON-RPC 2.0 object envelope, caps echoed string request IDs and protocol error diagnostics, and rejects
 overlong relative vault paths before containment/file work. Listener failure status is bounded to domain/code
 diagnostics. Host registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched
 read-only servers.
+`resources/list` and `resources/read` delegate to `MCPDispatcher.dispatch()` after `set_vault_root`; `tools/list` and
+`tools/call` stay on the Swift read-only surface so write verbs are never advertised by the app-hosted server. Rust
+resource reads use a dedicated Markdown-only path with the same 8 MiB cap, hidden/symlink refusal, regular-file check, and
+UTF-8 rejection as the Swift fallback, instead of delegating to the broader `vault.read` file tool.
 Settings start/rotate completions re-check the active canonical vault path before mutating UI state.
 
 **MAS/Pro split:**
@@ -270,7 +277,7 @@ Settings start/rotate completions re-check the active canonical vault path befor
 | Best-of preset | ✅ MAS subset | ✅ full |
 | Vault-as-MCP-server | compiled; **gated/hidden for review safety** | ✅ primary home |
 
-Effort remaining: optionally bind the Rust `MCPDispatcher.dispatch()` over UniFFI for byte-parity with the stdio server.
+Effort remaining: none for first wiring; Rust resource byte-parity is now live. Future work is polish only.
 
 ---
 
@@ -403,12 +410,15 @@ Folded in as clean Plan-3 capabilities:
   through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope
   and finite/clamped download progress plus capped, domain/code-redacted status/error text for UI display.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
-  status-gated and rejects symlink-routed, non-regular, oversized, or invalid-manifest model artifacts with bounded
-  model-relative status diagnostics; no model asset, picker row, neural runtime, Python, or subprocess enters the MAS path.
+  status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
+  model artifacts with bounded model-relative status diagnostics. A checked package reports `packageReady` while keeping
+  runtime `isReady=false` until real synthesis is wired. Developer ID builds now show a Pro-only Voice settings
+  status/runtime affordance labelled "Pro neural voice" while keeping AVSpeech selected until real neural inference is
+  proven; no model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row enters the App Store
+  path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
-  Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo
-  downloads or official-logo claims. Classifier input for arbitrary MCP/skill/connector names is bounded before
+  Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo downloads or official-logo claims. Classifier input for arbitrary MCP/skill/connector names is bounded before
   normalization. Later slices can add utility metadata or licensed assets, but the shared fallback registry is live.
 
 **Editor-graph items recovered → belong to PLAN 2 (not here):** graph inline-edit of doc nodes (no detached window),
@@ -420,8 +430,8 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 
 ## Follow-up hardening order (within Plan 3)
 1. **Fast PDF→MD** — shipped; continue parser hardening/perf checks around EdgeParse primary + unpdf fallback.
-2. **Provenance moat** — shipped; follow-up EventStore edit-retraction demo, Rust write FFI only with owner sign-off.
-3. **Extensibility** — shipped; optional Rust dispatcher byte-parity after UI/MCP install, Best-of, and vault-MCP server.
+2. **Provenance moat** — shipped; EventStore edit supersession demo is live, Rust write FFI only with owner sign-off.
+3. **Extensibility** — shipped; UI/MCP install, Best-of, vault-MCP server, and Rust resource dispatcher byte-parity are live.
 4. **Apple-native · Landing buttons · arXiv pull** — shipped; continue focused regression coverage only.
 5. **Browser** — lite native WKWebView tab is shipped for MAS; browser-use Pro vendor code/payload exists, continue
    signed Pro UI/MCP hardening without touching MAS.

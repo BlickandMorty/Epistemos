@@ -56,9 +56,9 @@ enum DeepResearchServiceError: Error, LocalizedError, Sendable {
 }
 
 enum DeepResearchRuntimeDiagnostics {
-    static let maxRuntimeErrorCharacters = 360
+    nonisolated static let maxRuntimeErrorCharacters = 360
 
-    static func runtimeMessage(_ message: String, fallback: String = "Deep research runtime failed.") -> String {
+    nonisolated static func runtimeMessage(_ message: String, fallback: String = "Deep research runtime failed.") -> String {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > maxRuntimeErrorCharacters else {
@@ -67,7 +67,7 @@ enum DeepResearchRuntimeDiagnostics {
         return String(description.prefix(maxRuntimeErrorCharacters)) + "..."
     }
 
-    static func externalErrorDescription(_ error: Error) -> String {
+    nonisolated static func externalErrorDescription(_ error: Error) -> String {
         let nsError = error as NSError
         let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
         let label = domain.isEmpty ? "Error" : domain

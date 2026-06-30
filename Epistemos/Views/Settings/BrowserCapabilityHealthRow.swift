@@ -3,9 +3,9 @@ import SwiftUI
 // MARK: - BrowserCapabilityHealthRow
 //
 // SS-M / Obscura (owner 2026-06-19): an honest, read-only Settings → Diagnostics row for the browser /
-// scraper / privacy capability — what actually works (HTTP fetch/extract/crawl, search, private in-app
-// web views) vs what's a stub or Pro-gated (the Obscura stealth engine returns NotConfigured;
-// anti-fingerprint, tracker-blocking, and agentic schema-scraping aren't built). Reads
+// scraper / privacy capability — what actually works (HTTP fetch/extract/crawl/schema extraction,
+// search, private in-app web views) vs what's a stub or Pro-gated (the Obscura stealth engine returns
+// NotConfigured; anti-fingerprint isn't built). Reads
 // BrowserCapabilityStatus's static, code-verified ledger only (no @Environment → crash-safe in
 // Settings). Info-tinted, never a green "complete" check (the stealth browser isn't built) or a red
 // "broken" cross (the real scraper genuinely works).

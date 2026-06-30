@@ -672,6 +672,10 @@ final class RuntimeIssueMonitor {
                     "callStack": exception.callStackSymbols.joined(separator: "\n"),
                 ]
             )
+            VaultCrashRecorder.recordUncaughtException(
+                exception,
+                vaultURL: AppBootstrap.shared?.vaultSync.vaultURL
+            )
         }
         wireApplicationLifecycle()
         wireSystemLifecycle()
@@ -954,6 +958,7 @@ struct EpistemosApp: App {
                 "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
                 "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
             ])
+            VaultCrashRecorder.install(vaultURL: bootstrap.vaultSync.vaultURL)
             RuntimeIssueMonitor.shared.start()
             HomeWindowInputDiagnostics.shared.startIfNeeded()
             HomeWindowFallbackPresenter.shared.schedule(bootstrap: bootstrap)
@@ -1481,7 +1486,7 @@ struct EpistemosCommands: Commands {
                 .disabled(!gooseAvailability.isReady)
             #else
             let gooseAvailability = GooseSurfaceAvailability.current()
-            Button(gooseAvailability.menuTitle) {
+            Button("Open Epistemos Goose (Native Frame)") {
                 if AgentSurface.isEnabled() {
                     AgentSurfaceWindowController.shared.open()
                 } else {

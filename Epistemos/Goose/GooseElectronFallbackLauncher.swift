@@ -157,8 +157,9 @@ final class GooseElectronFallbackLauncher {
     private func startReading(_ handle: FileHandle) {
         outputTask?.cancel()
         outputTask = Task.detached { [weak self] in
+            guard let recorder = self else { return }
             await GooseProcessDiagnostics.consume(from: handle) { diagnostic in
-                await self?.recordDiagnostic(diagnostic)
+                await recorder.recordDiagnostic(diagnostic)
             }
         }
     }

@@ -1346,7 +1346,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         return false
     }
 
-    private static func fileSize(atPath path: String, fileManager: FileManager) -> UInt64? {
+    private nonisolated static func fileSize(atPath path: String, fileManager: FileManager) -> UInt64? {
         guard let attributes = try? fileManager.attributesOfItem(atPath: path),
               let size = attributes[.size] as? NSNumber else {
             return nil

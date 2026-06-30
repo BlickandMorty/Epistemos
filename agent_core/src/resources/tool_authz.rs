@@ -670,6 +670,11 @@ mod tests {
                 write_risk(),
             ),
             (
+                "browser_complete_task",
+                json!({"task": "Open example.com and report the title", "max_steps": 3}),
+                destructive_risk(),
+            ),
+            (
                 "memory",
                 json!({"action": "add", "content": "x"}),
                 write_risk(),

@@ -13,6 +13,7 @@ const BROWSER_USE_AGENT_BROWSER_ENV: &str = "EPISTEMOS_BROWSER_USE_AGENT_BROWSER
 const BROWSER_USE_VENDOR_ROOT_ENV: &str = "EPISTEMOS_BROWSER_USE_VENDOR_ROOT";
 const BROWSER_USE_CDP_URL_ENV: &str = "EPISTEMOS_BROWSER_USE_CDP_URL";
 const BROWSER_USE_ADAPTER_FILENAME: &str = "epistemos_agent_browser.py";
+const MAX_PATH_DIAGNOSTIC_CHARS: usize = 160;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum BrowserExecutable {
@@ -37,6 +38,7 @@ impl BrowserExecutable {
                         "http_proxy",
                         "https_proxy",
                         "no_proxy",
+                        "EPISTEMOS_BROWSER_USE_ENV_FILE",
                     ],
                 );
                 cmd
@@ -66,6 +68,12 @@ fn resolve_agent_browser(
         return require_vendor_root_browser(root);
     }
 
+    for candidate in packaged_agent_browser_candidates() {
+        if is_executable(&candidate) {
+            return require_explicit_executable_browser(candidate, "BrowserUsePro.bundle");
+        }
+    }
+
     for candidate in search_dirs {
         let path = candidate.join("agent-browser");
         if is_executable(&path) {
@@ -74,7 +82,7 @@ fn resolve_agent_browser(
     }
 
     Err(ToolError::ExecutionFailed(
-        "agent-browser CLI not found. Install it and ensure it is on PATH.".into(),
+        "browser-use adapter not found. Install agent-browser on PATH or bundle BrowserUsePro.bundle with the Pro app.".into(),
     ))
 }
 
@@ -97,14 +105,14 @@ fn require_vendor_root_browser(root: PathBuf) -> Result<BrowserExecutable, ToolE
         ToolError::ExecutionFailed(format!(
             "{} resolved to '{}', but it could not be inspected: {error}",
             BROWSER_USE_VENDOR_ROOT_ENV,
-            root.display()
+            path_diagnostic(&root)
         ))
     })?;
     if !metadata.is_dir() {
         return Err(ToolError::ExecutionFailed(format!(
             "{} resolved to '{}', but it is not a directory",
             BROWSER_USE_VENDOR_ROOT_ENV,
-            root.display()
+            path_diagnostic(&root)
         )));
     }
 
@@ -124,7 +132,7 @@ fn require_executable_browser(
 
     Err(ToolError::ExecutionFailed(format!(
         "{source} resolved to '{}', but it is not an executable file",
-        path.display()
+        path_diagnostic(&path)
     )))
 }
 
@@ -135,7 +143,7 @@ fn require_absolute_path(path: &Path, source: &'static str) -> Result<(), ToolEr
 
     Err(ToolError::ExecutionFailed(format!(
         "{source} resolved to '{}', but explicit browser-use paths must be absolute",
-        path.display()
+        path_diagnostic(path)
     )))
 }
 
@@ -155,7 +163,7 @@ fn reject_symlinked_parent_components(path: &Path, source: &'static str) -> Resu
             Ok(metadata) if metadata.file_type().is_symlink() => {
                 return Err(ToolError::ExecutionFailed(format!(
                     "{source} path must not include symlink component '{}'",
-                    cursor.display()
+                    path_diagnostic(&cursor)
                 )));
             }
             Ok(_) => {}
@@ -163,7 +171,7 @@ fn reject_symlinked_parent_components(path: &Path, source: &'static str) -> Resu
             Err(error) => {
                 return Err(ToolError::ExecutionFailed(format!(
                     "inspect {source} path component '{}': {error}",
-                    cursor.display()
+                    path_diagnostic(&cursor)
                 )));
             }
         }
@@ -176,16 +184,28 @@ fn reject_final_symlink(path: &Path, source: &'static str) -> Result<(), ToolErr
         Ok(metadata) if metadata.file_type().is_symlink() => {
             Err(ToolError::ExecutionFailed(format!(
                 "{source} resolved to '{}', but it must not be a symlink",
-                path.display()
+                path_diagnostic(path)
             )))
         }
         Ok(_) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(ToolError::ExecutionFailed(format!(
             "inspect {source} path '{}': {error}",
-            path.display()
+            path_diagnostic(path)
         ))),
     }
+}
+
+fn path_diagnostic(path: &Path) -> String {
+    let label = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("[path]");
+    if label.chars().count() <= MAX_PATH_DIAGNOSTIC_CHARS {
+        return label.to_string();
+    }
+    label.chars().take(MAX_PATH_DIAGNOSTIC_CHARS).collect()
 }
 
 fn allowed_macos_compat_symlink(path: &Path) -> bool {
@@ -200,6 +220,42 @@ fn env_path(key: &str) -> Option<PathBuf> {
             Some(PathBuf::from(value))
         }
     })
+}
+
+fn packaged_agent_browser_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let Ok(executable) = env::current_exe() else {
+        return candidates;
+    };
+
+    if let Some(contents_dir) = executable
+        .parent()
+        .filter(|parent| parent.file_name().and_then(|name| name.to_str()) == Some("MacOS"))
+        .and_then(Path::parent)
+    {
+        push_packaged_agent_browser_candidate(&mut candidates, &contents_dir.join("Resources"));
+    }
+
+    for ancestor in executable.ancestors().take(8) {
+        push_packaged_agent_browser_candidate(&mut candidates, ancestor);
+        push_packaged_agent_browser_candidate(
+            &mut candidates,
+            &ancestor.join("build/browser-use-pro"),
+        );
+    }
+    candidates
+}
+
+fn push_packaged_agent_browser_candidate(candidates: &mut Vec<PathBuf>, bundle_parent: &Path) {
+    push_unique_path(
+        candidates,
+        bundle_parent
+            .join("BrowserUsePro.bundle")
+            .join("Contents")
+            .join("Resources")
+            .join("BrowserUsePro")
+            .join(BROWSER_USE_ADAPTER_FILENAME),
+    );
 }
 
 pub(crate) fn cdp_url_from_env() -> Result<Option<String>, ToolError> {
@@ -266,7 +322,7 @@ fn executable_search_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(path) = env::var_os("PATH") {
         for item in env::split_paths(&path) {
-            push_unique_path(&mut dirs, item);
+            push_unique_absolute_path(&mut dirs, item);
         }
     }
     push_unique_path(&mut dirs, PathBuf::from("/opt/homebrew/bin"));
@@ -280,6 +336,12 @@ fn executable_search_dirs() -> Vec<PathBuf> {
 fn push_unique_path(paths: &mut Vec<PathBuf>, candidate: PathBuf) {
     if !candidate.as_os_str().is_empty() && !paths.iter().any(|path| path == &candidate) {
         paths.push(candidate);
+    }
+}
+
+fn push_unique_absolute_path(paths: &mut Vec<PathBuf>, candidate: PathBuf) {
+    if candidate.is_absolute() {
+        push_unique_path(paths, candidate);
     }
 }
 
@@ -303,9 +365,7 @@ pub(crate) fn extended_path() -> String {
     let mut values = Vec::new();
     if let Some(path) = env::var_os("PATH") {
         for item in env::split_paths(&path) {
-            if !item.as_os_str().is_empty() {
-                values.push(item);
-            }
+            push_unique_absolute_path(&mut values, item);
         }
     }
     push_unique_path(&mut values, PathBuf::from("/opt/homebrew/bin"));

@@ -66,22 +66,31 @@ pasteboard. The export recomputes `VRMLabel.honestLabel(for:)` before encoding, 
 attention/interrupt state, and witness/mutation refs. It intentionally excludes legacy stored `ui_label` and performs
 no Rust writes.
 
+## Moat-2 substitute — EventStore edit supersession chain [DELIVERED]
+`ProvenanceConsoleProjectionService` now derives an `AgentEditSuperseded` GenUI trace from committed
+`MutationEnvelope` rows: it reads bounded recent envelopes from `EventStore.recentMutationEnvelopes(limit:)`, filters
+committed agent `artifactUpdate` edits, groups by touched artifact, and renders "this edit was superseded by edit X"
+for consecutive mutations on the same artifact. The projection is read-only, EventStore-derived, bounded at the service
+edge, and performs no ClaimLedger writes.
+
 ## Dependency — full retraction cascade (FLAGGED, not built now)
 The `ClaimLedger` BFS cascade (`MAX_RETRACTION_WALK_DEPTH=16`) is NOT Swift-reachable: `RustProvenanceLedgerClient` is
 **read-only by doctrine** (`:13-15`). The live "undo this claim + everything downstream" demo needs a **NEW Rust write
 FFI** (`record_claim_json`/`retract_claim_json` in `bridge.rs`) + **owner sign-off** (CLAUDE.md canon-hardening; Phase
-8.E routes writes to the Cognitive DAG, so a second write target is a canon decision). **Buildable-now substitute:** an
-EventStore edit-retraction chain via `AgentNoteEditProvenance` (`:28-80`) — each agent edit is a committed
-`MutationEnvelope` on the same `artifactID`; render "this was superseded by edit X" off that chain, no write FFI.
+8.E routes writes to the Cognitive DAG, so a second write target is a canon decision). The buildable-now substitute is
+delivered via the EventStore edit supersession chain above; the true ClaimLedger cascade remains blocked on explicit
+owner approval for a new write FFI.
 
 ## Shipped bundle
 Fix A (`AnswerPacket.swift` + `AnswerPacketEmitter.swift`) + `VRMLabelView.swift` + `VRMLabelHonestLabelTests.swift`
 are shipped together. Fix B (`SettingsSurfaceComponents.swift`) + `AnswerPacketHealthRow` ledger opt-in are shipped.
-Moat-3 lineage JSON copy (`VRMLineageExport`) is shipped. Rust write FFI + cascade remain flagged-pending owner sign-off.
+Moat-2 EventStore edit supersession and Moat-3 lineage JSON copy (`VRMLineageExport`) are shipped. Rust write FFI +
+ClaimLedger cascade remain flagged-pending owner sign-off.
 The Settings provenance console is also shipped as a read-only GenUI projection: it initializes to
 `ProvenanceConsoleSnapshot.empty`, refreshes `ProvenanceConsoleProjectionService.snapshot(limit:)` in a cancellable
 utility task, clamps projection reads at the service boundary, caps untrusted model/tool/relation display strings before
-they reach GenUI rows, and never performs EventStore/Rust projection reads in the SwiftUI init/body path.
+they reach GenUI rows, includes the EventStore-derived `AgentEditSuperseded` trace, and never performs EventStore/Rust
+projection reads in the SwiftUI init/body path.
 Durable `AnswerPacketStore` persistence is append-only JSONL under Application Support, but the store treats the log as
 a bounded provenance artifact: appends reject encoded packets or projected post-append logs over 8 MiB, while compaction
 reads/writes and load/restore reads open the final file with `O_NOFOLLOW` plus `fstat` regular-file validation; loads
