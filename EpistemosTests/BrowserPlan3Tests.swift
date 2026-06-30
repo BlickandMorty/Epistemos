@@ -20,6 +20,7 @@ struct BrowserPlan3Tests {
         #expect(BrowserURLGuard.resolve(raw: "mailto:test@example.com") == nil)
         #expect(BrowserURLGuard.resolve(raw: "https://user:pass@example.com") == nil)
         #expect(BrowserURLGuard.resolve(raw: "plan 3 browser", searchTemplate: "file:///tmp/%@") == nil)
+        #expect(BrowserURLGuard.resolve(raw: String(repeating: "a", count: BrowserURLGuard.maxRawInputLength + 1)) == nil)
 
         #expect(BrowserURLGuard.allows(url: URL(string: "http://example.com")))
         #expect(BrowserURLGuard.allows(url: URL(string: "https://example.com")))
@@ -34,6 +35,11 @@ struct BrowserPlan3Tests {
 
         #expect(source.contains("WKWebsiteDataStore.nonPersistent()"))
         #expect(source.contains("BrowserURLGuard.allows"))
+        #expect(source.contains("BrowserDisplayPolicy"))
+        #expect(source.contains("maxRawInputLength"))
+        #expect(source.contains("maxAddressLength"))
+        #expect(source.contains("maxTitleLength"))
+        #expect(source.contains("maxErrorLength"))
         #expect(source.contains("decidePolicyFor navigationAction"))
         #expect(source.contains("decidePolicyFor navigationResponse"))
         #expect(source.contains("WKNavigationResponsePolicy"))
@@ -53,6 +59,23 @@ struct BrowserPlan3Tests {
 
         let timedOut = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
         #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: timedOut) != nil)
+
+        let longError = NSError(
+            domain: "BrowserPlan3Tests",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: String(repeating: "e", count: BrowserDisplayPolicy.maxErrorLength + 32)]
+        )
+        #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: longError)?.count == BrowserDisplayPolicy.maxErrorLength + 3)
+    }
+
+    @Test("browser display policy caps page-controlled UI strings")
+    func browserDisplayPolicyCapsPageControlledUIStrings() throws {
+        let longTitle = String(repeating: "t", count: BrowserDisplayPolicy.maxTitleLength + 32)
+        #expect(BrowserDisplayPolicy.title(longTitle).count == BrowserDisplayPolicy.maxTitleLength + 3)
+        #expect(BrowserDisplayPolicy.title(" \n ") == "Browser")
+
+        let longURL = try #require(URL(string: "https://example.com/\(String(repeating: "p", count: BrowserDisplayPolicy.maxAddressLength + 32))"))
+        #expect(BrowserDisplayPolicy.address(for: longURL).count == BrowserDisplayPolicy.maxAddressLength + 3)
     }
 
     @Test("browser is reachable through utility window, menu, and landing button")

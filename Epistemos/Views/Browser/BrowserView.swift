@@ -5,6 +5,7 @@ import WebKit
 
 nonisolated enum BrowserURLGuard {
     static let searchTemplate = "https://duckduckgo.com/?q=%@"
+    static let maxRawInputLength = 4096
     private static let allowedSchemes: Set<String> = ["http", "https"]
     private static let explicitlyBlockedSchemes: Set<String> = [
         "data",
@@ -16,7 +17,8 @@ nonisolated enum BrowserURLGuard {
 
     static func resolve(raw: String, searchTemplate: String = Self.searchTemplate) -> URL? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxRawInputLength else { return nil }
 
         if let url = URL(string: trimmed), url.scheme != nil {
             if allows(url: url) {
@@ -93,6 +95,35 @@ nonisolated enum BrowserURLGuard {
     }
 }
 
+nonisolated enum BrowserDisplayPolicy {
+    static let maxAddressLength = 4096
+    static let maxTitleLength = 256
+    static let maxErrorLength = 512
+
+    static func address(for url: URL) -> String {
+        capped(url.absoluteString, limit: maxAddressLength)
+    }
+
+    static func title(_ rawTitle: String?) -> String {
+        let title = rawTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !title.isEmpty else {
+            return "Browser"
+        }
+        return capped(title, limit: maxTitleLength)
+    }
+
+    static func error(_ message: String) -> String {
+        capped(message.trimmingCharacters(in: .whitespacesAndNewlines), limit: maxErrorLength)
+    }
+
+    private static func capped(_ value: String, limit: Int) -> String {
+        guard value.count > limit else {
+            return value
+        }
+        return String(value.prefix(limit)) + "..."
+    }
+}
+
 nonisolated enum BrowserNavigationErrorPolicy {
     static func userVisibleMessage(for error: Error) -> String? {
         let nsError = error as NSError
@@ -100,7 +131,7 @@ nonisolated enum BrowserNavigationErrorPolicy {
            nsError.code == NSURLErrorCancelled {
             return nil
         }
-        return error.localizedDescription
+        return BrowserDisplayPolicy.error(error.localizedDescription)
     }
 }
 
@@ -127,7 +158,7 @@ final class BrowserTab {
             return
         }
         lastError = nil
-        address = url.absoluteString
+        address = BrowserDisplayPolicy.address(for: url)
         loadURL?(url)
     }
 
@@ -137,7 +168,7 @@ final class BrowserTab {
             return
         }
         lastError = nil
-        address = url.absoluteString
+        address = BrowserDisplayPolicy.address(for: url)
         loadURL?(url)
     }
 
@@ -381,13 +412,13 @@ private struct BrowserWebView: NSViewRepresentable {
                     Task { @MainActor in self?.tab?.isLoading = view.isLoading }
                 },
                 webView.observe(\.title, options: [.initial, .new]) { [weak self] view, _ in
-                    Task { @MainActor in self?.tab?.title = view.title ?? "Browser" }
+                    Task { @MainActor in self?.tab?.title = BrowserDisplayPolicy.title(view.title) }
                 },
                 webView.observe(\.url, options: [.initial, .new]) { [weak self] view, _ in
                     Task { @MainActor in
                         self?.tab?.currentURL = view.url
                         if let url = view.url, BrowserURLGuard.allows(url: url) {
-                            self?.tab?.address = url.absoluteString
+                            self?.tab?.address = BrowserDisplayPolicy.address(for: url)
                         }
                     }
                 },
@@ -403,7 +434,7 @@ private struct BrowserWebView: NSViewRepresentable {
         private func sync(from webView: WKWebView) {
             tab?.progress = webView.estimatedProgress
             tab?.isLoading = webView.isLoading
-            tab?.title = webView.title ?? "Browser"
+            tab?.title = BrowserDisplayPolicy.title(webView.title)
             tab?.currentURL = webView.url
             tab?.canGoBack = webView.canGoBack
             tab?.canGoForward = webView.canGoForward
