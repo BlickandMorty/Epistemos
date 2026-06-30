@@ -1690,6 +1690,24 @@ struct GooseWebNativePromptBridgeTests {
         #expect(unsupportedTypeCapture.object == nil)
         #expect(unsupportedTypeCapture.error == "Unsupported Epistemos Goose prompt request.")
     }
+
+    @Test("native prompt bridge bounds dynamic error replies")
+    func bridgeBoundsDynamicErrorReplies() throws {
+        let oversized = String(
+            repeating: "e",
+            count: GooseWebNativePromptBridge.maxPromptErrorMessageCharacters + 40
+        )
+        let bounded = GooseWebNativePromptBridge.boundedPromptErrorMessage(" \n\(oversized)\n ")
+
+        #expect(bounded.count == GooseWebNativePromptBridge.maxPromptErrorMessageCharacters)
+        #expect(GooseWebNativePromptBridge.boundedPromptErrorMessage(" \n\t ", fallback: "fallback") == "fallback")
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebNativePromptBridge.swift")
+        #expect(source.contains("boundedPromptErrorMessage"))
+        #expect(source.contains("promptErrorMessage("))
+        #expect(!source.contains("Invalid Epistemos Goose prompt payload: \\(error.localizedDescription)"))
+        #expect(!source.contains("reply(nil, error.localizedDescription)"))
+    }
 }
 
 @MainActor

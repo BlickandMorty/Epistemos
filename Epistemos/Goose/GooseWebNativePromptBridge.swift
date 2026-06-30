@@ -7,6 +7,7 @@ import WebKit
 final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithReply {
     nonisolated static let maxPromptIDCharacters = 128
     nonisolated static let maxPromptPayloadBytes = 1 * 1024 * 1024
+    nonisolated static let maxPromptErrorMessageCharacters = 512
     nonisolated private static let maxPromptPayloadDepth = 32
     nonisolated private static let maxPromptPayloadCollectionEntries = 4_096
 
@@ -54,7 +55,9 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
         guard let id = Self.boundedPromptID(rawID) else {
             replyHandler(
                 nil,
-                GooseWebNativePromptBridgeError.promptIDTooLong(Self.maxPromptIDCharacters).localizedDescription
+                Self.boundedPromptErrorMessage(
+                    GooseWebNativePromptBridgeError.promptIDTooLong(Self.maxPromptIDCharacters).localizedDescription
+                )
             )
             return
         }
@@ -80,7 +83,10 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
                 replyHandler(nil, "Unsupported Epistemos Goose prompt request.")
             }
         } catch {
-            replyHandler(nil, "Invalid Epistemos Goose prompt payload: \(error.localizedDescription)")
+            replyHandler(nil, Self.promptErrorMessage(
+                prefix: "Invalid Epistemos Goose prompt payload",
+                error: error
+            ))
         }
     }
 
@@ -145,7 +151,10 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
             let data = try encoder.encode(value)
             reply(try JSONSerialization.jsonObject(with: data), nil)
         } catch {
-            reply(nil, error.localizedDescription)
+            reply(nil, Self.promptErrorMessage(
+                prefix: "Invalid Epistemos Goose prompt response",
+                error: error
+            ))
         }
     }
 
@@ -178,6 +187,26 @@ final class GooseWebNativePromptBridge: NSObject, WKScriptMessageHandlerWithRepl
             return nil
         }
         return trimmed
+    }
+
+    nonisolated static func boundedPromptErrorMessage(
+        _ message: String,
+        fallback: String = "Goose prompt request failed."
+    ) -> String {
+        let withoutControls = String(String.UnicodeScalarView(message.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0) || $0 == "\n" || $0 == "\t"
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxPromptErrorMessageCharacters else { return value }
+        return String(value.prefix(maxPromptErrorMessageCharacters))
+    }
+
+    nonisolated static func promptErrorMessage(prefix: String, error: Error) -> String {
+        boundedPromptErrorMessage(
+            "\(prefix): \(error.localizedDescription)",
+            fallback: prefix
+        )
     }
 }
 
