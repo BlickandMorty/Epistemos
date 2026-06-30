@@ -1637,6 +1637,10 @@ struct CodeEditorView: View {
     private var usesLegacyV1Editor: Bool {
         useLegacyV1Editor && !isMarkdownDocument
     }
+
+    private var codeEditorTheme: EpistemosTheme {
+        themeOverride ?? ui.theme
+    }
     
     // MARK: - UI State
 
@@ -1816,7 +1820,7 @@ struct CodeEditorView: View {
                 cursorLine: $cursorLine,
                 cursorColumn: $cursorCol,
                 totalLines: $totalLines,
-                theme: ui.theme,
+                theme: codeEditorTheme,
                 fontSize: fontSize,
                 wrapLines: wrapLines,
                 showLineNumbers: showLineGutter,
@@ -1827,7 +1831,7 @@ struct CodeEditorView: View {
                 selectionRequest: coreEditorSelectionRequest
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
+            .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: codeEditorTheme))
         } else {
             codeEditorChromeContent
         }
@@ -1863,29 +1867,29 @@ struct CodeEditorView: View {
 
     private var codeEditorTopBar: some View {
         HStack(spacing: 10) {
-            CodeFileIconView(filePath: filePath, language: language, theme: ui.theme)
+            CodeFileIconView(filePath: filePath, language: language, theme: codeEditorTheme)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(codeEditorDisplayName)
                     .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(ui.theme.resolved.foreground.color)
+                    .foregroundStyle(codeEditorTheme.resolved.foreground.color)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("\(CodeLanguage.displayName(for: language)) · \(totalLines) lines")
                     .font(.system(size: 10.5, weight: .regular, design: .monospaced))
-                    .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.85))
+                    .foregroundStyle(codeEditorTheme.resolved.mutedForeground.color.opacity(0.85))
             }
 
             Spacer(minLength: 12)
 
             Text("Ln \(cursorLine), Col \(cursorCol)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.92))
+                .foregroundStyle(codeEditorTheme.resolved.mutedForeground.color.opacity(0.92))
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
-                    ui.theme.resolved.foreground.color.opacity(ui.theme.isDark ? 0.07 : 0.045),
+                    codeEditorTheme.resolved.foreground.color.opacity(codeEditorTheme.isDark ? 0.07 : 0.045),
                     in: Capsule()
                 )
 
@@ -2081,7 +2085,7 @@ struct CodeEditorView: View {
         .overlay(alignment: .bottomLeading) {
             semanticLSPStatusOverlay
         }
-        .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
+        .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: codeEditorTheme))
     }
 
     @ViewBuilder
@@ -2093,7 +2097,7 @@ struct CodeEditorView: View {
                 cursorColumn: $cursorCol,
                 totalLines: $totalLines,
                 language: language,
-                theme: ui.theme,
+                theme: codeEditorTheme,
                 fontSize: fontSize,
                 wrapLines: wrapLines,
                 showLineNumbers: showLineGutter,
@@ -2106,7 +2110,7 @@ struct CodeEditorView: View {
                 cursorColumn: $cursorCol,
                 totalLines: $totalLines,
                 language: language,
-                theme: ui.theme,
+                theme: codeEditorTheme,
                 fontSize: fontSize,
                 wrapLines: wrapLines,
                 showLineNumbers: showLineGutter,
@@ -2122,7 +2126,7 @@ struct CodeEditorView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "play.rectangle")
-                    .foregroundStyle(ui.theme.resolved.accent.color)
+                    .foregroundStyle(codeEditorTheme.resolved.accent.color)
                 Text("Live Preview")
                     .font(.system(size: 12.5, weight: .semibold))
                 Text(CodeLanguage.displayName(for: language))
@@ -2146,7 +2150,7 @@ struct CodeEditorView: View {
 
             HTMLWorkspacePreviewView(
                 package: livePreviewPackage,
-                previewTheme: ui.theme.isDark ? .dark : .light,
+                previewTheme: codeEditorTheme.isDark ? .dark : .light,
                 themeGuardCSSOverride: livePreviewThemeGuardCSS,
                 themeIdentity: livePreviewThemeIdentity
             )
@@ -2175,8 +2179,8 @@ struct CodeEditorView: View {
 
     private var livePreviewThemeIdentity: String {
         [
-            ui.theme.isDark ? "dark" : "light",
-            ui.theme.resolved.accent.nsColor.codePreviewCSSColor,
+            codeEditorTheme.isDark ? "dark" : "light",
+            codeEditorTheme.resolved.accent.nsColor.codePreviewCSSColor,
         ].joined(separator: "|")
     }
 
@@ -2218,7 +2222,7 @@ struct CodeEditorView: View {
     }
 
     private var livePreviewThemeGuardCSS: String {
-        let surfaceTheme = ui.theme.surfaceVariant(.other)
+        let surfaceTheme = codeEditorTheme.surfaceVariant(.other)
         let background = MarkdownPreviewSurfaceStyle
             .canvasNSColor(for: surfaceTheme)
             .rgbSafeForCodeEditorTheme()

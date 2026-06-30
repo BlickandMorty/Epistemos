@@ -274,8 +274,8 @@ nonisolated struct CodeEditorPolishTests {
 
         #expect(source.contains("MarkEditCodeEditorRepresentable("),
                 "Code files must render through MarkEdit CoreEditor by default, with v1 kept as an explicit fallback.")
-        #expect(source.contains("theme: ui.theme"),
-                "Epistemos theme changes must feed the CoreEditor adapter.")
+        #expect(source.contains("theme: codeEditorTheme"),
+                "Epistemos theme changes and embedded-surface overrides must feed the CoreEditor adapter.")
         #expect(adapter.contains("AppTheme.epistemosSourceTheme(for: theme).editorTheme"),
                 "CoreEditor should map Epistemos themes into MarkEdit source themes instead of falling back to a plain body surface.")
         #expect(adapter.contains(#"theme.isDark ? "xcode-dark" : "xcode-light""#),

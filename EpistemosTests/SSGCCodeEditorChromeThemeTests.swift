@@ -53,4 +53,17 @@ struct SSGCCodeEditorChromeThemeTests {
             consumers >= 2,
             "both codeEditorTopBar and the Live Preview header must use resolvedTopBarBackground (found \(consumers))")
     }
+
+    @Test("the editor body and live preview inherit the same override-aware theme")
+    func editorBodyAndPreviewUseOverrideAwareTheme() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(src.contains("private var codeEditorTheme: EpistemosTheme"))
+        #expect(src.contains("themeOverride ?? ui.theme"))
+        #expect(src.contains("theme: codeEditorTheme"))
+        #expect(src.contains("CodeFileIconView(filePath: filePath, language: language, theme: codeEditorTheme)"))
+        #expect(src.contains("previewTheme: codeEditorTheme.isDark ? .dark : .light"))
+        #expect(src.contains("codeEditorTheme.resolved.accent.nsColor.codePreviewCSSColor"))
+        #expect(src.contains("let surfaceTheme = codeEditorTheme.surfaceVariant(.other)"))
+    }
 }

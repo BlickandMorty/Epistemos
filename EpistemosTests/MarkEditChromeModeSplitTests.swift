@@ -40,7 +40,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("showLivePreview.toggle()"))
         #expect(livePreview.contains("HTMLWorkspacePreviewView("))
         #expect(livePreview.contains("livePreviewPackage"))
-        #expect(source.contains("CodeFileIconView(filePath: filePath, language: language, theme: ui.theme)"))
+        #expect(source.contains("CodeFileIconView(filePath: filePath, language: language, theme: codeEditorTheme)"))
         #expect(iconSource.contains("NSWorkspace.shared.icon(forFile: filePath)"))
     }
 
