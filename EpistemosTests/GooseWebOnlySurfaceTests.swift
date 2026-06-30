@@ -86,11 +86,15 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(reskin.contains("outline: none !important;"))
         #expect(reskin.contains("background: color-mix(in srgb, var(--epistemos-pixel-accent) 7%, var(--epistemos-claude-surface)) !important;"))
         #expect(reskin.contains(".goose-epistemos .goose-chat-input-card:focus-within"))
-        #expect(!reskin.contains("#0066cc"))
-        #expect(!reskin.contains("#2997ff"))
+        #expect(reskin.contains("epistemos-native-final-flat-pixel-audit"))
+        #expect(reskin.contains(".replaceAll('#0066cc', '#1d1d1f')"))
+        #expect(reskin.contains(".replaceAll('#2997ff', '#ffffff')"))
         #expect(!reskin.contains("outline: 2px solid color-mix"))
         #expect(!reskin.contains("box-shadow: inset 0 0 0 1px var(--epistemos-claude-hairline)"))
         #expect(!reskin.contains("box-shadow: inset 0 0 0 1px var(--epistemos-flat-focus)"))
+
+        let stageScript = try loadMirroredSourceTextFile("stage-goose-web-ui.sh")
+        #expect(stageScript.contains("Goose Web UI staging still contains blue/ring/outline visual leftovers."))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))

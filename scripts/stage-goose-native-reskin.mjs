@@ -26,6 +26,18 @@ function write(relativePath, source) {
   fs.writeFileSync(path.join(desktopRoot, relativePath), source);
 }
 
+function walkFiles(root, predicate, files = []) {
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(fullPath, predicate, files);
+    } else if (entry.isFile() && predicate(fullPath)) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -5666,6 +5678,74 @@ function applyLoadingAndErrorSurfaces() {
   write('src/components/ErrorBoundary.tsx', source);
 }
 
+function applyFinalFlatPixelAudit() {
+  const sourceRoot = path.join(desktopRoot, 'src');
+  const files = walkFiles(
+    sourceRoot,
+    (file) => /\.(css|tsx?|jsx?)$/.test(file)
+  );
+  for (const file of files) {
+    const relativePath = path.relative(desktopRoot, file);
+    const isCSS = relativePath.endsWith('.css');
+    const isThemeTokens = relativePath === 'src/theme/theme-tokens.ts';
+    let source = fs.readFileSync(file, 'utf8');
+    let next = source;
+
+    next = next
+      .replaceAll('text-red-500/bg-blue-50', 'text-red-500/accent-tint')
+      .replace(/outline:\s*2px solid var\(--color-border-active,\s*#[0-9a-fA-F]{6}\)\s*!important;/g, 'outline: none !important;')
+      .replace(/outline:\s*2px solid var\(--color-border-active,\s*#[0-9a-fA-F]{6}\);/g, 'outline: none !important;')
+      .replaceAll('#0066cc', '#1d1d1f')
+      .replaceAll('#2997ff', '#ffffff')
+      .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent)) !important;', 'outline: none !important;')
+      .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent));', 'outline: none !important;')
+      .replaceAll('outline-offset: 2px !important;', 'outline-offset: 0 !important;')
+      .replaceAll('outline-offset: 2px;', 'outline-offset: 0;');
+
+    if (!isCSS && !isThemeTokens) {
+      next = next
+        .replace(/\sfocus(?:-visible)?:ring(?:-[^\s"'`}$]+)?/g, '')
+        .replace(/\sfocus(?:-visible)?:ring-opacity-[^\s"'`}$]+/g, '')
+        .replace(/\sfocus(?:-visible)?:ring-offset-[^\s"'`}$]+/g, '')
+        .replace(/\sfocus(?:-visible)?:border-(?:\[[^\s"'`}$]+\]|[^\s"'`}$]+)/g, ' focus:border-transparent')
+        .replace(/\sring-blue-[^\s"'`}$]+/g, '')
+        .replace(/\sring-\[3px\]/g, '')
+        .replace(/\sring-(?:\[[^\s"'`}$]+\](?:\/[^\s"'`}$]+)?|[^\s"'`}$]+)/g, '')
+        .replace(/\sborder-blue-[^\s"'`}$]+/g, ' border-[var(--epistemos-accent)]')
+        .replace(/\stext-blue-[^\s"'`}$]+/g, ' text-[var(--epistemos-accent)]')
+        .replace(/\sbg-blue-[^\s"'`}$]+/g, ' bg-[var(--epistemos-accent)]/10')
+        .replace(/\bfocus(?:-visible)?:ring(?:-[^\s"'`}$]+)?/g, '')
+        .replace(/\bfocus(?:-visible)?:ring-opacity-[^\s"'`}$]+/g, '')
+        .replace(/\bfocus(?:-visible)?:ring-offset-[^\s"'`}$]+/g, '')
+        .replace(/\bfocus(?:-visible)?:border-(?:\[[^\s"'`}$]+\]|[^\s"'`}$]+)/g, 'focus:border-transparent')
+        .replace(/\bring-blue-[^\s"'`}$]+/g, '')
+        .replace(/\bring-\[3px\]/g, '')
+        .replace(/\bring-(?:\[[^\s"'`}$]+\](?:\/[^\s"'`}$]+)?|[^\s"'`}$]+)/g, '')
+        .replace(/\bborder-blue-[^\s"'`}$]+/g, 'border-[var(--epistemos-accent)]')
+        .replace(/\btext-blue-[^\s"'`}$]+/g, 'text-[var(--epistemos-accent)]')
+        .replace(/\bbg-blue-[^\s"'`}$]+/g, 'bg-[var(--epistemos-accent)]/10');
+    }
+
+    if (next !== source) {
+      fs.writeFileSync(file, next);
+    }
+    if (relativePath === 'src/styles/main.css' && !next.includes('epistemos-native-final-flat-pixel-audit')) {
+      fs.appendFileSync(file, `
+
+/* Epistemos final flat/pixel audit (epistemos-native-final-flat-pixel-audit)
+   Last staging guard: no blue fallback focus rings or hard outline rules after
+   upstream Goose component rewrites have run. */
+.goose-epistemos :is(button, [href], input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [tabindex]:not([tabindex='-1'])):focus,
+.goose-epistemos :is(button, [href], input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+`);
+    }
+  }
+}
+
 applyThemeTokens();
 applyMainCSS();
 applyButton();
@@ -5710,5 +5790,6 @@ applyRemainingTokenDriftSurfaces();
 applyNeutralTokenDriftSurfaces();
 applyModalScrimAndElicitationSurfaces();
 applyLoadingAndErrorSurfaces();
+applyFinalFlatPixelAudit();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
