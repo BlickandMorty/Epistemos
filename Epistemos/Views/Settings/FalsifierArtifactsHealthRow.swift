@@ -3,6 +3,8 @@ import Foundation
 import SwiftUI
 
 nonisolated enum FalsifierArtifactResultReader {
+    static let maxArtifactDirectories = 128
+    static let maxArtifactDirectoryCandidates = 512
     static let maxResultBytes = 256 * 1024
 
     static func artifactDirectories(
@@ -10,10 +12,30 @@ nonisolated enum FalsifierArtifactResultReader {
         fileManager: FileManager = .default
     ) -> [URL] {
         guard isReadableDirectory(root, fileManager: fileManager),
-              let dirs = try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else {
+              let enumerator = fileManager.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+                options: [.skipsSubdirectoryDescendants]
+              ) else {
             return []
         }
-        return dirs.filter { isReadableDirectory($0, fileManager: fileManager) }
+
+        var dirs: [URL] = []
+        var inspectedCandidates = 0
+        for case let url as URL in enumerator {
+            guard inspectedCandidates < maxArtifactDirectoryCandidates else { break }
+            inspectedCandidates += 1
+            guard dirs.count < maxArtifactDirectories else { break }
+            guard isReadableDirectory(url, fileManager: fileManager),
+                  hasReadableResultFile(
+                    url.appendingPathComponent("result.json"),
+                    fileManager: fileManager
+                  ) else {
+                continue
+            }
+            dirs.append(url)
+        }
+        return dirs
     }
 
     static func jsonObject(
@@ -65,6 +87,22 @@ nonisolated enum FalsifierArtifactResultReader {
             return nil
         }
         return data
+    }
+
+    private static func hasReadableResultFile(
+        _ url: URL,
+        fileManager: FileManager
+    ) -> Bool {
+        guard url.isFileURL,
+              fileManager.isReadableFile(atPath: url.path),
+              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil,
+              let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              attributes[.type] as? FileAttributeType == .typeRegular,
+              let size = attributes[.size] as? NSNumber,
+              size.uint64Value <= UInt64(maxResultBytes) else {
+            return false
+        }
+        return true
     }
 
     private static func isReadableDirectory(

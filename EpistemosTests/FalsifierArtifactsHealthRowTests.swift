@@ -56,6 +56,11 @@ struct FalsifierArtifactsHealthRowTests {
         let linked = root.appendingPathComponent("linked", isDirectory: true)
         try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try #"{"overall_pass":true}"#.write(
+            to: real.appendingPathComponent("result.json"),
+            atomically: true,
+            encoding: .utf8
+        )
         try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: outside)
 
         let dirs = FalsifierArtifactResultReader.artifactDirectories(in: root)
@@ -64,14 +69,44 @@ struct FalsifierArtifactsHealthRowTests {
         #expect(dirs == ["real"])
     }
 
+    @Test("artifact directory scan requires result files and caps shallow enumeration")
+    func artifactDirectoryScanRequiresResultsAndCapsEnumeration() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let missingResult = root.appendingPathComponent("missing-result", isDirectory: true)
+        try FileManager.default.createDirectory(at: missingResult, withIntermediateDirectories: true)
+
+        for index in 0..<(FalsifierArtifactResultReader.maxArtifactDirectories + 5) {
+            let dir = root.appendingPathComponent("artifact-\(index)", isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try #"{"overall_pass":true}"#.write(
+                to: dir.appendingPathComponent("result.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let dirs = FalsifierArtifactResultReader.artifactDirectories(in: root)
+
+        #expect(dirs.count == FalsifierArtifactResultReader.maxArtifactDirectories)
+        #expect(!dirs.map(\.lastPathComponent).contains("missing-result"))
+    }
+
     @Test("falsifier artifact row source keeps no-follow bounded result reads")
     func falsifierArtifactRowSourceKeepsNoFollowBoundedResultReads() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/FalsifierArtifactsHealthRow.swift")
 
         for required in [
             "nonisolated enum FalsifierArtifactResultReader",
+            "maxArtifactDirectories",
+            "maxArtifactDirectoryCandidates",
             "maxResultBytes",
             "artifactDirectories(in: root, fileManager: fm)",
+            "enumerator(",
+            "inspectedCandidates < maxArtifactDirectoryCandidates",
+            "dirs.count < maxArtifactDirectories",
+            "hasReadableResultFile",
             "destinationOfSymbolicLink(atPath:",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",

@@ -187,8 +187,9 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 - `VerifiedFloorChipStrip` green now requires `productionWired && falsifierPassed && artifactSatisfied &&
   liveBackingSatisfied`. `requiresLiveBacking: .ledger/.dag` probes `RustProvenanceLedgerClient`/`RustCognitiveDagClient`;
   declared artifact backing requires a readable regular non-symlink file. `AnswerPacketHealthRow` opts into ledger
-  backing. `FalsifierArtifactsHealthRow` reads falsifier `result.json` artifacts through a bounded no-follow regular-file
-  envelope and skips symlinked artifact directories.
+  backing. `FalsifierArtifactsHealthRow` shallow-enumerates a capped set of falsifier artifact candidates, requires a
+  readable bounded regular `result.json`, reads it through a no-follow regular-file envelope, and skips symlinked artifact
+  directories.
 - `AgentNoteEditProvenance`→EventStore remains the real, buildable per-edit lineage; shipped Provenance Console
   (`ProvenanceConsoleView`) is read-only and its `retractionEventProvider` defaults to empty.
 

@@ -13,9 +13,9 @@ ACS anchors as verification evidence; `uasAddress` is stable identity metadata a
 `VerifiedFloorChipStrip` green = `productionWired && falsifierPassed && artifactSatisfied && liveBackingSatisfied`
 (`SettingsSurfaceComponents.swift`). `RustProvenanceLedgerClient.summary().claimCount` + `RustCognitiveDagClient.stats().nodeCount`
 exist, `nonisolated`, return `.empty` when FFI absent, and are used by `VerifiedFloorLiveBacking`. `ChatMessage.answerPacketId`
-plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge. `FalsifierArtifactsHealthRow` reads
-`artifacts/falsifiers/*/result.json` through a bounded no-follow regular-file envelope and skips symlinked falsifier
-directories.
+plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge. `FalsifierArtifactsHealthRow`
+shallow-enumerates a capped set of `artifacts/falsifiers/*` candidates, requires a readable bounded regular
+`result.json`, reads it through a no-follow regular-file envelope, and skips symlinked falsifier directories.
 
 ## Fix A — honest label gate [DELIVERED]
 `VRMLabel.honestLabel(for packet:) -> VRMLabel?`:
@@ -39,8 +39,8 @@ The existing init remains source-compatible, with opt-in real gates that AND int
 `.dag` → `RustCognitiveDagClient.stats().nodeCount > 0`). `greenEligible = productionWired && falsifierPassed &&
 artifactSatisfied && liveBackingSatisfied`. Witness label shows "no artifact"/"empty" instead of "PASS" when a declared
 backing is missing, so a literal-true cannot force green on rows that declare backing. `AnswerPacketHealthRow` opts into
-ledger backing with `requiresLiveBacking: .ledger`; `FalsifierArtifactsHealthRow` bounds and no-follows each
-`result.json` artifact before parsing; other rows stay deliberate row-by-row adoption.
+ledger backing with `requiresLiveBacking: .ledger`; `FalsifierArtifactsHealthRow` caps artifact candidate scanning and
+bounds/no-follows each `result.json` artifact before parsing; other rows stay deliberate row-by-row adoption.
 
 ## Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]
 Chip text/color from `honestLabel(for:)` ONLY; renders **nothing** when nil. Hover popover surfaces: model + tier +
