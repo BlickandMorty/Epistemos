@@ -55,4 +55,22 @@ struct EngineLogDiagnosticsTests {
             #expect(!source.contains("String(describing: error)"))
         }
     }
+
+    @Test("engine FFI fallback logs route through redacted diagnostics")
+    func engineFFIFallbackLogsRouteThroughRedactedDiagnostics() throws {
+        let paths = [
+            "Epistemos/Engine/RustAnswerPacketProducerClient.swift",
+            "Epistemos/Engine/RustProvenanceLedgerClient.swift",
+            "Epistemos/Engine/RustCognitiveDagClient.swift",
+            "Epistemos/Engine/ResonanceService.swift",
+            "Epistemos/Engine/FSRSDecayState.swift",
+        ]
+
+        for path in paths {
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(source.contains("EngineLogDiagnostics.logMessage"))
+            #expect(!source.contains("String(describing: error)"))
+            #expect(!source.contains("error.localizedDescription"))
+        }
+    }
 }

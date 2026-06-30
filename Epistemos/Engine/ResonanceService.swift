@@ -200,7 +200,11 @@ final class ResonanceService {
             signature = try Self.computeViaFFI(claim: claim)
             ffiCallCount &+= 1
         } catch {
-            Self.log.error("Resonance FFI call failed (\(String(describing: error), privacy: .public)); falling back to Swift mirror")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Resonance FFI call failed"
+            )
+            Self.log.error("\(message, privacy: .public)")
             signature = computeSwiftMirror(for: claim)
             swiftMirrorFallbackCount &+= 1
         }

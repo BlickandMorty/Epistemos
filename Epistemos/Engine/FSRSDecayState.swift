@@ -301,7 +301,11 @@ nonisolated private enum FSRSRustSchedulerBridge {
                 nowTimestamp: now.timeIntervalSince1970
             )
         } catch {
-            log.error("Rust FSRS current retrievability failed; falling back to Swift approximation: \(String(describing: error), privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Rust FSRS current retrievability failed"
+            )
+            log.error("\(message, privacy: .public)")
             return nil
         }
 #else
@@ -324,7 +328,11 @@ nonisolated private enum FSRSRustSchedulerBridge {
             )
             return outcome.row.toSwiftDecayRow()
         } catch {
-            log.error("Rust FSRS scheduler failed; falling back to minimal Swift review-state update: \(String(describing: error), privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Rust FSRS scheduler failed"
+            )
+            log.error("\(message, privacy: .public)")
             return nil
         }
 #else
@@ -429,7 +437,11 @@ public actor FSRSDecayStore {
                 try FSRSDecayDatabaseRow(row).save(db)
             }
         } catch {
-            Self.log.error("FSRSDecayStore: failed to persist row \(row.noteId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "FSRSDecayStore: failed to persist row"
+            )
+            Self.log.error("\(message, privacy: .public)")
         }
     }
 
@@ -443,7 +455,11 @@ public actor FSRSDecayStore {
                 }
             }
         } catch {
-            Self.log.error("FSRSDecayStore: failed to persist rows: \(error.localizedDescription, privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "FSRSDecayStore: failed to persist rows"
+            )
+            Self.log.error("\(message, privacy: .public)")
         }
     }
 
@@ -454,7 +470,11 @@ public actor FSRSDecayStore {
                 try db.execute(sql: "DELETE FROM fsrs_state")
             }
         } catch {
-            Self.log.error("FSRSDecayStore: failed to reset persisted rows: \(error.localizedDescription, privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "FSRSDecayStore: failed to reset persisted rows"
+            )
+            Self.log.error("\(message, privacy: .public)")
         }
     }
 

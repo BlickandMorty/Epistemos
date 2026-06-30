@@ -135,7 +135,11 @@ nonisolated enum RustCognitiveDagClient {
                 from: Data(json.utf8)
             )
         } catch {
-            log.error("Cognitive DAG stats FFI failed (\(String(describing: error), privacy: .public)); returning empty")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Cognitive DAG stats FFI failed"
+            )
+            log.error("\(message, privacy: .public)")
             return .empty
         }
         #else

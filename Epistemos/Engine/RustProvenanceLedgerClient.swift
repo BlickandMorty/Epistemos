@@ -87,7 +87,11 @@ nonisolated enum RustRoutingStatsClient {
                 from: Data(json.utf8)
             )
         } catch {
-            log.error("Routing stats FFI failed (\(String(describing: error), privacy: .public)); returning empty")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Routing stats FFI failed"
+            )
+            log.error("\(message, privacy: .public)")
             return .empty
         }
         #else
@@ -119,7 +123,11 @@ nonisolated enum RustProvenanceLedgerClient {
             )
             return decoded
         } catch {
-            log.error("Provenance ledger summary FFI failed (\(String(describing: error), privacy: .public)); returning empty")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Provenance ledger summary FFI failed"
+            )
+            log.error("\(message, privacy: .public)")
             return .empty
         }
         #else
@@ -136,7 +144,11 @@ nonisolated enum RustProvenanceLedgerClient {
             let json = try provenanceLedgerRecentEventsJson(limit: limit)
             return try decodeEvents(from: json)
         } catch {
-            log.error("Provenance ledger events FFI failed (\(String(describing: error), privacy: .public)); returning empty")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "Provenance ledger events FFI failed"
+            )
+            log.error("\(message, privacy: .public)")
             return []
         }
         #else

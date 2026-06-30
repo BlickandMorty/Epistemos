@@ -88,7 +88,11 @@ nonisolated enum RustAnswerPacketProducerClient {
                 createdAtMs: request.createdAtMs
             )
         } catch {
-            log.error("produceAnswerPacketJson FFI failed (\(String(describing: error), privacy: .public))")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "produceAnswerPacketJson FFI failed"
+            )
+            log.error("\(message, privacy: .public)")
             return nil
         }
         #else
