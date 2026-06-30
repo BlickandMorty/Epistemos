@@ -4239,11 +4239,99 @@ writeRequired(
 
 writeRequired(
   standalonePath,
-  (source) =>
-    source.replace(
+  (source) => {
+    let next = source.replace(
       "import { startAgent, resumeAgent, listApps, stopAgent } from '../../api';",
-      "import { startAgent, resumeAgent, stopAgent } from '../../api';\nimport { listApps } from '../../epistemos/appsBridge';"
-    ),
+      "import { startAgent, resumeAgent, stopAgent } from '../../api';\nimport { USE_ACP_CHAT } from '../../acpChatFeatureFlag';\nimport { acpChatSessionController } from '../../acp/chatSessionController';\nimport { acpDeleteSession } from '../../acp/sessions';\nimport { getConfiguredGooseExtensions, gooseExtensionName } from '../../acp/extensions';\nimport { listApps } from '../../epistemos/appsBridge';"
+    );
+    next = next.replace(
+      `        const startResponse = await startAgent({
+          body: { working_dir: workingDir },
+          throwOnError: true,
+        });
+
+        const sid = startResponse.data.id;
+
+        await resumeAgent({
+          body: {
+            session_id: sid,
+            load_model_and_extensions: true,
+          },
+          throwOnError: true,
+        });
+
+        setSessionId(sid);
+        setLoading(false);`,
+      `        if (USE_ACP_CHAT) {
+          const configuredExtensions = await getConfiguredGooseExtensions();
+          const appExtensions = configuredExtensions
+            .filter((entry) => entry.enabled && gooseExtensionName(entry.extension) === extensionName)
+            .map((entry) => entry.extension);
+          if (appExtensions.length === 0) {
+            throw new Error(\`Could not find enabled Goose extension "\${extensionName}" for standalone app launch\`);
+          }
+          const session = await acpChatSessionController.createSession(workingDir, appExtensions);
+          setSessionId(session.id); // epistemos-acp-standalone-app-session
+          setLoading(false);
+          return;
+        }
+
+        const startResponse = await startAgent({
+          body: { working_dir: workingDir },
+          throwOnError: true,
+        });
+
+        const sid = startResponse.data.id;
+
+        await resumeAgent({
+          body: {
+            session_id: sid,
+            load_model_and_extensions: true,
+          },
+          throwOnError: true,
+        });
+
+        setSessionId(sid);
+        setLoading(false);`
+    );
+    next = next.replace(
+      `      if (sessionId) {
+        stopAgent({
+          body: { session_id: sessionId },
+          throwOnError: false,
+        }).catch((err: unknown) => {
+          console.warn('Failed to stop agent on unmount:', err);
+        });
+      }`,
+      `      if (sessionId) {
+        if (USE_ACP_CHAT) {
+          acpDeleteSession(sessionId).catch((err: unknown) => {
+            console.warn('Failed to delete ACP app session on unmount:', err);
+          }); // epistemos-acp-standalone-app-session-cleanup
+          return;
+        }
+        stopAgent({
+          body: { session_id: sessionId },
+          throwOnError: false,
+        }).catch((err: unknown) => {
+          console.warn('Failed to stop agent on unmount:', err);
+        });
+      }`
+    );
+    for (const snippet of [
+      'epistemos-acp-standalone-app-session',
+      'getConfiguredGooseExtensions()',
+      'gooseExtensionName(entry.extension) === extensionName',
+      'acpChatSessionController.createSession(workingDir, appExtensions)',
+      'epistemos-acp-standalone-app-session-cleanup',
+      'acpDeleteSession(sessionId)',
+    ]) {
+      if (!next.includes(snippet)) {
+        throw new Error(`StandaloneAppView staged source missing required ACP apps snippet: ${snippet}`);
+      }
+    }
+    return next;
+  },
   'StandaloneAppView'
 );
 NODE
@@ -5792,6 +5880,11 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/hooks/useChatStream.ts"
     grep -q "import { listApps } from '../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/utils/platform_events.ts"
     grep -q "import { listApps } from '../../epistemos/appsBridge';" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
+    grep -q "epistemos-acp-standalone-app-session" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
+    grep -q "getConfiguredGooseExtensions()" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
+    grep -q "gooseExtensionName(entry.extension) === extensionName" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
+    grep -q "acpChatSessionController.createSession(workingDir, appExtensions)" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
+    grep -q "epistemos-acp-standalone-app-session-cleanup" "$WORK_ROOT/ui/desktop/src/components/apps/StandaloneAppView.tsx"
     grep -q "saveAcpProviderDefaults(providerName, modelName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     grep -q "saveAcpSessionModel(sessionId, modelName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     grep -q "saveAcpSessionProvider(sessionId, providerName)" "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
