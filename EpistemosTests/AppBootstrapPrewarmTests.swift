@@ -134,4 +134,37 @@ nonisolated struct AppBootstrapPrewarmTests {
         let blocks = try ctx.fetch(FetchDescriptor<SDBlock>())
         #expect(blocks.isEmpty)
     }
+
+    @Test("prewarm diagnostics redact persistence errors")
+    func prewarmDiagnosticsRedactPersistenceErrors() throws {
+        let error = NSError(
+            domain: "NSCocoaErrorDomain\n/Users/jojo/PrivateVault",
+            code: 134110,
+            userInfo: [
+                NSLocalizedDescriptionKey: "/Users/jojo/PrivateVault/store.sqlite failed"
+            ]
+        )
+
+        let message = AppBootstrap.PrewarmDiagnostics.logMessage(
+            for: error,
+            fallback: "prewarmRecentBlockMirrors: save failed"
+        )
+
+        #expect(message.contains("prewarmRecentBlockMirrors: save failed"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=134110"))
+        #expect(message.count <= AppBootstrap.PrewarmDiagnostics.maxLogMessageCharacters)
+        #expect(!message.contains("/Users/jojo"))
+        #expect(!message.contains("PrivateVault"))
+        #expect(!message.contains("store.sqlite"))
+    }
+
+    @Test("prewarm logs route through redacted diagnostics")
+    func prewarmLogsRouteThroughRedactedDiagnostics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap+Prewarm.swift")
+
+        #expect(source.contains("PrewarmDiagnostics.logMessage"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
 }

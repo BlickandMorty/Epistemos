@@ -9,6 +9,45 @@ extension AppBootstrap {
         category: "AppBootstrap.Prewarm"
     )
 
+    nonisolated enum PrewarmDiagnostics {
+        static let maxLogMessageCharacters = 240
+
+        static func logMessage(for error: Error, fallback: String) -> String {
+            let nsError = error as NSError
+            return logMessage(
+                "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+                fallback: fallback
+            )
+        }
+
+        static func logMessage(_ message: String, fallback: String = "Prewarm failed") -> String {
+            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return fallback }
+            guard trimmed.count > maxLogMessageCharacters else { return trimmed }
+
+            let suffix = "..."
+            let end = trimmed.index(
+                trimmed.startIndex,
+                offsetBy: max(0, maxLogMessageCharacters - suffix.count)
+            )
+            return String(trimmed[..<end]) + suffix
+        }
+
+        private static func safeDomain(_ domain: String) -> String {
+            let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return "Error" }
+            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+            guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+                return "Error"
+            }
+            guard trimmed.count <= 80 else {
+                let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+                return String(trimmed[..<end])
+            }
+            return trimmed
+        }
+    }
+
     /// Pre-parses BlockMirror state for the K most-recently-modified pages so
     /// the BlockMirror first-parse cost (~10-200ms per note) moves from
     /// click-time to launch-time. Addresses ISSUE-2026-05-12-008 cause #1.
@@ -37,8 +76,12 @@ extension AppBootstrap {
         do {
             pages = try modelContext.fetch(descriptor)
         } catch {
+            let message = PrewarmDiagnostics.logMessage(
+                for: error,
+                fallback: "prewarmRecentBlockMirrors: fetch failed"
+            )
             prewarmLog.error(
-                "prewarmRecentBlockMirrors: fetch failed — \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
             return 0
         }
@@ -71,8 +114,12 @@ extension AppBootstrap {
             do {
                 try modelContext.save()
             } catch {
+                let message = PrewarmDiagnostics.logMessage(
+                    for: error,
+                    fallback: "prewarmRecentBlockMirrors: save failed"
+                )
                 prewarmLog.error(
-                    "prewarmRecentBlockMirrors: save failed — \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
             }
         }
