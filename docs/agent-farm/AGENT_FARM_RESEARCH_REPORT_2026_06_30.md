@@ -65,3 +65,41 @@ The verification step hit **API rate limits**, so the entire **economy** and **f
 [Stanford HAI](https://hai.stanford.edu/news/computational-agents-exhibit-believable-humanlike-behavior)
 (economy/framework source leads — unverified: Google AP2, Coinbase x402, a16z AI Town, Project Sid arXiv:2411.00114,
 joonspk-research/generative_agents, camel-ai/camel, MineDojo/Voyager.)
+
+## PASS 2 — Bevy capability · Hermes/MoA · currency (111 agents · verified set)
+
+**★ BEVY CAN DO THIS — every required primitive VERIFIED (3-0), proven by official examples + shipped Steam games.**
+- **Thousands of 2D ECS entities ✅** — official `bevymark` spawns 10,000 sprites/sec; render benchmarks hit ~100K–130K
+  sprites. "Thousands" is a conservative floor, not the ceiling. Your society scales.
+- **Blur + reveal/dissolve shaders ✅** — via a custom post-process pass that reads the main-pass texture (official
+  `custom_post_processing.rs` + `motion_blur`/`bloom`/`depth_of_field` examples). ⚠️ **CAVEAT: blur is NOT a built-in
+  toggle** — it's custom-shader work (the built-in stack is only chromatic-aberration/vignette/lens-distortion).
+- **Transparent, borderless "widget" windows ✅** — `transparent_window.rs` + `desk_toy.rs` ("feel more like a widget
+  than a window"). ⚠️ needs `ClearColor(Color::NONE)` + per-OS `composite_alpha_mode`; historically flaky on Linux.
+- **Cross-platform native ✅** — wgpu → Metal (Mac) / DX12 (Win) native; **WebGPU on web is still experimental** (WebGL2
+  is the safe default).
+- **Bridging a Python/Hermes brain into ECS ✅** — documented **crossbeam-channel-in-a-Resource** pattern (non-blocking
+  out-of-process agent brain → ECS). This is your brain/body bridge, proven.
+- ⚠️ **Two honest weaknesses:** (a) blur/vibrancy = out-of-engine custom work (NSVisualEffectView vibrancy is native,
+  not Bevy); (b) **Bevy's RENDERER is immature** enough that the flagship shipped games (Tiny Glade, Tunnet) **keep
+  `bevy_ecs` but replace the renderer.** Mitigation: lean on `bevy_ecs` (rock-solid) + accept custom-shader work for
+  the frosted look, or pair ECS with a lighter 2D renderer if Bevy's bites.
+
+**HERMES / MIXTURE-OF-AGENTS — important nuance (don't conflate two repos).**
+- **`Hermes-Function-Calling` = single-model, single-agent tool calling** — it only supplies the canonical
+  `<tool_call>/<tool_response>/<tools>` XML grammar. NO multi-agent / A2A / routing code lives there.
+- The **multi-agent + Mixture-of-Agents capability is the SEPARATE `hermes-agent` framework.** So "use Hermes" = the
+  grammar (for tool-calling mascots) + `hermes-agent` (for the society). Vendor the right one for the right job.
+- **Mixture-of-Agents is REAL + peer-reviewed** (Together AI, arXiv:2406.04692, ICLR 2025): layered draft-then-aggregate
+  (default 3 layers × 6 proposers); open-model ensembles beat GPT-4o on AlpacaEval 2.0 (65.1% vs 57.5%). ⚠️ **BUT
+  contested** — **Self-MoA** (aggregating one strong model's own samples) can beat mixing different models, and MoA costs
+  **~4× latency.** Verdict: MoA "works but is not a free win" — use it for *quality-critical* super-agents, not every
+  mascot. (Several Hermes-MoA-specific claims were rate-limited/unverified.)
+
+**ROBUST CURRENCY — STILL an open gap (rate-limited AGAIN).** Pass 2's verifier hit rate limits on the *entire* economy
+set (EVE / Eco / Universal Paperclips / AP2 / x402 / Stripe) — same as Pass 1. So after two passes the economy design
+is *still unconfirmed by adversarial verification*. → Needs a dedicated, tighter currency-only pass (or direct synthesis
+from the well-established economy-design literature, since the sources exist — only the verification keeps failing).
+
+### Pass 2 sources (Bevy verified)
+[bevymark](https://bevy.org/examples/stress-tests/bevymark/) · [custom post-processing](https://bevy.org/examples/shaders/custom-post-processing/) · [transparent_window.rs](https://github.com/bevyengine/bevy/blob/main/examples/window/transparent_window.rs) · [Window docs](https://docs.rs/bevy/latest/bevy/window/struct.Window.html) · MoA (arXiv:2406.04692, ICLR 2025)
