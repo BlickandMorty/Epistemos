@@ -185,6 +185,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
     var themeGuardCSSOverride: String? = nil
     var themeIdentity: String? = nil
     var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)? = nil
+    var onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -193,7 +194,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             previewTheme: previewTheme,
             themeGuardCSSOverride: themeGuardCSSOverride,
             themeIdentity: themeIdentity,
-            onConsoleError: onConsoleError
+            onConsoleError: onConsoleError,
+            onDOMSnapshot: onDOMSnapshot
         )
     }
 
@@ -245,6 +247,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         context.coordinator.themeGuardCSSOverride = themeGuardCSSOverride
         context.coordinator.themeIdentity = themeIdentity
         context.coordinator.onConsoleError = onConsoleError
+        context.coordinator.onDOMSnapshot = onDOMSnapshot
         context.coordinator.syncSafeAPIHandler(for: webView)
         loadPreview(into: webView, context: context)
     }
@@ -299,6 +302,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var messageHandlerInstalled = false
         var consoleHandlerInstalled = false
         var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
+        var onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)?
         lazy var urlSchemeHandler = HTMLWorkspacePreviewURLSchemeHandler { [weak self] resourcePath in
             self?.resourceResponse(for: resourcePath)
         }
@@ -310,7 +314,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             previewTheme: HTMLWorkspacePreviewTheme?,
             themeGuardCSSOverride: String?,
             themeIdentity: String?,
-            onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
+            onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?,
+            onDOMSnapshot: (@MainActor (HTMLWorkspaceDOMSnapshot) -> Void)?
         ) {
             self.package = package
             self.safeAPIEnabled = safeAPIEnabled
@@ -318,6 +323,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             self.themeGuardCSSOverride = themeGuardCSSOverride
             self.themeIdentity = themeIdentity
             self.onConsoleError = onConsoleError
+            self.onDOMSnapshot = onDOMSnapshot
         }
 
         func canPatchDataOnly(shellIdentity: String, dataJSON: String) -> Bool {
@@ -358,9 +364,56 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 guard let webView else { return }
                 if error != nil || (result as? String) != "patched" {
                     webView.loadHTMLString(renderedFallbackHTML, baseURL: HTMLWorkspacePreviewURL.baseURL)
+                } else {
+                    self.refreshLiveDOMSnapshot(in: webView)
                 }
             }
         }
+
+        func refreshLiveDOMSnapshot(in webView: WKWebView) {
+            guard onDOMSnapshot != nil else { return }
+            webView.evaluateJavaScript(Self.liveDOMSnapshotScript) { [weak self] result, _ in
+                guard let self else { return }
+                let snapshot = Self.domSnapshot(from: result)
+                    ?? HTMLWorkspaceDOMOutline.snapshot(for: self.package.indexHTML, source: .source)
+                Task { @MainActor in
+                    self.onDOMSnapshot?(snapshot)
+                }
+            }
+        }
+
+        private static func domSnapshot(from result: Any?) -> HTMLWorkspaceDOMSnapshot? {
+            guard let payload = result as? [String: Any] else { return nil }
+            let rows = payload["outline"] as? [String] ?? []
+            let nodeCount = (payload["nodeCount"] as? NSNumber)?.intValue ?? rows.count
+            return HTMLWorkspaceDOMSnapshot(
+                outline: rows.isEmpty ? "No DOM nodes" : rows.joined(separator: "\n"),
+                nodeCount: nodeCount,
+                source: .live
+            )
+        }
+
+        private static let liveDOMSnapshotScript = """
+        (() => {
+          const root = document.body || document.documentElement;
+          if (!root) { return { outline: [], nodeCount: 0 }; }
+          const excluded = new Set(['script', 'style', 'meta', 'link', 'title']);
+          const nodes = Array.from(root.querySelectorAll('*')).filter((node) => {
+            return !excluded.has(String(node.tagName || '').toLowerCase());
+          });
+          const outline = nodes.slice(0, 300).map((node) => {
+            const tag = String(node.tagName || '').toLowerCase();
+            const id = node.id ? '#' + node.id : '';
+            const classes = Array.from(node.classList || []).slice(0, 6).map((name) => '.' + name).join('');
+            const hasData = Array.from(node.attributes || []).some((attr) => attr.name.indexOf('data-') === 0);
+            return '<' + tag + id + classes + '>' + (hasData ? ' data' : '');
+          });
+          if (nodes.length > outline.length) {
+            outline.push('... ' + (nodes.length - outline.length) + ' more nodes');
+          }
+          return { outline, nodeCount: nodes.length };
+        })();
+        """
 
         func resourceResponse(for resourcePath: String) -> HTMLWorkspacePreviewResourceResponse? {
             switch resourcePath {
@@ -450,6 +503,13 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 return "\"\""
             }
             return literal
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFinish navigation: WKNavigation!
+        ) {
+            refreshLiveDOMSnapshot(in: webView)
         }
 
         func webView(

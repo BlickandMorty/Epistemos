@@ -14,6 +14,7 @@ struct HTMLWorkspaceEditorView: View {
     @State private var inspectorVisible = false
     @State private var isExportingPDF = false
     @State private var statusText: String?
+    @State private var liveDOMSnapshot: HTMLWorkspaceDOMSnapshot?
 
     init(package: Binding<HTMLWorkspacePackage>, theme: EpistemosTheme? = nil) {
         self._package = package
@@ -28,6 +29,7 @@ struct HTMLWorkspaceEditorView: View {
             workspaceBody
         }
         .onChange(of: package) { _, newValue in
+            liveDOMSnapshot = nil
             schedulePreviewUpdate(newValue)
         }
         .onChange(of: colorScheme) { _, _ in
@@ -74,7 +76,7 @@ struct HTMLWorkspaceEditorView: View {
                     .foregroundStyle(workspaceTheme.resolved.foreground.color)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text("\(contentHash.prefix(10)) / \(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML)) DOM")
+                Text("\(contentHash.prefix(10)) / \(domNodeCount) \(domSnapshot.source.label) DOM")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -232,13 +234,13 @@ struct HTMLWorkspaceEditorView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(selectedPane.fileName)
                     .font(.subheadline.weight(.semibold))
-                Text(selectedPane.subtitle(for: package))
+                Text(selectedPaneSubtitle)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 12)
-            Text(selectedPane.metricText(for: package))
+            Text(selectedPaneMetricText)
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -302,10 +304,10 @@ struct HTMLWorkspaceEditorView: View {
             workspaceCodeEditor(text: $package.dataJSON)
         case .dom:
             readOnlySourcePane(
-                title: "DOM Outline",
+                title: domPaneTitle,
                 systemImage: "point.3.connected.trianglepath.dotted",
                 text: domOutlineText,
-                emptyText: "No DOM nodes parsed yet. Edit HTML to populate this outline."
+                emptyText: "No DOM nodes reported yet. Open the preview or edit HTML to populate this outline."
             )
         case .assets:
             readOnlySourcePane(
@@ -368,6 +370,9 @@ struct HTMLWorkspaceEditorView: View {
                         // consolePanel reads package.consoleErrors). Only `package` is updated, never
                         // `previewPackage`, so a runtime error never re-renders the preview (no loop).
                         package = (try? HTMLWorkspacePatchApplier.apply(.recordConsoleError(error), to: package)) ?? package
+                    },
+                    onDOMSnapshot: { snapshot in
+                        liveDOMSnapshot = snapshot
                     }
                 )
                     .id(previewRenderIdentity)
@@ -451,7 +456,7 @@ struct HTMLWorkspaceEditorView: View {
                 inspectorRow("Hash", String(contentHash.prefix(12)))
                 inspectorRow("Sandbox", package.manifest.sandboxPolicy.allowNetwork ? "Network" : "Offline")
                 inspectorRow("Bridge", bridgeStatusText)
-                inspectorRow("DOM", "\(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML))")
+                inspectorRow("DOM", "\(domNodeCount) \(domSnapshot.source.label)")
                 inspectorRow("Data", dataStatus)
                 inspectorRow("Assets", "\(package.assets.count)")
                 inspectorRow("Snapshots", "\(package.snapshots.count)")
@@ -488,6 +493,14 @@ struct HTMLWorkspaceEditorView: View {
         package.manifest.sandboxPolicy.allowAppBridge ? "Safe API deferred" : "No bridge"
     }
 
+    private var selectedPaneSubtitle: String {
+        selectedPane.subtitle(for: package, domSnapshot: domSnapshot)
+    }
+
+    private var selectedPaneMetricText: String {
+        selectedPane.metricText(for: package, domSnapshot: domSnapshot)
+    }
+
     private var capabilityGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 6)], alignment: .leading, spacing: 6) {
             ForEach(["HTML", "CSS", "JS", "Data", "DOM", "Chart", "Asset", "PDF"], id: \.self) { label in
@@ -502,7 +515,19 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var domOutlineText: String {
-        HTMLWorkspaceDOMOutline.outline(for: package.indexHTML)
+        domSnapshot.outline
+    }
+
+    private var domPaneTitle: String {
+        domSnapshot.source == .live ? "Live DOM Outline" : "Source DOM Outline"
+    }
+
+    private var domNodeCount: Int {
+        domSnapshot.nodeCount
+    }
+
+    private var domSnapshot: HTMLWorkspaceDOMSnapshot {
+        liveDOMSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
     }
 
     private var assetManifestText: String {
@@ -1175,24 +1200,34 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         }
     }
 
-    func subtitle(for package: HTMLWorkspacePackage) -> String {
+    func subtitle(
+        for package: HTMLWorkspacePackage,
+        domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
+    ) -> String {
         switch self {
         case .html: "DOM structure"
         case .css: "Presentation"
         case .js: "Local behavior"
         case .data: "Structured state"
-        case .dom: "\(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML)) nodes"
+        case .dom:
+            let snapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
+            "\(snapshot.nodeCount) \(snapshot.source.label) nodes"
         case .assets: "\(package.assets.count) assets, \(package.snapshots.count) snapshots"
         }
     }
 
-    func metricText(for package: HTMLWorkspacePackage) -> String {
+    func metricText(
+        for package: HTMLWorkspacePackage,
+        domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
+    ) -> String {
         switch self {
         case .html: Self.counts(for: package.indexHTML)
         case .css: Self.counts(for: package.styleCSS)
         case .js: Self.counts(for: package.scriptJS)
         case .data: Self.counts(for: package.dataJSON)
-        case .dom: "\(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML)) nodes"
+        case .dom:
+            let snapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
+            "\(snapshot.nodeCount) \(snapshot.source.label) nodes"
         case .assets: "\(package.assets.count + package.snapshots.count) files"
         }
     }

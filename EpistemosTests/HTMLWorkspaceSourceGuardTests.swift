@@ -41,6 +41,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("canPatchDataOnly"))
         #expect(previewSource.contains("patchDataJSON"))
         #expect(previewSource.contains("evaluateJavaScript(script)"))
+        #expect(previewSource.contains("onDOMSnapshot"))
+        #expect(previewSource.contains("liveDOMSnapshotScript"))
+        #expect(previewSource.contains("refreshLiveDOMSnapshot"))
+        #expect(previewSource.contains("didFinish navigation"))
         #expect(previewSource.contains("__epistemosReplaceWorkspaceData"))
         #expect(previewSource.contains("lastRenderedShellIdentity"))
         #expect(previewSource.contains("EpdocWebViewShared.notifyWebViewCreated()"))
@@ -133,6 +137,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("Console"))
         #expect(editorSource.contains("bridgeStatusText"))
         #expect(editorSource.contains(#""Safe API deferred""#))
+        #expect(editorSource.contains("@State private var liveDOMSnapshot"))
+        #expect(editorSource.contains("onDOMSnapshot:"))
+        #expect(editorSource.contains("domSnapshot.source.label"))
+        #expect(editorSource.contains(#""Live DOM Outline""#))
     }
 
     @Test("HTML Workspace live data feed is explicit and provenance-visible")
@@ -208,6 +216,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("case assets"))
         #expect(editorSource.contains("data.json"))
         #expect(editorSource.contains("DOM Outline"))
+        #expect(codeEditorSource.contains("HTMLWorkspaceDOMSnapshot"))
+        #expect(codeEditorSource.contains("snapshot(for html: String"))
         #expect(codeEditorSource.contains("NSViewRepresentable"))
         #expect(codeEditorSource.contains("NSTextView"))
         #expect(codeEditorSource.contains("hasHorizontalScroller = true"))
@@ -390,6 +400,18 @@ nonisolated struct HTMLWorkspaceDOMOutlineRegressionTests {
 
         #expect(outline.contains("<main#hero.workspace.shell>"))
         #expect(outline.contains("<section> data"))
+    }
+
+    @Test("DOM snapshot records source kind and node count")
+    func snapshotRecordsSourceKindAndNodeCount() {
+        let snapshot = HTMLWorkspaceDOMOutline.snapshot(
+            for: #"<main><section data-panel="notes"></section></main>"#,
+            source: .live
+        )
+
+        #expect(snapshot.source == .live)
+        #expect(snapshot.nodeCount == 2)
+        #expect(snapshot.outline.contains("<section> data"))
     }
 }
 

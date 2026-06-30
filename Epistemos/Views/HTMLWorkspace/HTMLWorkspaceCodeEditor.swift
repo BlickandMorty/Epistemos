@@ -424,6 +424,24 @@ private final class LineNumberRulerView: NSRulerView {
     }
 }
 
+nonisolated struct HTMLWorkspaceDOMSnapshot: Equatable, Sendable {
+    enum Source: String, Sendable {
+        case source
+        case live
+
+        var label: String {
+            switch self {
+            case .source: "source"
+            case .live: "live"
+            }
+        }
+    }
+
+    var outline: String
+    var nodeCount: Int
+    var source: Source
+}
+
 nonisolated enum HTMLWorkspaceDOMOutline {
     static func outline(for html: String) -> String {
         let tags = tagSummaries(in: html)
@@ -433,6 +451,15 @@ nonisolated enum HTMLWorkspaceDOMOutline {
 
     static func nodeCount(in html: String) -> Int {
         tagSummaries(in: html).count
+    }
+
+    static func snapshot(for html: String, source: HTMLWorkspaceDOMSnapshot.Source = .source) -> HTMLWorkspaceDOMSnapshot {
+        let tags = tagSummaries(in: html)
+        return HTMLWorkspaceDOMSnapshot(
+            outline: tags.isEmpty ? "No DOM nodes" : tags.joined(separator: "\n"),
+            nodeCount: tags.count,
+            source: source
+        )
     }
 
     private static func tagSummaries(in html: String) -> [String] {
