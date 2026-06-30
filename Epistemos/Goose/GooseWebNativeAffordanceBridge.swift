@@ -405,16 +405,15 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 "error": "Epistemos blocked Goose WebView import session file read over \(maxNativeFileReadBytes) bytes.",
             ]
         }
-        do {
-            let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
+        if let data = readNativeFileData(expandedPath, fileManager: fileManager),
+           let contents = String(data: data, encoding: .utf8) {
             return ["filePath": filePath, "contents": contents]
-        } catch {
-            return [
-                "filePath": filePath,
-                "contents": "",
-                "error": nativeErrorMessage(for: error, fallback: "Goose WebView import session file read failed."),
-            ]
         }
+        return [
+            "filePath": filePath,
+            "contents": "",
+            "error": boundedNativeErrorMessage("Goose WebView import session file read failed."),
+        ]
     }
 
     nonisolated static func boundedNativeDialogButtons(_ rawButtons: [String]?) -> [String] {
@@ -557,17 +556,16 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 "found": false,
             ]
         }
-        do {
-            let contents = try String(contentsOfFile: expandedPath, encoding: .utf8)
+        if let data = readNativeFileData(expandedPath),
+           let contents = String(data: data, encoding: .utf8) {
             return ["file": contents, "filePath": expandedPath, "error": NSNull(), "found": true]
-        } catch {
-            return [
-                "file": "",
-                "filePath": expandedPath,
-                "error": Self.nativeErrorMessage(for: error, fallback: "Goose WebView file read failed."),
-                "found": false,
-            ]
         }
+        return [
+            "file": "",
+            "filePath": expandedPath,
+            "error": Self.boundedNativeErrorMessage("Goose WebView file read failed."),
+            "found": false,
+        ]
     }
 
     private func readFileDataURL(_ path: String) -> String? {

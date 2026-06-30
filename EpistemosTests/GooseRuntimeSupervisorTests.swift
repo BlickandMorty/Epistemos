@@ -1607,7 +1607,9 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(source.contains("readNativeFileData(expandedPath)"))
         #expect(source.contains("resourceValues.isRegularFile == true"))
         #expect(source.contains("handle.read(upToCount: Self.maxNativeFileReadBytes + 1)"))
+        #expect(source.contains("String(data: data, encoding: .utf8)"))
         #expect(!source.contains("Data(contentsOf: fileURL)"))
+        #expect(!source.contains("String(contentsOfFile: expandedPath"))
 
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
