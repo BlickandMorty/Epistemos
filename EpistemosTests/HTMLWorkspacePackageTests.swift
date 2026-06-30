@@ -173,6 +173,23 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) != HTMLWorkspacePreviewIdentity.viewIdentity(for: routeUpdate))
     }
 
+    @MainActor
+    @Test("HTMLWorkspace chat context caps all route source to one budget")
+    func chatContextCapsRouteSourceAsOneBudget() throws {
+        let document = HTMLWorkspaceDocument()
+        var package = Self.samplePackage()
+        package.routes = [
+            "a.html": "abcdefghi",
+            "b.html": "second route body",
+        ]
+        document.package = package
+
+        let snapshot = document.chatContextSnapshot(maxSourceCharacters: 6)
+
+        #expect(snapshot.routes["a.html"] == "abcdef")
+        #expect(snapshot.routes["b.html"] == "[omitted: route context budget exhausted]")
+    }
+
     @Test("HTMLWorkspace package resource resolver serves canonical files and path-safe assets")
     func packageResourceResolverServesCanonicalFilesAndAssets() throws {
         let package = Self.samplePackage()

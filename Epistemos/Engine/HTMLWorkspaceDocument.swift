@@ -237,13 +237,33 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             css: Self.truncated(package.styleCSS, maxCharacters: maxSourceCharacters),
             js: Self.truncated(package.scriptJS, maxCharacters: maxSourceCharacters),
             dataJSON: Self.truncated(package.dataJSON, maxCharacters: maxSourceCharacters),
-            routes: package.routes.mapValues { Self.truncated($0, maxCharacters: maxSourceCharacters) }
+            routes: Self.truncatedRoutes(package.routes, maxCharacters: maxSourceCharacters)
         )
     }
 
     nonisolated private static func truncated(_ value: String, maxCharacters: Int) -> String {
         guard maxCharacters > 0, value.count > maxCharacters else { return value }
         return String(value.prefix(maxCharacters))
+    }
+
+    nonisolated private static func truncatedRoutes(
+        _ routes: [String: String],
+        maxCharacters: Int
+    ) -> [String: String] {
+        guard maxCharacters > 0, !routes.isEmpty else { return [:] }
+        var remaining = maxCharacters
+        var result: [String: String] = [:]
+        for name in routes.keys.sorted() {
+            guard remaining > 0 else {
+                result[name] = "[omitted: route context budget exhausted]"
+                continue
+            }
+            let value = routes[name, default: ""]
+            let truncatedValue = truncated(value, maxCharacters: remaining)
+            result[name] = truncatedValue
+            remaining -= truncatedValue.count
+        }
+        return result
     }
 
     nonisolated public override func makeWindowControllers() {
