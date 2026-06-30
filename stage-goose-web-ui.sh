@@ -2014,6 +2014,7 @@ const imports = `${importAnchor}
 import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';
 import {
   authenticateAcpProviderConfig,
+  deleteAcpCustomProvider,
   deleteAcpProviderConfig,
   saveAcpProviderConfig,
 } from '../../../../acp/providers';`;
@@ -2098,8 +2099,12 @@ const cleanupAnchor = `    // Clean up provider-specific cache files (e.g., OAut
     }
 
     const isCustomProvider = provider.provider_type === 'Custom';`;
-const cleanupReplacement = `    if (USE_ACP_CHAT && provider.provider_type !== 'Custom') {
-      await deleteAcpProviderConfig(provider.name);
+const cleanupReplacement = `    if (USE_ACP_CHAT) {
+      if (provider.provider_type === 'Custom') {
+        await deleteAcpCustomProvider(provider.name); // epistemos-acp-provider-modal-custom-delete
+      } else {
+        await deleteAcpProviderConfig(provider.name);
+      }
       onClose();
       return;
     }
@@ -2112,11 +2117,21 @@ const cleanupReplacement = `    if (USE_ACP_CHAT && provider.provider_type !== '
     }
 
     const isCustomProvider = provider.provider_type === 'Custom';`;
-if (!source.includes('await deleteAcpProviderConfig(provider.name)')) {
+if (!source.includes('epistemos-acp-provider-modal-custom-delete')) {
   if (!source.includes(cleanupAnchor)) {
     throw new Error('ProviderConfigurationModal delete-cleanup ACP anchor not found (drift would silently revert to REST cleanupProviderCache path)');
   }
   source = source.replace(cleanupAnchor, cleanupReplacement);
+}
+
+for (const snippet of [
+  'deleteAcpCustomProvider',
+  'deleteAcpProviderConfig(provider.name)',
+  'epistemos-acp-provider-modal-custom-delete',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ProviderConfigurationModal staged source missing required ACP delete snippet: ${snippet}`);
+  }
 }
 
 fs.writeFileSync(path, source);
@@ -5398,6 +5413,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "LM Studio is not reachable at http://localhost:1234" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
     grep -q "listAcpProviderSecrets" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "providersConfigStatus_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-provider-modal-custom-delete" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/ProviderConfigurationModal.tsx"
     grep -q "await listAcpProviderSecrets()" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "border-border-danger bg-background-danger/55 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "rounded-\\[10px\\] border border-transparent px-3 py-3" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"

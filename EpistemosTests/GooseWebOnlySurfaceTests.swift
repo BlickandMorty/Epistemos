@@ -125,6 +125,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-hide-rest-free-onboarding"))
         #expect(stageScript.contains("USE_ACP_CHAT ? OWN_PROVIDER : null"))
         #expect(stageScript.contains("!USE_ACP_CHAT && selectedPath === FREE_OPTIONS"))
+        #expect(stageScript.contains("epistemos-acp-provider-modal-custom-delete"))
         #expect(stageScript.contains("epistemos-acp-dictation-config-ui"))
         #expect(stageScript.contains("epistemos-acp-dictation-secret-save-ui"))
         #expect(stageScript.contains("epistemos-acp-dictation-secret-delete-ui"))
