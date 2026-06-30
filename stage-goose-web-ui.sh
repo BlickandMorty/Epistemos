@@ -3614,6 +3614,83 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+CANONICAL_UTIL="$WORK_ROOT/ui/desktop/src/utils/canonical.ts"
+node - "$CANONICAL_UTIL" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+
+const source = `/**
+ * Utilities for fetching canonical model information from the backend
+ */
+
+import { getCanonicalModelInfo, type ModelInfo, type ModelInfoData } from '../api';
+import { USE_ACP_CHAT } from '../acpChatFeatureFlag';
+import { listAcpProviderModels } from '../acp/providers';
+
+function acpCanonicalModelInfo(provider: string, requestedModel: string, modelInfo: ModelInfo): ModelInfoData {
+  const info: ModelInfoData = {
+    provider,
+    model: modelInfo.name || requestedModel,
+    context_limit: modelInfo.context_limit ?? 0,
+    currency: modelInfo.currency || '$',
+    reasoning: modelInfo.reasoning ?? false,
+  };
+
+  if (modelInfo.input_token_cost != null) {
+    info.input_token_cost = modelInfo.input_token_cost;
+  }
+  if (modelInfo.output_token_cost != null) {
+    info.output_token_cost = modelInfo.output_token_cost;
+  }
+
+  return info;
+}
+
+/**
+ * Fetch canonical model info (pricing + context limits) for a specific provider/model
+ */
+export async function fetchCanonicalModelInfo(
+  provider: string,
+  model: string
+): Promise<ModelInfoData | null> {
+  try {
+    if (USE_ACP_CHAT) {
+      // epistemos-acp-canonical-model-info: the lean ACP-hosted UI cannot call
+      // REST /config/canonical-model-info. Reuse live ACP provider model
+      // inventory for context/capability data and only include pricing when ACP
+      // supplies it.
+      const models = await listAcpProviderModels(provider);
+      const modelInfo = models.find((entry) => entry.name === model || entry.resolved_model === model);
+      return modelInfo ? acpCanonicalModelInfo(provider, model, modelInfo) : null;
+    }
+
+    const response = await getCanonicalModelInfo({
+      body: { provider, model },
+      throwOnError: true,
+    });
+
+    return response.data.model_info ?? null;
+  } catch {
+    return null;
+  }
+}
+`;
+
+for (const snippet of [
+  'epistemos-acp-canonical-model-info',
+  'listAcpProviderModels(provider)',
+  'modelInfo.input_token_cost != null',
+  'entry.name === model || entry.resolved_model === model',
+  'getCanonicalModelInfo({',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`canonical.ts staged source is missing required ACP canonical snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 mkdir -p "$WORK_ROOT/ui/desktop/src/epistemos"
 cat > "$WORK_ROOT/ui/desktop/src/epistemos/appsBridge.ts" <<'TS'
 import type { GooseApp } from '../api';
@@ -5552,6 +5629,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "return serializeACPRequests(client);" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
     grep -q "name: model.id || model.name" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "listAcpProviderModels(p.name)" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
+    grep -q "epistemos-acp-canonical-model-info" "$WORK_ROOT/ui/desktop/src/utils/canonical.ts"
+    grep -q "listAcpProviderModels(provider)" "$WORK_ROOT/ui/desktop/src/utils/canonical.ts"
+    grep -q "entry.name === model || entry.resolved_model === model" "$WORK_ROOT/ui/desktop/src/utils/canonical.ts"
+    grep -q "modelInfo.input_token_cost != null" "$WORK_ROOT/ui/desktop/src/utils/canonical.ts"
     grep -q "LM Studio is not reachable at http://localhost:1234" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
     grep -q "listAcpProviderSecrets" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "providersConfigStatus_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
