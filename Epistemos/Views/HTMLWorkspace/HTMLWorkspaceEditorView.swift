@@ -544,7 +544,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         let assetRows = package.assets
             .sorted { $0.key < $1.key }
-            .map { "asset/\($0.key)  \($0.value.count) bytes" }
+            .map { "assets/\($0.key)  \($0.value.count) bytes" }
         let snapshotRows = package.snapshots
             .sorted { $0.key < $1.key }
             .map { "snapshot/\($0.key)  \($0.value.count) bytes" }

@@ -175,6 +175,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(editorSource.contains("HTMLWorkspaceDataFeed.vaultSearch"))
         #expect(editorSource.contains("HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON"))
         #expect(editorSource.contains("package.manifest.dataFeed = nil"))
+        #expect(editorSource.contains(#""assets/\($0.key)"#))
         #expect(feedSource.contains("VaultSyncService.searchFullAsync"))
         #expect(feedSource.contains("NotificationCenter.default.publisher(for: .searchIndexDidUpdate)"))
         #expect(feedSource.contains("HTMLWorkspaceDataFeedRenderer.staleRender"))
