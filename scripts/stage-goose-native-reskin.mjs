@@ -1361,6 +1361,92 @@ function applySessionListSurfaces() {
   write('src/components/sessions/SessionListView.tsx', source);
 }
 
+function applySessionDetailSurfaces() {
+  let source = read('src/components/sessions/SharedSessionView.tsx');
+  source = replaceRequired(
+    source,
+    'shared session header native glass',
+    'className="flex flex-col pb-5 border-b border-border-secondary"',
+    'className="ep-native-header-band flex flex-col rounded-[16px] border border-border-secondary p-4 shadow-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'shared session heading native font',
+    'className="text-2xl font-mono font-normal mb-3 pt-4"',
+    'className="mb-3 pt-4 text-2xl font-sans font-semibold tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'shared session banner native glass',
+    'className="flex items-center py-3 border-b border-border-secondary mb-5"',
+    'className="ep-native-header-band mb-5 flex items-center rounded-[12px] border border-border-secondary px-3 py-2 shadow-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'shared session badge native font',
+    'className="text-xs font-mono uppercase"',
+    'className="ep-native-badge text-xs text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'shared session metadata native font',
+    'className="flex items-center text-text-secondary text-xs space-x-4 font-mono"',
+    'className="flex items-center space-x-4 text-xs font-sans text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'shared session directory native font',
+    'className="flex items-center text-text-secondary text-xs mt-1 font-mono"',
+    'className="mt-1 flex items-center text-xs font-sans text-text-secondary"'
+  );
+  write('src/components/sessions/SharedSessionView.tsx', source);
+
+  source = read('src/components/sessions/SessionHistoryView.tsx');
+  source = replaceRequired(
+    source,
+    'session history header native glass',
+    'className="flex flex-col pb-5 border-b border-border-secondary pt-14"',
+    'className="ep-native-header-band flex flex-col rounded-[16px] border border-border-secondary p-4 pt-5 shadow-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'session history heading native font',
+    'className="text-2xl font-mono font-normal mb-3 pt-4"',
+    'className="mb-3 pt-4 text-2xl font-sans font-semibold tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'session history metadata native font',
+    'className="flex items-center text-text-secondary text-xs space-x-4 font-mono"',
+    'className="flex items-center space-x-4 text-xs font-sans text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'session history directory native font',
+    'className="flex items-center text-text-secondary text-xs mt-1 font-mono"',
+    'className="mt-1 flex items-center text-xs font-sans text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'session history share dialog radius',
+    '<DialogContent className="sm:max-w-md rounded-[6px]">',
+    '<DialogContent className="sm:max-w-md rounded-[14px]">'
+  );
+  source = replaceRequired(
+    source,
+    'session history share dialog title font',
+    '<DialogTitle className="flex justify-center items-center gap-2 font-mono">',
+    '<DialogTitle className="flex items-center justify-center gap-2 font-sans font-semibold tracking-normal">'
+  );
+  source = replaceRequired(
+    source,
+    'session history share link native panel',
+    'className="relative rounded-[5px] border border-border-primary px-3 py-2 flex items-center bg-background-secondary"',
+    'className="relative flex items-center rounded-[10px] border border-border-primary bg-background-secondary/70 px-3 py-2 shadow-sm backdrop-blur-xl"'
+  );
+  write('src/components/sessions/SessionHistoryView.tsx', source);
+}
+
 function applySearchSurfaces() {
   let source = read('src/components/conversation/SearchBar.tsx');
   source = replaceRequired(
@@ -1500,6 +1586,7 @@ applyCatalogSurfaces();
 applyProviderCatalogSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
+applySessionDetailSurfaces();
 applySearchSurfaces();
 applyLoadingAndErrorSurfaces();
 
