@@ -27,7 +27,8 @@ usage strings.
   `FilePreviewButton`, `.filePreview(_:)`, and a shared URL policy that rejects remote URLs, directories, unreadable
   files, non-regular files, and final symlinks before Quick Look opens anything.
 - **DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift` provides a VisionKit-backed Live Text overlay when
-  VisionKit is available and an honest image fallback when it is not.
+  VisionKit is available and an honest image fallback when it is not, with a bounded image-analysis policy before
+  VisionKit receives in-memory images.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
   the same readable regular-file URL policy, including non-regular file rejection, plus invalid size/scale rejection
   before QuickLookThumbnailing generation.
@@ -51,6 +52,8 @@ Build a reusable VisionKit Live Text overlay for images:
 
 - macOS `NSViewRepresentable` wrapper around `ImageAnalysisOverlayView`
 - async `ImageAnalyzer` pipeline guarded by `ImageAnalyzer.isSupported`
+- bounded `LiveTextImageAnalysisPolicy` rejection for nil, empty, zero-size, non-finite, or oversized images before
+  VisionKit analysis starts
 - task cancellation when the image changes
 - `onTextRecognized(transcript)` callback for the consumer to decide where indexing belongs
 
@@ -73,12 +76,13 @@ Plan 3 delivers the shared components and documents the adapter contract. Plan 2
 from its editor/sidebar/pdf viewer surfaces without Plan 3 modifying those files:
 
 - Quick Look consumers pass a vault URL to `FilePreviewController` or `FilePreviewButton`.
-- Live Text consumers pass an image plus an `onTextRecognized` closure.
+- Live Text consumers pass a bounded image plus an `onTextRecognized` closure.
 - Thumbnail consumers pass a vault URL and target size to `FileThumbnailView`.
 
 ## Done Bar
 
 - New files are confined to `Epistemos/Views/Shared/`.
 - Source guards prove this codepack stays in Plan 3 scope.
+- Live Text analysis rejects invalid or oversized images before invoking VisionKit.
 - No Plan 1 paths, Plan 2 editor paths, Python/subprocess/Chromium runtime, or `PDFView` viewer implementation is added.
 - The implementation remains honest when native framework support is unavailable.

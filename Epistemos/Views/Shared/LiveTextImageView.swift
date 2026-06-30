@@ -1,6 +1,50 @@
 import AppKit
 import SwiftUI
 
+nonisolated enum LiveTextImageAnalysisPolicy {
+    static let maxPointDimension: CGFloat = 8_192
+    static let maxPixelDimension = 8_192
+    static let maxPixelCount = 48_000_000
+
+    static func isEligibleForAnalysis(_ image: NSImage?) -> Bool {
+        guard let image,
+              isValidDimension(image.size.width),
+              isValidDimension(image.size.height) else {
+            return false
+        }
+
+        guard !image.representations.isEmpty else {
+            return false
+        }
+
+        return image.representations.allSatisfy { representation in
+            guard isValidDimension(representation.size.width),
+                  isValidDimension(representation.size.height) else {
+                return false
+            }
+
+            let pixelWidth = representation.pixelsWide
+            let pixelHeight = representation.pixelsHigh
+            guard pixelWidth > 0 || pixelHeight > 0 else {
+                return true
+            }
+
+            guard pixelWidth > 0,
+                  pixelHeight > 0,
+                  pixelWidth <= maxPixelDimension,
+                  pixelHeight <= maxPixelDimension else {
+                return false
+            }
+
+            return pixelWidth <= maxPixelCount / pixelHeight
+        }
+    }
+
+    private static func isValidDimension(_ dimension: CGFloat) -> Bool {
+        dimension.isFinite && dimension > 0 && dimension <= maxPointDimension
+    }
+}
+
 #if canImport(VisionKit)
 import VisionKit
 
@@ -58,7 +102,8 @@ struct LiveTextImageView: NSViewRepresentable {
             analysisTask?.cancel()
 
             guard ImageAnalyzer.isSupported,
-                  let image else {
+                  let image,
+                  LiveTextImageAnalysisPolicy.isEligibleForAnalysis(image) else {
                 overlay.analysis = nil
                 return
             }

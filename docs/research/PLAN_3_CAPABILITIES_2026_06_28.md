@@ -256,8 +256,9 @@ The big ledger wanted "max out Apple-native frameworks." Baseline already in the
 Vision (OCR), AVFoundation, Speech (STT), AVSpeech (TTS), Translation, ScreenCaptureKit, CoreSpotlight, AppIntents,
 CoreML. **Plan 3 shared components are now present:** QuickLook preview (`FilePreview.swift`), VisionKit Live Text
 overlay (`LiveTextImageView.swift`), and QuickLookThumbnailing (`FileThumbnail.swift`) under `Views/Shared/`, with
-source guards proving no Plan 1, Plan 2, or Pro-only runtime drift. **Still not Plan 3-owned:** PDFKit `PDFView`
-viewer and PencilKit annotations; the PDF viewer remains Plan 2.
+source guards proving no Plan 1, Plan 2, or Pro-only runtime drift. Live Text analysis now rejects invalid or oversized
+in-memory images before invoking VisionKit. **Still not Plan 3-owned:** PDFKit `PDFView` viewer and PencilKit
+annotations; the PDF viewer remains Plan 2.
 
 **Top-6 to prioritize (all MAS-safe, on-device, no new entitlement):**
 1. **PDFKit `PDFView` viewer** (high/low) — free: selection/copy, zoom, page nav, find, `PDFThumbnailView`, `PDFOutline`
@@ -265,7 +266,8 @@ viewer and PencilKit annotations; the PDF viewer remains Plan 2.
 2. **QuickLook** (done as shared Plan 3 component) — `FilePreviewController`, `FilePreviewButton`, and `.filePreview(_:)`
    preview already-granted vault URLs. Plan 2 owns consumer mounts.
 3. **Vision OCR + VisionKit Live Text** (shared component done) — `LiveTextImageView` wraps `ImageAnalyzer` +
-   `ImageAnalysisOverlayView`, returns recognized text to consumers, and does not index or edit Plan 2 surfaces itself.
+   `ImageAnalysisOverlayView`, rejects invalid or oversized images before analysis, returns recognized text to
+   consumers, and does not index or edit Plan 2 surfaces itself.
 4. **QuickLookThumbnailing** (shared component done) — `FileThumbnailer` + `FileThumbnailView` produce thumbnails with
    fallback symbols and reject invalid, unreadable, symlink, non-regular, size, or scale inputs before generation.
 5. **Translation expansion** (med/low) — already wired in notes; extend to PDF selections + chat messages (near-zero effort, on-device).

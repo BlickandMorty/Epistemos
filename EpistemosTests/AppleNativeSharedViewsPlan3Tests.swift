@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import Epistemos
@@ -28,8 +29,16 @@ struct AppleNativeSharedViewsPlan3Tests {
 
         for required in [
             "struct LiveTextImageView: NSViewRepresentable",
+            "nonisolated enum LiveTextImageAnalysisPolicy",
+            "maxPointDimension",
+            "maxPixelDimension",
+            "maxPixelCount",
             "ImageAnalysisOverlayView",
             "ImageAnalyzer.isSupported",
+            "LiveTextImageAnalysisPolicy.isEligibleForAnalysis(image)",
+            "image.representations",
+            "pixelsWide",
+            "pixelsHigh",
             "ImageAnalyzer.Configuration([.text])",
             "analysisTask?.cancel()",
             "onTextRecognized(transcript)",
@@ -63,6 +72,56 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(await FileThumbnailer.thumbnail(for: remoteURL, size: size, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: .zero, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: 0) == nil)
+    }
+
+    @Test("Live Text policy rejects invalid and oversized images before VisionKit analysis")
+    func liveTextPolicyRejectsInvalidAndOversizedImagesBeforeVisionKitAnalysis() {
+        let bounded = NSImage(size: NSSize(width: 128, height: 128))
+        let boundedRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 128,
+            pixelsHigh: 128,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )
+        #expect(boundedRep != nil)
+        if let boundedRep {
+            bounded.addRepresentation(boundedRep)
+        }
+
+        let emptyContainer = NSImage(size: NSSize(width: 128, height: 128))
+        let oversizedPoints = NSImage(
+            size: NSSize(width: LiveTextImageAnalysisPolicy.maxPointDimension + 1, height: 128)
+        )
+        let oversizedPixels = NSImage(size: NSSize(width: 128, height: 128))
+        let oversizedPixelRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: LiveTextImageAnalysisPolicy.maxPixelDimension + 1,
+            pixelsHigh: 1,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )
+        #expect(oversizedPixelRep != nil)
+        if let oversizedPixelRep {
+            oversizedPixels.addRepresentation(oversizedPixelRep)
+        }
+
+        #expect(LiveTextImageAnalysisPolicy.isEligibleForAnalysis(bounded))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(nil))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(NSImage(size: .zero)))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(emptyContainer))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(oversizedPoints))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(oversizedPixels))
     }
 
     @Test("preview policy rejects remote directory and symlink URLs")
