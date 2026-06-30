@@ -30,7 +30,7 @@ T0/T1 dead seams. Per ARCHITECTURE PROMOTION CANON it should be honestly marked.
 - Honest status now lives in `HTMLWorkspaceCapabilityStatus`: renderer/editor/agent patches/data feed/PDF/local assets/routes/live
   DOM outline are marked live; app bridge, DOM picker/style inspector, Python, and full regenerate UX remain deferred.
 - Preview now serves package-local `assets/*`, `routes/*`, `style.css`, `main.js`, and `data.json` through the local workspace scheme.
-  PDF export inlines package asset references before the macOS `WebPage` render path.
+  HTML and PDF export inline package asset references before writing rendered artifacts.
 - `data_feed` can opt into a Vault-backed `data.json` refresh with explicit stale/provenance metadata; failed feeds produce
   stale JSON rather than pretending to refresh.
 - Console capture is wired but env-gated behind `EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0`. Safe API app commands are still not

@@ -28,7 +28,7 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "Agent chat patch pipeline", isLive: true, note: "HTMLWorkspacePatchRouter applies edits"),
         Capability(name: "Package-local HTML routes", isLive: true, note: "routes/<name> files round-trip in the package, serve through the local scheme, and can be set/removed by structured patches"),
         Capability(name: "Vault data.json feed", isLive: true, note: "Opt-in manifest data_feed renders VaultSyncService.searchFullAsync results and patches data-only preview updates without reload"),
-        Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired; PDF export inlines package asset references before headless render"),
+        Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired; HTML and PDF exports inline package asset references before writing rendered artifacts"),
         Capability(name: "Live-DOM outline", isLive: true, note: "Preview WebView reports a runtime DOM snapshot; source regex is only the fallback when preview is not mounted"),
         Capability(name: "App message-bridge", isLive: false, note: "Safe API message path is diagnostic-only; no app commands are wired and safeAPIEnabled defaults off"),
         Capability(name: "JS console / error capture", isLive: false, note: "Bridge now wired (window error + unhandledrejection + console.error/warn → the consoleErrors pipeline + panel) behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; default off"),
@@ -43,6 +43,6 @@ enum HTMLWorkspaceCapabilityStatus {
     /// One honest line for the diagnostics row — the workspace works as a renderer/editor but is not
     /// the full web-app builder yet, and says so.
     static var summary: String {
-        "\(liveCount) live, \(deferredCount) gated/static/deferred — renders, edits, agent-patches, serves package-local assets/data/routes in preview, inlines package assets for PDF export, shows a live DOM outline, and can opt into Vault-backed data.json refresh; JS console capture is wired but env-gated, while the app-bridge, DOM picker/style inspector, Python, and full-surface regenerate UX remain deferred (partial artifact runtime, not a full web-app builder yet)."
+        "\(liveCount) live, \(deferredCount) gated/static/deferred — renders, edits, agent-patches, serves package-local assets/data/routes in preview, inlines package assets for HTML/PDF export, shows a live DOM outline, and can opt into Vault-backed data.json refresh; JS console capture is wired but env-gated, while the app-bridge, DOM picker/style inspector, Python, and full-surface regenerate UX remain deferred (partial artifact runtime, not a full web-app builder yet)."
     }
 }
