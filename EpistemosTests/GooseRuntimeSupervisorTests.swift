@@ -1368,6 +1368,40 @@ struct GooseWebNativeAffordanceBridgeTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test("listFiles caps scoped directory results")
+    func listFilesCapsScopedDirectoryResults() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        let project = root.appendingPathComponent("project", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let limit = GooseWebNativeAffordanceBridge.maxNativeDirectoryListEntries
+        for index in 0..<(limit + 7) {
+            let name = String(format: "entry-%05d.txt", index)
+            if !FileManager.default.createFile(
+                atPath: project.appendingPathComponent(name, isDirectory: false).path,
+                contents: nil
+            ) {
+                Issue.record("Failed to create \(name)")
+            }
+        }
+        let bridge = GooseWebNativeAffordanceBridge(
+            initialScopedFileRoots: [project],
+            applicationSupportRoot: root
+        )
+
+        let listed = try #require(bridge.handleAffordance(name: "listFiles", args: [project.path]) as? [String])
+        #expect(listed.count == limit)
+        #expect(listed.first == "entry-00000.txt")
+        #expect(listed.last == String(format: "entry-%05d.txt", limit - 1))
+
+        let filtered = try #require(bridge.handleAffordance(name: "listFiles", args: [project.path, ".txt"]) as? [String])
+        #expect(filtered.count == limit)
+        #expect(filtered.first == "entry-00000.txt")
+        #expect(filtered.last == String(format: "entry-%05d.txt", limit - 1))
+    }
+
     @Test("binary lookup and MCP app affordances fail closed instead of silently no-oping")
     func binaryLookupAndMCPAppAffordancesFailClosed() throws {
         let bridge = GooseWebNativeAffordanceBridge()

@@ -28,6 +28,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxLaunchedAppWindowHeight: Double = 1_200
     nonisolated static let maxLaunchedAppContentBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
+    nonisolated static let maxNativeDirectoryListEntries = 5_000
 
     private let handlers: [String: Handler]
     private let fileManager: FileManager
@@ -502,8 +503,15 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
         do {
             let files = try fileManager.contentsOfDirectory(atPath: expandedPath)
-            guard let extensionFilter, !extensionFilter.isEmpty else { return files }
-            return files.filter { $0.hasSuffix(extensionFilter) }
+            let filteredFiles: [String]
+            if let extensionFilter, !extensionFilter.isEmpty {
+                filteredFiles = files.filter { $0.hasSuffix(extensionFilter) }
+            } else {
+                filteredFiles = files
+            }
+            return Array(filteredFiles
+                .sorted(by: Self.directoryEntryPrecedes)
+                .prefix(Self.maxNativeDirectoryListEntries))
         } catch {
             return []
         }
@@ -1208,6 +1216,14 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             .resolvingSymlinksInPath()
             .path
         return standardizedPath(resolvedPath)
+    }
+
+    private nonisolated static func directoryEntryPrecedes(_ lhs: String, _ rhs: String) -> Bool {
+        let order = lhs.localizedStandardCompare(rhs)
+        if order == .orderedSame {
+            return lhs < rhs
+        }
+        return order == .orderedAscending
     }
 
     private static func path(_ path: String, isInsideOrEqualTo root: String, caseInsensitive: Bool = false) -> Bool {
