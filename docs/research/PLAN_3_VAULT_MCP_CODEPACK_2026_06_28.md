@@ -59,7 +59,8 @@ enforces read-only.
 ## 5. `VaultMCPServerSettingsRow.swift` [DELIVERED]
 Toggle start/stop; shows `http://127.0.0.1:<port>/mcp` + masked token + **Rotate** + **"Copy MCP client config"** →
 `{"type":"http","url":…,"headers":{"Authorization":"Bearer …"}}` (the shape Claude Desktop/Cursor expect, same as the
-in-repo OpenCode config writer). Surfaces "Running (vault empty)" honestly.
+in-repo OpenCode config writer). Surfaces "Running (vault empty)" honestly. Async start/rotate completions are gated
+by the active canonical vault path so a stale task cannot present a registration after the connected vault changes.
 
 ## MAS/Pro + honesty
 - Read-only enforced at the CORE (allowlist; write/exec verbs never surfaced) — defense-in-depth, not client trust.

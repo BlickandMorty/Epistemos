@@ -204,6 +204,7 @@ struct VaultMCPServerLifecycleTests {
         defer { host.stop() }
 
         let registration = try #require(await host.start(vaultRoot: realVault, timeout: .seconds(2)))
+        #expect(VaultMCPHost.canonicalVaultPath(realVault) == VaultMCPHost.canonicalVaultPath(linkedVault))
         #expect(host.currentRegistration(for: realVault)?.url == registration.url)
         #expect(host.currentRegistration(for: linkedVault)?.url == registration.url)
 
@@ -234,6 +235,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(host.contains("tier: .readOnly"))
         #expect(host.contains("allowedToolNames: Set(VaultMCPCore.readToolNames)"))
         #expect(host.contains("canonicalVaultURL"))
+        #expect(host.contains("canonicalVaultPath"))
         #expect(host.contains("standardizedFileURL.resolvingSymlinksInPath()"))
         #expect(host.contains("currentRegistration(for vaultRoot: URL?)"))
         #expect(host.contains("stopIfCurrentVaultDiffers"))
@@ -247,6 +249,10 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("VaultMCPHost.shared.stop"))
         #expect(row.contains("VaultMCPHost.shared.stopIfCurrentVaultDiffers"))
         #expect(row.contains("VaultMCPHost.shared.currentRegistration(for: vaultRoot)"))
+        #expect(row.contains("pendingVaultPath"))
+        #expect(row.contains("isPendingOperationCurrent(for: vaultPath)"))
+        #expect(row.contains("completePendingOperation(for: vaultPath)"))
+        #expect(row.contains(".task(id: vaultRoot.map(Self.canonicalVaultPath))"))
         #expect(row.contains("VaultMCPTokenStore.masked"))
         #expect(row.contains("Copy MCP client config"))
         #expect(row.contains(#""type": "http""#))

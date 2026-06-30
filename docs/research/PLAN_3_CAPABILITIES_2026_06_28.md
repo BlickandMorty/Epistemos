@@ -244,6 +244,7 @@ copy client config). The host uses `ChatToolTier.readOnly` plus
 JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch; the core
 also requires a JSON-RPC 2.0 object envelope and caps echoed string request IDs. Host
 registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched read-only servers.
+Settings start/rotate completions re-check the active canonical vault path before mutating UI state.
 
 **MAS/Pro split:**
 | Capability | MAS | Pro |

@@ -7,10 +7,14 @@ struct VaultMCPServerSettingsRow: View {
     let vaultRoot: URL?
 
     @State private var registration: WorkNativeMCPRegistration?
-    @State private var isStarting = false
+    @State private var pendingVaultPath: String?
     @State private var statusMessage: String?
     @State private var didCopyConfig = false
     @State private var vaultNoteCount: Int?
+
+    private var isStarting: Bool {
+        pendingVaultPath != nil
+    }
 
     private var isRunning: Bool {
         registration != nil
@@ -75,7 +79,8 @@ struct VaultMCPServerSettingsRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .task(id: vaultRoot?.path) {
+        .task(id: vaultRoot.map(Self.canonicalVaultPath)) {
+            reconcilePendingOperationWithCurrentVault()
             VaultMCPHost.shared.stopIfCurrentVaultDiffers(from: vaultRoot)
             registration = VaultMCPHost.shared.currentRegistration(for: vaultRoot)
             if registration == nil {
@@ -118,12 +123,14 @@ struct VaultMCPServerSettingsRow: View {
             statusMessage = "Connect a vault before starting the MCP server."
             return
         }
-        isStarting = true
+        let vaultPath = Self.canonicalVaultPath(vaultRoot)
+        pendingVaultPath = vaultPath
         statusMessage = nil
         Task {
+            guard isPendingOperationCurrent(for: vaultPath) else { return }
             let result = await VaultMCPHost.shared.start(vaultRoot: vaultRoot)
+            guard completePendingOperation(for: vaultPath) else { return }
             registration = result
-            isStarting = false
             statusMessage = result == nil ? "The MCP server did not become ready." : nil
             if result == nil {
                 vaultNoteCount = nil
@@ -137,19 +144,21 @@ struct VaultMCPServerSettingsRow: View {
         VaultMCPHost.shared.stop()
         registration = nil
         vaultNoteCount = nil
-        isStarting = false
+        pendingVaultPath = nil
         statusMessage = "Stopped."
     }
 
     private func rotate() {
         guard let vaultRoot else { return }
-        isStarting = true
+        let vaultPath = Self.canonicalVaultPath(vaultRoot)
+        pendingVaultPath = vaultPath
         didCopyConfig = false
         statusMessage = nil
         Task {
+            guard isPendingOperationCurrent(for: vaultPath) else { return }
             let result = await VaultMCPHost.shared.rotateTokenAndRestart(vaultRoot: vaultRoot)
+            guard completePendingOperation(for: vaultPath) else { return }
             registration = result
-            isStarting = false
             statusMessage = result == nil ? "Token rotated, but the MCP server did not restart." : "Token rotated."
             if result == nil {
                 vaultNoteCount = nil
@@ -164,12 +173,35 @@ struct VaultMCPServerSettingsRow: View {
             vaultNoteCount = nil
             return
         }
-        let path = root.path
+        let path = Self.canonicalVaultPath(root)
         let count = await Task.detached(priority: .utility) {
             VaultMCPCore.markdownRelPaths(vaultRoot: root).count
         }.value
-        guard !Task.isCancelled, vaultRoot?.path == path else { return }
+        guard !Task.isCancelled, currentVaultPath == path else { return }
         vaultNoteCount = count
+    }
+
+    private var currentVaultPath: String? {
+        vaultRoot.map(Self.canonicalVaultPath)
+    }
+
+    private func reconcilePendingOperationWithCurrentVault() {
+        guard pendingVaultPath != currentVaultPath else { return }
+        pendingVaultPath = nil
+    }
+
+    private func isPendingOperationCurrent(for vaultPath: String) -> Bool {
+        pendingVaultPath == vaultPath && currentVaultPath == vaultPath
+    }
+
+    private func completePendingOperation(for vaultPath: String) -> Bool {
+        guard pendingVaultPath == vaultPath else { return false }
+        guard currentVaultPath == vaultPath else {
+            pendingVaultPath = nil
+            return false
+        }
+        pendingVaultPath = nil
+        return true
     }
 
     private func copyClientConfig() {
@@ -190,6 +222,10 @@ struct VaultMCPServerSettingsRow: View {
             return #"{"type":"http","url":"\#(registration.url)","headers":{"Authorization":"Bearer \#(registration.token)"}}"#
         }
         return string
+    }
+
+    private static func canonicalVaultPath(_ url: URL) -> String {
+        VaultMCPHost.canonicalVaultPath(url)
     }
 }
 #endif
