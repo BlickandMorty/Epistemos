@@ -28,6 +28,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxLaunchedAppWindowHeight: Double = 1_200
     nonisolated static let maxLaunchedAppContentBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
+    nonisolated static let maxNativeFileWriteBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeDirectoryListEntries = 5_000
     nonisolated static let maxLaunchedAppNameCharacters = 128
 
@@ -484,6 +485,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private func writeFile(_ path: String, content: String) -> Bool {
         let expandedPath = Self.standardizedPath(expandTilde(path))
         guard isPathAllowedForWrite(expandedPath) else { return false }
+        guard content.utf8.count <= Self.maxNativeFileWriteBytes else { return false }
         do {
             try content.write(toFile: expandedPath, atomically: true, encoding: .utf8)
             rememberScopedAccess(for: [URL(fileURLWithPath: expandedPath, isDirectory: false)])

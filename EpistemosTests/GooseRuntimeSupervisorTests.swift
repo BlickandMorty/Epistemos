@@ -1395,6 +1395,28 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect((blocked["error"] as? String)?.contains("\(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes)") == true)
     }
 
+    @Test("file bridge rejects oversized WebView writes")
+    func fileBridgeRejectsOversizedWebViewWrites() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        let project = root.appendingPathComponent("project", isDirectory: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let bridge = GooseWebNativeAffordanceBridge(
+            initialScopedFileRoots: [project],
+            applicationSupportRoot: root
+        )
+        let target = project.appendingPathComponent("oversized-write.txt", isDirectory: false)
+        let oversizedContent = String(
+            repeating: "a",
+            count: GooseWebNativeAffordanceBridge.maxNativeFileWriteBytes + 1
+        )
+
+        #expect(try bridge.handleAffordance(name: "writeFile", args: [target.path, oversizedContent]) as? Bool == false)
+        #expect(!FileManager.default.fileExists(atPath: target.path))
+    }
+
     @Test("listFiles caps scoped directory results")
     func listFilesCapsScopedDirectoryResults() throws {
         let root = FileManager.default.temporaryDirectory
