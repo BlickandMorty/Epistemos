@@ -201,7 +201,12 @@ nonisolated enum GooseACPIncomingMessage: Decodable, Equatable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         if let method = try container.decodeIfPresent(String.self, forKey: .method) {
-            let params = (try? container.decodeIfPresent(JSONValue.self, forKey: .params)) ?? .object([:])
+            let params: JSONValue
+            if container.contains(.params) {
+                params = try container.decode(JSONValue.self, forKey: .params)
+            } else {
+                params = .object([:])
+            }
             let parsedMethod = GooseACPMethod(rawValue: method)
             if let id = try container.decodeIfPresent(GooseACPRequestID.self, forKey: .id) {
                 self = .request(id: id, method: parsedMethod, params: params)
@@ -220,7 +225,14 @@ nonisolated enum GooseACPIncomingMessage: Decodable, Equatable, Sendable {
         }
 
         if let id = try container.decodeIfPresent(GooseACPRequestID.self, forKey: .id) {
-            let result = (try? container.decodeIfPresent(JSONValue.self, forKey: .result)) ?? .object([:])
+            guard container.contains(.result) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .result,
+                    in: container,
+                    debugDescription: "ACP response must include result or error"
+                )
+            }
+            let result = try container.decode(JSONValue.self, forKey: .result)
             self = .response(id: id, result: result)
             return
         }

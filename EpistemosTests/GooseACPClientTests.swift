@@ -79,6 +79,36 @@ struct GooseACPCodecTests {
         #expect(notification.update == .agentMessageChunk(.init(content: .text("partial answer"))))
     }
 
+    @Test("incoming envelope preserves explicit JSON nulls and rejects missing response payloads")
+    func incomingEnvelopeNullAndMissingPayloadDecoding() throws {
+        let nullParams = #"{"jsonrpc":"2.0","id":"perm-null","method":"session/request_permission","params":null}"#
+            .data(using: .utf8)!
+        let nullParamsMessage = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: nullParams)
+        guard case .request(let requestId, let method, let params) = nullParamsMessage else {
+            Issue.record("expected request with explicit null params")
+            return
+        }
+        #expect(requestId == .string("perm-null"))
+        #expect(method == .requestPermission)
+        #expect(params == .null)
+
+        let nullResult = #"{"jsonrpc":"2.0","id":7,"result":null}"#
+            .data(using: .utf8)!
+        let nullResultMessage = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: nullResult)
+        guard case .response(let responseId, let result) = nullResultMessage else {
+            Issue.record("expected response with explicit null result")
+            return
+        }
+        #expect(responseId == .int(7))
+        #expect(result == .null)
+
+        let missingPayload = #"{"jsonrpc":"2.0","id":8}"#
+            .data(using: .utf8)!
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(GooseACPIncomingMessage.self, from: missingPayload)
+        }
+    }
+
     @Test("incoming permission requests map native choices to ACP outcomes")
     func permissionRequestRoundTrip() throws {
         let json = """
