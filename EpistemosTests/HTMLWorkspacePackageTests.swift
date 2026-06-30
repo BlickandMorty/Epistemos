@@ -357,7 +357,11 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(updated.scriptJS == replacement.js)
         #expect(updated.dataJSON == replacement.dataJSON)
         #expect(updated.assets == original.assets)
-        #expect(updated.snapshots == original.snapshots)
+        #expect(updated.snapshots["initial.html"] == original.snapshots["initial.html"])
+        let preReplaceSnapshot = try #require(updated.snapshots.first { $0.key.hasPrefix("pre-replace-") })
+        #expect(preReplaceSnapshot.key.hasSuffix(".html"))
+        #expect(String(data: preReplaceSnapshot.value, encoding: .utf8)?.contains("Interactive Doc") == true)
+        #expect(String(data: preReplaceSnapshot.value, encoding: .utf8)?.contains("workspace-data") == true)
     }
 
     @Test("advanced structured operations are deterministic and path safe")

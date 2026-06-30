@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 nonisolated public enum HTMLWorkspacePackageEntry {
@@ -1184,6 +1185,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         var updated = package
         switch operation {
         case .replaceDocument(let replacement):
+            updated.snapshots = try reversibleSnapshots(for: updated)
             if let title = replacement.title {
                 updated.manifest.title = title
             }
@@ -1293,6 +1295,28 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         guard snapshots.count > HTMLWorkspacePackageLimits.maxSnapshots else { return snapshots }
         let keep = Set(snapshots.keys.sorted().suffix(HTMLWorkspacePackageLimits.maxSnapshots))
         return snapshots.filter { keep.contains($0.key) }
+    }
+
+    private static func reversibleSnapshots(for package: HTMLWorkspacePackage) throws -> [String: Data] {
+        var snapshots = package.snapshots
+        let name = "pre-replace-\(contentHash(for: package).prefix(12)).html"
+        snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: package).utf8)
+        snapshots = boundedSnapshots(snapshots)
+        try HTMLWorkspacePackage.validateSnapshots(snapshots)
+        return snapshots
+    }
+
+    private static func contentHash(for package: HTMLWorkspacePackage) -> String {
+        var data = Data()
+        data.append(Data(package.indexHTML.utf8))
+        data.append(0)
+        data.append(Data(package.styleCSS.utf8))
+        data.append(0)
+        data.append(Data(package.scriptJS.utf8))
+        data.append(0)
+        data.append(Data(package.dataJSON.utf8))
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     private static func insert(

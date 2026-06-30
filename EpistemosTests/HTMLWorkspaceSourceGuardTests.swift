@@ -277,6 +277,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(packageSource.contains("case replaceDocument(HTMLWorkspaceDocumentReplacement)"))
         #expect(packageSource.contains("case setDataFeed(HTMLWorkspaceDataFeed?)"))
         #expect(packageSource.contains(#"error: "Feed pending""#))
+        #expect(packageSource.contains("reversibleSnapshots(for:"))
+        #expect(packageSource.contains(#""pre-replace-"#))
     }
 
     @Test("document surface exposes structured patch hooks without Epdoc internals")

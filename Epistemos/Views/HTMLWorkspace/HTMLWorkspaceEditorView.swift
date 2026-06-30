@@ -1204,14 +1204,13 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         for package: HTMLWorkspacePackage,
         domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
     ) -> String {
-        switch self {
+        let resolvedDOMSnapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
+        return switch self {
         case .html: "DOM structure"
         case .css: "Presentation"
         case .js: "Local behavior"
         case .data: "Structured state"
-        case .dom:
-            let snapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
-            "\(snapshot.nodeCount) \(snapshot.source.label) nodes"
+        case .dom: "\(resolvedDOMSnapshot.nodeCount) \(resolvedDOMSnapshot.source.label) nodes"
         case .assets: "\(package.assets.count) assets, \(package.snapshots.count) snapshots"
         }
     }
@@ -1220,14 +1219,13 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         for package: HTMLWorkspacePackage,
         domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
     ) -> String {
-        switch self {
+        let resolvedDOMSnapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
+        return switch self {
         case .html: Self.counts(for: package.indexHTML)
         case .css: Self.counts(for: package.styleCSS)
         case .js: Self.counts(for: package.scriptJS)
         case .data: Self.counts(for: package.dataJSON)
-        case .dom:
-            let snapshot = domSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
-            "\(snapshot.nodeCount) \(snapshot.source.label) nodes"
+        case .dom: "\(resolvedDOMSnapshot.nodeCount) \(resolvedDOMSnapshot.source.label) nodes"
         case .assets: "\(package.assets.count + package.snapshots.count) files"
         }
     }
