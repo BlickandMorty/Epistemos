@@ -125,7 +125,11 @@ public actor ShadowIndexingService {
                     totalRemoves += 1
                 }
             } catch {
-                log.warning("shadow op failed: \(String(describing: op), privacy: .public) → \(String(describing: error), privacy: .public)")
+                let message = EngineLogDiagnostics.logMessage(
+                    for: error,
+                    fallback: "shadow op failed"
+                )
+                log.warning("\(message, privacy: .public)")
             }
         }
 
@@ -134,7 +138,11 @@ public actor ShadowIndexingService {
             totalFlushes += 1
             lastFlushAt = Date()
         } catch {
-            log.warning("shadow flush failed: \(String(describing: error), privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "shadow flush failed"
+            )
+            log.warning("\(message, privacy: .public)")
         }
     }
 

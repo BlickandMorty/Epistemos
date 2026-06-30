@@ -73,4 +73,19 @@ struct EngineLogDiagnosticsTests {
             #expect(!source.contains("error.localizedDescription"))
         }
     }
+
+    @Test("shadow service logs route through redacted diagnostics")
+    func shadowServiceLogsRouteThroughRedactedDiagnostics() throws {
+        let paths = [
+            "Epistemos/Engine/ShadowIndexingService.swift",
+            "Epistemos/Engine/ShadowSearchService.swift",
+        ]
+
+        for path in paths {
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(source.contains("EngineLogDiagnostics.logMessage"))
+            #expect(!source.contains("String(describing: error)"))
+            #expect(!source.contains("error.localizedDescription"))
+        }
+    }
 }

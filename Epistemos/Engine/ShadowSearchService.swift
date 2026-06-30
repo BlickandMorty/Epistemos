@@ -412,7 +412,11 @@ public actor ShadowSearchService: ShadowSearchServicing {
             let failureClass: ShadowSearchFailureClass = Task.isCancelled
                 ? .cancelled
                 : shadowSearchFailureClass(for: error)
-            log.warning("shadow search failed: \(String(describing: error), privacy: .public)")
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "shadow search failed"
+            )
+            log.warning("\(message, privacy: .public)")
             ShadowSearchDiagnostics.shared.recordFailure(
                 domain: domain,
                 failureClass: failureClass,
@@ -457,8 +461,12 @@ public actor ShadowSearchService: ShadowSearchServicing {
             return (hits: hits, errorMessage: nil)
         } catch {
             let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1_000
+            let message = EngineLogDiagnostics.logMessage(
+                for: error,
+                fallback: "shadow searchReportingErrors failed"
+            )
             log.warning(
-                "shadow searchReportingErrors failed: \(String(describing: error), privacy: .public)"
+                "\(message, privacy: .public)"
             )
             ShadowSearchDiagnostics.shared.recordFailure(
                 domain: domain,
