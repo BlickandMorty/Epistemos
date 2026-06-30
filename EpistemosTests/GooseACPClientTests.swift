@@ -1473,6 +1473,44 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
+    @Test("bridge retries URL-style ACP initialize until the endpoint is ready")
+    func bridgeRetriesACPInitializeUntilReady() async throws {
+        let sequence = GooseACPTransportSequence([
+            GooseACPFailingTransport(),
+            GooseACPFailingTransport(),
+            GooseACPMemoryTransport(incoming: [
+                #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
+            ]),
+        ])
+        let bridge = GooseACPEventBridge()
+
+        bridge.connect(
+            transportFactory: { sequence.next() },
+            clientVersion: "test-version",
+            initialHandshakeAttempts: nil,
+            retryDelayNanoseconds: 1,
+            maxRetryDelayNanoseconds: 4
+        )
+        try await waitUntil {
+            if case .connected = bridge.status {
+                return true
+            }
+            return false
+        }
+
+        #expect(sequence.requestedCount() == 3)
+        await bridge.disconnect()
+    }
+
+    @Test("ACP initialize retry delay backs off to a cap")
+    func acpInitializeRetryDelayBacksOffToCap() {
+        #expect(GooseACPEventBridge.handshakeRetryDelayNanoseconds(failedAttempt: 0, initial: 10, maximum: 80) == 0)
+        #expect(GooseACPEventBridge.handshakeRetryDelayNanoseconds(failedAttempt: 1, initial: 10, maximum: 80) == 10)
+        #expect(GooseACPEventBridge.handshakeRetryDelayNanoseconds(failedAttempt: 2, initial: 10, maximum: 80) == 20)
+        #expect(GooseACPEventBridge.handshakeRetryDelayNanoseconds(failedAttempt: 4, initial: 10, maximum: 80) == 80)
+        #expect(GooseACPEventBridge.handshakeRetryDelayNanoseconds(failedAttempt: 12, initial: 10, maximum: 80) == 80)
+    }
+
     @Test("bridge bounds terminal failure status text")
     func bridgeBoundsTerminalFailureStatusText() async throws {
         let oversizedMessage = String(

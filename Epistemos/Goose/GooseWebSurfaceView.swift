@@ -472,6 +472,11 @@ struct GooseWebSurfaceView: View {
     private func handleBridgeStatusChange() {
         guard case .running(let connection) = supervisor.status else { return }
         switch acpBridge.status {
+        case .connected:
+            if loadedUIForConnectionKey != connection.baseURL.absoluteString,
+               let gooseUIServer {
+                Task { await loadGooseUIWhenReady(gooseUIServer, connection: connection) }
+            }
         case .failed, .disconnected:
             connectNativeACP(connection: connection)
         default:
@@ -695,12 +700,15 @@ struct GooseWebSurfaceView: View {
     private func loadGooseUIWhenReady(_ server: WorkSPAServer, connection: GooseRuntimeConnection) async {
         let connectionKey = connection.baseURL.absoluteString
         let acpURL = connection.acpWebSocketURL?.absoluteString ?? ""
-        _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI starting", acpURL: acpURL))
+        guard loadedUIForConnectionKey != connectionKey else { return }
+        _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI waiting for ACP", acpURL: acpURL))
         while true {
             guard !Task.isCancelled else { return }
             switch server.status {
             case .running(let baseURL):
-                if await Self.gooseUIReady(baseURL: baseURL) {
+                if await Self.gooseUIReady(baseURL: baseURL),
+                   await runtimeACPReady(connection: connection) {
+                    guard loadedUIForConnectionKey != connectionKey else { return }
                     // Read `activeRoute` at the actual load instant (not a value captured when this task
                     // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
                     loadedUIForConnectionKey = connectionKey
@@ -717,6 +725,23 @@ struct GooseWebSurfaceView: View {
             }
             try? await Task.sleep(nanoseconds: 160_000_000)
         }
+    }
+
+    private func runtimeACPReady(connection: GooseRuntimeConnection) async -> Bool {
+        guard await Self.runtimeHealthReady(baseURL: connection.baseURL) else { return false }
+        switch acpBridge.status {
+        case .connected:
+            return true
+        case .idle, .failed, .disconnected:
+            connectNativeACP(connection: connection)
+            return false
+        case .connecting:
+            return false
+        }
+    }
+
+    nonisolated static func runtimeHealthReady(baseURL: URL) async -> Bool {
+        await GooseRuntimeSupervisor.healthCheck(base: baseURL)
     }
 
     nonisolated static func gooseUIReady(baseURL: URL) async -> Bool {

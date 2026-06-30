@@ -381,7 +381,7 @@ struct GooseRuntimeSupervisorTests {
         // fail()s and stops listening (killing native overlays/diagnostics) even though
         // every reconnect succeeded. Assert the reset lands after a successful connect
         // and before the receive loop, and that terminal failure is gated on the bound.
-        #expect(source.contains("if attempt >= attempts {"))
+        #expect(source.contains("if let attempts, attempt >= attempts {"))
         #expect(source.contains("markConnected(agent: response.agentInfo)"))
         if let mc = source.range(of: "markConnected(agent: response.agentInfo)") {
             let afterConnect = source[mc.upperBound...]
@@ -391,6 +391,16 @@ struct GooseRuntimeSupervisorTests {
                 #expect(resetRange.lowerBound < receiveRange.lowerBound, "the reset must precede the receive loop")
             }
         }
+    }
+
+    @Test("production ACP URL bridge retries until ready with capped backoff")
+    func productionACPURLBridgeRetriesUntilReady() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
+        #expect(source.contains("initialHandshakeAttempts: nil"))
+        #expect(source.contains("urlHandshakeInitialRetryDelayNanoseconds"))
+        #expect(source.contains("urlHandshakeMaximumRetryDelayNanoseconds"))
+        #expect(source.contains("handshakeRetryDelayNanoseconds("))
+        #expect(source.contains("if let attempts, attempt >= attempts {"))
     }
 
     @Test("default provider activation uses bounded typed provider inventory")
@@ -1403,6 +1413,21 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("loadedUIForConnectionKey == key"))
         #expect(source.contains("loadedUIForConnectionKey = connectionKey"))
         #expect(!source.contains("Goose Web UI server timed out"))
+    }
+
+    @Test("Goose Web UI first render waits for runtime health and ACP initialize")
+    func gooseWebUIFirstRenderWaitsForRuntimeHealthAndACPInitialize() throws {
+        let surface = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        let bridge = try loadRepoTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
+
+        #expect(surface.contains("await Self.runtimeHealthReady(baseURL: connection.baseURL)"))
+        #expect(surface.contains("case .connected:"))
+        #expect(surface.contains("await runtimeACPReady(connection: connection)"))
+        #expect(surface.contains("Goose Web UI waiting for ACP"))
+        #expect(surface.contains("Task { await loadGooseUIWhenReady(gooseUIServer, connection: connection) }"))
+        #expect(surface.contains("loadedUIForConnectionKey = connectionKey"))
+        #expect(bridge.contains("initialHandshakeAttempts: nil"))
+        #expect(bridge.contains("maxRetryDelayNanoseconds: Self.urlHandshakeMaximumRetryDelayNanoseconds"))
     }
 
     @Test("surface availability requires both Goose runtime and ACP Web UI")

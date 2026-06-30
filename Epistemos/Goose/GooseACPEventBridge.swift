@@ -32,6 +32,9 @@ nonisolated enum GooseACPBridgeStatusBounds {
 @MainActor
 @Observable
 final class GooseACPEventBridge {
+    nonisolated static let urlHandshakeInitialRetryDelayNanoseconds: UInt64 = 180_000_000
+    nonisolated static let urlHandshakeMaximumRetryDelayNanoseconds: UInt64 = 1_500_000_000
+
     enum Status: Equatable, Sendable {
         case idle
         case connecting
@@ -63,8 +66,9 @@ final class GooseACPEventBridge {
             key: url.absoluteString,
             transportFactory: { GooseACPURLSessionWebSocketTransport(url: url) },
             clientVersion: clientVersion,
-            initialHandshakeAttempts: 6,
-            retryDelayNanoseconds: 180_000_000,
+            initialHandshakeAttempts: nil,
+            retryDelayNanoseconds: Self.urlHandshakeInitialRetryDelayNanoseconds,
+            maxRetryDelayNanoseconds: Self.urlHandshakeMaximumRetryDelayNanoseconds,
             providerKeyBridge: GooseProviderKeyBridge()
         )
     }
@@ -80,6 +84,7 @@ final class GooseACPEventBridge {
             clientVersion: clientVersion,
             initialHandshakeAttempts: 1,
             retryDelayNanoseconds: 0,
+            maxRetryDelayNanoseconds: nil,
             providerKeyBridge: nil
         )
     }
@@ -87,8 +92,9 @@ final class GooseACPEventBridge {
     func connect(
         transportFactory: @escaping () -> any GooseACPTransport,
         clientVersion: String = Bundle.main.shortVersionString,
-        initialHandshakeAttempts: Int,
-        retryDelayNanoseconds: UInt64 = 0
+        initialHandshakeAttempts: Int?,
+        retryDelayNanoseconds: UInt64 = 0,
+        maxRetryDelayNanoseconds: UInt64? = nil
     ) {
         injectedConnectionNumber += 1
         connect(
@@ -97,6 +103,7 @@ final class GooseACPEventBridge {
             clientVersion: clientVersion,
             initialHandshakeAttempts: initialHandshakeAttempts,
             retryDelayNanoseconds: retryDelayNanoseconds,
+            maxRetryDelayNanoseconds: maxRetryDelayNanoseconds,
             providerKeyBridge: nil
         )
     }
@@ -186,8 +193,9 @@ final class GooseACPEventBridge {
         key: String,
         transportFactory: @escaping () -> any GooseACPTransport,
         clientVersion: String,
-        initialHandshakeAttempts: Int,
+        initialHandshakeAttempts: Int?,
         retryDelayNanoseconds: UInt64,
+        maxRetryDelayNanoseconds: UInt64?,
         providerKeyBridge: GooseProviderKeyBridge?
     ) {
         guard connectionKey != key else { return }
@@ -216,6 +224,7 @@ final class GooseACPEventBridge {
                 clientVersion: clientVersion,
                 initialHandshakeAttempts: initialHandshakeAttempts,
                 retryDelayNanoseconds: retryDelayNanoseconds,
+                maxRetryDelayNanoseconds: maxRetryDelayNanoseconds,
                 providerKeyBridge: providerKeyBridge
             )
         }
@@ -225,17 +234,16 @@ final class GooseACPEventBridge {
         key: String,
         transportFactory: () -> any GooseACPTransport,
         clientVersion: String,
-        initialHandshakeAttempts: Int,
+        initialHandshakeAttempts: Int?,
         retryDelayNanoseconds: UInt64,
+        maxRetryDelayNanoseconds: UInt64?,
         providerKeyBridge: GooseProviderKeyBridge?
     ) async {
-        // `attempts` bounds CONSECUTIVE failed handshakes. A successful connect
-        // resets the counter (below) so transient mid-session socket drops over a
-        // long-lived connection each earn a fresh reconnect budget instead of
-        // sharing one exhaustible pool with the initial handshake. A genuinely
-        // dead endpoint still terminates: every reconnect fails, the counter
-        // climbs to `attempts`, and we clear the key + fail.
-        let attempts = max(1, initialHandshakeAttempts)
+        // `attempts` bounds CONSECUTIVE failed handshakes when a finite budget is supplied.
+        // The production URL path passes nil so cold launch keeps retrying ACP initialize
+        // until the already-/health-healthy runtime accepts the WebSocket handshake; injected
+        // tests can still use a finite budget to prove terminal failure behavior.
+        let attempts = initialHandshakeAttempts.map { max(1, $0) }
         var attempt = 0
         while true {
             attempt += 1
@@ -266,7 +274,7 @@ final class GooseACPEventBridge {
             } catch {
                 await client.close()
                 guard !Task.isCancelled, connectionKey == key else { return }
-                if attempt >= attempts {
+                if let attempts, attempt >= attempts {
                     // Clear the key so a later connect(key:) to the SAME url can
                     // re-establish without forcing a full disconnect()/runtime
                     // restart. Scoped to the terminal path (not shared fail()) so
@@ -280,11 +288,29 @@ final class GooseACPEventBridge {
                     return
                 }
                 status = .connecting
-                if retryDelayNanoseconds > 0 {
-                    try? await Task.sleep(nanoseconds: retryDelayNanoseconds)
+                let delay = Self.handshakeRetryDelayNanoseconds(
+                    failedAttempt: attempt,
+                    initial: retryDelayNanoseconds,
+                    maximum: maxRetryDelayNanoseconds
+                )
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: delay)
                 }
             }
         }
+    }
+
+    nonisolated static func handshakeRetryDelayNanoseconds(
+        failedAttempt: Int,
+        initial: UInt64,
+        maximum: UInt64?
+    ) -> UInt64 {
+        guard failedAttempt > 0, initial > 0 else { return 0 }
+        let cap = max(initial, maximum ?? initial)
+        let shift = min(failedAttempt - 1, 10)
+        let multiplier = UInt64(1) << UInt64(shift)
+        let multiplied = initial.multipliedReportingOverflow(by: multiplier)
+        return min(cap, multiplied.overflow ? cap : multiplied.partialValue)
     }
 
     private func respondToElicitation(
