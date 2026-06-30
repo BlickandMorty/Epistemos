@@ -44,7 +44,7 @@ HARD GATES / FORBIDDEN:
   × Hidden/silent auto-routing with no trace + no undo — the Action Trace (⌘?) and 24h Undo MUST ship WITH any auto-decision (trust surface is non-negotiable; pairs with the honesty doctrine).
   × NightBrain running on battery / thermal pressure / foregrounded — the eligibility gates are mandatory, not optional.
   × Subprocess/Python on the MAS path; keys in UserDefaults (Keychain); editing .xcodeproj (xcodegen); committing model files; touching the graph.
-  × Build-green ≠ done. PROVEN-DONE: capture→route→toast live in-app, a wrong route is visible in ⌘? and reversible in ⌘Z within 24h, review HUD triages a real deferred capture, witnessed live (Swift Testing @Test compile-verify + manual run; headless app-hosted runs crash-loop → push logic to pure helpers). Zero regressions.
+  × Build-green ≠ done. PROVEN-DONE: capture→route→toast live in-app, a wrong route is visible in ⌘? and reversible in ⌘Z within 24h, ~~review HUD triages a real deferred capture~~ 🛑 [OWNER-REMOVED 2026-06-30 — triage/Review-Queue HUD is REMOVED; drop this from the done-gate, do NOT build it], witnessed live (Swift Testing @Test compile-verify + manual run; headless app-hosted runs crash-loop → push logic to pure helpers). Zero regressions.
 
 PARALLELISM / NO-COLLISION (Plans 1/2/3 build concurrently):
   - You OWN: the capture/undo/trace/review/nightbrain/canon SWIFT surfaces + their FFI seam into the existing Rust cores + the capture hotkey.
