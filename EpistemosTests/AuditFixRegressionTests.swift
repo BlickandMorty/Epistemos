@@ -52,6 +52,9 @@ struct AuditFixRegressionTests {
         #expect(approvalModal.contains("withCheckedContinuation"))
         #expect(approvalModal.contains("func resolve("))
         #expect(approvalModal.contains("case applyLessInterruptions"))
+        #expect(approvalModal.contains("ApprovalAuditDiagnostics.externalLogMessage"))
+        #expect(!approvalModal.contains("error.localizedDescription"))
+        #expect(!approvalModal.contains("String(describing: error)"))
 
         #expect(bootstrap.contains("let chatApprovalQueue = ChatApprovalQueue()"))
         #expect(environment.contains(".environment(bootstrap.chatApprovalQueue)"))
@@ -159,6 +162,32 @@ struct AuditFixRegressionTests {
         #expect(entries.contains { $0.eventKind == "prompt_shown" && $0.argsHash == argsHash })
         #expect(entries.contains { $0.eventKind == "user_resolved" && $0.resolution == "allow_once" })
         #expect(entries.contains { $0.eventKind == "dedup_short_circuit" && $0.argsHash == argsHash })
+    }
+
+    @Test("approval audit diagnostics redact external errors")
+    func approvalAuditDiagnosticsRedactExternalErrors() {
+        let message = ApprovalAuditDiagnostics.externalLogMessage(
+            "approval audit append failed",
+            error: NSError(
+                domain: "/Users/jojo/PrivateVault/audit.swift",
+                code: 13,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Could not append /Users/jojo/PrivateVault/approval.jsonl"
+                ]
+            )
+        )
+
+        #expect(message.contains("approval audit append failed"))
+        #expect(message.contains("code=13"))
+        #expect(message.count <= ApprovalAuditDiagnostics.maxLogMessageCharacters)
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "audit.swift",
+            "approval.jsonl",
+        ] {
+            #expect(!message.contains(forbidden))
+        }
     }
 
     @Test("managed tools use an application-support scratch vault instead of crashing when no vault is attached")
