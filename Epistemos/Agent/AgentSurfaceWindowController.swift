@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-// Native Goose frame. Mirrors GooseSurfaceWindowController:
-// a themed, transparent titlebar NSWindow hosting the native rail around Goose's
-// reskinned WebView. Singleton.
+// Native Goose window: a transparent-titlebar NSWindow hosting Goose's reskinned
+// WebView full-bleed. Goose owns navigation; the native layer owns the macOS
+// window plus native permission / elicitation pop-ups.
 
 @MainActor
 final class AgentSurfaceWindowController {
@@ -33,12 +33,14 @@ final class AgentSurfaceWindowController {
         )
         window.title = "Epistemos Goose"
         window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.minSize = NSSize(width: 760, height: 520)
+        window.appearance = NSAppearance(named: bootstrap.uiState.theme.isDark ? .darkAqua : .aqua)
 
         let view = AgentSurfaceRootView(theme: bootstrap.uiState.theme)
             .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
@@ -46,8 +48,8 @@ final class AgentSurfaceWindowController {
         host.sizingOptions = .minSize
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
-        window.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
-        WindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
+        window.contentView = host
+        WindowThemeStyler.refreshChrome(of: window)
 
         observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import WebKit
@@ -22,6 +23,7 @@ extension GooseWebSurfaceView {
     static func makePage(
         bootstrap: GooseWebBootstrap,
         gooseUIRoot: URL?,
+        theme: EpistemosTheme = .nativeDefault,
         nativePromptBridge: GooseWebNativePromptBridge,
         nativeAffordanceBridge: GooseWebNativeAffordanceBridge,
         trustedOrigins: GooseTrustedLoopbackOrigins
@@ -47,7 +49,7 @@ extension GooseWebSurfaceView {
         }
         configuration.userContentController.addUserScript(
             WKUserScript(
-                source: GooseWebBootShim.bootstrapScript(for: bootstrap) + "\n" + nativeFeelScript,
+                source: GooseWebBootShim.bootstrapScript(for: bootstrap) + "\n" + nativeFeelScript(theme: theme),
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )
@@ -63,12 +65,14 @@ extension GooseWebSurfaceView {
     static func makeBootProbePage(
         bootstrap: GooseWebBootstrap,
         gooseUIRoot: URL,
+        theme: EpistemosTheme = .nativeDefault,
         nativePromptBridge: GooseWebNativePromptBridge = GooseWebNativePromptBridge(),
         nativeAffordanceBridge: GooseWebNativeAffordanceBridge = GooseWebNativeAffordanceBridge()
     ) -> WebPage {
         makePage(
             bootstrap: bootstrap,
             gooseUIRoot: gooseUIRoot,
+            theme: theme,
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
             trustedOrigins: GooseTrustedLoopbackOrigins()
@@ -187,13 +191,14 @@ extension GooseWebSurfaceView {
 
     static func bootstrappedGooseUIHTML(
         indexURL: URL,
-        bootstrap: GooseWebBootstrap
+        bootstrap: GooseWebBootstrap,
+        theme: EpistemosTheme = .nativeDefault
     ) -> String? {
         guard let html = try? String(contentsOf: indexURL, encoding: .utf8) else { return nil }
         let snippet = """
         <script>
         \(GooseWebBootShim.bootstrapScript(for: bootstrap))
-        \(nativeFeelScript)
+        \(nativeFeelScript(theme: theme))
         </script>
         """
         if let headRange = html.range(of: "<head>") {
@@ -237,14 +242,66 @@ extension GooseWebSurfaceView {
         return String(value.prefix(maxPlaceholderStatusCharacters))
     }
 
-    static let nativeFeelScript = """
-    (() => {
-      const style = document.createElement('style');
-      style.textContent = `
-        :root { color-scheme: light dark; }
+    static func nativeFeelScript(theme: EpistemosTheme) -> String {
+        let css = nativeFeelCSS(theme: theme)
+        return """
+        (() => {
+          const style = document.createElement('style');
+          style.id = 'epistemos-goose-native-theme';
+          style.textContent = \(jsStringLiteral(css));
+          document.documentElement.appendChild(style);
+          document.documentElement.dataset.epistemosTheme = \(jsStringLiteral(theme.rawValue));
+          document.documentElement.classList.toggle('dark', \(theme.isDark ? "true" : "false"));
+        })();
+        """
+    }
+
+    static func nativeFeelCSS(theme: EpistemosTheme) -> String {
+        let resolved = theme.resolved
+        let background = cssColor(resolved.chatSurface)
+        let surface = cssColor(resolved.card)
+        let surfaceStrong = cssColor(resolved.floatingSurfaceTint)
+        let foreground = cssColor(resolved.foreground)
+        let mutedForeground = cssColor(resolved.mutedForeground)
+        let border = cssColor(resolved.border)
+        let accent = cssColor(resolved.accent)
+        let inverseBackground = cssColor(resolved.foreground)
+        let inverseText = cssColor(resolved.background)
+        let colorScheme = theme.isDark ? "dark" : "light"
+
+        return """
+        :root,
+        .goose-epistemos {
+          color-scheme: \(colorScheme);
+          --color-background-primary: \(background) !important;
+          --color-background-secondary: \(surface) !important;
+          --color-background-tertiary: \(surfaceStrong) !important;
+          --color-background-inverse: \(inverseBackground) !important;
+          --color-background-info: \(surface) !important;
+          --color-text-primary: \(foreground) !important;
+          --color-text-secondary: \(mutedForeground) !important;
+          --color-text-tertiary: \(mutedForeground) !important;
+          --color-text-inverse: \(inverseText) !important;
+          --color-text-info: \(accent) !important;
+          --color-border-primary: \(border) !important;
+          --color-border-secondary: \(border) !important;
+          --color-border-tertiary: \(border) !important;
+          --color-border-info: \(accent) !important;
+          --color-ring-primary: \(accent) !important;
+          --color-ring-secondary: \(accent) !important;
+          --color-ring-info: \(accent) !important;
+          --epistemos-accent: \(accent) !important;
+          --epistemos-theme-background: \(background) !important;
+          --epistemos-theme-surface: \(surface) !important;
+          --epistemos-theme-surface-strong: \(surfaceStrong) !important;
+          --epistemos-theme-foreground: \(foreground) !important;
+          --epistemos-theme-muted-foreground: \(mutedForeground) !important;
+          --epistemos-theme-border: \(border) !important;
+        }
         * { -webkit-font-smoothing: antialiased; }
-        html, body {
-          background: transparent !important;
+        html,
+        body {
+          background: \(background) !important;
           cursor: default;
           overscroll-behavior: none;
         }
@@ -252,10 +309,29 @@ extension GooseWebSurfaceView {
           width: initial;
           height: initial;
         }
-      `;
-      document.documentElement.appendChild(style);
-    })();
-    """
+        """
+    }
+
+    private static func cssColor(_ token: EpistemosTheme.ResolvedColorToken) -> String {
+        guard let srgb = token.nsColor.usingColorSpace(.sRGB) else { return "#000000" }
+        let red = Int((srgb.redComponent * 255).rounded())
+        let green = Int((srgb.greenComponent * 255).rounded())
+        let blue = Int((srgb.blueComponent * 255).rounded())
+        let alpha = srgb.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02x%02x%02x", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
+    }
+
+    private static func jsStringLiteral(_ value: String) -> String {
+        guard JSONSerialization.isValidJSONObject([value]),
+              let data = try? JSONSerialization.data(withJSONObject: [value]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "\"\""
+        }
+        return String(json.dropFirst().dropLast())
+    }
 
     static let gooseUIRenderProbeScript = """
     return (() => {

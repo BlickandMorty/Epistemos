@@ -1,5 +1,11 @@
 # Goose Phase 0 — Owner §7 Sign-Off Checklist (2026-06-28)
 
+> ✅ **OWNER OVERRIDE 2026-06-30 — CURRENT PLAN-1 CANON:** the prior Step 3 native Models/router slice
+> was cut. Goose now stays **WebView-only for every route** inside the clean native frame; native owns
+> only the window frame and native permission/elicitation pop-ups. Ignore the historical Step 3 section
+> below where it references `GooseSurfaceRouter`, `EPISTEMOS_GOOSE_NATIVE_ROUTES`, or
+> `GooseNativeModelsView`.
+
 > 🛑 **SUPERSEDED 2026-06-29: §7 is GREEN-LIT — this checklist is HISTORICAL.** Plan 1 is ON Phase 1; there is NO
 > pending sign-off. Do NOT treat the items below as a blocking gate. (Keep the 5 proofs green as ongoing
 > verification.) Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`.

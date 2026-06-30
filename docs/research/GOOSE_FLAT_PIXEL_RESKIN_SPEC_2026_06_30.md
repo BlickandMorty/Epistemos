@@ -16,9 +16,9 @@ Code desktop app — *not* boxy, *not* retro-pixel-everything.
    shadow. The only hairline allowed is the native window edge.
 
 2. **NO UGLY FOCUS OUTLINE (owner-flagged).** Kill the default focus ring/outline on the message input and on all
-   inputs/buttons (the chunky blue OS ring). Replace it with a QUIET, theme-toned state — e.g.
-   `box-shadow: inset 0 0 0 1px var(--border-muted)` or a soft `var(--surface-0)` fill shift — never a 2px hard outline.
-   Keep a faint focus indicator for accessibility, but it must be subtle and theme-toned, never the blue ring.
+   inputs/buttons (the chunky blue OS ring). Replace it with a QUIET, theme-toned state: a soft surface fill shift and,
+   only where needed, a diffuse shadow. Do **not** draw an inset 1px rule around the input. Keep a faint focus indicator
+   for accessibility, but it must be subtle and theme-toned, never the blue ring.
 
 3. **PIXEL TWIST — SLIGHT, HEADINGS ONLY.** Use the pixel display font ONLY on: the greeting heading, the section labels
    (`CHATS`, `COMPANIONS`, etc.), the window title, and the companion mascots. **Everything else stays clean SF Pro

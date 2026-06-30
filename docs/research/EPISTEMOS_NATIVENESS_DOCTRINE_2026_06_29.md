@@ -2,15 +2,15 @@
 
 > ⚡ **OWNER REFINEMENT — 2026-06-30 (after seeing the live app; SUPERSEDES the surface-material details below where they conflict):** the look is **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the native FRAME (rounded-corner window + vibrancy + traffic-lights + springs — the curved-white window the owner likes). **SURFACES are FLAT + BORDERLESS** — NO thick outlines / hard box borders / 1px rules; differentiate by subtle tint + spacing + soft shadow only. NOT old thick-outline pixel-art, NOT translucent-glass on every surface. **For GOOSE: NO native nav rail** — it duplicated Goose's own web sidebar and lagged; native = the window FRAME only, Goose's reskinned web UI is the whole surface + nav.
 
-> 🛑 **REVERTED 2026-06-30 — the flat-pixel-art amendment is WITHDRAWN by the owner** (it over-collapsed a nuanced plan).
-> **The full NUANCED unification doctrine below STANDS as the authority** — the convergence of native + editor-web + Goose-web
+> ✅ **OWNER REFINEMENT LOCKED 2026-06-30 — flat/minimal + slight pixel twist is the active Goose visual direction.**
+> The full NUANCED unification doctrine below STANDS as supporting authority — the convergence of native + editor-web + Goose-web
 > into ONE Apple-native language via shared tokens · the canonical springs · macOS-26 Liquid Glass · transparency-over-real-glass ·
 > and the per-substrate recipes. **Do NOT reduce it to a one-word label** ("pixel-art" / "flat" / even just "Apple-native"): the
 > nuance — per-surface treatment so the seams vanish — IS the plan. Read the whole doctrine, don't shortcut it.
-> **RETAINED (the one real addition the owner wants):** **TOTAL THEME-AWARENESS** — every surface (native + editor-web + Goose-web)
+> **RETAINED:** **TOTAL THEME-AWARENESS** — every surface (native + editor-web + Goose-web)
 > reads the Epistemos tokens and re-tints live for ALL palettes: the 9 built-ins **AND the user CUSTOM palette** (which currently
 > does NOT propagate everywhere = a BUG to fix; no hardcoded color; two-token-sources). radius 11 + Liquid Glass + springs all stand.
-> **PRECISE SCOPE (owner 2026-06-30):** the minimal/pixel touch is LIMITED to **fonts + small accents + the palette**. **MOST of the look = the strategically-researched native components in the body below** (Liquid Glass, native controls, shared tokens, the springs, transparent-over-glass). It is **NOT** flat surfaces, **NOT** box outlines / thick lines, **NOT** the current over-flat Goose look.
+> **PRECISE GOOSE SCOPE (owner 2026-06-30):** Claude-desktop-style clean flat UI, borderless surfaces, no blue focus ring, no hard boxes, and a slight pixel twist on headings/labels/companions only. Goose has **NO native nav rail and NO native Models route**; Goose's own web UI is the whole navigation surface inside a clean rounded native window.
 
 > How every surface achieves "super-native feel." Owner goal: full/near-full AppKit feel; where a WebView
 > is used it must be **indistinguishable from the native part** (the inverse of Codex/Claude/Paseo, which
@@ -41,9 +41,11 @@ genuinely the best tool — made to feel native via native chrome, transparency-
 spring motion, and latency discipline.** Native *feel*, not necessarily native *code*.
 
 ## The two sides
-- **APP SIDE (real Apple-native + REAL Liquid Glass):** window/titlebar, nav-rail/sidebar/launcher, toolbars,
-  permission/elicitation pop-ups, sheets/modals, floating panels (slash/bubble/KaTeX, Cmd+K, Halo), landing,
-  graph, PDF viewer (PDFKit), QuickLook, Prose/TK2, the editor CHROME, and the native Goose Models picker.
+- **APP SIDE (real Apple-native + REAL Liquid Glass):** window/titlebar, app-owned sidebars/launchers/toolbars outside
+  the Goose window, permission/elicitation pop-ups, sheets/modals, floating panels (slash/bubble/KaTeX, Cmd+K, Halo),
+  landing, graph, PDF viewer (PDFKit), QuickLook, Prose/TK2, and the editor CHROME.
+  **Goose exception:** its window keeps only the bare rounded native frame + native permission/elicitation pop-ups.
+  Goose's own web sidebar/navigation and models/providers/settings remain web.
   Real Liquid Glass via `NSVisualEffectView` / SwiftUI `Material` / macOS 26 Liquid Glass APIs.
 - **WEB SIDE (blend into the native glass — can't do real Liquid Glass):** Goose chat + sessions + config
   (reskinned, permanent), the code editor (MarkEdit/CoreEditor) + note editor (Epdoc/TipTap) ENGINES, HTML
@@ -87,12 +89,13 @@ Resources → WKURLSchemeHandler). SF Pro = system font (no bundling). SF Symbol
 body. 3. Calm/fluid web UI for unseen surfaces (Settings). 4. Native window/titlebar Liquid Glass. 5. Native
 toolbars/sidebars/launcher. 6. Native floating panels. 7. Native permission pop-ups/sheets. 8. macOS 26 material
 on already-native surfaces. 9. Native editor chrome (nested-box/title/file-logos/lens toggle — already native).
-10–11. Goose chat + sessions + non-Models pickers = WEB + Apple-reskin (NOT native). **EXCEPTION: the Models picker is the ONE native route (already built, `GooseNativeModelsView`) — keep it native.** (Per Option 1; consistent with the "native Models picker" lines above.)
+10–11. Goose chat + sessions + settings + models/providers pickers = WEB + owner-approved flat Claude-like pixel reskin (NOT native). There is no native Goose route promotion.
 
 ## ★ PER-PLAN NATIVE vs WEB SPLIT (apply this doctrine to ALL three plans)
-**Plan 1 — Goose:** NATIVE = the frame (window/nav-rail/launcher/permission pop-ups) + Models picker. WEB-reskinned
-(permanent) = chat, sessions, settings, recipes, skills, scheduler, MCP-app. Treatment = retheme Goose's existing
-shadcn/Radix/Tailwind + tune its framer-motion + transparent-over-glass. (See GOOSE_NATIVE_WEB_RESKIN.)
+**Plan 1 — Goose:** NATIVE = bare rounded window frame + native permission/elicitation pop-ups only. WEB-reskinned
+(permanent) = Goose's own sidebar/nav, chat, sessions, settings, models/providers, recipes, skills, scheduler, MCP-app.
+Treatment = retheme Goose's existing shadcn/Radix/Tailwind + tune its framer-motion + theme tokens + the approved
+flat Claude-like pixel twist. (See GOOSE_NATIVE_WEB_RESKIN + GOOSE_FLAT_PIXEL_RESKIN_SPEC.)
 **Plan 2 — Editor:** NATIVE = all chrome (code nested-box/title/file-logos/lens toggle; note chrome), Prose/TK2,
 PDF viewer (PDFKit), Cmd+K, floating panels. WEB engines (blend, don't replace) = MarkEdit/CoreEditor (code) +
 Epdoc/TipTap (note) + HTML Workspace. Same recipe: transparent-over-glass + SF Pro + theme tokens + spring motion

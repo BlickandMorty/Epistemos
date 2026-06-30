@@ -440,8 +440,8 @@ struct GooseACPClientTests {
         await client.close()
     }
 
-    @Test("provider inventory normalizes live ACP ids before native Models picker")
-    func providerInventoryNormalizesLiveACPIDsBeforeNativeModelsPicker() async throws {
+    @Test("provider inventory normalizes live ACP ids before Goose web Models route")
+    func providerInventoryNormalizesLiveACPIDsBeforeGooseWebModelsRoute() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
             #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
             #"""

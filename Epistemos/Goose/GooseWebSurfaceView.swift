@@ -23,9 +23,7 @@ struct GooseWebSurfaceView: View {
     nonisolated static let loadingWebUIStatus = "Loading Goose Web UI"
 
     var theme: EpistemosTheme = .nativeDefault
-    /// The web hash route to display. Default `/?` (the Goose hub). The native Agent frame's nav rail
-    /// drives this so a rail selection navigates the embedded WebView — navigation STRUCTURE only; the
-    /// SPA still owns its content. A change re-points the loaded WebView via `loadGooseRoute`.
+    /// Initial Goose web hash route. Goose's own Web UI owns all subsequent navigation.
     var route: String = "/?"
 
     @State private var supervisor = GooseRuntimeSupervisor()
@@ -35,7 +33,6 @@ struct GooseWebSurfaceView: View {
     @State private var page: WebPage
     @State private var gooseUIServer: WorkSPAServer?
     @State private var secretKey: String
-    @State private var showDetails = false
     @State private var runtimeHealthTask: Task<Void, Never>?
     @State private var trustedOrigins: GooseTrustedLoopbackOrigins
     @State private var pageBootstrapConnectionKey: String
@@ -44,10 +41,6 @@ struct GooseWebSurfaceView: View {
     @State private var webUILoadTask: Task<Void, Never>?
     @State private var webUIRenderOverlayStatus: String?
     @State private var webUIRenderProbeLastResult: String?
-    // Step 3 per-route migration: the router defaults EVERY route to the WebView (the oracle) and
-    // promotes a route to native only when explicitly enabled. The Models route is the first native
-    // candidate; it reuses this surface's live ACP bridge instead of spawning a second Goose client.
-    @State private var router = GooseSurfaceRouter()
     // Review H1/H3: the supervisor reaching .running and the bridge finishing provider-sync are both
     // ASYNC and can arrive after the initial bounded poll gave up. These track which connection the
     // surface has already been driven for / reloaded after sync, so the status observers can drive
@@ -56,13 +49,8 @@ struct GooseWebSurfaceView: View {
     @State private var loadedUIForConnectionKey: String?
     @State private var reloadedSyncForConnectionKey: String?
     @State private var surfaceStarted = false
-    @State private var isRestarting = false
-    // Single live source-of-truth for the route to display. The incoming `route` prop drives this via
-    // `onChange`, but the async load chain (`.task → loadWhenReady`) and the provider-sync reload must
-    // read the CURRENT desired route, not a value captured at view-appear time or a literal "/?". @State
-    // storage is shared across struct re-creations, so even a stale captured `self` reads the live value
-    // here — fixing rail clicks made during startup being dropped + the post-sync reload snapping to hub.
-    @State private var activeRoute: String
+    // Single live source-of-truth for the initial web route. The async load chain and provider-sync
+    // reload read this state so a route supplied before the UI server is ready is still honored.
     @State private var activeWebRoute: String
 
     init(theme: EpistemosTheme = .nativeDefault, route: String = "/?") {
@@ -81,11 +69,11 @@ struct GooseWebSurfaceView: View {
         _secretKey = State(initialValue: secretKey)
         _trustedOrigins = State(initialValue: trustedOrigins)
         let normalizedRoute = Self.normalizedGooseRoute(route)
-        _activeRoute = State(initialValue: normalizedRoute)
         _activeWebRoute = State(initialValue: normalizedRoute)
         let page = Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
+            theme: theme,
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
             trustedOrigins: trustedOrigins
@@ -98,31 +86,19 @@ struct GooseWebSurfaceView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             contentHost
-            if let webUIRenderOverlayStatus, !nativeModelsRouteIsActive {
+            if let webUIRenderOverlayStatus {
                 webUIRenderOverlay(status: webUIRenderOverlayStatus)
-            }
-            if showDetails {
-                detailsPanel
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else {
-                detailsButton
-                    .padding(.top, 10)
-                    .padding(.trailing, 12)
             }
             nativeACPOverlay
         }
         .background(background)
-        .animation(.snappy(duration: 0.16), value: showDetails)
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
         }
         .onChange(of: route) { _, newRoute in
-            // Native nav-rail drove the route: record it as the live desired route (so a change made
-            // before the UI server is running is NOT lost — the load chain reads `activeRoute`), then
-            // re-point the loaded WebView (no-op until the UI server is running).
             let normalizedRoute = Self.normalizedGooseRoute(newRoute)
-            handleRouteSelection(normalizedRoute)
+            setWebRoute(normalizedRoute)
         }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
@@ -151,139 +127,9 @@ struct GooseWebSurfaceView: View {
 
     @ViewBuilder
     private var contentHost: some View {
-        ZStack {
-            WebView(page)
-                .background(background)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .opacity(nativeModelsRouteIsActive ? 0 : 1)
-                .allowsHitTesting(!nativeModelsRouteIsActive)
-
-            if nativeModelsRouteIsActive {
-                nativeModelsContent
-            }
-        }
-    }
-
-    private var nativeModelsContent: some View {
-        Group {
-            GooseNativeModelsView(bridge: acpBridge)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(background)
-        }
-        .transition(.opacity.animation(.smooth(duration: 0.16)))
-    }
-
-    private var nativeModelsRouteIsActive: Bool {
-        activeRoute == GooseSurfaceRoute.models.webRoute && router.isNative(.models)
-    }
-
-    private var detailsButton: some View {
-        let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
-        return Button { showDetails = true } label: {
-            Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(theme.mutedForeground)
-                .frame(width: 30, height: 30)
-                .background {
-                    ZStack {
-                        if theme.isDark {
-                            shape.fill(.ultraThinMaterial)
-                        } else {
-                            shape.fill(.regularMaterial)
-                        }
-                        shape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(0.66))
-                    }
-                }
-                .overlay {
-                    shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.42 : 0.56), lineWidth: 0.7)
-                }
-                .shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 10, y: 4)
-        }
-        .buttonStyle(.plain)
-        .help("Goose details")
-        .accessibilityLabel("Goose details")
-    }
-
-    private var detailsPanel: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Goose")
-                    .font(GooseSurfaceStyle.bodyFont(12, weight: .semibold))
-                Spacer()
-                Button { showDetails = false } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                .help("Close")
-            }
-            detailRow("runtime", statusLabel)
-            detailRow("native ACP Goose", nativeACPStatusLabel)
-            detailRow("ACP", GooseRuntimeSupervisor.defaultBaseURL().absoluteString)
-            detailRow("surface", Self.resolvedGooseUIIndex() == nil ? "UI bundle not staged" : "Goose Web UI")
-            detailRow("UI origin", gooseUIServerStatusLabel)
-            if let webUIRenderProbeLastResult {
-                detailRow("render probe", webUIRenderProbeLastResult)
-            }
-            detailRow("custom ACP Goose", customACPStatusLabel)
-            HStack(spacing: 8) {
-                Button {
-                    handleRouteSelection(GooseSurfaceRoute.models.webRoute)
-                    showDetails = false
-                } label: {
-                    Label("Manage models", systemImage: "slider.horizontal.3")
-                }
-                .buttonStyle(.bordered)
-                .help(router.isNative(.models) ? "Open native models picker" : "Open Goose models")
-                Button {
-                    handleRouteSelection("/configure-providers")
-                    showDetails = false
-                } label: {
-                    Label("Providers", systemImage: "key")
-                }
-                .buttonStyle(.bordered)
-                .help("Open Goose providers")
-                if canRestartSurface {
-                    Button { Task { await restartSurface() } } label: {
-                        Label("Restart", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                    .help("Restart Goose")
-                }
-            }
-            .font(GooseSurfaceStyle.bodyFont(10, weight: .semibold))
-            if !acpBridge.unhandledDiagnostics.isEmpty {
-                Divider().overlay(theme.border)
-                ForEach(acpBridge.unhandledDiagnostics.suffix(4)) { diagnostic in
-                    detailRow(
-                        diagnostic.kind.rawValue,
-                        "\(diagnostic.method) \(diagnostic.parameterSummary)"
-                    )
-                }
-            }
-            Divider().overlay(theme.border)
-            ForEach(GooseWebBootShim.dispositionLedger.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
-                detailRow(key, value.rawValue)
-            }
-        }
-        .padding(12)
-        .frame(width: 300, alignment: .leading)
-        .background {
-            ZStack {
-                if theme.isDark {
-                    shape.fill(.ultraThinMaterial)
-                } else {
-                    shape.fill(.regularMaterial)
-                }
-                shape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.78 : 0.70))
-            }
-        }
-        .clipShape(shape)
-        .overlay {
-            shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.50 : 0.66), lineWidth: 0.7)
-        }
-        .shadow(color: .black.opacity(theme.isDark ? 0.26 : 0.12), radius: 22, y: 12)
+        WebView(page)
+            .background(background)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func webUIRenderOverlay(status: String) -> some View {
@@ -390,21 +236,6 @@ struct GooseWebSurfaceView: View {
         .padding(.horizontal, 20)
     }
 
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(label)
-                .font(GooseSurfaceStyle.bodyFont(10, weight: .semibold))
-                .foregroundStyle(theme.textTertiary)
-            Spacer(minLength: 0)
-            Text(value)
-                .font(GooseSurfaceStyle.bodyFont(10))
-                .foregroundStyle(theme.resolved.foreground.color)
-                .lineLimit(2)
-                .truncationMode(.middle)
-                .multilineTextAlignment(.trailing)
-        }
-    }
-
     private var statusLabel: String {
         switch supervisor.status {
         case .idle:
@@ -419,74 +250,6 @@ struct GooseWebSurfaceView: View {
             return "error: \(message)"
         case .stopped:
             return "stopped"
-        }
-    }
-
-    private var nativeACPStatusLabel: String {
-        switch acpBridge.status {
-        case .idle:
-            return "idle"
-        case .connecting:
-            return "connecting"
-        case .connected(let agent):
-            if let agent {
-                if agent.name.localizedCaseInsensitiveContains("goose") {
-                    return "ready (\(agent.version))"
-                }
-                return "ready (\(agent.name) \(agent.version))"
-            }
-            return "ready"
-        case .failed(let message):
-            return "error: \(message)"
-        case .disconnected:
-            return "disconnected"
-        }
-    }
-
-    private var customACPStatusLabel: String {
-        // HONESTY (deep-hardening 2026-06-29 H/false-ready): this row showed "ready" even when
-        // the ACP bridge was idle/connecting/FAILED/disconnected (diagnostics-only check). Gate
-        // on the real bridge status like nativeACPStatusLabel — "ready" ONLY when connected.
-        switch acpBridge.status {
-        case .idle:
-            return "idle"
-        case .connecting:
-            return "connecting"
-        case .connected:
-            // L1: when genuinely connected the row reads exactly "custom ACP Goose ready" (the owner's
-            // required string). Benign diagnostics (unhandled notifications / serverError entries that
-            // KEEP the connection alive) must not flip it off "ready" — they are surfaced separately in
-            // the diagnostics rows below. False-green is still prevented: "ready" requires .connected.
-            return "ready"
-        case .failed(let message):
-            return "error: \(message)"
-        case .disconnected:
-            return "disconnected"
-        }
-    }
-
-    private var gooseUIServerStatusLabel: String {
-        guard let gooseUIServer else { return "not started" }
-        switch gooseUIServer.status {
-        case .idle:
-            return "idle"
-        case .starting:
-            return "starting"
-        case .running(let baseURL):
-            return "live: \(baseURL.absoluteString)"
-        case .failed(let message):
-            return "error: \(message)"
-        case .stopped:
-            return "stopped"
-        }
-    }
-
-    private var canRestartSurface: Bool {
-        switch supervisor.status {
-        case .failed, .stopped:
-            return true
-        default:
-            return false
         }
     }
 
@@ -516,32 +279,6 @@ struct GooseWebSurfaceView: View {
         webUIRenderOverlayStatus = nil
         webUIRenderProbeLastResult = nil
         loadPlaceholder(status: Self.startingStatus)
-        supervisor.start(secretKey: secretKey, allowPortFallback: true)
-        await loadWhenReady()
-    }
-
-    private func restartSurface() async {
-        guard !isRestarting else { return }   // L3: a fast double-tap must not overlap two restarts
-        isRestarting = true
-        defer { isRestarting = false }
-        drivenConnectionKey = nil
-        loadedUIForConnectionKey = nil
-        reloadedSyncForConnectionKey = nil
-        runtimeHealthTask?.cancel()
-        runtimeHealthTask = nil
-        runtimeRetryTask?.cancel()
-        runtimeRetryTask = nil
-        runtimeRetryAttempt = 0
-        webUILoadTask?.cancel()
-        webUILoadTask = nil
-        webUIRenderOverlayStatus = nil
-        webUIRenderProbeLastResult = nil
-        gooseUIServer?.stop()
-        gooseUIServer = nil
-        await acpBridge.disconnect()
-        nativePromptBridge.cancelPendingPrompts()
-        loadPlaceholder(status: Self.startingStatus)
-        supervisor.stop()
         supervisor.start(secretKey: secretKey, allowPortFallback: true)
         await loadWhenReady()
     }
@@ -638,10 +375,8 @@ struct GooseWebSurfaceView: View {
               let gooseUIServer,
               case .running(let baseURL) = gooseUIServer.status else { return }
         reloadedSyncForConnectionKey = key
-        // Reload to the CURRENT web-backed route, not a literal "/?" — otherwise this post-sync reload
-        // snaps the WebView back to the hub while the native rail still highlights e.g. Sessions.
-        // Promoted native routes keep their SwiftUI content active and leave the WebView on the last
-        // non-native route; the native picker refreshes from the same provider-sync notification.
+        // Reload to the CURRENT web route, not a literal "/?", so an initial non-hub route survives
+        // provider-sync. Goose's own web UI owns every visible route after load.
         loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: activeWebRoute)
     }
 
@@ -686,7 +421,8 @@ struct GooseWebSurfaceView: View {
             let staticRoutes = Self.gooseStaticCompatibilityRoutes(
                 bootstrappedIndexHTML: Self.bootstrappedGooseUIHTML(
                     indexURL: index,
-                    bootstrap: bootstrap
+                    bootstrap: bootstrap,
+                    theme: theme
                 )
             )
             let server = WorkSPAServer(
@@ -742,12 +478,8 @@ struct GooseWebSurfaceView: View {
         loadBootstrappedGooseUI(baseURL: baseURL, connection: connection, route: route)
     }
 
-    private func handleRouteSelection(_ route: String) {
+    private func setWebRoute(_ route: String) {
         let normalizedRoute = Self.normalizedGooseRoute(route)
-        activeRoute = normalizedRoute
-        guard !(normalizedRoute == GooseSurfaceRoute.models.webRoute && router.isNative(.models)) else {
-            return
-        }
         activeWebRoute = normalizedRoute
         loadGooseRoute(normalizedRoute)
     }
@@ -770,6 +502,7 @@ struct GooseWebSurfaceView: View {
         let nextPage = Self.makePage(
             bootstrap: bootstrap,
             gooseUIRoot: Self.resolvedGooseUIRoot(),
+            theme: theme,
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
             trustedOrigins: trustedOrigins
@@ -835,9 +568,8 @@ struct GooseWebSurfaceView: View {
                     webUIRenderOverlayStatus = renderAttempt == 0
                         ? Self.loadingWebUIStatus
                         : "Goose Web UI render retry \(renderAttempt)"
-                    // Read `activeWebRoute` at the actual load instant (not a value captured when this
-                    // task began) so a rail click made WHILE the UI server was coming up is honored when
-                    // it is web-backed. Promoted native routes keep this on the last web route.
+                    // Read `activeWebRoute` at the actual load instant, not a value captured when this
+                    // task began, so an initial route supplied during startup is honored.
                     let request = URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeWebRoute))
                     webUIRenderOverlayStatus = nil
                     _ = page.load(request)

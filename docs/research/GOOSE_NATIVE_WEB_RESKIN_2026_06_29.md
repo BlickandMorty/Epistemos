@@ -1,13 +1,19 @@
 # Goose Native-Feel Web Reskin — LIVING RESEARCH (started 2026-06-29)
 
-> 🎨 **OWNER DESIGN AMENDMENT STATUS — 2026-06-30 CURRENT CANON:** the flat pixel-art amendment was **WITHDRAWN** by the owner in `EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`. Do **not** override this doc's Liquid Glass / transparent-over-glass recipe with flat pixel-art. The nuanced native/web unification doctrine stands: reskin Goose and hosted web surfaces to blend with the native frame through shared Apple tokens, native glass behind transparent WebViews, calibrated springs, and AppKit-style control geometry. **Retained addition:** total theme-awareness for every Epistemos palette, including the user CUSTOM palette; no hardcoded color escapes, and keep the Swift and Goose token sources in lock-step.
+> 🎨 **OWNER DESIGN STATUS — 2026-06-30 CURRENT CANON:** Goose should look like the approved Claude-desktop-style
+> clean flat UI with a slight pixel-art twist: borderless surfaces, no hard box outlines, no chunky/blue focus ring,
+> headings/section labels/companions get the pixel accent, body/buttons/inputs stay SF Pro. Keep the native rounded
+> window, but remove all native app-side Goose chrome. Goose's own web UI owns the sidebar/nav and every route.
+> Total theme-awareness for every Epistemos palette, including the user CUSTOM palette; no hardcoded color escapes,
+> and keep the Swift and Goose token sources in lock-step. Companion spec:
+> `docs/research/GOOSE_FLAT_PIXEL_RESKIN_SPEC_2026_06_30.md`.
 
 > FOREVER-LOOP research (cron `3856c0a4`, every 3m). Goal: reskin Goose's web UI so it is
 > **indistinguishable from the native AppKit part** inside a WKWebView — fluid spring motion,
 > hardened (no lag/jank/bug), every Goose component mapped to a native-feeling web alternative.
 > This doc is updated IN PLACE each round (read-first · no-contradiction · preserve-nuance · break-nothing).
 > Companion canon: `EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md` · `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md`
-> (chat stays WebView reskinned — Option 1, native FRAME only; stop native-promotion after Models).
+> (all Goose routes stay WebView reskinned — Option 1, native FRAME only; no native route promotion).
 
 ## Doctrine this serves (summary — full in the doctrine doc)
 - Native shell = REAL Liquid Glass (`NSVisualEffectView` / macOS 26 APIs). Web body = TRANSPARENT
@@ -68,7 +74,7 @@ Verified from the real Goose UI source (`.research-clones/work/goose/ui/desktop`
 | `BaseChat` · `GooseMessage` · `ProgressiveMessageList` · `MarkdownContent` · `ThinkingContent` | retheme + virtualize | chat bubbles, SF Pro, SF Mono code, virtualized transcript | message insert spring | ⏳ |
 | `ChatInput` · `ChatInputCard` · `MentionPopover` | retheme | macOS composer, focus ring, mention popover vibrancy | — | ⏳ |
 | `Hub.tsx` · `LauncherView.tsx` | retheme | hub/launcher on glass | route transition spring | ⏳ |
-| `GooseSidebar/` · `Layout/` | retheme | sidebar vibrancy blend (matches native nav-rail) | — | ⏳ |
+| `GooseSidebar/` · `Layout/` | retheme | Claude-like single Goose web sidebar; no matching native nav rail exists | — | ⏳ |
 | `ElicitationRequest` · `ParameterInputModal` · `JsonSchemaForm` · `ExtensionInstallModal` | retheme | macOS form controls/sheets | sheet spring | ⏳ |
 | `ChatSessionsContainer` · `SessionActionsHeader` · `SessionIndicators` | retheme | macOS list rows | reorder spring | ⏳ |
 | toasts (`GroupedExtensionLoadingToast`) · `LoadingGoose/Epistemos` · `Spinner` | retheme | macOS toast/progress | slide+fade spring | ⏳ |

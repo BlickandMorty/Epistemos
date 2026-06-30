@@ -1,11 +1,17 @@
 # Goose Agent AppKit Follow-On Plan
 
+> ✅ **OWNER OVERRIDE 2026-06-30 — CURRENT PLAN-1 CANON:** Goose is **just Goose's reskinned Web UI in a
+> clean native rounded window**. Native owns only the macOS frame + traffic lights + native permission /
+> elicitation pop-ups. **NO native nav rail, NO launcher panel, NO native Models picker, NO route router,
+> NO per-route native migration.** The body below is historical where it says nav-rail / launcher /
+> Models picker / route table / route promotion.
+
 > 🛑 **SUPERSEDED 2026-06-29 (owner — Option 1 + Unification; applies to this WHOLE doc, not just the route table).**
 > This document's ENTIRE native-chat plan is DEAD: **Gate 7, Step 9, `useNativeChatPath`, the native hub / transcript
 > / session-canvas / composer — ALL DELETED.** Chat + EVERY Goose feature stays in Goose's **reskinned WebView,
 > PERMANENTLY** (retheme to look native; never rebuild a Goose feature in Swift). **NATIVE = the FRAME ONLY**
-> (window / nav-rail / launcher / permission+elicitation pop-ups) **+ the Models picker** (the ONE native route,
-> already built). **§7 is GREEN-LIT** → ignore any "wait for sign-off / Phase 0 not signed" text below. Wherever
+> (window + traffic lights + native permission/elicitation pop-ups only). **§7 is GREEN-LIT** → ignore any
+> "wait for sign-off / Phase 0 not signed" text below. Wherever
 > this doc says "native chat / Gate 7 / Step 9 / native transcript," it is HISTORICAL — DO NOT BUILD IT.
 > Canon: `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 
@@ -70,14 +76,14 @@ GOAL
 
 NATIVE — FIXED frame only (reimplements NO Goose feature)
 - Landing tile / shortcut → AgentSurfaceWindowController (the app window + chrome)
-- Native nav rail; content slot = Goose's reskinned WebView
+- [DELETED 2026-06-30] No native nav rail; Goose's own web sidebar is the navigation.
 - Permission sheet + elicitation form (already built + proven; the WebView forwards them)
 - NO native hub / session-canvas / composer / transcript. Chat IS Goose's WebView.
 
 GOOSE WEBVIEW — PERMANENT (every Goose feature; NO per-route gate)
 - Skills, Recipes, Extensions, Scheduler, MCP Apps, shared-session
 - Unproven settings tabs (Sharing, Prompts, Local Inference until WRV)
-- Same window: AgentNavigationRailView + GooseWebSurfaceView (or route-scoped panel) in content area
+- Same window: GooseWebSurfaceView full-bleed; no AgentNavigationRailView or route-scoped native panel.
 - Hardened staged UI + boot shim; no feature loss vs Electron
 
 GATE 7 — [DELETED 2026-06-27]
@@ -305,14 +311,12 @@ Execute in order. **Do not skip gates.** Each step has an exit criterion.
 
 **Exit:** Landing → Agent handoff works; cwd change via native panel
 
-### Step 5 — Navigation parity (Gate 3)
+### Step 5 — [DELETED 2026-06-30] Native navigation parity
 
-1. `AgentNavigationRailView` — 8 destinations + recent sessions (`AgentSessionRailSection`)
-2. Inline rename, archive, streaming badges
-3. Hub route as default; session canvas for active chat
-4. Rail selection drives **hybrid content router**: native views for hub/session/settings (proven tabs); WebView panel for Skills, Recipes, Extensions, Scheduler, Apps, shared-session until per-route flip
+Goose's own reskinned web sidebar is the only navigation. Do not build `AgentNavigationRailView`,
+LRU native sessions, or a hybrid content router for Goose.
 
-**Exit:** Rail matches Goose nav semantics; LRU recent list; every destination reachable (native or embedded WebView) with no silent failure
+**Exit:** GooseWebSurfaceView is full-bleed and every Goose destination remains reachable through Goose's web UI.
 
 ### Step 6 — Settings + providers (Gate 4)
 

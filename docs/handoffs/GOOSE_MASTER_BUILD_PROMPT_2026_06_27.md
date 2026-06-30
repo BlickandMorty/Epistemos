@@ -1,8 +1,15 @@
 # Goose Master Build Prompt — Full Program (Phase 0 → Hybrid AppKit)
 
+> ✅ **OWNER OVERRIDE 2026-06-30 — CURRENT PLAN-1 CANON:** Goose is **just Goose's reskinned Web UI in a
+> clean native rounded window**. Native owns only the macOS frame + traffic lights + native permission /
+> elicitation pop-ups. **NO native nav rail, NO launcher panel, NO native Models picker, NO route router,
+> NO per-route native migration.** `AgentNavigationRailView`, `AgentLauncherPanelView`,
+> `GooseSurfaceRouter`, and `GooseNativeModelsView` are retired/deleted. Any body text below that says
+> "frame + Models picker", "native nav rail", "launcher", or "native route" is historical and superseded.
+
 > 🛑 **SUPERSEDED 2026-06-29 (Option 1 + Unification).** §7 is GREEN-LIT (Plan 1 is ON Phase 1). There is **NO
 > native chat** and **NO Gate-7 chat-primary flip** — chat + every Goose feature stays in the **reskinned WebView,
-> PERMANENTLY** (NATIVE = the frame + the Models picker only). Any "native chat / chat-primary / Gate 7 / Phase 0
+> PERMANENTLY** (NATIVE = the bare frame + native permission/elicitation pop-ups only). Any "native chat / chat-primary / Gate 7 / Phase 0
 > not signed / wait for §7 sign-off" text below is HISTORICAL — do not act on it. Canon:
 > `docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md` + `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 
@@ -270,7 +277,8 @@ Step 2 — [DELETED 2026-06-27] No native transcript reducer. The chat transcrip
   Goose FEATURE and stays in Goose's WebView, unchanged.
 
 Step 3 — Native FRAME only (NO native chat, NO native feature)
-  - AgentSurfaceWindowController + native nav rail + landing entry = the app FRAME.
+  - AgentSurfaceWindowController + traffic lights + rounded window = the app FRAME.
+  - NO native nav rail, launcher panel, native Models picker, or route router.
   - Permission/elicitation render natively (already built + proven); the WebView
     forwards them to the native panels.
   - The content area hosts GOOSE'S RESKINNED WEBVIEW for ALL features — chat included.
@@ -281,14 +289,12 @@ Step 3 — Native FRAME only (NO native chat, NO native feature)
 │ PHASE 2 — Entry + navigation + settings (Steps 4–6)                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Step 4 — Landing tile + ⌘⇧A + cwd picker + diagnostics row (frame only)
-Step 5 — AgentNavigationRailView (native nav rail; content slot = Goose WebView)
+Step 4 — Landing/menu entry + diagnostics row (frame only)
+Step 5 — [DELETED 2026-06-30] No AgentNavigationRailView. Goose's own web sidebar is the only navigation.
 Step 6 — [DELETED 2026-06-27] No native settings/providers/auth MANAGEMENT. Settings,
   providers, and OAuth are Goose features and stay in Goose's WebView — Goose owns provider
-  tokens, enumerated via its own ACP (GOLDEN RULE). ⚠️ CARVE-OUT (2026-06-29, Option 1): the
-  Models PICKER is the ONE native route, already built (`GooseNativeModelsView`, Steps 1–3) —
-  KEEP it native; do NOT revert it to web. Only the Models picker is native; settings/providers/
-  auth management stay WebView.
+  tokens, enumerated via its own ACP (GOLDEN RULE). 2026-06-30 update: no Models carve-out remains;
+  the Models picker is Goose web UI only.
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 3 — Feature parity + Epistemos bridge (Steps 7–8)                     │

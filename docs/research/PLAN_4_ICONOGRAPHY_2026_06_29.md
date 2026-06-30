@@ -3,6 +3,10 @@
 > **STATUS: SAVED / NOT YET ACTIVE.** Owner brainstormed + locked the shape 2026-06-29; do NOT start until the owner
 > says go. This is the detail home for `docs/prompts/PROMPT_PLAN_4_ICONS.md` (the lean paste prompt points here).
 >
+> ✅ **PLAN-1 UPDATE 2026-06-30:** `GooseNativeModelsView` no longer exists; Goose has no native Models route.
+> When Plan 4 activates, model/provider logos upgrade through the shared logo spine and Goose web token mirror,
+> not through a native Goose Models picker.
+>
 > **Relationship to Plan 3 (NO fork, NO contradiction):** Plan 3 already shipped the *honest brand-logo registry +
 > render spine + call-site wiring* — deliberately WITHOUT vendoring real third-party brand assets and WITHOUT any
 > fake vendor-asset claims (see `PLAN_3_WHOLE_APP_LOGOS_CODEPACK_2026_06_28.md`). **Plan 4 is the missing layer:**
@@ -39,8 +43,7 @@
 - `Epistemos/Assets.xcassets` — **18** `ProviderLogo*.imageset` entries already exist, incl. `ProviderLogoClaude`,
   **`ProviderLogoClaudeCode`** (← Opus mascot, already present), `ProviderLogoCodex`, `ProviderLogoApple`, `ProviderLogoAI21`, …
 - Theme token source (Swift): `Epistemos/Theme/EpistemosTheme.swift` (+ `Epistemos/Theme/PlatinumTheme.swift`).
-- Native Models picker: `Epistemos/Goose/GooseNativeModelsView.swift` (**Plan-1 territory** — Plan 4 must NOT
-  restructure it; it auto-upgrades via `ProviderLogoView`).
+- Goose Models route: web-only under Plan 1; model logos auto-upgrade via `ProviderLogoView` + Goose web token mirror.
 - Goose web vendored in-app at `Epistemos/Goose/`; the editable token source is `…/goose/ui/desktop/src/theme/
   theme-tokens.ts` (verify the in-app vs `.research-clones/work/goose/` copy before editing — the app may ship a built
   bundle; confirm the live token path).

@@ -15,6 +15,8 @@ const surfacePolishMarker = 'epistemos-native-surface-polish';
 const catalogPolishMarker = 'epistemos-native-catalog-screen-polish';
 const loadingErrorPolishMarker = 'epistemos-native-loading-error-polish';
 const motionPolishMarker = 'epistemos-native-motion-polish';
+const flatPolishMarker = 'epistemos-native-high-quality-flat-polish';
+const claudePixelPolishMarker = 'epistemos-native-claude-pixel-polish';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -88,37 +90,37 @@ function applyThemeTokens() {
     '--color-background-secondary': ['#f5f5f7', '#272729'],
     '--color-background-tertiary': ['#fafafc', '#2a2a2c'],
     '--color-background-inverse': ['#1d1d1f', '#ffffff'],
-    '--color-background-info': ['#e8f2ff', '#0c2742'],
-    '--color-background-danger': ['#fff1ef', '#3a1c19'],
-    '--color-background-success': ['#eaf7ee', '#17351f'],
-    '--color-background-warning': ['#fff6df', '#332611'],
+    '--color-background-info': ['#f1f1f3', '#202024'],
+    '--color-background-danger': ['#f1f1f3', '#202024'],
+    '--color-background-success': ['#f1f1f3', '#202024'],
+    '--color-background-warning': ['#f1f1f3', '#202024'],
     '--color-background-disabled': ['#f0f0f0', '#333333'],
     '--color-text-primary': ['#1d1d1f', '#ffffff'],
     '--color-text-secondary': ['#6e6e73', '#cccccc'],
     '--color-text-tertiary': ['#86868b', '#7a7a7a'],
     '--color-text-inverse': ['#ffffff', '#1d1d1f'],
     '--color-text-ghost': ['#86868b', '#7a7a7a'],
-    '--color-text-info': ['#0066cc', '#2997ff'],
-    '--color-text-danger': ['#bf3b30', '#ff9f96'],
-    '--color-text-success': ['#248a3d', '#8fd69d'],
-    '--color-text-warning': ['#8a5b00', '#ffd45a'],
+    '--color-text-info': ['#1d1d1f', '#ffffff'],
+    '--color-text-danger': ['#1d1d1f', '#ffffff'],
+    '--color-text-success': ['#1d1d1f', '#ffffff'],
+    '--color-text-warning': ['#1d1d1f', '#ffffff'],
     '--color-text-disabled': ['#86868b', '#7a7a7a'],
     '--color-border-primary': ['#e0e0e0', '#333333'],
     '--color-border-secondary': ['#f0f0f0', '#252527'],
     '--color-border-tertiary': ['#d2d2d7', '#3a3a3c'],
     '--color-border-inverse': ['#1d1d1f', '#ffffff'],
-    '--color-border-info': ['#9dccff', '#2f6ea8'],
-    '--color-border-danger': ['#ffb4ab', '#7a3934'],
-    '--color-border-success': ['#9ad8aa', '#346b42'],
-    '--color-border-warning': ['#e6c76f', '#7a5d1c'],
+    '--color-border-info': ['#d2d2d7', '#3a3a3c'],
+    '--color-border-danger': ['#d2d2d7', '#3a3a3c'],
+    '--color-border-success': ['#d2d2d7', '#3a3a3c'],
+    '--color-border-warning': ['#d2d2d7', '#3a3a3c'],
     '--color-border-disabled': ['#e0e0e0', '#333333'],
-    '--color-ring-primary': ['#0066cc', '#2997ff'],
-    '--color-ring-secondary': ['#0071e3', '#0066cc'],
+    '--color-ring-primary': ['#1d1d1f', '#ffffff'],
+    '--color-ring-secondary': ['#6e6e73', '#cccccc'],
     '--color-ring-inverse': ['#ffffff', '#1d1d1f'],
-    '--color-ring-info': ['#0066cc', '#2997ff'],
-    '--color-ring-danger': ['#bf3b30', '#ff9f96'],
-    '--color-ring-success': ['#248a3d', '#8fd69d'],
-    '--color-ring-warning': ['#8a5b00', '#ffd45a'],
+    '--color-ring-info': ['#1d1d1f', '#ffffff'],
+    '--color-ring-danger': ['#1d1d1f', '#ffffff'],
+    '--color-ring-success': ['#1d1d1f', '#ffffff'],
+    '--color-ring-warning': ['#1d1d1f', '#ffffff'],
     '--shadow-hairline': ['none', 'none'],
     '--shadow-sm': ['none', 'none'],
     '--shadow-md': ['none', 'none'],
@@ -144,7 +146,7 @@ function applyMainCSS() {
 :root,
 .goose-epistemos {
   --epistemos-native-reskin-overlay: 1;
-  --epistemos-accent: var(--color-ring-primary, #0066cc);
+  --epistemos-accent: var(--color-ring-primary);
   --epistemos-control-ease: linear(
     0,
     0.402 7.4%,
@@ -185,6 +187,7 @@ function applyMainCSS() {
 html,
 body,
 #root,
+:root,
 .goose-epistemos {
   background: transparent !important;
 }
@@ -269,9 +272,9 @@ body {
 
 /* ==========================================================================
    Epistemos native scrollbar + focus polish (${focusPolishMarker})
-   These are global "web tells": Goose used custom hidden scrollbars and neutral
-   focus outlines. Restore the WKWebView/system scrollbar path and use the same
-   accent-driven focus ring as the native frame.
+   These are global "web tells": Goose used custom hidden scrollbars and chunky
+   focus outlines. Restore the WKWebView/system scrollbar path and use a quiet,
+   token-driven focus inset that cannot fall back to the old blue OS ring.
    ========================================================================== */
 .goose-epistemos,
 .goose-epistemos :is(
@@ -317,16 +320,27 @@ body {
   [role='menuitem'],
   [role='option'],
   [tabindex]:not([tabindex='-1'])
+):focus,
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
 ):focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--epistemos-accent) 86%, transparent) !important;
-  outline-offset: 2px !important;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--epistemos-accent) 50%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--epistemos-accent) 16%, transparent) !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background-color: color-mix(in srgb, var(--epistemos-accent) 7%, var(--epistemos-glass-fill)) !important;
 }
 
 .goose-epistemos :is(input, textarea, select):focus-visible {
-  border-color: var(--epistemos-accent) !important;
+  border-color: transparent !important;
 }
 `;
   }
@@ -671,6 +685,411 @@ body {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
   }
+}
+`;
+  }
+  if (!source.includes(flatPolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos high-quality flat polish (${flatPolishMarker})
+   Final visual layer: Goose remains the product UI, edge-to-edge in the native
+   window. Surfaces separate by spacing, tint, and state, not hard boxes.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-high-quality-flat-polish: 1;
+  --epistemos-flat-app-bg: var(--color-background-primary);
+  --epistemos-flat-surface: color-mix(in srgb, var(--color-background-secondary) 58%, var(--color-background-primary));
+  --epistemos-flat-surface-strong: color-mix(in srgb, var(--color-background-secondary) 76%, var(--color-background-primary));
+  --epistemos-flat-hover: color-mix(in srgb, var(--color-background-secondary) 88%, var(--color-background-primary));
+  --epistemos-flat-separator: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --epistemos-flat-focus: color-mix(in srgb, var(--epistemos-accent) 34%, transparent);
+  --epistemos-control-shadow: none;
+  --epistemos-popover-shadow: 0 18px 56px rgba(0, 0, 0, 0.12);
+  background: var(--epistemos-flat-app-bg) !important;
+}
+
+.dark,
+.dark .goose-epistemos {
+  --epistemos-flat-surface: color-mix(in srgb, var(--color-background-secondary) 42%, var(--color-background-primary));
+  --epistemos-flat-surface-strong: color-mix(in srgb, var(--color-background-secondary) 60%, var(--color-background-primary));
+  --epistemos-flat-hover: color-mix(in srgb, var(--color-background-secondary) 72%, var(--color-background-primary));
+  --epistemos-flat-separator: color-mix(in srgb, white 10%, transparent);
+  --epistemos-popover-shadow: 0 18px 56px rgba(0, 0, 0, 0.32);
+}
+
+html,
+body,
+#root,
+.goose-epistemos {
+  min-height: 100%;
+  background-color: var(--epistemos-flat-app-bg) !important;
+}
+
+.goose-epistemos :is(
+  .bg-background-primary,
+  .bg-background-secondary,
+  .bg-background-tertiary,
+  .bg-background-default
+) {
+  background-color: transparent !important;
+}
+
+.goose-epistemos :is(
+  [class*='border-border'],
+  [class*='border-primary'],
+  [class*='border-secondary'],
+  [class*='border-tertiary'],
+  [class*='border-borderSubtle'],
+  .border,
+  .border-t,
+  .border-r,
+  .border-b,
+  .border-l,
+  [data-slot='card'],
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  .goose-chat-input-card,
+  .goose-user-message-bubble,
+  .goose-message-content,
+  .goose-message-tool,
+  .ep-native-screen-card,
+  .ep-native-list-card,
+  .ep-native-error-card,
+  .ep-native-badge,
+  .mcp-app-container,
+  [role='dialog'],
+  [role='status'],
+  [data-radix-popper-content-wrapper] > *
+) {
+  border-color: transparent !important;
+  outline-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  .goose-chat-input-card,
+  .goose-user-message-bubble,
+  .goose-message-content,
+  .goose-message-tool,
+  .ep-native-screen-card,
+  .ep-native-list-card,
+  [data-slot='card']
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--epistemos-flat-surface) !important;
+}
+
+.goose-epistemos :is(
+  [role='dialog'],
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  [data-radix-popper-content-wrapper] > *
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--epistemos-flat-app-bg) !important;
+  box-shadow: var(--epistemos-popover-shadow) !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  .ep-native-list-card
+):not(:disabled):hover {
+  background-color: var(--epistemos-flat-hover) !important;
+}
+
+.goose-epistemos :is(
+  input,
+  textarea,
+  select,
+  [contenteditable='true']
+) {
+  border-color: transparent !important;
+  outline: none !important;
+  background-color: var(--epistemos-flat-surface) !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus,
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus-visible {
+  outline: none !important;
+  background-color: color-mix(in srgb, var(--epistemos-accent) 7%, var(--epistemos-flat-surface)) !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  .divide-y > :not([hidden]) ~ :not([hidden]),
+  .border-t,
+  .border-b,
+  [data-orientation='horizontal']
+) {
+  border-color: var(--epistemos-flat-separator) !important;
+}
+
+.goose-epistemos :is(.goose-message, .goose-message-content, .goose-message-tool) {
+  max-width: min(900px, 92vw) !important;
+}
+
+.goose-epistemos .goose-chat-input-card {
+  border-radius: 18px !important;
+}
+
+.goose-epistemos :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+  box-shadow: none !important;
+}
+`;
+  }
+  if (!source.includes(claudePixelPolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos Claude-like pixel polish (${claudePixelPolishMarker})
+   Visual target: Claude's calm single-sidebar app shell, adapted to Goose and
+   Epistemos with a small pixel-art accent layer. No duplicate native nav rail.
+   ========================================================================== */
+:root,
+.goose-epistemos {
+  --epistemos-native-claude-pixel-polish: 1;
+  --epistemos-pixel-font: "ChonkyPixels", "MatrixTypeDisplay", "MatrixTypeDisplay-Bold", "SF Mono", ui-monospace, Menlo, monospace;
+  --epistemos-claude-bg: var(--color-background-primary);
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 72%, var(--color-background-primary));
+  --epistemos-claude-sidebar-strong: color-mix(in srgb, var(--color-background-secondary) 92%, var(--color-background-primary));
+  --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 58%, var(--color-background-primary));
+  --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 78%, var(--color-background-primary));
+  --epistemos-claude-hover: color-mix(in srgb, var(--color-background-secondary) 88%, var(--color-background-primary));
+  --epistemos-claude-text: var(--color-text-primary);
+  --epistemos-claude-muted: var(--color-text-secondary);
+  --epistemos-claude-hairline: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --epistemos-claude-soft-shadow-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --epistemos-claude-soft-shadow: 0 18px 44px var(--epistemos-claude-soft-shadow-color);
+  --epistemos-pixel-accent: var(--epistemos-accent);
+  --epistemos-flat-app-bg: var(--epistemos-claude-bg);
+  --epistemos-flat-surface: var(--epistemos-claude-surface);
+  --epistemos-flat-hover: var(--epistemos-claude-hover);
+  --epistemos-flat-separator: var(--epistemos-claude-hairline);
+  background-color: var(--epistemos-claude-bg) !important;
+  color: var(--epistemos-claude-text) !important;
+}
+
+.dark,
+.dark .goose-epistemos {
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 54%, var(--color-background-primary));
+  --epistemos-claude-sidebar-strong: color-mix(in srgb, var(--color-background-secondary) 70%, var(--color-background-primary));
+  --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 44%, var(--color-background-primary));
+  --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 62%, var(--color-background-primary));
+  --epistemos-claude-hover: color-mix(in srgb, var(--color-background-secondary) 72%, var(--color-background-primary));
+  --epistemos-claude-hairline: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --epistemos-claude-soft-shadow-color: color-mix(in srgb, var(--color-background-inverse) 28%, transparent);
+}
+
+html,
+body,
+#root,
+.goose-epistemos {
+  background: var(--epistemos-claude-bg) !important;
+}
+
+.goose-epistemos {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif !important;
+}
+
+.goose-epistemos :is(main, [role='main']) {
+  background: var(--epistemos-claude-bg) !important;
+  color: var(--epistemos-claude-text) !important;
+}
+
+.goose-epistemos :is(
+  aside,
+  nav[class*='sidebar'],
+  [class*='Sidebar'],
+  [class*='sidebar'],
+  [data-sidebar],
+  [data-slot='sidebar']
+) {
+  background: var(--epistemos-claude-sidebar) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  .goose-chat-input-card,
+  [data-slot='card'],
+  .goose-user-message-bubble,
+  .goose-message-content,
+  .goose-message-tool,
+  .ep-native-screen-card,
+  .ep-native-list-card
+) {
+  background: var(--epistemos-claude-surface) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos .goose-chat-input-card {
+  border-radius: 18px !important;
+  background: var(--epistemos-claude-bg) !important;
+  box-shadow: var(--epistemos-claude-soft-shadow) !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option']
+) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: inherit;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option']
+):not(:disabled):hover {
+  background: var(--epistemos-claude-hover) !important;
+}
+
+.goose-epistemos :is(
+  input,
+  textarea,
+  select,
+  [contenteditable='true']
+) {
+  background: var(--epistemos-claude-surface) !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--epistemos-claude-text) !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus,
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus-visible {
+  outline: none !important;
+  background: color-mix(in srgb, var(--epistemos-pixel-accent) 7%, var(--epistemos-claude-surface)) !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos .goose-chat-input-card:focus-within {
+  outline: none !important;
+  background: color-mix(in srgb, var(--epistemos-pixel-accent) 5%, var(--epistemos-claude-bg)) !important;
+  box-shadow: 0 16px 42px var(--epistemos-claude-soft-shadow-color) !important;
+}
+
+.goose-epistemos :is(
+  [role='dialog'],
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  [data-radix-popper-content-wrapper] > *
+) {
+  background: var(--epistemos-claude-bg) !important;
+  border-color: transparent !important;
+  box-shadow: var(--epistemos-claude-soft-shadow) !important;
+}
+
+.goose-epistemos :is(.text-text-secondary, .text-text-tertiary, .text-muted-foreground) {
+  color: var(--epistemos-claude-muted) !important;
+}
+
+.goose-epistemos :is(
+  .divide-y > :not([hidden]) ~ :not([hidden]),
+  .border-t,
+  .border-b,
+  [data-orientation='horizontal']
+) {
+  border-color: var(--epistemos-claude-hairline) !important;
+}
+
+.goose-epistemos :is(
+  h1,
+  .ep-native-section-label,
+  .ep-native-window-title,
+  .ep-native-companion,
+  [data-epistemos-pixel-heading],
+  [data-epistemos-section-label],
+  [data-epistemos-window-title],
+  [data-epistemos-companion],
+  [class*='section-label'],
+  [class*='SectionLabel'],
+  [class*='window-title'],
+  [class*='WindowTitle'],
+  [class*='companion-mascot'],
+  [class*='CompanionMascot']
+) {
+  font-family: var(--epistemos-pixel-font) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  image-rendering: pixelated;
+}
+
+.goose-epistemos :is(.ep-native-loading-dot, [class*='status'] [class*='dot']) {
+  border-radius: 2px !important;
+  background: var(--epistemos-pixel-accent) !important;
+  image-rendering: pixelated;
+}
+
+.goose-epistemos :is(svg, img).epistemos-pixel-accent,
+.goose-epistemos [data-epistemos-pixel-accent] {
+  image-rendering: pixelated;
 }
 `;
   }

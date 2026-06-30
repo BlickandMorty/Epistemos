@@ -1,5 +1,10 @@
 # Step 3 — thermo-nuclear code-quality review of the native Models slice (2026-06-29)
 
+> ✅ **OWNER OVERRIDE 2026-06-30 — HISTORICAL ONLY:** this reviewed slice was later removed from the
+> live Plan 1 direction. Goose has **NO native Models route and NO native route router**; the visible
+> product path is Goose's reskinned Web UI in a clean native window. Keep this as historical evidence
+> for the old slice, not as implementation guidance.
+
 Adversarial review (independent agent, second perspective) over the 5 Step-3 files:
 `GooseSurfaceRouter.swift`, `GooseNativeModelsView.swift`, the new `GooseACPEventBridge`
 passthrough, `GooseACPProviderInventoryEntry`/`Model` in `GooseACPProtocol.swift`, and

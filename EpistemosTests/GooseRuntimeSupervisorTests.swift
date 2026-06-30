@@ -423,29 +423,16 @@ struct GooseRuntimeSupervisorTests {
         #expect(source.contains("Epistemos/GooseWebUI/index.html"))
     }
 
-    @Test("details panel uses the owner-required exact native/custom ACP status language")
-    func detailsPanelUsesExactOwnerStatusLanguage() throws {
+    @Test("Goose surface has no native details panel chrome")
+    func gooseSurfaceHasNoNativeDetailsPanelChrome() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
             + "\n"
             + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
-            + "\n"
-            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
-            + "\n"
-            + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
-        // Owner requirement (verbatim): the details/status panel must read EXACTLY
-        // "native ACP Goose ready (...)" and "custom ACP Goose ready" — never a
-        // vague "Goose ACP ready" / "Goose". Lock the label rows + the connected
-        // value forms so a rename fails HERE instead of reaching the owner.
-        #expect(source.contains("detailRow(\"native ACP Goose\", nativeACPStatusLabel)"))
-        #expect(source.contains("detailRow(\"custom ACP Goose\", customACPStatusLabel)"))
-        // native connected (goose-named agent) -> "ready (<version>)"
-        #expect(source.contains("return \"ready (\\(agent.version))\""))
-        // custom healthy -> "ready"
-        let customStatus = try #require(source.range(of: "private var customACPStatusLabel"))
-        let customStatusSource = source[customStatus.lowerBound...]
-        #expect(customStatusSource.contains("case .connected:"))
-        #expect(customStatusSource.contains("return \"ready\""))
-        // Must NOT downgrade to a vague combined label.
+        #expect(source.contains("nativeACPOverlay"))
+        #expect(!source.contains("detailsPanel"))
+        #expect(!source.contains("detailsButton"))
+        #expect(!source.contains("detailRow(\"native ACP Goose\""))
+        #expect(!source.contains("detailRow(\"custom ACP Goose\""))
         #expect(!source.contains("\"Goose ACP ready\""))
         #expect(!source.contains("detailRow(\"Goose ACP\""))
         #expect(!source.contains("detailRow(\"Goose\","))
@@ -456,13 +443,12 @@ struct GooseRuntimeSupervisorTests {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
             + "\n"
             + loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
-        // A permission/elicitation overlay must NOT survive a goose death/restart:
-        // cancelPendingPrompts() must run on onDisappear AND restartSurface AND the
-        // runtime-failure case AND the load-failure branch (>= 4 sites), not just
-        // onDisappear — otherwise an orphaned native overlay sticks on screen after
-        // a reconnect/restart.
+        // A permission/elicitation overlay must NOT survive a goose death/retry:
+        // cancelPendingPrompts() must run on onDisappear, runtime-failure,
+        // load-failure, and retry paths (>= 4 sites), not just onDisappear —
+        // otherwise an orphaned native overlay sticks on screen after a reconnect.
         let cancelCount = source.components(separatedBy: "nativePromptBridge.cancelPendingPrompts()").count - 1
-        #expect(cancelCount >= 4, "cancelPendingPrompts must cover onDisappear + restart + runtime-failure + load-failure; found \(cancelCount)")
+        #expect(cancelCount >= 4, "cancelPendingPrompts must cover teardown + runtime-failure + load-failure + retry; found \(cancelCount)")
         // The ready-polling loops must honor Task cancellation so a disappeared view
         // does not busy-spin or do post-teardown work (connect/load against a torn-down surface).
         let guardCount = source.components(separatedBy: "guard !Task.isCancelled else { return }").count - 1
@@ -1793,20 +1779,17 @@ struct GooseWebViewBootShimTests {
         #expect(source.contains("name: \"epistemosGoosePrompt\""))
         #expect(source.contains("name: \"epistemosGooseNative\""))
         #expect(source.contains("nativeAffordanceBridge: nativeAffordanceBridge"))
-        #expect(source.contains("Label(\"Manage models\", systemImage: \"slider.horizontal.3\")"))
         #expect(source.contains("private var contentHost: some View"))
-        #expect(source.contains(".opacity(nativeModelsRouteIsActive ? 0 : 1)"))
-        #expect(source.contains(".allowsHitTesting(!nativeModelsRouteIsActive)"))
-        #expect(source.contains("private var nativeModelsRouteIsActive: Bool"))
-        #expect(source.contains("GooseNativeModelsView(bridge: acpBridge)"))
+        #expect(source.contains("WebView(page)"))
+        #expect(!source.contains(".opacity(nativeModelsRouteIsActive ? 0 : 1)"))
+        #expect(!source.contains(".allowsHitTesting(!nativeModelsRouteIsActive)"))
+        #expect(!source.contains("private var nativeModelsRouteIsActive: Bool"))
+        #expect(!source.contains("GooseNativeModelsView(bridge: acpBridge)"))
         #expect(source.contains("@State private var activeWebRoute: String"))
-        #expect(source.contains("handleRouteSelection(GooseSurfaceRoute.models.webRoute)"))
+        #expect(source.contains("private func setWebRoute"))
         #expect(source.contains("route: activeWebRoute"))
-        #expect(source.contains("handleRouteSelection(\"/configure-providers\")"))
+        #expect(!source.contains("handleRouteSelection(\"/configure-providers\")"))
         #expect(source.contains("maxGooseRouteCharacters = 4096"))
-        #expect(source.contains("detailRow(\"native ACP Goose\", nativeACPStatusLabel)"))
-        #expect(source.contains("detailRow(\"custom ACP Goose\", customACPStatusLabel)"))
-        #expect(source.contains("? \"ready\""))
         let modelsURL = GooseWebSurfaceView.routeURL("/settings?section=models")
         #expect(modelsURL.scheme?.hasPrefix("epistemos-goose-") == true)
         #expect(modelsURL.host?.hasPrefix("app-") == true)

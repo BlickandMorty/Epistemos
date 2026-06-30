@@ -4,6 +4,8 @@
 
 > 🛑 **SAVED / NOT YET ACTIVE (owner 2026-06-29).** Do NOT launch this until the owner says go. Drafted to the same
 > strictness as Plan 1/2/3 and parked. It UPGRADES the already-shipped brand-logo spine (Plan 3) — it does not fork it.
+> PLAN-1 UPDATE 2026-06-30: Goose has no native Models route; do not reference or restructure `GooseNativeModelsView`
+> (deleted). Goose model/provider logo work flows through the shared logo spine and Goose web token mirror.
 > FULL verified detail (current code, lobe-icons facts, pipeline, per-theme tokens, icon map, acceptance bar):
 > **docs/research/PLAN_4_ICONOGRAPHY_2026_06_29.md** — READ IT FIRST; this paste is lean.
 
@@ -47,7 +49,7 @@ BUILD ORDER (per the plan; if an item already exists, verify/harden instead of r
 HARD GATES / FORBIDDEN:
   × Any npm/node/subprocess or runtime logo download on ANY path (vendor at build only; MAS sandbox forbids runtime spawn).
   × A glyph that carries its own color (everything = currentColor) OR a hardcoded #000/#fff icon color (must be a theme token).
-  × Forking ProviderBrandLogo/IntegrationBrandMark, or restructuring GooseNativeModelsView or any other plan's view (rely on the chokepoint auto-upgrade).
+  × Forking ProviderBrandLogo/IntegrationBrandMark, or restructuring any other plan's view (rely on the chokepoint auto-upgrade).
   × Editing the two shared theme files WITHOUT coordinating (cross-agent HARD GATE; additive tokens only).
   × A fake "official/verified" vendor-asset claim; breaking CoworkConnectorDirectory honest-state.
   × Touching the graph (DO NOT TOUCH); keys in UserDefaults (Keychain only); editing .xcodeproj (xcodegen only); committing model files.

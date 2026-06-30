@@ -29,12 +29,14 @@ final class GooseSurfaceWindowController {
         )
         window.title = "Epistemos Goose"
         window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
         window.isReleasedWhenClosed = false
         window.isRestorable = false
-        window.minSize = NSSize(width: 620, height: 420)
+        window.minSize = NSSize(width: 760, height: 520)
+        window.appearance = NSAppearance(named: bootstrap.uiState.theme.isDark ? .darkAqua : .aqua)
 
         let view = GooseWebSurfaceView(theme: bootstrap.uiState.theme)
             .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
@@ -42,8 +44,8 @@ final class GooseSurfaceWindowController {
         host.sizingOptions = .minSize
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
-        window.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
-        WindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
+        window.contentView = host
+        WindowThemeStyler.refreshChrome(of: window)
 
         observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,

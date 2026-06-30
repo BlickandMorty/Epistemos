@@ -1,0 +1,143 @@
+import Foundation
+import Testing
+@testable import Epistemos
+
+// Goose web-only surface guards.
+//
+// Two layers:
+//  1. Source invariants (pure, always run): prove the retired native-route router/toggles and
+//     native route panels are gone after the owner cut the native rail and per-route panels.
+//  2. Live parity (gated on a real Goose runtime): prove the Goose ACP provider/defaults data
+//     source stays live-enumerated while the product path stays Goose WebView-only.
+
+@Suite("Goose web-only surface source invariants")
+@MainActor
+struct GooseWebOnlySurfaceSourceTests {
+    @Test("native Agent window keeps Goose primary and does not stack a second sidebar")
+    func nativeAgentWindowKeepsGoosePrimary() throws {
+        let sourceRoot = try sourceMirrorRootURL()
+        #expect(!FileManager.default.fileExists(atPath: sourceRoot.appendingPathComponent(
+            "Epistemos/Goose/GooseSurfaceRouter.swift",
+            isDirectory: false
+        ).path))
+        #expect(!FileManager.default.fileExists(atPath: sourceRoot.appendingPathComponent(
+            "Epistemos/Goose/GooseNativeModelsView.swift",
+            isDirectory: false
+        ).path))
+
+        let root = try loadMirroredSourceTextFile("Epistemos/Agent/AgentSurfaceRootView.swift")
+        #expect(root.contains("GooseWebSurfaceView(theme: theme)"))
+        #expect(root.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"))
+        #expect(root.contains(".ignoresSafeArea()"))
+        #expect(!root.contains("AgentRailDestination"))
+        #expect(!root.contains("AgentNavigationRailView("))
+        #expect(!root.contains("AgentLauncherPanelView("))
+        #expect(!root.contains("routeShortcutButtons"))
+        #expect(!root.contains(".keyboardShortcut(\"l\", modifiers: .command)"))
+        #expect(!root.contains(".padding(.horizontal, 14)"))
+        #expect(!root.contains(".clipShape(shape)"))
+        #expect(!root.contains("shape.strokeBorder"))
+
+        let window = try loadMirroredSourceTextFile("Epistemos/Agent/AgentSurfaceWindowController.swift")
+        #expect(window.contains("window.titleVisibility = .hidden"))
+        #expect(window.contains("window.backgroundColor = .clear"))
+        #expect(window.contains("window.isOpaque = false"))
+        #expect(window.contains("window.contentView = host"))
+        #expect(window.contains("WindowThemeStyler.refreshChrome(of: window)"))
+        #expect(!window.contains("WindowThemeStyler.themedContentView"))
+        #expect(!window.contains("WindowThemeStyler.apply(to: window"))
+
+        let fallbackWindow = try loadMirroredSourceTextFile("Epistemos/Goose/GooseSurfaceWindowController.swift")
+        #expect(fallbackWindow.contains("window.titleVisibility = .hidden"))
+        #expect(fallbackWindow.contains("window.backgroundColor = .clear"))
+        #expect(fallbackWindow.contains("window.isOpaque = false"))
+        #expect(fallbackWindow.contains("window.contentView = host"))
+        #expect(fallbackWindow.contains("WindowThemeStyler.refreshChrome(of: window)"))
+        #expect(!fallbackWindow.contains("WindowThemeStyler.themedContentView"))
+        #expect(!fallbackWindow.contains("WindowThemeStyler.apply(to: window"))
+
+        let webView = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        #expect(webView.contains("WebView(page)"))
+        #expect(webView.contains("nativeACPOverlay"))
+        #expect(webView.contains("private func setWebRoute"))
+        #expect(webView.contains("route: activeWebRoute"))
+        #expect(!webView.contains("GooseSurfaceRouter()"))
+        #expect(!webView.contains("GooseNativeModelsView("))
+        #expect(!webView.contains("nativeModelsRouteIsActive"))
+        #expect(!webView.contains("router.isNative"))
+        #expect(!webView.contains("detailsPanel"))
+        #expect(!webView.contains("detailsButton"))
+        #expect(!webView.contains("Label(\"Manage models\""))
+
+        let reskin = try loadMirroredSourceTextFile("scripts/stage-goose-native-reskin.mjs")
+        #expect(reskin.contains("epistemos-native-high-quality-flat-polish"))
+        #expect(reskin.contains("epistemos-native-claude-pixel-polish"))
+        #expect(reskin.contains("Surfaces separate by spacing, tint, and state, not hard boxes."))
+        #expect(reskin.contains("Visual target: Claude's calm single-sidebar app shell"))
+        #expect(reskin.contains("--epistemos-claude-bg: var(--color-background-primary);"))
+        #expect(reskin.contains("--epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 72%, var(--color-background-primary));"))
+        #expect(reskin.contains("--epistemos-pixel-accent: var(--epistemos-accent);"))
+        #expect(reskin.contains("--epistemos-pixel-font:"))
+        #expect(reskin.contains("border-color: transparent !important;"))
+        #expect(reskin.contains("box-shadow: none !important;"))
+        #expect(reskin.contains("background: var(--epistemos-claude-surface) !important;"))
+        #expect(reskin.contains("box-shadow:"))
+        #expect(reskin.contains("image-rendering: pixelated;"))
+        #expect(reskin.contains("outline: none !important;"))
+        #expect(reskin.contains("background: color-mix(in srgb, var(--epistemos-pixel-accent) 7%, var(--epistemos-claude-surface)) !important;"))
+        #expect(reskin.contains(".goose-epistemos .goose-chat-input-card:focus-within"))
+        #expect(!reskin.contains("#0066cc"))
+        #expect(!reskin.contains("#2997ff"))
+        #expect(!reskin.contains("outline: 2px solid color-mix"))
+        #expect(!reskin.contains("box-shadow: inset 0 0 0 1px var(--epistemos-claude-hairline)"))
+        #expect(!reskin.contains("box-shadow: inset 0 0 0 1px var(--epistemos-flat-focus)"))
+
+        let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
+        #expect(support.contains("nativeFeelScript(theme: theme)"))
+        #expect(support.contains("--color-ring-primary: \\(accent) !important;"))
+        #expect(support.contains("--epistemos-accent: \\(accent) !important;"))
+        #expect(support.contains("document.documentElement.dataset.epistemosTheme"))
+        #expect(!support.contains("EPISTEMOS_GOOSE_NATIVE_ROUTES"))
+        #expect(!support.contains("epistemos.goose.nativeRoutes"))
+
+    }
+}
+
+@Suite("Goose provider/defaults ACP data-source parity", .serialized)
+@MainActor
+struct GooseProviderDefaultsLiveParityTests {
+    /// Goose's product path is WebView-only, but provider/model/default data must still come from
+    /// live ACP methods rather than a Swift-maintained roster.
+    @Test("live ACP providers/list + defaults/read remain resolvable (no hardcoded roster)")
+    func gooseProviderDefaultsReachLiveParity() async throws {
+        try await withLiveGooseACPClient(proofName: "goose-provider-defaults-parity") { _, _, client, _ in
+            _ = try await withLiveTimeout(
+                seconds: 12,
+                description: "ACP initialize for Goose provider/defaults parity",
+                onTimeout: { await client.close() },
+                operation: { try await client.initialize() }
+            )
+
+            let inventory = try await withLiveTimeout(
+                seconds: 20,
+                description: "providers/list inventory (Goose web Models source)",
+                onTimeout: { await client.close() },
+                operation: { try await client.listGooseProviderInventory() }
+            )
+            #expect(!inventory.isEmpty, "Goose provider inventory must not be empty.")
+            #expect(inventory.contains { !$0.models.isEmpty },
+                    "No provider exposes inline models through providers/list.")
+
+            let defaults = try await withLiveTimeout(
+                seconds: 20,
+                description: "defaults/read (Goose current model selection)",
+                onTimeout: { await client.close() },
+                operation: { try await client.readGooseDefaults() }
+            )
+            if let defaultProviderId = defaults.providerId {
+                #expect(inventory.contains { $0.providerId == defaultProviderId },
+                        "Default provider \(defaultProviderId) is not present in providers/list inventory.")
+            }
+        }
+    }
+}

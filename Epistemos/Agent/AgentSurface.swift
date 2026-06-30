@@ -2,10 +2,9 @@ import Foundation
 
 // Native Goose frame surface flag.
 //
-// Per the owner charter (2026-06-27): NATIVE = FIXED frame (window + nav rail + permission/elicitation
-// pop-ups) wrapping Goose's reskinned WebView; chat and every Goose feature stay in the WebView (there
-// is NO native chat path — Gate 7 was deleted). The frame is now a real Goose entry; the env/UserDefaults
-// flag remains as an override for diagnostics or rollback, not as a proof gate.
+// Per the owner charter (2026-06-30): NATIVE = the macOS window frame plus native
+// permission / elicitation pop-ups only. Goose's reskinned WebView owns the whole
+// visible app surface, including navigation; no native nav rail or route panels.
 
 enum AgentSurface {
     static let environmentKey = "EPISTEMOS_AGENT_NATIVE_FRAME"

@@ -1,5 +1,11 @@
 # Goose UI architecture — native Epistemos UI decision (2026-06-29)
 
+> ✅ **OWNER OVERRIDE 2026-06-30 — CURRENT PLAN-1 CANON:** the 2026-06-29 native-route decision was
+> narrowed after the owner saw the live app. Goose is now **Goose Web UI only inside a clean native
+> rounded window**. Native = frame + traffic lights + native permission/elicitation pop-ups only.
+> **NO native nav rail, NO native Models slice, NO route router, NO goosed/MAS work unless explicitly
+> re-opened by the owner.** Keep this document as historical research, not a live route-migration plan.
+
 Owner stated the ideal: **higher-quality UI + more UI control for Epistemos, even if harder.**
 A 4-angle multi-agent research workflow (feasibility/backend, effort/phasing, quality/control,
 MAS/risk) was run. Verdict below. Composes with the backend question: **a native UI and
@@ -36,14 +42,12 @@ and the likely root of "owner still sees issues" (a graft silently breaking on a
 It also removes the 1024-line JS↔native affordance bridge + remote-origin WebView from App Review.
 
 ### Phased plan (WebView stays working throughout — no silent Phase 1)
-> ⚠️ SUPERSEDED 2026-06-29 (Option 1, see EOF Status + NATIVENESS section): ONLY **Phase 0 (router) + Slice 1
-> (native Models)** are live. **Slice 2 (native Chat) and Slice 3+ are NOT done — chat/sessions/etc. STAY WebView,
-> reskinned indistinguishable from native.** The native-Chat/per-route-promotion text below is HISTORICAL.
-- **Phase 0 — Router + toggle (build first):** `GooseSurfaceRouter` resolves each route to
-  `.native` or `.web` via `UserDefaults` + env `EPISTEMOS_GOOSE_NATIVE_ROUTES`, **defaulting EVERY
-  route to `.web`**. `GooseSurfaceContainerView` owns native chrome + swaps body between a native
-  route view and the untouched `GooseWebSurfaceView`. One shared ACP connection. Identical behavior
-  to today until a route is explicitly promoted.
+> ⚠️ SUPERSEDED 2026-06-30 (owner saw live app): the router + native Models slice are retired/deleted.
+> Chat/sessions/models/settings/providers/etc. all stay in Goose's reskinned WebView. Native owns only the
+> window frame + native permission/elicitation pop-ups. The native-Chat/per-route-promotion text below is HISTORICAL.
+- **Phase 0 — [DELETED 2026-06-30] Router + toggle:** `GooseSurfaceRouter`,
+  `EPISTEMOS_GOOSE_NATIVE_ROUTES`, and per-route native promotion are retired. GooseWebSurfaceView
+  owns every Goose route.
 - **Slice 1 — native Models (S, Low risk):** the green-light proof. SwiftUI picker over
   `listGooseProviderCatalog()` (106 live) + supported-models + read/saveGooseDefaults. Fixes the
   concrete model-switch parity pain (task #9), near-zero blast radius.
