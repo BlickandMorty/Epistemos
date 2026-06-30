@@ -4356,6 +4356,12 @@ if (source.includes("        prompts: 'prompts',")) {
     "        prompts: USE_ACP_CHAT ? 'models' : 'prompts', // epistemos-acp-hide-prompts-settings"
   );
 }
+if (source.includes("        'local-inference': 'local-inference',")) {
+  source = source.replace(
+    "        'local-inference': 'local-inference',",
+    "        'local-inference': USE_ACP_CHAT ? 'models' : 'local-inference', // epistemos-acp-hide-local-inference-settings"
+  );
+}
 
 const tunnelEffectAnchor = `  useEffect(() => {
     getTunnelStatus()`;
@@ -4475,6 +4481,89 @@ if (!source.includes('{!USE_ACP_CHAT && (\n                  <TabsContent\n     
   source = source.replace(promptsContentAnchor, promptsContentReplacement);
 }
 
+// epistemos-acp-hide-local-inference-settings: the local-inference settings page
+// is backed by REST/local model endpoints that the ACP-hosted Goose surface does
+// not expose. Hide the tab/content in ACP instead of showing controls that fail.
+const localInferenceTabAnchor = `                  {localInference && (
+                    <TabsTrigger
+                      value="local-inference"
+                      className="flex gap-2"
+                      data-testid="settings-local-inference-tab"
+                    >
+                      <HardDrive className="h-4 w-4" />
+                      {intl.formatMessage(i18n.tabLocalInference)}
+                    </TabsTrigger>
+                  )}`;
+const localInferenceTabReplacement = `                  {localInference && !USE_ACP_CHAT && (
+                    <TabsTrigger
+                      value="local-inference"
+                      className="flex gap-2"
+                      data-testid="settings-local-inference-tab"
+                    >
+                      <HardDrive className="h-4 w-4" />
+                      {intl.formatMessage(i18n.tabLocalInference)}
+                    </TabsTrigger>
+                  )}`;
+if (!source.includes('localInference && !USE_ACP_CHAT && (')) {
+  if (!source.includes(localInferenceTabAnchor)) {
+    throw new Error('SettingsView local inference tab anchor not found');
+  }
+  source = source.replace(localInferenceTabAnchor, localInferenceTabReplacement);
+}
+
+const localInferenceResetAnchor = `  useEffect(() => {
+    if (!localInference && activeTab === 'local-inference') {
+      setActiveTab('models');
+    }
+  }, [localInference, activeTab]);`;
+const localInferenceResetReplacement = `  useEffect(() => {
+    if ((!localInference || USE_ACP_CHAT) && activeTab === 'local-inference') {
+      setActiveTab('models'); // epistemos-acp-hide-local-inference-settings
+    }
+  }, [localInference, activeTab]);`;
+if (!source.includes("setActiveTab('models'); // epistemos-acp-hide-local-inference-settings")) {
+  if (!source.includes(localInferenceResetAnchor)) {
+    throw new Error('SettingsView local inference reset anchor not found');
+  }
+  source = source.replace(localInferenceResetAnchor, localInferenceResetReplacement);
+}
+
+const localInferenceContentAnchor = `                {localInference && (
+                  <TabsContent
+                    value="local-inference"
+                    className="mt-0 focus-visible:outline-none"
+                  >
+                    <LocalInferenceSection />
+                  </TabsContent>
+                )}`;
+const localInferenceContentReplacement = `                {localInference && !USE_ACP_CHAT && (
+                  <TabsContent
+                    value="local-inference"
+                    className="mt-0 focus-visible:outline-none"
+                  >
+                    <LocalInferenceSection />
+                  </TabsContent>
+                )}`;
+if (!source.includes('localInference && !USE_ACP_CHAT && (\n                  <TabsContent\n                    value="local-inference"')) {
+  if (!source.includes(localInferenceContentAnchor)) {
+    throw new Error('SettingsView local inference content anchor not found');
+  }
+  source = source.replace(localInferenceContentAnchor, localInferenceContentReplacement);
+}
+
+// epistemos-acp-hide-generic-config-settings: Goose ACP has no generic
+// read-all/write-any config surface. Keep provider/default/preference-backed
+// settings live, but hide the generic editor in ACP so arbitrary saves do not
+// throw or write a local-only value.
+const genericConfigAnchor = `{CONFIGURATION_ENABLED && <ConfigSettings />}`;
+const genericConfigReplacement = `{!USE_ACP_CHAT && CONFIGURATION_ENABLED && <ConfigSettings /> /* epistemos-acp-hide-generic-config-settings */}`;
+if (!source.includes('epistemos-acp-hide-generic-config-settings')) {
+  if (!source.includes(genericConfigAnchor)) {
+    throw new Error('SettingsView generic config anchor not found');
+  }
+  source = source.replace(genericConfigAnchor, genericConfigReplacement);
+}
+
 for (const snippet of [
   acpImport,
   'const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing',
@@ -4482,6 +4571,9 @@ for (const snippet of [
   'setTunnelDisabled(true); // epistemos-acp-hide-session-sharing',
   "prompts: USE_ACP_CHAT ? 'models' : 'prompts', // epistemos-acp-hide-prompts-settings",
   'epistemos-acp-hide-prompts-settings',
+  "localInference && !USE_ACP_CHAT",
+  'epistemos-acp-hide-local-inference-settings',
+  'epistemos-acp-hide-generic-config-settings',
   '{!USE_ACP_CHAT && (',
 ]) {
   if (!source.includes(snippet)) {
@@ -4490,6 +4582,84 @@ for (const snippet of [
 }
 
 fs.writeFileSync(path, source);
+NODE
+
+CHAT_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
+APP_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
+node - "$CHAT_SETTINGS_SECTION" "$APP_SETTINGS_SECTION" <<'NODE'
+const fs = require('fs');
+const [chatPath, appPath] = process.argv.slice(2);
+
+let chatSource = fs.readFileSync(chatPath, 'utf8');
+const chatAcpImport = "import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';";
+if (!chatSource.includes(chatAcpImport)) {
+  const importAnchor = "import { SecurityToggle } from '../security/SecurityToggle';";
+  if (!chatSource.includes(importAnchor)) {
+    throw new Error('ChatSettingsSection SecurityToggle import anchor not found');
+  }
+  chatSource = chatSource.replace(importAnchor, `${importAnchor}\n${chatAcpImport}`);
+}
+// epistemos-acp-hide-security-settings: SECURITY_* keys have no Goose ACP
+// persistence/apply path, so the settings card must not appear operational.
+const securityCardAnchor = `      <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">
+        <CardContent className="px-2.5">
+          <SecurityToggle />
+        </CardContent>
+      </Card>`;
+const securityCardReplacement = `      {!USE_ACP_CHAT && (
+        <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl" data-epistemos-acp-hide-security-settings="true">
+          <CardContent className="px-2.5">
+            <SecurityToggle />
+          </CardContent>
+        </Card>
+      )}`;
+if (!chatSource.includes('data-epistemos-acp-hide-security-settings')) {
+  if (!chatSource.includes(securityCardAnchor)) {
+    throw new Error('ChatSettingsSection security card anchor not found');
+  }
+  chatSource = chatSource.replace(securityCardAnchor, securityCardReplacement);
+}
+for (const snippet of [
+  chatAcpImport,
+  'data-epistemos-acp-hide-security-settings',
+  '!USE_ACP_CHAT && (',
+]) {
+  if (!chatSource.includes(snippet)) {
+    throw new Error(`ChatSettingsSection staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+fs.writeFileSync(chatPath, chatSource);
+
+let appSource = fs.readFileSync(appPath, 'utf8');
+const appAcpImport = "import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';";
+if (!appSource.includes(appAcpImport)) {
+  const importAnchor = "import TelemetrySettings from './TelemetrySettings';";
+  if (!appSource.includes(importAnchor)) {
+    throw new Error('AppSettingsSection TelemetrySettings import anchor not found');
+  }
+  appSource = appSource.replace(importAnchor, `${importAnchor}\n${appAcpImport}`);
+}
+// epistemos-acp-hide-telemetry-settings: GOOSE_TELEMETRY_ENABLED is not a live
+// Goose ACP preference/config key in this build. Hide the toggle instead of
+// writing a local-only value that looks persistent.
+const telemetryAnchor = `      <TelemetrySettings />`;
+const telemetryReplacement = `      {!USE_ACP_CHAT && <TelemetrySettings /> /* epistemos-acp-hide-telemetry-settings */}`;
+if (!appSource.includes('epistemos-acp-hide-telemetry-settings')) {
+  if (!appSource.includes(telemetryAnchor)) {
+    throw new Error('AppSettingsSection telemetry anchor not found');
+  }
+  appSource = appSource.replace(telemetryAnchor, telemetryReplacement);
+}
+for (const snippet of [
+  appAcpImport,
+  'epistemos-acp-hide-telemetry-settings',
+  '!USE_ACP_CHAT && <TelemetrySettings />',
+]) {
+  if (!appSource.includes(snippet)) {
+    throw new Error(`AppSettingsSection staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+fs.writeFileSync(appPath, appSource);
 NODE
 
 SESSION_HISTORY_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
@@ -5059,6 +5229,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "ep-native-badge px-2 py-0.5 text-xs text-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "h-1.5 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "mt-2 text-xs text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
+    grep -q "data-epistemos-acp-hide-security-settings" "$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
+    grep -q "epistemos-acp-hide-telemetry-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
+    grep -q "epistemos-acp-hide-local-inference-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-hide-generic-config-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "min-h-9 w-full rounded-\\[8px\\] border px-3 py-2 text-sm placeholder:text-text-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
     grep -q "min-h-8 w-24 rounded-\\[8px\\] border px-2 py-1 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"

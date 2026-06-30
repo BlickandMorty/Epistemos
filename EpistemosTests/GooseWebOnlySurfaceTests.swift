@@ -149,6 +149,10 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-stdio-extension-secret-store-via-config"))
         #expect(stageScript.contains("epistemos-acp-block-http-extension-secret-env"))
         #expect(stageScript.contains("epistemos-acp-block-http-extension-secret-submit"))
+        #expect(stageScript.contains("epistemos-acp-hide-security-settings"))
+        #expect(stageScript.contains("epistemos-acp-hide-telemetry-settings"))
+        #expect(stageScript.contains("epistemos-acp-hide-local-inference-settings"))
+        #expect(stageScript.contains("epistemos-acp-hide-generic-config-settings"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))
