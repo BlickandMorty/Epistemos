@@ -937,6 +937,119 @@ function applyAppSurfaces() {
   write('src/components/Layout/AppLayout.tsx', source);
 }
 
+function applyOnboardingSurfaces() {
+  let source = read('src/components/onboarding/OnboardingGuard.tsx');
+  source = replaceAllRequired(
+    source,
+    'onboarding guard transparent shells',
+    'className="h-screen w-full bg-background-default',
+    'className="h-screen w-full bg-transparent'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding guard error title native font',
+    'className="text-xl font-mono font-normal mb-3"',
+    'className="mb-3 text-xl font-sans font-semibold tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding guard error body token',
+    'className="text-text-muted mb-6"',
+    'className="mb-6 text-text-secondary"'
+  );
+  write('src/components/onboarding/OnboardingGuard.tsx', source);
+
+  source = read('src/components/onboarding/OnboardingSuccess.tsx');
+  source = replaceRequired(
+    source,
+    'onboarding success transparent shell',
+    'className="h-screen w-full bg-background-default overflow-hidden"',
+    'className="h-screen w-full overflow-hidden bg-transparent"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success icon well native',
+    'className="inline-flex items-center justify-center w-10 h-10 border border-border-primary bg-background-secondary mb-4"',
+    'className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border-success bg-background-success/55 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success icon token',
+    'className="w-6 h-6 text-green-500"',
+    'className="h-6 w-6 text-text-success"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success title native font',
+    'className="text-xl font-mono font-normal text-text-default mb-1"',
+    'className="mb-1 text-xl font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success subtitle token',
+    'className="text-text-muted text-sm"',
+    'className="text-sm text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success privacy card native',
+    'className="w-full p-4 bg-transparent border border-border-primary rounded-[6px] text-left mb-6"',
+    'className="mb-6 w-full rounded-[12px] border border-border-secondary bg-background-primary/68 p-4 text-left shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success privacy title native',
+    'className="font-mono font-normal text-text-default text-sm mb-1"',
+    'className="mb-1 text-sm font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success privacy body token',
+    'className="text-text-muted text-sm"',
+    'className="text-sm text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'onboarding success privacy link token',
+    'className="text-blue-600 dark:text-blue-400 hover:underline"',
+    'className="text-[var(--epistemos-accent)] hover:underline"'
+  );
+  write('src/components/onboarding/OnboardingSuccess.tsx', source);
+
+  source = read('src/components/onboarding/LocalModelPicker.tsx');
+  source = replaceRequired(
+    source,
+    'local model picker back button native',
+    'className="w-full px-3 py-2.5 text-text-primary text-sm font-medium border border-border-primary rounded-[6px] hover:bg-background-secondary transition-colors cursor-pointer"',
+    'className="w-full cursor-pointer rounded-[8px] border border-border-secondary bg-background-primary/60 px-3 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker download card native',
+    'className="border border-border-primary rounded-[6px] p-3 bg-background-default"',
+    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker download title token',
+    'className="font-medium text-text-default text-sm mb-3"',
+    'className="mb-3 text-sm font-medium text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker progress track native',
+    'className="w-full bg-background-secondary rounded-[3px] h-2 overflow-hidden"',
+    'className="h-2 w-full overflow-hidden rounded-full bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker progress fill native',
+    'className="bg-primary h-2 rounded-[3px] transition-all duration-500 ease-out"',
+    'className="h-2 rounded-full bg-[var(--epistemos-accent)] transition-all duration-500 ease-[var(--epistemos-control-ease)]"'
+  );
+  write('src/components/onboarding/LocalModelPicker.tsx', source);
+}
+
 function applyChatSurfaces() {
   let source = read('src/components/ChatInputCard.tsx');
   source = replaceRequired(
@@ -1187,6 +1300,12 @@ function applyProviderModalSurfaces() {
     'provider setup inline code native chip',
     'className="px-1 py-0.5 rounded bg-background-secondary text-xs font-mono break-all"',
     'className="ep-native-badge px-1.5 py-0.5 text-xs break-all"'
+  );
+  source = replaceRequired(
+    source,
+    'provider modal delete icon token',
+    "className={isActiveProvider ? 'text-yellow-500' : 'text-red-500'}",
+    "className={isActiveProvider ? 'text-text-warning' : 'text-text-danger'}"
   );
   source = replaceRequired(
     source,
@@ -2268,6 +2387,12 @@ function applyModelSettingsSurfaces() {
   );
   source = replaceRequired(
     source,
+    'model bottom local modal header native',
+    'className="flex items-center justify-between px-4 py-3 border-b border-border-subtle"',
+    'className="flex items-center justify-between border-b border-border-secondary bg-background-primary/45 px-4 py-3 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
     'model bottom local close native',
     'className="text-text-muted hover:text-text-default text-lg leading-none"',
     'className="flex h-8 w-8 items-center justify-center rounded-[8px] text-lg leading-none text-text-muted transition-all hover:bg-background-secondary/75 hover:text-text-default"'
@@ -2358,7 +2483,7 @@ function applyModelSettingsSurfaces() {
     'className="text-sm font-medium text-yellow-800 dark:text-yellow-200"',
     'className="text-sm font-medium text-text-warning"'
   );
-  source = replaceRequired(
+  source = replaceAllRequired(
     source,
     'switch model warning body token',
     'className="mt-1 text-sm text-yellow-700 dark:text-yellow-300"',
@@ -2624,6 +2749,12 @@ function applyLocalInferenceSurfaces() {
     'local progress fill native',
     'className="bg-primary h-2 rounded-[3px] transition-all duration-300"',
     'className="h-2 rounded-full bg-[var(--epistemos-accent)] transition-all duration-300 ease-[var(--epistemos-control-ease)]"'
+  );
+  source = replaceRequired(
+    source,
+    'local failed progress error token',
+    'className="text-xs text-destructive"',
+    'className="text-xs text-text-danger"'
   );
   source = replaceRequired(
     source,
@@ -3319,6 +3450,12 @@ function applyUtilityListSurfaces() {
     'className="inline-block px-2 py-1 text-xs bg-background-secondary text-text-secondary rounded-[4px] font-mono"',
     'className="ep-native-badge inline-block px-2 py-1 text-xs text-text-secondary"'
   );
+  source = replaceRequired(
+    source,
+    'apps empty error token',
+    'className="text-red-500 mb-4"',
+    'className="mb-4 text-text-danger"'
+  );
   write('src/components/apps/AppsView.tsx', source);
 }
 
@@ -3946,6 +4083,7 @@ applySwitch();
 applyTabs();
 applySelect();
 applyAppSurfaces();
+applyOnboardingSurfaces();
 applyChatSurfaces();
 applyToolAndPopoverSurfaces();
 applyCatalogSurfaces();
