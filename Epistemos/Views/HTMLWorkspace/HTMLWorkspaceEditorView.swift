@@ -566,7 +566,8 @@ struct HTMLWorkspaceEditorView: View {
             indexHTML: package.indexHTML,
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
-            dataJSON: package.dataJSON
+            dataJSON: package.dataJSON,
+            routes: package.routes
         )
     }
 
@@ -932,7 +933,7 @@ struct HTMLWorkspaceEditorView: View {
     private func allowedOperations(for pane: HTMLWorkspaceSourcePane) -> [String] {
         switch pane {
         case .html:
-            ["replaceDocument", "regenerate", "replaceHTML", "insertBlock", "insertChart", "captureSnapshot"]
+            ["replaceDocument", "regenerate", "replaceHTML", "insertBlock", "insertChart", "setRoute", "removeRoute", "captureSnapshot"]
         case .css:
             ["replaceDocument", "regenerate", "replaceCSS", "updateStyleRule"]
         case .js:
@@ -940,7 +941,7 @@ struct HTMLWorkspaceEditorView: View {
         case .data:
             ["replaceDocument", "regenerate", "replaceDataJSON", "setDataFeed", "insertChart"]
         case .dom:
-            ["replaceDocument", "regenerate", "insertBlock", "insertChart"]
+            ["replaceDocument", "regenerate", "insertBlock", "insertChart", "setRoute", "removeRoute"]
         case .assets:
             ["replaceDocument", "regenerate", "addAsset", "removeAsset", "captureSnapshot"]
         }

@@ -38,7 +38,8 @@ nonisolated enum HTMLWorkspacePreviewIdentity {
             indexHTML: package.indexHTML,
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
-            dataJSON: ""
+            dataJSON: "",
+            routes: package.routes
         )
     }
 
@@ -140,6 +141,14 @@ final class HTMLWorkspacePreviewURLSchemeHandler: NSObject, WKURLSchemeHandler {
         }
         if components.count == 2, components[0] == HTMLWorkspacePackageEntry.assets {
             return "\(HTMLWorkspacePackageEntry.assets)/\(components[1])"
+        }
+        if components.count == 2, components[0] == HTMLWorkspacePackageEntry.routes {
+            return "\(HTMLWorkspacePackageEntry.routes)/\(components[1])"
+        }
+        if components.count == 3,
+           components[0] == HTMLWorkspacePackageEntry.routes,
+           components[1] == HTMLWorkspacePackageEntry.assets {
+            return "\(HTMLWorkspacePackageEntry.assets)/\(components[2])"
         }
         return nil
     }

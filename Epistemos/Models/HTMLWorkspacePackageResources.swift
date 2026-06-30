@@ -32,6 +32,13 @@ nonisolated enum HTMLWorkspacePackageResources {
         case HTMLWorkspacePackageEntry.dataJSON:
             return .text(package.dataJSON, mimeType: "application/json")
         default:
+            if let routeName = packageRouteName(for: resourcePath),
+               package.routes[routeName] != nil {
+                return .text(
+                    HTMLWorkspacePreviewDocument.render(package: package, routeName: routeName),
+                    mimeType: "text/html"
+                )
+            }
             guard let assetName = packageAssetName(for: resourcePath),
                   let data = package.assets[assetName] else {
                 return nil
@@ -50,6 +57,9 @@ nonisolated enum HTMLWorkspacePackageResources {
         var inlined = package
         inlined.indexHTML = inlinePackageAssetReferences(in: package.indexHTML, package: package)
         inlined.styleCSS = inlinePackageAssetReferences(in: package.styleCSS, package: package)
+        inlined.routes = package.routes.mapValues { routeHTML in
+            inlinePackageAssetReferences(in: routeHTML, package: package)
+        }
         return inlined
     }
 
@@ -70,6 +80,23 @@ nonisolated enum HTMLWorkspacePackageResources {
 
     static func packageAssetName(for resourcePath: String) -> String? {
         let prefix = "\(HTMLWorkspacePackageEntry.assets)/"
+        guard resourcePath.hasPrefix(prefix) else { return nil }
+        let name = String(resourcePath.dropFirst(prefix.count))
+        guard !name.isEmpty,
+              !name.contains("/"),
+              !name.contains("\\"),
+              name != ".",
+              name != "..",
+              !name.hasPrefix("."),
+              !name.contains("\0"),
+              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+            return nil
+        }
+        return name
+    }
+
+    static func packageRouteName(for resourcePath: String) -> String? {
+        let prefix = "\(HTMLWorkspacePackageEntry.routes)/"
         guard resourcePath.hasPrefix(prefix) else { return nil }
         let name = String(resourcePath.dropFirst(prefix.count))
         guard !name.isEmpty,

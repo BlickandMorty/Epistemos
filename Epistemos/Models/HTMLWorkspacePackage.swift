@@ -8,6 +8,7 @@ nonisolated public enum HTMLWorkspacePackageEntry {
     public static let scriptJS = "main.js"
     public static let legacyScriptJS = "script.js"
     public static let dataJSON = "data.json"
+    public static let routes = "routes"
     public static let assets = "assets"
     public static let snapshots = "snapshots"
     public static let consoleErrors = "console-errors.json"
@@ -26,6 +27,9 @@ nonisolated public enum HTMLWorkspacePackageLimits {
     public static let maxStyleCSSBytes = 2 * 1024 * 1024
     public static let maxScriptJSBytes = 2 * 1024 * 1024
     public static let maxDataJSONBytes = 4 * 1024 * 1024
+    public static let maxRouteCount = 64
+    public static let maxRouteHTMLBytes = 2 * 1024 * 1024
+    public static let maxRoutesTotalBytes = 32 * 1024 * 1024
     public static let maxAssetCount = 256
     public static let maxAssetBytes = 25 * 1024 * 1024
     public static let maxAssetsTotalBytes = 150 * 1024 * 1024
@@ -412,6 +416,7 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
     public var styleCSS: String
     public var scriptJS: String
     public var dataJSON: String
+    public var routes: [String: String]
     public var assets: [String: Data]
     public var snapshots: [String: Data]
     public var consoleErrors: [HTMLWorkspaceConsoleError]
@@ -422,6 +427,7 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
         styleCSS: String,
         scriptJS: String,
         dataJSON: String = "{}",
+        routes: [String: String] = [:],
         assets: [String: Data] = [:],
         snapshots: [String: Data] = [:],
         consoleErrors: [HTMLWorkspaceConsoleError] = []
@@ -431,6 +437,7 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
         self.styleCSS = styleCSS
         self.scriptJS = scriptJS
         self.dataJSON = dataJSON
+        self.routes = routes
         self.assets = assets
         self.snapshots = snapshots
         self.consoleErrors = consoleErrors
@@ -442,6 +449,7 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
             && styleCSS == starter.styleCSS
             && scriptJS == starter.scriptJS
             && dataJSON == starter.dataJSON
+            && routes.isEmpty
     }
 
     public static func defaultPackage(title: String = "Untitled HTML Workspace") -> HTMLWorkspacePackage {
@@ -629,6 +637,7 @@ extension HTMLWorkspacePackage {
         let styleCSSData = Data(styleCSS.utf8)
         let scriptJSData = Data(scriptJS.utf8)
         let dataJSONData = Data(dataJSON.utf8)
+        let routeFiles = routes.mapValues { Data($0.utf8) }
 
         try Self.validateDataSize(
             manifestData,
@@ -641,6 +650,7 @@ extension HTMLWorkspacePackage {
             scriptJSData: scriptJSData,
             dataJSONData: dataJSONData
         )
+        try Self.validateRouteFiles(routeFiles)
         try Self.validateAssets(assets)
         try Self.validateSnapshots(snapshots)
 
@@ -660,6 +670,17 @@ extension HTMLWorkspacePackage {
             regularFileWithContents: dataJSONData
         )
 
+        if !routes.isEmpty {
+            topLevel[HTMLWorkspacePackageEntry.routes] = FileWrapper(
+                directoryWithFileWrappers: try Self.fileWrappers(
+                    from: routeFiles,
+                    folderName: HTMLWorkspacePackageEntry.routes,
+                    maxCount: HTMLWorkspacePackageLimits.maxRouteCount,
+                    maxFileBytes: HTMLWorkspacePackageLimits.maxRouteHTMLBytes,
+                    maxTotalBytes: HTMLWorkspacePackageLimits.maxRoutesTotalBytes
+                )
+            )
+        }
         if !assets.isEmpty {
             topLevel[HTMLWorkspacePackageEntry.assets] = FileWrapper(
                 directoryWithFileWrappers: try Self.fileWrappers(
@@ -741,6 +762,13 @@ extension HTMLWorkspacePackage {
                 name: HTMLWorkspacePackageEntry.dataJSON,
                 maxBytes: HTMLWorkspacePackageLimits.maxDataJSONBytes
             ).nonEmptyJSONFallback,
+            routes: try Self.readTextChildren(
+                from: children[HTMLWorkspacePackageEntry.routes],
+                folderName: HTMLWorkspacePackageEntry.routes,
+                maxCount: HTMLWorkspacePackageLimits.maxRouteCount,
+                maxFileBytes: HTMLWorkspacePackageLimits.maxRouteHTMLBytes,
+                maxTotalBytes: HTMLWorkspacePackageLimits.maxRoutesTotalBytes
+            ),
             assets: try Self.readChildren(
                 from: children[HTMLWorkspacePackageEntry.assets],
                 folderName: HTMLWorkspacePackageEntry.assets,
@@ -808,6 +836,30 @@ extension HTMLWorkspacePackage {
         return result
     }
 
+    nonisolated private static func readTextChildren(
+        from wrapper: FileWrapper?,
+        folderName: String,
+        maxCount: Int,
+        maxFileBytes: Int,
+        maxTotalBytes: Int
+    ) throws -> [String: String] {
+        let files = try readChildren(
+            from: wrapper,
+            folderName: folderName,
+            maxCount: maxCount,
+            maxFileBytes: maxFileBytes,
+            maxTotalBytes: maxTotalBytes
+        )
+        var result: [String: String] = [:]
+        for (name, data) in files {
+            guard let value = String(data: data, encoding: .utf8) else {
+                throw HTMLWorkspacePackageError.malformedTextFile(name: "\(folderName)/\(name)")
+            }
+            result[name] = value
+        }
+        return result
+    }
+
     nonisolated private static func readConsoleErrors(
         from wrapper: FileWrapper?,
         jsonDecoder: JSONDecoder
@@ -860,6 +912,20 @@ extension HTMLWorkspacePackage {
             maxCount: HTMLWorkspacePackageLimits.maxAssetCount,
             maxFileBytes: HTMLWorkspacePackageLimits.maxAssetBytes,
             maxTotalBytes: HTMLWorkspacePackageLimits.maxAssetsTotalBytes
+        )
+    }
+
+    nonisolated static func validateRoutes(_ routes: [String: String]) throws {
+        try validateRouteFiles(routes.mapValues { Data($0.utf8) })
+    }
+
+    nonisolated private static func validateRouteFiles(_ files: [String: Data]) throws {
+        try validateFileCollection(
+            files,
+            folderName: HTMLWorkspacePackageEntry.routes,
+            maxCount: HTMLWorkspacePackageLimits.maxRouteCount,
+            maxFileBytes: HTMLWorkspacePackageLimits.maxRouteHTMLBytes,
+            maxTotalBytes: HTMLWorkspacePackageLimits.maxRoutesTotalBytes
         )
     }
 
@@ -929,6 +995,7 @@ extension HTMLWorkspacePackage {
 nonisolated public enum HTMLWorkspacePreviewDocument {
     public static func render(
         package: HTMLWorkspacePackage,
+        routeName: String? = nil,
         theme: HTMLWorkspacePreviewTheme? = nil,
         themeGuardCSSOverride: String? = nil,
         resourceMode: HTMLWorkspacePreviewResourceMode = .packageLocal
@@ -942,6 +1009,8 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
         let csp = package.manifest.sandboxPolicy.contentSecurityPolicy
         let themeAttribute = theme.map { #" data-epistemos-theme="\#($0.rawValue)""# } ?? ""
         let themeCSS = themeGuardCSSOverride ?? theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
+        let routeHTML = routeName.flatMap { package.routes[$0] }
+        let bodyHTML = routeHTML ?? package.indexHTML
         return """
         <!doctype html>
         <html\(themeAttribute)>
@@ -961,7 +1030,7 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
           </style>
         </head>
         <body>
-        \(package.indexHTML)
+        \(bodyHTML)
           <script type="application/json" id="workspace-data">\(escapeScriptData(package.dataJSON))</script>
           <script id="epistemos-workspace-runtime">
         \(localDOMHelperJavaScript)
@@ -1107,6 +1176,8 @@ nonisolated public enum HTMLWorkspacePatchOperation: Sendable, Hashable {
     case insertBlock(HTMLWorkspaceBlockInsertion)
     case insertChart(HTMLWorkspaceChartSpec)
     case updateStyleRule(HTMLWorkspaceStyleRulePatch)
+    case setRoute(name: String, html: String)
+    case removeRoute(name: String)
     case addAsset(HTMLWorkspaceAsset)
     case removeAsset(name: String)
     case captureSnapshot(name: String)
@@ -1248,6 +1319,14 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             }
         case .updateStyleRule(let rule):
             updated.styleCSS = try updateStyleRule(rule, in: updated.styleCSS)
+        case .setRoute(let name, let html):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            updated.routes[name] = html
+            try HTMLWorkspacePackage.validateRoutes(updated.routes)
+        case .removeRoute(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            updated.routes.removeValue(forKey: name)
+            try HTMLWorkspacePackage.validateRoutes(updated.routes)
         case .addAsset(let asset):
             try HTMLWorkspacePackage.validatePackageFileName(asset.name)
             updated.assets[asset.name] = asset.data
@@ -1372,6 +1451,13 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         data.append(Data(package.scriptJS.utf8))
         data.append(0)
         data.append(Data(package.dataJSON.utf8))
+        data.append(0)
+        for name in package.routes.keys.sorted() {
+            data.append(Data(name.utf8))
+            data.append(0)
+            data.append(Data(package.routes[name, default: ""].utf8))
+            data.append(0)
+        }
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
     }

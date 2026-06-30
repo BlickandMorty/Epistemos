@@ -26,12 +26,13 @@ nonisolated struct HTMLWorkspacePackageTests {
             styleCSS: "main { display: grid; gap: 12px; }",
             scriptJS: "document.body.dataset.ready = 'true';",
             dataJSON: #"{"metrics":[{"label":"Nodes","value":3}]}"#,
+            routes: ["about.html": #"<main><h1>About</h1><img src="assets/texture.png" alt=""></main>"#],
             assets: ["texture.png": Data([0x89, 0x50, 0x4e, 0x47])],
             snapshots: ["initial.html": Data("<main>snapshot</main>".utf8)]
         )
     }
 
-    @Test("HTMLWorkspacePackage round-trips index, style, script, data, assets, and manifest")
+    @Test("HTMLWorkspacePackage round-trips index, style, script, data, routes, assets, and manifest")
     func packageRoundTripsThroughFileWrapper() throws {
         let original = Self.samplePackage()
 
@@ -42,6 +43,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(wrapper.fileWrappers?[HTMLWorkspacePackageEntry.styleCSS] != nil)
         #expect(wrapper.fileWrappers?[HTMLWorkspacePackageEntry.scriptJS] != nil)
         #expect(wrapper.fileWrappers?[HTMLWorkspacePackageEntry.dataJSON] != nil)
+        #expect(wrapper.fileWrappers?[HTMLWorkspacePackageEntry.routes] != nil)
         #expect(HTMLWorkspacePackageEntry.scriptJS == "main.js")
 
         let recovered = try HTMLWorkspacePackage(fileWrapper: wrapper)
@@ -50,6 +52,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(recovered.styleCSS == original.styleCSS)
         #expect(recovered.scriptJS == original.scriptJS)
         #expect(recovered.dataJSON == original.dataJSON)
+        #expect(recovered.routes == original.routes)
         #expect(recovered.assets == original.assets)
         #expect(recovered.snapshots == original.snapshots)
     }
@@ -162,9 +165,12 @@ nonisolated struct HTMLWorkspacePackageTests {
         dataOnly.dataJSON = #"{"metrics":[]}"#
         var assetUpdate = original
         assetUpdate.assets = ["texture.png": Data([1, 2, 4])]
+        var routeUpdate = original
+        routeUpdate.routes["about.html"] = "<main><h1>Updated Route</h1></main>"
 
         #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) == HTMLWorkspacePreviewIdentity.viewIdentity(for: dataOnly))
         #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) != HTMLWorkspacePreviewIdentity.viewIdentity(for: assetUpdate))
+        #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) != HTMLWorkspacePreviewIdentity.viewIdentity(for: routeUpdate))
     }
 
     @Test("HTMLWorkspace package resource resolver serves canonical files and path-safe assets")
@@ -179,6 +185,13 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(asset.mimeType == "image/png")
         #expect(asset.data == package.assets["texture.png"])
         #expect(HTMLWorkspacePackageResources.resource(for: "assets/../texture.png", in: package) == nil)
+
+        let route = try #require(HTMLWorkspacePackageResources.resource(for: "routes/about.html", in: package))
+        let routeHTML = try #require(String(data: route.data, encoding: .utf8))
+        #expect(route.mimeType == "text/html")
+        #expect(routeHTML.contains("<h1>About</h1>"))
+        #expect(routeHTML.contains("workspace-data"))
+        #expect(HTMLWorkspacePackageResources.resource(for: "routes/../about.html", in: package) == nil)
     }
 
     @Test("HTMLWorkspace export render inlines package assets for headless PDF")
@@ -189,6 +202,11 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let preview = HTMLWorkspacePreviewDocument.render(package: package)
         let exported = HTMLWorkspacePreviewDocument.render(package: package, resourceMode: .inlinePackageAssets)
+        let exportedRoute = HTMLWorkspacePreviewDocument.render(
+            package: package,
+            routeName: "about.html",
+            resourceMode: .inlinePackageAssets
+        )
         let dataURL = HTMLWorkspacePackageResources.dataURL(
             for: "texture.png",
             data: Data([0x89, 0x50, 0x4e, 0x47])
@@ -199,6 +217,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(exported.contains(#"poster="\#(dataURL)""#))
         #expect(exported.contains(#"srcset="\#(dataURL)""#))
         #expect(exported.contains(#"url("\#(dataURL)")"#))
+        #expect(exportedRoute.contains(#"<h1>About</h1><img src="\#(dataURL)""#))
         #expect(!exported.contains(#"src="assets/texture.png""#))
         #expect(exported.contains("assets/texture.png-large"))
         #expect(exported.contains("default-src 'none'"))
@@ -377,9 +396,12 @@ nonisolated struct HTMLWorkspacePackageTests {
         let starter = HTMLWorkspacePackage.defaultPackage()
         var edited = starter
         edited.indexHTML = "<main><h1>User pasted code</h1></main>"
+        var routed = starter
+        routed.routes["about.html"] = "<main><h1>About</h1></main>"
 
         #expect(starter.isStarterTemplateContent)
         #expect(!edited.isStarterTemplateContent)
+        #expect(!routed.isStarterTemplateContent)
         #expect(!Self.samplePackage().isStarterTemplateContent)
     }
 
@@ -406,7 +428,8 @@ nonisolated struct HTMLWorkspacePackageTests {
             indexHTML: package.indexHTML,
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
-            dataJSON: package.dataJSON
+            dataJSON: package.dataJSON,
+            routes: package.routes
         ))
     }
 
@@ -443,13 +466,15 @@ nonisolated struct HTMLWorkspacePackageTests {
             indexHTML: original.indexHTML,
             styleCSS: original.styleCSS,
             scriptJS: original.scriptJS,
-            dataJSON: original.dataJSON
+            dataJSON: original.dataJSON,
+            routes: original.routes
         ))
         #expect(provenance.contentHash == HTMLWorkspaceDocument.contentHash(
             indexHTML: replacement.html,
             styleCSS: replacement.css,
             scriptJS: replacement.js,
-            dataJSON: replacement.dataJSON
+            dataJSON: replacement.dataJSON,
+            routes: original.routes
         ))
         #expect(provenance.reversibleSnapshotName == preReplaceSnapshot.key)
         #expect(provenance.toolId == HTMLWorkspaceGenerationProvenance.patchToolID)
@@ -474,7 +499,12 @@ nonisolated struct HTMLWorkspacePackageTests {
             .addAsset(HTMLWorkspaceAsset(name: "fixture.json", data: Data("{\"ok\":true}".utf8))),
             to: package
         )
+        package = try HTMLWorkspacePatchApplier.apply(
+            .setRoute(name: "details.html", html: "<main><h1>Details</h1></main>"),
+            to: package
+        )
         package = try HTMLWorkspacePatchApplier.apply(.removeAsset(name: "texture.png"), to: package)
+        package = try HTMLWorkspacePatchApplier.apply(.removeRoute(name: "about.html"), to: package)
         package = try HTMLWorkspacePatchApplier.apply(.captureSnapshot(name: "after-chart.html"), to: package)
         package = try HTMLWorkspacePatchApplier.apply(
             .recordConsoleError(HTMLWorkspaceConsoleError(
@@ -492,6 +522,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(!package.styleCSS.contains("color: red;"))
         #expect(package.assets["fixture.json"] == Data("{\"ok\":true}".utf8))
         #expect(package.assets["texture.png"] == nil)
+        #expect(package.routes["details.html"]?.contains("Details") == true)
+        #expect(package.routes["about.html"] == nil)
         #expect(package.snapshots["after-chart.html"] != nil)
         #expect(package.consoleErrors.last?.message == "ReferenceError: nope")
 
@@ -503,6 +535,9 @@ nonisolated struct HTMLWorkspacePackageTests {
         }
         #expect(throws: HTMLWorkspacePackageError.self) {
             _ = try HTMLWorkspacePatchApplier.apply(.removeAsset(name: "../secret"), to: package)
+        }
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try HTMLWorkspacePatchApplier.apply(.setRoute(name: "../secret.html", html: "<main></main>"), to: package)
         }
     }
 
@@ -574,14 +609,14 @@ nonisolated struct HTMLWorkspacePackageTests {
         I will add the visualization.
 
         ```epistemos-html-workspace-patch
-        {"workspace_id":"html-workspace-test","operations":[{"type":"setDataFeed","data_feed":{"source":"vault_search","query":"substrate provenance","limit":7}},{"type":"replaceDataJSON","json":"{\\"series\\":[1,2,3]}"},{"type":"insertBlock","html":"<section class=\\"viz\\"><h2>Signal</h2></section>","location":"append"},{"type":"updateStyleRule","selector":".viz","declarations":{"display":"grid","gap":"12px"}},{"type":"removeAsset","name":"texture.png"}]}
+        {"workspace_id":"html-workspace-test","operations":[{"type":"setDataFeed","data_feed":{"source":"vault_search","query":"substrate provenance","limit":7}},{"type":"replaceDataJSON","json":"{\\"series\\":[1,2,3]}"},{"type":"insertBlock","html":"<section class=\\"viz\\"><h2>Signal</h2></section>","location":"append"},{"type":"updateStyleRule","selector":".viz","declarations":{"display":"grid","gap":"12px"}},{"type":"setRoute","name":"details.html","html":"<main><h1>Details</h1></main>"},{"type":"removeRoute","name":"about.html"},{"type":"removeAsset","name":"texture.png"}]}
         ```
         """
 
         let result = try HTMLWorkspacePatchCommandParser.parse(response)
         #expect(result.batches.count == 1)
         #expect(result.cleanedText == "I will add the visualization.")
-        #expect(result.batches[0].operations.count == 5)
+        #expect(result.batches[0].operations.count == 7)
 
         var package = Self.samplePackage()
         for command in result.batches[0].operations {
@@ -594,6 +629,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.dataJSON.contains("series"))
         #expect(package.styleCSS.contains(".viz {"))
         #expect(package.styleCSS.contains("display: grid;"))
+        #expect(package.routes["details.html"]?.contains("Details") == true)
+        #expect(package.routes["about.html"] == nil)
         #expect(package.assets["texture.png"] == nil)
 
         let regenerate = """
@@ -745,6 +782,15 @@ nonisolated struct HTMLWorkspacePackageTests {
         """
         #expect(throws: HTMLWorkspacePatchRouterError.self) {
             _ = try HTMLWorkspacePatchCommandParser.parse(unsafeWholeDocumentJS)
+        }
+
+        let unsafeRouteHTML = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"setRoute","name":"about.html","html":"<main><button onclick=\\"alert(1)\\">Run</button></main>"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(unsafeRouteHTML)
         }
     }
 

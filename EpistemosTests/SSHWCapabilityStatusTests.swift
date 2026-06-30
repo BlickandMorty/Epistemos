@@ -7,8 +7,8 @@ import Foundation
 // These pin the HONEST capability ledger: the live entries are the real working ones, the deferred
 // seams are marked NOT live (no fake-green), and the summary says works-but-partial rather than
 // reading as complete. Verified against code (safeAPI path still no-op, console capture env-gated,
-// live DOM outline but no picker/style inspector, no Pyodide, source-quad replaceDocument primitive
-// only — no full regenerate UX).
+// live DOM outline and package-local routes but no picker/style inspector, no Pyodide, and no full
+// regenerate UX).
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
@@ -18,6 +18,7 @@ struct SSHWCapabilityStatusTests {
         #expect(live.contains { $0.contains("editing") })
         #expect(live.contains { $0.contains("preview") })
         #expect(live.contains { $0.contains("patch") })
+        #expect(live.contains { $0.contains("routes") })
         #expect(live.contains { $0.contains("data.json") })
         #expect(live.contains { $0.contains("Live-DOM outline") })
     }
@@ -33,7 +34,7 @@ struct SSHWCapabilityStatusTests {
         #expect(regenerate?.note.contains("manifest provenance") == true)
         #expect(deferred.contains { $0.contains("Python") })       // no Python today
         #expect(deferred.contains { $0.contains("DOM picker") })   // no picker/style inspector yet
-        #expect(deferred.contains { $0.contains("regenerate") })   // replaceDocument primitive only
+        #expect(deferred.contains { $0.contains("regenerate") })   // no streaming regenerate UX yet
     }
 
     @Test("counts + summary are consistent + honest (works-but-partial, never 'complete')")
@@ -43,6 +44,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
         #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("routes"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("PDF export"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("live DOM outline"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("console capture is wired but env-gated"))

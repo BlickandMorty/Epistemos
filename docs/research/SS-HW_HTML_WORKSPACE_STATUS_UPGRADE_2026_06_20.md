@@ -27,9 +27,9 @@ banned by the patch validator (`HTMLWorkspacePatchRouter.swift:247`). (8) capabi
 T0/T1 dead seams. Per ARCHITECTURE PROMOTION CANON it should be honestly marked.
 
 ## 2026-06-30 implementation delta — do not regress these, but do not overclaim completion
-- Honest status now lives in `HTMLWorkspaceCapabilityStatus`: renderer/editor/agent patches/data feed/PDF/local assets/live
+- Honest status now lives in `HTMLWorkspaceCapabilityStatus`: renderer/editor/agent patches/data feed/PDF/local assets/routes/live
   DOM outline are marked live; app bridge, DOM picker/style inspector, Python, and full regenerate UX remain deferred.
-- Preview now serves package-local `assets/*`, `style.css`, `main.js`, and `data.json` through the local workspace scheme.
+- Preview now serves package-local `assets/*`, `routes/*`, `style.css`, `main.js`, and `data.json` through the local workspace scheme.
   PDF export inlines package asset references before the macOS `WebPage` render path.
 - `data_feed` can opt into a Vault-backed `data.json` refresh with explicit stale/provenance metadata; failed feeds produce
   stale JSON rather than pretending to refresh.
@@ -37,9 +37,11 @@ T0/T1 dead seams. Per ARCHITECTURE PROMOTION CANON it should be honestly marked.
   implemented; incoming Safe API messages are diagnostic-only and record a deferred-bridge console message.
 - DOM outline is a live WebView snapshot when the preview is mounted, with source parsing as the fallback. Element picker,
   computed-style inspection, and targeted live style edits are still not implemented.
+- `routes/<name>` HTML files now round-trip in the package, serve through the local scheme, affect content hashes/provenance
+  freshness, and can be set/removed through structured `setRoute`/`removeRoute` patch operations.
 - `replaceDocument`/`regenerate` are source-quad patch operations with atomic batch staging, reversible pre-replace snapshots,
   manifest provenance, manifest content-hash refresh, current/stale provenance display, and chat-context provenance. This is
-  not yet streaming regenerate UX, multi-route packaging, persistent app storage, or Python/Pyodide.
+  not yet streaming regenerate UX, persistent app storage, or Python/Pyodide.
 
 ## UPGRADE PLAN (smallest first; MAS-safe; reuse Epdoc WKWebView/bridge/URL-scheme + build-time-bundle + GateStatus + provenance)
 - **Step 0 — Honesty [S]:** add `HTMLWorkspaceGateStatus.swift` (mirror `ActOsaurusGateStatus`), mark app-bridge/Python/
@@ -58,10 +60,10 @@ T0/T1 dead seams. Per ARCHITECTURE PROMOTION CANON it should be honestly marked.
   `setURLSchemeHandler` — WKWebView blocks `.wasm` from `file://`). Add a 3rd `HTMLWorkspaceSandboxPolicy` "python" preset
   relaxing CSP to `script-src 'wasm-unsafe-eval' 'unsafe-eval'` + a `connect-src`/scheme entry for the local Pyodide URL.
   License-gate via the provenance pattern (`Vendor/Osaurus/OsaurusVendorProvenance.swift`; Pyodide = MPL-2.0/Apache-2.0/PSF).
-- **Step 4 — "Build a full web app" scaffold pipeline [L]:** extend `HTMLWorkspacePackage` (`:320`) from the fixed
-  index/style/main/data quad to a multi-file/multi-route model (it already has `assets:[String:Data]` `:326`); add scaffold
-  templates (reuse `EpdocBlockTemplateStore`); add `addFile`/`addRoute` patch ops (extend `HTMLWorkspacePatchCommand`
-  `:67`); relax the persistence ban per-sandbox-mode (`:247`) so generated apps use localStorage/IndexedDB. All edits flow
+- **Step 4 — "Build a full web app" scaffold pipeline [L]:** build on the now-live `routes/<name>` package scaffold and
+  add first-class scaffold templates/navigation (reuse `EpdocBlockTemplateStore`); add broader `addFile`-style patch ops
+  if the package grows beyond HTML routes; relax the persistence ban per-sandbox-mode (`:247`) so generated apps use
+  localStorage/IndexedDB. All edits flow
   through the existing in-process chat/patch pipeline — MAS-safe by construction.
 
 Reuse: WKWebView+bridge+URL-scheme (Epdoc `EpdocEditorChromeView.swift:610-647`); build-time bundle (`build-tiptap-bundle.sh`);

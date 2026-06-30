@@ -13,6 +13,7 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
     public var css: String
     public var js: String
     public var dataJSON: String
+    public var routes: [String: String]
 
     public init(
         workspaceID: String,
@@ -23,7 +24,8 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
         html: String,
         css: String,
         js: String,
-        dataJSON: String
+        dataJSON: String,
+        routes: [String: String] = [:]
     ) {
         self.workspaceID = workspaceID
         self.title = title
@@ -34,6 +36,7 @@ nonisolated public struct HTMLWorkspaceChatContextSnapshot: Sendable, Equatable 
         self.css = css
         self.js = js
         self.dataJSON = dataJSON
+        self.routes = routes
     }
 }
 
@@ -133,7 +136,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                 indexHTML: snapshot.indexHTML,
                 styleCSS: snapshot.styleCSS,
                 scriptJS: snapshot.scriptJS,
-                dataJSON: snapshot.dataJSON
+                dataJSON: snapshot.dataJSON,
+                routes: snapshot.routes
             ),
             sandboxPolicy: snapshot.manifest.sandboxPolicy,
             dataFeed: snapshot.manifest.dataFeed,
@@ -175,7 +179,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         indexHTML: String,
         styleCSS: String,
         scriptJS: String,
-        dataJSON: String = "{}"
+        dataJSON: String = "{}",
+        routes: [String: String] = [:]
     ) -> String {
         var data = Data()
         data.append(Data(indexHTML.utf8))
@@ -185,6 +190,13 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         data.append(Data(scriptJS.utf8))
         data.append(0)
         data.append(Data(dataJSON.utf8))
+        data.append(0)
+        for name in routes.keys.sorted() {
+            data.append(Data(name.utf8))
+            data.append(0)
+            data.append(Data(routes[name, default: ""].utf8))
+            data.append(0)
+        }
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
     }
@@ -212,7 +224,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             indexHTML: package.indexHTML,
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
-            dataJSON: package.dataJSON
+            dataJSON: package.dataJSON,
+            routes: package.routes
         )
         HTMLWorkspaceChatContextSnapshot(
             workspaceID: package.manifest.id,
@@ -223,7 +236,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             html: Self.truncated(package.indexHTML, maxCharacters: maxSourceCharacters),
             css: Self.truncated(package.styleCSS, maxCharacters: maxSourceCharacters),
             js: Self.truncated(package.scriptJS, maxCharacters: maxSourceCharacters),
-            dataJSON: Self.truncated(package.dataJSON, maxCharacters: maxSourceCharacters)
+            dataJSON: Self.truncated(package.dataJSON, maxCharacters: maxSourceCharacters),
+            routes: package.routes.mapValues { Self.truncated($0, maxCharacters: maxSourceCharacters) }
         )
     }
 

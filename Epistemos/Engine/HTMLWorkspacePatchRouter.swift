@@ -88,6 +88,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     case insertBlock(html: String, location: HTMLWorkspaceBlockInsertion.Location)
     case insertChart(HTMLWorkspaceChartSpec)
     case updateStyleRule(HTMLWorkspaceStyleRulePatch)
+    case setRoute(name: String, html: String)
+    case removeRoute(name: String)
     case addAsset(name: String, base64: String)
     case removeAsset(name: String)
     case captureSnapshot(name: String)
@@ -119,6 +121,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case insertBlock
         case insertChart
         case updateStyleRule
+        case setRoute
+        case removeRoute
         case addAsset
         case removeAsset
         case captureSnapshot
@@ -160,6 +164,13 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
                 selector: try container.decode(String.self, forKey: .selector),
                 declarations: try container.decode([String: String].self, forKey: .declarations)
             ))
+        case .setRoute:
+            self = .setRoute(
+                name: try container.decode(String.self, forKey: .name),
+                html: try container.decode(String.self, forKey: .html)
+            )
+        case .removeRoute:
+            self = .removeRoute(name: try container.decode(String.self, forKey: .name))
         case .addAsset:
             self = .addAsset(
                 name: try container.decode(String.self, forKey: .name),
@@ -211,6 +222,13 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             try container.encode(OperationType.updateStyleRule, forKey: .type)
             try container.encode(rule.selector, forKey: .selector)
             try container.encode(rule.declarations, forKey: .declarations)
+        case .setRoute(let name, let html):
+            try container.encode(OperationType.setRoute, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(html, forKey: .html)
+        case .removeRoute(let name):
+            try container.encode(OperationType.removeRoute, forKey: .type)
+            try container.encode(name, forKey: .name)
         case .addAsset(let name, let base64):
             try container.encode(OperationType.addAsset, forKey: .type)
             try container.encode(name, forKey: .name)
@@ -245,6 +263,12 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             return .insertChart(chart)
         case .updateStyleRule(let rule):
             return .updateStyleRule(rule)
+        case .setRoute(let name, let html):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            return .setRoute(name: name, html: html)
+        case .removeRoute(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            return .removeRoute(name: name)
         case .addAsset(let name, let base64):
             guard let data = Data(base64Encoded: base64) else {
                 throw HTMLWorkspacePackageError.invalidPackagePath(name: name)
@@ -287,6 +311,11 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
                 .updateStyleRule(rule),
                 to: HTMLWorkspacePackage.defaultPackage()
             )
+        case .setRoute(let name, let html):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            try Self.validateHTML(html)
+        case .removeRoute(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
         case .addAsset(let name, let base64):
             try HTMLWorkspacePackage.validatePackageFileName(name)
             guard let data = Data(base64Encoded: base64) else {
@@ -499,8 +528,13 @@ enum HTMLWorkspacePatchRouter {
             Surface Kind: htmlWorkspace
             Pane: preview
             Selected Range: none
-            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, removeAsset, captureSnapshot
+            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, setRoute, removeRoute, addAsset, removeAsset, captureSnapshot
             """
+            let routeSource = snapshot.routes.isEmpty
+                ? "none"
+                : snapshot.routes.keys.sorted().map { name in
+                    "routes/\(name):\n\(snapshot.routes[name, default: ""])"
+                }.joined(separator: "\n\n")
             return """
             ### Attached HTML Workspace: \(snapshot.title)
             Workspace ID: \(snapshot.workspaceID)
@@ -513,10 +547,11 @@ enum HTMLWorkspacePatchRouter {
             ```epistemos-html-workspace-patch
             {"workspace_id":"\(snapshot.workspaceID)","expected_content_hash":"\(snapshot.contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
             ```
-            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, removeAsset, captureSnapshot.
+            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, setRoute, removeRoute, addAsset, removeAsset, captureSnapshot.
             Full-surface replacement: use replaceDocument/regenerate when the user asks to rebuild the whole page; include "html", "css", "js", and "json" in one operation.
             Data operation: replaceDataJSON with a "json" string for local structured data.
             Live data operation: setDataFeed with "data_feed":{"source":"vault_search","query":"...","limit":20}; use "data_feed":null to return to static data.
+            Route operation: setRoute with "name":"about.html" and route body "html"; removeRoute deletes one route file. Routes are served from routes/<name>.
             Safety: Do not request network or app bridge access. Keep behavior local/offline. Put JavaScript in replaceJS, not inline HTML event handlers.
 
             Current HTML:
@@ -530,6 +565,9 @@ enum HTMLWorkspacePatchRouter {
 
             Current data.json:
             \(snapshot.dataJSON)
+
+            Current routes:
+            \(routeSource)
             """
         }
 
@@ -565,7 +603,8 @@ enum HTMLWorkspacePatchRouter {
                         indexHTML: document.package.indexHTML,
                         styleCSS: document.package.styleCSS,
                         scriptJS: document.package.scriptJS,
-                        dataJSON: document.package.dataJSON
+                        dataJSON: document.package.dataJSON,
+                        routes: document.package.routes
                     )
                     guard expected == actual else {
                         throw HTMLWorkspacePatchRouterError.contentHashMismatch(expected: expected, actual: actual)
