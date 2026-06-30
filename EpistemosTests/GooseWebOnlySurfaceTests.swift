@@ -117,6 +117,9 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-dictation-model-download-ui"))
         #expect(stageScript.contains("readAcpDictationModelDownloadProgress(modelId)"))
         #expect(stageScript.contains("epistemos-acp-dictation-model-delete-ui"))
+        #expect(stageScript.contains("epistemos-acp-disable-nostr-session-links"))
+        #expect(stageScript.contains("const [nostrEnabled, setNostrEnabled] = useState(!USE_ACP_CHAT);"))
+        #expect(stageScript.contains("setNostrEnabled(false); // epistemos-acp-disable-nostr-session-links"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))

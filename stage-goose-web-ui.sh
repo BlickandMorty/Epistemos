@@ -3716,6 +3716,58 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+SESSION_LIST_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
+node - "$SESSION_LIST_VIEW" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import { getTunnelStatus } from '../../api/sdk.gen';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('SessionListView tunnel import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+if (source.includes('const [nostrEnabled, setNostrEnabled] = useState(true);')) {
+  source = source.replace(
+    'const [nostrEnabled, setNostrEnabled] = useState(true);',
+    'const [nostrEnabled, setNostrEnabled] = useState(!USE_ACP_CHAT); // epistemos-acp-disable-nostr-session-links'
+  );
+}
+
+const tunnelEffectAnchor = `    // Hide Nostr sharing when tunnel is disabled (restricted/enterprise bundles)
+    useEffect(() => {
+      getTunnelStatus()`;
+const acpTunnelEffect = `    // Hide Nostr sharing when tunnel is disabled (restricted/enterprise bundles)
+    useEffect(() => {
+      if (USE_ACP_CHAT) {
+        setNostrEnabled(false); // epistemos-acp-disable-nostr-session-links
+        return;
+      }
+      getTunnelStatus()`;
+if (!source.includes('setNostrEnabled(false); // epistemos-acp-disable-nostr-session-links')) {
+  if (!source.includes(tunnelEffectAnchor)) {
+    throw new Error('SessionListView tunnel effect anchor not found');
+  }
+  source = source.replace(tunnelEffectAnchor, acpTunnelEffect);
+}
+
+for (const snippet of [
+  acpImport,
+  'const [nostrEnabled, setNostrEnabled] = useState(!USE_ACP_CHAT); // epistemos-acp-disable-nostr-session-links',
+  'setNostrEnabled(false); // epistemos-acp-disable-nostr-session-links',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`SessionListView staged source is missing required ACP Nostr disable snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 PERMISSION_REQUESTS="$WORK_ROOT/ui/desktop/src/acp/permissionRequests.ts"
 ELICITATION_REQUESTS="$WORK_ROOT/ui/desktop/src/acp/elicitationRequests.ts"
 node - "$PERMISSION_REQUESTS" "$ELICITATION_REQUESTS" <<'NODE'
@@ -4278,6 +4330,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "fixed z-50 bg-background-primary/88 border border-border-primary rounded-\\[14px\\]" "$WORK_ROOT/ui/desktop/src/components/MentionPopover.tsx"
     grep -q "text-2xl font-sans font-semibold tracking-normal" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
+    grep -q "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
+    grep -q "const \\[nostrEnabled, setNostrEnabled\\] = useState(!USE_ACP_CHAT); // epistemos-acp-disable-nostr-session-links" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
+    grep -q "setNostrEnabled(false); // epistemos-acp-disable-nostr-session-links" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "hover:bg-background-danger/55" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "mb-4 h-12 w-12 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] border border-border-secondary p-4 shadow-sm" "$WORK_ROOT/ui/desktop/src/components/sessions/SharedSessionView.tsx"
