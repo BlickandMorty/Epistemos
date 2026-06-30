@@ -4377,6 +4377,99 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+ACP_SESSIONS="$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
+NAVIGATION_SESSIONS="$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"
+node - "$ACP_SESSIONS" "$NAVIGATION_SESSIONS" <<'NODE'
+const fs = require('fs');
+const [sessionsPath, navigationPath] = process.argv.slice(2);
+
+let sessionsSource = fs.readFileSync(sessionsPath, 'utf8');
+const listRecentAnchor = `export async function acpListRecentSessions(maxSessions: number): Promise<SessionListItem[]> {
+  if (maxSessions <= 0) {
+    return [];
+  }
+
+  const client = await getAcpClient();
+  const response = await client.listSessions({ _meta: { types: SESSION_LIST_TYPES } });
+  return response.sessions.slice(0, maxSessions).map(sessionInfoToListItem);
+}
+`;
+const listRecentReplacement = `${listRecentAnchor}
+// epistemos-acp-navigation-active-session: NavigationPanel only needs a
+// sidebar list row for the currently resumed session. Use Goose ACP
+// sessionInfo_unstable instead of the retired REST getSession endpoint.
+export async function acpGetSessionListItem(sessionId: string): Promise<SessionListItem | null> {
+  if (!sessionId) {
+    return null;
+  }
+
+  const client = await getAcpClient();
+  const response = await client.goose.sessionInfo_unstable({ sessionId });
+  return sessionInfoToListItem(response.session);
+}
+`;
+if (!sessionsSource.includes('export async function acpGetSessionListItem')) {
+  if (!sessionsSource.includes(listRecentAnchor)) {
+    throw new Error('acp/sessions.ts recent sessions anchor not found');
+  }
+  sessionsSource = sessionsSource.replace(listRecentAnchor, listRecentReplacement);
+}
+
+for (const snippet of [
+  'epistemos-acp-navigation-active-session',
+  'export async function acpGetSessionListItem',
+  'client.goose.sessionInfo_unstable({ sessionId })',
+]) {
+  if (!sessionsSource.includes(snippet)) {
+    throw new Error(`acp/sessions.ts staged source is missing required navigation ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(sessionsPath, sessionsSource);
+
+let navigationSource = fs.readFileSync(navigationPath, 'utf8');
+if (navigationSource.includes("import { getSession } from '../api';\n")) {
+  navigationSource = navigationSource.replace("import { getSession } from '../api';\n", '');
+}
+navigationSource = navigationSource.replace(
+  "import { acpListRecentSessions, type SessionListItem } from '../acp/sessions';",
+  "import { acpGetSessionListItem, acpListRecentSessions, type SessionListItem } from '../acp/sessions';"
+);
+
+const activeSessionRestAnchor = `    getSession({ path: { session_id: activeSessionId }, throwOnError: false }).then((response) => {
+      if (!response.data) return;
+      const item = sessionToListItem(response.data as Session);
+      setRecentSessions((prev) => prependUnique(prev, item));
+    });`;
+const activeSessionAcpReplacement = `    acpGetSessionListItem(activeSessionId)
+      .then((item) => {
+        if (!item) return;
+        setRecentSessions((prev) => prependUnique(prev, item)); // epistemos-acp-navigation-active-session
+      })
+      .catch((error) => console.error('Failed to fetch active ACP session:', error));`;
+if (!navigationSource.includes('epistemos-acp-navigation-active-session')) {
+  if (!navigationSource.includes(activeSessionRestAnchor)) {
+    throw new Error('useNavigationSessions active session REST anchor not found');
+  }
+  navigationSource = navigationSource.replace(activeSessionRestAnchor, activeSessionAcpReplacement);
+}
+
+for (const snippet of [
+  'acpGetSessionListItem',
+  'epistemos-acp-navigation-active-session',
+  "console.error('Failed to fetch active ACP session:', error)",
+]) {
+  if (!navigationSource.includes(snippet)) {
+    throw new Error(`useNavigationSessions staged source is missing required navigation ACP snippet: ${snippet}`);
+  }
+}
+if (navigationSource.includes('getSession({ path: { session_id: activeSessionId }')) {
+  throw new Error('useNavigationSessions still calls REST getSession for the active nav session');
+}
+
+fs.writeFileSync(navigationPath, navigationSource);
+NODE
+
 SESSIONS_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
 node - "$SESSIONS_VIEW" <<'NODE'
 const fs = require('fs');
@@ -5663,6 +5756,15 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "const \\[tunnelDisabled, setTunnelDisabled\\] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-navigation-active-session" "$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
+    grep -q "export async function acpGetSessionListItem" "$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
+    grep -q "client.goose.sessionInfo_unstable({ sessionId })" "$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
+    grep -q "epistemos-acp-navigation-active-session" "$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"
+    grep -q "acpGetSessionListItem(activeSessionId)" "$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"
+    if grep -q "getSession({ path: { session_id: activeSessionId }" "$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"; then
+        echo "Goose Web UI navigation hook still calls REST getSession for active sessions." >&2
+        exit 1
+    fi
     grep -q "epistemos-acp-session-details-route-to-chat" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
     grep -q "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
     grep -q "bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
