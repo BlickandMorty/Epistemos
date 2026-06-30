@@ -2,6 +2,45 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+nonisolated enum TextExportDiagnostics {
+    static let maxFailureMessageCharacters = 240
+
+    static func externalFailureMessage(_ error: Error, fallback: String = "Write failed") -> String {
+        let nsError = error as NSError
+        return boundedFailureMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func boundedFailureMessage(_ message: String, fallback: String = "Write failed") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxFailureMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxFailureMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 @MainActor
 enum TextExportSupport {
     static func save(_ content: String, suggestedFilename: String, contentType: UTType) {
@@ -30,7 +69,7 @@ enum TextExportSupport {
         alert.informativeText = """
         Epistemos couldn't save "\(destination.lastPathComponent)".
 
-        \(error.localizedDescription)
+        \(TextExportDiagnostics.externalFailureMessage(error))
         """
         alert.addButton(withTitle: "OK")
 
