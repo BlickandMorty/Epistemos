@@ -1601,6 +1601,33 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect((blocked["error"] as? String)?.contains("\(GooseWebNativeAffordanceBridge.maxNativeFileReadBytes)") == true)
     }
 
+    @Test("native file data URL reads are bounded regular file reads")
+    func nativeFileDataURLReadsAreBoundedRegularFileReads() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+        #expect(source.contains("readNativeFileData(expandedPath)"))
+        #expect(source.contains("resourceValues.isRegularFile == true"))
+        #expect(source.contains("handle.read(upToCount: Self.maxNativeFileReadBytes + 1)"))
+        #expect(!source.contains("Data(contentsOf: fileURL)"))
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-goose-native-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let file = root.appendingPathComponent("pixel.png", isDirectory: false)
+        let bytes = Data([0x89, 0x50, 0x4E, 0x47])
+        try bytes.write(to: file)
+        #expect(GooseWebNativeAffordanceBridge.readNativeFileData(file.path) == bytes)
+        #expect(GooseWebNativeAffordanceBridge.readNativeFileData(root.path) == nil)
+
+        let oversized = root.appendingPathComponent("oversized.bin", isDirectory: false)
+        try createSparseFile(
+            oversized,
+            size: GooseWebNativeAffordanceBridge.maxNativeFileReadBytes + 1
+        )
+        #expect(GooseWebNativeAffordanceBridge.readNativeFileData(oversized.path) == nil)
+    }
+
     @Test("native dialog text and buttons are normalized and bounded")
     func nativeDialogTextAndButtonsAreNormalizedAndBounded() {
         let longMessage = "\u{0007}  " + String(

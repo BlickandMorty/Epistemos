@@ -574,12 +574,37 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let expandedPath = Self.standardizedPath(expandTilde(path))
         guard isPathAllowed(expandedPath),
               !isSymbolicLink(expandedPath),
-              !exceedsNativeFileReadLimit(expandedPath) else { return nil }
+              let data = readNativeFileData(expandedPath) else { return nil }
         let fileURL = URL(fileURLWithPath: expandedPath, isDirectory: false)
-        guard let data = try? Data(contentsOf: fileURL) else { return nil }
         let mimeType = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType
             ?? "application/octet-stream"
         return "data:\(mimeType);base64,\(data.base64EncodedString())"
+    }
+
+    private func readNativeFileData(_ expandedPath: String) -> Data? {
+        Self.readNativeFileData(expandedPath, fileManager: fileManager)
+    }
+
+    nonisolated static func readNativeFileData(
+        _ expandedPath: String,
+        fileManager: FileManager = .default
+    ) -> Data? {
+        guard !exceedsNativeFileReadLimit(expandedPath, fileManager: fileManager) else { return nil }
+        let fileURL = URL(fileURLWithPath: expandedPath, isDirectory: false)
+        guard let resourceValues = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
+              resourceValues.isRegularFile == true else {
+            return nil
+        }
+
+        do {
+            let handle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? handle.close() }
+            let data = try handle.read(upToCount: Self.maxNativeFileReadBytes + 1) ?? Data()
+            guard data.count <= Self.maxNativeFileReadBytes else { return nil }
+            return data
+        } catch {
+            return nil
+        }
     }
 
     private func writeFile(_ path: String, content: String) -> Bool {
