@@ -12,6 +12,7 @@ const marker = 'epistemos-native-reskin-overlay';
 const focusPolishMarker = 'epistemos-native-scrollbar-focus-polish';
 const primitivePolishMarker = 'epistemos-native-primitive-polish';
 const surfacePolishMarker = 'epistemos-native-surface-polish';
+const catalogPolishMarker = 'epistemos-native-catalog-screen-polish';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -501,6 +502,72 @@ body {
 }
 `;
   }
+  if (!source.includes(catalogPolishMarker)) {
+    source += `
+
+/* ==========================================================================
+   Epistemos native catalog/screen polish (${catalogPolishMarker})
+   The visible Goose utility screens keep their upstream behavior and routes, but
+   use the same transparent-over-glass card, list, badge, and header language as
+   the native frame.
+   ========================================================================== */
+.goose-epistemos {
+  --epistemos-native-catalog-screen-polish: 1;
+}
+
+.goose-epistemos :is(.ep-native-screen-card, .ep-native-list-card) {
+  -webkit-backdrop-filter: blur(22px) saturate(1.45);
+  backdrop-filter: blur(22px) saturate(1.45);
+  background-color: var(--epistemos-glass-fill) !important;
+  border-color: var(--epistemos-glass-border) !important;
+  border-radius: 14px !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 42%, transparent) inset,
+    0 10px 30px rgba(0, 0, 0, 0.07) !important;
+}
+
+.dark .goose-epistemos :is(.ep-native-screen-card, .ep-native-list-card) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 12px 34px rgba(0, 0, 0, 0.24) !important;
+}
+
+.goose-epistemos .ep-native-list-card {
+  transition:
+    background-color 180ms var(--epistemos-control-ease),
+    border-color 180ms var(--epistemos-control-ease),
+    box-shadow 180ms var(--epistemos-control-ease),
+    transform 180ms var(--epistemos-control-ease);
+}
+
+.goose-epistemos .ep-native-list-card:hover {
+  background-color: var(--epistemos-glass-fill-strong) !important;
+  border-color: color-mix(in srgb, var(--epistemos-accent) 34%, var(--epistemos-glass-border)) !important;
+  transform: translateY(-1px);
+}
+
+.goose-epistemos .ep-native-header-band {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-background-primary) 72%, transparent),
+      color-mix(in srgb, var(--color-background-secondary) 42%, transparent)
+    ) !important;
+  border-color: var(--epistemos-glass-border) !important;
+}
+
+.goose-epistemos .ep-native-badge {
+  border-radius: 9999px !important;
+  border-color: var(--epistemos-glass-border) !important;
+  background-color: color-mix(in srgb, var(--color-background-secondary) 68%, transparent) !important;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  font-weight: 600;
+  letter-spacing: 0 !important;
+}
+`;
+  }
   write('src/styles/main.css', source);
 }
 
@@ -940,6 +1007,330 @@ function applyCatalogSurfaces() {
   }
 }
 
+function applyProviderCatalogSurfaces() {
+  let source = read('src/components/settings/providers/ProviderSettingsPage.tsx');
+  source = replaceRequired(
+    source,
+    'provider settings transparent root',
+    'className="h-screen w-full flex flex-col bg-background-primary text-text-primary"',
+    'className="h-screen w-full flex flex-col bg-transparent text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'provider settings header glass',
+    'className="flex flex-col pb-5 border-b border-border-secondary"',
+    'className="ep-native-header-band flex flex-col rounded-[16px] border border-border-secondary p-4 shadow-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'provider settings heading font',
+    'className="text-2xl font-mono font-normal mb-3 pt-4"',
+    'className="text-2xl font-sans font-semibold tracking-normal mb-3 pt-4"'
+  );
+  write('src/components/settings/providers/ProviderSettingsPage.tsx', source);
+
+  source = read('src/components/settings/providers/ProviderGrid.tsx');
+  source = replaceRequired(
+    source,
+    'provider grid density',
+    'gridTemplateColumns: \'repeat(auto-fill, minmax(200px, 200px))\',',
+    'gridTemplateColumns: \'repeat(auto-fill, minmax(230px, 1fr))\','
+  );
+  source = replaceRequired(
+    source,
+    'provider grid stretch',
+    "justifyContent: 'center',",
+    "justifyContent: 'stretch',"
+  );
+  source = replaceRequired(
+    source,
+    'custom provider native card body',
+    'className="flex flex-col items-center justify-center min-h-[200px]"',
+    'className="flex min-h-[178px] flex-col items-center justify-center rounded-[12px]"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider plus token color',
+    'className="w-8 h-8 text-gray-400 mb-2"',
+    'className="mb-2 h-8 w-8 text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider text token color',
+    'className="text-sm text-gray-600 dark:text-gray-400 text-center"',
+    'className="text-center text-sm text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider subtitle token color',
+    'className="text-xs text-gray-500 mt-1"',
+    'className="mt-1 text-xs text-text-tertiary"'
+  );
+  write('src/components/settings/providers/ProviderGrid.tsx', source);
+
+  source = read('src/components/settings/providers/subcomponents/CardContainer.tsx');
+  source = replaceRequired(
+    source,
+    'provider card outer radius',
+    'rounded-[6px] group/card border',
+    'ep-native-list-card rounded-[14px] group/card border'
+  );
+  source = replaceRequired(
+    source,
+    'provider card disabled fill',
+    "? 'bg-background-secondary border-border-primary'",
+    "? 'bg-background-secondary/56 border-border-secondary opacity-70'"
+  );
+  source = replaceRequired(
+    source,
+    'provider card enabled fill',
+    ": 'bg-background-primary border-border-primary hover:border-primary'",
+    ": 'bg-background-primary/64 border-border-secondary hover:border-[var(--epistemos-accent)] hover:bg-background-primary/78'"
+  );
+  source = replaceRequired(
+    source,
+    'provider card inner native surface',
+    'relative bg-background-primary rounded-[6px] p-3 transition-colors duration-150 h-[160px] flex flex-col',
+    'relative rounded-[14px] bg-transparent p-4 transition-all duration-200 ease-[var(--epistemos-control-ease)] min-h-[178px] flex flex-col'
+  );
+  write('src/components/settings/providers/subcomponents/CardContainer.tsx', source);
+
+  source = read('src/components/settings/providers/subcomponents/CardHeader.tsx');
+  source = replaceRequired(
+    source,
+    'provider card title native font',
+    'className="text-base font-medium text-text-primary truncate mr-2"',
+    'className="mr-2 truncate text-base font-semibold tracking-normal text-text-primary"'
+  );
+  write('src/components/settings/providers/subcomponents/CardHeader.tsx', source);
+}
+
+function applyUtilityListSurfaces() {
+  let source = read('src/components/skills/SkillsView.tsx');
+  source = replaceRequired(
+    source,
+    'skill item native card',
+    'className="py-2 px-3 mb-2 bg-background-primary border border-border-secondary rounded-[6px] hover:bg-background-secondary transition-all duration-150"',
+    'className="ep-native-list-card mb-2 border px-3 py-2 hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'skill title native font',
+    'className="text-sm font-mono truncate"',
+    'className="truncate text-sm font-sans font-semibold tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'skill skeleton native card',
+    'className="p-2 mb-2 bg-background-primary"',
+    'className="ep-native-list-card mb-2 border p-2"'
+  );
+  write('src/components/skills/SkillsView.tsx', source);
+
+  source = read('src/components/recipes/RecipesView.tsx');
+  source = replaceRequired(
+    source,
+    'recipe item native card',
+    'className="py-2 px-3 mb-2 bg-background-primary border border-border-secondary rounded-[6px] hover:bg-background-secondary transition-all duration-150"',
+    'className="ep-native-list-card mb-2 border px-3 py-2 hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe title native font',
+    'className="text-sm font-mono truncate max-w-[50vw]"',
+    'className="max-w-[50vw] truncate text-sm font-sans font-semibold tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe metadata native font',
+    'className="flex flex-col gap-1 text-[11px] text-text-secondary font-mono"',
+    'className="flex flex-col gap-1 text-[11px] font-sans text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe skeleton native card',
+    'className="p-2 mb-2 bg-background-primary border border-border-secondary rounded-[6px]"',
+    'className="ep-native-list-card mb-2 border p-2"'
+  );
+  write('src/components/recipes/RecipesView.tsx', source);
+
+  source = read('src/components/schedule/SchedulesView.tsx');
+  source = replaceRequired(
+    source,
+    'schedule item native card',
+    'className="py-2 px-3 mb-2 bg-background-primary border border-border-secondary rounded-[6px] hover:bg-background-secondary cursor-pointer transition-all duration-150"',
+    'className="ep-native-list-card mb-2 cursor-pointer border px-3 py-2 hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule title native font',
+    'className="text-sm font-mono truncate max-w-[50vw]"',
+    'className="max-w-[50vw] truncate text-sm font-sans font-semibold tracking-normal"'
+  );
+  source = replaceAllRequired(
+    source,
+    'schedule badge native font',
+    'rounded-[4px] text-[11px] font-mono bg-background-secondary',
+    'ep-native-badge text-[11px] bg-background-secondary'
+  );
+  source = replaceRequired(
+    source,
+    'schedule cron native font',
+    'className="text-text-secondary text-xs mb-2 line-clamp-2 font-mono"',
+    'className="mb-2 line-clamp-2 text-xs font-sans text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule last run native font',
+    'className="flex items-center text-[11px] text-text-secondary font-mono"',
+    'className="flex items-center text-[11px] font-sans text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'schedule error native panel',
+    'className="mb-4 p-4 bg-background-danger border border-border-danger rounded-md"',
+    'className="mb-4 rounded-[12px] border border-border-danger bg-background-danger/72 p-4 backdrop-blur-xl"'
+  );
+  write('src/components/schedule/SchedulesView.tsx', source);
+
+  source = read('src/components/apps/AppsView.tsx');
+  source = replaceRequired(
+    source,
+    'app item native card',
+    'className="flex flex-col p-3 border border-border-secondary rounded-[6px] hover:border-border-primary transition-colors bg-background-primary"',
+    'className="ep-native-list-card flex flex-col border p-3 hover:border-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'app badge native chip',
+    'className="inline-block px-2 py-1 text-xs bg-background-secondary text-text-secondary rounded-[4px] font-mono"',
+    'className="ep-native-badge inline-block px-2 py-1 text-xs text-text-secondary"'
+  );
+  write('src/components/apps/AppsView.tsx', source);
+}
+
+function applySessionListSurfaces() {
+  let source = read('src/components/sessions/SessionListView.tsx');
+  source = replaceRequired(
+    source,
+    'session edit modal overlay',
+    'className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50"',
+    'className="fixed inset-0 z-[300] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'session edit modal native card',
+    'className="bg-background-primary border border-border-primary rounded-[6px] p-4 w-[500px] max-w-[90vw]"',
+    'className="ep-native-screen-card w-[500px] max-w-[90vw] border p-4"'
+  );
+  source = replaceRequired(
+    source,
+    'session edit modal title font',
+    'className="text-sm font-mono text-text-primary mb-4"',
+    'className="mb-4 text-sm font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'session edit modal input native',
+    'className="w-full p-3 border border-border-primary rounded-[5px] bg-background-primary text-text-primary text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"',
+    'className="w-full rounded-[8px] border border-border-primary bg-background-primary/70 p-3 text-sm font-sans text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'session item native card',
+    'className="h-full py-3 px-3 border border-border-secondary rounded-[6px] bg-background-primary hover:bg-background-secondary cursor-pointer transition-all duration-150 flex flex-col justify-between relative group"',
+    'className="ep-native-list-card group relative flex h-full cursor-pointer flex-col justify-between border px-3 py-3 hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'session title native font',
+    'className="text-sm font-mono break-words line-clamp-2 w-full mb-1"',
+    'className="mb-1 w-full break-words text-sm font-sans font-semibold tracking-normal line-clamp-2"'
+  );
+  source = replaceRequired(
+    source,
+    'session count native font',
+    'className="font-mono"',
+    'className="font-sans font-medium"'
+  );
+  source = replaceAllRequired(
+    source,
+    'session action native radius',
+    'rounded-[4px] hover:bg-background-tertiary',
+    'rounded-[8px] hover:bg-background-tertiary/80'
+  );
+  source = replaceRequired(
+    source,
+    'session group sticky native glass',
+    'className="sticky top-0 z-10 bg-background-primary/95"',
+    'className="ep-native-header-band sticky top-0 z-10 rounded-[10px] border border-border-secondary px-2 py-1 shadow-sm"'
+  );
+  source = replaceAllRequired(
+    source,
+    'session dialog native radius',
+    'className="sm:max-w-lg rounded-[6px]"',
+    'className="sm:max-w-lg rounded-[14px]"'
+  );
+  source = replaceRequired(
+    source,
+    'session import textarea native',
+    'className="min-h-28 w-full resize-none rounded-[5px] border border-border-primary bg-background-primary p-3 text-sm font-mono text-text-primary outline-none focus:ring-1 focus:ring-border-active"',
+    'className="min-h-28 w-full resize-none rounded-[9px] border border-border-primary bg-background-primary/70 p-3 text-sm font-sans text-text-primary outline-none focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'session share code native panel',
+    'className="relative rounded-[5px] border border-border-primary bg-background-secondary p-3 pr-12"',
+    'className="relative rounded-[10px] border border-border-primary bg-background-secondary/70 p-3 pr-12 backdrop-blur-xl"'
+  );
+  write('src/components/sessions/SessionListView.tsx', source);
+}
+
+function applySearchSurfaces() {
+  let source = read('src/components/conversation/SearchBar.tsx');
+  source = replaceRequired(
+    source,
+    'search bar native glass',
+    'className={`sticky top-0 bg-background-inverse text-text-inverse z-30 mb-4 ${',
+    'className={`sticky top-0 z-30 mb-4 rounded-[12px] border border-border-secondary bg-background-primary/82 text-text-primary shadow-sm backdrop-blur-xl ${'
+  );
+  source = replaceRequired(
+    source,
+    'search icon token color',
+    'className="no-drag h-4 w-4 text-text-inverse/70 absolute left-3"',
+    'className="no-drag absolute left-3 h-4 w-4 text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'search input native colors',
+    `className="no-drag w-full text-sm pl-9 pr-24 py-3 bg-background-inverse text-text-inverse
+                      placeholder:text-text-inverse/50 focus:outline-none 
+                       active:border-border-secondary"`,
+    `className="no-drag w-full bg-transparent py-3 pl-9 pr-24 text-sm text-text-primary
+                      placeholder:text-text-secondary focus:outline-none
+                       active:border-border-secondary"`
+  );
+  source = replaceAllRequired(
+    source,
+    'search controls primary color',
+    'text-text-inverse/70 hover:text-text-inverse hover:bg-white/10',
+    'text-text-secondary hover:bg-background-secondary/70 hover:text-text-primary'
+  );
+  source = replaceRequired(
+    source,
+    'search count native color',
+    'className="w-16 text-right text-sm text-text-inverse/80 flex items-center justify-end"',
+    'className="flex w-16 items-center justify-end text-right text-sm text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'search case selected native color',
+    "? 'bg-white/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] text-text-inverse hover:bg-white/25'",
+    "? 'bg-[var(--epistemos-accent)]/14 text-text-primary shadow-sm hover:bg-[var(--epistemos-accent)]/18'"
+  );
+  write('src/components/conversation/SearchBar.tsx', source);
+}
+
 applyThemeTokens();
 applyMainCSS();
 applyButton();
@@ -954,5 +1345,9 @@ applyAppSurfaces();
 applyChatSurfaces();
 applyToolAndPopoverSurfaces();
 applyCatalogSurfaces();
+applyProviderCatalogSurfaces();
+applyUtilityListSurfaces();
+applySessionListSurfaces();
+applySearchSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
