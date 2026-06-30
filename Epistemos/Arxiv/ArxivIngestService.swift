@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import SwiftData
 
@@ -74,25 +75,38 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
         }
 
-        do {
-            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            guard values.isRegularFile == true else {
-                try? fileManager.removeItem(at: fileURL)
+        let fd = fileURL.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            let capturedErrno = errno
+            try? fileManager.removeItem(at: fileURL)
+            if capturedErrno == ELOOP {
                 throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
             }
-            guard let fileSize = values.fileSize else {
-                try? fileManager.removeItem(at: fileURL)
-                throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF size")
-            }
-            guard fileSize <= maxDownloadedPDFBytes else {
-                try? fileManager.removeItem(at: fileURL)
-                throw ArxivIngestError.downloadFailed("downloaded PDF exceeds 128 MiB limit")
-            }
-        } catch let error as ArxivIngestError {
-            throw error
-        } catch {
+            let message = String(cString: strerror(capturedErrno))
+            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(message)")
+        }
+        defer { _ = close(fd) }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let capturedErrno = errno
             try? fileManager.removeItem(at: fileURL)
-            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(error.localizedDescription)")
+            let message = String(cString: strerror(capturedErrno))
+            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(message)")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            try? fileManager.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
+        }
+        guard fileStatus.st_size >= 0 else {
+            try? fileManager.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF size")
+        }
+        guard UInt64(fileStatus.st_size) <= UInt64(maxDownloadedPDFBytes) else {
+            try? fileManager.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("downloaded PDF exceeds 128 MiB limit")
         }
     }
 }

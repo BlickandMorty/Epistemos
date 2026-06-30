@@ -24,9 +24,10 @@
   worker so conversion and file materialization run off `@MainActor`; (4) file-first `SDPage` with body = abstract intro
   + parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. The paired PDF/Markdown writes use the shared reserved-file writer, including final
-  symlink rejection after reservation. Downloaded temp PDFs are also rejected before import if the temp path is a symlink,
-  is not a regular file, exceeds the 128 MiB cap, or lacks `%PDF-` magic; extensionless `URLSession.download` temps are
-  moved to a `.pdf` path before `LiteParsePDFImporter` sees them. **Honest:** failed download / `.notWired` / `.failed`
+  symlink rejection after reservation. Downloaded temp PDFs are also opened with `O_NOFOLLOW`, checked with `fstat`,
+  and rejected before import if the temp path is a symlink, is not a regular file, exceeds the 128 MiB cap, or lacks
+  `%PDF-` magic; extensionless `URLSession.download` temps are moved to a `.pdf` path before `LiteParsePDFImporter` sees
+  them. **Honest:** failed download / `.notWired` / `.failed`
   → no note + the real reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`).
