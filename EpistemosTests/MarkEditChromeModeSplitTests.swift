@@ -71,6 +71,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
     @Test("MarkEdit CoreEditor adapter uses vendored bundle and generated MarkEdit bridge surface")
     func markEditCoreEditorAdapterUsesVendoredBundleAndBridgeSurface() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let state = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
         let resources = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
 
         #expect(source.contains("struct MarkEditCodeEditorRepresentable"))
@@ -86,6 +87,9 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("webModules.core.resetEditor"))
         #expect(source.contains("window.webModules.core.getEditorText()"))
         #expect(source.contains("epistemosMarkEditCoreEditor"))
+        #expect(!source.contains("private struct MarkEditCoreEditorConfig"))
+        #expect(state.contains("struct MarkEditCoreEditorState"))
+        #expect(state.contains("private struct MarkEditCoreEditorConfig"))
     }
 
     @Test("CoreEditor adapter waits for the JS bridge before the first reset")

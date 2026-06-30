@@ -288,6 +288,10 @@ struct NoteEditorLayoutTests {
     func codeEditorUsesMarkEditCoreEditorWithoutNativeSourceEditorFallback() throws {
         let codeEditorSource = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let markEditSource = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
 
         #expect(!codeEditorSource.contains("CodeEditSourceEditor"))
         #expect(!codeEditorSource.contains("SourceEditor("))

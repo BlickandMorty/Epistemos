@@ -237,6 +237,8 @@ nonisolated struct CodeEditorPolishTests {
     func codeEditorViewFeedsLivePreferencesIntoMarkEditCoreEditor() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
 
         #expect(source.contains("showLineNumbers: showLineGutter"),
                 "Line numbers must be passed to MarkEdit CoreEditor from Epistemos chrome.")
@@ -275,6 +277,8 @@ nonisolated struct CodeEditorPolishTests {
     func markEditCoreEditorSyntaxThemeKeepsSemanticContrast() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
 
         #expect(source.contains("MarkEditCodeEditorRepresentable("),
                 "Code files must render through MarkEdit CoreEditor by default, with v1 kept as an explicit fallback.")

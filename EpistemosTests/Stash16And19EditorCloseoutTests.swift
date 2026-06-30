@@ -61,6 +61,8 @@ struct Stash16And19EditorCloseoutTests {
     func currentCodeEditorKeepsMarkEditCoreEditorPathInsteadOfMinimalTestShell() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let adapter = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+            + "\n"
+            + loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
 
         #expect(!source.contains("@preconcurrency import CodeEditSourceEditor"))
         #expect(!source.contains("SourceEditor("))
