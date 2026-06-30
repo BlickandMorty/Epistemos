@@ -4,7 +4,7 @@ import Foundation
 import agent_coreFFI
 #endif
 
-private func readBoundedRegularFileNoFollow(at url: URL, maxBytes: Int) -> Data? {
+private nonisolated func readBoundedRegularFileNoFollow(at url: URL, maxBytes: Int) -> Data? {
     if (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil {
         return nil
     }
