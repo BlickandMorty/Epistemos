@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 22:45 CDT (loop cycle 44) — **10/10 ✅**, 0 drift. ✅ **PIVOT SIGN:** after the WORK-ORDER directive, build agents went quiet on bounding (~0 commits in 10 min) and now hold FEATURE-SIZED uncommitted WIP in exactly the right files — `GooseACPEventBridge` (+58) + `GooseWebSurfaceView` (+29) [white-screen ACP/retry territory] and `HTMLWorkspaceEditorView` (+357) [almost certainly full-surface regenerate]. Real fixes appear in progress (not bounding); UNCOMMITTED — verify behavior + `isLive` flip when it lands. **3 OWNER REVIEW** (Companion-v1.6 [cyc12]; white-screen status [cyc34→35]; systemic hardening pattern [cyc39/41 — RESOLVED-at-source cyc43]). HEAD at pass: `eea9fd077`.
+**Last auditor pass:** 2026-06-29 22:55 CDT (loop cycle 45) — **10/10 ✅**, 0 drift. 🎉 **WHITE-SCREEN FIX LANDED IN CODE** (`57da5457a` "wait for acp before web ui render") — backoff-retry ACP handshake + load-WebUI-on-`.connected` + 65 lines of tests; the real retry-until-ready P0, exactly per canon. **Awaiting owner visual confirm (cold-launch renders, no reload).** The WORK-ORDER directive (cyc43) worked — agent pivoted from bounding to the real fix. ⏳ Plan-2 full-surface regenerate still WIP (`isLive:false`; the +357 HTMLWorkspaceEditorView not committed yet). More `docs/agent-farm/` research docs = SEPARATE app, out of scope. **3 OWNER REVIEW** (Companion-v1.6 [cyc12]; white-screen [cyc34→45 — FIX LANDED, owner-confirm pending]; systemic pattern [RESOLVED cyc43]). HEAD at pass: `4be7d9d99`.
 <br>_Recent: cyc43 (owner-directed) baked the REAL-WORK-FIRST/HARDENING-CAPPED WORK-ORDER directive into PROMPT_PLAN_1/2/3 + added AGENT_LOOP_WRAPPERS_REAL_FIRST (canon-safe, 10/10). cyc32 vetted the white-screen P0 + MAS-in-process-backend canon edit (Option-1-reinforcing). cyc8 strengthened check #4 to all 4 springs. cyc2 made #6/#8 greps honest._
 
 ## INVARIANTS (the locked truths — each agent's docs must agree with these)
@@ -103,6 +103,12 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   `Epistemos/Goose/*.swift` finds no implementing commit yet — Plan-1 has been on security/bounds hardening. **Per owner
   (cyc35): acceptable to fix when the agent reaches it in the plan order; the requirement is that it stays captured (it is).**
   Auditor role = keep it visible + confirm when the implementing commit lands (docs-only; edits nothing in code/Plan-1).
+  **↳ ✅ FIX LANDED IN CODE cycle 45 (`57da5457a` "fix(goose): wait for acp before web ui render").** Implements exactly
+  the canon fix: backoff-retry ACP handshake (`urlHandshakeInitial/MaximumRetryDelayNanoseconds`), production path retries
+  `initialize` until the /health-healthy runtime accepts the WebSocket, loads the WebUI on `.connected` (not before backend
+  ready) + 65 lines of new tests (ACPClient + RuntimeSupervisor). Pivot happened right after the WORK-ORDER directive (cyc43).
+  **REMAINING: owner visual confirm** — cold-launch the new build → Goose chat should render in a few seconds with no manual
+  reload (auditor can't run the app). This item closes once owner confirms it renders.
   **Owner's standing ask (cyc35): every issue that arises must be at least conceptualized + added to a plan/recon, even if
   not fixed immediately** — auditor will spot-check that new owner-raised issues land in a plan or `LOST_ITEMS_RECON`, not lost.
 - **2026-06-29 cycle 19 (Auditor) — "graph CHROME" items vs invariant #6 "Graph = DO NOT TOUCH" (boundary question;
