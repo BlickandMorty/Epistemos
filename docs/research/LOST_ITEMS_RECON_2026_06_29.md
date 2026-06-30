@@ -1,5 +1,12 @@
 # LOST ITEMS RECON — features that fell out of canon (2026-06-29)
 
+> 🛑 **OWNER GUARDRAIL (2026-06-30): SALVAGE ≠ RESURRECT REMOVED FEATURES.** This recon may ONLY route features that
+> *accidentally fell out* — it must **NEVER route a feature the OWNER DELIBERATELY REMOVED** back into any plan. The owner
+> removed (do NOT resurrect, anywhere): **triage / Review-Queue HUD, raw thoughts (RawThoughtsState), the old local+cloud
+> AI agent surface (AI = "just Goose"), old chat-transcript UI** (+ already-cut Osaurus/Act/three-engine/Hermes). Items
+> #4/#19/#33 below are marked ❌ OWNER-REMOVED — do NOT build them and do NOT re-route them. KEEP: arXiv + current
+> capabilities. Authoritative kill-list: `docs/research/REMOVED_FEATURES_KILL_LIST_2026_06_30.md` (when present).
+>
 > **Purpose:** the salvage recon the owner asked for — find features that were planned/built but FELL OUT of the
 > current 5-plan canon (like the Tolaria mini-chat did) and route each back. Source = two parallel research agents
 > mining `OWNER_REQUESTS_LEDGER_2026_06_18.md` (4.5k lines) + the drift/salvage corpus (PLAN_DRIFT_AUDIT,
