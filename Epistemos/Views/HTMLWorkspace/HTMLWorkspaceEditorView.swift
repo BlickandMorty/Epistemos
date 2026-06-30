@@ -871,9 +871,13 @@ struct HTMLWorkspaceEditorView: View {
             return
         }
         do {
-            let html = HTMLWorkspacePreviewDocument.render(package: package, theme: previewTheme)
+            let html = HTMLWorkspacePreviewDocument.render(
+                package: package,
+                theme: previewTheme,
+                resourceMode: .inlinePackageAssets
+            )
             try Data(html.utf8).write(to: destination, options: [.atomic])
-            statusText = "HTML saved"
+            statusText = package.routes.isEmpty ? "HTML saved" : "HTML saved (index route only)"
         } catch {
             statusText = failedStatus("HTML export", error: error)
         }
