@@ -21,6 +21,13 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
 
         #expect(previewSource.contains("WKWebsiteDataStore.nonPersistent()"))
         #expect(previewSource.contains("loadHTMLString"))
+        #expect(previewSource.contains("setURLSchemeHandler"))
+        #expect(previewSource.contains("HTMLWorkspaceLocalResourceScheme.scheme"))
+        #expect(previewSource.contains("HTMLWorkspacePreviewURL.baseURL"))
+        #expect(previewSource.contains("HTMLWorkspacePreviewURLSchemeHandler"))
+        #expect(previewSource.contains("resourceResponse(for:"))
+        #expect(previewSource.contains("assetShellHash(for: package)"))
+        #expect(!previewSource.contains("baseURL: nil"))
         #expect(previewSource.contains("allowNetwork == false"))
         #expect(previewSource.contains("decisionHandler(.cancel)"))
         #expect(previewSource.contains("allowedNetworkSchemes"))
@@ -221,6 +228,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
 
         #expect(packageSource.contains("main.js"))
         #expect(packageSource.contains("data.json"))
+        #expect(packageSource.contains("HTMLWorkspaceLocalResourceScheme"))
+        #expect(packageSource.contains("contentSecurityPolicySource"))
         #expect(packageSource.contains("HTMLWorkspacePreviewTheme"))
         #expect(packageSource.contains("epistemos-theme-guard"))
         #expect(packageSource.contains("epistemos-font-face"))

@@ -12,6 +12,11 @@ nonisolated public enum HTMLWorkspacePackageEntry {
     public static let consoleErrors = "console-errors.json"
 }
 
+nonisolated public enum HTMLWorkspaceLocalResourceScheme {
+    public static let scheme = "epistemos-html-workspace"
+    public static let contentSecurityPolicySource = "\(scheme):"
+}
+
 nonisolated public enum HTMLWorkspacePackageLimits {
     public static let maxConsoleErrors = 48
     public static let maxSnapshots = 16
@@ -248,15 +253,16 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
     )
 
     public var contentSecurityPolicy: String {
+        let localResources = HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource
         if allowNetwork {
             return [
                 "default-src 'none'",
-                "img-src data: blob: https:",
-                "style-src 'unsafe-inline'",
-                "script-src 'unsafe-inline'",
-                "font-src data:",
-                "connect-src https:",
-                "media-src data: blob: https:",
+                "img-src data: blob: https: \(localResources)",
+                "style-src 'unsafe-inline' \(localResources)",
+                "script-src 'unsafe-inline' \(localResources)",
+                "font-src data: \(localResources)",
+                "connect-src https: \(localResources)",
+                "media-src data: blob: https: \(localResources)",
                 "frame-src 'none'",
                 "base-uri 'none'",
                 "form-action 'none'",
@@ -264,12 +270,12 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
         }
         return [
             "default-src 'none'",
-            "img-src data: blob:",
-            "style-src 'unsafe-inline'",
-            "script-src 'unsafe-inline'",
-            "font-src data:",
-            "connect-src 'none'",
-            "media-src data: blob:",
+            "img-src data: blob: \(localResources)",
+            "style-src 'unsafe-inline' \(localResources)",
+            "script-src 'unsafe-inline' \(localResources)",
+            "font-src data: \(localResources)",
+            "connect-src \(localResources)",
+            "media-src data: blob: \(localResources)",
             "frame-src 'none'",
             "base-uri 'none'",
             "form-action 'none'",

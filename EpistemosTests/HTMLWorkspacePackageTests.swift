@@ -110,6 +110,34 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.error == "Vault feed unavailable")
     }
 
+    @Test("HTMLWorkspace offline CSP admits package-local resources without network")
+    func offlineCSPAllowsPackageLocalResourcesOnly() {
+        let csp = HTMLWorkspaceSandboxPolicy.offlineDefault.contentSecurityPolicy
+        let localResource = HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource
+
+        #expect(csp.contains("default-src 'none'"))
+        #expect(csp.contains("img-src data: blob: \(localResource)"))
+        #expect(csp.contains("style-src 'unsafe-inline' \(localResource)"))
+        #expect(csp.contains("script-src 'unsafe-inline' \(localResource)"))
+        #expect(csp.contains("font-src data: \(localResource)"))
+        #expect(csp.contains("connect-src \(localResource)"))
+        #expect(csp.contains("media-src data: blob: \(localResource)"))
+        #expect(!csp.contains("connect-src https:"))
+    }
+
+    @Test("HTMLWorkspace preview identity tracks asset bytes but not data-only updates")
+    func previewIdentityTracksAssetBytesButNotDataOnlyUpdates() {
+        var original = Self.samplePackage()
+        original.assets = ["texture.png": Data([1, 2, 3])]
+        var dataOnly = original
+        dataOnly.dataJSON = #"{"metrics":[]}"#
+        var assetUpdate = original
+        assetUpdate.assets = ["texture.png": Data([1, 2, 4])]
+
+        #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) == HTMLWorkspacePreviewIdentity.viewIdentity(for: dataOnly))
+        #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) != HTMLWorkspacePreviewIdentity.viewIdentity(for: assetUpdate))
+    }
+
     @Test("HTMLWorkspace setDataFeed patch seeds pending data for the new query")
     func setDataFeedPatchSeedsPendingDataForNewQuery() throws {
         var package = Self.samplePackage()
@@ -431,7 +459,8 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let srcdoc = HTMLWorkspacePreviewDocument.render(package: hostile)
         #expect(srcdoc.contains("default-src 'none'"))
-        #expect(srcdoc.contains("connect-src 'none'"))
+        #expect(srcdoc.contains("connect-src \(HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource)"))
+        #expect(!srcdoc.contains("connect-src https:"))
         #expect(srcdoc.contains("frame-src 'none'"))
         #expect(!srcdoc.contains(HTMLWorkspaceSafeAPI.messageHandlerName))
     }

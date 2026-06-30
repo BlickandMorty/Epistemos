@@ -1,3 +1,4 @@
+import CryptoKit
 import SwiftUI
 import WebKit
 
@@ -7,7 +8,7 @@ nonisolated enum HTMLWorkspaceSafeAPI {
 
 nonisolated enum HTMLWorkspacePreviewIdentity {
     static func viewIdentity(for package: HTMLWorkspacePackage) -> String {
-        "\(package.manifest.id)-\(contentShellHash(for: package))"
+        "\(package.manifest.id)-\(contentShellHash(for: package))-\(assetShellHash(for: package))"
     }
 
     static func renderShellIdentity(
@@ -22,6 +23,7 @@ nonisolated enum HTMLWorkspacePreviewIdentity {
         return [
             package.manifest.id,
             contentShellHash(for: package),
+            assetShellHash(for: package),
             package.manifest.sandboxPolicy.contentSecurityPolicy,
             previewTheme?.rawValue ?? "system",
             themeGuardCSS,
@@ -37,6 +39,19 @@ nonisolated enum HTMLWorkspacePreviewIdentity {
             scriptJS: package.scriptJS,
             dataJSON: ""
         )
+    }
+
+    private static func assetShellHash(for package: HTMLWorkspacePackage) -> String {
+        guard !package.assets.isEmpty else { return "no-assets" }
+        var data = Data()
+        for name in package.assets.keys.sorted() {
+            data.append(Data(name.utf8))
+            data.append(0)
+            data.append(package.assets[name] ?? Data())
+            data.append(0)
+        }
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -73,6 +88,96 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
     """
 }
 
+nonisolated enum HTMLWorkspacePreviewURL {
+    static let baseURL = URL(string: "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(HTMLWorkspacePackageEntry.indexHTML)")!
+}
+
+nonisolated struct HTMLWorkspacePreviewResourceResponse: Sendable {
+    var data: Data
+    var mimeType: String
+    var textEncodingName: String?
+
+    static func text(_ value: String, mimeType: String) -> HTMLWorkspacePreviewResourceResponse {
+        HTMLWorkspacePreviewResourceResponse(
+            data: Data(value.utf8),
+            mimeType: mimeType,
+            textEncodingName: "utf-8"
+        )
+    }
+}
+
+@MainActor
+final class HTMLWorkspacePreviewURLSchemeHandler: NSObject, WKURLSchemeHandler {
+    private let resolver: @MainActor (String) -> HTMLWorkspacePreviewResourceResponse?
+
+    init(resolver: @escaping @MainActor (String) -> HTMLWorkspacePreviewResourceResponse?) {
+        self.resolver = resolver
+    }
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard let url = urlSchemeTask.request.url,
+              let resourcePath = Self.resourcePath(for: url),
+              let asset = resolver(resourcePath) else {
+            urlSchemeTask.didFailWithError(Self.error(for: urlSchemeTask.request.url))
+            return
+        }
+
+        let response = URLResponse(
+            url: url,
+            mimeType: asset.mimeType,
+            expectedContentLength: asset.data.count,
+            textEncodingName: asset.textEncodingName
+        )
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(asset.data)
+        urlSchemeTask.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+    private static func resourcePath(for url: URL) -> String? {
+        guard url.scheme?.lowercased() == HTMLWorkspaceLocalResourceScheme.scheme else { return nil }
+        var path = (url.path.removingPercentEncoding ?? url.path)
+        if path.hasPrefix("/") {
+            path.removeFirst()
+        }
+        guard !path.isEmpty else { return HTMLWorkspacePackageEntry.indexHTML }
+
+        let components = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard !components.isEmpty,
+              components.allSatisfy(isSafePathComponent) else {
+            return nil
+        }
+        if components.count == 1 {
+            return components[0]
+        }
+        if components.count == 2, components[0] == HTMLWorkspacePackageEntry.assets {
+            return "\(HTMLWorkspacePackageEntry.assets)/\(components[1])"
+        }
+        return nil
+    }
+
+    private static func isSafePathComponent(_ component: String) -> Bool {
+        !component.isEmpty
+            && component != "."
+            && component != ".."
+            && !component.contains("\\")
+            && !component.contains("\0")
+            && !component.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+    }
+
+    private static func error(for url: URL?) -> NSError {
+        NSError(
+            domain: "HTMLWorkspacePreviewURLSchemeHandler",
+            code: NSURLErrorFileDoesNotExist,
+            userInfo: [
+                NSURLErrorFailingURLErrorKey: url as Any,
+                NSLocalizedDescriptionKey: "HTML Workspace package resource not found",
+            ]
+        )
+    }
+}
+
 struct HTMLWorkspacePreviewView: NSViewRepresentable {
     var package: HTMLWorkspacePackage
     var safeAPIEnabled: Bool = false
@@ -97,6 +202,10 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        configuration.setURLSchemeHandler(
+            context.coordinator.urlSchemeHandler,
+            forURLScheme: HTMLWorkspaceLocalResourceScheme.scheme
+        )
         if safeAPIEnabled && package.manifest.sandboxPolicy.allowAppBridge {
             configuration.userContentController.add(
                 context.coordinator,
@@ -174,7 +283,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         context.coordinator.lastRenderedThemeIdentity = themeIdentity
         context.coordinator.lastRenderedShellIdentity = shellIdentity
         context.coordinator.lastRenderedDataJSON = package.dataJSON
-        webView.loadHTMLString(rendered, baseURL: nil)
+        webView.loadHTMLString(rendered, baseURL: HTMLWorkspacePreviewURL.baseURL)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -190,6 +299,9 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var messageHandlerInstalled = false
         var consoleHandlerInstalled = false
         var onConsoleError: (@MainActor (HTMLWorkspaceConsoleError) -> Void)?
+        lazy var urlSchemeHandler = HTMLWorkspacePreviewURLSchemeHandler { [weak self] resourcePath in
+            self?.resourceResponse(for: resourcePath)
+        }
         private let allowedNetworkSchemes: Set<String> = ["http", "https"]
 
         init(
@@ -245,9 +357,91 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(script) { [weak webView] result, error in
                 guard let webView else { return }
                 if error != nil || (result as? String) != "patched" {
-                    webView.loadHTMLString(renderedFallbackHTML, baseURL: nil)
+                    webView.loadHTMLString(renderedFallbackHTML, baseURL: HTMLWorkspacePreviewURL.baseURL)
                 }
             }
+        }
+
+        func resourceResponse(for resourcePath: String) -> HTMLWorkspacePreviewResourceResponse? {
+            switch resourcePath {
+            case "", HTMLWorkspacePackageEntry.indexHTML:
+                return .text(
+                    HTMLWorkspacePreviewDocument.render(
+                        package: package,
+                        theme: previewTheme,
+                        themeGuardCSSOverride: themeGuardCSSOverride
+                    ),
+                    mimeType: "text/html"
+                )
+            case HTMLWorkspacePackageEntry.styleCSS:
+                return .text(package.styleCSS, mimeType: "text/css")
+            case HTMLWorkspacePackageEntry.scriptJS, HTMLWorkspacePackageEntry.legacyScriptJS:
+                return .text(package.scriptJS, mimeType: "application/javascript")
+            case HTMLWorkspacePackageEntry.dataJSON:
+                return .text(package.dataJSON, mimeType: "application/json")
+            default:
+                guard let assetName = Self.packageAssetName(for: resourcePath),
+                      let data = package.assets[assetName] else {
+                    return nil
+                }
+                let mimeType = Self.mimeType(for: assetName)
+                return HTMLWorkspacePreviewResourceResponse(
+                    data: data,
+                    mimeType: mimeType,
+                    textEncodingName: Self.textEncodingName(for: mimeType)
+                )
+            }
+        }
+
+        private static func packageAssetName(for resourcePath: String) -> String? {
+            let prefix = "\(HTMLWorkspacePackageEntry.assets)/"
+            guard resourcePath.hasPrefix(prefix) else { return nil }
+            let name = String(resourcePath.dropFirst(prefix.count))
+            guard !name.isEmpty,
+                  !name.contains("/"),
+                  !name.contains("\\"),
+                  name != ".",
+                  name != "..",
+                  !name.hasPrefix("."),
+                  !name.contains("\0"),
+                  !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+                return nil
+            }
+            return name
+        }
+
+        private static func mimeType(for name: String) -> String {
+            switch name.split(separator: ".").last?.lowercased() {
+            case "css": "text/css"
+            case "js", "mjs": "application/javascript"
+            case "json": "application/json"
+            case "html", "htm": "text/html"
+            case "svg": "image/svg+xml"
+            case "png": "image/png"
+            case "jpg", "jpeg": "image/jpeg"
+            case "gif": "image/gif"
+            case "webp": "image/webp"
+            case "avif": "image/avif"
+            case "mp4": "video/mp4"
+            case "webm": "video/webm"
+            case "mp3": "audio/mpeg"
+            case "wav": "audio/wav"
+            case "woff": "font/woff"
+            case "woff2": "font/woff2"
+            case "ttf": "font/ttf"
+            case "otf": "font/otf"
+            default: "application/octet-stream"
+            }
+        }
+
+        private static func textEncodingName(for mimeType: String) -> String? {
+            if mimeType.hasPrefix("text/") ||
+                mimeType == "application/javascript" ||
+                mimeType == "application/json" ||
+                mimeType == "image/svg+xml" {
+                return "utf-8"
+            }
+            return nil
         }
 
         private static func javaScriptStringLiteral(_ value: String) -> String {
@@ -264,6 +458,10 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
             if navigationAction.request.url?.scheme == "about" {
+                decisionHandler(.allow)
+                return
+            }
+            if navigationAction.request.url?.scheme?.lowercased() == HTMLWorkspaceLocalResourceScheme.scheme {
                 decisionHandler(.allow)
                 return
             }
