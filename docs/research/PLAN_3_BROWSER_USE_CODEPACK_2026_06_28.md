@@ -4,6 +4,28 @@
 > for the Chromium robot. browser-use drives Chromium over CDP; it is deliberately separate from the MAS-safe
 > `BrowserView` WKWebView tab and does not and must not drive the native WKWebView Browser.
 
+## ★ DECISION + VERSION DISCIPLINE (owner 2026-06-30) — USE IT (Pro), PIN IT, IGNORE THE MARKETING-VERSION CHURN
+**USE browser-use — Pro lane ONLY.** It is the leading open-source AI browser agent, already vendored + Pro-gated, and
+the right fit for the Full-Autonomy Pro build (Chromium automation is inherently non-MAS; the project already cut the
+old "Obscura" native engine in its favor). The MAS build keeps ONLY the lite `BrowserView` WKWebView tab; browser-use
+NEVER ships on MAS. If a Pro user needs autonomous web tasks, this is the engine — don't rebuild it.
+**PIN the vendored commits (table above) — do NOT auto-bump to "latest" or chase the v1/v2 marketing.** The version
+landscape is deliberately confusing; here is the truth so no agent drifts:
+  - **What's actually vendored = `browser-use` 0.13.2** (pinned @ `2454d3e2…`) + `cdp-use` **1.4.5** (a DEPENDENCY — the
+    typed CDP client, NOT the browser-use version) + `web-ui` @ `61962296…`. (A 2026-06-30 note briefly mis-stated
+    "browser-use 1.4.5" — that number is cdp-use; browser-use itself is 0.13.2.)
+  - **0.13.x IS the current mainline.** It already includes BOTH the proven **DOM-text agent** (default — reads the page
+    DOM as text, fast) AND a newer opt-in **"computer action space" agent** (Rust core, vision-style, beta). Use the
+    stable default; the beta is opt-in, not required.
+  - **The "v1 / v2 / computer use" on their site = MARKETING milestones + the new agent paradigm, NOT the PyPI version**
+    (which is 0.13.x). "Computer use" = their new action-space agent (vs the old DOM-text). "CLI 2.0 / desktop app" = a
+    terminal wrapper that syncs your real browser profile (packaging, not a new engine). Do NOT confuse these with the
+    vendored package version, and do NOT migrate to them on a whim.
+  - **SKIP the cloud** (Browser Use Box / V3 sessions / hosted SaaS) — run the vendored open-source library LOCALLY
+    (fits the no-hidden-cloud doctrine; honest Pro gate, never MAS).
+  - **Bump DELIBERATELY, never automatically:** 0.13.x moves fast — only advance a pinned commit with a re-verified
+    BUILD_MANIFEST/VENDOR_MANIFEST + a Pro smoke test, never "to get v2."
+
 ## Current upstream pins `[WEB]`
 Authoritative source is the official `browser-use/*` GitHub organization, checked on 2026-06-28 with `git ls-remote`
 and local vendored source inspection:
