@@ -1,6 +1,60 @@
 import SwiftData
 import SwiftUI
 
+nonisolated enum QuickCaptureDiagnostics {
+    static let maxStatusMessageCharacters = 240
+
+    static func statusMessage(for error: Error, fallback: String = "Capture failed") -> String {
+        if let captureError = error as? TextCaptureError {
+            return statusMessage(for: captureError, fallback: fallback)
+        }
+
+        let nsError = error as NSError
+        return statusMessage(
+            "\(fallback) (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))",
+            fallback: fallback
+        )
+    }
+
+    static func statusMessage(for error: TextCaptureError, fallback: String = "Capture failed") -> String {
+        switch error {
+        case .emptyCapture:
+            return statusMessage("Capture text is empty after cleaning.", fallback: fallback)
+        case .persistenceFailed:
+            return statusMessage("Note persistence failed.", fallback: fallback)
+        case .graphUnavailable:
+            return statusMessage("Graph write unavailable.", fallback: fallback)
+        }
+    }
+
+    static func statusMessage(_ message: String, fallback: String = "Capture failed") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        guard trimmed.count > maxStatusMessageCharacters else { return trimmed }
+
+        let suffix = "..."
+        let end = trimmed.index(
+            trimmed.startIndex,
+            offsetBy: max(0, maxStatusMessageCharacters - suffix.count)
+        )
+        return String(trimmed[..<end]) + suffix
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Error" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return "Error"
+        }
+        guard trimmed.count <= 80 else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+            return String(trimmed[..<end])
+        }
+        return trimmed
+    }
+}
+
 // MARK: - Phase 6.5: Quick Capture View
 //
 // Keyboard-first landing command overlay that routes text through TextCapturePipeline.
@@ -666,10 +720,8 @@ struct QuickCaptureView: View {
             withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                 captureResult = result
             }
-        } catch let error as TextCaptureError {
-            errorMessage = error.localizedDescription
         } catch {
-            errorMessage = "Capture failed: \(error.localizedDescription)"
+            errorMessage = QuickCaptureDiagnostics.statusMessage(for: error)
         }
 
         isProcessing = false
@@ -696,7 +748,10 @@ struct QuickCaptureView: View {
                     captureResult = result
                 }
             } catch {
-                errorMessage = "Transcription failed: \(error.localizedDescription)"
+                errorMessage = QuickCaptureDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "Transcription failed"
+                )
             }
             isTranscribing = false
         } else {
@@ -710,7 +765,10 @@ struct QuickCaptureView: View {
             do {
                 try audioRecorder.startRecording()
             } catch {
-                errorMessage = "Failed to start recording: \(error.localizedDescription)"
+                errorMessage = QuickCaptureDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "Failed to start recording"
+                )
             }
         }
     }

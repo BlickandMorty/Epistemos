@@ -1018,6 +1018,41 @@ struct TextCapturePipelineTests {
 
         #expect(durableGuards >= 2)
         #expect(source.contains("mutation envelope was not persisted"))
+        #expect(source.contains("QuickCaptureDiagnostics.statusMessage"))
+        #expect(!source.contains("error.localizedDescription"))
+        #expect(!source.contains("String(describing: error)"))
+    }
+
+    @Test("Quick Capture diagnostics redact external errors")
+    func quickCaptureDiagnosticsRedactExternalErrors() {
+        let external = QuickCaptureDiagnostics.statusMessage(
+            for: NSError(
+                domain: "/Users/jojo/PrivateVault/capture.swift",
+                code: -9,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Capture failed at /Users/jojo/PrivateVault/raw.txt"
+                ]
+            )
+        )
+        #expect(external.contains("Capture failed"))
+        #expect(external.contains("code=-9"))
+        #expect(external.count <= QuickCaptureDiagnostics.maxStatusMessageCharacters)
+
+        let persistence = QuickCaptureDiagnostics.statusMessage(
+            for: TextCaptureError.persistenceFailed("/Users/jojo/PrivateVault/raw.md")
+        )
+        #expect(persistence == "Note persistence failed.")
+
+        for forbidden in [
+            "/Users/jojo",
+            "PrivateVault",
+            "capture.swift",
+            "raw.txt",
+            "raw.md",
+        ] {
+            #expect(!external.contains(forbidden))
+            #expect(!persistence.contains(forbidden))
+        }
     }
 
     @Test("Shortcut Quick Capture success requires durable mutation envelope persistence")
