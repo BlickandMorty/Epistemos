@@ -315,6 +315,14 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("appWindows.removeAll()"))
         #expect(bridge.contains("appWebViews.removeAll()"))
         #expect(bridge.contains("appWindowDelegates.removeAll()"))
+        #expect(bridge.contains("isolated deinit"))
+        if let deinitRange = bridge.range(of: "isolated deinit"),
+           let closeRange = bridge[deinitRange.upperBound...].range(of: "closeAllApps()"),
+           let releaseRange = bridge[deinitRange.upperBound...].range(of: "IOPMAssertionRelease") {
+            #expect(closeRange.lowerBound < releaseRange.lowerBound, "deinit must close guest windows before releasing remaining native resources")
+        } else {
+            Issue.record("affordance bridge deinit must close launched app windows")
+        }
         // The clear must precede the close loop (snapshot-then-clear-then-close).
         if let clearRange = bridge.range(of: "appWindows.removeAll()"),
            let closeRange = bridge.range(of: "for window in windows") {

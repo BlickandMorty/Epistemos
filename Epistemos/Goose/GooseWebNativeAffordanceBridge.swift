@@ -66,7 +66,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         self.scopedFileRoots = Set(rootPaths.flatMap { [$0, Self.resolvedSymlinkPath($0)] })
     }
 
-    deinit {
+    isolated deinit {
+        closeAllApps()
         if wakelockAssertionID != 0 {
             IOPMAssertionRelease(wakelockAssertionID)
         }
