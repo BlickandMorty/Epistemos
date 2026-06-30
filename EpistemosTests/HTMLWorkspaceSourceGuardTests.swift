@@ -213,15 +213,18 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!exporterSource.contains("DispatchQueue.main.asyncAfter"))
     }
 
-    @Test("editor exposes data DOM assets and AppKit-backed two-axis source editing")
+    @Test("editor exposes data routes DOM assets and AppKit-backed two-axis source editing")
     func editorExposesDOMDataAssetsAndTwoAxisSourceEditing() throws {
         let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         let codeEditorSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceCodeEditor.swift")
 
         #expect(editorSource.contains("case data"))
+        #expect(editorSource.contains("case routes"))
         #expect(editorSource.contains("case dom"))
         #expect(editorSource.contains("case assets"))
         #expect(editorSource.contains("data.json"))
+        #expect(editorSource.contains("routes/"))
+        #expect(editorSource.contains("routeManifestText"))
         #expect(editorSource.contains("DOM Outline"))
         #expect(codeEditorSource.contains("HTMLWorkspaceDOMSnapshot"))
         #expect(codeEditorSource.contains("snapshot(for html: String"))
@@ -327,6 +330,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(surfaceSource.contains("struct DocumentSurface"))
         #expect(surfaceSource.contains("enum DocumentSurfaceKind"))
         #expect(surfaceSource.contains("enum DocumentSurfacePane"))
+        #expect(surfaceSource.contains("case routes"))
         #expect(surfaceSource.contains("struct DocumentSourceRange"))
         #expect(surfaceSource.contains("enum DocumentSurfaceCapability"))
         #expect(documentSource.contains("applyPatch("))

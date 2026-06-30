@@ -15,6 +15,7 @@ nonisolated public enum DocumentSurfacePane: String, Codable, Sendable, Hashable
     case css
     case js
     case data
+    case routes
     case dom
     case assets
     case preview

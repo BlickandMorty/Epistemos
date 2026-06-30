@@ -309,6 +309,13 @@ struct HTMLWorkspaceEditorView: View {
                 text: domOutlineText,
                 emptyText: "No DOM nodes reported yet. Open the preview or edit HTML to populate this outline."
             )
+        case .routes:
+            readOnlySourcePane(
+                title: "Routes",
+                systemImage: "map",
+                text: routeManifestText,
+                emptyText: "No package routes. Use setRoute to add routes/<name> HTML pages."
+            )
         case .assets:
             readOnlySourcePane(
                 title: "Assets",
@@ -459,6 +466,7 @@ struct HTMLWorkspaceEditorView: View {
                 inspectorRow("DOM", "\(domNodeCount) \(domSnapshot.source.label)")
                 inspectorRow("Data", dataStatus)
                 inspectorRow("Provenance", generationProvenanceText)
+                inspectorRow("Routes", "\(package.routes.count)")
                 inspectorRow("Assets", "\(package.assets.count)")
                 inspectorRow("Snapshots", "\(package.snapshots.count)")
                 inspectorRow("Errors", "\(package.consoleErrors.count)")
@@ -549,6 +557,19 @@ struct HTMLWorkspaceEditorView: View {
             .sorted { $0.key < $1.key }
             .map { "snapshot/\($0.key)  \($0.value.count) bytes" }
         return (assetRows + snapshotRows).joined(separator: "\n")
+    }
+
+    private var routeManifestText: String {
+        guard !package.routes.isEmpty else {
+            return "No routes"
+        }
+        return package.routes
+            .sorted { $0.key < $1.key }
+            .map { name, html in
+                let lines = max(1, html.split(separator: "\n", omittingEmptySubsequences: false).count)
+                return "routes/\(name)  \(lines) lines / \(Data(html.utf8).count) bytes"
+            }
+            .joined(separator: "\n")
     }
 
     private var dataStatus: String {
@@ -925,6 +946,7 @@ struct HTMLWorkspaceEditorView: View {
         case .css: package.styleCSS
         case .js: package.scriptJS
         case .data: package.dataJSON
+        case .routes: routeManifestText
         case .dom: domOutlineText
         case .assets: assetManifestText
         }
@@ -940,6 +962,8 @@ struct HTMLWorkspaceEditorView: View {
             ["replaceDocument", "regenerate", "replaceJS"]
         case .data:
             ["replaceDocument", "regenerate", "replaceDataJSON", "setDataFeed", "insertChart"]
+        case .routes:
+            ["setRoute", "removeRoute", "replaceDocument", "regenerate"]
         case .dom:
             ["replaceDocument", "regenerate", "insertBlock", "insertChart", "setRoute", "removeRoute"]
         case .assets:
@@ -1160,6 +1184,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     case css
     case js
     case data
+    case routes
     case dom
     case assets
 
@@ -1171,6 +1196,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         case .css: "CSS"
         case .js: "JS"
         case .data: "Data"
+        case .routes: "Routes"
         case .dom: "DOM"
         case .assets: "Assets"
         }
@@ -1182,6 +1208,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         case .css: "style.css"
         case .js: "main.js"
         case .data: "data.json"
+        case .routes: "routes/"
         case .dom: "DOM Outline"
         case .assets: "Package"
         }
@@ -1193,6 +1220,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         case .css: "paintbrush"
         case .js: "curlybraces"
         case .data: "tablecells"
+        case .routes: "map"
         case .dom: "point.3.connected.trianglepath.dotted"
         case .assets: "shippingbox"
         }
@@ -1204,6 +1232,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         case .css: .css
         case .js: .js
         case .data: .data
+        case .routes: .routes
         case .dom: .dom
         case .assets: .assets
         }
@@ -1219,6 +1248,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         case .css: "Presentation"
         case .js: "Local behavior"
         case .data: "Structured state"
+        case .routes: "\(package.routes.count) routes"
         case .dom: "\(resolvedDOMSnapshot.nodeCount) \(resolvedDOMSnapshot.source.label) nodes"
         case .assets: "\(package.assets.count) assets, \(package.snapshots.count) snapshots"
         }
@@ -1234,6 +1264,7 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         case .css: Self.counts(for: package.styleCSS)
         case .js: Self.counts(for: package.scriptJS)
         case .data: Self.counts(for: package.dataJSON)
+        case .routes: "\(package.routes.count) routes"
         case .dom: "\(resolvedDOMSnapshot.nodeCount) \(resolvedDOMSnapshot.source.label) nodes"
         case .assets: "\(package.assets.count + package.snapshots.count) files"
         }
