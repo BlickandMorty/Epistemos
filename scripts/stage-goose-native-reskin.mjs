@@ -3165,6 +3165,59 @@ function applySecuritySettingsSurfaces() {
   write('src/components/settings/security/SecurityToggle.tsx', source);
 }
 
+function applySessionSharingSurfaces() {
+  let source = read('src/components/settings/sessions/SessionSharingSection.tsx');
+  source = replaceRequired(
+    source,
+    'session sharing card native glass',
+    '<Card className="pb-2">',
+    '<Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">'
+  );
+  source = replaceRequired(
+    source,
+    'session sharing content spacing native',
+    '<CardContent className="px-4 py-2">',
+    '<CardContent className="px-4 py-3">'
+  );
+  source = replaceRequired(
+    source,
+    'session sharing configured icon token',
+    '<Check className="w-5 h-5 text-green-500" />',
+    '<Check className="h-5 w-5 text-text-success" />'
+  );
+  source = replaceRequired(
+    source,
+    'session sharing URL error token',
+    '<p className="text-red-500 text-sm">{urlError}</p>',
+    '<p className="text-sm text-text-danger">{urlError}</p>'
+  );
+  source = replaceRequired(
+    source,
+    'session sharing test button native',
+    'className="flex items-center gap-2"',
+    'className="flex items-center gap-2 rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'session sharing test result base native',
+    'className={`flex items-start gap-2 p-3 rounded-md text-sm ${',
+    'className={`flex items-start gap-2 rounded-[10px] border p-3 text-sm ${'
+  );
+  source = replaceRequired(
+    source,
+    'session sharing success result native',
+    "? 'bg-green-50 text-green-800 border border-green-200'",
+    "? 'border-border-success bg-background-success/55 text-text-success'"
+  );
+  source = replaceRequired(
+    source,
+    'session sharing error result native',
+    ": 'bg-red-50 text-red-800 border border-red-200'",
+    ": 'border-border-danger bg-background-danger/55 text-text-danger'"
+  );
+  write('src/components/settings/sessions/SessionSharingSection.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3910,6 +3963,7 @@ applyLocalInferenceSurfaces();
 applyGatewaySettingsSurfaces();
 applyDictationSettingsSurfaces();
 applySecuritySettingsSurfaces();
+applySessionSharingSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
