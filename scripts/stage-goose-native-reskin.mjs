@@ -2476,6 +2476,227 @@ function applyAuthSettingsSurfaces() {
   write('src/components/settings/auth/HuggingFaceSignInPrompt.tsx', source);
 }
 
+function applyLocalInferenceSurfaces() {
+  let source = read('src/components/settings/localInference/LocalInferenceSettings.tsx');
+  source = replaceRequired(
+    source,
+    'local vision downloaded badge native',
+    'className="inline-flex items-center gap-1 text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded"',
+    'className="ep-native-badge gap-1 px-2 py-0.5 text-xs text-text-success"'
+  );
+  source = replaceRequired(
+    source,
+    'local vision downloading badge native',
+    'className="inline-flex items-center gap-1 text-xs text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded"',
+    'className="ep-native-badge gap-1 px-2 py-0.5 text-xs text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'local vision idle badge native',
+    'className="inline-flex items-center gap-1 text-xs text-text-muted bg-background-subtle px-2 py-0.5 rounded"',
+    'className="ep-native-badge gap-1 px-2 py-0.5 text-xs text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'local downloads card native',
+    'className="border rounded-lg p-3 border-border-subtle bg-background-default"',
+    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'local destructive icon buttons native',
+    'className="text-destructive hover:text-destructive"',
+    'className="text-text-secondary transition-colors hover:text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'local progress track native',
+    'className="w-full bg-background-secondary rounded-[3px] h-2"',
+    'className="h-2 w-full overflow-hidden rounded-full bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'local progress fill native',
+    'className="bg-primary h-2 rounded-[3px] transition-all duration-300"',
+    'className="h-2 rounded-full bg-[var(--epistemos-accent)] transition-all duration-300 ease-[var(--epistemos-control-ease)]"'
+  );
+  source = replaceRequired(
+    source,
+    'local downloaded card base native',
+    'className={`border rounded-lg p-3 transition-colors ${',
+    'className={`rounded-[10px] border p-3 shadow-sm backdrop-blur-xl transition-colors ${'
+  );
+  source = replaceRequired(
+    source,
+    'local selected card native',
+    "? 'border-accent-primary bg-accent-primary/5'",
+    "? 'border-[var(--epistemos-accent)] bg-background-primary/78 ring-[3px] ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceRequired(
+    source,
+    'local unselected card native',
+    ": 'border-border-subtle bg-background-default hover:border-border-default'",
+    ": 'border-border-secondary bg-background-primary/68 hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62'"
+  );
+  source = replaceAllRequired(
+    source,
+    'local recommended badges native',
+    'className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded"',
+    'className="ep-native-badge px-2 py-0.5 text-xs text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'local featured card native',
+    'className="border rounded-lg p-3 border-border-subtle bg-background-default hover:border-border-default"',
+    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62"'
+  );
+  source = replaceRequired(
+    source,
+    'local show featured toggle native',
+    'className="w-full text-text-muted hover:text-text-default mt-2"',
+    'className="mt-2 w-full rounded-[8px] text-text-secondary hover:text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'local search separator native',
+    '<div className="border-t border-border-subtle pt-4">',
+    '<div className="border-t border-border-secondary pt-5">'
+  );
+  source = replaceRequired(
+    source,
+    'local settings dialog native',
+    '<DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-xl">',
+    '<DialogContent className="max-h-[80vh] overflow-y-auto border-border-secondary bg-background-primary/82 shadow-lg backdrop-blur-xl sm:max-w-xl">'
+  );
+  write('src/components/settings/localInference/LocalInferenceSettings.tsx', source);
+
+  source = read('src/components/settings/localInference/HuggingFaceModelSearch.tsx');
+  source = replaceRequired(
+    source,
+    'hf search title native token',
+    'className="text-sm font-medium text-text-default mb-2"',
+    'className="mb-2 text-sm font-medium text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'hf search input native',
+    'className="w-full pl-9 pr-4 py-2 text-sm border border-border-subtle rounded-lg bg-background-default text-text-default placeholder:text-text-muted focus:outline-none focus:border-accent-primary"',
+    'className="min-h-9 w-full rounded-[9px] border border-border-secondary bg-background-primary/68 py-2 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-secondary transition-all duration-200 ease-[var(--epistemos-control-ease)] focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'hf search error native',
+    '{error && !searching && <p className="text-xs text-text-muted">{error}</p>}',
+    '{error && !searching && <p className="text-xs text-text-danger">{error}</p>}'
+  );
+  source = replaceRequired(
+    source,
+    'hf result list spacing native',
+    '<div className="space-y-1">',
+    '<div className="space-y-2">'
+  );
+  source = replaceRequired(
+    source,
+    'hf repo card native',
+    'className="border border-border-subtle rounded-lg"',
+    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'hf repo button native',
+    'className="w-full flex items-center justify-between p-3 text-left hover:bg-background-subtle rounded-lg"',
+    'className="flex w-full items-center justify-between rounded-[10px] p-3 text-left transition-colors hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'hf variants panel native',
+    'className="border-t border-border-subtle px-3 pb-3 space-y-1"',
+    'className="space-y-1 border-t border-border-secondary px-3 pb-3 pt-2"'
+  );
+  source = replaceRequired(
+    source,
+    'hf variant row base native',
+    'className={`flex items-center justify-between py-2 px-2 rounded ${',
+    'className={`flex items-center justify-between rounded-[9px] border px-2 py-2 transition-colors ${'
+  );
+  source = replaceRequired(
+    source,
+    'hf downloaded variant native',
+    "? 'bg-green-500/5 border border-green-500/20'",
+    "? 'border-border-success bg-background-success/55'"
+  );
+  source = replaceRequired(
+    source,
+    'hf recommended variant native',
+    "? 'bg-blue-500/5 border border-blue-500/20'",
+    "? 'border-[var(--epistemos-accent)] bg-background-primary/78'"
+  );
+  source = replaceRequired(
+    source,
+    'hf neutral variant native',
+    ": 'hover:bg-background-subtle'",
+    ": 'border-transparent hover:border-border-secondary hover:bg-background-secondary/60'"
+  );
+  source = replaceRequired(
+    source,
+    'hf format badge native',
+    'className="text-xs rounded bg-background-muted border border-border-subtle px-1.5 py-0.5 text-text-muted uppercase"',
+    'className="ep-native-badge px-1.5 py-0.5 text-xs uppercase text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'hf recommended badge native',
+    'className="inline-flex items-center gap-1 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded"',
+    'className="ep-native-badge gap-1 px-1.5 py-0.5 text-xs text-[var(--epistemos-accent)]"'
+  );
+  source = replaceAllRequired(
+    source,
+    'hf memory warning token',
+    'className="inline-flex items-center gap-1 text-xs text-amber-500"',
+    'className="inline-flex items-center gap-1 text-xs text-text-warning"'
+  );
+  source = replaceAllRequired(
+    source,
+    'hf disabled buttons native',
+    'className="opacity-60"',
+    'className="rounded-[8px] opacity-60"'
+  );
+  write('src/components/settings/localInference/HuggingFaceModelSearch.tsx', source);
+
+  source = read('src/components/settings/localInference/ModelSettingsPanel.tsx');
+  source = replaceRequired(
+    source,
+    'local number field native input',
+    'className="w-full rounded border border-border-subtle bg-background-default px-2 py-1 text-sm text-text-default"',
+    'className="min-h-8 w-full rounded-[8px] border border-border-secondary bg-background-primary/68 px-2 py-1 text-sm text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceAllRequired(
+    source,
+    'local settings compact rows native',
+    'className="flex items-center justify-between gap-2"',
+    'className="flex items-center justify-between gap-2 rounded-[9px] border border-transparent px-2 py-2 transition-colors hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'local select field native',
+    'className="rounded border border-border-subtle bg-background-default px-2 py-1 text-xs text-text-default"',
+    'className="min-h-8 rounded-[8px] border border-border-secondary bg-background-primary/68 px-2 py-1 text-xs text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'local textarea field native',
+    'className="min-h-32 rounded border border-border-subtle bg-background-default px-2 py-1 font-mono text-xs text-text-default"',
+    'className="min-h-32 rounded-[8px] border border-border-secondary bg-background-primary/68 px-2 py-1 font-mono text-xs text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+  );
+  source = replaceRequired(
+    source,
+    'local reset button native',
+    '<Button variant="ghost" size="sm" onClick={resetDefaults} title={intl.formatMessage(i18n.resetToDefaults)}>',
+    '<Button variant="ghost" size="sm" className="rounded-[8px]" onClick={resetDefaults} title={intl.formatMessage(i18n.resetToDefaults)}>'
+  );
+  write('src/components/settings/localInference/ModelSettingsPanel.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3217,6 +3438,7 @@ applySettingsPanelSurfaces();
 applyModelSettingsSurfaces();
 applyKeyboardSettingsSurfaces();
 applyAuthSettingsSurfaces();
+applyLocalInferenceSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
