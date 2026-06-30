@@ -340,6 +340,46 @@ private enum BrowserUseVendorManifestError: Error, LocalizedError, Equatable {
     }
 }
 
+nonisolated enum BrowserUseDiagnostics {
+    static let maxStatusMessageCharacters = 360
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func statusMessage(for error: Error, fallback: String) -> String {
+        if let manifestError = error as? BrowserUseVendorManifestError {
+            return bounded(manifestError.errorDescription ?? fallback, fallback: fallback)
+        }
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return bounded("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    private static func bounded(_ message: String, fallback: String) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else {
+            return value
+        }
+        return String(value.prefix(maxStatusMessageCharacters)) + "..."
+    }
+
+    static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 nonisolated enum BrowserUseProGateStatus {
     static let flagName = "EPISTEMOS_BROWSER_USE_PRO_V0"
 
@@ -446,7 +486,8 @@ nonisolated enum BrowserUseProGateStatus {
             return Status(
                 isActive: false,
                 headline: "browser-use Pro: vendor manifest unreadable",
-                detail: "Could not read \(manifestURL.lastPathComponent): \(error.localizedDescription). No automation runtime is launched."
+                detail: "Could not read \(manifestURL.lastPathComponent): \(BrowserUseDiagnostics.statusMessage(for: error, fallback: "manifest read failed")). " +
+                    "No automation runtime is launched."
             )
         }
         #endif

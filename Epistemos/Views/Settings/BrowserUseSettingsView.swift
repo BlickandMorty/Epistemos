@@ -320,7 +320,7 @@ struct BrowserUseSettingsView: View {
             manifestReadError = nil
         } catch {
             manifest = nil
-            manifestReadError = error.localizedDescription
+            manifestReadError = BrowserUseDiagnostics.statusMessage(for: error, fallback: "manifest read failed")
         }
     }
 }

@@ -127,6 +127,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("file-vs-directory mismatches and symlink escapes are rejected before ready"))
         #expect(codepack.contains("manifest symlinks and oversized manifest files are rejected before decode"))
         #expect(codepack.contains("symlink escapes are rejected before ready"))
+        #expect(codepack.contains("unexpected external manifest read failures are mapped to bounded domain/code diagnostics"))
+        #expect(codepack.contains("same bounded diagnostics helper as the gate"))
         #expect(codepack.contains("rejects non-executable Python, file/directory artifact shape mismatches"))
         #expect(codepack.contains("runtime artifact symlink escapes before launch planning"))
         #expect(codepack.contains("rejects a non-executable Python runtime and runtime artifact symlink escapes before launch planning"))
@@ -210,6 +212,7 @@ struct BrowserUseCodepackPlan3Tests {
             "defaults.nonSecretEnvironmentPairs.count",
             "Env renderer",
             "Keychain secrets",
+            "BrowserUseDiagnostics.statusMessage(for: error",
             "Native Browser tab",
             "browser-use does not drive it",
             "Python, Playwright, Chromium, and subprocess launch remain outside the MAS path",
@@ -235,6 +238,7 @@ struct BrowserUseCodepackPlan3Tests {
 
         #expect(extensions.contains("case .browserUse:"))
         #expect(extensions.contains("BrowserUseSettingsView()"))
+        #expect(!settings.contains("error.localizedDescription"))
     }
 
     @Test("browser-use settings contract preserves environment shape without launching runtime")

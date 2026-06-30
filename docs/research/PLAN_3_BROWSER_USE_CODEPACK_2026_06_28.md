@@ -112,12 +112,14 @@ can report `browser-use Pro: packaged payload ready` only after the declared `re
 payload, and `BUILD_MANIFEST.json` exist beside the manifest; the manifest file itself is regular-file checked,
 symlink-path rejected, read through a no-follow descriptor, and capped at 1 MiB before JSON decode; manifest-declared
 artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
-and never surface full user-local paths; artifact symlink aliases are rejected before shape checks; file artifacts must
+and never surface full user-local paths; unexpected external manifest read failures are mapped to bounded domain/code
+diagnostics before gate or Settings status text; artifact symlink aliases are rejected before shape checks; file artifacts must
 be files and directory artifacts must be directories. Launch remains user-initiated and
 separate from the native WKWebView Browser.
 `Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
 it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
-no runtime launch control. It also reports the settings contract for the Pro lane.
+no runtime launch control. It also reports the settings contract for the Pro lane, with manifest read errors routed
+through the same bounded diagnostics helper as the gate.
 `Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift` is now the non-secret settings and environment-rendering
 contract: provider endpoints, browser profile/CDP/resolution settings, logging/telemetry/cloud/proxy flags, and
 browser-use/web-ui environment names are Codable settings; API keys, cloud keys, proxy credentials, AWS credentials,

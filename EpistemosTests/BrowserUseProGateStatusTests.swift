@@ -73,6 +73,24 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest diagnostics redact path-leaking external errors")
+    func manifestDiagnosticsRedactPathLeakingExternalErrors() {
+        let privatePath = "/private/var/folders/browser-use/VENDOR_MANIFEST.json"
+        let error = NSError(
+            domain: privatePath,
+            code: 31,
+            userInfo: [NSLocalizedDescriptionKey: "failed to read \(privatePath)"]
+        )
+        let message = BrowserUseDiagnostics.statusMessage(for: error, fallback: "manifest read failed")
+
+        #expect(message.contains("manifest read failed"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=31"))
+        #expect(message.count <= BrowserUseDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("failed to read"))
+    }
+
     @Test("manifest file envelope rejects symlinks and oversized JSON before decode")
     func manifestFileEnvelopeRejectsSymlinksAndOversizedJSONBeforeDecode() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -308,6 +326,8 @@ struct BrowserUseProGateStatusTests {
             "artifactURL(",
             "pathDiagnostic(",
             "maxPathDiagnosticLength",
+            "BrowserUseDiagnostics",
+            "BrowserUseDiagnostics.statusMessage(for: error",
             "unsafe path",
             "is a directory at",
             "resolves outside vendor root",
@@ -332,6 +352,7 @@ struct BrowserUseProGateStatusTests {
         ] {
             #expect(!source.contains(forbidden), "browser-use Pro gate crossed a forbidden boundary: \(forbidden)")
         }
+        #expect(!source.contains("error.localizedDescription"))
     }
 
     private static let packagedManifestJSON = """
