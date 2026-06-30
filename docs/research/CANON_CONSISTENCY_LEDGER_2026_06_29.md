@@ -114,6 +114,14 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   present). FIX TO SEE IT: rebuild (Xcode ⌘R or `xcodebuild -scheme Epistemos build`) then launch the freshly-built app.
   CAVEAT: build agents hold live uncommitted WIP (GooseWebSurfaceView/RuntimeSupervisor/HTMLWorkspaceDocument/…) — if the
   rebuild fails to compile, wait for a clean agent commit then retry. The committed fix (57da5457a) is buildable on its own.
+  **↳ cycle 47 — owner rebuilt (binary 23:11, AFTER the fix) and STILL white; HTML Workspace also "not showing code".**
+  Diagnosis: (a) GOOSE_API_HOST lead RULED OUT — it IS set (`GooseWebBootShim.swift:50` → runtimeBaseURL). (b) ROOT NOW =
+  **owner is building MID-EDIT**: Plan-1 holds live uncommitted WIP on the white-screen files (GooseWebSurfaceView/
+  RuntimeSupervisor/…) and Plan-2 holds the +357 `HTMLWorkspaceEditorView` regenerate refactor (isLive:false) — so the
+  23:11 build = committed fix + half-finished work on top → both surfaces incomplete. **GUIDANCE: rebuild/test only at the
+  agents' CLEAN COMMIT points, not while WIP is dirty.** Auditor watches commits each cycle and will signal "rebuild now"
+  when Plan-1 lands a clean white-screen checkpoint and Plan-2 flips regenerate isLive→true. (Auditor docs-only; cannot fix
+  the rendering code — Plan-1/Plan-2 must finish + commit.)
   **Owner's standing ask (cyc35): every issue that arises must be at least conceptualized + added to a plan/recon, even if
   not fixed immediately** — auditor will spot-check that new owner-raised issues land in a plan or `LOST_ITEMS_RECON`, not lost.
 - **2026-06-29 cycle 19 (Auditor) — "graph CHROME" items vs invariant #6 "Graph = DO NOT TOUCH" (boundary question;
