@@ -45,8 +45,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         // Security gate: the app-bridge handler installs ONLY when BOTH the user-enabled flag AND the
         // per-package sandbox policy allow it — the sole barrier against arbitrary rendered HTML
         // obtaining an app bridge. Dropping either condition is a real privilege-escalation hole, so
-        // pin the conjunction. (The safe-API channel itself is still a deferred stub — its `didReceive`
-        // path is not yet wired — but the install gate must never weaken regardless.)
+        // pin the conjunction. (The safe-API channel itself is still a deferred stub — safeAPI
+        // messages are not wired — but the install gate must never weaken regardless.)
         #expect(previewSource.contains("safeAPIEnabled && package.manifest.sandboxPolicy.allowAppBridge"),
                 "App-bridge install must require BOTH safeAPIEnabled AND the package's allowAppBridge sandbox policy.")
         // The app-bridge handler is torn down on detach — no leaked WKScriptMessageHandler across
