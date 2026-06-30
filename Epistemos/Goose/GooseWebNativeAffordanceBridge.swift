@@ -1376,8 +1376,8 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 
 /// SECURITY (deep-hardening 2026-06-29 #14): navigation gate for MCP-app guest webviews. The guest
 /// HTML is attacker-influenced, so the top frame may only render the initial widget (its
-/// app-support render root) + about:; loopback http is allowed (the guest may talk to the local
-/// goose server) but ANY external origin, arbitrary file: path, javascript:/data:/app-deeplink
+/// app-support render root) + about:; registered loopback http(s) document navigation is allowed,
+/// but ANY external origin, arbitrary file: path, ws:/wss:, javascript:/data:/app-deeplink
 /// navigation is denied.
 /// Mutable byte box handed to a background pipe-drain (review M4).
 private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable {
@@ -1423,7 +1423,7 @@ private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNaviga
             let allowed = !allowedFileRoot.isEmpty
                 && (path == allowedFileRoot || path.hasPrefix(allowedFileRoot + "/"))
             decisionHandler(allowed ? .allow : .cancel)
-        case "http", "https", "ws", "wss":
+        case "http", "https":
             // review M1: pin to the REGISTERED loopback ports (the goose/goosed + UI servers), NOT
             // any loopback host — otherwise an MCP app could navigate its top frame to another local
             // service (a local model server / notebook-with-token / an admin panel) as a same-origin

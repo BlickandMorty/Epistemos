@@ -786,7 +786,7 @@ private struct GooseNavigationDecider: WebPage.NavigationDeciding {
         // needless local-file navigation surface, so it is not allow-listed.
         case "about", GooseWebSurfaceView.gooseUISchemeName:
             return .allow
-        case "http", "https", "ws", "wss":
+        case "http", "https":
             // Loopback alone is NOT enough — must be one of OUR registered server ports.
             return trustedOrigins.isAllowed(url) ? .allow : .cancel
         default:

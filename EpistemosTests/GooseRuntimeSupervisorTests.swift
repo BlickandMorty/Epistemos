@@ -338,10 +338,11 @@ struct GooseRuntimeSupervisorTests {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
         // decidePolicy is the privileged (ACP-bridged) WebView's navigation gate. It
         // must deny by default and only allow the custom goose scheme + LOOPBACK
-        // http(s)/ws(s). `file:` and external hosts must never be navigable -- a
+        // http(s) document navigation. `file:`, ws(s), and external hosts must never be navigable -- a
         // broadened allowlist would expose the bridged window to untrusted content.
         #expect(source.contains("func decidePolicy("))
-        #expect(source.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
+        #expect(source.contains("case \"http\", \"https\":"))
+        #expect(!source.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
         #expect(source.contains("host == \"127.0.0.1\" || host == \"localhost\" || host == \"::1\""))
         #expect(source.contains("return .cancel"))
         // `file:` must NOT be allow-listed; the documented deny intent stays.
@@ -355,6 +356,8 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("private final class GooseWebNativeAppGuestNavigationDelegate: NSObject, WKNavigationDelegate"))
         #expect(bridge.contains("decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void"))
         #expect(!bridge.contains("decisionHandler: @escaping (WKNavigationActionPolicy) -> Void"))
+        #expect(bridge.contains("case \"http\", \"https\":"))
+        #expect(!bridge.contains("case \"http\", \"https\", \"ws\", \"wss\":"))
 
         // The target builds with default MainActor isolation. The background pipe drain must opt out
         // explicitly instead of mutating actor-isolated state from a Sendable closure.
