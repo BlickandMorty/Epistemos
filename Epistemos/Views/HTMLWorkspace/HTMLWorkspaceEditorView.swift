@@ -741,8 +741,14 @@ struct HTMLWorkspaceEditorView: View {
             return
         }
         let requestedLimit = Int(limitField.stringValue) ?? existingFeed?.limit ?? HTMLWorkspaceDataFeed.defaultLimit
-        let limit = min(max(requestedLimit, 1), HTMLWorkspaceDataFeed.maxLimit)
-        package.manifest.dataFeed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
+        let limit = HTMLWorkspaceDataFeed.clampedLimit(requestedLimit)
+        if package.isStarterTemplateContent {
+            var updatedPackage = package
+            updatedPackage.applyVaultSearchDashboardTemplate(query: query, limit: limit)
+            package = updatedPackage
+        } else {
+            package.manifest.dataFeed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
+        }
         statusText = "Vault feed configured"
         selectedPane = .data
     }

@@ -96,6 +96,32 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.stale == false)
     }
 
+    @Test("HTMLWorkspace vault search dashboard template seeds a live data feed shell")
+    func vaultSearchDashboardTemplateSeedsLiveDataFeedShell() throws {
+        var package = HTMLWorkspacePackage.defaultPackage()
+
+        package.applyVaultSearchDashboardTemplate(query: "  substrate provenance  ", limit: 99)
+
+        #expect(package.manifest.title == "Vault Search: substrate provenance")
+        #expect(package.manifest.dataFeed?.source == .vaultSearch)
+        #expect(package.manifest.dataFeed?.normalizedQuery == "substrate provenance")
+        #expect(package.manifest.dataFeed?.limit == HTMLWorkspaceDataFeed.maxLimit)
+        #expect(package.indexHTML.contains("data-vault-results"))
+        #expect(package.styleCSS.contains(".result-card"))
+        #expect(package.scriptJS.contains("renderVaultResults"))
+        #expect(package.scriptJS.contains("htmlworkspace:datachange"))
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: package.dataJSON))
+        #expect(metadata.query == "substrate provenance")
+        #expect(metadata.limit == HTMLWorkspaceDataFeed.maxLimit)
+        #expect(metadata.provenance == "VaultSyncService.searchFullAsync")
+        #expect(metadata.stale == true)
+
+        let rendered = HTMLWorkspacePreviewDocument.render(package: package)
+        #expect(rendered.contains("data-vault-results"))
+        #expect(rendered.contains(#"id="workspace-data""#))
+    }
+
     @Test("legacy script.js packages still load into the main JS source")
     func legacyScriptPackagesStillLoad() throws {
         let manifestData = try JSONEncoder.epdocCanonical.encode(Self.sampleManifest())

@@ -308,11 +308,15 @@ nonisolated public struct HTMLWorkspaceDataFeed: Codable, Sendable, Hashable {
     }
 
     public var effectiveLimit: Int {
-        min(max(limit, 1), Self.maxLimit)
+        Self.clampedLimit(limit)
     }
 
     public var isRunnable: Bool {
         !normalizedQuery.isEmpty
+    }
+
+    public static func clampedLimit(_ limit: Int) -> Int {
+        min(max(limit, 1), Self.maxLimit)
     }
 }
 
