@@ -4424,6 +4424,170 @@ function applyFormValidationSurfaces() {
   write('src/components/SessionActionsHeader.tsx', source);
 }
 
+function applyRemainingTokenDriftSurfaces() {
+  let source = read('src/components/ExtensionInstallModal.tsx');
+  source = replaceRequired(
+    source,
+    'extension install blocked title token',
+    "return 'text-red-600 dark:text-red-400';",
+    "return 'text-text-danger';"
+  );
+  source = replaceRequired(
+    source,
+    'extension install warning title token',
+    "return 'text-yellow-600 dark:text-yellow-400';",
+    "return 'text-text-warning';"
+  );
+  write('src/components/ExtensionInstallModal.tsx', source);
+
+  source = read('src/components/McpApps/McpAppRenderer.tsx');
+  source = replaceRequired(
+    source,
+    'mcp app error text token',
+    'className="p-4 text-red-700 dark:text-red-300"',
+    'className="rounded-[12px] border border-border-danger bg-background-danger/55 p-4 text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp app loading dot token',
+    'className="h-2 w-2 bg-primary animate-pulse"',
+    'className="ep-native-loading-dot is-active"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp app error container token',
+    "isError && 'border border-red-500 rounded-lg bg-red-50 dark:bg-red-900/20'",
+    "isError && 'rounded-[12px] border border-border-danger bg-background-danger/35'"
+  );
+  write('src/components/McpApps/McpAppRenderer.tsx', source);
+
+  source = read('src/components/ImagePreview.tsx');
+  source = replaceRequired(
+    source,
+    'image preview error token',
+    'className="text-red-500 text-xs italic mt-1 mb-1"',
+    'className="mb-1 mt-1 text-xs italic text-text-danger"'
+  );
+  write('src/components/ImagePreview.tsx', source);
+
+  source = read('src/components/UserMessage.tsx');
+  source = replaceRequired(
+    source,
+    'user message error token',
+    'className="text-red-400 text-xs mt-2 mb-2"',
+    'className="mb-2 mt-2 text-xs text-text-danger"'
+  );
+  write('src/components/UserMessage.tsx', source);
+
+  source = read('src/components/context_management/CreditsExhaustedNotification.tsx');
+  source = replaceRequired(
+    source,
+    'credits exhausted native warning panel',
+    'className="rounded-lg border border-yellow-600/30 dark:border-yellow-500/30 bg-yellow-500/10 dark:bg-yellow-500/10 p-4 my-2"',
+    'className="my-2 rounded-[12px] border border-border-warning bg-background-warning/55 p-4"'
+  );
+  source = replaceRequired(
+    source,
+    'credits exhausted warning icon token',
+    'className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0"',
+    'className="mt-0.5 h-4 w-4 shrink-0 text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'credits exhausted title token',
+    'className="text-sm font-semibold text-yellow-800 dark:text-yellow-200"',
+    'className="text-sm font-semibold text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'credits exhausted body token',
+    'className="text-sm text-yellow-800/80 dark:text-yellow-200/80 mt-1"',
+    'className="mt-1 text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'credits exhausted action token',
+    'className="mt-3 inline-flex items-center gap-2 rounded-md bg-yellow-600 hover:bg-yellow-500 dark:bg-yellow-700 dark:hover:bg-yellow-600 text-white text-sm font-medium px-4 py-2 transition-colors"',
+    'className="mt-3 inline-flex items-center gap-2 rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--epistemos-accent)]/90"'
+  );
+  write('src/components/context_management/CreditsExhaustedNotification.tsx', source);
+
+  source = read('src/components/MessageQueue.tsx');
+  source = replaceAllRequired(
+    source,
+    'message queue active dot token',
+    'className="w-2 h-2 bg-blue-500 animate-pulse"',
+    'className="ep-native-loading-dot is-active"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue cancel button token',
+    'className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"',
+    'className="h-7 rounded-[8px] px-3 text-xs text-text-secondary transition-colors hover:bg-background-danger/55 hover:text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue remove button token',
+    'className="opacity-60 hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive rounded-[4px]"',
+    'className="h-6 w-6 rounded-[8px] p-0 text-text-secondary opacity-60 transition-opacity hover:bg-background-danger/55 hover:text-text-danger hover:opacity-100"'
+  );
+  write('src/components/MessageQueue.tsx', source);
+
+  source = read('src/components/settings/chat/GoosehintsModal.tsx');
+  source = replaceRequired(
+    source,
+    'goosehints link token',
+    'className="text-blue-500 hover:text-blue-600 p-0 h-auto"',
+    'className="h-auto p-0 text-[var(--epistemos-accent)] hover:opacity-80"'
+  );
+  source = replaceRequired(
+    source,
+    'goosehints error token',
+    'className="text-red-600"',
+    'className="text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'goosehints success token',
+    'className="text-green-600"',
+    'className="text-text-success"'
+  );
+  source = replaceRequired(
+    source,
+    'goosehints saved token',
+    'className="text-green-600 text-sm flex items-center gap-1 mr-auto"',
+    'className="mr-auto flex items-center gap-1 text-sm text-text-success"'
+  );
+  write('src/components/settings/chat/GoosehintsModal.tsx', source);
+
+  source = read('src/components/settings/providers/subcomponents/buttons/CardButtons.tsx');
+  source = replaceRequired(
+    source,
+    'provider card active button token',
+    "'text-green-600 dark:text-green-500 hover:text-green-600 cursor-default'",
+    "'cursor-default text-text-success hover:text-text-success'"
+  );
+  write('src/components/settings/providers/subcomponents/buttons/CardButtons.tsx', source);
+
+  source = read('src/components/settings/providers/subcomponents/utils/StringUtils.tsx');
+  source = replaceRequired(
+    source,
+    'provider string url token',
+    'className="text-blue-600 underline hover:text-blue-800"',
+    'className="text-[var(--epistemos-accent)] underline hover:opacity-80"'
+  );
+  write('src/components/settings/providers/subcomponents/utils/StringUtils.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx');
+  source = replaceAllRequired(
+    source,
+    'custom provider invalid border token',
+    'border-red-500',
+    'border-border-danger'
+  );
+  write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
+}
+
 function applyLoadingAndErrorSurfaces() {
   let source = read('src/suspense-loader.tsx');
   source = replaceRequired(
@@ -4545,6 +4709,7 @@ applyRecipeDetailSurfaces();
 applySearchSurfaces();
 applyStatusIndicatorSurfaces();
 applyFormValidationSurfaces();
+applyRemainingTokenDriftSurfaces();
 applyLoadingAndErrorSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
