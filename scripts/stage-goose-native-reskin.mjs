@@ -1673,6 +1673,119 @@ function applyChatSettingsSurfaces() {
   write('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx', source);
 }
 
+function applyPermissionSurfaces() {
+  let source = read('src/components/settings/permission/PermissionModal.tsx');
+  source = replaceRequired(
+    source,
+    'permission modal native sizing',
+    'className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto"',
+    'className="max-h-[88vh] overflow-y-auto sm:max-w-[560px]"'
+  );
+  source = replaceRequired(
+    source,
+    'permission modal title native',
+    'className="flex items-center gap-2"',
+    'className="flex items-center gap-2 font-sans tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'permission modal icon accent',
+    '<SlidersHorizontal className="text-iconStandard" size={24} />',
+    '<SlidersHorizontal className="text-[var(--epistemos-accent)]" size={24} />'
+  );
+  source = replaceRequired(
+    source,
+    'permission modal spinner accent',
+    'className="animate-spin h-8 w-8 text-grey-50 dark:text-white"',
+    'className="h-8 w-8 animate-spin text-[var(--epistemos-accent)]"'
+  );
+  source = replaceAllRequired(
+    source,
+    'permission modal empty state native panel',
+    'className="flex flex-col items-center justify-center py-8 text-center"',
+    'className="flex flex-col items-center justify-center rounded-[12px] border border-border-secondary bg-background-secondary/55 px-6 py-8 text-center backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'permission modal tool row native',
+    'className="flex items-center justify-between grid grid-cols-12"',
+    'className="grid grid-cols-12 items-center gap-3 rounded-[10px] border border-border-secondary bg-background-secondary/45 px-3 py-2.5 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'permission modal dropdown trigger native',
+    '<Button className="w-full" variant="secondary" size="lg">',
+    '<Button className="w-full justify-between bg-background-primary/70" variant="secondary" size="lg">'
+  );
+  write('src/components/settings/permission/PermissionModal.tsx', source);
+
+  source = read('src/components/settings/permission/PermissionRulesModal.tsx');
+  source = replaceRequired(
+    source,
+    'permission rules item button native',
+    'className="flex items-center text-left gap-2 w-full justify-between"',
+    'className="flex h-auto w-full items-center justify-between gap-2 rounded-[11px] border border-border-secondary bg-background-primary/65 px-4 py-3 text-left shadow-sm backdrop-blur-xl hover:bg-background-secondary/70"'
+  );
+  source = replaceRequired(
+    source,
+    'permission rules dialog native shell',
+    'className="sm:max-w-[800px] max-h-[80vh] p-0 flex flex-col overflow-hidden"',
+    'className="flex max-h-[80vh] flex-col overflow-hidden p-0 sm:max-w-[800px]"'
+  );
+  source = replaceRequired(
+    source,
+    'permission rules header icon native well',
+    'className="rounded-[6px] bg-background-inverse w-12 h-12 flex items-center justify-center"',
+    'className="flex h-12 w-12 items-center justify-center rounded-[14px] border border-border-secondary bg-background-secondary/72 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'permission rules header icon token',
+    'className="stroke-text-inverse fill-background-inverse"',
+    'className="fill-transparent stroke-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'permission rules title native',
+    'className="text-3xl font-medium text-text-primary"',
+    'className="text-2xl font-semibold tracking-normal text-text-primary"'
+  );
+  write('src/components/settings/permission/PermissionRulesModal.tsx', source);
+
+  source = read('src/components/settings/permission/PermissionSetting.tsx');
+  source = replaceRequired(
+    source,
+    'permission settings root transparent',
+    'className="bg-background-primary h-screen w-full animate-[fadein_200ms_ease-in_forwards]"',
+    'className="h-screen w-full animate-[fadein_200ms_ease-in_forwards] bg-transparent"'
+  );
+  source = replaceRequired(
+    source,
+    'permission settings item button native',
+    'className="flex items-center gap-2 w-full justify-between"',
+    'className="flex h-auto w-full items-center justify-between gap-2 rounded-[11px] border border-border-secondary bg-background-primary/65 px-4 py-3 text-left shadow-sm backdrop-blur-xl hover:bg-background-secondary/70"'
+  );
+  source = replaceRequired(
+    source,
+    'permission settings header icon native well',
+    'className="rounded-[6px] bg-background-inverse w-12 h-12 flex items-center justify-center mb-4"',
+    'className="mb-4 flex h-12 w-12 items-center justify-center rounded-[14px] border border-border-secondary bg-background-secondary/72 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'permission settings header icon token',
+    'className="stroke-text-inverse fill-background-inverse"',
+    'className="fill-transparent stroke-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'permission settings title native',
+    'className="text-3xl font-medium text-text-primary mt-4"',
+    'className="mt-4 text-2xl font-semibold tracking-normal text-text-primary"'
+  );
+  write('src/components/settings/permission/PermissionSetting.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -2408,6 +2521,7 @@ applyProviderCatalogSurfaces();
 applyProviderModalSurfaces();
 applyExtensionSettingsSurfaces();
 applyChatSettingsSurfaces();
+applyPermissionSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
