@@ -78,6 +78,21 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
     agent explicitly — *"STOP the hardening sweep; your NEXT commit is the visible fix (Plan-1 = white-screen retry-until-
     ready render; Plan-2 = full-surface regenerate live); do NOT return to bounding until it's PROVEN working in the app."*
     Auditor will keep watching + confirm when each visible fix lands.
+  - **↳ cycle 41 — REMAINING REAL WORK per plan (auditor's read; effort map = 142/180 commits are pure hardening
+    bound/redact/cap, only ~20 real-feature):**
+    - **Plan 1 (Goose):** DONE = Phase-0 router + Slice-1 native Models (view exists/wired) + the WebUI reskin (tokens/CSS).
+      LEFT (real, finite): (1) **white-screen render fix** [P0, not started], (2) **MAS in-process backend** [new, not
+      started], (3) WebView reskin pixel-parity polish. Everything else it's committing now (bound ACP / redact diag) is the
+      infinite-hardening loop running PREMATURELY.
+    - **Plan 2 (Editor/HTML-Workspace):** LEFT = 5 deferred caps in `HTMLWorkspaceCapabilityStatus.swift` — **Full-surface
+      regenerate** (the headline), App message-bridge, JS console/error capture, DOM picker/style inspector, Python(Pyodide).
+      Plus any remaining lens/MarkEdit polish.
+    - **Plan 3 (Capabilities):** broadest; many caps live + being hardened. LEFT = browser-use signed-Pro packaging + the
+      deferred bits per each capability's gate-status (`ArxivPullGateStatus`, `BrowserCapabilityStatus`, etc.).
+  - **ROOT ISSUE = the loop has no "done":** each plan's thermonuclear prompt says *"when complete, DO NOT declare done —
+    keep looping: full-app hardening, weakest-path hardening, deepen, re-verify."* So even after the finite real items,
+    they loop on hardening forever — and they're doing that loop NOW before finishing the real items. **OWNER FIX:** give
+    each agent an explicit ordered punch-list (the LEFT items above) + "do these FIRST, hardening only AFTER, and cap it."
 - **2026-06-29 cycle 34→35 (Auditor) — white-screen STATUS (owner-flagged "goose still white"; owner cyc35: "fix whenever
   it gets to it, just keep it captured in the plan"). NOT canon drift — docs are correct; this is execution-status tracking.**
   ✅ **CAPTURED:** the fix is **PRIORITY-0** in `PROMPT_PLAN_1_GOOSE` (root cause = startup race; fix = retry-until-ready ACP:
