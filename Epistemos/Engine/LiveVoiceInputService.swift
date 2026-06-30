@@ -1,5 +1,21 @@
 import Foundation
 
+nonisolated enum VoiceCapturePresentationBounds {
+    static let maxStatusMessageCharacters = 512
+
+    static func modelDownloadProgress(_ progress: Double?) -> Double? {
+        guard let progress, progress.isFinite else { return nil }
+        return min(1, max(0, progress))
+    }
+
+    static func statusMessage(_ message: String, fallback: String = "Voice input failed.") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else { return value }
+        return String(value.prefix(maxStatusMessageCharacters))
+    }
+}
+
 // MARK: - LiveVoiceInputService
 //
 // Small UI-facing facade over EpistemosSpeechAnalyzer. Views get a stable
@@ -89,7 +105,7 @@ public final class LiveVoiceInputService {
             let stream = try await EpistemosSpeechAnalyzer.shared.startLive { [weak self] progress in
                 Task { @MainActor [weak self] in
                     guard self?.isCurrentStart(generation) == true else { return }
-                    self?.modelDownloadProgress = progress
+                    self?.modelDownloadProgress = VoiceCapturePresentationBounds.modelDownloadProgress(progress)
                 }
             }
             guard isCurrentStart(generation) else {
@@ -222,13 +238,13 @@ public final class LiveVoiceInputService {
             case .audioFormatUnavailable:
                 return "No compatible microphone format is available for SpeechAnalyzer."
             case .audioEngineFailed(let detail):
-                return "Voice input could not start: \(detail)"
+                return VoiceCapturePresentationBounds.statusMessage("Voice input could not start: \(detail)")
             case .downloadFailed(let detail):
-                return "Speech model download failed: \(detail)"
+                return VoiceCapturePresentationBounds.statusMessage("Speech model download failed: \(detail)")
             case .streamCancelled:
                 return "Voice input was cancelled."
             }
         }
-        return "Voice input failed: \(String(describing: error))"
+        return VoiceCapturePresentationBounds.statusMessage("Voice input failed: \(String(describing: error))")
     }
 }

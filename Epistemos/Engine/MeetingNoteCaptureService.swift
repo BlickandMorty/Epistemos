@@ -143,7 +143,7 @@ final class MeetingNoteCaptureService {
     }
 
     private func refreshFromVoiceInput(scheduleAutoStopOnFinal: Bool) {
-        modelDownloadProgress = voiceInput.modelDownloadProgress
+        modelDownloadProgress = VoiceCapturePresentationBounds.modelDownloadProgress(voiceInput.modelDownloadProgress)
         let incomingPartial = Self.cleanedSegment(voiceInput.partialTranscript)
         if !incomingPartial.isEmpty {
             cancelAutoStopSilence()
@@ -218,7 +218,7 @@ final class MeetingNoteCaptureService {
             )
             return result
         } catch {
-            state = .error(error.localizedDescription)
+            state = .error(VoiceCapturePresentationBounds.statusMessage(error.localizedDescription))
             throw error
         }
     }
@@ -236,7 +236,7 @@ final class MeetingNoteCaptureService {
         case .recording:
             state = .recording
         case .unavailable(let message), .error(let message):
-            state = .error(message)
+            state = .error(VoiceCapturePresentationBounds.statusMessage(message))
         }
     }
 

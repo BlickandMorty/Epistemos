@@ -23,7 +23,8 @@
   final SpeechAnalyzer segment if no new partial speech arrives. Cumulative final transcripts replace prior buffered
   prefixes instead of duplicating the same speech into multiple paragraphs. The live transcript buffer is capped to
   `TextCapturePipeline.maxCleanedTextCharacters`, matching the capture pipeline envelope before UI display or note
-  finalization.
+  finalization. Model download progress is finite/clamped before display, and propagated voice/pipeline errors are
+  capped before they reach UI state.
 - **Meeting surface now exists:** `MeetingNoteView` is hosted by `UtilityWindowManager` as `.meetingNote`, and
   `LandingFeatureButton.meetingNote` opens it from the landing page. A Settings row is not required for the first pass.
 

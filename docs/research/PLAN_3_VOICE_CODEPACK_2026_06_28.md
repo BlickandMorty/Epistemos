@@ -69,7 +69,8 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — preferred voice floor + utterance builder/SSML fallback.
 - `Epistemos/Engine/VoicePreferences.swift` — keep keys, but only expose keys with consumers.
 - `Epistemos/Views/Settings/VoicePreferencesSection.swift` — remove or honestly gate `agentResponseTTS` until wired.
-- `Epistemos/Engine/LiveVoiceInputService.swift` — facade over `EpistemosSpeechAnalyzer` with bounded transcript output.
+- `Epistemos/Engine/LiveVoiceInputService.swift` — facade over `EpistemosSpeechAnalyzer` with bounded transcript output,
+  finite/clamped model download progress, and capped user-facing status/error text.
 - `Epistemos/Views/Shared/VoiceInputButton.swift` — consume the live facade or present disabled honesty.
 - `EpistemosTests/Plan3VoiceTests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade, and no
   Kokoro/MAS subprocess leakage.

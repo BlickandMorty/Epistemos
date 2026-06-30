@@ -300,9 +300,9 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   `LiveVoiceInputService`, buffered by `MeetingNoteCaptureService`, then saved through `TextCapturePipeline` as a
   searchable note with `source=meeting_stt`, `source_kind=audio_transcript`, `captured_at`, `duration_seconds`, and
   `stt_engine=apple_speechanalyzer` frontmatter. The landing button opens `MeetingNoteView` in the Plan 3 utility
-  window; the live transcript buffer is capped to the capture pipeline envelope before save; auto-stop follows the
-  dictation preference, and manual stop/save stays available. No hidden audio retention, no cloud STT, no
-  Whisper/Kokoro/Python/subprocess on the MAS path.
+  window; the live transcript buffer is capped to the capture pipeline envelope before save; progress/status/error
+  display values are bounded before UI state; auto-stop follows the dictation preference, and manual stop/save stays
+  available. No hidden audio retention, no cloud STT, no Whisper/Kokoro/Python/subprocess on the MAS path.
 - **Eidos→chat / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): the closed-citation retrieval panel is
   the *visible payoff* of the moat; substrate is ~done, only the surfacing remains.
 
@@ -379,7 +379,8 @@ Scope recovery is complete; do not re-open Plan 2 editor work inside Plan 3.
 Folded in as clean Plan-3 capabilities:
 - **Voice — SHIPPED (Pass 8):** Apple AVSpeech TTS wrapper, quality-first preferred voice resolution, global voice
   picker, premium-download hint, SSML/prosody fallback, consumer-backed Auto/Manual toggles, and live Apple STT facade
-  through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope.
+  through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope
+  and finite/clamped download progress plus capped status/error text for UI display.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, oversized, or invalid-manifest model artifacts; no model asset,
   picker row, neural runtime, Python, or subprocess enters the MAS path.

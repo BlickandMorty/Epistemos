@@ -109,6 +109,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("let cleaned = Self.cleanedFinalTranscript(text)"))
         #expect(facade.contains("compactFinalTranscriptBuffer()"))
         #expect(facade.contains("Self.boundedTranscript(pending.joined(separator: \"\\n\\n\"))"))
+        #expect(facade.contains("VoiceCapturePresentationBounds.modelDownloadProgress(progress)"))
+        #expect(facade.contains("VoiceCapturePresentationBounds.statusMessage"))
     }
 
     @Test("live voice transcript helpers enforce the capture text envelope")
@@ -125,6 +127,26 @@ struct VoiceCodepackPlan3Tests {
                 .count == LiveVoiceInputService.maxTranscriptCharacters
         )
         #expect(LiveVoiceInputService.cleanedFinalTranscript(" \n\t ") == "")
+    }
+
+    @Test("live voice presentation helpers bound progress and status strings")
+    func liveVoicePresentationHelpersBoundProgressAndStatusStrings() {
+        let oversizedMessage = String(
+            repeating: "e",
+            count: VoiceCapturePresentationBounds.maxStatusMessageCharacters + 31
+        )
+
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(nil) == nil)
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(.nan) == nil)
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(.infinity) == nil)
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(-0.25) == 0)
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(0.5) == 0.5)
+        #expect(VoiceCapturePresentationBounds.modelDownloadProgress(2.0) == 1)
+        #expect(
+            VoiceCapturePresentationBounds.statusMessage(" \n\(oversizedMessage)\n ")
+                .count == VoiceCapturePresentationBounds.maxStatusMessageCharacters
+        )
+        #expect(VoiceCapturePresentationBounds.statusMessage(" \n\t ") == "Voice input failed.")
     }
 
     @Test("voice button gates shared transcript callbacks to the capture owner")

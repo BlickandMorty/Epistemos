@@ -74,6 +74,38 @@ struct MeetingNoteCaptureServiceTests {
         #expect(voice.finalTranscripts.isEmpty)
     }
 
+    @Test("refresh bounds progress and voice error display state")
+    func refreshBoundsProgressAndVoiceErrorDisplayState() {
+        let voice = FakeMeetingVoiceInput()
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        voice.state = .recording
+        voice.modelDownloadProgress = -0.5
+        service.refreshFromVoiceInput()
+        #expect(service.modelDownloadProgress == 0)
+
+        voice.modelDownloadProgress = 1.25
+        service.refreshFromVoiceInput()
+        #expect(service.modelDownloadProgress == 1)
+
+        voice.modelDownloadProgress = .nan
+        service.refreshFromVoiceInput()
+        #expect(service.modelDownloadProgress == nil)
+
+        let oversizedMessage = String(
+            repeating: "x",
+            count: VoiceCapturePresentationBounds.maxStatusMessageCharacters + 40
+        )
+        voice.state = .error(oversizedMessage)
+        service.refreshFromVoiceInput()
+
+        guard case .error(let message) = service.state else {
+            Issue.record("Expected bounded error state, got \(service.state)")
+            return
+        }
+        #expect(message.count == VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+    }
+
     @Test("finalize saves through TextCapturePipeline with meeting frontmatter")
     func finalizePersistsMeetingNote() async throws {
         let container = try makeTestContainer()
@@ -258,6 +290,8 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("maxTranscriptCharacters"))
         #expect(source.contains("TextCapturePipeline.maxCleanedTextCharacters"))
         #expect(source.contains("boundFinalSegments"))
+        #expect(source.contains("VoiceCapturePresentationBounds.modelDownloadProgress(voiceInput.modelDownloadProgress)"))
+        #expect(source.contains("VoiceCapturePresentationBounds.statusMessage"))
         #expect(!source.contains("EpistemosSpeechAnalyzer"))
         #expect(!source.contains("Whisper"))
         #expect(!source.contains("Python"))
