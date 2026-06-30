@@ -50,6 +50,7 @@ actor GooseACPClient {
     nonisolated static let maxQueuedEvents = 1_024
     nonisolated static let maxQueuedResponses = 256
     nonisolated static let maxPendingResponses = 256
+    nonisolated static let maxACPFrameBytes = 8 * 1024 * 1024
 
     private let transport: any GooseACPTransport
     private let clientVersion: String
@@ -518,7 +519,15 @@ actor GooseACPClient {
                 // diagnostic and skip just that frame. Terminal `fail()` stays reserved for transport
                 // failures (above). `continue` re-suspends on `transport.receive()` (no busy-loop,
                 // since a closed socket throws rather than returning nil).
-                guard let received, let data = received.data(using: .utf8) else {
+                guard let received else {
+                    await self.recordSkippedFrame("non-text ACP frame")
+                    continue
+                }
+                guard received.utf8.count <= Self.maxACPFrameBytes else {
+                    await self.recordSkippedFrame("ACP frame over \(Self.maxACPFrameBytes) bytes")
+                    continue
+                }
+                guard let data = received.data(using: .utf8) else {
                     await self.recordSkippedFrame("non-text ACP frame")
                     continue
                 }
@@ -596,6 +605,9 @@ actor GooseACPClient {
 
     private func send<T: Encodable>(_ value: T) async throws {
         let data = try encoder.encode(value)
+        guard data.count <= Self.maxACPFrameBytes else {
+            throw GooseACPProtocolError.messageTooLarge(limit: Self.maxACPFrameBytes)
+        }
         guard let text = String(data: data, encoding: .utf8) else {
             throw GooseACPProtocolError.unsupportedMessage
         }

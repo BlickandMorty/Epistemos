@@ -320,6 +320,30 @@ struct GooseACPClientTests {
         }
     }
 
+    @Test("client skips oversized incoming ACP frames")
+    func clientSkipsOversizedIncomingACPFrames() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [
+            String(repeating: "x", count: GooseACPClient.maxACPFrameBytes + 1),
+            #"{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"session-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"after skip"}}}}"#,
+        ])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        let skipped = try await client.receiveEvent()
+        guard case .serverError(let code, let message, nil) = skipped else {
+            Issue.record("oversized ACP frame should be contained as a diagnostic")
+            return
+        }
+        #expect(code == -32700)
+        #expect(message.contains("over \(GooseACPClient.maxACPFrameBytes) bytes"))
+
+        let event = try await client.receiveEvent()
+        #expect(event == .sessionUpdate(.init(
+            sessionId: "session-1",
+            update: .agentMessageChunk(.init(content: .text("after skip")))
+        )))
+        await client.close()
+    }
+
     @Test("prompt streams session updates before the final prompt response")
     func promptStreamsBeforeFinalResponse() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
@@ -824,6 +848,26 @@ struct GooseACPClientTests {
         for task in pending {
             _ = await task.result
         }
+    }
+
+    @Test("client rejects oversized outgoing ACP frames before transport send")
+    func clientRejectsOversizedOutgoingACPFramesBeforeTransportSend() async throws {
+        let transport = GooseACPMemoryTransport(incoming: [])
+        let client = GooseACPClient(transport: transport, clientVersion: "test-version")
+
+        do {
+            _ = try await client.sendGooseCustomRequest(
+                method: "_goose/unstable/test/oversized",
+                params: .object([
+                    "payload": .string(String(repeating: "p", count: GooseACPClient.maxACPFrameBytes)),
+                ])
+            )
+            Issue.record("oversized ACP request should fail before send")
+        } catch GooseACPProtocolError.messageTooLarge(let limit) {
+            #expect(limit == GooseACPClient.maxACPFrameBytes)
+        }
+        #expect(await transport.sentMessages().isEmpty)
+        await client.close()
     }
 
     @Test("queued ACP events are bounded to the newest retained tail")
