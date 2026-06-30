@@ -21,55 +21,50 @@ struct AgentSurfaceRootView: View {
                 .ignoresSafeArea()
             LinearGradient(
                 colors: [
-                    theme.resolved.accent.color.opacity(theme.isDark ? 0.10 : 0.07),
+                    theme.resolved.accent.color.opacity(theme.isDark ? 0.08 : 0.055),
                     Color.clear,
-                    theme.resolved.foreground.color.opacity(theme.isDark ? 0.04 : 0.025),
+                    theme.resolved.foreground.color.opacity(theme.isDark ? 0.032 : 0.018),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
-            HStack(spacing: 0) {
+            HStack(spacing: 12) {
                 AgentNavigationRailView(selection: $selection, theme: theme)
-                contentDivider
                 webContent
             }
             .padding(.top, 38)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var contentDivider: some View {
-        Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.clear,
-                        theme.glassBorder.opacity(theme.isDark ? 0.58 : 0.72),
-                        Color.clear,
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .frame(width: 1)
-            .padding(.vertical, 12)
-            .padding(.trailing, 10)
-    }
-
     private var webContent: some View {
-        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
         return GooseWebSurfaceView(theme: theme, route: selection.webRoute)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(GooseSurfaceStyle.background(for: theme, role: .content))
+            .background {
+                ZStack {
+                    shape.fill(theme.isDark ? .ultraThinMaterial : .regularMaterial)
+                    shape.fill(GooseSurfaceStyle.background(for: theme, role: .content).opacity(theme.isDark ? 0.82 : 0.70))
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(theme.isDark ? 0.045 : 0.24),
+                            Color.clear,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(shape)
+                }
+            }
             .clipShape(shape)
             .overlay {
-                shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.58 : 0.76), lineWidth: 0.7)
+                shape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.52 : 0.66), lineWidth: 0.7)
             }
-            .shadow(color: .black.opacity(theme.isDark ? 0.22 : 0.10), radius: 18, x: 0, y: 10)
+            .shadow(color: .black.opacity(theme.isDark ? 0.24 : 0.11), radius: 24, x: 0, y: 14)
     }
 }

@@ -86,15 +86,15 @@ struct AgentNavigationRailView: View {
     let theme: EpistemosTheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             railHeader
 
             ForEach(AgentRailSection.all) { section in
                 VStack(alignment: .leading, spacing: 5) {
                     Text(section.title)
-                        .font(GooseSurfaceStyle.captionFont(10, weight: .semibold))
+                        .font(GooseSurfaceStyle.captionFont(10, weight: .medium))
                         .foregroundStyle(theme.textTertiary)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 12)
                         .padding(.bottom, 1)
                     ForEach(section.destinations) { destination in
                         AgentRailRowView(
@@ -114,31 +114,39 @@ struct AgentNavigationRailView: View {
 
             railFooter
         }
-        .padding(.top, 10)
-        .padding(.horizontal, 10)
+        .padding(.top, 12)
+        .padding(.horizontal, 9)
         .padding(.bottom, 12)
-        .frame(width: 216)
+        .frame(width: 198)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(railBackground)
+        .background {
+            railBackground
+                .clipShape(railShape)
+        }
+        .overlay {
+            railShape
+                .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.42 : 0.58), lineWidth: 0.7)
+        }
+        .shadow(color: .black.opacity(theme.isDark ? 0.18 : 0.08), radius: 18, x: 0, y: 10)
     }
 
     private var railHeader: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 9) {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.12))
+                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11))
                 Image(systemName: "sparkles.rectangle.stack")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.resolved.accent.color)
             }
-            .frame(width: 32, height: 32)
+            .frame(width: 30, height: 30)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Epistemos")
-                    .font(GooseSurfaceStyle.captionFont(11, weight: .medium))
+                Text("Epistemos agent")
+                    .font(GooseSurfaceStyle.captionFont(10, weight: .medium))
                     .foregroundStyle(theme.mutedForeground)
                 Text("Goose")
-                    .font(GooseSurfaceStyle.bodyFont(16, weight: .semibold))
+                    .font(GooseSurfaceStyle.bodyFont(15, weight: .semibold))
                     .foregroundStyle(theme.resolved.foreground.color)
             }
 
@@ -153,22 +161,26 @@ struct AgentNavigationRailView: View {
             Circle()
                 .fill(theme.resolved.accent.color)
                 .frame(width: 6, height: 6)
-            Text(selection.title)
-                .font(GooseSurfaceStyle.captionFont(11, weight: .medium))
+            Text("Viewing \(selection.title)")
+                .font(GooseSurfaceStyle.captionFont(10, weight: .medium))
                 .foregroundStyle(theme.mutedForeground)
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 11)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.055 : 0.035))
+                .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.052 : 0.032))
         )
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.36 : 0.44), lineWidth: 0.6)
         }
+    }
+
+    private var railShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
     }
 
     private var railBackground: some View {
@@ -179,10 +191,10 @@ struct AgentNavigationRailView: View {
                 Rectangle().fill(.regularMaterial)
             }
             GooseSurfaceStyle.background(for: theme, role: .rail)
-                .opacity(theme.isDark ? 0.84 : 0.78)
+                .opacity(theme.isDark ? 0.78 : 0.66)
             LinearGradient(
                 colors: [
-                    Color.white.opacity(theme.isDark ? 0.04 : 0.26),
+                    Color.white.opacity(theme.isDark ? 0.05 : 0.24),
                     Color.clear,
                 ],
                 startPoint: .topLeading,
@@ -204,6 +216,9 @@ private struct AgentRailRowView: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 9) {
+                Capsule(style: .continuous)
+                    .fill(isSelected ? theme.resolved.accent.color : Color.clear)
+                    .frame(width: 3, height: 16)
                 Image(systemName: destination.systemImage)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                     .symbolRenderingMode(.hierarchical)
@@ -213,13 +228,14 @@ private struct AgentRailRowView: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
-            .frame(height: 34)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 9)
+            .frame(height: 33)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.plain)
         .foregroundStyle(rowForeground)
         .background(rowBackground)
+        .animation(.smooth(duration: 0.18), value: isSelected)
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovered = hovering
@@ -239,16 +255,16 @@ private struct AgentRailRowView: View {
     }
 
     private var rowBackground: some View {
-        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
         return ZStack {
             if isSelected {
                 shape
-                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11))
+                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.15 : 0.09))
                 shape
-                    .strokeBorder(theme.resolved.accent.color.opacity(theme.isDark ? 0.25 : 0.16), lineWidth: 0.7)
+                    .strokeBorder(theme.resolved.accent.color.opacity(theme.isDark ? 0.23 : 0.14), lineWidth: 0.7)
             } else if isHovered {
                 shape
-                    .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.07 : 0.045))
+                    .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.066 : 0.04))
             }
         }
     }
