@@ -370,18 +370,8 @@ final class GooseACPEventBridge {
     }
 
     private func defaultModelID(for providerId: String, client: GooseACPClient) async throws -> String? {
-        let response = try await client.listGooseProviders(providerIDs: [providerId])
-        for entry in response.entries {
-            guard let object = entry.objectValue,
-                  (object["providerId"]?.stringValue ?? object["provider_id"]?.stringValue) == providerId else {
-                continue
-            }
-            if let model = object["defaultModel"]?.stringValue ?? object["default_model"]?.stringValue,
-               !model.isEmpty {
-                return model
-            }
-        }
-        return nil
+        let inventory = try await client.listGooseProviderInventory(providerIDs: [providerId])
+        return inventory.first(where: { $0.providerId == providerId })?.defaultModel
     }
 
     private func handle(_ event: GooseACPClientEvent) {

@@ -340,6 +340,15 @@ struct GooseRuntimeSupervisorTests {
         }
     }
 
+    @Test("default provider activation uses bounded typed provider inventory")
+    func defaultProviderActivationUsesTypedInventory() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
+        #expect(source.contains("client.listGooseProviderInventory(providerIDs: [providerId])"))
+        #expect(!source.contains("client.listGooseProviders(providerIDs: [providerId])"))
+        #expect(!source.contains("object[\"defaultModel\"]"))
+        #expect(!source.contains("object[\"default_model\"]"))
+    }
+
     @Test("launched MCP-app windows are closed on surface teardown (no orphaned top-level windows)")
     func mcpAppWindowsClosedOnSurfaceTeardown() throws {
         let bridge = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")

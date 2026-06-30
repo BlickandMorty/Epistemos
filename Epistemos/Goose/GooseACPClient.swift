@@ -179,8 +179,11 @@ actor GooseACPClient {
     /// Typed `providers/list` inventory: the available providers (built-in + configured custom) each
     /// with their models inline. This is the Models-picker source — one call, no per-provider live
     /// enumeration that could hang, and it includes the built-in providers the template catalog omits.
-    func listGooseProviderInventory(timeout: Duration? = nil) async throws -> [GooseACPProviderInventoryEntry] {
-        let response = try await listGooseProviders(timeout: timeout)
+    func listGooseProviderInventory(
+        providerIDs: [String] = [],
+        timeout: Duration? = nil
+    ) async throws -> [GooseACPProviderInventoryEntry] {
+        let response = try await listGooseProviders(providerIDs: providerIDs, timeout: timeout)
         // Tolerant per-entry decode: an entry that fails to decode (e.g. a future Goose drops the
         // required providerId) is unusable in a picker anyway — skip it so ONE malformed entry can
         // never blank the entire list. Duplicate provider ids are equally unusable in SwiftUI
