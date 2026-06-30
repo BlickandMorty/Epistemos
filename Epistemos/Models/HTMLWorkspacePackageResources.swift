@@ -25,6 +25,11 @@ nonisolated enum HTMLWorkspacePackageResources {
         in package: HTMLWorkspacePackage
     ) -> HTMLWorkspacePackageResource? {
         switch resourcePath {
+        case HTMLWorkspacePackageEntry.indexHTML:
+            return .text(
+                HTMLWorkspacePreviewDocument.render(package: package),
+                mimeType: "text/html"
+            )
         case HTMLWorkspacePackageEntry.styleCSS:
             return .text(package.styleCSS, mimeType: "text/css")
         case HTMLWorkspacePackageEntry.scriptJS, HTMLWorkspacePackageEntry.legacyScriptJS:
@@ -33,9 +38,9 @@ nonisolated enum HTMLWorkspacePackageResources {
             return .text(package.dataJSON, mimeType: "application/json")
         default:
             if let routeName = packageRouteName(for: resourcePath),
-               package.routes[routeName] != nil {
+               let routeDocument = routeDocument(routeName: routeName, in: package) {
                 return .text(
-                    HTMLWorkspacePreviewDocument.render(package: package, routeName: routeName),
+                    routeDocument,
                     mimeType: "text/html"
                 )
             }
@@ -50,6 +55,14 @@ nonisolated enum HTMLWorkspacePackageResources {
                 textEncodingName: textEncodingName(for: mimeType)
             )
         }
+    }
+
+    private static func routeDocument(routeName: String, in package: HTMLWorkspacePackage) -> String? {
+        if routeName == HTMLWorkspacePackageEntry.indexHTML {
+            return HTMLWorkspacePreviewDocument.render(package: package)
+        }
+        guard package.routes[routeName] != nil else { return nil }
+        return HTMLWorkspacePreviewDocument.render(package: package, routeName: routeName)
     }
 
     static func packageWithInlineAssets(_ package: HTMLWorkspacePackage) -> HTMLWorkspacePackage {

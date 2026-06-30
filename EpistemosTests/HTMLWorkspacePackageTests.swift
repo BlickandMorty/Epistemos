@@ -198,16 +198,28 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(css.mimeType == "text/css")
         #expect(String(data: css.data, encoding: .utf8) == package.styleCSS)
 
+        let index = try #require(HTMLWorkspacePackageResources.resource(for: HTMLWorkspacePackageEntry.indexHTML, in: package))
+        let indexHTML = try #require(String(data: index.data, encoding: .utf8))
+        #expect(index.mimeType == "text/html")
+        #expect(indexHTML.contains("<h1>Interactive Doc</h1>"))
+        #expect(indexHTML.contains("workspace-data"))
+
         let asset = try #require(HTMLWorkspacePackageResources.resource(for: "assets/texture.png", in: package))
         #expect(asset.mimeType == "image/png")
         #expect(asset.data == package.assets["texture.png"])
         #expect(HTMLWorkspacePackageResources.resource(for: "assets/../texture.png", in: package) == nil)
+
+        let rootRoute = try #require(HTMLWorkspacePackageResources.resource(for: "routes/index.html", in: package))
+        let rootRouteHTML = try #require(String(data: rootRoute.data, encoding: .utf8))
+        #expect(rootRoute.mimeType == "text/html")
+        #expect(rootRouteHTML.contains("<h1>Interactive Doc</h1>"))
 
         let route = try #require(HTMLWorkspacePackageResources.resource(for: "routes/about.html", in: package))
         let routeHTML = try #require(String(data: route.data, encoding: .utf8))
         #expect(route.mimeType == "text/html")
         #expect(routeHTML.contains("<h1>About</h1>"))
         #expect(routeHTML.contains("workspace-data"))
+        #expect(HTMLWorkspacePackageResources.resource(for: "routes/missing.html", in: package) == nil)
         #expect(HTMLWorkspacePackageResources.resource(for: "routes/../about.html", in: package) == nil)
     }
 
