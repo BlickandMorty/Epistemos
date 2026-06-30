@@ -4588,6 +4588,229 @@ function applyRemainingTokenDriftSurfaces() {
   write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
 }
 
+function applyNeutralTokenDriftSurfaces() {
+  let source = read('src/components/context_management/SystemNotificationInline.tsx');
+  source = replaceRequired(
+    source,
+    'inline system notification neutral token',
+    'className="text-xs text-gray-400 py-2 text-left"',
+    'className="py-2 text-left text-xs text-text-secondary"'
+  );
+  write('src/components/context_management/SystemNotificationInline.tsx', source);
+
+  source = read('src/components/sessions/SessionViewComponents.tsx');
+  source = replaceRequired(
+    source,
+    'session thinking neutral token',
+    'className="mb-2 text-sm text-gray-400 italic"',
+    'className="mb-2 text-sm italic text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'session tool native glass',
+    'className="goose-message-tool bg-background-primary border border-border-primary dark:border-gray-700 rounded-[6px] px-3 pt-3 pb-2 mt-1"',
+    'className="goose-message-tool mt-1 rounded-[12px] border border-border-secondary bg-background-primary/68 px-3 pb-2 pt-3 shadow-sm backdrop-blur-xl"'
+  );
+  write('src/components/sessions/SessionViewComponents.tsx', source);
+
+  source = read('src/components/recipes/ImportRecipeForm.tsx');
+  source = replaceRequired(
+    source,
+    'recipe import disabled control token',
+    "isDisabled ? 'cursor-not-allowed bg-gray-40 text-gray-300' : ''",
+    "isDisabled ? 'cursor-not-allowed bg-background-disabled text-text-disabled' : ''"
+  );
+  source = replaceAllRequired(
+    source,
+    'recipe import disabled hint token',
+    "isDisabled ? 'text-gray-300' : 'text-text-secondary'",
+    "isDisabled ? 'text-text-disabled' : 'text-text-secondary'"
+  );
+  write('src/components/recipes/ImportRecipeForm.tsx', source);
+
+  source = read('src/components/schedule/ScheduleDetailView.tsx');
+  source = replaceRequired(
+    source,
+    'schedule missing state transparent root',
+    'className="h-screen w-full flex flex-col items-center justify-center bg-white dark:bg-gray-900 text-text-primary p-8"',
+    'className="flex h-screen w-full flex-col items-center justify-center bg-transparent p-8 text-text-primary"'
+  );
+  write('src/components/schedule/ScheduleDetailView.tsx', source);
+
+  source = read('src/components/schedule/ScheduleModal.tsx');
+  source = replaceRequired(
+    source,
+    'schedule modal helper neutral token',
+    'className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic"',
+    'className="mt-2 text-xs italic text-text-secondary"'
+  );
+  write('src/components/schedule/ScheduleModal.tsx', source);
+
+  source = read('src/components/schedule/CronPicker.tsx');
+  source = replaceRequired(
+    source,
+    'cron picker native select token',
+    "const selectClassName = 'px-2 py-1 border rounded bg-white dark:bg-gray-800 dark:border-gray-600';",
+    "const selectClassName = 'min-h-8 rounded-[8px] border border-border-secondary bg-background-primary/70 px-2 py-1 text-sm text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20';"
+  );
+  source = replaceRequired(
+    source,
+    'cron picker readable neutral token',
+    "hasCronError ? 'text-text-danger' : 'text-gray-500'",
+    "hasCronError ? 'text-text-danger' : 'text-text-secondary'"
+  );
+  write('src/components/schedule/CronPicker.tsx', source);
+
+  source = read('src/components/McpApps/McpAppRenderer.tsx');
+  source = replaceRequired(
+    source,
+    'mcp app loading neutral surface',
+    'className="relative flex h-full w-full items-center justify-center overflow-hidden rounded bg-black/[0.03] dark:bg-white/[0.03]"',
+    'className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[12px] bg-background-secondary/55"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp app loading dot frame native',
+    'className="relative z-10 flex h-8 w-8 items-center justify-center border border-border-primary bg-background-primary/80"',
+    'className="relative z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-border-secondary bg-background-primary/78 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'mcp app header button neutral token',
+    'className="no-drag cursor-pointer rounded-md p-1.5 text-text-secondary transition-colors hover:bg-black/10 hover:text-text-primary dark:hover:bg-white/10"',
+    'className="no-drag cursor-pointer rounded-[8px] p-1.5 text-text-secondary transition-colors hover:bg-background-secondary/72 hover:text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp app pip native container',
+    "'fixed z-[900] overflow-y-auto overflow-x-hidden rounded-[6px] border border-border-primary shadow-none'",
+    "'fixed z-[900] overflow-y-auto overflow-x-hidden rounded-[12px] border border-border-secondary shadow-lg backdrop-blur-xl'"
+  );
+  source = replaceRequired(
+    source,
+    'mcp app inline bordered container native',
+    "isInline && !isError && meta.prefersBorder && 'border border-border-primary rounded-lg'",
+    "isInline && !isError && meta.prefersBorder && 'rounded-[12px] border border-border-secondary'"
+  );
+  source = replaceRequired(
+    source,
+    'mcp app pip placeholder native',
+    'className="mt-6 mb-2 flex items-center justify-center rounded-lg border border-dashed border-border-primary bg-black/[0.02] dark:bg-white/[0.02]"',
+    'className="mt-6 mb-2 flex items-center justify-center rounded-[12px] border border-dashed border-border-secondary bg-background-secondary/45"'
+  );
+  source = replaceRequired(
+    source,
+    'mcp app pip placeholder button native',
+    'className="cursor-pointer flex items-center gap-2 rounded-md px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5"',
+    'className="flex cursor-pointer items-center gap-2 rounded-[8px] px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary/72 hover:text-text-primary"'
+  );
+  write('src/components/McpApps/McpAppRenderer.tsx', source);
+
+  source = read('src/components/MarkdownContent.tsx');
+  source = replaceRequired(
+    source,
+    'markdown copy button neutral token',
+    `className="absolute right-2 bottom-2 p-1.5 rounded-lg bg-gray-700/50 text-gray-300 font-sans text-sm
+                 opacity-0 group-hover:opacity-100 transition-opacity duration-200
+                 hover:bg-gray-600/50 hover:text-gray-100 z-10"`,
+    `className="absolute bottom-2 right-2 z-10 rounded-[8px] border border-border-secondary bg-background-primary/78 p-1.5 font-sans text-sm text-text-secondary opacity-0 shadow-sm backdrop-blur-xl transition-opacity duration-200 hover:bg-background-secondary/72 hover:text-text-primary group-hover:opacity-100"`
+  );
+  write('src/components/MarkdownContent.tsx', source);
+
+  source = read('src/components/ui/BaseModal.tsx');
+  source = replaceRequired(
+    source,
+    'base modal overlay native',
+    'className="fixed inset-0 bg-black/20 z-[9999]"',
+    'className="fixed inset-0 z-[9999] bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'base modal native card',
+    'className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] bg-background-primary rounded-[6px] shadow-none overflow-hidden p-[16px] pt-[20px] pb-0"',
+    'className="fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 p-[16px] pb-0 pt-[20px] shadow-2xl backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'base modal title native',
+    'className="text-base font-mono dark:text-white text-gray-900"',
+    'className="text-base font-sans font-semibold tracking-normal text-text-primary"'
+  );
+  write('src/components/ui/BaseModal.tsx', source);
+
+  source = read('src/components/ui/Diagnostics.tsx');
+  source = replaceRequired(
+    source,
+    'diagnostics overlay native',
+    'className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"',
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'diagnostics modal native card',
+    'className="bg-background-primary border border-border-primary rounded-lg p-6 max-w-md mx-4"',
+    'className="mx-4 max-w-md rounded-[14px] border border-border-primary bg-background-primary/88 p-6 shadow-2xl backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'diagnostics warning icon token',
+    'className="text-orange-500 flex-shrink-0 mt-1"',
+    'className="mt-1 flex-shrink-0 text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'diagnostics github button token',
+    'className="bg-slate-600 text-white hover:bg-slate-700"',
+    'className="bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90"'
+  );
+  write('src/components/ui/Diagnostics.tsx', source);
+
+  source = read('src/components/alerts/AlertBox.tsx');
+  source = replaceRequired(
+    source,
+    'alert error native token',
+    "[AlertType.Error]: 'bg-[#d7040e] text-white',",
+    "[AlertType.Error]: 'border border-border-danger bg-background-danger/75 text-text-danger',"
+  );
+  source = replaceRequired(
+    source,
+    'alert warning native token',
+    "[AlertType.Warning]: 'bg-[#cc4b03] text-white',",
+    "[AlertType.Warning]: 'border border-border-warning bg-background-warning/75 text-text-warning',"
+  );
+  source = replaceRequired(
+    source,
+    'alert info native token',
+    "[AlertType.Info]: 'dark:bg-white dark:text-black bg-black text-white',",
+    "[AlertType.Info]: 'border border-border-secondary bg-background-primary/78 text-text-primary',"
+  );
+  source = replaceRequired(
+    source,
+    'alert threshold input native token',
+    'className="w-12 px-1 text-[10px] bg-white/10 border border-current/30 rounded outline-none text-center focus:bg-white/20 focus:border-current/50 transition-colors"',
+    'className="w-12 rounded-[6px] border border-current/30 bg-background-primary/15 px-1 text-center text-[10px] outline-none transition-colors focus:bg-background-primary/25 focus:border-current/50"'
+  );
+  write('src/components/alerts/AlertBox.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/SecureStorageNotice.tsx');
+  source = replaceRequired(
+    source,
+    'secure storage neutral token',
+    'className={`flex items-center mt-2 text-gray-600 dark:text-gray-300 ${className}`}',
+    'className={`mt-2 flex items-center text-text-secondary ${className}`}'
+  );
+  write('src/components/settings/providers/modal/subcomponents/SecureStorageNotice.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx');
+  source = replaceRequired(
+    source,
+    'custom provider remove icon neutral token',
+    'className="h-3 w-3 text-gray-400 group-hover:text-white group-hover:drop-shadow-sm transition-all"',
+    'className="h-3 w-3 text-text-secondary transition-all group-hover:text-text-primary"'
+  );
+  write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
+}
+
 function applyLoadingAndErrorSurfaces() {
   let source = read('src/suspense-loader.tsx');
   source = replaceRequired(
@@ -4710,6 +4933,7 @@ applySearchSurfaces();
 applyStatusIndicatorSurfaces();
 applyFormValidationSurfaces();
 applyRemainingTokenDriftSurfaces();
+applyNeutralTokenDriftSurfaces();
 applyLoadingAndErrorSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
