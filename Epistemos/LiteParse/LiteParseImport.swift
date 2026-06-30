@@ -104,9 +104,25 @@ nonisolated enum LiteParsePDFSignature {
     }
 
     static func fileStartsWithPDFMagic(_ path: String) -> PDFMagicCheck {
-        guard let handle = FileHandle(forReadingAtPath: path) else {
+        let fd = path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
             return .unreadable("file is not readable")
         }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let message = String(cString: strerror(errno))
+            close(fd)
+            return .unreadable(message)
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            return .unreadable(nonRegularPDFMessage)
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         defer { try? handle.close() }
 
         do {

@@ -102,6 +102,11 @@ struct LiteParseImportTests {
         #expect(importer.importToMarkdown(pdfPath: emptyPDF.path) == .failed(LiteParsePDFSignature.emptyPDFMessage))
         #expect(importer.importToMarkdown(pdfPath: oversizedPDF.path) == .failed(LiteParsePDFSignature.tooLargePDFMessage))
         #expect(importer.importToMarkdown(pdfPath: symlinkPDF.path) == .failed(LiteParsePDFSignature.nonRegularPDFMessage))
+
+        guard case .unreadable = LiteParsePDFSignature.fileStartsWithPDFMagic(symlinkPDF.path) else {
+            Issue.record("PDF magic helper must reject a final symlink without following it")
+            return
+        }
     }
 
     @Test("the live importer enforces PDF-only BEFORE the FFI (non-PDF never passed down)")
