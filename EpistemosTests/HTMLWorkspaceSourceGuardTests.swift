@@ -27,6 +27,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("HTMLWorkspacePreviewURLSchemeHandler"))
         #expect(previewSource.contains("resourceResponse(for:"))
         #expect(previewSource.contains("HTMLWorkspacePackageResources.resource(for: resourcePath, in: package)"))
+        #expect(previewSource.contains("components[0] == HTMLWorkspacePackageEntry.routes"))
+        #expect(previewSource.contains("components[1] == HTMLWorkspacePackageEntry.assets"))
         #expect(previewSource.contains("assetShellHash(for: package)"))
         #expect(!previewSource.contains("baseURL: nil"))
         #expect(previewSource.contains("allowNetwork == false"))
