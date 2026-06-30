@@ -10,6 +10,7 @@ struct GooseWebSurfaceView: View {
     nonisolated private static let gooseUISurfaceVirtualBasePath =
         "/__epistemos-goose/\(gooseUISurfaceCacheToken)"
     nonisolated static let maxGooseRouteCharacters = 4096
+    nonisolated static let maxPlaceholderStatusCharacters = 512
 
     var theme: EpistemosTheme = .nativeDefault
     /// The web hash route to display. Default `/?` (the Goose hub). The native Agent frame's nav rail
@@ -706,6 +707,7 @@ struct GooseWebSurfaceView: View {
     }
 
     private static func placeholderHTML(status: String, acpURL: String) -> String {
+        let boundedStatus = boundedPlaceholderStatus(status)
         """
         <!doctype html>
         <html>
@@ -724,12 +726,19 @@ struct GooseWebSurfaceView: View {
         <body>
           <main>
             <h1>Epistemos Goose</h1>
-            <p><code>\(escapeHTML(status))</code></p>
+            <p><code>\(escapeHTML(boundedStatus))</code></p>
             <p><code>\(escapeHTML(acpURL))</code></p>
           </main>
         </body>
         </html>
         """
+    }
+
+    nonisolated static func boundedPlaceholderStatus(_ status: String) -> String {
+        let trimmed = status.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? "Goose surface unavailable." : trimmed
+        guard value.count > maxPlaceholderStatusCharacters else { return value }
+        return String(value.prefix(maxPlaceholderStatusCharacters))
     }
 
     private static func escapeHTML(_ raw: String) -> String {

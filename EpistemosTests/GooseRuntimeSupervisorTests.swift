@@ -1242,7 +1242,7 @@ struct GooseWebViewBootShimTests {
     }
 
     @Test("Goose Web UI loads through the hash route used by the Electron renderer")
-    func gooseWebUIBootURLUsesHashRoute() {
+    func gooseWebUIBootURLUsesHashRoute() throws {
         let index = URL(fileURLWithPath: "/tmp/goose-web-ui/index.html")
         let url = GooseWebSurfaceView.bootURL(for: index)
         #expect(url.scheme?.hasPrefix("epistemos-goose-") == true)
@@ -1274,6 +1274,20 @@ struct GooseWebViewBootShimTests {
             route: oversizedRoute
         )
         #expect(boundedLoopbackURL.fragment?.count == GooseWebSurfaceView.maxGooseRouteCharacters)
+
+        let oversizedStatus = String(
+            repeating: "s",
+            count: GooseWebSurfaceView.maxPlaceholderStatusCharacters + 40
+        )
+        #expect(
+            GooseWebSurfaceView.boundedPlaceholderStatus(" \n\(oversizedStatus)\n ")
+                .count == GooseWebSurfaceView.maxPlaceholderStatusCharacters
+        )
+        #expect(GooseWebSurfaceView.boundedPlaceholderStatus(" \n\t ") == "Goose surface unavailable.")
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        #expect(source.contains("let boundedStatus = boundedPlaceholderStatus(status)"))
+        #expect(!source.contains("escapeHTML(status)"))
     }
 
     @Test("surface availability requires both Goose runtime and ACP Web UI")
