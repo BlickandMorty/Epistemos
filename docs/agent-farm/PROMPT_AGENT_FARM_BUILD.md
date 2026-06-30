@@ -1,8 +1,11 @@
-# PROMPT — AGENT FARM, STAGE 1 BUILD (paste-ready)
+# PROMPT — AGENT FARM, FULL STAGED BUILD (Stages 1→4 · start at Stage 1) (paste-ready)
 
-> Paste-ready build prompt for a fresh agent (or a `/loop`). Mirrors the Epistemos plan-prompt discipline: read-first,
-> staged gates, intermittent research checkpoints, commit-after-each-slice. **This is a NEW, SEPARATE app — it must not
-> touch the Epistemos codebase.** The design is SETTLED across 8 research efforts; your job is to BUILD, not re-decide.
+> Paste-ready build prompt for a fresh agent (or a `/loop`). **This is the COMPLETE build — all four stages are below in
+> BUILD ORDER (Stage 1 shell+split → Stage 2 one brain → Stage 3 economy+society → Stage 4 optional super-agent).** You
+> START at Stage 1 and walk forward, proving each gate before the next; you do NOT need a new prompt per stage. Mirrors the
+> Epistemos plan-prompt discipline: read-first, staged gates, intermittent research checkpoints, commit-after-each-slice.
+> **This is a NEW, SEPARATE app — it must not touch the Epistemos codebase.** The design is SETTLED across 8 research
+> efforts; your job is to BUILD, not re-decide.
 
 ---
 
