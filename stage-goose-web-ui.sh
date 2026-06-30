@@ -4757,6 +4757,55 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+MODELS_BOTTOM_BAR="$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
+node - "$MODELS_BOTTOM_BAR" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import type { Message } from '../../../../api';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('ModelsBottomBar message import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+// epistemos-acp-hide-local-model-settings: this footer gear opens
+// ModelSettingsPanel, which is backed by local-inference REST endpoints that
+// are intentionally absent in the ACP-hosted Goose surface.
+const localSettingsMenuAnchor = "          {currentProvider === 'local' && currentModel && (";
+const localSettingsMenuReplacement = "          {!USE_ACP_CHAT && currentProvider === 'local' && currentModel && (";
+if (!source.includes(localSettingsMenuReplacement)) {
+  if (!source.includes(localSettingsMenuAnchor)) {
+    throw new Error('ModelsBottomBar local model settings menu anchor not found');
+  }
+  source = source.replace(localSettingsMenuAnchor, localSettingsMenuReplacement);
+}
+
+const localSettingsModalAnchor = '      {isLocalModelSettingsOpen && currentModel && (';
+const localSettingsModalReplacement = '      {!USE_ACP_CHAT && isLocalModelSettingsOpen && currentModel && (';
+if (!source.includes(localSettingsModalReplacement)) {
+  if (!source.includes(localSettingsModalAnchor)) {
+    throw new Error('ModelsBottomBar local model settings modal anchor not found');
+  }
+  source = source.replace(localSettingsModalAnchor, localSettingsModalReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  "!USE_ACP_CHAT && currentProvider === 'local' && currentModel",
+  '!USE_ACP_CHAT && isLocalModelSettingsOpen && currentModel',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ModelsBottomBar staged source is missing required ACP local-model-settings snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 CHAT_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
 APP_SETTINGS_SECTION="$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
 node - "$CHAT_SETTINGS_SECTION" "$APP_SETTINGS_SECTION" <<'NODE'
@@ -5471,6 +5520,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "data-epistemos-acp-hide-security-settings" "$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
     grep -q "epistemos-acp-hide-telemetry-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "epistemos-acp-hide-local-inference-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-hide-local-model-settings" "$ROOT_DIR/stage-goose-web-ui.sh"
+    grep -q "import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
+    grep -q "!USE_ACP_CHAT && currentProvider === 'local' && currentModel" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
+    grep -q "!USE_ACP_CHAT && isLocalModelSettingsOpen && currentModel" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
     grep -q "epistemos-acp-hide-generic-config-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "epistemos-acp-defaults-reset-unavailable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "data-epistemos-acp-hide-reset-provider-settings" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
