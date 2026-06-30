@@ -3929,6 +3929,12 @@ function applyRecipeDetailSurfaces() {
     'className="px-4 py-2 text-text-secondary rounded-lg hover:bg-background-secondary transition-colors"',
     'className="rounded-[8px] px-4 py-2 text-text-secondary transition-colors hover:bg-background-secondary/80"'
   );
+  source = replaceRequired(
+    source,
+    'recipe edit modal success icon token',
+    '<Check className="w-4 h-4 text-green-500" />',
+    '<Check className="h-4 w-4 text-text-success" />'
+  );
   write('src/components/recipes/CreateEditRecipeModal.tsx', source);
 
   source = read('src/components/recipes/ImportRecipeForm.tsx');
@@ -3992,7 +3998,28 @@ function applyRecipeDetailSurfaces() {
     'className="text-xs bg-whitedark:bg-gray-800 p-4 rounded overflow-auto whitespace-pre font-mono"',
     'className="overflow-auto whitespace-pre rounded-[10px] border border-border-secondary bg-background-secondary/72 p-4 text-xs font-mono backdrop-blur-xl"'
   );
+  source = replaceAllRequired(
+    source,
+    'recipe import invalid border token',
+    'border-red-500',
+    'border-border-danger'
+  );
+  source = replaceAllRequired(
+    source,
+    'recipe import validation text token',
+    'text-red-500',
+    'text-text-danger'
+  );
   write('src/components/recipes/ImportRecipeForm.tsx', source);
+
+  source = read('src/components/RecipeHeader.tsx');
+  source = replaceRequired(
+    source,
+    'recipe header activity dot token',
+    'className="w-2 h-2 rounded-full bg-green-500 mr-2"',
+    'className="mr-2 h-2 w-2 rounded-full bg-background-success ring-[3px] ring-text-success/15"'
+  );
+  write('src/components/RecipeHeader.tsx', source);
 
   source = read('src/components/recipes/RecipeActivities.tsx');
   source = replaceRequired(
@@ -4047,6 +4074,65 @@ function applyRecipeDetailSurfaces() {
     'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
   );
   write('src/components/recipes/RecipeActivityEditor.tsx', source);
+
+  source = read('src/components/recipes/shared/RecipeNameField.tsx');
+  source = replaceAllRequired(source, 'recipe name invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe name validation text token', 'text-red-500', 'text-text-danger');
+  write('src/components/recipes/shared/RecipeNameField.tsx', source);
+
+  source = read('src/components/recipes/shared/InstructionsEditor.tsx');
+  source = replaceAllRequired(source, 'recipe instructions invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe instructions validation text token', 'text-red-500', 'text-text-danger');
+  write('src/components/recipes/shared/InstructionsEditor.tsx', source);
+
+  source = read('src/components/recipes/shared/JsonSchemaEditor.tsx');
+  source = replaceAllRequired(source, 'recipe json schema invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe json schema validation text token', 'text-red-500', 'text-text-danger');
+  write('src/components/recipes/shared/JsonSchemaEditor.tsx', source);
+
+  source = read('src/components/recipes/shared/RecipeFormFields.tsx');
+  source = replaceAllRequired(source, 'recipe form invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe form validation text token', 'text-red-500', 'text-text-danger');
+  source = replaceRequired(
+    source,
+    'recipe form activity add button native',
+    'className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"',
+    'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
+  );
+  write('src/components/recipes/shared/RecipeFormFields.tsx', source);
+
+  source = read('src/components/recipes/shared/SubRecipeEditor.tsx');
+  source = replaceRequired(
+    source,
+    'sub recipe editor card native',
+    'className="border border-border-subtle rounded-lg p-4 bg-background-default hover:bg-background-muted transition-colors"',
+    'className="rounded-[12px] border border-border-secondary bg-background-primary/68 p-4 shadow-sm backdrop-blur-xl transition-colors hover:bg-background-secondary/62"'
+  );
+  write('src/components/recipes/shared/SubRecipeEditor.tsx', source);
+
+  source = read('src/components/recipes/shared/RecipeModelSelector.tsx');
+  source = replaceRequired(
+    source,
+    'recipe model selector error panel native',
+    'className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"',
+    'className="rounded-[12px] border border-border-danger bg-background-danger/55 p-3 text-sm text-text-danger"'
+  );
+  write('src/components/recipes/shared/RecipeModelSelector.tsx', source);
+
+  source = read('src/components/ui/RecipeWarningModal.tsx');
+  source = replaceRequired(
+    source,
+    'recipe warning modal panel native',
+    'className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4"',
+    'className="rounded-[12px] border border-border-warning bg-background-warning/55 p-4"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe warning modal text token',
+    'className="mt-2 text-sm text-yellow-700 dark:text-yellow-300"',
+    'className="mt-2 text-sm text-text-warning"'
+  );
+  write('src/components/ui/RecipeWarningModal.tsx', source);
 }
 
 function applySearchSurfaces() {
