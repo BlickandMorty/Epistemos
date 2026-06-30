@@ -2491,6 +2491,12 @@ function applyModelSettingsSurfaces() {
   );
   source = replaceRequired(
     source,
+    'switch model warning inline body token',
+    'className="text-sm text-yellow-700 dark:text-yellow-300"',
+    'className="text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
     'switch model warning helper token',
     'className="mt-2 text-xs text-yellow-600 dark:text-yellow-400"',
     'className="mt-2 text-xs text-text-warning"'
@@ -3995,6 +4001,131 @@ function applySearchSurfaces() {
   write('src/components/conversation/SearchBar.tsx', source);
 }
 
+function applyStatusIndicatorSurfaces() {
+  let source = read('src/components/ToolCallStatusIndicator.tsx');
+  source = replaceRequired(
+    source,
+    'tool status success token',
+    "return 'bg-green-500';",
+    "return 'border-border-success bg-background-success';"
+  );
+  source = replaceRequired(
+    source,
+    'tool status error token',
+    "return 'bg-red-500';",
+    "return 'border-border-danger bg-background-danger';"
+  );
+  source = replaceRequired(
+    source,
+    'tool status loading token',
+    "return 'bg-yellow-500 animate-pulse';",
+    "return 'border-border-warning bg-background-warning animate-pulse';"
+  );
+  source = replaceRequired(
+    source,
+    'tool status pending token',
+    "return 'bg-gray-400';",
+    "return 'border-border-secondary bg-background-secondary';"
+  );
+  write('src/components/ToolCallStatusIndicator.tsx', source);
+
+  source = read('src/components/SessionIndicators.tsx');
+  source = replaceRequired(
+    source,
+    'session indicator error token',
+    'className="w-3.5 h-3.5 text-red-500"',
+    'className="h-3.5 w-3.5 text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'session indicator streaming token',
+    'className="w-3 h-3 text-blue-500 animate-spin"',
+    'className="h-3 w-3 animate-spin text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'session indicator unread token',
+    'className="w-2 h-2 bg-green-500 rounded-full"',
+    'className="h-2 w-2 rounded-full bg-background-success ring-[3px] ring-text-success/15"'
+  );
+  write('src/components/SessionIndicators.tsx', source);
+
+  source = read('src/components/GroupedExtensionLoadingToast.tsx');
+  source = replaceAllRequired(
+    source,
+    'grouped extension loading icon token',
+    'className="w-4 h-4 animate-spin text-blue-500"',
+    'className="h-4 w-4 animate-spin text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'grouped extension loading summary icon token',
+    'className="w-5 h-5 animate-spin text-blue-500"',
+    'className="h-5 w-5 animate-spin text-[var(--epistemos-accent)]"'
+  );
+  source = replaceAllRequired(
+    source,
+    'grouped extension success icon token',
+    'className="w-4 h-4 bg-green-500"',
+    'className="h-4 w-4 rounded-full border border-border-success bg-background-success"'
+  );
+  source = replaceRequired(
+    source,
+    'grouped extension success summary icon token',
+    'className="w-5 h-5 bg-green-500"',
+    'className="h-5 w-5 rounded-full border border-border-success bg-background-success"'
+  );
+  source = replaceRequired(
+    source,
+    'grouped extension error icon token',
+    'className="w-4 h-4 bg-red-500"',
+    'className="h-4 w-4 rounded-full border border-border-danger bg-background-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'grouped extension partial summary token',
+    'className="w-5 h-5 bg-yellow-500"',
+    'className="h-5 w-5 rounded-full border border-border-warning bg-background-warning"'
+  );
+  write('src/components/GroupedExtensionLoadingToast.tsx', source);
+
+  source = read('src/components/ui/Dot.tsx');
+  source = replaceRequired(
+    source,
+    'dot loading token',
+    "loading: 'bg-blue-500',",
+    "loading: 'bg-[var(--epistemos-accent)]',"
+  );
+  source = replaceRequired(
+    source,
+    'dot success token',
+    "success: 'bg-green-600',",
+    "success: 'bg-background-success',"
+  );
+  source = replaceRequired(
+    source,
+    'dot error token',
+    "error: 'bg-red-600',",
+    "error: 'bg-background-danger',"
+  );
+  write('src/components/ui/Dot.tsx', source);
+
+  source = read('src/components/bottom_menu/ContextWindowIndicator.tsx');
+  source = replaceRequired(
+    source,
+    'context window warning token',
+    "if (percentage <= 90) return 'text-orange-500';",
+    "if (percentage <= 90) return 'text-text-warning';"
+  );
+  source = replaceRequired(
+    source,
+    'context window danger token',
+    "return 'text-red-500';",
+    "return 'text-text-danger';"
+  );
+  write('src/components/bottom_menu/ContextWindowIndicator.tsx', source);
+}
+
 function applyLoadingAndErrorSurfaces() {
   let source = read('src/suspense-loader.tsx');
   source = replaceRequired(
@@ -4067,7 +4198,13 @@ function applyLoadingAndErrorSurfaces() {
     source,
     'error boundary native pre',
     'className="text-destructive text-sm dark:text-white p-4 bg-muted rounded-[6px] w-full overflow-auto border border-border whitespace-pre-wrap"',
-    'className="w-full overflow-auto whitespace-pre-wrap rounded-[12px] border border-border bg-background-secondary/72 p-4 text-left text-sm text-destructive backdrop-blur-xl dark:text-white"'
+    'className="w-full overflow-auto whitespace-pre-wrap rounded-[12px] border border-border bg-background-secondary/72 p-4 text-left text-sm text-text-danger backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'error boundary icon color token',
+    '<AlertTriangle className="w-6 h-6 text-destructive" />',
+    '<AlertTriangle className="h-6 w-6 text-text-danger" />'
   );
   write('src/components/ErrorBoundary.tsx', source);
 }
@@ -4108,6 +4245,7 @@ applySessionDetailSurfaces();
 applySchedulerDetailSurfaces();
 applyRecipeDetailSurfaces();
 applySearchSurfaces();
+applyStatusIndicatorSurfaces();
 applyLoadingAndErrorSurfaces();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
