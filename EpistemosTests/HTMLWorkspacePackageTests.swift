@@ -215,6 +215,7 @@ nonisolated struct HTMLWorkspacePackageTests {
     func exportRenderInlinesPackageAssetsForHeadlessPDF() {
         var package = Self.samplePackage()
         package.indexHTML = #"<main><img src="assets/texture.png" alt=""><video poster="./assets/texture.png"></video><source srcset="/assets/texture.png"><p>assets/texture.png-large</p></main>"#
+        package.routes["about.html"] = #"<main><img src="../assets/texture.png" alt=""><img src="routes/assets/texture.png" alt=""></main>"#
         package.styleCSS = #".hero { background-image: url("assets/texture.png"); }"#
 
         let preview = HTMLWorkspacePreviewDocument.render(package: package)
@@ -234,7 +235,9 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(exported.contains(#"poster="\#(dataURL)""#))
         #expect(exported.contains(#"srcset="\#(dataURL)""#))
         #expect(exported.contains(#"url("\#(dataURL)")"#))
-        #expect(exportedRoute.contains(#"<h1>About</h1><img src="\#(dataURL)""#))
+        #expect(exportedRoute.contains(#"src="\#(dataURL)""#))
+        #expect(!exportedRoute.contains(#"../assets/texture.png"#))
+        #expect(!exportedRoute.contains(#"routes/assets/texture.png"#))
         #expect(!exported.contains(#"src="assets/texture.png""#))
         #expect(exported.contains("assets/texture.png-large"))
         #expect(exported.contains("default-src 'none'"))

@@ -155,13 +155,19 @@ nonisolated enum HTMLWorkspacePackageResources {
         let rawPaths = [
             "\(HTMLWorkspacePackageEntry.assets)/\(name)",
             "./\(HTMLWorkspacePackageEntry.assets)/\(name)",
+            "../\(HTMLWorkspacePackageEntry.assets)/\(name)",
             "/\(HTMLWorkspacePackageEntry.assets)/\(name)",
+            "\(HTMLWorkspacePackageEntry.routes)/\(HTMLWorkspacePackageEntry.assets)/\(name)",
+            "/\(HTMLWorkspacePackageEntry.routes)/\(HTMLWorkspacePackageEntry.assets)/\(name)",
             "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(HTMLWorkspacePackageEntry.assets)/\(name)",
         ]
         let encodedPaths = [
             "\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
             "./\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
+            "../\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
             "/\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
+            "\(HTMLWorkspacePackageEntry.routes)/\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
+            "/\(HTMLWorkspacePackageEntry.routes)/\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
             "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(HTMLWorkspacePackageEntry.assets)/\(encodedName)",
         ]
         return Set(rawPaths + encodedPaths)
