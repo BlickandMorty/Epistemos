@@ -22,10 +22,6 @@ enum MarkEditCoreEditorDocument {
            let html = try? String(contentsOf: url, encoding: .utf8) {
             return html
         }
-        if let url = Bundle.main.url(forResource: "index", withExtension: "html"),
-           let html = try? String(contentsOf: url, encoding: .utf8) {
-            return html
-        }
 
         let repoURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("Epistemos/Resources")

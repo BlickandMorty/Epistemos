@@ -166,7 +166,8 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("Bundle.main.url(forResource: relativePath, withExtension: nil)"))
         #expect(source.contains("Bundle.main.url(forResource: filename, withExtension: nil)"))
         #expect(source.contains("isDescendant(candidate, of: root)"))
-        #expect(source.contains(#"Bundle.main.url(forResource: "index", withExtension: "html")"#))
+        #expect(source.contains("subdirectory: MarkEditCoreEditorBridge.resourceSubpath"))
+        #expect(!source.contains(#"Bundle.main.url(forResource: "index", withExtension: "html")"#))
         #expect(source.contains(#""Access-Control-Allow-Credentials": "true""#))
     }
 
