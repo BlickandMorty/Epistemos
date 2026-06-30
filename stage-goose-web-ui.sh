@@ -2660,6 +2660,23 @@ if (!source.includes('epistemos-acp-disable-mcp-app-sampling-rest')) {
   }
   source = source.replace(samplingFallbackAnchor, samplingFallbackReplacement);
 }
+const samplingCredentialEffectAnchor = `  useEffect(() => {
+    window.electron.getGoosedHostPort().then(setApiHost);
+    window.electron.getSecretKey().then(setSecretKey);
+  }, []);`;
+const samplingCredentialEffectReplacement = `  useEffect(() => {
+    if (USE_ACP_CHAT) {
+      return; // epistemos-acp-skip-mcp-app-sampling-credentials
+    }
+    window.electron.getGoosedHostPort().then(setApiHost);
+    window.electron.getSecretKey().then(setSecretKey);
+  }, []);`;
+if (!source.includes('epistemos-acp-skip-mcp-app-sampling-credentials')) {
+  if (!source.includes(samplingCredentialEffectAnchor)) {
+    throw new Error('McpAppRenderer sampling credential effect anchor not found');
+  }
+  source = source.replace(samplingCredentialEffectAnchor, samplingCredentialEffectReplacement);
+}
 
 for (const snippet of [
   'callAcpSessionTool',
@@ -2668,6 +2685,7 @@ for (const snippet of [
   'epistemos-acp-mcp-tool-call-ui',
   'epistemos-acp-mcp-resource-read-handler',
   'epistemos-acp-disable-mcp-app-sampling-rest',
+  'epistemos-acp-skip-mcp-app-sampling-credentials',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`McpAppRenderer staged source missing required ACP MCP app snippet: ${snippet}`);
@@ -6148,6 +6166,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-mcp-tool-call-ui" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "epistemos-acp-mcp-resource-read-handler" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "epistemos-acp-disable-mcp-app-sampling-rest" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
+    grep -q "epistemos-acp-skip-mcp-app-sampling-credentials" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "epistemos-acp-disable-mcp-ui-proxy-rest" "$WORK_ROOT/ui/desktop/src/components/MCPUIResourceRenderer.tsx"
     grep -q "sm:max-w-\\[560px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "grid grid-cols-12 items-center gap-3 rounded-\\[10px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
