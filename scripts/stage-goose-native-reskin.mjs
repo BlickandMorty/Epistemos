@@ -2810,6 +2810,191 @@ function applyGatewaySettingsSurfaces() {
   write('src/components/settings/gateways/GatewaySettingsSection.tsx', source);
 }
 
+function applyDictationSettingsSurfaces() {
+  let source = read('src/components/settings/dictation/DictationSettings.tsx');
+  source = replaceRequired(
+    source,
+    'dictation provider row native',
+    'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation provider dropdown native',
+    'className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border-primary rounded-md hover:border-border-primary transition-colors text-text-primary bg-background-primary"',
+    'className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border-secondary bg-background-primary/68 px-3 py-1.5 text-sm text-text-primary transition-colors hover:border-[var(--epistemos-accent)]"'
+  );
+  source = replaceAllRequired(
+    source,
+    'dictation config panels native',
+    'className="py-2 px-2 bg-background-secondary rounded-lg"',
+    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 px-2 py-2 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'dictation configured text token',
+    'text-green-600',
+    'text-text-success'
+  );
+  source = replaceRequired(
+    source,
+    'dictation edit key button native',
+    '<Button variant="outline" size="sm" onClick={() => setIsEditingKey(true)}>',
+    '<Button variant="outline" size="sm" className="rounded-[8px]" onClick={() => setIsEditingKey(true)}>'
+  );
+  source = replaceRequired(
+    source,
+    'dictation remove key button native',
+    '<Button variant="destructive" size="sm" onClick={handleRemoveKey}>',
+    '<Button variant="destructive" size="sm" className="rounded-[8px]" onClick={handleRemoveKey}>'
+  );
+  source = replaceRequired(
+    source,
+    'dictation key input native',
+    'className="max-w-md"',
+    'className="min-h-9 max-w-md rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation save button native',
+    '<Button size="sm" onClick={handleSaveKey}>',
+    '<Button size="sm" className="rounded-[8px]" onClick={handleSaveKey}>'
+  );
+  source = replaceRequired(
+    source,
+    'dictation cancel button native',
+    '<Button variant="outline" size="sm" onClick={handleCancelEdit}>',
+    '<Button variant="outline" size="sm" className="rounded-[8px]" onClick={handleCancelEdit}>'
+  );
+  write('src/components/settings/dictation/DictationSettings.tsx', source);
+
+  source = read('src/components/settings/dictation/MicrophoneSelector.tsx');
+  source = replaceAllRequired(
+    source,
+    'microphone rows native',
+    'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'microphone grant button native',
+    '<Button variant="outline" size="sm" onClick={requestPermission}>',
+    '<Button variant="outline" size="sm" className="rounded-[8px]" onClick={requestPermission}>'
+  );
+  source = replaceRequired(
+    source,
+    'microphone dropdown native',
+    'className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border-primary rounded-md hover:border-border-primary transition-colors text-text-primary bg-background-primary max-w-[220px]"',
+    'className="flex min-h-9 max-w-[220px] items-center gap-2 rounded-[8px] border border-border-secondary bg-background-primary/68 px-3 py-1.5 text-sm text-text-primary transition-colors hover:border-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'microphone test button native',
+    'className="shrink-0"',
+    'className="shrink-0 rounded-[8px]"'
+  );
+  source = replaceRequired(
+    source,
+    'microphone meter track native',
+    'className="w-full bg-background-secondary rounded-[3px] h-2 overflow-hidden"',
+    'className="h-2 w-full overflow-hidden rounded-full bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'microphone meter fill native',
+    'className="bg-primary h-2 rounded-[3px] transition-all duration-75"',
+    'className="h-2 rounded-full bg-[var(--epistemos-accent)] transition-all duration-75"'
+  );
+  write('src/components/settings/dictation/MicrophoneSelector.tsx', source);
+
+  source = read('src/components/settings/dictation/LocalModelManager.tsx');
+  source = replaceRequired(
+    source,
+    'dictation local model card base native',
+    'className={`border rounded-lg p-3 transition-colors ${',
+    'className={`rounded-[10px] border p-3 shadow-sm backdrop-blur-xl transition-colors ${'
+  );
+  source = replaceRequired(
+    source,
+    'dictation local model selected native',
+    "? 'border-text-inverse bg-background-inverse/5'",
+    "? 'border-[var(--epistemos-accent)] bg-background-primary/78 ring-[3px] ring-[var(--epistemos-accent)]/20'"
+  );
+  source = replaceRequired(
+    source,
+    'dictation local model unselected native',
+    ": 'border-border-primary bg-background-primary hover:border-border-primary'",
+    ": 'border-border-secondary bg-background-primary/68 hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62'"
+  );
+  source = replaceRequired(
+    source,
+    'dictation recommended badge native',
+    'className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded"',
+    'className="ep-native-badge px-2 py-0.5 text-xs text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation active badge native',
+    'className="text-xs bg-background-inverse text-white px-2 py-0.5 rounded"',
+    'className="ep-native-badge px-2 py-0.5 text-xs text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation recommended text token',
+    'className="text-xs text-blue-600 mt-1 font-medium"',
+    'className="mt-1 text-xs font-medium text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation downloaded text token',
+    'className="flex items-center gap-1 text-xs text-green-600"',
+    'className="flex items-center gap-1 text-xs text-text-success"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation destructive icon native',
+    'className="text-destructive hover:text-destructive"',
+    'className="rounded-[8px] text-text-secondary transition-colors hover:text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation cancel download button native',
+    '<Button variant="ghost" size="sm" onClick={() => cancelDownload(model.id)}>',
+    '<Button variant="ghost" size="sm" className="rounded-[8px]" onClick={() => cancelDownload(model.id)}>'
+  );
+  source = replaceRequired(
+    source,
+    'dictation download button native',
+    '<Button variant="outline" size="sm" onClick={() => startDownload(model.id)}>',
+    '<Button variant="outline" size="sm" className="rounded-[8px]" onClick={() => startDownload(model.id)}>'
+  );
+  source = replaceRequired(
+    source,
+    'dictation local progress track native',
+    'className="w-full bg-background-secondary rounded-[3px] h-1.5"',
+    'className="h-1.5 w-full overflow-hidden rounded-full bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation local progress fill native',
+    'className="bg-background-inverse h-1.5 rounded-[3px] transition-all"',
+    'className="h-1.5 rounded-full bg-[var(--epistemos-accent)] transition-all"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation failed text token',
+    'className="mt-2 text-xs text-destructive"',
+    'className="mt-2 text-xs text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'dictation show all button native',
+    'className="w-full text-text-secondary hover:text-text-primary"',
+    'className="w-full rounded-[8px] text-text-secondary hover:text-text-primary"'
+  );
+  write('src/components/settings/dictation/LocalModelManager.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -3553,6 +3738,7 @@ applyKeyboardSettingsSurfaces();
 applyAuthSettingsSurfaces();
 applyLocalInferenceSurfaces();
 applyGatewaySettingsSurfaces();
+applyDictationSettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
