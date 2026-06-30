@@ -4,6 +4,8 @@ import SwiftUI
 /// marketplace rows, and utility surfaces. This intentionally stays separate
 /// from `ProviderBrand`, which remains the model-provider logo registry.
 nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
+    static let maxClassifierInputCharacters = 512
+
     case vault
     case eidos
     case web
@@ -267,10 +269,13 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     private static func normalized(_ value: String) -> String {
-        value.lowercased()
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = trimmed.count > maxClassifierInputCharacters
+            ? String(trimmed.prefix(maxClassifierInputCharacters))
+            : trimmed
+        return bounded.lowercased()
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: "_", with: "-")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

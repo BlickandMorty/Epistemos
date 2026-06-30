@@ -71,6 +71,8 @@ Add a non-model brand registry beside the existing provider registry:
   meeting/STT, voice, provenance, and landing features.
 - `IntegrationBrandMarkView` renders a vetted asset when present, otherwise a
   deterministic SF Symbol or monogram fallback.
+- Registry classifiers bound arbitrary MCP/skill/connector input before
+  normalization so oversized registry names cannot drive unbounded UI string work.
 - Surface code asks the registry for a brand. It must not add local ad-hoc
   `if name contains` chains in view bodies.
 

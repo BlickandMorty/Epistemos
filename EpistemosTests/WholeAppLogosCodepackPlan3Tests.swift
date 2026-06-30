@@ -60,7 +60,8 @@ struct WholeAppLogosCodepackPlan3Tests {
             "static func skillDiscovery",
             "static func skillInstallSource",
             "static func skillInventory",
-            "static func landingFeature"
+            "static func landingFeature",
+            "maxClassifierInputCharacters"
         ] {
             #expect(registry.contains(required), "Missing IntegrationBrand registry string: \(required)")
         }
@@ -178,6 +179,12 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(IntegrationBrand.skillDiscovery(source: "codex", identifier: "docs", category: "research") == .codexSkills)
         #expect(IntegrationBrand.skillInstallSource(rawValue: "localPath") == .localSkill)
         #expect(IntegrationBrand.skillInventory(identifier: "github-helper", description: "GitHub tools") == .github)
+
+        let longTail = String(repeating: "x", count: IntegrationBrand.maxClassifierInputCharacters + 64)
+        #expect(IntegrationBrand.connector(id: "slack-\(longTail)", displayName: "") == .slack)
+        #expect(IntegrationBrand.connector(id: longTail + "-slack", displayName: "") == .remoteMCP)
+        #expect(IntegrationBrand.skillInventory(identifier: "github-\(longTail)", description: "") == .github)
+        #expect(IntegrationBrand.skillInventory(identifier: longTail + "-github", description: "") == .skillRepo)
 
         for feature in LandingFeatureButton.allCases {
             #expect(feature.integrationBrand != .generic)
