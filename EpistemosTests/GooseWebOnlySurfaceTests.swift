@@ -144,6 +144,11 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("prompts: USE_ACP_CHAT ? 'models' : 'prompts'"))
         #expect(stageScript.contains("epistemos-acp-hide-session-history-sharing"))
         #expect(stageScript.contains("setCanShare(false); // epistemos-acp-hide-session-history-sharing"))
+        #expect(stageScript.contains("epistemos-acp-stdio-extension-secret-env-values"))
+        #expect(stageScript.contains("epistemos-acp-stdio-extension-server-env"))
+        #expect(stageScript.contains("epistemos-acp-stdio-extension-secret-store-via-config"))
+        #expect(stageScript.contains("epistemos-acp-block-http-extension-secret-env"))
+        #expect(stageScript.contains("epistemos-acp-block-http-extension-secret-submit"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))

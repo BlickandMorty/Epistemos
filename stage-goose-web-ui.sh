@@ -3121,6 +3121,228 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+EXTENSION_UTILS="$WORK_ROOT/ui/desktop/src/components/settings/extensions/utils.ts"
+ACP_EXTENSIONS="$WORK_ROOT/ui/desktop/src/acp/extensions.ts"
+EXTENSION_MODAL="$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionModal.tsx"
+node - "$EXTENSION_UTILS" "$ACP_EXTENSIONS" "$EXTENSION_MODAL" <<'NODE'
+const fs = require('fs');
+const [utilsPath, acpExtensionsPath, modalPath] = process.argv.slice(2);
+
+let utilsSource = fs.readFileSync(utilsPath, 'utf8');
+const envKeysAnchor = `  // Extract just the keys from env vars
+  const env_keys = formData.envVars.map(({ key }) => key).filter((key) => key.length > 0);
+`;
+const envKeysReplacement = `  // Extract just the keys from env vars
+  const env_keys = formData.envVars.map(({ key }) => key).filter((key) => key.length > 0);
+  const editedEnvValues = formData.envVars
+    .filter(
+      ({ key, value, isEdited }) =>
+        key.length > 0 && value.length > 0 && isEdited === true && value !== '••••••••'
+    )
+    .reduce(
+      (envs, { key, value }) => {
+        envs[key] = value;
+        return envs;
+      },
+      {} as Record<string, string>
+    ); // epistemos-acp-stdio-extension-secret-env-values
+`;
+if (!utilsSource.includes('epistemos-acp-stdio-extension-secret-env-values')) {
+  if (!utilsSource.includes(envKeysAnchor)) {
+    throw new Error('Extension utils env_keys anchor not found');
+  }
+  utilsSource = utilsSource.replace(envKeysAnchor, envKeysReplacement);
+}
+const stdioEnvKeysAnchor = `      ...(env_keys.length > 0 ? { env_keys } : {}),
+`;
+const stdioEnvKeysReplacement = `      ...(env_keys.length > 0 ? { env_keys } : {}),
+      ...(Object.keys(editedEnvValues).length > 0 ? { envs: editedEnvValues } : {}), // epistemos-acp-stdio-extension-secret-envs
+`;
+if (!utilsSource.includes('epistemos-acp-stdio-extension-secret-envs')) {
+  if (!utilsSource.includes(stdioEnvKeysAnchor)) {
+    throw new Error('Extension utils stdio env_keys anchor not found');
+  }
+  utilsSource = utilsSource.replace(stdioEnvKeysAnchor, stdioEnvKeysReplacement);
+}
+for (const snippet of [
+  'epistemos-acp-stdio-extension-secret-env-values',
+  'epistemos-acp-stdio-extension-secret-envs',
+]) {
+  if (!utilsSource.includes(snippet)) {
+    throw new Error(`Extension utils staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+fs.writeFileSync(utilsPath, utilsSource);
+
+let acpExtensionsSource = fs.readFileSync(acpExtensionsPath, 'utf8');
+const stdioServerAnchor = `        server: { name: config.name, command: config.cmd, args: config.args, env: [] },
+`;
+const stdioServerReplacement = `        server: {
+          name: config.name,
+          command: config.cmd,
+          args: config.args,
+          env: Object.entries(config.envs ?? {}).map(([name, value]) => ({
+            name,
+            value: String(value),
+          })), // epistemos-acp-stdio-extension-server-env
+        },
+`;
+if (!acpExtensionsSource.includes('epistemos-acp-stdio-extension-server-env')) {
+  if (!acpExtensionsSource.includes(stdioServerAnchor)) {
+    throw new Error('ACP extensions stdio server env anchor not found');
+  }
+  acpExtensionsSource = acpExtensionsSource.replace(stdioServerAnchor, stdioServerReplacement);
+}
+if (!acpExtensionsSource.includes('epistemos-acp-stdio-extension-server-env')) {
+  throw new Error('ACP extensions staged source missing stdio secret env graft');
+}
+fs.writeFileSync(acpExtensionsPath, acpExtensionsSource);
+
+let modalSource = fs.readFileSync(modalPath, 'utf8');
+const apiImportAnchor = `import { upsertConfig } from '../../../../api';
+`;
+if (!modalSource.includes("import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';")) {
+  if (!modalSource.includes(apiImportAnchor)) {
+    throw new Error('ExtensionModal API import anchor not found');
+  }
+  modalSource = modalSource.replace(
+    apiImportAnchor,
+    `${apiImportAnchor}import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';
+`
+  );
+}
+const i18nAnchor = `  closeWithoutSaving: {
+    id: 'extensionModal.closeWithoutSaving',
+    defaultMessage: 'Close Without Saving',
+  },
+`;
+const i18nReplacement = `${i18nAnchor}  unsupportedStreamableHttpSecrets: {
+    id: 'extensionModal.unsupportedStreamableHttpSecrets',
+    defaultMessage:
+      'Secret environment variables for streamable HTTP extensions are not supported in this ACP build yet.',
+  },
+`;
+if (!modalSource.includes('unsupportedStreamableHttpSecrets')) {
+  if (!modalSource.includes(i18nAnchor)) {
+    throw new Error('ExtensionModal i18n anchor not found');
+  }
+  modalSource = modalSource.replace(i18nAnchor, i18nReplacement);
+}
+const storeSecretAnchor = `  // Function to store a secret value
+  const storeSecret = async (key: string, value: string) => {
+    try {
+`;
+const storeSecretReplacement = `  // Function to store a secret value
+  const storeSecret = async (key: string, value: string) => {
+    if (USE_ACP_CHAT) {
+      return true; // epistemos-acp-stdio-extension-secret-store-via-config
+    }
+    try {
+`;
+if (!modalSource.includes('epistemos-acp-stdio-extension-secret-store-via-config')) {
+  if (!modalSource.includes(storeSecretAnchor)) {
+    throw new Error('ExtensionModal storeSecret anchor not found');
+  }
+  modalSource = modalSource.replace(storeSecretAnchor, storeSecretReplacement);
+}
+const finalEnvVarsAnchor = `  const getFinalEnvVars = () => {
+    const finalEnvVars = [...formData.envVars];
+    if (
+      pendingEnvVar &&
+      pendingEnvVar.key.trim() !== '' &&
+      pendingEnvVar.value.trim() !== '' &&
+      !pendingEnvVar.key.includes(' ')
+    ) {
+      finalEnvVars.push({ ...pendingEnvVar, isEdited: true });
+    }
+    return finalEnvVars;
+  };
+`;
+const finalEnvVarsReplacement = `${finalEnvVarsAnchor}
+  const hasUnsupportedAcpStreamableHttpSecrets = (envVars = getFinalEnvVars()) =>
+    USE_ACP_CHAT &&
+    formData.type === 'streamable_http' &&
+    envVars.some(
+      ({ key, value, isEdited }) =>
+        key.trim() !== '' &&
+        value.trim() !== '' &&
+        isEdited === true &&
+        value !== '••••••••'
+    ); // epistemos-acp-block-http-extension-secret-env
+`;
+if (!modalSource.includes('epistemos-acp-block-http-extension-secret-env')) {
+  if (!modalSource.includes(finalEnvVarsAnchor)) {
+    throw new Error('ExtensionModal final env vars anchor not found');
+  }
+  modalSource = modalSource.replace(finalEnvVarsAnchor, finalEnvVarsReplacement);
+}
+const formValidAnchor = `      isNameValid() && isConfigValid() && isEnvVarsValid() && isHeadersValid() && isTimeoutValid()
+`;
+const formValidReplacement = `      isNameValid() &&
+      isConfigValid() &&
+      isEnvVarsValid() &&
+      isHeadersValid() &&
+      isTimeoutValid() &&
+      !hasUnsupportedAcpStreamableHttpSecrets()
+`;
+if (!modalSource.includes('!hasUnsupportedAcpStreamableHttpSecrets()')) {
+  if (!modalSource.includes(formValidAnchor)) {
+    throw new Error('ExtensionModal form validity anchor not found');
+  }
+  modalSource = modalSource.replace(formValidAnchor, formValidReplacement);
+}
+const finalFormDataAnchor = `      const finalFormData = {
+        ...formData,
+        envVars: getFinalEnvVars(),
+        headers: getFinalHeaders(),
+      };
+`;
+const finalFormDataReplacement = `${finalFormDataAnchor}
+      if (hasUnsupportedAcpStreamableHttpSecrets(finalFormData.envVars)) {
+        console.error(
+          'Secret environment variables for streamable HTTP extensions are not supported in ACP'
+        );
+        return; // epistemos-acp-block-http-extension-secret-submit
+      }
+`;
+if (!modalSource.includes('epistemos-acp-block-http-extension-secret-submit')) {
+  if (!modalSource.includes(finalFormDataAnchor)) {
+    throw new Error('ExtensionModal submit guard anchor not found');
+  }
+  modalSource = modalSource.replace(finalFormDataAnchor, finalFormDataReplacement);
+}
+const envVarsSectionAnchor = `                      onPendingInputChange={handlePendingEnvVarChange}
+                    />
+`;
+const envVarsSectionReplacement = `${envVarsSectionAnchor}                    {hasUnsupportedAcpStreamableHttpSecrets() && (
+                      <p
+                        className="mt-3 text-xs text-text-warning"
+                        data-epistemos-acp-block-http-extension-secret-env="true"
+                      >
+                        {intl.formatMessage(i18n.unsupportedStreamableHttpSecrets)}
+                      </p>
+                    )}
+`;
+if (!modalSource.includes('data-epistemos-acp-block-http-extension-secret-env')) {
+  if (!modalSource.includes(envVarsSectionAnchor)) {
+    throw new Error('ExtensionModal env vars section anchor not found');
+  }
+  modalSource = modalSource.replace(envVarsSectionAnchor, envVarsSectionReplacement);
+}
+for (const snippet of [
+  'USE_ACP_CHAT',
+  'epistemos-acp-stdio-extension-secret-store-via-config',
+  'epistemos-acp-block-http-extension-secret-env',
+  'epistemos-acp-block-http-extension-secret-submit',
+  'unsupportedStreamableHttpSecrets',
+]) {
+  if (!modalSource.includes(snippet)) {
+    throw new Error(`ExtensionModal staged source missing required ACP snippet: ${snippet}`);
+  }
+}
+fs.writeFileSync(modalPath, modalSource);
+NODE
+
 MODEL_INTERFACE="$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
 node - "$MODEL_INTERFACE" <<'NODE'
 const fs = require('fs');
@@ -5029,6 +5251,12 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "rounded-\\[12px\\] border border-border-primary bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionModal.tsx"
     grep -q "rounded-\\[8px\\] border border-border-secondary bg-background-primary/70" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/EnvVarsSection.tsx"
     grep -q "rounded-\\[8px\\] border border-border-secondary bg-background-primary/70" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/HeadersSection.tsx"
+    grep -q "epistemos-acp-stdio-extension-secret-env-values" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/utils.ts"
+    grep -q "epistemos-acp-stdio-extension-secret-envs" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/utils.ts"
+    grep -q "epistemos-acp-stdio-extension-server-env" "$WORK_ROOT/ui/desktop/src/acp/extensions.ts"
+    grep -q "epistemos-acp-stdio-extension-secret-store-via-config" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionModal.tsx"
+    grep -q "epistemos-acp-block-http-extension-secret-env" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionModal.tsx"
+    grep -q "epistemos-acp-block-http-extension-secret-submit" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionModal.tsx"
     grep -q "focus:border-transparent" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionConfigFields.tsx"
     grep -q "border-border-danger" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/modal/ExtensionTimeoutField.tsx"
     grep -q "flex w-full gap-3 pt-4" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/ExtensionsSection.tsx"
