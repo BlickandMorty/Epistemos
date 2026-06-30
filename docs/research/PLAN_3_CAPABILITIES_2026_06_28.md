@@ -92,7 +92,8 @@ test-linking condition, not the shipped MAS parser state.
 4. **PDF-only scope enforced:** Office/image inputs are rejected before FFI on Swift and as `UnsupportedFormat` in Rust;
    no subprocess/sidecar fallback is introduced.
 5. **Parser input envelope hardened:** Swift and Rust both reject symlink/non-regular PDF paths, empty files, bodies over
-   the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path.
+   the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path. Import materialization also
+   revalidates the copied source PDF with a no-follow descriptor before streaming it into the vault.
 
 **★ PDF viewer + md COEXISTENCE (keep BOTH the original PDF and a parsed `.md`) `[VERIFIED-CODE]`:**
 - **Data model, ZERO migration:** on import, Plan 3 writes the **original `.pdf`** into `<vault>/Imported PDFs/` and a

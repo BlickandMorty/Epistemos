@@ -138,6 +138,9 @@ struct LiteParseImportTests {
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
         #expect(src.contains("materializeImportedFiles"))
         #expect(src.contains("Plan3ImportFileIO.reservePairedFileURLs"))
+        #expect(sharedIO.contains("openValidatedPDFForReading"))
+        #expect(sharedIO.contains("O_RDONLY | O_NOFOLLOW | O_CLOEXEC"))
+        #expect(sharedIO.contains("seek(toOffset: 0)"))
         #expect(sharedIO.contains("O_NOFOLLOW"))
         #expect(sharedIO.contains("O_EXCL"))
         #expect(sharedIO.contains("maxPDFBytes"))
@@ -282,6 +285,44 @@ struct LiteParseImportTests {
 
         let outsideText = try String(contentsOf: outside, encoding: .utf8)
         #expect(outsideText == "outside original")
+    }
+
+    @Test("reserved import copy revalidates source PDF on the copied file descriptor")
+    func reservedImportCopyRevalidatesSourcePDFOnCopiedFileDescriptor() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-source-envelope-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let validSource = root.appendingPathComponent("source.pdf")
+        let nonPDFSource = root.appendingPathComponent("source-html.pdf")
+        let oversizedSource = root.appendingPathComponent("oversized.pdf")
+        let symlinkSource = root.appendingPathComponent("linked.pdf")
+        let reservedPDF = root.appendingPathComponent("reserved.pdf")
+
+        try Data("%PDF source".utf8).write(to: validSource)
+        try Data("<html>not a paper</html>".utf8).write(to: nonPDFSource)
+        try Data("%PDF large".utf8).write(to: oversizedSource)
+        let oversizedHandle = try FileHandle(forWritingTo: oversizedSource)
+        try oversizedHandle.truncate(atOffset: UInt64(LiteParsePDFSignature.maxPDFBytes + 1))
+        try oversizedHandle.close()
+        try FileManager.default.createSymbolicLink(at: symlinkSource, withDestinationURL: validSource)
+
+        func expectCopyRejected(from source: URL) throws {
+            try Data().write(to: reservedPDF)
+            do {
+                try Plan3ImportFileIO.copyFileContents(from: source, toReservedFile: reservedPDF)
+                Issue.record("Expected source copy to reject \(source.lastPathComponent)")
+            } catch {}
+            #expect((try? Data(contentsOf: reservedPDF)) == Data())
+        }
+
+        try expectCopyRejected(from: nonPDFSource)
+        try expectCopyRejected(from: oversizedSource)
+        try expectCopyRejected(from: symlinkSource)
+
+        try Plan3ImportFileIO.copyFileContents(from: validSource, toReservedFile: reservedPDF)
+        #expect((try? Data(contentsOf: reservedPDF)) == Data("%PDF source".utf8))
     }
 
     @MainActor

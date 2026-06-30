@@ -116,6 +116,56 @@ nonisolated enum LiteParsePDFSignature {
             return .unreadable(error.localizedDescription)
         }
     }
+
+    static func openValidatedPDFForReading(path: String) throws -> FileHandle {
+        let fd = path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw pdfReadError(nonRegularPDFMessage, errnoCode: errno)
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let capturedErrno = errno
+            close(fd)
+            throw pdfReadError("Could not inspect the PDF file.", errnoCode: capturedErrno)
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw pdfReadError(nonRegularPDFMessage, errnoCode: EFTYPE)
+        }
+        guard fileStatus.st_size > 0 else {
+            close(fd)
+            throw pdfReadError(emptyPDFMessage, errnoCode: EINVAL)
+        }
+        guard UInt64(fileStatus.st_size) <= UInt64(maxPDFBytes) else {
+            close(fd)
+            throw pdfReadError(tooLargePDFMessage, errnoCode: EFBIG)
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        do {
+            let data = try handle.read(upToCount: pdfMagic.count) ?? Data()
+            guard Array(data) == pdfMagic else {
+                try? handle.close()
+                throw pdfReadError(invalidPDFBodyMessage, errnoCode: EINVAL)
+            }
+            try handle.seek(toOffset: 0)
+            return handle
+        } catch {
+            try? handle.close()
+            throw error
+        }
+    }
+
+    private static func pdfReadError(_ message: String, errnoCode: Int32) -> NSError {
+        NSError(
+            domain: "LiteParsePDFSignature",
+            code: Int(errnoCode),
+            userInfo: [NSLocalizedDescriptionKey: message]
+        )
+    }
 }
 
 nonisolated enum PDFMagicCheck: Equatable, Sendable {
@@ -227,7 +277,7 @@ nonisolated enum Plan3ImportFileIO {
     }
 
     static func copyFileContents(from sourceURL: URL, toReservedFile destinationURL: URL) throws {
-        let source = try FileHandle(forReadingFrom: sourceURL)
+        let source = try LiteParsePDFSignature.openValidatedPDFForReading(path: sourceURL.path)
         defer { try? source.close() }
 
         let destination = try openReservedFileForWriting(destinationURL)

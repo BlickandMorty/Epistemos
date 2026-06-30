@@ -23,7 +23,9 @@
   main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
   basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
   note fails, the copied source PDF is removed too. Reserved PDF/Markdown destination writes reopen with `O_NOFOLLOW`
-  and regular-file validation so a final symlink swap cannot redirect import output after reservation.
+  and regular-file validation so a final symlink swap cannot redirect import output after reservation. Source PDF copy
+  reopens through `openValidatedPDFForReading` with no-follow, regular-file, 512 MiB, and `%PDF-` magic checks on the
+  copied file descriptor.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Absolute paths,
   `..`, missing files, and traversal attempts are rejected. The source-PDF sheet caps outline traversal depth/node/item
@@ -54,6 +56,6 @@
   fixture and the FFI envelope.
 - Swift focused guards: `EpistemosTests/LiteParseImportTests.swift` verifies envelope decoding, non-PDF and unsafe local
   PDF rejection before FFI, off-main import materialization, paired Markdown/PDF basenames, source-PDF vault confinement,
-  and this shipped-codepack status.
+  source-copy revalidation, and this shipped-codepack status.
 - Historical caveat: Swift unit-test hosts without `agent_coreFFI` still verify the honest fallback by expecting
   `.notWired` for a PDF. That is a test-linking condition, not the default MAS Rust engine state.
