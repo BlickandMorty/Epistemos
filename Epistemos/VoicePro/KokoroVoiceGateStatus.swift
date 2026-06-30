@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 nonisolated enum KokoroVoiceGateStatus {
@@ -5,6 +6,7 @@ nonisolated enum KokoroVoiceGateStatus {
     static let modelDirectoryName = "kokoro-82m-coreml"
     static let manifestFileName = "manifest.json"
     static let modelPackageName = "Kokoro82M.mlpackage"
+    static let maxManifestBytes = 64 * 1024
 
     enum State: String, Equatable, Sendable {
         case unavailable
@@ -66,10 +68,9 @@ nonisolated enum KokoroVoiceGateStatus {
         let manifestURL = modelDirectory.appendingPathComponent(manifestFileName, isDirectory: false)
         let modelPackageURL = modelDirectory.appendingPathComponent(modelPackageName, isDirectory: true)
         let problems = [
-            artifactProblem(
+            manifestProblem(
                 name: manifestFileName,
                 url: manifestURL,
-                kind: .file,
                 rootURL: modelDirectory,
                 fileManager: fileManager
             ),
@@ -103,6 +104,63 @@ nonisolated enum KokoroVoiceGateStatus {
     private enum ArtifactKind {
         case file
         case directory
+    }
+
+    private static func manifestProblem(
+        name: String,
+        url: URL,
+        rootURL: URL,
+        fileManager: FileManager
+    ) -> String? {
+        if let shapeProblem = artifactProblem(
+            name: name,
+            url: url,
+            kind: .file,
+            rootURL: rootURL,
+            fileManager: fileManager
+        ) {
+            return shapeProblem
+        }
+        guard let data = readManifestDataNoFollow(at: url) else {
+            return "\(name) could not be read safely"
+        }
+        guard let object = try? JSONSerialization.jsonObject(with: data),
+              object is [String: Any] else {
+            return "\(name) is not a JSON object"
+        }
+        return nil
+    }
+
+    private static func readManifestDataNoFollow(at url: URL) -> Data? {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            return nil
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            return nil
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            return nil
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxManifestBytes) else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              data.count <= maxManifestBytes else {
+            return nil
+        }
+        return data
     }
 
     private static func artifactProblem(

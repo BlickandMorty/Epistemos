@@ -60,7 +60,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
         #expect(capabilities.contains("Kokoro-82M is Pro-only status-gated"))
-        #expect(capabilities.contains("rejects symlink-routed or non-regular model artifacts"))
+        #expect(capabilities.contains("rejects symlink-routed, non-regular, oversized, or"))
         #expect(capabilities.contains("no model asset, picker row, neural runtime, Python, or"))
 
         for stale in [
@@ -150,9 +150,15 @@ struct VoiceCodepackPlan3Tests {
             "modelDirectoryName = \"kokoro-82m-coreml\"",
             "manifestFileName = \"manifest.json\"",
             "modelPackageName = \"Kokoro82M.mlpackage\"",
+            "maxManifestBytes",
+            "manifestProblem(",
+            "readManifestDataNoFollow",
             "artifactProblem(",
             "firstSymlinkComponent(",
             "destinationOfSymbolicLink",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "JSONSerialization.jsonObject",
             "FileAttributeType == .typeRegular",
             "FileAttributeType == .typeDirectory",
             "path must not include symlink component",
@@ -201,6 +207,45 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.state == .missingModel)
         #expect(status.detail.contains("manifest.json is a directory"))
         #expect(status.detail.contains("Kokoro82M.mlpackage is not a directory"))
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro Pro gate rejects invalid or oversized manifests")
+    func kokoroProGateRejectsInvalidOrOversizedManifests() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-manifest-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
+        let modelPackageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: modelPackageURL, withIntermediateDirectories: true)
+        try Data("not-json".utf8).write(to: manifestURL)
+
+        let invalid = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!invalid.isReady)
+        #expect(invalid.state == .missingModel)
+        #expect(invalid.detail.contains("manifest.json is not a JSON object"))
+
+        try Data(repeating: UInt8(ascii: "{"), count: KokoroVoiceGateStatus.maxManifestBytes + 1)
+            .write(to: manifestURL)
+
+        let oversized = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!oversized.isReady)
+        #expect(oversized.state == .missingModel)
+        #expect(oversized.detail.contains("manifest.json could not be read safely"))
         #else
         #expect(true)
         #endif
