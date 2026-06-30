@@ -79,6 +79,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(reskin.contains("--epistemos-pixel-accent: var(--epistemos-accent);"))
         #expect(reskin.contains("--epistemos-pixel-font:"))
         #expect(reskin.contains("border-color: transparent !important;"))
+        #expect(reskin.contains("border-width: 0 !important;"))
+        #expect(reskin.contains("border-right-width: 0 !important;"))
         #expect(reskin.contains("box-shadow: none !important;"))
         #expect(reskin.contains("background: var(--epistemos-claude-surface) !important;"))
         #expect(reskin.contains("box-shadow:"))

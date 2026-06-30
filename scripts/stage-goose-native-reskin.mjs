@@ -966,6 +966,7 @@ body,
 ) {
   background: var(--epistemos-claude-surface) !important;
   border-color: transparent !important;
+  border-width: 0 !important;
   box-shadow: none !important;
 }
 
@@ -983,6 +984,7 @@ body,
   [role='option']
 ) {
   border-color: transparent !important;
+  border-width: 0 !important;
   box-shadow: none !important;
   color: inherit;
 }
@@ -1005,6 +1007,7 @@ body,
 ) {
   background: var(--epistemos-claude-surface) !important;
   border-color: transparent !important;
+  border-width: 0 !important;
   outline: none !important;
   box-shadow: none !important;
   color: var(--epistemos-claude-text) !important;
@@ -1055,6 +1058,7 @@ body,
 ) {
   background: var(--epistemos-claude-bg) !important;
   border-color: transparent !important;
+  border-width: 0 !important;
   box-shadow: var(--epistemos-claude-soft-shadow) !important;
 }
 
@@ -1066,9 +1070,33 @@ body,
   .divide-y > :not([hidden]) ~ :not([hidden]),
   .border-t,
   .border-b,
+  .border-l,
+  .border-r,
   [data-orientation='horizontal']
 ) {
-  border-color: var(--epistemos-claude-hairline) !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+}
+
+.goose-epistemos :is(.border, .border-border-primary, .border-border-secondary, .border-border-subtle, .border-border-danger, .border-border-warning, .border-border-success) {
+  border-color: transparent !important;
+  border-width: 0 !important;
+}
+
+.goose-epistemos .border-t {
+  border-top-width: 0 !important;
+}
+
+.goose-epistemos .border-b {
+  border-bottom-width: 0 !important;
+}
+
+.goose-epistemos .border-l {
+  border-left-width: 0 !important;
+}
+
+.goose-epistemos .border-r {
+  border-right-width: 0 !important;
 }
 
 .goose-epistemos :is(
@@ -5739,6 +5767,8 @@ function applyFinalFlatPixelAudit() {
 .goose-epistemos :is(button, [href], input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
   outline: none !important;
   outline-offset: 0 !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
   box-shadow: none !important;
 }
 `);
