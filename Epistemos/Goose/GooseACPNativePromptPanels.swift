@@ -1,5 +1,20 @@
 import SwiftUI
 
+private enum GooseNativePromptPanelBounds {
+    static let maxPermissionOptions = 8
+    static let maxPromptTitleCharacters = 160
+    static let maxPromptSubtitleCharacters = 240
+    static let maxPermissionOptionNameCharacters = 80
+    static let maxElicitationMessageCharacters = 240
+    static let maxElicitationInputCharacters = 4_096
+
+    static func text(_ value: String?, fallback: String, maxCharacters: Int) -> String {
+        let trimmed = (value ?? fallback).trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.isEmpty ? fallback : trimmed
+        return String(normalized.prefix(maxCharacters))
+    }
+}
+
 struct GooseACPPermissionPanel: View {
     let promptID: String
     let request: GooseACPRequestPermissionRequest
@@ -25,12 +40,12 @@ struct GooseACPPermissionPanel: View {
             }
 
             HStack(spacing: 8) {
-                ForEach(request.options, id: \.optionId) { option in
+                ForEach(boundedOptions, id: \.optionId) { option in
                     Button { onDecision(option.optionId) } label: {
                         HStack(spacing: 6) {
                             Image(systemName: option.kind.iconName)
                                 .font(.system(size: 11, weight: .semibold))
-                            Text(option.name)
+                            Text(optionName(option))
                                 .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
                         }
                         .foregroundStyle(option.kind.isReject ? theme.error : theme.resolved.accent.color)
@@ -62,16 +77,39 @@ struct GooseACPPermissionPanel: View {
         .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 18, y: 8)
     }
 
+    private var boundedOptions: [GooseACPPermissionOption] {
+        Array(request.options.prefix(GooseNativePromptPanelBounds.maxPermissionOptions))
+    }
+
+    private func optionName(_ option: GooseACPPermissionOption) -> String {
+        GooseNativePromptPanelBounds.text(
+            option.name,
+            fallback: option.optionId,
+            maxCharacters: GooseNativePromptPanelBounds.maxPermissionOptionNameCharacters
+        )
+    }
+
     private var promptTitle: String {
-        request.toolCall.title ?? "Tool permission"
+        GooseNativePromptPanelBounds.text(
+            request.toolCall.title,
+            fallback: "Tool permission",
+            maxCharacters: GooseNativePromptPanelBounds.maxPromptTitleCharacters
+        )
     }
 
     private var promptSubtitle: String {
         let tool = request.toolCall.toolCallId
+        let raw: String
         if let kind = request.toolCall.kind {
-            return "\(kind.rawValue) · \(tool)"
+            raw = "\(kind.rawValue) · \(tool)"
+        } else {
+            raw = tool
         }
-        return tool
+        return GooseNativePromptPanelBounds.text(
+            raw,
+            fallback: "Tool call",
+            maxCharacters: GooseNativePromptPanelBounds.maxPromptSubtitleCharacters
+        )
     }
 }
 
@@ -114,7 +152,7 @@ struct GooseACPElicitationPanel: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(theme.resolved.accent.color)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(request.message)
+                    Text(messageText)
                         .font(GooseSurfaceStyle.bodyFont(13, weight: .semibold))
                         .foregroundStyle(theme.resolved.foreground.color)
                         .lineLimit(2)
@@ -187,6 +225,14 @@ struct GooseACPElicitationPanel: View {
         .shadow(color: .black.opacity(theme.isDark ? 0.28 : 0.12), radius: 18, y: 8)
     }
 
+    private var messageText: String {
+        GooseNativePromptPanelBounds.text(
+            request.message,
+            fallback: "Input requested",
+            maxCharacters: GooseNativePromptPanelBounds.maxElicitationMessageCharacters
+        )
+    }
+
     @ViewBuilder
     private func fieldControl(_ field: GooseACPElicitationFormField) -> some View {
         switch field.type {
@@ -220,7 +266,9 @@ struct GooseACPElicitationPanel: View {
     private func textBinding(_ id: String) -> Binding<String> {
         Binding(
             get: { textValues[id, default: ""] },
-            set: { textValues[id] = $0 }
+            set: {
+                textValues[id] = String($0.prefix(GooseNativePromptPanelBounds.maxElicitationInputCharacters))
+            }
         )
     }
 

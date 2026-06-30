@@ -1200,6 +1200,9 @@ struct GooseWebViewBootShimTests {
         #expect(!surface.contains("struct GooseACPElicitationPanel"))
         #expect(panels.contains("struct GooseACPPermissionPanel"))
         #expect(panels.contains("struct GooseACPElicitationPanel"))
+        #expect(panels.contains("private enum GooseNativePromptPanelBounds"))
+        #expect(panels.contains("Array(request.options.prefix(GooseNativePromptPanelBounds.maxPermissionOptions))"))
+        #expect(panels.contains("maxElicitationInputCharacters"))
     }
 
     @Test("affordance disposition ledger marks native file and URL calls as implemented")

@@ -530,6 +530,10 @@ struct GooseACPUnhandledDiagnostic: Identifiable, Equatable, Sendable {
 }
 
 struct GooseACPElicitationFormField: Identifiable, Equatable, Sendable {
+    static let maxFields = 16
+    static let maxFieldIDCharacters = 128
+    static let maxFieldTitleCharacters = 160
+
     enum FieldType: String, Equatable, Sendable {
         case string
         case number
@@ -548,15 +552,34 @@ struct GooseACPElicitationFormField: Identifiable, Equatable, Sendable {
             return []
         }
         let required = Set(root["required"]?.stringArrayValue ?? [])
-        return properties.keys.sorted().map { key in
+        var fields: [Self] = []
+        for key in properties.keys.sorted() {
+            guard fields.count < maxFields else { break }
+            let displayKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !displayKey.isEmpty, key.count <= maxFieldIDCharacters else { continue }
             let property = properties[key]?.objectValue ?? [:]
-            return Self(
+            fields.append(Self(
                 id: key,
-                title: property["title"]?.stringValue ?? key,
+                title: boundedFieldText(
+                    property["title"]?.stringValue,
+                    fallback: displayKey,
+                    maxCharacters: maxFieldTitleCharacters
+                ),
                 type: FieldType(rawValue: property["type"]?.stringValue ?? "") ?? .unknown,
                 isRequired: required.contains(key)
-            )
+            ))
         }
+        return fields
+    }
+
+    private static func boundedFieldText(
+        _ value: String?,
+        fallback: String,
+        maxCharacters: Int
+    ) -> String {
+        let trimmed = (value ?? fallback).trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.isEmpty ? fallback : trimmed
+        return String(normalized.prefix(maxCharacters))
     }
 }
 

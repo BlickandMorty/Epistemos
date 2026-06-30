@@ -219,6 +219,34 @@ struct GooseACPCodecTests {
         #expect(try encodedObject(accepted)["action"] == .string("accept"))
         #expect(try encodedObject(accepted)["content"]?.objectValue?["title"] == .string("A native answer"))
     }
+
+    @Test("elicitation form fields are bounded before native prompt rendering")
+    func elicitationFormFieldsAreBoundedBeforeNativePromptRendering() {
+        let longTitle = String(repeating: "t", count: GooseACPElicitationFormField.maxFieldTitleCharacters + 10)
+        var properties: [String: JSONValue] = [:]
+        for index in 0..<(GooseACPElicitationFormField.maxFields + 5) {
+            properties[String(format: "field-%02d", index)] = .object([
+                "type": .string("string"),
+                "title": .string(longTitle),
+            ])
+        }
+        properties[String(repeating: "x", count: GooseACPElicitationFormField.maxFieldIDCharacters + 1)] = .object([
+            "type": .string("string"),
+            "title": .string("oversized id"),
+        ])
+
+        let fields = GooseACPElicitationFormField.fields(from: .object([
+            "type": .string("object"),
+            "required": .array([.string("field-00")]),
+            "properties": .object(properties),
+        ]))
+
+        #expect(fields.count == GooseACPElicitationFormField.maxFields)
+        #expect(fields.first?.id == "field-00")
+        #expect(fields.first?.isRequired == true)
+        #expect(fields.allSatisfy { $0.id.count <= GooseACPElicitationFormField.maxFieldIDCharacters })
+        #expect(fields.allSatisfy { $0.title.count <= GooseACPElicitationFormField.maxFieldTitleCharacters })
+    }
 }
 
 @Suite("Goose ACP client")
