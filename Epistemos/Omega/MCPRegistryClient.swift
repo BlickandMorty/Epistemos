@@ -161,8 +161,10 @@ nonisolated struct MCPRegistryClient: Sendable {
         request.setValue("Epistemos/Plan3-MCPRegistry", forHTTPHeaderField: "User-Agent")
 
         let (data, response) = try await fetch(request)
-        if let http = response as? HTTPURLResponse,
-           !(200..<300).contains(http.statusCode) {
+        guard let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let finalURL = http.url,
+              Self.isAllowedRegistryResponseURL(finalURL, requestURL: url) else {
             throw URLError(.badServerResponse)
         }
         guard !data.isEmpty else { return [] }
@@ -170,6 +172,20 @@ nonisolated struct MCPRegistryClient: Sendable {
             throw URLError(.dataLengthExceedsMaximum)
         }
         return try JSONSerialization.jsonObject(with: data)
+    }
+
+    private static func isAllowedRegistryResponseURL(_ responseURL: URL, requestURL: URL) -> Bool {
+        guard let response = URLComponents(url: responseURL, resolvingAgainstBaseURL: false),
+              let request = URLComponents(url: requestURL, resolvingAgainstBaseURL: false),
+              response.scheme?.lowercased() == "https",
+              response.host?.lowercased() == request.host?.lowercased(),
+              response.percentEncodedPath == request.percentEncodedPath,
+              response.user == nil,
+              response.password == nil,
+              response.percentEncodedFragment == nil else {
+            return false
+        }
+        return true
     }
 
     private static func registryEntry(

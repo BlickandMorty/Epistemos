@@ -99,6 +99,30 @@ struct MCPRegistryClientTests {
         #expect(entries.isEmpty)
     }
 
+    @Test("registry search rejects redirected response URLs")
+    func searchRejectsRedirectedRegistryResponses() async throws {
+        let client = MCPRegistryClient { _ in
+            let responseURL = try #require(URL(string: "https://example.com/api/servers"))
+            let response = HTTPURLResponse(
+                url: responseURL,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            let body = """
+            {
+              "servers": [
+                { "name": "Redirected", "remoteUrl": "https://redirected.example.com/mcp" }
+              ]
+            }
+            """
+            return (Data(body.utf8), try #require(response))
+        }
+
+        let entries = await client.searchSmithery(query: "docs")
+        #expect(entries.isEmpty)
+    }
+
     @Test("registry search caps per-source record processing")
     func searchCapsPerSourceRecords() async throws {
         let records = (0..<40).map {
