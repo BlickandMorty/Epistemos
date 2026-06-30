@@ -318,6 +318,21 @@ struct BrowserUseSettingsStoreTests {
         #expect(outsideContents == "{\"outside\":true}\n")
     }
 
+    @Test("settings store source keeps bounded no-follow JSON reads")
+    func settingsStoreSourceKeepsBoundedNoFollowJSONReads() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift")
+        for required in [
+            "readSettingsData",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "readToEnd()",
+            "data.count <= Self.maxSettingsBytes",
+        ] {
+            #expect(source.contains(required), "Missing browser-use settings read marker: \(required)")
+        }
+        #expect(!source.contains("Data(contentsOf: settingsURL)"))
+    }
+
     private func mode(for url: URL) throws -> Int {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         let mode = try #require(attributes[.posixPermissions] as? NSNumber)

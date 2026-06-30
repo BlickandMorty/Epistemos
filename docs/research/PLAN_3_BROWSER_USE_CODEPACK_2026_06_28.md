@@ -84,10 +84,11 @@ browser-use/web-ui environment names are Codable settings; API keys, cloud keys,
 IBM project ID, and VNC password are bound to Keychain environment keys. Defaults keep telemetry, cloud sync, and
 version checks off.
 `EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
-binding, non-secret JSON round-trip behavior, owner-only settings file permissions, regular-file settings JSON reads,
-and symlink rejection before the settings store reads or writes disk. `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path
-guard that rejects final symlinks plus symlink components in parent paths, while allowing macOS `/var`/`/tmp`/`/etc`
-compatibility links used by temporary directories.
+binding, non-secret JSON round-trip behavior, owner-only settings file permissions, no-follow bounded regular-file
+settings JSON reads, and symlink rejection before the settings store reads or writes disk.
+`Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path guard that rejects final symlinks plus
+symlink components in parent paths, while allowing macOS `/var`/`/tmp`/`/etc` compatibility links used by temporary
+directories.
 `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` now lands the Pro runtime launch contract: it validates
 the browser-use gate plus staged payload artifacts, validates loopback host/port plus a bounded Web UI theme, builds the
 exact `web-ui/webui.py --ip 127.0.0.1 --port 7788 --theme Ocean` loopback plan, rejects non-executable Python, file/directory artifact shape mismatches, and runtime

@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 nonisolated struct BrowserUseEnvironmentPair: Equatable, Sendable {
@@ -457,7 +458,7 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
             )
         }
 
-        let data = try Data(contentsOf: settingsURL)
+        let data = try Self.readSettingsData(at: settingsURL)
         return try JSONDecoder().decode(BrowserUseSettings.self, from: data)
     }
 
@@ -510,6 +511,48 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
                 "browser-use settings \(label) must not be a symlink"
             )
         }
+    }
+
+    private static func readSettingsData(at url: URL) throws -> Data {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw BrowserUseSettingsStoreError.unsafePath(
+                "browser-use settings file could not be opened safely"
+            )
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file attributes unavailable at \(url.path)"
+            )
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file must be a regular file at \(url.path)"
+            )
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(Self.maxSettingsBytes) else {
+            close(fd)
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file exceeds \(Self.maxSettingsBytes) bytes"
+            )
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        let data = try handle.readToEnd() ?? Data()
+        guard data.count <= Self.maxSettingsBytes else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file exceeds \(Self.maxSettingsBytes) bytes"
+            )
+        }
+        return data
     }
 }
 
