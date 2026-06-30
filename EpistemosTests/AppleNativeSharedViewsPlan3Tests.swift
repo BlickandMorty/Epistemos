@@ -20,9 +20,11 @@ struct AppleNativeSharedViewsPlan3Tests {
             "func filePreview(_ previewURL: Binding<URL?>) -> some View",
             "QLPreviewPanel.shared()",
             "destinationOfSymbolicLink(atPath:",
-            "attributesOfItem(atPath:",
-            "FileAttributeType",
-            ".typeRegular"
+            "maxPreviewFileBytes",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "S_IFREG",
+            "st_size"
         ] {
             #expect(preview.contains(required), "FilePreview missing expected API: \(required)")
         }
@@ -150,6 +152,21 @@ struct AppleNativeSharedViewsPlan3Tests {
         }
 
         #expect(!FilePreviewController.isPreviewableURL(deviceURL))
+    }
+
+    @Test("preview policy rejects oversized file URLs")
+    func previewPolicyRejectsOversizedFileURLs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apple-native-preview-size-\(UUID().uuidString)", isDirectory: true)
+        let oversized = root.appendingPathComponent("Huge.pdf", isDirectory: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        #expect(FileManager.default.createFile(atPath: oversized.path, contents: nil))
+        let handle = try FileHandle(forWritingTo: oversized)
+        try handle.truncate(atOffset: UInt64(FilePreviewURLPolicy.maxPreviewFileBytes + 1))
+        try handle.close()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        #expect(!FilePreviewController.isPreviewableURL(oversized))
     }
 
     @Test("shared views stay out of Plan 1, Plan 2, and Pro-only runtimes")

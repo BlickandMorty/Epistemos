@@ -25,13 +25,14 @@ usage strings.
 
 - **DONE:** `Epistemos/Views/Shared/FilePreview.swift` provides `FilePreviewItem`, `FilePreviewController`,
   `FilePreviewButton`, `.filePreview(_:)`, and a shared URL policy that rejects remote URLs, directories, unreadable
-  files, non-regular files, and final symlinks before Quick Look opens anything.
+  files, non-regular files, final symlinks, and files over 512 MiB through a descriptor-backed `O_NOFOLLOW` + `fstat`
+  envelope before Quick Look opens anything.
 - **DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift` provides a VisionKit-backed Live Text overlay when
   VisionKit is available and an honest image fallback when it is not, with a bounded image-analysis policy before
   VisionKit receives in-memory images.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
-  the same readable regular-file URL policy, including non-regular file rejection, plus invalid size/scale rejection
-  before QuickLookThumbnailing generation.
+  the same readable bounded regular-file URL policy, including no-follow non-regular and oversized file rejection, plus
+  invalid size/scale rejection before QuickLookThumbnailing generation.
 - **Still Plan 2:** mounting these components in editor/sidebar/PDF viewer surfaces.
 
 ## 1. DELIVERED `Epistemos/Views/Shared/FilePreview.swift`
@@ -42,6 +43,7 @@ Build a reusable QuickLook preview layer for already-granted vault URLs:
 - `@MainActor FilePreviewController`
 - `FilePreviewButton`
 - `.filePreview($url)` one-shot SwiftUI modifier
+- descriptor-backed `O_NOFOLLOW` + `fstat` URL validation with a 512 MiB cap
 
 The controller should drive `QLPreviewPanel` directly through `QLPreviewPanelDataSource` and
 `QLPreviewPanelDelegate`. Keep the component isolated so Plan 2 can mount it wherever its own surfaces allow.
@@ -67,6 +69,7 @@ Build a reusable QuickLookThumbnailing thumbnail layer:
 - `QLThumbnailGenerator.Request(fileAt:size:scale:representationTypes:.all)`
 - `generateBestRepresentation(for:) async`
 - `FileThumbnailView` SwiftUI wrapper with an SF Symbol fallback and `.task(id: url)`
+- same bounded no-follow regular-file URL validation as Quick Look preview
 
 Keep all thumbnail policy in the shared component. Consumers decide placement later.
 

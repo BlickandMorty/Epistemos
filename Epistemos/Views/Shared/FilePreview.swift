@@ -1,27 +1,45 @@
+import Darwin
 import AppKit
 import Quartz
 import SwiftUI
 
 nonisolated enum FilePreviewURLPolicy {
+    static let maxPreviewFileBytes = 512 * 1024 * 1024
+
     static func isReadableRegularFileURL(
         _ url: URL,
         fileManager: FileManager = .default
     ) -> Bool {
         guard url.isFileURL,
-              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil else {
-            return false
-        }
-
-        var isDirectory = ObjCBool(false)
-        guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory),
-              !isDirectory.boolValue,
+              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil,
               fileManager.isReadableFile(atPath: url.path) else {
             return false
         }
-        guard let fileType = try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType else {
+
+        return descriptorConfirmsReadableRegularFile(url)
+    }
+
+    private static func descriptorConfirmsReadableRegularFile(_ url: URL) -> Bool {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
             return false
         }
-        return fileType == .typeRegular
+        defer { close(fd) }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            return false
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            return false
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxPreviewFileBytes) else {
+            return false
+        }
+        return true
     }
 }
 
