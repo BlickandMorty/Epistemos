@@ -1493,6 +1493,186 @@ function applyExtensionSettingsSurfaces() {
   write('src/components/settings/extensions/modal/ExtensionTimeoutField.tsx', source);
 }
 
+function applyChatSettingsSurfaces() {
+  let source = read('src/components/settings/chat/ChatSettingsSection.tsx');
+  source = replaceAllRequired(
+    source,
+    'chat settings cards native glass',
+    'className="pb-2 rounded-[6px]"',
+    'className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl"'
+  );
+  source = replaceAllRequired(
+    source,
+    'chat settings card content breathing room',
+    'className="px-2"',
+    'className="px-2.5"'
+  );
+  write('src/components/settings/chat/ChatSettingsSection.tsx', source);
+
+  source = read('src/components/settings/chat/SpellcheckToggle.tsx');
+  source = replaceRequired(
+    source,
+    'spellcheck native row',
+    'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
+    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-border-secondary hover:bg-background-secondary/65"'
+  );
+  source = replaceRequired(
+    source,
+    'spellcheck title weight',
+    'className="text-text-primary"',
+    'className="font-medium text-text-primary"'
+  );
+  write('src/components/settings/chat/SpellcheckToggle.tsx', source);
+
+  source = read('src/components/settings/mode/ModeSection.tsx');
+  source = replaceRequired(
+    source,
+    'mode list spacing native',
+    'className="space-y-1"',
+    'className="space-y-1.5"'
+  );
+  write('src/components/settings/mode/ModeSection.tsx', source);
+
+  source = read('src/components/settings/mode/ModeSelectionItem.tsx');
+  source = replaceRequired(
+    source,
+    'mode item native row',
+    "className={`flex items-center justify-between text-text-primary py-2 px-2 ${checked ? 'bg-background-secondary' : 'bg-background-primary hover:bg-background-secondary'} rounded-lg transition-all`}",
+    "className={`flex items-center justify-between rounded-[9px] border px-3 py-2.5 text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] ${checked ? 'border-border-secondary bg-background-secondary/78 shadow-sm ring-[1px] ring-[var(--epistemos-accent)]/25' : 'border-transparent bg-transparent hover:border-border-secondary hover:bg-background-secondary/55'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'mode item title native weight',
+    '<h3 className="text-text-primary">{intl.formatMessage(mode.labelDescriptor)}</h3>',
+    '<h3 className="font-medium text-text-primary">{intl.formatMessage(mode.labelDescriptor)}</h3>'
+  );
+  source = replaceRequired(
+    source,
+    'mode item description native size',
+    '<p className="text-text-secondary mt-[2px]">{intl.formatMessage(mode.descriptionDescriptor)}</p>',
+    '<p className="mt-[2px] text-xs text-text-secondary">{intl.formatMessage(mode.descriptionDescriptor)}</p>'
+  );
+  source = replaceRequired(
+    source,
+    'mode configure gear native button',
+    '<button\n                onClick={(e) => {',
+    '<button\n                className="flex h-8 w-8 items-center justify-center rounded-[8px] text-iconSubtle transition-all hover:bg-background-primary/80 hover:text-[var(--epistemos-accent)]"\n                onClick={(e) => {'
+  );
+  source = replaceRequired(
+    source,
+    'mode configure gear native icon',
+    '<Gear className="w-4 h-4 text-text-secondary hover:text-text-primary" />',
+    '<Gear className="h-4 w-4 transition-colors" />'
+  );
+  source = replaceRequired(
+    source,
+    'mode radio native accent',
+    `className="h-4 w-4 rounded-full border border-border-primary 
+                    peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
+                    peer-checked:bg-white dark:peer-checked:bg-black
+                    transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
+    `className="h-[18px] w-[18px] rounded-full border border-border-secondary bg-background-primary/70 shadow-inner
+                    transition-all duration-200 ease-[var(--epistemos-control-ease)] group-hover:border-[var(--epistemos-accent)]
+                    peer-checked:border-[5px] peer-checked:border-[var(--epistemos-accent)] peer-checked:bg-background-primary"`
+  );
+  write('src/components/settings/mode/ModeSelectionItem.tsx', source);
+
+  source = read('src/components/settings/mode/ConversationLimitsDropdown.tsx');
+  source = replaceRequired(
+    source,
+    'conversation limits disclosure native',
+    'className="w-full flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-[5px] transition-all group"',
+    'className="group flex w-full items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-border-secondary hover:bg-background-secondary/60"'
+  );
+  source = replaceRequired(
+    source,
+    'conversation limits title native weight',
+    '<h3 className="text-text-primary">{intl.formatMessage(i18n.conversationLimits)}</h3>',
+    '<h3 className="font-medium text-text-primary">{intl.formatMessage(i18n.conversationLimits)}</h3>'
+  );
+  source = replaceRequired(
+    source,
+    'conversation limits row native glass',
+    'className="flex items-center justify-between py-2 px-2 bg-background-secondary rounded-[5px] transform transition-all duration-200 ease-in-out"',
+    'className="flex items-center justify-between rounded-[9px] border border-border-secondary bg-background-secondary/60 px-3 py-2.5 shadow-sm backdrop-blur-xl transition-all duration-200 ease-[var(--epistemos-control-ease)]"'
+  );
+  source = replaceRequired(
+    source,
+    'conversation limits input native width',
+    'className="w-20"',
+    'className="w-24 text-right"'
+  );
+  write('src/components/settings/mode/ConversationLimitsDropdown.tsx', source);
+
+  source = read('src/components/settings/mode/ConfigureApproveMode.tsx');
+  source = replaceRequired(
+    source,
+    'approve mode overlay native blur',
+    'className="fixed inset-0 bg-black/30"',
+    'className="fixed inset-0 bg-black/24 backdrop-blur-sm"'
+  );
+  source = replaceRequired(
+    source,
+    'approve mode card native glass',
+    'className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] bg-background-primary rounded-[6px] overflow-hidden p-[16px] pt-[24px] pb-0 border border-border-primary shadow-none"',
+    'className="fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 p-[16px] pt-[24px] pb-0 shadow-2xl backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'approve mode title native',
+    'className="text-2xl font-regular text-text-primary"',
+    'className="text-xl font-semibold tracking-normal text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'approve mode save button native',
+    'className="w-full h-[60px] rounded-none border-t border-border-primary hover:bg-background-secondary text-text-primary dark:border-gray-600 text-base font-regular"',
+    'className="h-11 w-full rounded-[8px] border border-border-secondary bg-background-primary/65 text-base font-medium text-text-primary hover:bg-background-secondary/75"'
+  );
+  source = replaceRequired(
+    source,
+    'approve mode cancel button native',
+    'className="w-full h-[60px] rounded-none border-t border-border-primary text-text-secondary hover:bg-background-secondary dark:border-gray-600 text-base font-regular"',
+    'className="h-11 w-full rounded-[8px] border border-border-secondary text-base font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
+  );
+  write('src/components/settings/mode/ConfigureApproveMode.tsx', source);
+
+  source = read('src/components/settings/response_styles/ResponseStylesSection.tsx');
+  source = replaceRequired(
+    source,
+    'response styles list spacing native',
+    'className="space-y-1"',
+    'className="space-y-1.5"'
+  );
+  write('src/components/settings/response_styles/ResponseStylesSection.tsx', source);
+
+  source = read('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx');
+  source = replaceRequired(
+    source,
+    'response style item native row',
+    "className={`flex items-center justify-between text-text-primary py-2 px-2 ${checked ? 'bg-background-secondary' : 'bg-background-primary hover:bg-background-secondary'} rounded-lg transition-all`}",
+    "className={`flex items-center justify-between rounded-[9px] border px-3 py-2.5 text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] ${checked ? 'border-border-secondary bg-background-secondary/78 shadow-sm ring-[1px] ring-[var(--epistemos-accent)]/25' : 'border-transparent bg-transparent hover:border-border-secondary hover:bg-background-secondary/55'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'response style title native weight',
+    '<h3 className="text-text-primary">{intl.formatMessage(style.label)}</h3>',
+    '<h3 className="font-medium text-text-primary">{intl.formatMessage(style.label)}</h3>'
+  );
+  source = replaceRequired(
+    source,
+    'response style radio native accent',
+    `className="h-4 w-4 rounded-full border border-border-primary
+                  peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
+                  peer-checked:bg-white dark:peer-checked:bg-black
+                  transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
+    `className="h-[18px] w-[18px] rounded-full border border-border-secondary bg-background-primary/70 shadow-inner
+                  transition-all duration-200 ease-[var(--epistemos-control-ease)] group-hover:border-[var(--epistemos-accent)]
+                  peer-checked:border-[5px] peer-checked:border-[var(--epistemos-accent)] peer-checked:bg-background-primary"`
+  );
+  write('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -2227,6 +2407,7 @@ applyCatalogSurfaces();
 applyProviderCatalogSurfaces();
 applyProviderModalSurfaces();
 applyExtensionSettingsSurfaces();
+applyChatSettingsSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
