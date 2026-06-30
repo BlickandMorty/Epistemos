@@ -498,7 +498,7 @@ struct HTMLWorkspaceEditorView: View {
         guard let provenance = package.manifest.generationProvenance else {
             return "Local / unstamped"
         }
-        return "\(provenance.producer.rawValue.capitalized) \(provenance.operation.displayName)"
+        return provenance.displayText(currentContentHash: contentHash)
     }
 
     private var selectedPaneSubtitle: String {

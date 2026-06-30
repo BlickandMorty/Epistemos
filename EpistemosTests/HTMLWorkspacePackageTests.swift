@@ -90,6 +90,10 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let recovered = try HTMLWorkspacePackage(fileWrapper: try original.makeFileWrapper())
         #expect(recovered.manifest.generationProvenance == original.manifest.generationProvenance)
+        let provenance = try #require(recovered.manifest.generationProvenance)
+        #expect(provenance.displayText(currentContentHash: "after-hash") == "Agent regenerate / current")
+        #expect(provenance.displayText(currentContentHash: "different-hash") == "Agent regenerate / stale")
+        #expect(provenance.displayText(currentContentHash: nil) == "Agent regenerate / unverified")
     }
 
     @Test("HTMLWorkspace vault search feed renders provenance and freshness metadata into data.json")

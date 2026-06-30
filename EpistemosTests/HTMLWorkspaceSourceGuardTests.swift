@@ -256,6 +256,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(provenanceSource.contains("reversible_snapshot_name"))
         #expect(provenanceSource.contains("generated_by_run"))
         #expect(provenanceSource.contains("html_workspace.patch"))
+        #expect(provenanceSource.contains("displayText(currentContentHash:"))
+        #expect(provenanceSource.contains(#""stale""#))
         #expect(resourceSource.contains("HTMLWorkspacePreviewResourceMode"))
         #expect(resourceSource.contains("case inlinePackageAssets"))
         #expect(resourceSource.contains("HTMLWorkspacePackageResources"))

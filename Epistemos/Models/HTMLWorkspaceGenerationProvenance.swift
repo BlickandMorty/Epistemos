@@ -44,6 +44,11 @@ nonisolated public struct HTMLWorkspaceGenerationProvenance: Codable, Sendable, 
         self.toolId = toolId
     }
 
+    public func displayText(currentContentHash: String?) -> String {
+        let freshness = currentContentHash.map { $0 == contentHash ? "current" : "stale" } ?? "unverified"
+        return "\(producer.rawValue.capitalized) \(operation.displayName) / \(freshness)"
+    }
+
     private enum CodingKeys: String, CodingKey {
         case producer
         case operation
