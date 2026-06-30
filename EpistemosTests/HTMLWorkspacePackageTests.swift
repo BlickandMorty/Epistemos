@@ -138,6 +138,43 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(HTMLWorkspacePreviewIdentity.viewIdentity(for: original) != HTMLWorkspacePreviewIdentity.viewIdentity(for: assetUpdate))
     }
 
+    @Test("HTMLWorkspace package resource resolver serves canonical files and path-safe assets")
+    func packageResourceResolverServesCanonicalFilesAndAssets() throws {
+        let package = Self.samplePackage()
+
+        let css = try #require(HTMLWorkspacePackageResources.resource(for: HTMLWorkspacePackageEntry.styleCSS, in: package))
+        #expect(css.mimeType == "text/css")
+        #expect(String(data: css.data, encoding: .utf8) == package.styleCSS)
+
+        let asset = try #require(HTMLWorkspacePackageResources.resource(for: "assets/texture.png", in: package))
+        #expect(asset.mimeType == "image/png")
+        #expect(asset.data == package.assets["texture.png"])
+        #expect(HTMLWorkspacePackageResources.resource(for: "assets/../texture.png", in: package) == nil)
+    }
+
+    @Test("HTMLWorkspace export render inlines package assets for headless PDF")
+    func exportRenderInlinesPackageAssetsForHeadlessPDF() {
+        var package = Self.samplePackage()
+        package.indexHTML = #"<main><img src="assets/texture.png" alt=""><video poster="./assets/texture.png"></video><source srcset="/assets/texture.png"><p>assets/texture.png-large</p></main>"#
+        package.styleCSS = #".hero { background-image: url("assets/texture.png"); }"#
+
+        let preview = HTMLWorkspacePreviewDocument.render(package: package)
+        let exported = HTMLWorkspacePreviewDocument.render(package: package, resourceMode: .inlinePackageAssets)
+        let dataURL = HTMLWorkspacePackageResources.dataURL(
+            for: "texture.png",
+            data: Data([0x89, 0x50, 0x4e, 0x47])
+        )
+
+        #expect(preview.contains(#"src="assets/texture.png""#))
+        #expect(exported.contains(#"src="\#(dataURL)""#))
+        #expect(exported.contains(#"poster="\#(dataURL)""#))
+        #expect(exported.contains(#"srcset="\#(dataURL)""#))
+        #expect(exported.contains(#"url("\#(dataURL)")"#))
+        #expect(!exported.contains(#"src="assets/texture.png""#))
+        #expect(exported.contains("assets/texture.png-large"))
+        #expect(exported.contains("default-src 'none'"))
+    }
+
     @Test("HTMLWorkspace setDataFeed patch seeds pending data for the new query")
     func setDataFeedPatchSeedsPendingDataForNewQuery() throws {
         var package = Self.samplePackage()
@@ -225,7 +262,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.manifest.sandboxPolicy.allowAppBridge == false)
         #expect(srcdoc.contains("Content-Security-Policy"))
         #expect(srcdoc.contains("default-src 'none'"))
-        #expect(srcdoc.contains("connect-src 'none'"))
+        #expect(srcdoc.contains("connect-src \(HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource)"))
         #expect(srcdoc.contains(#"id="workspace-data""#))
         #expect(darkSrcdoc.contains(#"data-epistemos-theme="dark""#))
         #expect(darkSrcdoc.contains(#"id="epistemos-font-face""#))

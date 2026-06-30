@@ -926,8 +926,15 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
     public static func render(
         package: HTMLWorkspacePackage,
         theme: HTMLWorkspacePreviewTheme? = nil,
-        themeGuardCSSOverride: String? = nil
+        themeGuardCSSOverride: String? = nil,
+        resourceMode: HTMLWorkspacePreviewResourceMode = .packageLocal
     ) -> String {
+        let package = switch resourceMode {
+        case .packageLocal:
+            package
+        case .inlinePackageAssets:
+            HTMLWorkspacePackageResources.packageWithInlineAssets(package)
+        }
         let csp = package.manifest.sandboxPolicy.contentSecurityPolicy
         let themeAttribute = theme.map { #" data-epistemos-theme="\#($0.rawValue)""# } ?? ""
         let themeCSS = themeGuardCSSOverride ?? theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS

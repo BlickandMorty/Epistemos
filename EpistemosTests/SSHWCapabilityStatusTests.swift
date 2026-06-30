@@ -40,6 +40,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.liveCount > 0)        // it genuinely works as a renderer
         #expect(HTMLWorkspaceCapabilityStatus.deferredCount > 0)    // but it is NOT complete
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("PDF export"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("live DOM outline"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("console capture is wired but env-gated"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("deferred"))

@@ -86,7 +86,11 @@ enum HTMLWorkspacePDFExporter {
         /// startedProvisional→committed→finished promptly, so a stalled render throws `loadTimedOut` rather than
         /// hanging the export.
         private func load(into page: WebPage) async throws {
-            let html = HTMLWorkspacePreviewDocument.render(package: package, theme: theme)
+            let html = HTMLWorkspacePreviewDocument.render(
+                package: package,
+                theme: theme,
+                resourceMode: .inlinePackageAssets
+            )
             let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int(Self.loadTimeoutNanoseconds)))
             for try await event in page.load(html: html) {
                 if event == .finished { return }

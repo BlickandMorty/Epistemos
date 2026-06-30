@@ -92,25 +92,11 @@ nonisolated enum HTMLWorkspacePreviewURL {
     static let baseURL = URL(string: "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(HTMLWorkspacePackageEntry.indexHTML)")!
 }
 
-nonisolated struct HTMLWorkspacePreviewResourceResponse: Sendable {
-    var data: Data
-    var mimeType: String
-    var textEncodingName: String?
-
-    static func text(_ value: String, mimeType: String) -> HTMLWorkspacePreviewResourceResponse {
-        HTMLWorkspacePreviewResourceResponse(
-            data: Data(value.utf8),
-            mimeType: mimeType,
-            textEncodingName: "utf-8"
-        )
-    }
-}
-
 @MainActor
 final class HTMLWorkspacePreviewURLSchemeHandler: NSObject, WKURLSchemeHandler {
-    private let resolver: @MainActor (String) -> HTMLWorkspacePreviewResourceResponse?
+    private let resolver: @MainActor (String) -> HTMLWorkspacePackageResource?
 
-    init(resolver: @escaping @MainActor (String) -> HTMLWorkspacePreviewResourceResponse?) {
+    init(resolver: @escaping @MainActor (String) -> HTMLWorkspacePackageResource?) {
         self.resolver = resolver
     }
 
@@ -415,7 +401,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         })();
         """
 
-        func resourceResponse(for resourcePath: String) -> HTMLWorkspacePreviewResourceResponse? {
+        func resourceResponse(for resourcePath: String) -> HTMLWorkspacePackageResource? {
             switch resourcePath {
             case "", HTMLWorkspacePackageEntry.indexHTML:
                 return .text(
@@ -426,75 +412,9 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                     ),
                     mimeType: "text/html"
                 )
-            case HTMLWorkspacePackageEntry.styleCSS:
-                return .text(package.styleCSS, mimeType: "text/css")
-            case HTMLWorkspacePackageEntry.scriptJS, HTMLWorkspacePackageEntry.legacyScriptJS:
-                return .text(package.scriptJS, mimeType: "application/javascript")
-            case HTMLWorkspacePackageEntry.dataJSON:
-                return .text(package.dataJSON, mimeType: "application/json")
             default:
-                guard let assetName = Self.packageAssetName(for: resourcePath),
-                      let data = package.assets[assetName] else {
-                    return nil
-                }
-                let mimeType = Self.mimeType(for: assetName)
-                return HTMLWorkspacePreviewResourceResponse(
-                    data: data,
-                    mimeType: mimeType,
-                    textEncodingName: Self.textEncodingName(for: mimeType)
-                )
+                return HTMLWorkspacePackageResources.resource(for: resourcePath, in: package)
             }
-        }
-
-        private static func packageAssetName(for resourcePath: String) -> String? {
-            let prefix = "\(HTMLWorkspacePackageEntry.assets)/"
-            guard resourcePath.hasPrefix(prefix) else { return nil }
-            let name = String(resourcePath.dropFirst(prefix.count))
-            guard !name.isEmpty,
-                  !name.contains("/"),
-                  !name.contains("\\"),
-                  name != ".",
-                  name != "..",
-                  !name.hasPrefix("."),
-                  !name.contains("\0"),
-                  !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
-                return nil
-            }
-            return name
-        }
-
-        private static func mimeType(for name: String) -> String {
-            switch name.split(separator: ".").last?.lowercased() {
-            case "css": "text/css"
-            case "js", "mjs": "application/javascript"
-            case "json": "application/json"
-            case "html", "htm": "text/html"
-            case "svg": "image/svg+xml"
-            case "png": "image/png"
-            case "jpg", "jpeg": "image/jpeg"
-            case "gif": "image/gif"
-            case "webp": "image/webp"
-            case "avif": "image/avif"
-            case "mp4": "video/mp4"
-            case "webm": "video/webm"
-            case "mp3": "audio/mpeg"
-            case "wav": "audio/wav"
-            case "woff": "font/woff"
-            case "woff2": "font/woff2"
-            case "ttf": "font/ttf"
-            case "otf": "font/otf"
-            default: "application/octet-stream"
-            }
-        }
-
-        private static func textEncodingName(for mimeType: String) -> String? {
-            if mimeType.hasPrefix("text/") ||
-                mimeType == "application/javascript" ||
-                mimeType == "application/json" ||
-                mimeType == "image/svg+xml" {
-                return "utf-8"
-            }
-            return nil
         }
 
         private static func javaScriptStringLiteral(_ value: String) -> String {
