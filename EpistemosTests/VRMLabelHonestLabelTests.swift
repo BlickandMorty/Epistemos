@@ -139,12 +139,39 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains("LatestAnswerPacketSink.shared.packet(for: packetID)"))
         #expect(source.contains("message.answerPacketId"))
         #expect(source.contains("VRMLineageExport.make("))
+        #expect(source.contains("VRMLineageDisplayBounds"))
+        #expect(source.contains("maxDisplayedClaims"))
+        #expect(source.contains("displayedClaims"))
         #expect(source.contains("ClaimLineageRow(claim: claim, packetID: packet.id)"))
+        #expect(source.contains("omitted from display"))
+        #expect(source.contains("claimText(claim.text)"))
         #expect(source.contains("claim.isVerifiedByAnchor(forPacketID: packetID)"))
         #expect(source.contains("NSPasteboard.general.setString(export.encodedJSONString(), forType: .string)"))
         #expect(source.contains("encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]"))
         #expect(source.contains("Copy lineage JSON"))
         #expect(!source.contains("packet.uiLabel"))
+    }
+
+    @Test("VRM lineage popover bounds runtime-fed display values")
+    func vrmLineagePopoverBoundsRuntimeFedDisplayValues() {
+        let longMetadata = String(repeating: "m", count: VRMLineageDisplayBounds.maxMetadataCharacters + 32)
+        let longClaim = String(repeating: "c", count: VRMLineageDisplayBounds.maxClaimTextCharacters + 32)
+        let claims = (0..<(VRMLineageDisplayBounds.maxDisplayedClaims + 3)).map { index in
+            Self.claim(
+                kind: .empirical,
+                status: .active,
+                id: "claim-\(index)",
+                text: index == 0 ? longClaim : "claim \(index)"
+            )
+        }
+
+        #expect(VRMLineageDisplayBounds.metadata(longMetadata).count == VRMLineageDisplayBounds.maxMetadataCharacters + 3)
+        #expect(VRMLineageDisplayBounds.claimText(longClaim).count == VRMLineageDisplayBounds.maxClaimTextCharacters + 3)
+        #expect(VRMLineageDisplayBounds.displayedClaims(claims).count == VRMLineageDisplayBounds.maxDisplayedClaims)
+        #expect(
+            VRMLineageDisplayBounds.displayedClaims(claims).last?.text ==
+                "claim \(VRMLineageDisplayBounds.maxDisplayedClaims - 1)"
+        )
     }
 
     @Test("lineage export is deterministic and excludes legacy stored label")
@@ -215,6 +242,8 @@ struct VRMLabelHonestLabelTests {
             "message.resolvedModelLabel",
             "message.mode?.rawValue",
             "message.createdAt",
+            "hover-lineage card bounds runtime-fed metadata",
+            "copyable lineage JSON remains full-fidelity",
             "O_NOFOLLOW",
             "8 MiB",
         ] {
@@ -226,6 +255,8 @@ struct VRMLabelHonestLabelTests {
             "`VRMLabelView` renders only `honestLabel(for:)`",
             "`requiresLiveBacking: .ledger/.dag`",
             "`VRMLineageExport`",
+            "hover-lineage card",
+            "full-fidelity verifiable lineage JSON",
             "regular-file/no-follow writes",
             "8 MiB",
             "Moat-3 (delivered)",
@@ -267,11 +298,13 @@ struct VRMLabelHonestLabelTests {
         acsAnchored: Bool = false,
         uasAddressed: Bool = false,
         activePacketId: String? = "pkt-test",
-        createdAtMs: Int64 = 1_783_000_000_000
+        createdAtMs: Int64 = 1_783_000_000_000,
+        id: String? = nil,
+        text: String? = nil
     ) -> Claim {
         Claim(
-            id: "\(kind.rawValue)-\(status.rawValue)-acs-\(acsAnchored)-uas-\(uasAddressed)",
-            text: "\(kind.rawValue) \(status.rawValue)",
+            id: id ?? "\(kind.rawValue)-\(status.rawValue)-acs-\(acsAnchored)-uas-\(uasAddressed)",
+            text: text ?? "\(kind.rawValue) \(status.rawValue)",
             status: status,
             createdAtMs: createdAtMs,
             kind: kind,

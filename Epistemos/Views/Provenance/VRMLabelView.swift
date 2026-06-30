@@ -107,6 +107,32 @@ struct VRMLabelView: View {
     }
 }
 
+nonisolated enum VRMLineageDisplayBounds {
+    static let maxDisplayedClaims = 20
+    static let maxMetadataCharacters = 160
+    static let maxClaimTextCharacters = 360
+
+    static func metadata(_ value: String) -> String {
+        capped(value, limit: maxMetadataCharacters)
+    }
+
+    static func claimText(_ value: String) -> String {
+        capped(value, limit: maxClaimTextCharacters)
+    }
+
+    static func displayedClaims(_ claims: [Claim]) -> [Claim] {
+        Array(claims.prefix(maxDisplayedClaims))
+    }
+
+    private static func capped(_ value: String, limit: Int) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else {
+            return trimmed
+        }
+        return String(trimmed.prefix(limit)) + "..."
+    }
+}
+
 nonisolated struct VRMLineageExport: Codable, Equatable, Sendable {
     let schema: String
     let packetId: String
@@ -203,6 +229,14 @@ private struct VRMLineageCard: View {
         packet.residencySignals.map(\.verificationScore).max()
     }
 
+    private var displayedClaims: [Claim] {
+        VRMLineageDisplayBounds.displayedClaims(packet.activeClaims)
+    }
+
+    private var omittedClaimCount: Int {
+        max(0, packet.activeClaims.count - displayedClaims.count)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -238,8 +272,13 @@ private struct VRMLineageCard: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(packet.activeClaims, id: \.id) { claim in
+                    ForEach(displayedClaims, id: \.id) { claim in
                         ClaimLineageRow(claim: claim, packetID: packet.id)
+                    }
+                    if omittedClaimCount > 0 {
+                        Text("\(omittedClaimCount) additional claims omitted from display.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -269,7 +308,7 @@ private struct VRMLineageCard: View {
             Text(label)
                 .foregroundStyle(.secondary)
                 .frame(width: 72, alignment: .leading)
-            Text(value)
+            Text(VRMLineageDisplayBounds.metadata(value))
                 .lineLimit(2)
         }
     }
@@ -323,7 +362,7 @@ private struct ClaimLineageRow: View {
                             .accessibilityLabel("UAS address")
                     }
                 }
-                Text(claim.text)
+                Text(VRMLineageDisplayBounds.claimText(claim.text))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)

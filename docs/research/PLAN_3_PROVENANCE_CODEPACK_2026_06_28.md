@@ -46,7 +46,8 @@ bounds/no-follows each `result.json` artifact before parsing; other rows stay de
 Chip text/color from `honestLabel(for:)` ONLY; renders **nothing** when nil. Hover popover surfaces: model + tier +
 verification score (`packet.residencySignals.map(\.verificationScore).max()`, `:204`) + generatedAt (newest claim
 `createdAtMs`) vs acceptedAt + the **claim list** (kind/status dot + a `link` glyph for ACS verification anchors and a
-`number` glyph for UAS-addressed claims). Lineage fields the
+`number` glyph for UAS-addressed claims). The hover-lineage card bounds runtime-fed metadata, claim text, and displayed
+claim count before SwiftUI render; the copyable lineage JSON remains full-fidelity. Lineage fields the
 packet doesn't carry (model/tier/acceptedAt) are **explicit view inputs from `ChatMessage`** — never fabricated inside
 the packet. Call site (the binding that keeps it honest):
 ```swift
