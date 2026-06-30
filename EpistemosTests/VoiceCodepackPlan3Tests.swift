@@ -116,8 +116,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("VoiceCapturePresentationBounds.statusMessage"))
         #expect(facade.contains("VoiceCaptureDiagnostics.externalStatusMessage"))
         #expect(!facade.contains("String(describing: error)"))
+        #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"asset inventory check failed\")"))
+        #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"transcriber results failed\")"))
+        #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"speech analysis failed\")"))
         #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"model download failed\")"))
         #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"audio engine failed\")"))
+        #expect(!analyzer.contains("error.localizedDescription"))
         #expect(!analyzer.contains("throw SpeechError.downloadFailed(error.localizedDescription)"))
         #expect(!analyzer.contains("throw SpeechError.audioEngineFailed(error.localizedDescription)"))
     }

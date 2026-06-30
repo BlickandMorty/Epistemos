@@ -102,8 +102,12 @@ public final class EpistemosSpeechAnalyzer {
                 return .modelDownloadRequired
             }
         } catch {
+            let message = VoiceCaptureDiagnostics.externalErrorDescription(
+                error,
+                fallback: "asset inventory check failed"
+            )
             Self.log.warning(
-                "asset inventory check failed: \(error.localizedDescription, privacy: .public)"
+                "\(message, privacy: .public)"
             )
         }
         return .available
@@ -199,8 +203,12 @@ public final class EpistemosSpeechAnalyzer {
                     }
                 }
             } catch {
+                let message = VoiceCaptureDiagnostics.externalErrorDescription(
+                    error,
+                    fallback: "transcriber results failed"
+                )
                 Self.log.warning(
-                    "transcriber.results stream errored: \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
             }
             resultsCont.finish()
@@ -213,8 +221,12 @@ public final class EpistemosSpeechAnalyzer {
             do {
                 try await analyzer.start(inputSequence: inputStream)
             } catch {
+                let message = VoiceCaptureDiagnostics.externalErrorDescription(
+                    error,
+                    fallback: "speech analysis failed"
+                )
                 Self.log.warning(
-                    "SpeechAnalyzer live stream errored: \(error.localizedDescription, privacy: .public)"
+                    "\(message, privacy: .public)"
                 )
             }
         }
