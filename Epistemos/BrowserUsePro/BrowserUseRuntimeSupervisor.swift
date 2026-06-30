@@ -511,7 +511,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         let task = session.dataTask(with: request) { _, response, error in
             defer { semaphore.signal() }
             if let error {
-                result.store(problem: "request failed: \(error.localizedDescription)")
+                result.store(problem: BrowserUseDiagnostics.statusMessage(for: error, fallback: "request failed"))
                 return
             }
 

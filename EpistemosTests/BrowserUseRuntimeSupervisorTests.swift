@@ -597,6 +597,7 @@ struct BrowserUseRuntimeSupervisorTests {
             "private static func defaultHealthProbeImpl",
             "loopbackHealthProblem(for:",
             "BrowserUseLoopbackPolicy.allows(url:",
+            "BrowserUseDiagnostics.statusMessage(for: error, fallback: \"request failed\")",
             "redactedURLDescription",
             "maxURLDiagnosticLength",
             "maxPathDiagnosticLength",
@@ -616,6 +617,7 @@ struct BrowserUseRuntimeSupervisorTests {
         ] {
             #expect(source.contains(required), "Missing runtime supervisor contract string: \(required)")
         }
+        #expect(!source.contains("request failed: \\(error.localizedDescription)"))
 
         for forbidden in [
             "NSWorkspace",

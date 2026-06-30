@@ -136,6 +136,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("rejecting symlinked env directories/files and symlinked parent components"))
         #expect(codepack.contains("rejects launch `.env` paths below symlinked parent directories before secrets are written"))
         #expect(codepack.contains("loopback health probe"))
+        #expect(codepack.contains("maps health request failures to bounded domain/code diagnostics"))
         #expect(codepack.contains("terminates the launched process if the loopback health probe fails"))
         #expect(codepack.contains("Loopback server smoke harness"))
         #expect(codepack.contains("local WKWebView fixture dry-run shell smoke also landed"))

@@ -160,7 +160,8 @@ runtime root instead of full user-local paths, writes the Keychain-combined laun
 with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
 secrets are written, launches the Pro process only after an injected loopback health probe can validate
 `http://127.0.0.1:<port>/`, keeps rejected-redirect health diagnostics origin-only so hostile Location URLs cannot echo
-credentials, query tokens, fragments, or path contents, terminates the launched process if the loopback health probe fails, and compiles the actual
+credentials, query tokens, fragments, or path contents, maps health request failures to bounded domain/code diagnostics,
+terminates the launched process if the loopback health probe fails, and compiles the actual
 `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
 `scripts/browser-use-pro-loopback-smoke.sh` now exercises that staged server shape outside the app host by launching the
