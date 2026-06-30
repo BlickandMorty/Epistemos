@@ -69,6 +69,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         // workspace swaps (an installed-but-orphaned bridge is both a leak and a latent surface).
         #expect(previewSource.contains("removeScriptMessageHandler"))
         #expect(previewSource.contains("messageHandlerInstalled = false"))
+        #expect(previewSource.contains("func detach(from webView: WKWebView) {\n            webView.navigationDelegate = nil"))
+        #expect(previewSource.contains("lastRenderedDataJSON = nil\n            webView.stopLoading()"))
     }
 
     @Test("HTML workspace exposes explicit attachment helpers")

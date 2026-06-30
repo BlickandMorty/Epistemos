@@ -484,7 +484,6 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         }
 
         func detach(from webView: WKWebView) {
-            webView.stopLoading()
             webView.navigationDelegate = nil
             if messageHandlerInstalled {
                 webView.configuration.userContentController.removeScriptMessageHandler(
@@ -502,6 +501,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
             lastRenderedThemeIdentity = nil
             lastRenderedShellIdentity = nil
             lastRenderedDataJSON = nil
+            webView.stopLoading()
         }
 
         func userContentController(
