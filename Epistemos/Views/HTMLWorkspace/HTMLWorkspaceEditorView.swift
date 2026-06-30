@@ -942,7 +942,7 @@ struct HTMLWorkspaceEditorView: View {
         case .dom:
             ["replaceDocument", "regenerate", "insertBlock", "insertChart"]
         case .assets:
-            ["replaceDocument", "regenerate", "addAsset", "captureSnapshot"]
+            ["replaceDocument", "regenerate", "addAsset", "removeAsset", "captureSnapshot"]
         }
     }
 

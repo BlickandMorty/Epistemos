@@ -474,6 +474,7 @@ nonisolated struct HTMLWorkspacePackageTests {
             .addAsset(HTMLWorkspaceAsset(name: "fixture.json", data: Data("{\"ok\":true}".utf8))),
             to: package
         )
+        package = try HTMLWorkspacePatchApplier.apply(.removeAsset(name: "texture.png"), to: package)
         package = try HTMLWorkspacePatchApplier.apply(.captureSnapshot(name: "after-chart.html"), to: package)
         package = try HTMLWorkspacePatchApplier.apply(
             .recordConsoleError(HTMLWorkspaceConsoleError(
@@ -490,6 +491,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("color: blue;"))
         #expect(!package.styleCSS.contains("color: red;"))
         #expect(package.assets["fixture.json"] == Data("{\"ok\":true}".utf8))
+        #expect(package.assets["texture.png"] == nil)
         #expect(package.snapshots["after-chart.html"] != nil)
         #expect(package.consoleErrors.last?.message == "ReferenceError: nope")
 
@@ -498,6 +500,9 @@ nonisolated struct HTMLWorkspacePackageTests {
                 .addAsset(HTMLWorkspaceAsset(name: "../secret", data: Data())),
                 to: package
             )
+        }
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try HTMLWorkspacePatchApplier.apply(.removeAsset(name: "../secret"), to: package)
         }
     }
 
@@ -569,14 +574,14 @@ nonisolated struct HTMLWorkspacePackageTests {
         I will add the visualization.
 
         ```epistemos-html-workspace-patch
-        {"workspace_id":"html-workspace-test","operations":[{"type":"setDataFeed","data_feed":{"source":"vault_search","query":"substrate provenance","limit":7}},{"type":"replaceDataJSON","json":"{\\"series\\":[1,2,3]}"},{"type":"insertBlock","html":"<section class=\\"viz\\"><h2>Signal</h2></section>","location":"append"},{"type":"updateStyleRule","selector":".viz","declarations":{"display":"grid","gap":"12px"}}]}
+        {"workspace_id":"html-workspace-test","operations":[{"type":"setDataFeed","data_feed":{"source":"vault_search","query":"substrate provenance","limit":7}},{"type":"replaceDataJSON","json":"{\\"series\\":[1,2,3]}"},{"type":"insertBlock","html":"<section class=\\"viz\\"><h2>Signal</h2></section>","location":"append"},{"type":"updateStyleRule","selector":".viz","declarations":{"display":"grid","gap":"12px"}},{"type":"removeAsset","name":"texture.png"}]}
         ```
         """
 
         let result = try HTMLWorkspacePatchCommandParser.parse(response)
         #expect(result.batches.count == 1)
         #expect(result.cleanedText == "I will add the visualization.")
-        #expect(result.batches[0].operations.count == 4)
+        #expect(result.batches[0].operations.count == 5)
 
         var package = Self.samplePackage()
         for command in result.batches[0].operations {
@@ -589,6 +594,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.dataJSON.contains("series"))
         #expect(package.styleCSS.contains(".viz {"))
         #expect(package.styleCSS.contains("display: grid;"))
+        #expect(package.assets["texture.png"] == nil)
 
         let regenerate = """
         ```epistemos-html-workspace-patch

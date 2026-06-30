@@ -1108,6 +1108,7 @@ nonisolated public enum HTMLWorkspacePatchOperation: Sendable, Hashable {
     case insertChart(HTMLWorkspaceChartSpec)
     case updateStyleRule(HTMLWorkspaceStyleRulePatch)
     case addAsset(HTMLWorkspaceAsset)
+    case removeAsset(name: String)
     case captureSnapshot(name: String)
     case recordConsoleError(HTMLWorkspaceConsoleError)
 }
@@ -1250,6 +1251,10 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         case .addAsset(let asset):
             try HTMLWorkspacePackage.validatePackageFileName(asset.name)
             updated.assets[asset.name] = asset.data
+            try HTMLWorkspacePackage.validateAssets(updated.assets)
+        case .removeAsset(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            updated.assets.removeValue(forKey: name)
             try HTMLWorkspacePackage.validateAssets(updated.assets)
         case .captureSnapshot(let name):
             try HTMLWorkspacePackage.validatePackageFileName(name)

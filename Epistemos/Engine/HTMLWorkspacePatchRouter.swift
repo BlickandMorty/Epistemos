@@ -89,6 +89,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     case insertChart(HTMLWorkspaceChartSpec)
     case updateStyleRule(HTMLWorkspaceStyleRulePatch)
     case addAsset(name: String, base64: String)
+    case removeAsset(name: String)
     case captureSnapshot(name: String)
 
     private enum CodingKeys: String, CodingKey {
@@ -119,6 +120,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case insertChart
         case updateStyleRule
         case addAsset
+        case removeAsset
         case captureSnapshot
     }
 
@@ -163,6 +165,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
                 name: try container.decode(String.self, forKey: .name),
                 base64: try container.decode(String.self, forKey: .base64)
             )
+        case .removeAsset:
+            self = .removeAsset(name: try container.decode(String.self, forKey: .name))
         case .captureSnapshot:
             self = .captureSnapshot(name: try container.decode(String.self, forKey: .name))
         }
@@ -211,6 +215,9 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             try container.encode(OperationType.addAsset, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(base64, forKey: .base64)
+        case .removeAsset(let name):
+            try container.encode(OperationType.removeAsset, forKey: .type)
+            try container.encode(name, forKey: .name)
         case .captureSnapshot(let name):
             try container.encode(OperationType.captureSnapshot, forKey: .type)
             try container.encode(name, forKey: .name)
@@ -246,6 +253,9 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
                 throw HTMLWorkspacePatchRouterError.oversizedAsset(name: name, count: data.count)
             }
             return .addAsset(HTMLWorkspaceAsset(name: name, data: data))
+        case .removeAsset(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            return .removeAsset(name: name)
         case .captureSnapshot(let name):
             return .captureSnapshot(name: name)
         }
@@ -285,6 +295,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             guard data.count <= HTMLWorkspacePatchCommandLimits.maxAssetBytes else {
                 throw HTMLWorkspacePatchRouterError.oversizedAsset(name: name, count: data.count)
             }
+        case .removeAsset(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
         case .captureSnapshot(let name):
             try HTMLWorkspacePackage.validatePackageFileName(name)
         }
@@ -487,7 +499,7 @@ enum HTMLWorkspacePatchRouter {
             Surface Kind: htmlWorkspace
             Pane: preview
             Selected Range: none
-            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot
+            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, removeAsset, captureSnapshot
             """
             return """
             ### Attached HTML Workspace: \(snapshot.title)
@@ -501,7 +513,7 @@ enum HTMLWorkspacePatchRouter {
             ```epistemos-html-workspace-patch
             {"workspace_id":"\(snapshot.workspaceID)","expected_content_hash":"\(snapshot.contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
             ```
-            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, captureSnapshot.
+            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, addAsset, removeAsset, captureSnapshot.
             Full-surface replacement: use replaceDocument/regenerate when the user asks to rebuild the whole page; include "html", "css", "js", and "json" in one operation.
             Data operation: replaceDataJSON with a "json" string for local structured data.
             Live data operation: setDataFeed with "data_feed":{"source":"vault_search","query":"...","limit":20}; use "data_feed":null to return to static data.
