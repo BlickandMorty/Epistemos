@@ -127,6 +127,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-mcp-tool-call"))
         #expect(stageScript.contains("readAcpSessionResource(sessionId, resourceUri, extensionName)"))
         #expect(stageScript.contains("callAcpSessionTool(sessionId, fullToolName, args || {})"))
+        #expect(stageScript.contains("epistemos-acp-disable-mcp-app-sampling-rest"))
+        #expect(stageScript.contains("MCP app sampling is not available through Goose ACP yet"))
         #expect(stageScript.contains("epistemos-acp-hide-rest-free-onboarding"))
         #expect(stageScript.contains("USE_ACP_CHAT ? OWN_PROVIDER : null"))
         #expect(stageScript.contains("!USE_ACP_CHAT && selectedPath === FREE_OPTIONS"))

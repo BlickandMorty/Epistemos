@@ -2647,6 +2647,19 @@ source = source.replace(
             })
           ).data ?? null;`
 );
+const samplingFallbackAnchor = `      if (request.method === 'sampling/createMessage') {
+        if (!sessionId || !apiHost || !secretKey) {`;
+const samplingFallbackReplacement = `      if (request.method === 'sampling/createMessage') {
+        if (USE_ACP_CHAT) {
+          throw new Error('MCP app sampling is not available through Goose ACP yet'); // epistemos-acp-disable-mcp-app-sampling-rest
+        }
+        if (!sessionId || !apiHost || !secretKey) {`;
+if (!source.includes('epistemos-acp-disable-mcp-app-sampling-rest')) {
+  if (!source.includes(samplingFallbackAnchor)) {
+    throw new Error('McpAppRenderer sampling fallback anchor not found');
+  }
+  source = source.replace(samplingFallbackAnchor, samplingFallbackReplacement);
+}
 
 for (const snippet of [
   'callAcpSessionTool',
@@ -2654,6 +2667,7 @@ for (const snippet of [
   'epistemos-acp-mcp-resource-read-ui',
   'epistemos-acp-mcp-tool-call-ui',
   'epistemos-acp-mcp-resource-read-handler',
+  'epistemos-acp-disable-mcp-app-sampling-rest',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`McpAppRenderer staged source missing required ACP MCP app snippet: ${snippet}`);
