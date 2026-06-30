@@ -120,6 +120,11 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-disable-nostr-session-links"))
         #expect(stageScript.contains("const [nostrEnabled, setNostrEnabled] = useState(!USE_ACP_CHAT);"))
         #expect(stageScript.contains("setNostrEnabled(false); // epistemos-acp-disable-nostr-session-links"))
+        #expect(stageScript.contains("epistemos-acp-hide-session-sharing"))
+        #expect(stageScript.contains("const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT);"))
+        #expect(stageScript.contains("sharing: USE_ACP_CHAT ? 'models' : 'sharing'"))
+        #expect(stageScript.contains("epistemos-acp-hide-session-history-sharing"))
+        #expect(stageScript.contains("setCanShare(false); // epistemos-acp-hide-session-history-sharing"))
 
         let support = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(support.contains("nativeFeelScript(theme: theme)"))

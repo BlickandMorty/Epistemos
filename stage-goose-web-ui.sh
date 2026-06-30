@@ -3768,6 +3768,256 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+SETTINGS_VIEW="$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+node - "$SETTINGS_VIEW" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import { getTunnelStatus } from '../../api/sdk.gen';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('SettingsView tunnel import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+if (source.includes('const [tunnelDisabled, setTunnelDisabled] = useState(false);')) {
+  source = source.replace(
+    'const [tunnelDisabled, setTunnelDisabled] = useState(false);',
+    'const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing'
+  );
+}
+
+if (source.includes("        sharing: 'sharing',")) {
+  source = source.replace(
+    "        sharing: 'sharing',",
+    "        sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing"
+  );
+}
+if (source.includes("        gateway: 'sharing',")) {
+  source = source.replace(
+    "        gateway: 'sharing',",
+    "        gateway: USE_ACP_CHAT ? 'models' : 'sharing',"
+  );
+}
+
+const tunnelEffectAnchor = `  useEffect(() => {
+    getTunnelStatus()`;
+const tunnelEffectReplacement = `  useEffect(() => {
+    if (USE_ACP_CHAT) {
+      setTunnelDisabled(true); // epistemos-acp-hide-session-sharing
+      return;
+    }
+    getTunnelStatus()`;
+if (!source.includes('setTunnelDisabled(true); // epistemos-acp-hide-session-sharing')) {
+  if (!source.includes(tunnelEffectAnchor)) {
+    throw new Error('SettingsView tunnel effect anchor not found');
+  }
+  source = source.replace(tunnelEffectAnchor, tunnelEffectReplacement);
+}
+
+const sharingTabAnchor = `                  <TabsTrigger
+                    value="sharing"
+                    className="flex gap-2"
+                    data-testid="settings-sharing-tab"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    {intl.formatMessage(i18n.tabSession)}
+                  </TabsTrigger>`;
+const sharingTabReplacement = `                  {!USE_ACP_CHAT && (
+                    <TabsTrigger
+                      value="sharing"
+                      className="flex gap-2"
+                      data-testid="settings-sharing-tab"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      {intl.formatMessage(i18n.tabSession)}
+                    </TabsTrigger>
+                  )}`;
+if (!source.includes('{!USE_ACP_CHAT && (\n                    <TabsTrigger\n                      value="sharing"')) {
+  if (!source.includes(sharingTabAnchor)) {
+    throw new Error('SettingsView sharing tab anchor not found');
+  }
+  source = source.replace(sharingTabAnchor, sharingTabReplacement);
+}
+
+const sharingContentAnchor = `                <TabsContent
+                  value="sharing"
+                  className="mt-0 focus-visible:outline-none"
+                >
+                  <div className="space-y-8 pb-8">
+                    <SessionSharingSection />
+                    <ExternalBackendSection />
+                    {!tunnelDisabled && <GatewaySettingsSection />}
+                  </div>
+                </TabsContent>`;
+const sharingContentReplacement = `                {!USE_ACP_CHAT && (
+                  <TabsContent
+                    value="sharing"
+                    className="mt-0 focus-visible:outline-none"
+                  >
+                    <div className="space-y-8 pb-8">
+                      <SessionSharingSection />
+                      <ExternalBackendSection />
+                      {!tunnelDisabled && <GatewaySettingsSection />}
+                    </div>
+                  </TabsContent>
+                )}`;
+if (!source.includes('{!USE_ACP_CHAT && (\n                  <TabsContent\n                    value="sharing"')) {
+  if (!source.includes(sharingContentAnchor)) {
+    throw new Error('SettingsView sharing content anchor not found');
+  }
+  source = source.replace(sharingContentAnchor, sharingContentReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  'const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing',
+  "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing",
+  'setTunnelDisabled(true); // epistemos-acp-hide-session-sharing',
+  '{!USE_ACP_CHAT && (',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`SettingsView staged source is missing required ACP sharing snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+SESSION_HISTORY_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
+node - "$SESSION_HISTORY_VIEW" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const acpImport = "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  const importAnchor = "import { createSharedSession } from '../../sharedSessions';";
+  if (!source.includes(importAnchor)) {
+    throw new Error('SessionHistoryView shared session import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+const shareEffectAnchor = `  useEffect(() => {
+    window.electron.getSetting('sessionSharing').then((config) => {`;
+const shareEffectReplacement = `  useEffect(() => {
+    if (USE_ACP_CHAT) {
+      setCanShare(false); // epistemos-acp-hide-session-history-sharing
+      return;
+    }
+    window.electron.getSetting('sessionSharing').then((config) => {`;
+if (!source.includes('setCanShare(false); // epistemos-acp-hide-session-history-sharing')) {
+  if (!source.includes(shareEffectAnchor)) {
+    throw new Error('SessionHistoryView share effect anchor not found');
+  }
+  source = source.replace(shareEffectAnchor, shareEffectReplacement);
+}
+
+const handleShareAnchor = `  const handleShare = async () => {
+    setIsSharing(true);`;
+const handleShareReplacement = `  const handleShare = async () => {
+    if (USE_ACP_CHAT) {
+      return; // epistemos-acp-hide-session-history-sharing
+    }
+    setIsSharing(true);`;
+if (!source.includes('return; // epistemos-acp-hide-session-history-sharing')) {
+  if (!source.includes(handleShareAnchor)) {
+    throw new Error('SessionHistoryView handleShare anchor not found');
+  }
+  source = source.replace(handleShareAnchor, handleShareReplacement);
+}
+
+const shareButtonAnchor = `      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleShare}
+            disabled={!canShare || isSharing}
+            size="sm"
+            variant="outline"
+            className={canShare ? '' : 'cursor-not-allowed opacity-50'}
+          >
+            {isSharing ? (
+              <>
+                <LoaderCircle className="w-4 h-4 mr-2 animate-spin" />
+                {intl.formatMessage(i18n.sharing)}
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                {intl.formatMessage(i18n.share)}
+              </>
+            )}
+          </Button>
+        </TooltipTrigger>
+        {!canShare ? (
+          <TooltipContent>
+            <p>
+              {intl.formatMessage(i18n.shareTooltip, {
+                b: (chunks: React.ReactNode) => <b>{chunks}</b>,
+              })}
+            </p>
+          </TooltipContent>
+        ) : null}
+      </Tooltip>`;
+const shareButtonReplacement = `      {!USE_ACP_CHAT && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={handleShare}
+              disabled={!canShare || isSharing}
+              size="sm"
+              variant="outline"
+              className={canShare ? '' : 'cursor-not-allowed opacity-50'}
+            >
+              {isSharing ? (
+                <>
+                  <LoaderCircle className="w-4 h-4 mr-2 animate-spin" />
+                  {intl.formatMessage(i18n.sharing)}
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" />
+                  {intl.formatMessage(i18n.share)}
+                </>
+              )}
+            </Button>
+          </TooltipTrigger>
+          {!canShare ? (
+            <TooltipContent>
+              <p>
+                {intl.formatMessage(i18n.shareTooltip, {
+                  b: (chunks: React.ReactNode) => <b>{chunks}</b>,
+                })}
+              </p>
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+      )}`;
+if (!source.includes('{!USE_ACP_CHAT && (\n        <Tooltip>')) {
+  if (!source.includes(shareButtonAnchor)) {
+    throw new Error('SessionHistoryView share button anchor not found');
+  }
+  source = source.replace(shareButtonAnchor, shareButtonReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  'setCanShare(false); // epistemos-acp-hide-session-history-sharing',
+  'return; // epistemos-acp-hide-session-history-sharing',
+  '{!USE_ACP_CHAT && (',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`SessionHistoryView staged source is missing required ACP sharing snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 PERMISSION_REQUESTS="$WORK_ROOT/ui/desktop/src/acp/permissionRequests.ts"
 ELICITATION_REQUESTS="$WORK_ROOT/ui/desktop/src/acp/elicitationRequests.ts"
 node - "$PERMISSION_REQUESTS" "$ELICITATION_REQUESTS" <<'NODE'
@@ -4329,6 +4579,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "goose-tool-call w-full text-sm font-sans rounded-\\[14px\\]" "$WORK_ROOT/ui/desktop/src/components/ToolCallWithResponse.tsx"
     grep -q "fixed z-50 bg-background-primary/88 border border-border-primary rounded-\\[14px\\]" "$WORK_ROOT/ui/desktop/src/components/MentionPopover.tsx"
     grep -q "text-2xl font-sans font-semibold tracking-normal" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "const \\[tunnelDisabled, setTunnelDisabled\\] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "import { USE_ACP_CHAT } from '../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "const \\[nostrEnabled, setNostrEnabled\\] = useState(!USE_ACP_CHAT); // epistemos-acp-disable-nostr-session-links" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
@@ -4337,6 +4590,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "mb-4 h-12 w-12 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
     grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] border border-border-secondary p-4 shadow-sm" "$WORK_ROOT/ui/desktop/src/components/sessions/SharedSessionView.tsx"
     grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] border border-border-secondary p-4 pt-5 shadow-sm" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
+    grep -q "epistemos-acp-hide-session-history-sharing" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
+    grep -q "setCanShare(false); // epistemos-acp-hide-session-history-sharing" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
+    grep -q "return; // epistemos-acp-hide-session-history-sharing" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
     grep -q "mb-4 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
     grep -q "mb-4 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionViewComponents.tsx"
     grep -q "DialogTitle className=\"flex items-center justify-center gap-2 font-sans font-semibold tracking-normal\"" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionHistoryView.tsx"
