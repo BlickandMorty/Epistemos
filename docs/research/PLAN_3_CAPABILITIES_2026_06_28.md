@@ -141,7 +141,7 @@ lives ONLY at T3. (Rest of the original heavy build = T3, below.)
 
 **Current state `[VERIFIED-CODE]`:** the user-driven Browser tab is live; the agent browser engines remain parked.
 - `Epistemos/Views/Browser/BrowserView.swift` ships `BrowserURLGuard`, `BrowserTab`, SwiftUI browser chrome, and a
-  non-persistent `WKWebView` wrapper with strict http/https navigation policy and teardown.
+  non-persistent `WKWebView` wrapper with strict http/https navigation action/response policy and teardown.
 - `UtilityPanel.browser`, the Browser command (`⌘⇧B`), and `LandingFeatureButton.browser` all summon the same
   human-driven Browser surface.
 - `BrowserEngine` async trait + `PageSnapshot`/`AxNode` still exist for the parked native robot seam. `WebKitBrowserEngine`

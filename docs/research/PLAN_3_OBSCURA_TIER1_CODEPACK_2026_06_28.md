@@ -24,8 +24,8 @@
 - **`BrowserView`** — SwiftUI chrome with a registry-backed Browser brand mark, back/forward, reload/stop, lock/globe
   address field, go button, progress bar, error bar, and limits popover.
 - **`BrowserWebView` (NSViewRepresentable)** — `WKWebView` with `nonPersistent()` store, JavaScript enabled, KVO state
-  observation, strict `BrowserURLGuard.allows` navigation policy, single-tab `target=_blank`, and teardown that breaks
-  retained WebView/tab closures.
+  observation, strict `BrowserURLGuard.allows` navigation-action and navigation-response policy, single-tab
+  `target=_blank`, and teardown that breaks retained WebView/tab closures.
 
 ## Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]
 `.browser` is in `UtilityPanel` (title "Browser", icon "safari", defaultSize 1024×720, free resize), routes to

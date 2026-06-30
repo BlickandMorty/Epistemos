@@ -424,12 +424,28 @@ private struct BrowserWebView: NSViewRepresentable {
 
         func webView(
             _ webView: WKWebView,
+            decidePolicyFor navigationResponse: WKNavigationResponse,
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
+        ) {
+            guard BrowserURLGuard.allows(url: navigationResponse.response.url) else {
+                tab?.lastError = "Blocked non-web navigation."
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
+        }
+
+        func webView(
+            _ webView: WKWebView,
             createWebViewWith configuration: WKWebViewConfiguration,
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            if navigationAction.targetFrame == nil,
-               BrowserURLGuard.allows(url: navigationAction.request.url) {
+            if navigationAction.targetFrame == nil {
+                guard BrowserURLGuard.allows(url: navigationAction.request.url) else {
+                    tab?.lastError = "Blocked non-web navigation."
+                    return nil
+                }
                 webView.load(navigationAction.request)
             }
             return nil

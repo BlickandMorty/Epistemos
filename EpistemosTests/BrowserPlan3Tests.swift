@@ -34,6 +34,9 @@ struct BrowserPlan3Tests {
 
         #expect(source.contains("WKWebsiteDataStore.nonPersistent()"))
         #expect(source.contains("BrowserURLGuard.allows"))
+        #expect(source.contains("decidePolicyFor navigationAction"))
+        #expect(source.contains("decidePolicyFor navigationResponse"))
+        #expect(source.contains("WKNavigationResponsePolicy"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewCreated()"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewDismantled()"))
         #expect(!source.contains("Goose"))
