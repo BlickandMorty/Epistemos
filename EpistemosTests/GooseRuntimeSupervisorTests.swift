@@ -2070,6 +2070,34 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(!NSApp.windows.contains { $0.title == title })
     }
 
+    @Test("MCP app launch rejects oversized URI before opening a window")
+    func mcpAppLaunchRejectsOversizedURIBeforeOpeningWindow() throws {
+        let bridge = GooseWebNativeAffordanceBridge()
+        let appName = "oversized_uri_\(UUID().uuidString)"
+        let title = "Oversized Uri \(appName.suffix(36))"
+        let oversizedURI = "https://127.0.0.1/" + String(
+            repeating: "u",
+            count: GooseWebNativeAffordanceBridge.maxNativeOpenURLCharacters + 1
+        )
+
+        do {
+            _ = try bridge.handleAffordance(
+                name: "launchApp",
+                args: [[
+                    "name": appName,
+                    "uri": oversizedURI,
+                ]]
+            )
+            Issue.record("launchApp should reject oversized MCP app URIs")
+        } catch {
+            #expect(error.localizedDescription.contains("Missing renderable MCP app content"))
+        }
+        #expect(!NSApp.windows.contains { $0.title == title })
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+        #expect(source.contains("Self.shouldOpenBrowserURL(rawURI),\n                  let url = URL(string: rawURI)"))
+    }
+
     @Test("MCP app launch normalizes and bounds untrusted app names")
     func mcpAppLaunchNormalizesAndBoundsUntrustedAppNames() throws {
         let bridge = GooseWebNativeAffordanceBridge()

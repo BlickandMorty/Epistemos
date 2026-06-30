@@ -964,8 +964,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         if let html = try htmlContent(from: app, appName: name) {
             guestLoad = .html(html)
         } else if let rawURI = app["uri"] as? String,
-                  let url = URL(string: rawURI),
                   Self.shouldOpenBrowserURL(rawURI),
+                  let url = URL(string: rawURI),
                   isAllowedAppOrigin(url) {
             guestLoad = .uri(url)
         } else {
