@@ -149,6 +149,24 @@ struct ArenaTests {
         #expect(snapshot.detail.contains("materialized"))
     }
 
+    @Test("Arena diagnostics redact path-leaking failures")
+    func arenaDiagnosticsRedactPathLeakingFailures() {
+        let privatePath = "/Users/example/private-vault/arena.dat"
+        let error = NSError(
+            domain: privatePath,
+            code: 19,
+            userInfo: [NSLocalizedDescriptionKey: "layout failed at \(privatePath)"]
+        )
+        let message = ArenaHealthDiagnostics.statusMessage(for: error)
+
+        #expect(message.contains("arena unavailable"))
+        #expect(message.contains("domain=Error"))
+        #expect(message.contains("code=19"))
+        #expect(message.count <= ArenaHealthDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(!message.contains(privatePath))
+        #expect(!message.contains("layout failed"))
+    }
+
     @Test("Settings mounts shared arena diagnostics without v2 authority copy")
     func settingsMountSharedArenaDiagnosticsWithoutV2Copy() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
@@ -161,6 +179,8 @@ struct ArenaTests {
         #expect(row.contains("ArenaBridge.arenaVersion"))
         #expect(row.contains("ArenaBridge.slotCount"))
         #expect(row.contains("not materialized"))
+        #expect(row.contains("ArenaHealthDiagnostics.statusMessage(for: error)"))
+        #expect(!row.contains("error.localizedDescription"))
     }
 
     @Test("Arena source files reject Epistenos donor spelling drift")

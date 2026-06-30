@@ -1,5 +1,42 @@
 import SwiftUI
 
+nonisolated enum ArenaHealthDiagnostics {
+    static let maxStatusMessageCharacters = 240
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func statusMessage(for error: Error, fallback: String = "arena unavailable") -> String {
+        let nsError = error as NSError
+        let domain = safeDomain(nsError.domain)
+        return statusMessage("\(fallback) (domain=\(domain) code=\(nsError.code))", fallback: fallback)
+    }
+
+    static func statusMessage(_ message: String, fallback: String = "arena unavailable") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else {
+            return value
+        }
+        return String(value.prefix(maxStatusMessageCharacters)) + "..."
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let bounded = String(value.prefix(maxDomainCharacters))
+        return bounded.isEmpty ? "Error" : bounded
+    }
+}
+
 // MARK: - ArenaHealthRow
 //
 // Read-only v1 diagnostics for the shared arena scaffold. This does not
@@ -82,7 +119,7 @@ struct ArenaHealthRow: View {
                 path: nil,
                 exists: false,
                 byteSize: nil,
-                detail: "Unavailable — \(error.localizedDescription)"
+                detail: "Unavailable — \(ArenaHealthDiagnostics.statusMessage(for: error))"
             )
         }
     }
