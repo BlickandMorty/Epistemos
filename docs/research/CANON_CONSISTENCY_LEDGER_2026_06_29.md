@@ -109,6 +109,11 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   ready) + 65 lines of new tests (ACPClient + RuntimeSupervisor). Pivot happened right after the WORK-ORDER directive (cyc43).
   **REMAINING: owner visual confirm** — cold-launch the new build → Goose chat should render in a few seconds with no manual
   reload (auditor can't run the app). This item closes once owner confirms it renders.
+  **↳ cycle 45b — owner "still white": ROOT = STALE BUILD, not a code regression.** Newest `Epistemos.app` on disk built
+  22:47 (DerivedData `…ctkiyqxa…`), fix committed 22:48 → no built app contains the fix yet (newest app's binary not even
+  present). FIX TO SEE IT: rebuild (Xcode ⌘R or `xcodebuild -scheme Epistemos build`) then launch the freshly-built app.
+  CAVEAT: build agents hold live uncommitted WIP (GooseWebSurfaceView/RuntimeSupervisor/HTMLWorkspaceDocument/…) — if the
+  rebuild fails to compile, wait for a clean agent commit then retry. The committed fix (57da5457a) is buildable on its own.
   **Owner's standing ask (cyc35): every issue that arises must be at least conceptualized + added to a plan/recon, even if
   not fixed immediately** — auditor will spot-check that new owner-raised issues land in a plan or `LOST_ITEMS_RECON`, not lost.
 - **2026-06-29 cycle 19 (Auditor) — "graph CHROME" items vs invariant #6 "Graph = DO NOT TOUCH" (boundary question;
