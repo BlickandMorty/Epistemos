@@ -2408,7 +2408,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         guard imageURLs.count <= maxVisionImageCount else {
             throw CloudLLMError.invalidVisionInput("Too many image attachments. Limit: \(maxVisionImageCount).")
         }
-        try imageURLs.map(Self.visionPayload(for:))
+        return try imageURLs.map(Self.visionPayload(for:))
     }
 
     nonisolated static func openAIUserContent(
