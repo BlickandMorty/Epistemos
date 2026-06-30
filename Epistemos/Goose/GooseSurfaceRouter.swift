@@ -53,6 +53,8 @@ final class GooseSurfaceRouter {
 
     /// Environment variable holding the same list (takes union with UserDefaults).
     static let environmentKey = "EPISTEMOS_GOOSE_NATIVE_ROUTES"
+    static let maxNativeRouteListCharacters = 4096
+    static let maxNativeRouteTokens = 64
 
     private let enabledRoutes: Set<GooseSurfaceRoute>
 
@@ -84,8 +86,10 @@ final class GooseSurfaceRouter {
     /// tokens are ignored (forward-compatible: naming a future route before it exists is harmless).
     private static func parse(_ raw: String?) -> Set<GooseSurfaceRoute> {
         guard let raw, !raw.isEmpty else { return [] }
-        let tokens = raw
+        let boundedRaw = String(raw.prefix(maxNativeRouteListCharacters))
+        let tokens = boundedRaw
             .split(whereSeparator: { $0 == "," || $0 == " " })
+            .prefix(maxNativeRouteTokens)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .filter { !$0.isEmpty }
         if tokens.contains("all") {

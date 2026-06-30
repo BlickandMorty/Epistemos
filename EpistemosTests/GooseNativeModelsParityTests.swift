@@ -85,6 +85,21 @@ struct GooseSurfaceRouterTests {
         #expect(router.isNative(.models))
     }
 
+    @Test("native route flag parsing is bounded")
+    func routeFlagParsingIsBounded() {
+        let noisyRouteList = "models, " + String(
+            repeating: "bogus ",
+            count: GooseSurfaceRouter.maxNativeRouteTokens + 8
+        )
+        let router = GooseSurfaceRouter(
+            environment: [GooseSurfaceRouter.environmentKey: noisyRouteList],
+            userDefaults: freshDefaults("bounded")
+        )
+        #expect(router.isNative(.models))
+        #expect(GooseSurfaceRouter.maxNativeRouteListCharacters == 4096)
+        #expect(GooseSurfaceRouter.maxNativeRouteTokens == 64)
+    }
+
     @Test("Models route maps to today's web oracle hash route")
     func modelsRouteMapsToWebOracle() {
         #expect(GooseSurfaceRoute.models.webRoute == "/settings?section=models")
