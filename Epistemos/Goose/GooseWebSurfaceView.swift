@@ -38,6 +38,7 @@ struct GooseWebSurfaceView: View {
     // surface has already been driven for / reloaded after sync, so the status observers can drive
     // load + post-sync reload idempotently (no double-load on the fast path).
     @State private var drivenConnectionKey: String?
+    @State private var loadedUIForConnectionKey: String?
     @State private var reloadedSyncForConnectionKey: String?
     @State private var isRestarting = false
     // Single live source-of-truth for the route to display. The incoming `route` prop drives this via
@@ -402,6 +403,7 @@ struct GooseWebSurfaceView: View {
         // often on the SAME port/baseURL, so the new connection's key would otherwise match the stale
         // guard and driveSurface would skip the load. Resetting here re-drives every (re)appear.
         drivenConnectionKey = nil
+        loadedUIForConnectionKey = nil
         reloadedSyncForConnectionKey = nil
         supervisor.start(secretKey: secretKey)
         await loadWhenReady()
@@ -412,6 +414,7 @@ struct GooseWebSurfaceView: View {
         isRestarting = true
         defer { isRestarting = false }
         drivenConnectionKey = nil
+        loadedUIForConnectionKey = nil
         reloadedSyncForConnectionKey = nil
         runtimeHealthTask?.cancel()
         runtimeHealthTask = nil
@@ -435,6 +438,7 @@ struct GooseWebSurfaceView: View {
             driveSurface(connection: connection)
         case .failed, .unavailable:
             drivenConnectionKey = nil
+            loadedUIForConnectionKey = nil
             reloadedSyncForConnectionKey = nil
             runtimeHealthTask?.cancel()
             runtimeHealthTask = nil
@@ -483,6 +487,7 @@ struct GooseWebSurfaceView: View {
         guard case .running(let connection) = supervisor.status else { return }
         let key = connection.baseURL.absoluteString
         guard reloadedSyncForConnectionKey != key,
+              loadedUIForConnectionKey == key,
               let gooseUIServer,
               case .running(let baseURL) = gooseUIServer.status else { return }
         reloadedSyncForConnectionKey = key
@@ -542,7 +547,7 @@ struct GooseWebSurfaceView: View {
             if case .running(let uiBaseURL) = server.status {
                 trustedOrigins.register(uiBaseURL)
             }
-            await loadGooseUIWhenReady(server, acpURL: connection.acpWebSocketURL?.absoluteString ?? "")
+            await loadGooseUIWhenReady(server, connection: connection)
         } else {
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
@@ -687,23 +692,45 @@ struct GooseWebSurfaceView: View {
         return URL(string: "\(base)#\(fragment)") ?? URL(string: base) ?? URL(fileURLWithPath: "/")
     }
 
-    private func loadGooseUIWhenReady(_ server: WorkSPAServer, acpURL: String) async {
-        for _ in 0..<80 {
+    private func loadGooseUIWhenReady(_ server: WorkSPAServer, connection: GooseRuntimeConnection) async {
+        let connectionKey = connection.baseURL.absoluteString
+        let acpURL = connection.acpWebSocketURL?.absoluteString ?? ""
+        _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI starting", acpURL: acpURL))
+        while true {
             guard !Task.isCancelled else { return }
             switch server.status {
             case .running(let baseURL):
-                // Read `activeRoute` at the actual load instant (not a value captured when this task
-                // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
-                _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute)))
-                return
+                if await Self.gooseUIReady(baseURL: baseURL) {
+                    // Read `activeRoute` at the actual load instant (not a value captured when this task
+                    // began) so a rail click made WHILE the UI server was coming up is honored, not dropped.
+                    loadedUIForConnectionKey = connectionKey
+                    _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: activeRoute)))
+                    return
+                }
             case .failed(let message):
                 _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server failed: \(message)", acpURL: acpURL))
                 return
+            case .stopped:
+                return
             default:
-                try? await Task.sleep(nanoseconds: 80_000_000)
+                break
             }
+            try? await Task.sleep(nanoseconds: 160_000_000)
         }
-        _ = page.load(html: Self.placeholderHTML(status: "Goose Web UI server timed out", acpURL: acpURL))
+    }
+
+    nonisolated static func gooseUIReady(baseURL: URL) async -> Bool {
+        var request = URLRequest(url: baseURL)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 1
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        guard let (_, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse,
+              http.statusCode == 200 else {
+            return false
+        }
+        return (http.value(forHTTPHeaderField: "Content-Type") ?? "")
+            .localizedCaseInsensitiveContains("text/html")
     }
 
     private static func placeholderHTML(status: String, acpURL: String) -> String {

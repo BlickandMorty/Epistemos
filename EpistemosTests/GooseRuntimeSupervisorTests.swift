@@ -1370,6 +1370,41 @@ struct GooseWebViewBootShimTests {
         #expect(!source.contains("escapeHTML(status)"))
     }
 
+    @Test("Goose Web UI load waits until the loopback server can serve the index")
+    func gooseWebUILoadWaitsForServedIndex() async throws {
+        let missingRoot = try temporaryDirectory()
+        let missingServer = WorkSPAServer(root: missingRoot, advertisedHost: "127.0.0.1")
+        defer {
+            missingServer.stop()
+            try? FileManager.default.removeItem(at: missingRoot)
+        }
+        let missingBaseURL = try await startGooseSurfaceTestServer(missingServer)
+        #expect(await GooseWebSurfaceView.gooseUIReady(baseURL: missingBaseURL) == false)
+
+        let readyRoot = try temporaryDirectory()
+        try "<!doctype html><html><head><title>goose</title></head><body>ready</body></html>".write(
+            to: readyRoot.appendingPathComponent("index.html"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readyServer = WorkSPAServer(root: readyRoot, advertisedHost: "127.0.0.1")
+        defer {
+            readyServer.stop()
+            try? FileManager.default.removeItem(at: readyRoot)
+        }
+        let readyBaseURL = try await startGooseSurfaceTestServer(readyServer)
+        #expect(await GooseWebSurfaceView.gooseUIReady(baseURL: readyBaseURL) == true)
+
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        #expect(source.contains("while true"))
+        #expect(source.contains("await Self.gooseUIReady(baseURL: baseURL)"))
+        #expect(source.contains("request.httpMethod = \"HEAD\""))
+        #expect(source.contains("@State private var loadedUIForConnectionKey"))
+        #expect(source.contains("loadedUIForConnectionKey == key"))
+        #expect(source.contains("loadedUIForConnectionKey = connectionKey"))
+        #expect(!source.contains("Goose Web UI server timed out"))
+    }
+
     @Test("surface availability requires both Goose runtime and ACP Web UI")
     func surfaceAvailabilityRequiresPortableRuntimeAndWebUI() throws {
         let root = try temporaryDirectory()
@@ -2367,6 +2402,21 @@ private func temporaryDirectory() throws -> URL {
         .appendingPathComponent("EpistemosGooseTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
+}
+
+private enum GooseSurfaceTestError: Error {
+    case serverDidNotStart
+}
+
+private func startGooseSurfaceTestServer(_ server: WorkSPAServer) async throws -> URL {
+    try server.start()
+    for _ in 0..<100 {
+        if case .running(let baseURL) = server.status {
+            return baseURL
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+    }
+    throw GooseSurfaceTestError.serverDidNotStart
 }
 
 #if !EPISTEMOS_APP_STORE
