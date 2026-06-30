@@ -3,6 +3,7 @@ import Foundation
 
 nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     static let maxManifestBytes = 1 * 1024 * 1024
+    private static let maxPathDiagnosticLength = 160
 
     struct Component: Decodable, Equatable, Sendable {
         let name: String
@@ -130,7 +131,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     ) throws {
         if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
             throw BrowserUseVendorManifestError.invalid(
-                "browser-use vendor manifest path must not include symlink component at \(component.path)"
+                "browser-use vendor manifest path must not include symlink component \(pathDiagnostic(component.lastPathComponent))"
             )
         }
         if (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil {
@@ -272,23 +273,23 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             relativeTo: manifestRoot,
             isDirectory: requiresDirectory
         ) else {
-            return "\(name) has unsafe path \(relativePath)"
+            return "\(name) has unsafe path \(Self.pathDiagnostic(relativePath))"
         }
         if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
-            return "\(name) path must not include symlink component at \(component.path)"
+            return "\(name) path must not include symlink component at \(Self.pathDiagnostic(relativePath))"
         }
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
-            return "missing \(name) at \(relativePath)"
+            return "missing \(name) at \(Self.pathDiagnostic(relativePath))"
         }
         guard resolvesInsideVendorRoot(url, relativeTo: manifestRoot) else {
-            return "\(name) resolves outside vendor root at \(relativePath)"
+            return "\(name) resolves outside vendor root at \(Self.pathDiagnostic(relativePath))"
         }
         if requiresDirectory && !isDirectory.boolValue {
-            return "\(name) is not a directory at \(relativePath)"
+            return "\(name) is not a directory at \(Self.pathDiagnostic(relativePath))"
         }
         if !requiresDirectory && isDirectory.boolValue {
-            return "\(name) is a directory at \(relativePath)"
+            return "\(name) is a directory at \(Self.pathDiagnostic(relativePath))"
         }
         return nil
     }
@@ -316,6 +317,15 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         let root = manifestRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
         return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
+    }
+
+    private static func pathDiagnostic(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? "[empty path]" : trimmed
+        guard description.count > maxPathDiagnosticLength else {
+            return description
+        }
+        return String(description.prefix(maxPathDiagnosticLength)) + "..."
     }
 }
 

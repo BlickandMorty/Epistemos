@@ -96,6 +96,8 @@ struct BrowserUseProGateStatusTests {
         #expect(!symlinkStatus.isActive)
         #expect(symlinkStatus.headline == "browser-use Pro: vendor manifest unreadable")
         #expect(symlinkStatus.detail.contains("symlink"))
+        #expect(symlinkStatus.detail.contains(symlinkManifest.path) == false)
+        #expect(symlinkStatus.detail.contains(root.path) == false)
 
         let oversizedManifest = root.appendingPathComponent("OVERSIZED_MANIFEST.json", isDirectory: false)
         FileManager.default.createFile(atPath: oversizedManifest.path, contents: Data())
@@ -276,6 +278,7 @@ struct BrowserUseProGateStatusTests {
         #expect(!status.isActive)
         #expect(status.headline == "browser-use Pro: packaged payload incomplete")
         #expect(status.detail.contains("requirements.lock path must not include symlink component"))
+        #expect(status.detail.contains(root.path) == false)
         #endif
     }
 
@@ -303,6 +306,8 @@ struct BrowserUseProGateStatusTests {
             "isProPayloadStaged",
             "stagedArtifactProblems(",
             "artifactURL(",
+            "pathDiagnostic(",
+            "maxPathDiagnosticLength",
             "unsafe path",
             "is a directory at",
             "resolves outside vendor root",

@@ -72,8 +72,9 @@ MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`
 can report `browser-use Pro: packaged payload ready` only after the declared `requirements.lock`, wheelhouse, Chromium
 payload, and `BUILD_MANIFEST.json` exist beside the manifest; the manifest file itself is regular-file checked,
 symlink-path rejected, read through a no-follow descriptor, and capped at 1 MiB before JSON decode; manifest-declared
-artifact paths are relative-only and cannot escape the vendor root; artifact symlink aliases are rejected before shape
-checks; file artifacts must be files and directory artifacts must be directories. Launch remains user-initiated and
+artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
+and never surface full user-local paths; artifact symlink aliases are rejected before shape checks; file artifacts must
+be files and directory artifacts must be directories. Launch remains user-initiated and
 separate from the native WKWebView Browser.
 `Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
 it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
