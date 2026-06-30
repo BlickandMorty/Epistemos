@@ -33,7 +33,7 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "JS console / error capture", isLive: false, note: "Bridge now wired (window error + unhandledrejection + console.error/warn → the consoleErrors pipeline + panel) behind EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0; default off"),
         Capability(name: "DOM picker / style inspector", isLive: false, note: "No element picker, computed-style panel, or targeted live edit path yet"),
         Capability(name: "Python (Pyodide / WASM)", isLive: false, note: "Not built — research"),
-        Capability(name: "Full-surface regenerate", isLive: false, note: "Core replaceDocument/regenerate source-quad patch op is wired; general streaming, provenance, and multi-route scaffold are still deferred"),
+        Capability(name: "Full-surface regenerate", isLive: false, note: "Core replaceDocument/regenerate source-quad patch op is wired with manifest provenance; general streaming UX and multi-route scaffold are still deferred"),
     ]
 
     static var liveCount: Int { capabilities.filter(\.isLive).count }

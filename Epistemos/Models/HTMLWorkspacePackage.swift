@@ -369,6 +369,7 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
     public var contentHash: String
     public var sandboxPolicy: HTMLWorkspaceSandboxPolicy
     public var dataFeed: HTMLWorkspaceDataFeed?
+    public var generationProvenance: HTMLWorkspaceGenerationProvenance?
 
     public init(
         id: String,
@@ -378,7 +379,8 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
         title: String,
         contentHash: String,
         sandboxPolicy: HTMLWorkspaceSandboxPolicy,
-        dataFeed: HTMLWorkspaceDataFeed? = nil
+        dataFeed: HTMLWorkspaceDataFeed? = nil,
+        generationProvenance: HTMLWorkspaceGenerationProvenance? = nil
     ) {
         self.id = id
         self.schemaVersion = schemaVersion
@@ -388,6 +390,7 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
         self.contentHash = contentHash
         self.sandboxPolicy = sandboxPolicy
         self.dataFeed = dataFeed
+        self.generationProvenance = generationProvenance
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -399,6 +402,7 @@ nonisolated public struct HTMLWorkspaceManifest: Codable, Sendable, Hashable {
         case contentHash = "content_hash"
         case sandboxPolicy = "sandbox_policy"
         case dataFeed = "data_feed"
+        case generationProvenance = "generation_provenance"
     }
 }
 
@@ -1074,19 +1078,22 @@ nonisolated public struct HTMLWorkspaceDocumentReplacement: Sendable, Hashable {
     public var css: String
     public var js: String
     public var dataJSON: String
+    public var provenanceOperation: HTMLWorkspaceGenerationProvenance.Operation
 
     public init(
         title: String? = nil,
         html: String,
         css: String,
         js: String,
-        dataJSON: String
+        dataJSON: String,
+        provenanceOperation: HTMLWorkspaceGenerationProvenance.Operation = .replaceDocument
     ) {
         self.title = title
         self.html = html
         self.css = css
         self.js = js
         self.dataJSON = dataJSON
+        self.provenanceOperation = provenanceOperation
     }
 }
 
@@ -1192,7 +1199,9 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         var updated = package
         switch operation {
         case .replaceDocument(let replacement):
-            updated.snapshots = try reversibleSnapshots(for: updated)
+            let previousContentHash = contentHash(for: updated)
+            let reversibleSnapshot = try reversibleSnapshots(for: updated)
+            updated.snapshots = reversibleSnapshot.snapshots
             if let title = replacement.title {
                 updated.manifest.title = title
             }
@@ -1200,6 +1209,15 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.styleCSS = replacement.css
             updated.scriptJS = replacement.js
             updated.dataJSON = replacement.dataJSON
+            updated.manifest.generationProvenance = HTMLWorkspaceGenerationProvenance(
+                producer: .agent,
+                operation: replacement.provenanceOperation,
+                generatedAt: Int64(Date().timeIntervalSince1970 * 1_000),
+                previousContentHash: previousContentHash,
+                contentHash: contentHash(for: updated),
+                reversibleSnapshotName: reversibleSnapshot.name,
+                toolId: HTMLWorkspaceGenerationProvenance.patchToolID
+            )
         case .replaceHTML(let html):
             updated.indexHTML = html
         case .replaceCSS(let css):
@@ -1298,19 +1316,36 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         }
     }
 
-    private static func boundedSnapshots(_ snapshots: [String: Data]) -> [String: Data] {
+    private struct ReversibleSnapshotResult {
+        var snapshots: [String: Data]
+        var name: String
+    }
+
+    private static func boundedSnapshots(
+        _ snapshots: [String: Data],
+        preserving preservedName: String? = nil
+    ) -> [String: Data] {
         guard snapshots.count > HTMLWorkspacePackageLimits.maxSnapshots else { return snapshots }
-        let keep = Set(snapshots.keys.sorted().suffix(HTMLWorkspacePackageLimits.maxSnapshots))
+        var keep = Set(snapshots.keys.sorted().suffix(HTMLWorkspacePackageLimits.maxSnapshots))
+        if let preservedName, snapshots[preservedName] != nil, !keep.contains(preservedName) {
+            keep.insert(preservedName)
+            if let dropped = keep
+                .filter({ $0 != preservedName })
+                .sorted()
+                .first {
+                keep.remove(dropped)
+            }
+        }
         return snapshots.filter { keep.contains($0.key) }
     }
 
-    private static func reversibleSnapshots(for package: HTMLWorkspacePackage) throws -> [String: Data] {
+    private static func reversibleSnapshots(for package: HTMLWorkspacePackage) throws -> ReversibleSnapshotResult {
         var snapshots = package.snapshots
         let name = "pre-replace-\(contentHash(for: package).prefix(12)).html"
         snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: package).utf8)
-        snapshots = boundedSnapshots(snapshots)
+        snapshots = boundedSnapshots(snapshots, preserving: name)
         try HTMLWorkspacePackage.validateSnapshots(snapshots)
-        return snapshots
+        return ReversibleSnapshotResult(snapshots: snapshots, name: name)
     }
 
     private static func contentHash(for package: HTMLWorkspacePackage) -> String {

@@ -133,7 +133,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                 dataJSON: snapshot.dataJSON
             ),
             sandboxPolicy: snapshot.manifest.sandboxPolicy,
-            dataFeed: snapshot.manifest.dataFeed
+            dataFeed: snapshot.manifest.dataFeed,
+            generationProvenance: snapshot.manifest.generationProvenance
         )
         return try copy.makeFileWrapper()
     }

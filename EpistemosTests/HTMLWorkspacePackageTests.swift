@@ -67,6 +67,31 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(recovered.manifest.dataFeed?.effectiveLimit == HTMLWorkspaceDataFeed.maxLimit)
     }
 
+    @Test("HTMLWorkspace manifest round-trips generation provenance with snake-case wire keys")
+    func manifestGenerationProvenanceRoundTrips() throws {
+        var original = Self.samplePackage()
+        original.manifest.generationProvenance = HTMLWorkspaceGenerationProvenance(
+            producer: .agent,
+            operation: .regenerate,
+            generatedAt: Self.createdAt + 2_000,
+            previousContentHash: "before-hash",
+            contentHash: "after-hash",
+            reversibleSnapshotName: "pre-replace-before.html",
+            generatedByRun: "run-html",
+            toolId: HTMLWorkspaceGenerationProvenance.patchToolID
+        )
+
+        let data = try JSONEncoder.epdocCanonical.encode(original.manifest)
+        let json = String(data: data, encoding: .utf8) ?? ""
+        #expect(json.contains(#""generation_provenance""#))
+        #expect(json.contains(#""previous_content_hash""#))
+        #expect(json.contains(#""reversible_snapshot_name""#))
+        #expect(json.contains(#""generated_by_run""#))
+
+        let recovered = try HTMLWorkspacePackage(fileWrapper: try original.makeFileWrapper())
+        #expect(recovered.manifest.generationProvenance == original.manifest.generationProvenance)
+    }
+
     @Test("HTMLWorkspace vault search feed renders provenance and freshness metadata into data.json")
     func dataFeedRenderIncludesProvenanceMetadata() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "  substrate provenance  ", limit: 2)
@@ -399,6 +424,24 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(preReplaceSnapshot.key.hasSuffix(".html"))
         #expect(String(data: preReplaceSnapshot.value, encoding: .utf8)?.contains("Interactive Doc") == true)
         #expect(String(data: preReplaceSnapshot.value, encoding: .utf8)?.contains("workspace-data") == true)
+        let provenance = try #require(updated.manifest.generationProvenance)
+        #expect(provenance.producer == .agent)
+        #expect(provenance.operation == .replaceDocument)
+        #expect(provenance.previousContentHash == HTMLWorkspaceDocument.contentHash(
+            indexHTML: original.indexHTML,
+            styleCSS: original.styleCSS,
+            scriptJS: original.scriptJS,
+            dataJSON: original.dataJSON
+        ))
+        #expect(provenance.contentHash == HTMLWorkspaceDocument.contentHash(
+            indexHTML: replacement.html,
+            styleCSS: replacement.css,
+            scriptJS: replacement.js,
+            dataJSON: replacement.dataJSON
+        ))
+        #expect(provenance.reversibleSnapshotName == preReplaceSnapshot.key)
+        #expect(provenance.toolId == HTMLWorkspaceGenerationProvenance.patchToolID)
+        #expect(provenance.generatedAt > 0)
     }
 
     @Test("advanced structured operations are deterministic and path safe")
@@ -548,6 +591,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(regenerated.styleCSS.contains("display: grid"))
         #expect(regenerated.scriptJS.contains("generated"))
         #expect(regenerated.dataJSON.contains("generated"))
+        #expect(regenerated.manifest.generationProvenance?.operation == .regenerate)
     }
 
     @Test("Document surface metadata captures HTML Workspace panes")

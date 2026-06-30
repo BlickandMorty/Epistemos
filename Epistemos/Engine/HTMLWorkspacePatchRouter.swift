@@ -122,7 +122,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
                 html: try container.decode(String.self, forKey: .html),
                 css: try container.decode(String.self, forKey: .css),
                 js: try container.decode(String.self, forKey: .js),
-                dataJSON: try container.decode(String.self, forKey: .json)
+                dataJSON: try container.decode(String.self, forKey: .json),
+                provenanceOperation: type == .regenerate ? .regenerate : .replaceDocument
             ))
         case .replaceHTML:
             self = .replaceHTML(try container.decode(String.self, forKey: .html))
@@ -161,7 +162,10 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case .replaceDocument(let replacement):
-            try container.encode(OperationType.replaceDocument, forKey: .type)
+            try container.encode(
+                replacement.provenanceOperation == .regenerate ? OperationType.regenerate : OperationType.replaceDocument,
+                forKey: .type
+            )
             try container.encodeIfPresent(replacement.title, forKey: .title)
             try container.encode(replacement.html, forKey: .html)
             try container.encode(replacement.css, forKey: .css)

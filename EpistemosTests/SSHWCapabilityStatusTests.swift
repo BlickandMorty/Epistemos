@@ -28,6 +28,8 @@ struct SSHWCapabilityStatusTests {
         #expect(deferred.contains { $0.contains("bridge") })       // app message-bridge remains no-op
         let appBridge = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "App message-bridge" }
         #expect(appBridge?.note.contains("Safe API message path is still no-op") == true)
+        let regenerate = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Full-surface regenerate" }
+        #expect(regenerate?.note.contains("manifest provenance") == true)
         #expect(deferred.contains { $0.contains("Python") })       // no Python today
         #expect(deferred.contains { $0.contains("DOM picker") })   // no picker/style inspector yet
         #expect(deferred.contains { $0.contains("regenerate") })   // replaceDocument primitive only

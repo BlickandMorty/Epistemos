@@ -458,6 +458,7 @@ struct HTMLWorkspaceEditorView: View {
                 inspectorRow("Bridge", bridgeStatusText)
                 inspectorRow("DOM", "\(domNodeCount) \(domSnapshot.source.label)")
                 inspectorRow("Data", dataStatus)
+                inspectorRow("Provenance", generationProvenanceText)
                 inspectorRow("Assets", "\(package.assets.count)")
                 inspectorRow("Snapshots", "\(package.snapshots.count)")
                 inspectorRow("Errors", "\(package.consoleErrors.count)")
@@ -491,6 +492,13 @@ struct HTMLWorkspaceEditorView: View {
 
     private var bridgeStatusText: String {
         package.manifest.sandboxPolicy.allowAppBridge ? "Safe API deferred" : "No bridge"
+    }
+
+    private var generationProvenanceText: String {
+        guard let provenance = package.manifest.generationProvenance else {
+            return "Local / unstamped"
+        }
+        return "\(provenance.producer.rawValue.capitalized) \(provenance.operation.displayName)"
     }
 
     private var selectedPaneSubtitle: String {
