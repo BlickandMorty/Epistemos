@@ -58,22 +58,42 @@ struct AppleNativeSharedViewsPlan3Tests {
             "representationTypes: .all",
             ".task(id: thumbnailIdentity)",
             "FilePreviewURLPolicy.isReadableRegularFileURL(url)",
-            "scale.isFinite",
-            "scale > 0"
+            "maxThumbnailDimension",
+            "maxThumbnailScale",
+            "validatedSize",
+            "displaySize"
         ] {
             #expect(thumbnail.contains(required), "FileThumbnail missing expected API: \(required)")
         }
     }
 
     @Test("thumbnailer rejects invalid inputs before Quick Look generation")
-    func thumbnailerRejectsInvalidInputsBeforeQuickLookGeneration() async {
+    func thumbnailerRejectsInvalidInputsBeforeQuickLookGeneration() async throws {
         let remoteURL = URL(string: "https://example.com/paper.pdf")!
-        let fileURL = URL(fileURLWithPath: "/tmp/epistemos-missing-thumbnail.pdf")
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apple-native-thumbnail-policy-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = root.appendingPathComponent("thumbnail.txt", isDirectory: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("thumbnail source".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let missingFileURL = URL(fileURLWithPath: "/tmp/epistemos-missing-thumbnail.pdf")
         let size = CGSize(width: 32, height: 32)
 
         #expect(await FileThumbnailer.thumbnail(for: remoteURL, size: size, scale: 2) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: missingFileURL, size: .zero, scale: 2) == nil)
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: .zero, scale: 2) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: CGSize(width: .infinity, height: 32), scale: 2) == nil)
+        #expect(
+            await FileThumbnailer.thumbnail(
+                for: fileURL,
+                size: CGSize(width: FileThumbnailer.maxThumbnailDimension + 1, height: 32),
+                scale: 2
+            ) == nil
+        )
         #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: 0) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: .infinity) == nil)
+        #expect(await FileThumbnailer.thumbnail(for: fileURL, size: size, scale: FileThumbnailer.maxThumbnailScale + 1) == nil)
     }
 
     @Test("Live Text policy rejects invalid and oversized images before VisionKit analysis")

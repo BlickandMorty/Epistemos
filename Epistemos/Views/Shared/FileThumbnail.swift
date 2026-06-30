@@ -3,22 +3,23 @@ import QuickLookThumbnailing
 import SwiftUI
 
 enum FileThumbnailer {
+    static let maxThumbnailDimension: CGFloat = 2_048
+    static let maxThumbnailScale: CGFloat = 4
+
     static func thumbnail(
         for url: URL,
         size: CGSize,
         scale: CGFloat
     ) async -> NSImage? {
         guard FilePreviewURLPolicy.isReadableRegularFileURL(url),
-              size.width > 0,
-              size.height > 0,
-              scale.isFinite,
-              scale > 0 else {
+              let validSize = validatedSize(size),
+              isValidScale(scale) else {
             return nil
         }
 
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
-            size: size,
+            size: validSize,
             scale: scale,
             representationTypes: .all
         )
@@ -29,6 +30,22 @@ enum FileThumbnailer {
         } catch {
             return nil
         }
+    }
+
+    static func validatedSize(_ size: CGSize) -> CGSize? {
+        guard isValidDimension(size.width),
+              isValidDimension(size.height) else {
+            return nil
+        }
+        return size
+    }
+
+    private static func isValidDimension(_ dimension: CGFloat) -> Bool {
+        dimension.isFinite && dimension > 0 && dimension <= maxThumbnailDimension
+    }
+
+    private static func isValidScale(_ scale: CGFloat) -> Bool {
+        scale.isFinite && scale > 0 && scale <= maxThumbnailScale
     }
 }
 
@@ -53,20 +70,25 @@ struct FileThumbnailView: View {
                     .padding(2)
             }
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: displaySize.width, height: displaySize.height)
         .task(id: thumbnailIdentity) {
             await loadThumbnail()
         }
     }
 
+    private var displaySize: CGSize {
+        FileThumbnailer.validatedSize(size) ?? CGSize(width: 32, height: 32)
+    }
+
     private var thumbnailIdentity: String {
-        "\(url.path)|\(Int(size.width))x\(Int(size.height))"
+        "\(url.path)|\(Int(displaySize.width))x\(Int(displaySize.height))"
     }
 
     @MainActor
     private func loadThumbnail() async {
         image = nil
+        guard let validSize = FileThumbnailer.validatedSize(size) else { return }
         let scale = NSScreen.main?.backingScaleFactor ?? 2
-        image = await FileThumbnailer.thumbnail(for: url, size: size, scale: scale)
+        image = await FileThumbnailer.thumbnail(for: url, size: validSize, scale: scale)
     }
 }

@@ -268,8 +268,9 @@ CoreML. **Plan 3 shared components are now present:** QuickLook preview (`FilePr
 overlay (`LiveTextImageView.swift`), and QuickLookThumbnailing (`FileThumbnail.swift`) under `Views/Shared/`, with
 source guards proving no Plan 1, Plan 2, or Pro-only runtime drift. QuickLook and thumbnail URLs go through a shared
 `O_NOFOLLOW` + `fstat` bounded regular-file envelope with a 512 MiB cap, while Live Text analysis rejects invalid or
-oversized in-memory images before invoking VisionKit. **Still not Plan 3-owned:** PDFKit `PDFView` viewer and PencilKit
-annotations; the PDF viewer remains Plan 2.
+oversized in-memory images before invoking VisionKit, and thumbnail requests reject non-finite/oversized dimensions and
+scale before generation. **Still not Plan 3-owned:** PDFKit `PDFView` viewer and PencilKit annotations; the PDF viewer
+remains Plan 2.
 
 **Top-6 to prioritize (all MAS-safe, on-device, no new entitlement):**
 1. **PDFKit `PDFView` viewer** (high/low) — free: selection/copy, zoom, page nav, find, `PDFThumbnailView`, `PDFOutline`
@@ -280,7 +281,8 @@ annotations; the PDF viewer remains Plan 2.
    `ImageAnalysisOverlayView`, rejects invalid or oversized images before analysis, returns recognized text to
    consumers, and does not index or edit Plan 2 surfaces itself.
 4. **QuickLookThumbnailing** (shared component done) — `FileThumbnailer` + `FileThumbnailView` produce thumbnails with
-   fallback symbols and reject invalid, unreadable, symlink, non-regular, oversized, or scale inputs before generation.
+   fallback symbols and reject invalid, unreadable, symlink, non-regular, oversized, non-finite, or over-scale inputs
+   before generation.
 5. **Translation expansion** (med/low) — already wired in notes; extend to PDF selections + chat messages (near-zero effort, on-device).
 6. **AppIntents / Spotlight for PDFs** (med/low) — expose "Open/OCR/Preview file" as Shortcuts/Siri actions; index imported PDFs in system Spotlight.
 

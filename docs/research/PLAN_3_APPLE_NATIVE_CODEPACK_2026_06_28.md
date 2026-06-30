@@ -32,7 +32,7 @@ usage strings.
   VisionKit receives in-memory images.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
   the same readable bounded regular-file URL policy, including no-follow non-regular and oversized file rejection, plus
-  invalid size/scale rejection before QuickLookThumbnailing generation.
+  finite/max dimension and scale rejection before QuickLookThumbnailing generation.
 - **Still Plan 2:** mounting these components in editor/sidebar/PDF viewer surfaces.
 
 ## 1. DELIVERED `Epistemos/Views/Shared/FilePreview.swift`
@@ -70,6 +70,7 @@ Build a reusable QuickLookThumbnailing thumbnail layer:
 - `generateBestRepresentation(for:) async`
 - `FileThumbnailView` SwiftUI wrapper with an SF Symbol fallback and `.task(id: url)`
 - same bounded no-follow regular-file URL validation as Quick Look preview
+- finite/max thumbnail dimension and scale validation, with a stable fallback frame for invalid view inputs
 
 Keep all thumbnail policy in the shared component. Consumers decide placement later.
 
