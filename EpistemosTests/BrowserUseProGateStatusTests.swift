@@ -241,6 +241,44 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest artifacts must not be symlink aliases inside the vendor root")
+    func manifestArtifactsMustNotBeSymlinkAliasesInsideVendorRoot() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-inner-symlink-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        try Data(Self.packagedManifestJSON.utf8).write(to: manifestURL)
+
+        let realLock = root.appendingPathComponent("real-requirements.lock", isDirectory: false)
+        try Data("locked\n".utf8).write(to: realLock)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("requirements.lock", isDirectory: false),
+            withDestinationURL: realLock
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("wheels", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("playwright", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data("{}".utf8).write(to: root.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false))
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: packaged payload incomplete")
+        #expect(status.detail.contains("requirements.lock path must not include symlink component"))
+        #endif
+    }
+
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
@@ -252,6 +290,7 @@ struct BrowserUseProGateStatusTests {
             "maxManifestBytes",
             "validateManifestFile",
             "BrowserUseSymlinkPathGuard.firstSymlinkComponent",
+            "path must not include symlink component",
             "browser-use vendor manifest must be a regular file",
             "browser-use vendor manifest exceeds",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",

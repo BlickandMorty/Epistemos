@@ -344,7 +344,8 @@ Pure additive UI, MAS-safe.
   web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). The
   vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed; final signed Pro
   packaging still remains; the loopback shell/control and task-submit dry-run UI smokes have landed; the Pro gate
-  rejects symlink-routed, non-regular, or >1 MiB vendor manifests before JSON decode.
+  rejects symlink-routed, non-regular, or >1 MiB vendor manifests before JSON decode and rejects staged artifact
+  symlink aliases before file/directory shape checks.
   Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
 - ~~Option B (native `WebKitBrowserEngine`-driven robot)~~ = **PARKED/superseded** by browser-use — do NOT build it
   (the owner cut the heavy native automation engine). The `WebKitBrowserEngine` stub stays `NotConfigured`.

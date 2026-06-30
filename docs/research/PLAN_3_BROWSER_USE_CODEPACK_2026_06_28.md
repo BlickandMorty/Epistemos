@@ -72,8 +72,8 @@ MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`
 can report `browser-use Pro: packaged payload ready` only after the declared `requirements.lock`, wheelhouse, Chromium
 payload, and `BUILD_MANIFEST.json` exist beside the manifest; the manifest file itself is regular-file checked,
 symlink-path rejected, and capped at 1 MiB before JSON decode; manifest-declared artifact paths are relative-only and
-cannot escape the vendor root; artifact symlinks must resolve inside the vendor root; file artifacts must be files and
-directory artifacts must be directories. Launch remains user-initiated and separate from the native WKWebView Browser.
+cannot escape the vendor root; artifact symlink aliases are rejected before shape checks; file artifacts must be files
+and directory artifacts must be directories. Launch remains user-initiated and separate from the native WKWebView Browser.
 `Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
 it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
 no runtime launch control. It also reports the settings contract for the Pro lane.
@@ -346,7 +346,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Gate artifact test: an armed manifest that claims staged packaging but lacks the declared runtime artifacts remains
   inactive and reports `browser-use Pro: packaged payload incomplete`; absolute or parent-relative artifact paths are
   rejected before disk checks; manifest symlinks and oversized manifest files are rejected before decode;
-  file-vs-directory mismatches and symlink escapes are rejected before ready.
+  file-vs-directory mismatches, artifact symlink aliases, and symlink escapes are rejected before ready.
 - Packaging script test: shell syntax passes; script requires `uv`, uses Python 3.11, compiles with
   `--generate-hashes`, stages third-party wheels under `--require-hashes --only-binary=:all:`, stages local vendored
   package wheels with `--no-deps`, installs Playwright Chromium into the Pro staging directory, writes only non-secret

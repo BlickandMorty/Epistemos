@@ -233,6 +233,9 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         ) else {
             return "\(name) has unsafe path \(relativePath)"
         }
+        if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
+            return "\(name) path must not include symlink component at \(component.path)"
+        }
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             return "missing \(name) at \(relativePath)"
