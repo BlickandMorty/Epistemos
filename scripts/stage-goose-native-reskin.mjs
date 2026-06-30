@@ -1180,6 +1180,119 @@ function applyProviderCatalogSurfaces() {
   write('src/components/settings/providers/subcomponents/CardHeader.tsx', source);
 }
 
+function applyProviderModalSurfaces() {
+  let source = read('src/components/settings/providers/modal/ProviderConfigurationModal.tsx');
+  source = replaceRequired(
+    source,
+    'provider setup inline code native chip',
+    'className="px-1 py-0.5 rounded bg-background-secondary text-xs font-mono break-all"',
+    'className="ep-native-badge px-1.5 py-0.5 text-xs break-all"'
+  );
+  source = replaceRequired(
+    source,
+    'provider external setup close native button',
+    'className="w-full h-[60px] rounded-none border-t border-border-primary text-md hover:bg-background-secondary text-text-primary font-medium"',
+    'className="h-11 w-full rounded-[8px] border border-border-secondary bg-background-primary/55 text-md font-medium text-text-primary hover:bg-background-secondary/75"'
+  );
+  write('src/components/settings/providers/modal/ProviderConfigurationModal.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/ProviderLogo.tsx');
+  source = replaceRequired(
+    source,
+    'provider modal logo native well',
+    'className="w-12 h-12 bg-background-secondary border border-border-primary rounded-[6px] overflow-hidden flex items-center justify-center"',
+    'className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] border border-border-primary bg-background-secondary/70 shadow-sm backdrop-blur-xl"'
+  );
+  write('src/components/settings/providers/modal/subcomponents/ProviderLogo.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/ProviderSetupActions.tsx');
+  source = replaceRequired(
+    source,
+    'provider active delete warning panel native',
+    'className="w-full px-6 py-4 bg-yellow-600/20 border-t border-yellow-500/30"',
+    'className="w-full rounded-[12px] border border-border-warning bg-background-warning/72 px-6 py-4 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'provider active delete warning text native',
+    'className="text-yellow-500 text-sm mb-2 flex items-start"',
+    'className="mb-2 flex items-start text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'provider delete warning panel native',
+    'className="w-full px-6 py-4 bg-red-900/20 border-t border-red-500/30"',
+    'className="w-full rounded-[12px] border border-border-danger bg-background-danger/72 px-6 py-4 backdrop-blur-xl"'
+  );
+  source = replaceRequired(
+    source,
+    'provider delete warning text native',
+    'className="text-red-400 text-sm mb-2"',
+    'className="mb-2 text-sm text-text-danger"'
+  );
+  source = replaceAllRequired(
+    source,
+    'provider modal secondary full-width actions native',
+    'className="w-full h-[60px] rounded-none hover:bg-background-secondary text-text-secondary hover:text-text-primary text-md font-regular"',
+    'className="h-11 w-full rounded-[8px] text-md font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'provider modal confirm delete action native',
+    'className="w-full h-[60px] rounded-none border-b border-border-primary bg-transparent hover:bg-red-900/20 text-red-500 font-medium text-md"',
+    'className="h-11 w-full rounded-[8px] border border-border-danger bg-background-danger/45 text-md font-medium text-text-danger hover:bg-background-danger/72"'
+  );
+  source = replaceRequired(
+    source,
+    'provider modal delete action native',
+    'className="w-full h-[60px] rounded-none border-t border-border-primary bg-transparent hover:bg-background-secondary text-red-500 font-medium text-md"',
+    'className="h-11 w-full rounded-[8px] border border-border-danger bg-transparent text-md font-medium text-text-danger hover:bg-background-danger/45"'
+  );
+  source = replaceAllRequired(
+    source,
+    'provider modal submit action native',
+    'className="w-full h-[60px] rounded-none border-t border-border-primary text-md hover:bg-background-secondary text-text-primary font-medium"',
+    'className="h-11 w-full rounded-[8px] border border-border-secondary bg-background-primary/55 text-md font-medium text-text-primary hover:bg-background-secondary/75"'
+  );
+  source = replaceAllRequired(
+    source,
+    'provider modal cancel action native',
+    'className="w-full h-[60px] rounded-none border-t border-border-primary hover:text-text-primary text-text-secondary hover:bg-background-secondary text-md font-regular"',
+    'className="h-11 w-full rounded-[8px] border border-border-secondary text-md font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
+  );
+  write('src/components/settings/providers/modal/subcomponents/ProviderSetupActions.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/forms/DefaultProviderSetupForm.tsx');
+  source = replaceRequired(
+    source,
+    'default provider setup checkbox native',
+    'className="rounded border-border-primary h-4 w-4"',
+    'className="h-4 w-4 rounded-[5px] border-border-primary accent-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'default provider setup input native',
+    '} bg-background-primary text-lg placeholder:text-text-secondary font-regular text-text-primary`}',
+    '} bg-background-primary/70 text-lg placeholder:text-text-secondary font-regular text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20`}'
+  );
+  write('src/components/settings/providers/modal/subcomponents/forms/DefaultProviderSetupForm.tsx', source);
+
+  source = read('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx');
+  source = replaceAllRequired(
+    source,
+    'custom provider capability badges native',
+    'className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-[3px] bg-background-secondary text-primary border border-border-primary"',
+    'className="ep-native-badge px-2 py-0.5 text-[10px] text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'custom provider add header button native',
+    'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-textStandard bg-background-primary border border-borderSubtle hover:border-borderStandard transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
+    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-borderSubtle bg-background-primary/70 px-2 pr-4 text-sm text-textStandard transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
+  );
+  write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
+}
+
 function applyUtilityListSurfaces() {
   let source = read('src/components/skills/SkillsView.tsx');
   source = replaceRequired(
@@ -1912,6 +2025,7 @@ applyChatSurfaces();
 applyToolAndPopoverSurfaces();
 applyCatalogSurfaces();
 applyProviderCatalogSurfaces();
+applyProviderModalSurfaces();
 applyUtilityListSurfaces();
 applySessionListSurfaces();
 applySessionDetailSurfaces();
