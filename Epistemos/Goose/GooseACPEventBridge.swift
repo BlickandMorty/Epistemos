@@ -8,6 +8,27 @@ nonisolated enum GooseACPBridgeError: Error, Equatable, Sendable {
     case notConnected
 }
 
+nonisolated enum GooseACPBridgeStatusBounds {
+    static let maxStatusMessageCharacters = 512
+
+    static func statusMessage(
+        _ message: String,
+        fallback: String = "Goose ACP connection failed."
+    ) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxStatusMessageCharacters else { return value }
+        return String(value.prefix(maxStatusMessageCharacters))
+    }
+
+    static func statusMessage(
+        for error: Error,
+        fallback: String = "Goose ACP connection failed."
+    ) -> String {
+        statusMessage(error.localizedDescription, fallback: fallback)
+    }
+}
+
 @MainActor
 @Observable
 final class GooseACPEventBridge {
@@ -442,7 +463,7 @@ final class GooseACPEventBridge {
     private func fail(_ error: Error) {
         pendingPermission = nil
         pendingElicitation = nil
-        status = .failed(error.localizedDescription)
+        status = .failed(GooseACPBridgeStatusBounds.statusMessage(for: error))
     }
 
     // M1 (WebView-host review): a transient error sending a RESPONSE (permission/elicitation/
@@ -457,7 +478,10 @@ final class GooseACPEventBridge {
         recordDiagnostic(
             kind: .request,
             method: "response-send-failed(\(context))",
-            params: .string(error.localizedDescription)
+            params: .string(GooseACPBridgeStatusBounds.statusMessage(
+                error.localizedDescription,
+                fallback: "response send failed"
+            ))
         )
     }
 }

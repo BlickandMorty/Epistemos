@@ -1348,6 +1348,45 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
+    @Test("bridge bounds terminal failure status text")
+    func bridgeBoundsTerminalFailureStatusText() async throws {
+        let oversizedMessage = String(
+            repeating: "f",
+            count: GooseACPBridgeStatusBounds.maxStatusMessageCharacters + 40
+        )
+        let bridge = GooseACPEventBridge()
+
+        #expect(
+            GooseACPBridgeStatusBounds.statusMessage(" \n\(oversizedMessage)\n ")
+                .count == GooseACPBridgeStatusBounds.maxStatusMessageCharacters
+        )
+        #expect(GooseACPBridgeStatusBounds.statusMessage(" \n\t ", fallback: "fallback") == "fallback")
+
+        bridge.connect(
+            transportFactory: { GooseACPLongFailingTransport(message: oversizedMessage) },
+            clientVersion: "test-version",
+            initialHandshakeAttempts: 1
+        )
+        try await waitUntil {
+            if case .failed = bridge.status {
+                return true
+            }
+            return false
+        }
+
+        guard case .failed(let message) = bridge.status else {
+            Issue.record("Expected terminal failed bridge status.")
+            return
+        }
+        #expect(message.count == GooseACPBridgeStatusBounds.maxStatusMessageCharacters)
+        #expect(message == String(oversizedMessage.prefix(GooseACPBridgeStatusBounds.maxStatusMessageCharacters)))
+        await bridge.disconnect()
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
+        #expect(!source.contains("status = .failed(error.localizedDescription)"))
+        #expect(!source.contains("params: .string(error.localizedDescription)"))
+    }
+
     @Test("bridge surfaces unhandled ACP requests and replies with a structured JSON-RPC error")
     func bridgeSurfacesUnhandledRequests() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
@@ -1859,6 +1898,20 @@ private actor GooseACPFailingTransport: GooseACPTransport {
     func close() async {}
 }
 
+private struct GooseACPLongFailingTransport: GooseACPTransport {
+    let message: String
+
+    func send(_ text: String) async throws {
+        throw GooseACPLongInjectedFailure(message: message)
+    }
+
+    func receive() async throws -> String? {
+        throw GooseACPLongInjectedFailure(message: message)
+    }
+
+    func close() async {}
+}
+
 private actor GooseACPFramesThenFailTransport: GooseACPTransport {
     private var incoming: [String]
 
@@ -1881,6 +1934,14 @@ private actor GooseACPFramesThenFailTransport: GooseACPTransport {
 private struct GooseACPInjectedFailure: LocalizedError {
     var errorDescription: String? {
         "Injected ACP handshake failure"
+    }
+}
+
+private struct GooseACPLongInjectedFailure: LocalizedError {
+    let message: String
+
+    var errorDescription: String? {
+        message
     }
 }
 
