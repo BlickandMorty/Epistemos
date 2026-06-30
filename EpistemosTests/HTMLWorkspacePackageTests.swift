@@ -382,6 +382,7 @@ nonisolated struct HTMLWorkspacePackageTests {
     @Test("structured patch operations update sources without arbitrary mutation strings")
     func structuredPatchOperationsApply() throws {
         var package = Self.samplePackage()
+        let originalUpdatedAt = package.manifest.updatedAt
         package = try HTMLWorkspacePatchApplier.apply(.replaceHTML("<section id=\"root\"></section>"), to: package)
         package = try HTMLWorkspacePatchApplier.apply(.replaceCSS("#root { min-height: 200px; }"), to: package)
         package = try HTMLWorkspacePatchApplier.apply(.replaceJS("document.querySelector('#root')?.setAttribute('data-live', 'true');"), to: package)
@@ -396,6 +397,13 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("min-height"))
         #expect(package.scriptJS.contains("data-live"))
         #expect(package.dataJSON.contains("\"nodes\""))
+        #expect(package.manifest.updatedAt > originalUpdatedAt)
+        #expect(package.manifest.contentHash == HTMLWorkspaceDocument.contentHash(
+            indexHTML: package.indexHTML,
+            styleCSS: package.styleCSS,
+            scriptJS: package.scriptJS,
+            dataJSON: package.dataJSON
+        ))
     }
 
     @Test("replaceDocument swaps the generated source quad atomically")
@@ -442,6 +450,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(provenance.reversibleSnapshotName == preReplaceSnapshot.key)
         #expect(provenance.toolId == HTMLWorkspaceGenerationProvenance.patchToolID)
         #expect(provenance.generatedAt > 0)
+        #expect(updated.manifest.updatedAt == provenance.generatedAt)
+        #expect(updated.manifest.contentHash == provenance.contentHash)
     }
 
     @Test("advanced structured operations are deterministic and path safe")

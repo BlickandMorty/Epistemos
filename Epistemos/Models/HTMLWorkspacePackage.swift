@@ -1197,6 +1197,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         to package: HTMLWorkspacePackage
     ) throws -> HTMLWorkspacePackage {
         var updated = package
+        let mutationTimestamp = Int64(Date().timeIntervalSince1970 * 1_000)
         switch operation {
         case .replaceDocument(let replacement):
             let previousContentHash = contentHash(for: updated)
@@ -1212,7 +1213,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.manifest.generationProvenance = HTMLWorkspaceGenerationProvenance(
                 producer: .agent,
                 operation: replacement.provenanceOperation,
-                generatedAt: Int64(Date().timeIntervalSince1970 * 1_000),
+                generatedAt: mutationTimestamp,
                 previousContentHash: previousContentHash,
                 contentHash: contentHash(for: updated),
                 reversibleSnapshotName: reversibleSnapshot.name,
@@ -1259,7 +1260,16 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.consoleErrors.append(error)
             updated.consoleErrors = Array(updated.consoleErrors.suffix(HTMLWorkspacePackageLimits.maxConsoleErrors))
         }
+        stampManifestRevision(&updated, updatedAt: mutationTimestamp)
         return updated
+    }
+
+    private static func stampManifestRevision(
+        _ package: inout HTMLWorkspacePackage,
+        updatedAt: Int64
+    ) {
+        package.manifest.updatedAt = updatedAt
+        package.manifest.contentHash = contentHash(for: package)
     }
 
     private static func updateStyleRule(
