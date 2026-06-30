@@ -70,6 +70,10 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private let promptStreamer: PromptStreamerBox
     private let queue = DispatchQueue(label: "com.epistemos.goose.inprocess-acp", qos: .userInitiated)
     private var configValues: [String: Any] = [:]
+    private var providerConfigValues: [String: [String: String]] = [:]
+    private var preferenceValues: [String: Any] = [:]
+    private var defaultProviderID: String?
+    private var defaultModelID: String?
     private let statusLock = NSLock()
     private var _status: Status = .idle
     private var listener: NWListener?
@@ -85,6 +89,13 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         self.secretKey = secretKey
         self.catalog = catalog
         self.promptStreamer = PromptStreamerBox(streamer: promptStreamer)
+        let defaultProvider = catalog.providers.first { $0.configured } ?? catalog.providers.first
+        self.defaultProviderID = defaultProvider?.providerId
+        self.defaultModelID = defaultProvider?.defaultModel
+        if let defaultProvider {
+            configValues["GOOSE_PROVIDER"] = defaultProvider.providerId
+            configValues["GOOSE_MODEL"] = defaultProvider.defaultModel
+        }
     }
 
     func start() throws {
@@ -488,6 +499,38 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return [Self.jsonResponse(id: id, result: catalog.providerCatalogResult())]
         case "_goose/unstable/providers/config/status":
             return [Self.jsonResponse(id: id, result: catalog.providerStatusResult())]
+        case "_goose/unstable/providers/config/read":
+            return [Self.jsonResponse(id: id, result: providerConfigReadResult(params: params))]
+        case "_goose/unstable/providers/config/save",
+             "_goose/unstable/providers/config/authenticate":
+            return [Self.jsonResponse(id: id, result: providerConfigSaveResult(params: params))]
+        case "_goose/unstable/providers/config/delete":
+            return [Self.jsonResponse(id: id, result: providerConfigDeleteResult(params: params))]
+        case "_goose/unstable/providers/supported-models/list":
+            return [Self.jsonResponse(id: id, result: supportedModelsResult(params: params))]
+        case "_goose/unstable/providers/catalog/template":
+            if let result = providerTemplateResult(params: params) {
+                return [Self.jsonResponse(id: id, result: result)]
+            }
+            return [Self.jsonError(
+                id: id,
+                code: -32602,
+                message: "Unknown provider catalog template.",
+                data: catalog.metadata()
+            )]
+        case "_goose/unstable/preferences/read":
+            return [Self.jsonResponse(id: id, result: preferencesReadResult(params: params))]
+        case "_goose/unstable/preferences/save":
+            savePreferences(params: params)
+            return [Self.jsonResponse(id: id, result: [:])]
+        case "_goose/unstable/preferences/remove":
+            removePreferences(params: params)
+            return [Self.jsonResponse(id: id, result: [:])]
+        case "_goose/unstable/defaults/read":
+            return [Self.jsonResponse(id: id, result: defaultsResult())]
+        case "_goose/unstable/defaults/save":
+            saveDefaults(params: params)
+            return [Self.jsonResponse(id: id, result: defaultsResult())]
         case "_goose/unstable/config/extensions/list",
              "_goose/unstable/extensions/list":
             return [Self.jsonResponse(id: id, result: catalog.extensionsResult())]
@@ -540,6 +583,151 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             "nextCursor": NSNull(),
             "_meta": catalog.metadata(),
         ]
+    }
+
+    private func providerConfigReadResult(params: [String: Any]) -> [String: Any] {
+        guard let provider = provider(for: params["providerId"] as? String) else {
+            return ["fields": [], "_meta": catalog.metadata()]
+        }
+        let saved = providerConfigValues[provider.providerId] ?? [:]
+        return [
+            "fields": provider.configKeys.map { key in
+                let value = saved[key.name]
+                return [
+                    "key": key.name,
+                    "value": key.secret ? NSNull() : (value ?? NSNull()),
+                    "isSet": value?.isEmpty == false,
+                    "isSecret": key.secret,
+                    "required": key.required,
+                ] as [String: Any]
+            },
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func providerConfigSaveResult(params: [String: Any]) -> [String: Any] {
+        let providerID = (params["providerId"] as? String) ?? defaultProviderID ?? ""
+        let fields = params["fields"] as? [[String: Any]] ?? []
+        var values = providerConfigValues[providerID] ?? [:]
+        for field in fields {
+            guard let key = field["key"] as? String else { continue }
+            values[key] = String(describing: field["value"] ?? "")
+        }
+        providerConfigValues[providerID] = values
+        return providerConfigChangeResult(providerID: providerID, configured: true)
+    }
+
+    private func providerConfigDeleteResult(params: [String: Any]) -> [String: Any] {
+        let providerID = (params["providerId"] as? String) ?? defaultProviderID ?? ""
+        providerConfigValues.removeValue(forKey: providerID)
+        return providerConfigChangeResult(providerID: providerID, configured: false)
+    }
+
+    private func providerConfigChangeResult(providerID: String, configured: Bool) -> [String: Any] {
+        [
+            "status": providerStatus(providerID: providerID, configuredOverride: configured),
+            "refresh": [
+                "providerId": providerID,
+                "started": false,
+                "reason": "MAS in-process backend keeps provider inventory in-process.",
+                "_meta": catalog.metadata(),
+            ],
+        ]
+    }
+
+    private func providerStatus(providerID: String, configuredOverride: Bool? = nil) -> [String: Any] {
+        let provider = provider(for: providerID)
+        return [
+            "providerId": providerID,
+            "configured": configuredOverride ?? provider?.configured ?? (providerConfigValues[providerID]?.isEmpty == false),
+            "isConfigured": configuredOverride ?? provider?.configured ?? (providerConfigValues[providerID]?.isEmpty == false),
+            "stale": provider?.stale ?? false,
+            "refreshing": provider?.refreshing ?? false,
+        ]
+    }
+
+    private func supportedModelsResult(params: [String: Any]) -> [String: Any] {
+        let providerID = (params["providerId"] as? String) ?? defaultProviderID ?? ""
+        let models = provider(for: providerID)?.models.map(\.id) ?? []
+        return [
+            "providerId": providerID,
+            "models": models,
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func providerTemplateResult(params: [String: Any]) -> [String: Any]? {
+        guard let provider = provider(for: params["providerId"] as? String) else { return nil }
+        return [
+            "template": [
+                "providerId": provider.providerId,
+                "name": provider.providerName,
+                "format": provider.providerType,
+                "apiUrl": "",
+                "models": provider.models.map { ["id": $0.id, "name": $0.name] },
+                "supportsStreaming": true,
+                "envVar": provider.configKeys.first(where: \.secret)?.name ?? "",
+                "docUrl": "",
+            ],
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func preferencesReadResult(params: [String: Any]) -> [String: Any] {
+        let requested = params["keys"] as? [String] ?? []
+        let keys = requested.isEmpty ? Array(preferenceValues.keys) : requested
+        return [
+            "values": keys.compactMap { key -> [String: Any]? in
+                guard let value = preferenceValues[key] else { return nil }
+                return ["key": key, "value": value]
+            },
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func savePreferences(params: [String: Any]) {
+        let values = params["values"] as? [[String: Any]] ?? []
+        for entry in values {
+            guard let key = entry["key"] as? String else { continue }
+            preferenceValues[key] = entry["value"] ?? NSNull()
+        }
+    }
+
+    private func removePreferences(params: [String: Any]) {
+        let keys = params["keys"] as? [String] ?? []
+        for key in keys {
+            preferenceValues.removeValue(forKey: key)
+        }
+    }
+
+    private func defaultsResult() -> [String: Any] {
+        [
+            "providerId": defaultProviderID ?? NSNull(),
+            "modelId": defaultModelID ?? NSNull(),
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func saveDefaults(params: [String: Any]) {
+        if let providerID = params["providerId"] as? String, !providerID.isEmpty {
+            defaultProviderID = providerID
+            configValues["GOOSE_PROVIDER"] = providerID
+            if defaultModelID == nil {
+                defaultModelID = provider(for: providerID)?.defaultModel
+            }
+        }
+        if let modelID = params["modelId"] as? String, !modelID.isEmpty {
+            defaultModelID = modelID
+            configValues["GOOSE_MODEL"] = modelID
+        }
+    }
+
+    private func provider(for providerID: String?) -> GooseMASAgentCoreCatalog.Provider? {
+        guard let providerID, !providerID.isEmpty else {
+            return defaultProviderID.flatMap { id in catalog.providers.first { $0.providerId == id } }
+                ?? catalog.providers.first
+        }
+        return catalog.providers.first { $0.providerId == providerID }
     }
 
     private func sessionStateResult() -> [String: Any] {

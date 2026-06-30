@@ -50,6 +50,8 @@ ln -s "$GOOSE_UI_DIR/../node_modules" "$WORK_ROOT/ui/node_modules"
 ln -s "$GOOSE_UI_DIR/node_modules" "$WORK_ROOT/ui/desktop/node_modules"
 printf 'export const USE_ACP_CHAT = true;\n' > "$WORK_ROOT/ui/desktop/src/acpChatFeatureFlag.ts"
 
+node "$ROOT_DIR/scripts/stage-goose-native-reskin.mjs" "$WORK_ROOT/ui/desktop"
+
 cat > "$WORK_ROOT/ui/desktop/src/acp/providers.ts" <<'TS'
 import type {
   ConfigKey,
@@ -3348,6 +3350,11 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     ! grep -q "Changing provider for an active ACP session is not wired yet." "$WORK_ROOT/ui/desktop/src/components/ModelAndProviderContext.tsx"
     grep -q "Provider catalog failed:" "$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
     grep -q "epistemos-acp-recipe-id-reconciliation" "$WORK_ROOT/ui/desktop/src/recipe/recipe_management.ts"
+    grep -q "epistemos-native-reskin-overlay" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q "className=\"goose-epistemos relative w-screen h-screen overflow-hidden bg-transparent flex flex-col\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "h-\\[22px\\] w-\\[38px\\]" "$WORK_ROOT/ui/desktop/src/components/ui/switch.tsx"
+    grep -q "rounded-\\[10px\\] bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
+    grep -q "select__menu z-\\[9999\\] absolute backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/ui/Select.tsx"
     grep -q "base: './'" "$RENDERER_CONFIG"
     if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_TYPECHECK:-0}" = "1" ]; then
         (
@@ -3432,6 +3439,7 @@ for required_marker in \
     "__epistemosGooseProviderCatalogEvents" \
     "Epistemos Apps bridge unavailable" \
     "LM Studio is not reachable at http://localhost:1234" \
+    "epistemos-native-reskin-overlay" \
     "provider-catalog-template-choice"; do
     if ! grep -R -q -- "$required_marker" "$STAGED_OUTPUT/index.html" "$STAGED_OUTPUT/assets" 2>/dev/null; then
         echo "Goose Web UI artifact is missing required ACP provider catalog marker: $required_marker" >&2

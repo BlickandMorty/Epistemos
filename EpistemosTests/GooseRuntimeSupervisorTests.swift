@@ -55,6 +55,28 @@ struct GooseRuntimeSupervisorTests {
         #expect(!appStoreBranch.contains("Process("))
     }
 
+    @Test("MAS in-process ACP implements the WebUI config methods used during first render")
+    func masInProcessACPImplementsWebUIConfigMethods() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        for snippet in [
+            #""_goose/unstable/providers/config/read""#,
+            #""_goose/unstable/providers/config/save""#,
+            #""_goose/unstable/providers/config/authenticate""#,
+            #""_goose/unstable/providers/config/delete""#,
+            #""_goose/unstable/providers/supported-models/list""#,
+            #""_goose/unstable/providers/catalog/template""#,
+            #""_goose/unstable/preferences/read""#,
+            #""_goose/unstable/preferences/save""#,
+            #""_goose/unstable/preferences/remove""#,
+            #""_goose/unstable/defaults/read""#,
+            #""_goose/unstable/defaults/save""#,
+            #"configValues["GOOSE_PROVIDER"]"#,
+            #"configValues["GOOSE_MODEL"]"#,
+        ] {
+            #expect(source.contains(snippet), "missing MAS ACP WebUI config method: \(snippet)")
+        }
+    }
+
     @Test("serve argv pins Goose ACP to loopback port 3284 with an explicit builtin")
     func serveArgumentsPinLoopbackACP() {
         let args = GooseRuntimeSupervisor.serveArguments(
