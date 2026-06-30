@@ -50,8 +50,28 @@ enum DeepResearchServiceError: Error, LocalizedError, Sendable {
         case .bindingsUnavailable:
             return "Deep research runtime is unavailable in this build."
         case .runtime(let message):
-            return message
+            return DeepResearchRuntimeDiagnostics.runtimeMessage(message)
         }
+    }
+}
+
+enum DeepResearchRuntimeDiagnostics {
+    static let maxRuntimeErrorCharacters = 360
+
+    static func runtimeMessage(_ message: String, fallback: String = "Deep research runtime failed.") -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? fallback : trimmed
+        guard description.count > maxRuntimeErrorCharacters else {
+            return description
+        }
+        return String(description.prefix(maxRuntimeErrorCharacters)) + "..."
+    }
+
+    static func externalErrorDescription(_ error: Error) -> String {
+        let nsError = error as NSError
+        let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = domain.isEmpty ? "Error" : domain
+        return runtimeMessage("Deep research runtime failed (\(label) \(nsError.code)).")
     }
 }
 
@@ -162,7 +182,7 @@ private func invokeDeepResearch(
     } catch let error as DeepResearchServiceError {
         throw error
     } catch {
-        throw DeepResearchServiceError.runtime(error.localizedDescription)
+        throw DeepResearchServiceError.runtime(DeepResearchRuntimeDiagnostics.externalErrorDescription(error))
     }
 }
 #else

@@ -61,4 +61,31 @@ struct DeepResearchGateStatusTests {
             #expect(!DeepResearchGateStatus.isCloudProvider(local), "\(local) must not be cloud")
         }
     }
+
+    @Test("runtime diagnostics cap FFI errors without leaking raw localized text")
+    func runtimeDiagnosticsCapFFIErrorsWithoutLeakingRawLocalizedText() throws {
+        #if !EPISTEMOS_APP_STORE
+        let bridge = try loadMirroredSourceTextFile("Epistemos/Bridge/DeepResearchBridge.swift")
+        let raw = String(repeating: "e", count: DeepResearchRuntimeDiagnostics.maxRuntimeErrorCharacters + 41)
+        let privatePath = "/Users/example/private-vault/deep-research.db"
+        let external = NSError(
+            domain: "DeepResearchPathLeak",
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "failed while opening \(privatePath)"]
+        )
+        let description = DeepResearchRuntimeDiagnostics.externalErrorDescription(external)
+
+        #expect(DeepResearchServiceError.runtime(raw).localizedDescription.count == DeepResearchRuntimeDiagnostics.maxRuntimeErrorCharacters + 3)
+        #expect(description.contains("DeepResearchPathLeak"))
+        #expect(description.contains("42"))
+        #expect(description.contains(privatePath) == false)
+        #expect(description.count <= DeepResearchRuntimeDiagnostics.maxRuntimeErrorCharacters)
+        #expect(bridge.contains("DeepResearchRuntimeDiagnostics"))
+        #expect(bridge.contains("maxRuntimeErrorCharacters"))
+        #expect(bridge.contains("externalErrorDescription"))
+        #expect(!bridge.contains("runtime(error.localizedDescription)"))
+        #else
+        #expect(true)
+        #endif
+    }
 }
