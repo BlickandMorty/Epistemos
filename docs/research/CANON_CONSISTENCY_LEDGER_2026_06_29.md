@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 21:25 CDT (loop cycle 34) — **10/10 ✅**, 0 locked-canon drift. **1 active OWNER REVIEW** (Companion-v1.6 vs Plan-5 [cyc12]). Steady-state: no new plans (still 1–7). Active `PROMPT_PLAN_3` recorded a browser-use version-pin decision (0.13.2, skip v2/cloud churn) — dependency discipline, no invariant impact. Plan-3 docs refined, drift-scanned clean; rest code-only (web-ui artifact bounds, VRM lineage, surface-route fragments, Vault MCP redaction, md-mode-picker a11y). HEAD at pass: `e945a2eaf`.
+**Last auditor pass:** 2026-06-29 21:35 CDT (loop cycle 35) — **10/10 ✅**, 0 locked-canon drift. **2 OWNER REVIEW items** (Companion-v1.6 vs Plan-5 [cyc12]; white-screen status [cyc34→35, reframed per owner: captured-as-P0, fix-when-reached]). Steady-state: no new plans (still 1–7). ★ White-screen P0 STILL not implemented in code (Plan-1 on hardening) — owner OK with eventual fix as long as captured (it is). HEAD at pass: `ee68e3320`.
 <br>_(cycle 32 vetted the owner canon edit — white-screen P0 + MAS in-process backend — as Option-1-reinforcing, no drift.)_
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
@@ -63,14 +63,15 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   Pro/Dev-ID gated). No locked-invariant contradiction. (Full read deferred until owner activates.)
 
 ## OWNER REVIEW (Auditor parks ambiguous drift here — owner decides; empty = nothing pending)
-- **2026-06-29 cycle 34 (Auditor) — ⚠️ EXECUTION-vs-PLAN GAP (owner-flagged: "goose still white"). NOT canon drift —
-  the docs are correct; the CODE hasn't caught up.** The white-screen fix is marked **PRIORITY-0** in `PROMPT_PLAN_1_GOOSE`
-  (set ~21:05, cycle 32) with explicit "fix BEFORE more peripheral hardening." **But no implementing code commit exists** —
-  `grep` of `Epistemos/Goose/*.swift` finds NO WebView↔ACP retry-until-ready / `/health`-poll-then-reinit logic. Since the
-  P0 was set, Plan-1 has instead shipped 40+ security/bounds commits (`bound/cap/redact/sanitize`). ⇒ owner still sees white
-  because the render fix isn't written yet. **Auditor can't fix code (docs-only role).** OWNER ACTION: direct the Plan-1
-  agent to implement the white-screen P0 NOW (poll `/health`, backoff-retry ACP `init`, re-init the WebUI ACP client on first
-  healthy connect) ahead of further hardening. (Tracking only — auditor edited nothing in code or Plan-1.)
+- **2026-06-29 cycle 34→35 (Auditor) — white-screen STATUS (owner-flagged "goose still white"; owner cyc35: "fix whenever
+  it gets to it, just keep it captured in the plan"). NOT canon drift — docs are correct; this is execution-status tracking.**
+  ✅ **CAPTURED:** the fix is **PRIORITY-0** in `PROMPT_PLAN_1_GOOSE` (root cause = startup race; fix = retry-until-ready ACP:
+  poll `/health`, backoff-retry `init`, re-init WebUI ACP client on first healthy connect). ⏳ **PENDING in code:** `grep` of
+  `Epistemos/Goose/*.swift` finds no implementing commit yet — Plan-1 has been on security/bounds hardening. **Per owner
+  (cyc35): acceptable to fix when the agent reaches it in the plan order; the requirement is that it stays captured (it is).**
+  Auditor role = keep it visible + confirm when the implementing commit lands (docs-only; edits nothing in code/Plan-1).
+  **Owner's standing ask (cyc35): every issue that arises must be at least conceptualized + added to a plan/recon, even if
+  not fixed immediately** — auditor will spot-check that new owner-raised issues land in a plan or `LOST_ITEMS_RECON`, not lost.
 - **2026-06-29 cycle 19 (Auditor) — "graph CHROME" items vs invariant #6 "Graph = DO NOT TOUCH" (boundary question;
   NOT live drift — these are recon proposals, not build instructions; invariant grep still passes).** WAVE-2 of
   `LOST_ITEMS_RECON_2026_06_29.md` (`0daaf6695`) surfaces graph-adjacent items and proposes routing them: **#34** dead
