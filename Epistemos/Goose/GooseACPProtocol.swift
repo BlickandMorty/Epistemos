@@ -392,11 +392,17 @@ nonisolated enum GooseACPProtocolBounds {
     static let maxProviderInventoryEntries = 256
     static let maxProviderModelsPerProvider = 512
     static let maxProviderSupportedModels = 1_024
+    static let maxProviderCatalogEntries = 512
+    static let maxProviderSetupCatalogEntries = 512
+    static let maxProviderTemplateModels = 1_024
+    static let maxProviderSetupFields = 64
+    static let maxProviderSetupAliases = 64
     static let maxProviderConfigFields = 64
     static let maxProviderConfigStatuses = 512
     static let maxConfigExtensions = 512
     static let maxConfigWarnings = 64
     static let maxConfigWarningCharacters = 512
+    static let maxCatalogURLCharacters = 2_048
     static let maxJSONRPCErrorMessageCharacters = 1_024
     static let maxInventoryIDCharacters = 512
     static let maxInventoryDisplayCharacters = 256
@@ -455,6 +461,14 @@ private nonisolated func trimmedNonEmptyACPString(
         return truncating ? String(trimmed.prefix(maxCharacters)) : nil
     }
     return trimmed
+}
+
+private nonisolated func boundedACPString(
+    _ value: String?,
+    maxCharacters: Int = GooseACPProtocolBounds.maxInventoryDisplayCharacters,
+    fallback: String = ""
+) -> String {
+    trimmedNonEmptyACPString(value, maxCharacters: maxCharacters) ?? fallback
 }
 
 private nonisolated func decodeTrimmedNonEmptyACPString(
@@ -687,10 +701,83 @@ nonisolated struct GooseACPProviderTemplateCatalogEntry: Decodable, Equatable, S
     let modelCount: Int
     let docUrl: String
     let envVar: String
+
+    init(
+        providerId: String,
+        name: String,
+        format: String,
+        apiUrl: String,
+        modelCount: Int,
+        docUrl: String,
+        envVar: String
+    ) {
+        self.providerId = providerId
+        self.name = name
+        self.format = format
+        self.apiUrl = apiUrl
+        self.modelCount = modelCount
+        self.docUrl = docUrl
+        self.envVar = envVar
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case providerId
+        case name
+        case format
+        case apiUrl
+        case modelCount
+        case docUrl
+        case envVar
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let providerId = trimmedNonEmptyACPString(
+            try container.decodeIfPresent(String.self, forKey: .providerId),
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .providerId,
+                in: container,
+                debugDescription: "Provider catalog id is missing or too large."
+            )
+        }
+        self.providerId = providerId
+        name = boundedACPString(try container.decodeIfPresent(String.self, forKey: .name), fallback: providerId)
+        format = boundedACPString(try container.decodeIfPresent(String.self, forKey: .format))
+        apiUrl = boundedACPString(
+            try container.decodeIfPresent(String.self, forKey: .apiUrl),
+            maxCharacters: GooseACPProtocolBounds.maxCatalogURLCharacters
+        )
+        modelCount = max(0, try container.decodeIfPresent(Int.self, forKey: .modelCount) ?? 0)
+        docUrl = boundedACPString(
+            try container.decodeIfPresent(String.self, forKey: .docUrl),
+            maxCharacters: GooseACPProtocolBounds.maxCatalogURLCharacters
+        )
+        envVar = boundedACPString(
+            try container.decodeIfPresent(String.self, forKey: .envVar),
+            maxCharacters: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters
+        )
+    }
 }
 
 nonisolated struct GooseACPProviderCatalogListResponse: Decodable, Equatable, Sendable {
     let providers: [GooseACPProviderTemplateCatalogEntry]
+
+    private enum CodingKeys: String, CodingKey {
+        case providers
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawProviders: [JSONValue] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .providers,
+            limit: GooseACPProtocolBounds.maxProviderCatalogEntries
+        ) ?? []
+        providers = rawProviders.compactMap { try? $0.decoded(GooseACPProviderTemplateCatalogEntry.self) }
+    }
 }
 
 nonisolated struct GooseACPProviderCatalogTemplateRequest: Encodable, Equatable, Sendable {
@@ -710,6 +797,35 @@ nonisolated struct GooseACPProviderTemplateModel: Decodable, Equatable, Sendable
     let contextLimit: Int
     let capabilities: GooseACPProviderTemplateModelCapabilities
     let deprecated: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case contextLimit
+        case capabilities
+        case deprecated
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let id = trimmedNonEmptyACPString(
+            try container.decodeIfPresent(String.self, forKey: .id),
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .id,
+                in: container,
+                debugDescription: "Provider template model id is missing or too large."
+            )
+        }
+        self.id = id
+        name = boundedACPString(try container.decodeIfPresent(String.self, forKey: .name), fallback: id)
+        contextLimit = max(0, try container.decodeIfPresent(Int.self, forKey: .contextLimit) ?? 0)
+        capabilities = (try? container.decode(GooseACPProviderTemplateModelCapabilities.self, forKey: .capabilities))
+            ?? .init(toolCall: false, reasoning: false, attachment: false, temperature: false)
+        deprecated = try container.decodeIfPresent(Bool.self, forKey: .deprecated) ?? false
+    }
 }
 
 nonisolated struct GooseACPProviderTemplate: Decodable, Equatable, Sendable {
@@ -721,6 +837,54 @@ nonisolated struct GooseACPProviderTemplate: Decodable, Equatable, Sendable {
     let supportsStreaming: Bool
     let envVar: String
     let docUrl: String
+
+    private enum CodingKeys: String, CodingKey {
+        case providerId
+        case name
+        case format
+        case apiUrl
+        case models
+        case supportsStreaming
+        case envVar
+        case docUrl
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let providerId = trimmedNonEmptyACPString(
+            try container.decodeIfPresent(String.self, forKey: .providerId),
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .providerId,
+                in: container,
+                debugDescription: "Provider template id is missing or too large."
+            )
+        }
+        self.providerId = providerId
+        name = boundedACPString(try container.decodeIfPresent(String.self, forKey: .name), fallback: providerId)
+        format = boundedACPString(try container.decodeIfPresent(String.self, forKey: .format))
+        apiUrl = boundedACPString(
+            try container.decodeIfPresent(String.self, forKey: .apiUrl),
+            maxCharacters: GooseACPProtocolBounds.maxCatalogURLCharacters
+        )
+        let rawModels: [JSONValue] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .models,
+            limit: GooseACPProtocolBounds.maxProviderTemplateModels
+        ) ?? []
+        models = rawModels.compactMap { try? $0.decoded(GooseACPProviderTemplateModel.self) }
+        supportsStreaming = try container.decodeIfPresent(Bool.self, forKey: .supportsStreaming) ?? false
+        envVar = boundedACPString(
+            try container.decodeIfPresent(String.self, forKey: .envVar),
+            maxCharacters: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters
+        )
+        docUrl = boundedACPString(
+            try container.decodeIfPresent(String.self, forKey: .docUrl),
+            maxCharacters: GooseACPProtocolBounds.maxCatalogURLCharacters
+        )
+    }
 }
 
 nonisolated struct GooseACPProviderCatalogTemplateResponse: Decodable, Equatable, Sendable {
@@ -736,6 +900,40 @@ nonisolated struct GooseACPProviderSetupField: Decodable, Equatable, Sendable {
     let required: Bool
     let placeholder: String?
     let defaultValue: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case key
+        case label
+        case secret
+        case required
+        case placeholder
+        case defaultValue
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = trimmedNonEmptyACPString(
+            try container.decodeIfPresent(String.self, forKey: .key),
+            maxCharacters: GooseACPProtocolBounds.maxProviderConfigFieldKeyCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .key,
+                in: container,
+                debugDescription: "Provider setup field key is missing or too large."
+            )
+        }
+        self.key = key
+        label = boundedACPString(try container.decodeIfPresent(String.self, forKey: .label), fallback: key)
+        secret = try container.decodeIfPresent(Bool.self, forKey: .secret) ?? false
+        required = try container.decodeIfPresent(Bool.self, forKey: .required) ?? false
+        placeholder = try container.decodeIfPresent(String.self, forKey: .placeholder).map {
+            String($0.prefix(GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters))
+        }
+        defaultValue = try container.decodeIfPresent(String.self, forKey: .defaultValue).map {
+            String($0.prefix(GooseACPProtocolBounds.maxProviderConfigFieldValueCharacters))
+        }
+    }
 }
 
 nonisolated struct GooseACPProviderSetupCatalogEntry: Decodable, Equatable, Sendable {
@@ -775,18 +973,47 @@ nonisolated struct GooseACPProviderSetupCatalogEntry: Decodable, Equatable, Send
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        providerId = try container.decode(String.self, forKey: .providerId)
-        name = try container.decode(String.self, forKey: .name)
-        category = try container.decode(String.self, forKey: .category)
-        description = try container.decode(String.self, forKey: .description)
-        setupMethod = try container.decode(String.self, forKey: .setupMethod)
-        nativeConnectQuery = try container.decodeIfPresent(String.self, forKey: .nativeConnectQuery)
-        fields = try container.decodeIfPresent([GooseACPProviderSetupField].self, forKey: .fields) ?? []
-        binaryName = try container.decodeIfPresent(String.self, forKey: .binaryName)
-        docUrl = try container.decodeIfPresent(String.self, forKey: .docUrl)
-        group = try container.decode(String.self, forKey: .group)
+        guard let providerId = trimmedNonEmptyACPString(
+            try container.decodeIfPresent(String.self, forKey: .providerId),
+            maxCharacters: GooseACPProtocolBounds.maxInventoryIDCharacters,
+            truncating: false
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .providerId,
+                in: container,
+                debugDescription: "Provider setup catalog id is missing or too large."
+            )
+        }
+        self.providerId = providerId
+        name = boundedACPString(try container.decodeIfPresent(String.self, forKey: .name), fallback: providerId)
+        category = boundedACPString(try container.decodeIfPresent(String.self, forKey: .category))
+        description = boundedACPString(try container.decodeIfPresent(String.self, forKey: .description))
+        setupMethod = boundedACPString(try container.decodeIfPresent(String.self, forKey: .setupMethod))
+        nativeConnectQuery = try container.decodeIfPresent(String.self, forKey: .nativeConnectQuery).map {
+            String($0.prefix(GooseACPProtocolBounds.maxCatalogURLCharacters))
+        }
+        let rawFields: [JSONValue] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .fields,
+            limit: GooseACPProtocolBounds.maxProviderSetupFields
+        ) ?? []
+        fields = rawFields.compactMap { try? $0.decoded(GooseACPProviderSetupField.self) }
+        binaryName = try container.decodeIfPresent(String.self, forKey: .binaryName).flatMap {
+            trimmedNonEmptyACPString($0, maxCharacters: GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        }
+        docUrl = try container.decodeIfPresent(String.self, forKey: .docUrl).flatMap {
+            trimmedNonEmptyACPString($0, maxCharacters: GooseACPProtocolBounds.maxCatalogURLCharacters)
+        }
+        group = boundedACPString(try container.decodeIfPresent(String.self, forKey: .group))
         showOnlyWhenInstalled = try container.decode(Bool.self, forKey: .showOnlyWhenInstalled)
-        aliases = try container.decodeIfPresent([String].self, forKey: .aliases) ?? []
+        let rawAliases: [String] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .aliases,
+            limit: GooseACPProtocolBounds.maxProviderSetupAliases
+        ) ?? []
+        aliases = rawAliases.compactMap {
+            trimmedNonEmptyACPString($0, maxCharacters: GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        }
         supportsInstall = try container.decode(Bool.self, forKey: .supportsInstall)
         supportsAuth = try container.decode(Bool.self, forKey: .supportsAuth)
         supportsAuthStatus = try container.decode(Bool.self, forKey: .supportsAuthStatus)
@@ -795,6 +1022,20 @@ nonisolated struct GooseACPProviderSetupCatalogEntry: Decodable, Equatable, Send
 
 nonisolated struct GooseACPProviderSetupCatalogListResponse: Decodable, Equatable, Sendable {
     let providers: [GooseACPProviderSetupCatalogEntry]
+
+    private enum CodingKeys: String, CodingKey {
+        case providers
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawProviders: [JSONValue] = try decodeBoundedACPArrayIfPresent(
+            container,
+            forKey: .providers,
+            limit: GooseACPProtocolBounds.maxProviderSetupCatalogEntries
+        ) ?? []
+        providers = rawProviders.compactMap { try? $0.decoded(GooseACPProviderSetupCatalogEntry.self) }
+    }
 }
 
 nonisolated struct GooseACPProviderConfigReadRequest: Encodable, Equatable, Sendable {

@@ -817,6 +817,80 @@ struct GooseACPClientTests {
         await client.close()
     }
 
+    @Test("provider catalog decoders bound live ACP payloads")
+    func providerCatalogDecodersBoundLiveACPPayloads() throws {
+        let longDisplay = String(
+            repeating: "d",
+            count: GooseACPProtocolBounds.maxInventoryDisplayCharacters + 40
+        )
+        let longURL = "https://example.invalid/" + String(
+            repeating: "u",
+            count: GooseACPProtocolBounds.maxCatalogURLCharacters + 40
+        )
+        let catalogProvidersJSON = (0..<(GooseACPProtocolBounds.maxProviderCatalogEntries + 3))
+            .map { index in
+                """
+                {"providerId":"provider-\(index)","name":"\(longDisplay)","format":"openai","apiUrl":"\(longURL)","modelCount":2,"docUrl":"\(longURL)","envVar":"OPENAI_API_KEY"}
+                """
+            }
+            .joined(separator: ",")
+        let catalog = try JSONDecoder().decode(
+            GooseACPProviderCatalogListResponse.self,
+            from: Data(#"{"providers":[\#(catalogProvidersJSON)]}"#.utf8)
+        )
+
+        #expect(catalog.providers.count == GooseACPProtocolBounds.maxProviderCatalogEntries)
+        #expect(catalog.providers.first?.name.count == GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        #expect(catalog.providers.first?.apiUrl.count == GooseACPProtocolBounds.maxCatalogURLCharacters)
+
+        let fieldsJSON = (0..<(GooseACPProtocolBounds.maxProviderSetupFields + 3))
+            .map { #"{"key":"KEY_\#($0)","label":"\#(longDisplay)","secret":true,"required":true}"# }
+            .joined(separator: ",")
+        let aliasesJSON = (0..<(GooseACPProtocolBounds.maxProviderSetupAliases + 3))
+            .map { #""alias-\#($0)""# }
+            .joined(separator: ",")
+        let setupProvidersJSON = (0..<(GooseACPProtocolBounds.maxProviderSetupCatalogEntries + 3))
+            .map { index in
+                let fields = index == 0 ? fieldsJSON : ""
+                let aliases = index == 0 ? aliasesJSON : ""
+                """
+                {"providerId":"setup-\(index)","name":"\(longDisplay)","category":"cloud","description":"\(longDisplay)","setupMethod":"key","fields":[\(fields)],"group":"default","showOnlyWhenInstalled":false,"aliases":[\(aliases)],"supportsInstall":false,"supportsAuth":false,"supportsAuthStatus":true}
+                """
+            }
+            .joined(separator: ",")
+        let setupCatalog = try JSONDecoder().decode(
+            GooseACPProviderSetupCatalogListResponse.self,
+            from: Data(#"{"providers":[\#(setupProvidersJSON)]}"#.utf8)
+        )
+
+        #expect(setupCatalog.providers.count == GooseACPProtocolBounds.maxProviderSetupCatalogEntries)
+        #expect(setupCatalog.providers.first?.name.count == GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        #expect(setupCatalog.providers.first?.fields.count == GooseACPProtocolBounds.maxProviderSetupFields)
+        #expect(setupCatalog.providers.first?.fields.first?.label.count == GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        #expect(setupCatalog.providers.first?.aliases.count == GooseACPProtocolBounds.maxProviderSetupAliases)
+
+        let modelsJSON = (0..<(GooseACPProtocolBounds.maxProviderTemplateModels + 3))
+            .map { index in
+                """
+                {"id":"model-\(index)","name":"\(longDisplay)","contextLimit":128000,"capabilities":{"toolCall":true,"reasoning":false,"attachment":false,"temperature":true},"deprecated":false}
+                """
+            }
+            .joined(separator: ",")
+        let template = try JSONDecoder().decode(
+            GooseACPProviderCatalogTemplateResponse.self,
+            from: Data(
+                """
+                {"template":{"providerId":"provider-template","name":"\(longDisplay)","format":"openai","apiUrl":"\(longURL)","models":[\(modelsJSON)],"supportsStreaming":true,"envVar":"OPENAI_API_KEY","docUrl":"\(longURL)"}}
+                """.utf8
+            )
+        )
+
+        #expect(template.template.name.count == GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+        #expect(template.template.apiUrl.count == GooseACPProtocolBounds.maxCatalogURLCharacters)
+        #expect(template.template.models.count == GooseACPProtocolBounds.maxProviderTemplateModels)
+        #expect(template.template.models.first?.name.count == GooseACPProtocolBounds.maxInventoryDisplayCharacters)
+    }
+
     @Test("client sends the provider settings mutation Goose custom ACP subset")
     func clientSendsProviderSettingsMutationCustomACPSubset() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
