@@ -6,7 +6,7 @@
 > touches code or another agent's uncommitted work), and flags anything ambiguous under "OWNER REVIEW." Owner: scan
 > the STATUS column — all ✅ = canon coherent; any ⚠️ = drift the Auditor caught (read its note).
 
-**Last auditor pass:** 2026-06-29 19:35 CDT (loop cycle 23) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW (2 open). Deep-pass (ultracode): DEEP-verified invariant **#10's full substance** — accent #0066cc + SF Pro + radius 11 all consistent (per-component 8/9px radii are faithful macOS, not rivals; "Inter" hits were substring noise). Owner DECLINED proposed "Plan 9" (`1f4782519`, items dropped) — recorded, no drift. No new plans (still 1–7). Plan-3 docs + LOST_ITEMS_RECON drift-scanned clean; rest code-only (HTML Workspace feeds, ACP lifecycle, Vault MCP roots, LiteParse). HEAD at pass: `41f86b040`.
+**Last auditor pass:** 2026-06-29 19:45 CDT (loop cycle 24) — **10/10 ✅**, 0 locked-canon drift, 0 new OWNER REVIEW. **Owner DECLINED "Plan 8" (Theming/Appearance) as a dedicated plan** (`d24316f60`) — the graph-chrome items (#34/#35/#28) are now captured-but-NOT-worked ⇒ **cycle-19 graph-chrome park downgraded to DORMANT** (boundary only needs an answer if owner later asks for that hardening pass). So now **1 active OWNER REVIEW (Companion-v1.6 vs Plan-5 [cyc12]) + 1 dormant (graph-chrome [cyc19])**. No new plans (still 1–7). Plan-3 docs + recon drift-scanned clean; rest code-only. #0066cc 18→20 (more correct uses, no rival). HEAD at pass: `d24316f60`.
 <br>_Recent: cycle 13 (17:59) tracked Plans 6/7 + Plan-4 §11 animation, widened #9 to [4-9]. cycle 12 (17:51) parked Companion-v1.6 vs Plan-5 doctrine tension. cycle 8 (17:06) STRENGTHENED check #4 to all 4 springs._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section = canon-reinforcing. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest._
 <br>_Recent: cycle 4 (16:37) verified Plan-1's Phase-1/Option-1 section appended to GOOSE_PHASE_0_VERIFICATION = canon-reinforcing, no drift. cycle 2 (16:17) made #6/#8 greps case/phrasing-honest (doctrine match was always real)._
@@ -74,6 +74,10 @@ only on owner go.** Auditor read the prompts — they ENFORCE the locked invaria
   legitimate tentative salvage ledger; preserve-nuance) and did NOT guess. **Owner decision (before any "Plan 8"/graph-chrome
   work starts):** is *graph chrome* (appearance toggles / top-bar / transition) INSIDE the DO-NOT-TOUCH boundary (→ drop/defer
   #34 esp.) or OUTSIDE it (chrome ≠ the Metal graph → allowed, and I'll record the clarified boundary in the doctrine)?
+  **↳ UPDATE cycle 24 (`d24316f60`): owner DECLINED "Plan 8" as a dedicated plan; items 27/34/35 stay captured in the
+  recon Wave-2 table but are NOT being worked ("later hardening pass only if owner asks"). ⇒ this park is now DORMANT —
+  no agent is building the graph-chrome items, so the DO-NOT-TOUCH boundary isn't at risk right now. It only needs an
+  answer IF the owner later green-lights that hardening pass (esp. for #34, wiring graph appearance toggles).**
 - **2026-06-29 cycle 12 (Auditor) — Companion v1.6 "cosmetic-only" doctrine vs Plan-5 chat extension (NOT a locked-canon
   violation; not a fleet blocker — Plan 5 is SAVED/not-active).** Plan-5 surface (B) deliberately evolves the CompanionModel
   v1.6 "cosmetic-only, NO model/prompt/tool/MCP/runtime authority" doctrine to allow a **gated chat binding**. That v1.6
