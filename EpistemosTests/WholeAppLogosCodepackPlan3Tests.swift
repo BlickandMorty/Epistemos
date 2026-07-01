@@ -119,6 +119,7 @@ struct WholeAppLogosCodepackPlan3Tests {
         let browser = try loadMirroredSourceTextFile("Epistemos/Views/Browser/BrowserView.swift")
         let browserUse = try loadMirroredSourceTextFile("Epistemos/Views/Settings/BrowserUseSettingsView.swift")
         let meeting = try loadMirroredSourceTextFile("Epistemos/Views/Meeting/MeetingNoteView.swift")
+        let voice = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
         let landingButtons = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingFeatureButtons.swift")
         let pixelComponents = try loadMirroredSourceTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
 
@@ -137,6 +138,8 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(browser.contains("IntegrationBrandMarkView(brand: .browser"))
         #expect(browserUse.contains("IntegrationBrandMarkView(brand: .browserUse"))
         #expect(meeting.contains("IntegrationBrandMarkView(brand: .meetingNote"))
+        #expect(voice.contains("IntegrationBrandMarkView(brand: .voice"))
+        #expect(voice.contains("ui.theme.resolved.mutedForeground.color"))
         #expect(landingButtons.contains("var integrationBrand: IntegrationBrand"))
         #expect(landingButtons.contains(".landingFeature(rawValue: rawValue)"))
         #expect(landingButtons.contains("brand: feature.integrationBrand"))
