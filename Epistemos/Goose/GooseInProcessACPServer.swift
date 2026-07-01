@@ -10,8 +10,16 @@ protocol GooseMASAgentCoreRunning: AnyObject, Sendable {
         systemPrompt: String?,
         maxTokens: Int,
         providerName: String,
-        vaultPath: String
+        vaultPath: String,
+        permissionHandler: @escaping @Sendable (GooseMASAgentCorePermissionRequest) -> Bool
     ) -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error>
+}
+
+nonisolated struct GooseMASAgentCorePermissionRequest: Sendable, Equatable {
+    let id: String
+    let toolName: String
+    let inputJson: String
+    let riskLevel: String
 }
 
 nonisolated enum GooseMASAgentCoreRunEvent: Sendable, Equatable {
@@ -44,12 +52,16 @@ nonisolated final class GooseMASAgentCoreRunner: GooseMASAgentCoreRunning, @unch
         systemPrompt: String?,
         maxTokens: Int,
         providerName: String,
-        vaultPath: String
+        vaultPath: String,
+        permissionHandler: @escaping @Sendable (GooseMASAgentCorePermissionRequest) -> Bool
     ) -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error> {
         AsyncThrowingStream { continuation in
-            let delegate = GooseMASAgentCoreDelegate { event in
-                continuation.yield(event)
-            }
+            let delegate = GooseMASAgentCoreDelegate(
+                emit: { event in
+                    continuation.yield(event)
+                },
+                permissionHandler: permissionHandler
+            )
             let normalizedVaultPath = vaultPath.trimmingCharacters(in: .whitespacesAndNewlines)
             let toolConfig = ToolConfig(
                 vaultPath: normalizedVaultPath.isEmpty ? Self.defaultVaultPath : normalizedVaultPath,
@@ -105,11 +117,17 @@ nonisolated final class GooseMASAgentCoreRunner: GooseMASAgentCoreRunning, @unch
 
 nonisolated private final class GooseMASAgentCoreDelegate: AgentStreamEventDelegate, @unchecked Sendable {
     private let emitEvent: @Sendable (GooseMASAgentCoreRunEvent) -> Void
+    private let permissionHandler: @Sendable (GooseMASAgentCorePermissionRequest) -> Bool
     private let lock = NSLock()
     private var didComplete = false
+    private var pendingPermissionRequests: [String: GooseMASAgentCorePermissionRequest] = [:]
 
-    init(emit: @escaping @Sendable (GooseMASAgentCoreRunEvent) -> Void) {
+    init(
+        emit: @escaping @Sendable (GooseMASAgentCoreRunEvent) -> Void,
+        permissionHandler: @escaping @Sendable (GooseMASAgentCorePermissionRequest) -> Bool
+    ) {
         self.emitEvent = emit
+        self.permissionHandler = permissionHandler
     }
 
     func emit(_ event: GooseMASAgentCoreRunEvent) {
@@ -156,6 +174,15 @@ nonisolated private final class GooseMASAgentCoreDelegate: AgentStreamEventDeleg
         inputJson: String,
         riskLevel: String
     ) {
+        let request = GooseMASAgentCorePermissionRequest(
+            id: permissionId,
+            toolName: toolName,
+            inputJson: inputJson,
+            riskLevel: riskLevel
+        )
+        lock.lock()
+        pendingPermissionRequests[permissionId] = request
+        lock.unlock()
         emit(.permissionRequired(id: permissionId, toolName: toolName, inputJson: inputJson, riskLevel: riskLevel))
     }
 
@@ -190,8 +217,11 @@ nonisolated private final class GooseMASAgentCoreDelegate: AgentStreamEventDeleg
     }
 
     func waitForPermission(permissionId: String) -> Bool {
-        _ = permissionId
-        return false
+        lock.lock()
+        let request = pendingPermissionRequests.removeValue(forKey: permissionId)
+        lock.unlock()
+        guard let request else { return false }
+        return permissionHandler(request)
     }
 
     func askUserQuestion(questionJson: String) -> String {
@@ -283,10 +313,32 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         let runner: any GooseMASAgentCoreRunning
     }
 
+    private final class PendingPermissionResponse: @unchecked Sendable {
+        private let semaphore = DispatchSemaphore(value: 0)
+        private let lock = NSLock()
+        private var approved = false
+
+        func resolve(approved: Bool) {
+            lock.lock()
+            self.approved = approved
+            lock.unlock()
+            semaphore.signal()
+        }
+
+        func wait(timeout: TimeInterval) -> Bool {
+            let result = semaphore.wait(timeout: .now() + timeout)
+            guard result != .timedOut else { return false }
+            lock.lock()
+            defer { lock.unlock() }
+            return approved
+        }
+    }
+
     private static let logger = Logger(subsystem: "com.epistemos.goose", category: "GooseInProcessACPServer")
     private static let maxHTTPRequestBytes = 256 * 1024
     private static let maxWebSocketBufferBytes = 2 * 1024 * 1024
     private static let defaultPromptMaxTokens = 4_096
+    private static let permissionResponseTimeoutSeconds: TimeInterval = 300
 
     private let secretKey: String
     private let catalog: GooseMASAgentCoreCatalog
@@ -297,6 +349,8 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private var preferenceValues: [String: Any] = [:]
     private var defaultProviderID: String?
     private var defaultModelID: String?
+    private let pendingPermissionsLock = NSLock()
+    private var pendingPermissions: [String: PendingPermissionResponse] = [:]
     private let statusLock = NSLock()
     private var _status: Status = .idle
     private var listener: NWListener?
@@ -654,6 +708,9 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               object["jsonrpc"] as? String == "2.0" else {
             return [Self.jsonError(id: nil, code: -32700, message: "Parse error")]
+        }
+        if object["method"] == nil, completePendingPermissionResponse(from: object) {
+            return []
         }
         guard let method = object["method"] as? String else {
             return [Self.jsonError(id: Self.requestID(from: object), code: -32600, message: "Invalid request")]
@@ -1028,7 +1085,11 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
                     systemPrompt: run.systemPrompt,
                     maxTokens: run.maxTokens,
                     providerName: providerName,
-                    vaultPath: self.vaultPathForAgentCore()
+                    vaultPath: self.vaultPathForAgentCore(),
+                    permissionHandler: { [weak self, box, run] request in
+                        guard let self else { return false }
+                        return self.requestAgentCorePermission(request, sessionID: run.sessionID, on: box)
+                    }
                 )
                 for try await event in stream {
                     if Task.isCancelled {
@@ -1223,6 +1284,69 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         return candidates
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty } ?? NSHomeDirectory()
+    }
+
+    private func requestAgentCorePermission(
+        _ request: GooseMASAgentCorePermissionRequest,
+        sessionID: String,
+        on box: WebSocketConnectionBox
+    ) -> Bool {
+        let requestID = "mas_perm_\(UUID().uuidString.lowercased())"
+        let pending = PendingPermissionResponse()
+        pendingPermissionsLock.lock()
+        pendingPermissions[requestID] = pending
+        pendingPermissionsLock.unlock()
+
+        sendJSONMessages([
+            Self.jsonRequest(
+                id: requestID,
+                method: "session/request_permission",
+                params: [
+                    "sessionId": sessionID,
+                    "toolCall": [
+                        "toolCallId": request.id,
+                        "title": Self.permissionTitle(
+                            toolName: request.toolName,
+                            inputJson: request.inputJson,
+                            riskLevel: request.riskLevel
+                        ),
+                        "kind": Self.toolKind(for: request.toolName),
+                        "status": "pending",
+                    ],
+                    "options": [
+                        [
+                            "optionId": "allow_once",
+                            "name": "Allow once",
+                            "kind": "allow_once",
+                        ],
+                        [
+                            "optionId": "reject_once",
+                            "name": "Deny",
+                            "kind": "reject_once",
+                        ],
+                    ],
+                ]
+            ),
+        ], on: box)
+
+        let approved = pending.wait(timeout: Self.permissionResponseTimeoutSeconds)
+        pendingPermissionsLock.lock()
+        pendingPermissions.removeValue(forKey: requestID)
+        pendingPermissionsLock.unlock()
+        return approved
+    }
+
+    private func completePendingPermissionResponse(from object: [String: Any]) -> Bool {
+        guard object["result"] != nil || object["error"] != nil else { return false }
+        guard let key = Self.requestIDKey(from: object["id"]) else { return true }
+
+        pendingPermissionsLock.lock()
+        let pending = pendingPermissions.removeValue(forKey: key)
+        pendingPermissionsLock.unlock()
+
+        guard let pending else { return true }
+        pending.resolve(approved: Self.permissionResponseApproved(from: object))
+        return true
     }
 
     private static func promptText(from params: [String: Any]) -> String {
@@ -1452,6 +1576,33 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         return id is NSNull ? nil : id
     }
 
+    private static func requestIDKey(from id: Any?) -> String? {
+        guard let id, !(id is NSNull) else { return nil }
+        if let string = id as? String { return string }
+        if let number = id as? NSNumber { return number.stringValue }
+        return String(describing: id)
+    }
+
+    private static func permissionResponseApproved(from object: [String: Any]) -> Bool {
+        guard object["error"] == nil,
+              let result = object["result"] as? [String: Any] else {
+            return false
+        }
+        guard let outcome = result["outcome"] as? [String: Any] else {
+            return false
+        }
+        guard outcome["outcome"] as? String == "selected" else {
+            return false
+        }
+        let optionID = (outcome["optionId"] as? String)
+            ?? (outcome["option_id"] as? String)
+            ?? ""
+        let normalized = optionID.lowercased()
+        return !normalized.contains("reject")
+            && !normalized.contains("deny")
+            && !normalized.contains("cancel")
+    }
+
     private static func isProGated(method: String) -> Bool {
         let lower = method.lowercased()
         return lower.contains("developer")
@@ -1471,6 +1622,15 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             "jsonrpc": "2.0",
             "id": id ?? NSNull(),
             "result": result,
+        ])
+    }
+
+    private static func jsonRequest(id: Any?, method: String, params: [String: Any]) -> String {
+        serializeJSON([
+            "jsonrpc": "2.0",
+            "id": id ?? NSNull(),
+            "method": method,
+            "params": params,
         ])
     }
 
