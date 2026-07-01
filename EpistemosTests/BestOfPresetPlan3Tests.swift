@@ -423,6 +423,44 @@ struct BestOfPresetPlan3Tests {
         ))
     }
 
+    @Test("skill repo preset rows reject non-GitHub install targets before invoking tools")
+    func skillRepoRowsRejectNonGitHubTargets() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-skill-target-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        let json = """
+        {
+          "items": [
+            {
+              "kind": "skillRepo",
+              "id": "bad-skill",
+              "displayName": "Bad Skill",
+              "why": "Should not invoke skill_manage",
+              "minDistribution": "proResearch",
+              "installTarget": "https://github.com/owner/repo?token=abc123"
+            }
+          ]
+        }
+        """
+        let fixture = try Self.makeBestOfPresetBundle(data: Data(json.utf8))
+        defer {
+            try? FileManager.default.removeItem(at: fixture.root)
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let results = await BestOfPreset.apply(
+            vaultPath: root.appendingPathComponent("vault").path,
+            distribution: .proResearch,
+            home: home,
+            bundle: fixture.bundle
+        )
+
+        let result = try #require(results.first)
+        #expect(result.item.id == "bad-skill")
+        #expect(result.status == .unavailable)
+        #expect(result.detail == "Skill repository target must be a clean GitHub HTTPS repository URL.")
+    }
+
     @Test("receipt store source keeps bounded non-symlink file contract")
     func receiptStoreSourceGuard() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Omega/BestOfPreset.swift")
@@ -445,6 +483,10 @@ struct BestOfPresetPlan3Tests {
             "firstExistingSymlinkComponent",
             "BestOfPresetDiagnostics.externalErrorDescription",
             "BestOfPresetDiagnostics.message",
+            "skillRepoGitHubTarget",
+            "components.host?.lowercased() == \"github.com\"",
+            "components.percentEncodedQuery == nil",
+            "components.percentEncodedFragment == nil",
         ] {
             #expect(source.contains(required), "BestOfPreset receipt store missing hardening marker: \(required)")
         }

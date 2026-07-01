@@ -285,6 +285,9 @@ nonisolated enum BestOfPreset {
         guard let target = installTarget(for: item) else {
             return result(item, .unavailable, "No install target is bundled for this preset row.")
         }
+        guard let gitHubTarget = skillRepoGitHubTarget(target) else {
+            return result(item, .unavailable, "Skill repository target must be a clean GitHub HTTPS repository URL.")
+        }
         guard let vaultPath, !vaultPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return result(item, .unavailable, "Attach a vault before installing skill repositories.")
         }
@@ -293,7 +296,7 @@ nonisolated enum BestOfPreset {
         do {
             let payload: [String: Any] = [
                 "action": "install_from_github",
-                "git_url": target,
+                "git_url": gitHubTarget,
             ]
             let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
             let inputJSON = String(data: data, encoding: .utf8) ?? "{}"
@@ -321,6 +324,29 @@ nonisolated enum BestOfPreset {
         #else
         return result(item, .unavailable, "agent_coreFFI bindings are unavailable.")
         #endif
+    }
+
+    private static func skillRepoGitHubTarget(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              components.scheme?.lowercased() == "https",
+              components.host?.lowercased() == "github.com",
+              components.user == nil,
+              components.password == nil,
+              components.percentEncodedQuery == nil,
+              components.percentEncodedFragment == nil else {
+            return nil
+        }
+        let pathSegments = components.percentEncodedPath
+            .split(separator: "/", omittingEmptySubsequences: true)
+        guard pathSegments.count == 2,
+              pathSegments.allSatisfy({ segment in
+                  let lowered = segment.lowercased()
+                  return !segment.isEmpty && !lowered.contains("%2f") && !lowered.contains("%5c")
+              }) else {
+            return nil
+        }
+        return trimmed
     }
 
     private static func result(
