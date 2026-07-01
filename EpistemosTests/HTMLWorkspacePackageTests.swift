@@ -132,6 +132,31 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.stale == false)
     }
 
+    @Test("HTMLWorkspace data feed status exposes explicit context kinds")
+    @MainActor
+    func dataFeedStatusExposesExplicitContextKinds() throws {
+        var package = Self.samplePackage()
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "  substrate provenance  ", limit: 2)
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(
+                    pageId: "page-1",
+                    title: "Research Note",
+                    snippet: "substrate provenance witness",
+                    rank: 0.87
+                )
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let detail = try #require(HTMLWorkspaceDataFeedStatus.detailLine(for: package))
+        #expect(detail.contains("substrate provenance"))
+        #expect(detail.contains("kinds: vault_record"))
+        #expect(detail.contains("VaultSyncService.searchFullAsync"))
+    }
+
     @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
     func staleDataFeedRenderDoesNotPretendToRefresh() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)

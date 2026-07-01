@@ -249,8 +249,9 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
             return "Vault search: \(feed.normalizedQuery)"
         }
         let age = refreshedAgeText(refreshedAtMS: metadata.refreshedAtMS)
+        let kinds = metadata.contextKinds.isEmpty ? "none" : metadata.contextKinds.joined(separator: ", ")
         let errorSuffix = metadata.error.map { " / \($0)" } ?? ""
-        return "\(metadata.query) / \(age) / \(metadata.provenance)\(errorSuffix)"
+        return "\(metadata.query) / \(age) / kinds: \(kinds) / \(metadata.provenance)\(errorSuffix)"
     }
 
     @MainActor
