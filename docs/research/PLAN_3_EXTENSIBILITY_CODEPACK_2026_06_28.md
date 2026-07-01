@@ -55,7 +55,7 @@ detached utility workers. Settings now routes `.skills` to `ExtensionsDetailView
 status text/pills use `UIState` theme tokens, repeated discovery/inventory rows use a fixed row gap instead of hard
 separator rules, and Skills plus MCP URL-server/search inputs use the shared flat `SettingsFlatInputChrome` theme-token
 surface. Skills settings status text caps skill-manager messages and maps external caught Swift/Foundation failures to
-bounded domain/code diagnostics before SwiftUI display, with raw message/domain strings bounded before trim/validation.
+bounded domain/code diagnostics before SwiftUI display, with raw message/domain strings bounded and control/whitespace-normalized before trim/validation.
 MCP server settings
 status text caps success/failure messages and maps external config-write failures to bounded domain/code diagnostics,
 with raw failure/domain strings and success-message display names bounded before trimming or punctuation validation;

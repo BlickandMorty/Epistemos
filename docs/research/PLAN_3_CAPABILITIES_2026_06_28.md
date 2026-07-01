@@ -255,7 +255,7 @@ Effort remaining: none for the EventStore demo; the full ClaimLedger cascade rem
 `skill_manage` create/edit/delete/install_from_{github,url,local}, `agent_core/src/tools/skills.rs:741`, with the
 MAS/Pro gate already enforced at `:753`). Skills settings status text caps skill-manager messages and maps external
 caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display, with raw message/domain
-strings bounded before trim/validation. External HTTPS URL MCP now
+strings bounded and control/whitespace-normalized before trim/validation. External HTTPS URL MCP now
 has the shipped Swift trio:
 `MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse, network-read only, bounded fields/limits, secret-bearing remote
 or GitHub repo URLs filtered, registry display fields raw-capped and control-stripped, redirected responses must stay on

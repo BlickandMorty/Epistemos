@@ -51,6 +51,10 @@ struct SkillsKeystoneTests {
             SkillsSettingsStatus.message(oversized, fallback: "Skill install failed.")
                 .count == SkillsSettingsStatus.maxStatusMessageCharacters
         )
+        #expect(
+            SkillsSettingsStatus.message("Installed\nskill\tname\u{0007}", fallback: "Skill installed.")
+                == "Installed skill name"
+        )
     }
 
     @Test("skills settings source routes status through bounded diagnostics")
@@ -65,6 +69,8 @@ struct SkillsKeystoneTests {
         #expect(source.contains("SkillsSettingsStatus.message(for: error"))
         #expect(source.contains("String(value.prefix(maxStatusMessageCharacters + 32))"))
         #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(source.contains("normalizedDisplayText(bounded)"))
+        #expect(source.contains("CharacterSet.controlCharacters"))
         #expect(source.contains("maxStatusMessageCharacters - 3"))
         #expect(source.contains("SkillsSettingsStatus.message(error, fallback: \"Skill install failed.\")"))
         #expect(source.contains("SkillsSettingsStatus.message(message, fallback: success ? \"Skill installed.\" : \"Skill install failed.\")"))
@@ -94,8 +100,8 @@ struct SkillsKeystoneTests {
         #expect(!source.contains("tint: .green"))
         #expect(!source.contains("tint: .orange"))
         #expect(codepack.contains("Skills settings status text"))
-        #expect(codepack.contains("raw message/domain strings bounded before trim/validation"))
+        #expect(codepack.contains("raw message/domain strings bounded and control/whitespace-normalized before trim/validation"))
         #expect(capabilities.contains("Skills settings status text"))
-        #expect(capabilities.contains("raw message/domain\nstrings bounded before trim/validation"))
+        #expect(capabilities.contains("raw message/domain\nstrings bounded and control/whitespace-normalized before trim/validation"))
     }
 }
