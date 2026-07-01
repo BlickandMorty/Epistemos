@@ -174,19 +174,19 @@ nonisolated struct VaultMCPCore {
             return .success(Self.argumentsJSON(from: rawArguments))
         }
 
-        guard let arguments = Self.argumentsObject(from: rawArguments) else {
+        guard var arguments = Self.argumentsObject(from: rawArguments) else {
             return .failure("\(toolName) requires JSON object arguments")
         }
         guard let rawPath = arguments["path"] as? String else {
             return requiresPath
                 ? .failure("\(toolName) requires arguments.path")
-                : .success(Self.argumentsJSON(from: rawArguments))
+                : .success(Self.argumentsJSON(from: arguments))
         }
         let path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else {
             return requiresPath
                 ? .failure("\(toolName) requires arguments.path")
-                : .success(Self.argumentsJSON(from: rawArguments))
+                : .success(Self.argumentsJSON(from: arguments))
         }
 
         do {
@@ -194,11 +194,12 @@ nonisolated struct VaultMCPCore {
         } catch {
             return .failure(Self.errorMessage(for: error))
         }
-        return .success(Self.argumentsJSON(from: rawArguments))
+        arguments["path"] = path
+        return .success(Self.argumentsJSON(from: arguments))
     }
 
     private func validatedFolderPathArgumentsJSON(_ rawArguments: Any?) -> ToolArgumentsValidationResult {
-        guard let arguments = Self.argumentsObject(from: rawArguments) else {
+        guard var arguments = Self.argumentsObject(from: rawArguments) else {
             return .success(Self.argumentsJSON(from: rawArguments))
         }
 
@@ -214,8 +215,9 @@ nonisolated struct VaultMCPCore {
             } catch {
                 return .failure(Self.errorMessage(for: error))
             }
+            arguments[key] = path
         }
-        return .success(Self.argumentsJSON(from: rawArguments))
+        return .success(Self.argumentsJSON(from: arguments))
     }
 
     private static func argumentsObject(from arguments: Any?) -> [String: Any]? {

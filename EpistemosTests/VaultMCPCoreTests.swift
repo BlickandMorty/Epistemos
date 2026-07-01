@@ -87,6 +87,31 @@ struct VaultMCPCoreTests {
         #expect(arguments["path"] as? String == "Note.md")
     }
 
+    @Test("tools/call forwards the trimmed path object validated by the core")
+    func toolsCallForwardsTrimmedValidatedPathObject() async throws {
+        let root = try Self.makeVaultRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "visible".write(to: root.appendingPathComponent("Note.md"), atomically: true, encoding: .utf8)
+        let recorder = CallRecorder()
+        let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
+            await recorder.record(name: name, argumentsJSON: argumentsJSON)
+            return LocalToolResult(toolName: name, resultJson: #"{"ok":true}"#, isError: false)
+        })
+
+        let response = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"read_file","arguments":"{\"path\":\" Note.md \",\"format\":\"full\"}"}}"#)
+        let object = try Self.jsonObject(response)
+        #expect(object["error"] == nil)
+
+        let calls = await recorder.snapshot()
+        #expect(calls.count == 1)
+        #expect(calls.first?.0 == "vault.read")
+        let arguments = try Self.jsonObject(calls.first?.1 ?? "{}")
+        #expect(arguments["path"] as? String == "Note.md")
+        #expect(arguments["format"] as? String == "full")
+        #expect(calls.first?.1.contains(" Note.md ") == false)
+    }
+
     @Test("tools/call rejects vault read path escapes before executor")
     func toolsCallRejectsVaultReadPathEscapesBeforeExecutor() async throws {
         let root = try Self.makeVaultRoot()
@@ -615,6 +640,9 @@ struct VaultMCPCoreTests {
         #expect(source.contains("maxResourceReadBytes"))
         #expect(source.contains("pathRequiredReadToolNameSet"))
         #expect(source.contains("validatedArgumentsJSON"))
+        #expect(source.contains("guard var arguments = Self.argumentsObject(from: rawArguments)"))
+        #expect(source.contains("arguments[\"path\"] = path"))
+        #expect(source.contains("arguments[key] = path"))
         #expect(source.contains("vaultURI(for:"))
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))

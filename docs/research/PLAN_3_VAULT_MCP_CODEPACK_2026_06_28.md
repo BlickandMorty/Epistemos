@@ -32,7 +32,9 @@ Tool calls still go through the read-only executor allowlist. Empty vault → ho
 real empty search/list payloads). Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap before JSON
 parsing, requires a JSON-RPC 2.0 object envelope before dispatch, and caps echoed string request IDs, matching the
 loopback HTTP body limit. Protocol error diagnostics for client-provided methods/tool names are bounded, and relative
-resource paths over the core cap are rejected before containment/file work. Pure
+resource paths over the core cap are rejected before containment/file work. Path-bearing tool arguments are reserialized
+from the same structured object the core validated, with trimmed path fields, before the read-only executor sees them.
+Pure
 helpers (`successResponse`/`errorResponse`/`toolCallResult`/`argumentsJSON`/`markdownRelPaths`/`noteText`) testable with
 a stub executor, no network/FFI in the file.
 When the host supplies `VaultMCPRustResourceDispatcher`, `resources/list` and `resources/read` delegate to the Rust
