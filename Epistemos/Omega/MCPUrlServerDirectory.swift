@@ -111,8 +111,8 @@ nonisolated enum MCPUrlServerDirectory {
             }) else {
                 return "Error"
             }
-            let bounded = String(value.prefix(maxDomainCharacters))
-            return bounded.isEmpty ? "Error" : bounded
+            let safeDomain = String(value.prefix(maxDomainCharacters))
+            return safeDomain.isEmpty ? "Error" : safeDomain
         }
     }
 
