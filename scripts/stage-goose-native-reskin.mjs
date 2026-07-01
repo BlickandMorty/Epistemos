@@ -6819,7 +6819,12 @@ function applyFinalFlatPixelAudit() {
       .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent));', 'outline: none !important;')
       .replaceAll('outline-offset: 2px !important;', 'outline-offset: 0 !important;')
       .replaceAll('outline-offset: 2px;', 'outline-offset: 0;')
-      .replaceAll('bg-black/20', 'ep-native-modal-scrim');
+      .replaceAll('bg-black/20', 'ep-native-modal-scrim')
+      .replaceAll('bg-black/24', 'ep-native-modal-scrim')
+      .replaceAll(' backdrop-blur-sm', '')
+      .replaceAll('backdrop-blur-sm ', '')
+      .replaceAll('dark:text-white', 'dark:text-text-inverse')
+      .replaceAll('text-white', 'text-text-inverse');
 
     if (!isCSS && !isThemeTokens) {
       next = next

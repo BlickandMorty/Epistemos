@@ -7707,8 +7707,8 @@ JS
         echo "Goose Web UI staging still contains blue/ring/outline visual leftovers." >&2
         exit 1
     fi
-    if grep -R -q "bg-black/20" "$WORK_ROOT/ui/desktop/src" >/dev/null 2>&1; then
-        echo "Goose Web UI staging still contains hardcoded modal scrim leftovers." >&2
+    if grep -R -E --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' "bg-black/[0-9]+|bg-white/[0-9]+|text-white|text-black|dark:text-white|dark:text-black|dark:bg-white|dark:bg-black|backdrop-blur" "$WORK_ROOT/ui/desktop/src" >/dev/null 2>&1; then
+        echo "Goose Web UI staging still contains hardcoded black/white modal or text leftovers." >&2
         exit 1
     fi
     if grep -R -E "border-(b|t|l|r|x|y) border-border|border border-border" "$WORK_ROOT/ui/desktop/src/components" >/dev/null 2>&1; then
