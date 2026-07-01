@@ -563,7 +563,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     When data.json contains an Epistemos vault_search envelope, treat it as read-only real context: build local search/filter/cards/charts/nav from those records only.
     Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance. Keep source_label/provenance visible in generated cards, tables, charts, and detail panes.
     When _epistemos.required_context_kind is present and _epistemos.required_context_available is false, show that required source as unavailable instead of relabeling generic vault results.
-    Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; show an honest empty or stale state when records are absent.
+    Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; picking a record should visibly add/pin that real record into the workspace, and absent records must show an honest empty or stale state.
     When selected preview context is present, treat it as the user's intended surface target and preserve its selector relationship when practical.
     Do not infer captures, chats, graph links, folders, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
