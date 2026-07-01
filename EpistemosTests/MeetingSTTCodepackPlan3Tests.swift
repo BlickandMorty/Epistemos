@@ -18,7 +18,8 @@ struct MeetingSTTCodepackPlan3Tests {
             "SDPage.frontMatter",
             "source = meeting_stt",
             "source_kind = audio_transcript",
-            "stt_engine = apple_speechanalyzer"
+            "stt_engine = apple_speechanalyzer",
+            "stale silence windows are guarded by capture generation"
         ] {
             #expect(plan.contains(required), "Missing required Meeting/STT plan string: \(required)")
         }
@@ -74,6 +75,7 @@ struct MeetingSTTCodepackPlan3Tests {
         #expect(capabilities.contains("MeetingNoteCaptureService"))
         #expect(capabilities.contains("stt_engine=apple_speechanalyzer"))
         #expect(capabilities.contains("live transcript buffer is capped to the capture pipeline envelope"))
+        #expect(capabilities.contains("capture-generation and silence-window token guards"))
 
         for stale in [
             "clone-ready",

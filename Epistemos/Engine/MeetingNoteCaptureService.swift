@@ -87,6 +87,7 @@ final class MeetingNoteCaptureService {
     private var stoppedAt: Date?
     @ObservationIgnored
     private var autoStopSilenceTask: Task<Void, Never>?
+    private var autoStopSilenceID = UUID()
     private var captureGeneration = UUID()
     @ObservationIgnored
     private var savedResult: CaptureResult?
@@ -301,6 +302,9 @@ final class MeetingNoteCaptureService {
         guard case .recording = state else { return }
 
         cancelAutoStopSilence()
+        let generation = captureGeneration
+        let silenceID = UUID()
+        autoStopSilenceID = silenceID
         let delay = autoStopSilenceDelay
         let sleep = sleep
         autoStopSilenceTask = Task { @MainActor [weak self] in
@@ -311,12 +315,18 @@ final class MeetingNoteCaptureService {
             } catch {
                 return
             }
-            self?.autoStopIfStillSilent()
+            self?.autoStopIfStillSilent(captureGeneration: generation, silenceID: silenceID)
         }
     }
 
-    private func autoStopIfStillSilent() {
+    private func autoStopIfStillSilent(captureGeneration generation: UUID, silenceID: UUID) {
+        guard self.captureGeneration == generation,
+              autoStopSilenceID == silenceID,
+              !Task.isCancelled else {
+            return
+        }
         autoStopSilenceTask = nil
+        autoStopSilenceID = UUID()
         guard case .recording = state else { return }
         guard Self.cleanedSegment(voiceInput.partialTranscript).isEmpty else { return }
         stop()
@@ -325,6 +335,7 @@ final class MeetingNoteCaptureService {
     private func cancelAutoStopSilence() {
         autoStopSilenceTask?.cancel()
         autoStopSilenceTask = nil
+        autoStopSilenceID = UUID()
     }
 
     private func resetTranscript() {

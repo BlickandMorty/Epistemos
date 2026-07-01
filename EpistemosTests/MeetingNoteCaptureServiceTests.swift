@@ -368,6 +368,100 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.state == .idle)
     }
 
+    @Test("rescheduled auto stop ignores stale silence windows")
+    func rescheduledAutoStopIgnoresStaleSilenceWindows() async {
+        let voice = FakeMeetingVoiceInput()
+        var resumeSilenceWindows: [() -> Void] = []
+        let service = MeetingNoteCaptureService(
+            voiceInput: voice,
+            isAutoStopOnSilenceEnabled: { true },
+            sleep: { _ in
+                await withCheckedContinuation { continuation in
+                    resumeSilenceWindows.append {
+                        continuation.resume()
+                    }
+                }
+            }
+        )
+
+        await service.start()
+        voice.partialTranscript = ""
+        voice.finalTranscripts = ["First final."]
+        service.refreshFromVoiceInput()
+
+        for _ in 0..<5 where resumeSilenceWindows.count < 1 {
+            await Task.yield()
+        }
+        let staleResume = resumeSilenceWindows.first
+
+        voice.partialTranscript = "Speaker resumed"
+        service.refreshFromVoiceInput()
+        voice.partialTranscript = ""
+        voice.finalTranscripts = ["Second final."]
+        service.refreshFromVoiceInput()
+
+        for _ in 0..<5 where resumeSilenceWindows.count < 2 {
+            await Task.yield()
+        }
+        let currentResume = resumeSilenceWindows.dropFirst().first
+
+        staleResume?()
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(service.state == .recording)
+        #expect(voice.stopCallCount == 0)
+
+        currentResume?()
+        for _ in 0..<5 where voice.stopCallCount == 0 {
+            await Task.yield()
+        }
+
+        #expect(voice.stopCallCount == 1)
+        #expect(service.state == .idle)
+    }
+
+    @Test("stale auto stop cannot stop a newer capture")
+    func staleAutoStopCannotStopNewerCapture() async {
+        let voice = FakeMeetingVoiceInput()
+        var resumeSilenceWindow: (() -> Void)?
+        let service = MeetingNoteCaptureService(
+            voiceInput: voice,
+            isAutoStopOnSilenceEnabled: { true },
+            sleep: { _ in
+                await withCheckedContinuation { continuation in
+                    resumeSilenceWindow = {
+                        continuation.resume()
+                    }
+                }
+            }
+        )
+
+        await service.start()
+        voice.partialTranscript = ""
+        voice.finalTranscripts = ["First capture final."]
+        service.refreshFromVoiceInput()
+
+        for _ in 0..<5 where resumeSilenceWindow == nil {
+            await Task.yield()
+        }
+        let staleResume = resumeSilenceWindow
+
+        service.stop()
+        #expect(voice.stopCallCount == 1)
+        await service.start()
+        #expect(service.state == .recording)
+
+        staleResume?()
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(service.state == .recording)
+        #expect(voice.stopCallCount == 1)
+    }
+
     @Test("stop during preparing prevents a late mic start from reviving recording")
     func stopDuringPreparingCancelsLateStart() async {
         let voice = FakeMeetingVoiceInput()
@@ -413,6 +507,9 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("finalSegment(_ final: String, coversPartial partial: String)"))
         #expect(source.contains("maxTranscriptCharacters"))
         #expect(source.contains("TextCapturePipeline.maxCleanedTextCharacters"))
+        #expect(source.contains("private var autoStopSilenceID = UUID()"))
+        #expect(source.contains("self.captureGeneration == generation"))
+        #expect(source.contains("autoStopSilenceID == silenceID"))
         #expect(source.contains("boundFinalSegments"))
         #expect(source.contains("VoiceCapturePresentationBounds.modelDownloadProgress(voiceInput.modelDownloadProgress)"))
         #expect(source.contains("VoiceCapturePresentationBounds.statusMessage"))

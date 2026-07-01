@@ -20,8 +20,10 @@
   text through `LiveVoiceInputService`, and finalizes through `TextCapturePipeline.runFromAudio(...)` with meeting
   frontmatter. It freezes `duration_seconds` when recording stops, so a delayed save does not inflate the capture
   duration. It also consumes `VoicePreferences.shared.dictationAutoStop == .auto` to stop capture 2 seconds after a
-  final SpeechAnalyzer segment if no new partial speech arrives. Cumulative final transcripts replace prior buffered
-  prefixes instead of duplicating the same speech into multiple paragraphs. The live transcript buffer is capped to
+  final SpeechAnalyzer segment if no new partial speech arrives; stale silence windows are guarded by capture generation
+  plus a per-window token so cancelled or rescheduled auto-stop tasks cannot stop a newer capture. Cumulative final
+  transcripts replace prior buffered prefixes instead of duplicating the same speech into multiple paragraphs. The live
+  transcript buffer is capped to
   `TextCapturePipeline.maxCleanedTextCharacters`, matching the capture pipeline envelope before UI display or note
   finalization. Model download progress is finite/clamped before display, and propagated voice/pipeline errors are
   capped before they reach UI state. Finalize failures use bounded categorical diagnostics instead of raw localized
@@ -115,6 +117,7 @@ Optional frontmatter keys:
   `captured_at`, `duration_seconds`, and `stt_engine = apple_speechanalyzer`.
 - Unit test proves stopping freezes `duration_seconds` before a delayed save.
 - Unit test proves the auto dictation preference stops capture after final silence.
+- Unit test proves stale or rescheduled auto-stop silence windows cannot stop a newer/current capture.
 - Unit test proves unexpected finalize errors do not expose local filesystem paths in UI-facing state.
 - UI source guard proves the landing button opens the meeting note surface and does not touch Goose or Plan 2 editor
   surfaces.
