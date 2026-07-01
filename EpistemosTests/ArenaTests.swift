@@ -162,9 +162,14 @@ struct ArenaTests {
         #expect(message.contains("arena unavailable"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=19"))
-        #expect(message.count <= ArenaHealthDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(message.count <= ArenaHealthDiagnostics.maxStatusMessageCharacters)
         #expect(!message.contains(privatePath))
         #expect(!message.contains("layout failed"))
+
+        let oversized = ArenaHealthDiagnostics.statusMessage(
+            String(repeating: "a", count: ArenaHealthDiagnostics.maxStatusMessageCharacters + 40)
+        )
+        #expect(oversized.count == ArenaHealthDiagnostics.maxStatusMessageCharacters)
     }
 
     @Test("Settings mounts shared arena diagnostics without v2 authority copy")
@@ -180,6 +185,9 @@ struct ArenaTests {
         #expect(row.contains("ArenaBridge.slotCount"))
         #expect(row.contains("not materialized"))
         #expect(row.contains("ArenaHealthDiagnostics.statusMessage(for: error)"))
+        #expect(row.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(row.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(row.contains("maxStatusMessageCharacters - 3"))
         #expect(!row.contains("error.localizedDescription"))
     }
 

@@ -17,12 +17,13 @@ nonisolated enum AmbientFrequencyExportDiagnostics {
     }
 
     static func statusMessage(_ message: String, fallback: String = "Ambient export failed.") -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxStatusMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? fallback : trimmed
         guard value.count > maxStatusMessageCharacters else {
             return value
         }
-        return String(value.prefix(maxStatusMessageCharacters)) + "..."
+        return String(value.prefix(maxStatusMessageCharacters - 3)) + "..."
     }
 
     private static func statusMessage(
@@ -39,7 +40,8 @@ nonisolated enum AmbientFrequencyExportDiagnostics {
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"

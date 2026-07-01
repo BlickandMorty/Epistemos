@@ -18,6 +18,9 @@ struct SubstrateHealthOffMainTests {
         )
         #expect(src.contains("static func snapshotAsync() async -> SubstrateHealthUnifiedSnapshot"))
         #expect(src.contains("SubstrateHealthDiagnostics.statusMessage(for: error)"))
+        #expect(src.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(src.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(src.contains("maxStatusMessageCharacters - 3"))
         #expect(!src.contains("String(describing: error)"))
         // FFI + JSON decode run on a detached background task (off the MainActor).
         #expect(src.contains("await Task.detached { snapshot() }.value"))
@@ -36,9 +39,14 @@ struct SubstrateHealthOffMainTests {
         #expect(message.contains("substrate health unavailable"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=12"))
-        #expect(message.count <= SubstrateHealthDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(message.count <= SubstrateHealthDiagnostics.maxStatusMessageCharacters)
         #expect(!message.contains(privatePath))
         #expect(!message.contains("decode failed"))
+
+        let oversized = SubstrateHealthDiagnostics.statusMessage(
+            String(repeating: "s", count: SubstrateHealthDiagnostics.maxStatusMessageCharacters + 40)
+        )
+        #expect(oversized.count == SubstrateHealthDiagnostics.maxStatusMessageCharacters)
     }
 
     // SS-SH dedup (corrected 2026-06-21): the 6 rows no longer each fetch — they read ONE shared

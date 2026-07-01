@@ -109,6 +109,9 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(detailSource.contains("Playback & Export"))
         #expect(detailSource.contains("32-bit float WAV"))
         #expect(detailSource.contains("AmbientFrequencyExportDiagnostics.statusMessage(for: error)"))
+        #expect(detailSource.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(detailSource.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(detailSource.contains("maxStatusMessageCharacters - 3"))
         #expect(!detailSource.contains("exportStatus = error.localizedDescription"))
     }
 
@@ -125,9 +128,14 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(externalStatus.contains("Ambient export failed."))
         #expect(externalStatus.contains("domain=Error"))
         #expect(externalStatus.contains("code=7"))
-        #expect(externalStatus.count <= AmbientFrequencyExportDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(externalStatus.count <= AmbientFrequencyExportDiagnostics.maxStatusMessageCharacters)
         #expect(!externalStatus.contains(privatePath))
         #expect(!externalStatus.contains("write failed"))
+
+        let oversizedStatus = AmbientFrequencyExportDiagnostics.statusMessage(
+            String(repeating: "a", count: AmbientFrequencyExportDiagnostics.maxStatusMessageCharacters + 40)
+        )
+        #expect(oversizedStatus.count == AmbientFrequencyExportDiagnostics.maxStatusMessageCharacters)
 
         let outputStatus = AmbientFrequencyExportDiagnostics.statusMessage(
             for: AmbientFrequencyAudioGeneratorError.couldNotCreateOutput(URL(fileURLWithPath: privatePath))
