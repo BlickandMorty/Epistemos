@@ -1415,7 +1415,7 @@ function applyButton() {
     source,
     'button base chrome',
     `"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[1px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"`,
-    `"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold transition-all duration-200 ease-[var(--epistemos-control-ease)] cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-[var(--epistemos-accent)] focus-visible:ring-[var(--epistemos-accent)]/30 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"`
+    `"inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold transition-colors duration-200 ease-[var(--epistemos-control-ease)] cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:bg-[var(--epistemos-accent)]/10 focus-visible:ring-0 aria-invalid:bg-background-danger/30"`
   );
   source = replaceRequired(
     source,
@@ -1473,13 +1473,13 @@ function applyDialog() {
     source,
     'dialog overlay',
     "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/50'",
-    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/24 backdrop-blur-sm'"
+    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/20'"
   );
   source = replaceRequired(
     source,
     'dialog content',
     "'bg-background-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[6px] border border-border-primary p-5 shadow-none duration-150 sm:max-w-lg'",
-    "'bg-background-primary/92 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[14px] p-5 shadow-2xl duration-200 ease-[var(--epistemos-control-ease)] sm:max-w-lg'"
+    "'bg-background-primary/92 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[14px] p-5 duration-200 ease-[var(--epistemos-control-ease)] sm:max-w-lg'"
   );
   source = replaceRequired(
     source,
@@ -1502,7 +1502,7 @@ function applyDropdownMenu() {
     source,
     'dropdown content',
     "'bg-background-primary text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[6px] border border-border-primary p-1 shadow-none space-y-0.5'",
-    "'bg-background-primary/88 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[9px] border border-border-primary p-1 shadow-lg backdrop-blur-xl space-y-0.5'"
+    "'bg-background-primary/92 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[9px] p-1 space-y-0.5'"
   );
   source = source.replaceAll("rounded-sm px-2 py-1.5 text-sm", "rounded-[6px] px-2 py-1.5 text-sm");
   source = source.replaceAll("focus:bg-background-secondary focus:text-text-secondary", "focus:bg-[var(--epistemos-accent)] focus:text-white");
@@ -1510,7 +1510,7 @@ function applyDropdownMenu() {
     source,
     'dropdown sub content',
     "'bg-background-primary text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[6px] border border-border-primary p-1 shadow-none'",
-    "'bg-background-primary/88 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[9px] border border-border-primary p-1 shadow-lg backdrop-blur-xl'"
+    "'bg-background-primary/92 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[9px] p-1'"
   );
   write('src/components/ui/dropdown-menu.tsx', source);
 }
@@ -1521,7 +1521,7 @@ function applySwitch() {
     source,
     'switch root geometry',
     "'peer inline-flex h-[16px] w-[28px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50'",
-    "'peer inline-flex h-[22px] w-[38px] shrink-0 cursor-pointer items-center rounded-full border-0 transition-[background-color,box-shadow] duration-200 ease-[var(--epistemos-control-ease)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50'"
+    "'peer inline-flex h-[22px] w-[38px] shrink-0 cursor-pointer items-center rounded-full border-0 transition-[background-color,box-shadow] duration-200 ease-[var(--epistemos-control-ease)] focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50'"
   );
   source = replaceRequired(
     source,
@@ -1585,13 +1585,13 @@ function applySelect() {
     source,
     'select control',
     "`border ${isFocused ? 'border-border-primary' : 'border-border-primary'} focus:border-border-primary hover:border-border-primary rounded-md w-full px-4 py-2 text-sm text-text-secondary hover:cursor-pointer`",
-    "`border ${isFocused ? 'border-[var(--epistemos-accent)]' : 'border-border-primary'} focus:border-[var(--epistemos-accent)] hover:border-border-tertiary rounded-[8px] w-full px-3 py-1.5 min-h-9 text-sm text-text-secondary bg-background-primary/70 shadow-none hover:cursor-pointer transition-all duration-200 ease-[var(--epistemos-control-ease)]`"
+    "`rounded-[8px] w-full px-3 py-1.5 min-h-9 text-sm text-text-secondary bg-background-primary/70 hover:cursor-pointer hover:bg-background-secondary/72 transition-colors duration-200 ease-[var(--epistemos-control-ease)]`"
   );
   source = replaceRequired(
     source,
     'select menu',
     "'mt-1 bg-background-primary border border-border-primary rounded-[6px] text-text-secondary shadow-none select__menu z-[9999] absolute'",
-    "'mt-1 bg-background-primary/85 border border-border-primary rounded-[9px] text-text-secondary shadow-lg select__menu z-[9999] absolute backdrop-blur-xl overflow-hidden'"
+    "'mt-1 bg-background-primary/92 rounded-[9px] text-text-secondary select__menu z-[9999] absolute overflow-hidden'"
   );
   source = replaceRequired(
     source,
@@ -1626,13 +1626,13 @@ function applyPrimitiveCompletionSurfaces() {
     source,
     'tooltip native glass',
     "'bg-background-inverse text-text-inverse animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-[200] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance'",
-    "'z-[200] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-[8px] border border-border-secondary bg-background-primary/90 px-2.5 py-1.5 text-xs text-text-primary shadow-lg backdrop-blur-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1'"
+    "'z-[200] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-[8px] bg-background-primary/92 px-2.5 py-1.5 text-xs text-text-primary animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1'"
   );
   source = replaceRequired(
     source,
     'tooltip native arrow',
     "'bg-background-inverse fill-background-inverse z-[200] size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45'",
-    "'z-[200] size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 border border-border-secondary border-l-0 border-t-0 bg-background-primary/90 fill-background-primary'"
+    "'z-[200] size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 bg-background-primary/92 fill-background-primary'"
   );
   write('src/components/ui/Tooltip.tsx', source);
 
@@ -1647,31 +1647,31 @@ function applyPrimitiveCompletionSurfaces() {
     source,
     'pill default native',
     "default: 'bg-background-primary border border-border-primary hover:bg-background-secondary',",
-    "default: 'border border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl hover:bg-background-secondary/72',"
+    "default: 'bg-background-primary/58 hover:bg-background-secondary/72',"
   );
   source = replaceRequired(
     source,
     'pill glass native',
     "glass: 'bg-background-secondary border border-border-primary hover:bg-background-primary',",
-    "glass: 'border border-border-secondary bg-background-secondary/62 shadow-sm backdrop-blur-xl hover:bg-background-primary/72',"
+    "glass: 'bg-background-secondary/62 hover:bg-background-primary/72',"
   );
   source = replaceRequired(
     source,
     'pill solid native',
     "solid: 'bg-background-primary border border-border-primary hover:bg-background-secondary',",
-    "solid: 'border border-transparent bg-[var(--epistemos-accent)] text-white shadow-sm hover:bg-[var(--epistemos-accent)]/90',"
+    "solid: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90',"
   );
   source = replaceRequired(
     source,
     'pill gradient native',
     "gradient: 'bg-background-inverse text-background-primary border border-background-inverse',",
-    "gradient: 'border border-transparent bg-[var(--epistemos-accent)] text-white shadow-sm hover:bg-[var(--epistemos-accent)]/90',"
+    "gradient: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90',"
   );
   source = replaceRequired(
     source,
     'pill glow native',
     "glow: 'bg-background-inverse text-background-primary border border-background-inverse',",
-    "glow: 'border border-border-secondary bg-background-primary/74 text-text-primary shadow-sm backdrop-blur-xl ring-[3px] ring-[var(--epistemos-accent)]/12 hover:bg-background-secondary/72',"
+    "glow: 'bg-[var(--epistemos-accent)]/12 text-text-primary hover:bg-background-secondary/72',"
   );
   write('src/components/ui/Pill.tsx', source);
 
@@ -1998,7 +1998,7 @@ function applyOnboardingSurfaces() {
     source,
     'onboarding success icon well native',
     'className="inline-flex items-center justify-center w-10 h-10 border border-border-primary bg-background-secondary mb-4"',
-    'className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border-success bg-background-success/55 shadow-sm backdrop-blur-xl"'
+    'className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-[12px] bg-background-success/55"'
   );
   source = replaceRequired(
     source,
@@ -2022,7 +2022,7 @@ function applyOnboardingSurfaces() {
     source,
     'onboarding success privacy card native',
     'className="w-full p-4 bg-transparent border border-border-primary rounded-[6px] text-left mb-6"',
-    'className="mb-6 w-full rounded-[12px] border border-border-secondary bg-background-primary/68 p-4 text-left shadow-sm backdrop-blur-xl"'
+    'className="mb-6 w-full rounded-[12px] bg-background-primary/54 p-4 text-left"'
   );
   source = replaceRequired(
     source,
@@ -2049,13 +2049,13 @@ function applyOnboardingSurfaces() {
     source,
     'local model picker back button native',
     'className="w-full px-3 py-2.5 text-text-primary text-sm font-medium border border-border-primary rounded-[6px] hover:bg-background-secondary transition-colors cursor-pointer"',
-    'className="w-full cursor-pointer rounded-[8px] border border-border-secondary bg-background-primary/60 px-3 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-secondary/72"'
+    'className="w-full cursor-pointer rounded-[8px] bg-background-primary/60 px-3 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-secondary/72"'
   );
   source = replaceRequired(
     source,
     'local model picker download card native',
     'className="border border-border-primary rounded-[6px] p-3 bg-background-default"',
-    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl"'
+    'className="rounded-[10px] bg-background-primary/54 p-3"'
   );
   source = replaceRequired(
     source,
@@ -2134,7 +2134,7 @@ function applyToolAndPopoverSurfaces() {
     source,
     'tool call native glass',
     "'goose-tool-call w-full text-sm font-sans rounded-[6px] overflow-hidden border bg-background-secondary'",
-    "'goose-tool-call w-full text-sm font-sans rounded-[14px] overflow-hidden border bg-background-secondary/68 shadow-sm backdrop-blur-xl'"
+    "'goose-tool-call w-full text-sm font-sans rounded-[14px] overflow-hidden bg-background-secondary/56'"
   );
   source = replaceRequired(
     source,
@@ -2146,7 +2146,7 @@ function applyToolAndPopoverSurfaces() {
     source,
     'mcp inline note native radius',
     'className="mt-3 p-3 border border-border-primary rounded-[6px] bg-background-secondary flex items-center"',
-    'className="mt-3 p-3 border border-border-primary rounded-[12px] bg-background-secondary/70 shadow-sm backdrop-blur-xl flex items-center"'
+    'className="mt-3 flex items-center rounded-[12px] bg-background-secondary/56 p-3"'
   );
   source = replaceRequired(
     source,
@@ -2179,7 +2179,7 @@ function applyToolAndPopoverSurfaces() {
     source,
     'mention popover native glass',
     'className="fixed z-50 bg-background-primary border border-border-primary rounded-[6px] shadow-none min-w-96 max-w-lg max-h-80"',
-    'className="fixed z-50 bg-background-primary/88 border border-border-primary rounded-[14px] shadow-2xl backdrop-blur-xl min-w-96 max-w-lg max-h-80 overflow-hidden"'
+    'className="fixed z-50 max-h-80 min-w-96 max-w-lg overflow-hidden rounded-[14px] bg-background-primary/92"'
   );
   source = replaceRequired(
     source,
@@ -3050,13 +3050,13 @@ function applyPermissionSurfaces() {
     source,
     'permission modal empty state native panel',
     'className="flex flex-col items-center justify-center py-8 text-center"',
-    'className="flex flex-col items-center justify-center rounded-[12px] border border-border-secondary bg-background-secondary/55 px-6 py-8 text-center backdrop-blur-xl"'
+    'className="flex flex-col items-center justify-center rounded-[12px] bg-background-secondary/55 px-6 py-8 text-center"'
   );
   source = replaceRequired(
     source,
     'permission modal tool row native',
     'className="flex items-center justify-between grid grid-cols-12"',
-    'className="grid grid-cols-12 items-center gap-3 rounded-[10px] border border-border-secondary bg-background-secondary/45 px-3 py-2.5 shadow-sm backdrop-blur-xl"'
+    'className="grid grid-cols-12 items-center gap-3 rounded-[10px] bg-background-secondary/45 px-3 py-2.5"'
   );
   source = replaceRequired(
     source,
@@ -3071,7 +3071,7 @@ function applyPermissionSurfaces() {
     source,
     'permission rules item button native',
     'className="flex items-center text-left gap-2 w-full justify-between"',
-    'className="flex h-auto w-full items-center justify-between gap-2 rounded-[11px] border border-border-secondary bg-background-primary/65 px-4 py-3 text-left shadow-sm backdrop-blur-xl hover:bg-background-secondary/70"'
+    'className="flex h-auto w-full items-center justify-between gap-2 rounded-[11px] bg-background-primary/54 px-4 py-3 text-left hover:bg-background-secondary/70"'
   );
   source = replaceRequired(
     source,
@@ -3083,7 +3083,7 @@ function applyPermissionSurfaces() {
     source,
     'permission rules header icon native well',
     'className="rounded-[6px] bg-background-inverse w-12 h-12 flex items-center justify-center"',
-    'className="flex h-12 w-12 items-center justify-center rounded-[14px] border border-border-secondary bg-background-secondary/72 shadow-sm backdrop-blur-xl"'
+    'className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
@@ -3110,13 +3110,13 @@ function applyPermissionSurfaces() {
     source,
     'permission settings item button native',
     'className="flex items-center gap-2 w-full justify-between"',
-    'className="flex h-auto w-full items-center justify-between gap-2 rounded-[11px] border border-border-secondary bg-background-primary/65 px-4 py-3 text-left shadow-sm backdrop-blur-xl hover:bg-background-secondary/70"'
+    'className="flex h-auto w-full items-center justify-between gap-2 rounded-[11px] bg-background-primary/54 px-4 py-3 text-left hover:bg-background-secondary/70"'
   );
   source = replaceRequired(
     source,
     'permission settings header icon native well',
     'className="rounded-[6px] bg-background-inverse w-12 h-12 flex items-center justify-center mb-4"',
-    'className="mb-4 flex h-12 w-12 items-center justify-center rounded-[14px] border border-border-secondary bg-background-secondary/72 shadow-sm backdrop-blur-xl"'
+    'className="mb-4 flex h-12 w-12 items-center justify-center rounded-[14px] bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
