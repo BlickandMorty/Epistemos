@@ -128,6 +128,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("onFocusContextItem: focusRegenerateContextItem"))
         #expect(editor.contains("@State private var isPreviewContextDropTargeted = false"))
         #expect(editor.contains(".onDrop(of: [UTType.plainText], isTargeted: $isPreviewContextDropTargeted, perform: handlePreviewContextDrop)"))
+        #expect(editor.contains("!current.contains(item.contextID)"))
         #expect(editor.contains("if isPreviewContextDropTargeted"))
         #expect(editor.contains("private var previewContextDropOverlay: some View"))
         #expect(editor.contains("Drop context to regenerate"))

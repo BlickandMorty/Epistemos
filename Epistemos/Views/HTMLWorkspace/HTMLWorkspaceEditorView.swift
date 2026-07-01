@@ -948,7 +948,7 @@ struct HTMLWorkspaceEditorView: View {
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         if current.isEmpty {
             regenerateInstruction = directive
-        } else if !current.contains(item.pageID) {
+        } else if !current.contains(item.contextID) {
             regenerateInstruction = current + "\n" + directive
         }
         regenerateContextStatusText = "Focused \(item.title)"
