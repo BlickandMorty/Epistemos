@@ -691,9 +691,9 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             return nil
         }
 
-        let components = trimmed.split(separator: "/", omittingEmptySubsequences: true)
+        let components = trimmed.split(separator: "/", omittingEmptySubsequences: false)
         guard !components.isEmpty,
-              components.allSatisfy({ $0 != "." && $0 != ".." }) else {
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
             return nil
         }
 

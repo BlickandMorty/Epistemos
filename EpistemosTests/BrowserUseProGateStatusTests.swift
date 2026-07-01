@@ -212,6 +212,32 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("manifest artifact paths cannot contain empty path segments")
+    func manifestArtifactPathsCannotContainEmptyPathSegments() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-empty-path-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        let manifest = Self.packagedManifestJSON.replacingOccurrences(
+            of: "\"expected_path\": \"requirements.lock\"",
+            with: "\"expected_path\": \"requirements//lock\""
+        )
+        try Data(manifest.utf8).write(to: manifestURL)
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: packaged payload incomplete")
+        #expect(status.detail.contains("requirements.lock has unsafe path requirements//lock"))
+        #endif
+    }
+
     @Test("vendor manifest identity and browser boundary must match the Pro contract")
     func vendorManifestIdentityAndBrowserBoundaryMustMatchProContract() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -501,6 +527,7 @@ struct BrowserUseProGateStatusTests {
             "signed packaged payload ready",
             "signature manifest",
             "unsafe path",
+            "omittingEmptySubsequences: false",
             "is a directory at",
             "resolves outside vendor root",
             "packaged payload incomplete",
