@@ -900,8 +900,21 @@ struct HTMLWorkspaceEditorView: View {
             return
         }
 
+        let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: query)
+        attachRegenerateVaultContext(
+            query: query,
+            requiredContextKind: requiredContextKind
+        )
+    }
+
+    private func attachRegenerateVaultContext(
+        query: String,
+        requiredContextKind: String?,
+        readyStatus: String? = nil,
+        continueAfterAttach: (@MainActor () -> Void)? = nil
+    ) {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
-        let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)
+        regenerateContextQuery = feed.normalizedQuery
         regenerateContextTask?.cancel()
         clearPendingRegeneratePreview()
         regenerateContextRefreshNonce &+= 1
@@ -920,7 +933,8 @@ struct HTMLWorkspaceEditorView: View {
         if HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind) {
             let attachedStatus = attachStandaloneRegenerateContext(feed: feed, requiredContextKind: requiredContextKind)
             regenerateContextStatusText = attachedStatus
-            statusText = attachedStatus
+            statusText = readyStatus ?? attachedStatus
+            continueAfterAttach?()
             return
         }
 
@@ -935,6 +949,7 @@ struct HTMLWorkspaceEditorView: View {
             regenerateContextTask = nil
             regenerateContextStatusText = "Vault feed unavailable"
             statusText = "Vault feed unavailable"
+            continueAfterAttach?()
             return
         }
 
@@ -965,7 +980,8 @@ struct HTMLWorkspaceEditorView: View {
             )
             stampPackageContentRevision()
             regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
-            statusText = regenerateContextStatusText
+            statusText = readyStatus ?? regenerateContextStatusText
+            continueAfterAttach?()
         }
     }
 
@@ -1128,7 +1144,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func beginRegenerateSurface() {
-        beginRegenerateSurface(instructionOverride: nil)
+        beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: nil)
     }
 
     private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
@@ -1137,7 +1153,7 @@ struct HTMLWorkspaceEditorView: View {
             runVaultDataRegeneratePreset(preset)
             return
         }
-        beginRegenerateSurface(instructionOverride: preset.instruction)
+        beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: preset.instruction)
     }
 
     private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
@@ -1152,76 +1168,13 @@ struct HTMLWorkspaceEditorView: View {
         }
         let contextualInstruction = preset.instruction(contextQuery: query)
 
-        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
         regenerateContextQuery = query
         regenerateInstruction = contextualInstruction
-        regenerateContextTask?.cancel()
-        clearPendingRegeneratePreview()
-        regenerateContextRefreshNonce &+= 1
-        let refreshNonce = regenerateContextRefreshNonce
-        isRefreshingRegenerateContext = true
-        package.manifest.dataFeed = feed
-        package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
-            feed: feed,
-            error: "Feed pending",
-            requiredContextKind: preset.requiredContextKind
-        )
-        stampPackageContentRevision()
-        regenerateContextStatusText = "Workspace context pending"
-        statusText = "Refreshing workspace context"
-
-        if HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(preset.requiredContextKind) {
-            regenerateContextStatusText = attachStandaloneRegenerateContext(
-                feed: feed,
-                requiredContextKind: preset.requiredContextKind
-            )
-            statusText = "Workspace context ready"
-            beginRegenerateSurface(instructionOverride: contextualInstruction)
-            return
-        }
-
-        guard let vaultSync = AppBootstrap.shared?.vaultSync else {
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
-                feed: feed,
-                error: "Vault feed unavailable",
-                requiredContextKind: preset.requiredContextKind
-            )
-            stampPackageContentRevision()
-            isRefreshingRegenerateContext = false
-            regenerateContextTask = nil
-            regenerateContextStatusText = "Vault feed unavailable"
-            beginRegenerateSurface(instructionOverride: contextualInstruction)
-            return
-        }
-
-        regenerateContextTask = Task { @MainActor in
-            defer {
-                if regenerateContextRefreshNonce == refreshNonce {
-                    isRefreshingRegenerateContext = false
-                    regenerateContextTask = nil
-                }
-            }
-
-            let results = await vaultSync.searchFullAsync(
-                query: feed.normalizedQuery,
-                limit: feed.effectiveLimit
-            )
-            guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
-            let contextResults = HTMLWorkspaceDataFeedContextSources.results(
-                for: preset.requiredContextKind,
-                searchResults: results,
-                modelContainer: AppBootstrap.shared?.modelContainer,
-                limit: feed.effectiveLimit,
-                query: feed.normalizedQuery
-            )
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
-                feed: feed,
-                contextResults: contextResults,
-                requiredContextKind: preset.requiredContextKind
-            )
-            stampPackageContentRevision()
-            regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
-            statusText = "Workspace context ready"
+        attachRegenerateVaultContext(
+            query: query,
+            requiredContextKind: preset.requiredContextKind,
+            readyStatus: "Workspace context ready"
+        ) {
             beginRegenerateSurface(instructionOverride: contextualInstruction)
         }
     }
@@ -1246,6 +1199,47 @@ struct HTMLWorkspaceEditorView: View {
         isRefreshingRegenerateContext = false
         regenerateContextTask = nil
         return "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
+    }
+
+    private func beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: String?) {
+        guard !isRegenerating else { return }
+        let sourceInstruction = instructionOverride ?? regenerateInstruction
+        let instruction = sourceInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !instruction.isEmpty else {
+            beginRegenerateSurface(instructionOverride: instructionOverride)
+            return
+        }
+
+        let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: query)
+        guard shouldAttachRegenerateContextBeforeStreaming(query: query, requiredContextKind: requiredContextKind) else {
+            beginRegenerateSurface(instructionOverride: instructionOverride)
+            return
+        }
+
+        attachRegenerateVaultContext(
+            query: query,
+            requiredContextKind: requiredContextKind,
+            readyStatus: "Workspace context ready"
+        ) {
+            beginRegenerateSurface(instructionOverride: instructionOverride)
+        }
+    }
+
+    private func shouldAttachRegenerateContextBeforeStreaming(
+        query: String,
+        requiredContextKind: String?
+    ) -> Bool {
+        guard !query.isEmpty else { return false }
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
+        guard let currentFeed = package.manifest.dataFeed,
+              currentFeed.source == feed.source,
+              currentFeed.normalizedQuery == feed.normalizedQuery,
+              currentFeed.effectiveLimit == feed.effectiveLimit,
+              let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON, matching: currentFeed) else {
+            return true
+        }
+        return (envelope.epistemos.requiredContextKind ?? "") != (requiredContextKind ?? "")
     }
 
     private func beginRegenerateSurface(instructionOverride: String?) {
