@@ -190,13 +190,18 @@ final class KokoroModelDownloadService {
             revision: "main",
             maxBytes: maxManifestBytes
         )
-        guard let manifest = try? JSONSerialization.jsonObject(with: manifestData) as? [String: Any] else {
+        guard var manifest = try? JSONSerialization.jsonObject(with: manifestData) as? [String: Any] else {
             throw DownloadError.invalidManifest
         }
         let revision = (manifest["hf_revision"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "main"
-        let declaredFiles = try declaredFiles(from: manifest)
-        guard !declaredFiles.isEmpty else { throw DownloadError.invalidManifest }
-        let totalBytes = declaredFiles.reduce(Int64(0)) { $0 + $1.bytes }
+
+        let requiredFiles = try requiredFiles(from: manifest)
+        let voiceObjects = (manifest["voices"] as? [[String: Any]]) ?? []
+        let voiceFiles = try voiceEntries(voiceObjects)
+        guard voiceFiles.contains(where: { $0.relativePath == KokoroVoiceGateStatus.starterVoicePath }) else {
+            throw DownloadError.invalidManifest
+        }
+        let totalBytes = (requiredFiles + voiceFiles).reduce(Int64(0)) { $0 + $1.bytes }
 
         let stagingRoot = fileManager.temporaryDirectory
             .appendingPathComponent("kokoro-download-\(UUID().uuidString)", isDirectory: true)
@@ -207,31 +212,44 @@ final class KokoroModelDownloadService {
         try fileManager.createDirectory(at: stagingModelDirectory, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: stagingRoot) }
 
-        try manifestData.write(
-            to: stagingModelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
-        )
-
         var received: Int64 = 0
         progress(received, totalBytes)
-        for file in declaredFiles {
+
+        // Model packages + runtime assets are mandatory.
+        for file in requiredFiles {
             try Task.checkCancellation()
-            let destination = stagingModelDirectory.appendingPathComponent(file.relativePath, isDirectory: false)
-            try fileManager.createDirectory(
-                at: destination.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            let digest = try await downloadFile(
-                repositoryPath: file.relativePath,
-                revision: revision,
-                destination: destination,
-                fileManager: fileManager
-            )
-            guard digest == file.sha256 else {
-                throw DownloadError.checksumMismatch(file.relativePath)
+            try await downloadVerified(file, revision: revision, into: stagingModelDirectory, fileManager: fileManager)
+            received += file.bytes
+            progress(received, totalBytes)
+        }
+
+        // Voices are best-effort: some upstream voices the manifest lists may not
+        // exist at the pinned revision, so skip a missing non-starter voice rather
+        // than fail the whole install. The starter voice (af_heart) is required.
+        var installedVoicePaths = Set<String>()
+        for file in voiceFiles {
+            try Task.checkCancellation()
+            do {
+                try await downloadVerified(file, revision: revision, into: stagingModelDirectory, fileManager: fileManager)
+                installedVoicePaths.insert(file.relativePath)
+            } catch {
+                if file.relativePath == KokoroVoiceGateStatus.starterVoicePath { throw error }
+                log.notice("Skipping unavailable Kokoro voice \(file.relativePath, privacy: .public)")
             }
             received += file.bytes
             progress(received, totalBytes)
         }
+
+        // Write a manifest that declares exactly the voices we installed, so the
+        // installer's honest gate (which checks every declared file is present)
+        // stays consistent even when some upstream voices were unavailable.
+        manifest["voices"] = voiceObjects.filter { object in
+            (object["path"] as? String).map(installedVoicePaths.contains) ?? false
+        }
+        let finalManifestData = try JSONSerialization.data(withJSONObject: manifest, options: [.sortedKeys])
+        try finalManifestData.write(
+            to: stagingModelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
+        )
 
         try Task.checkCancellation()
         installing()
@@ -299,17 +317,30 @@ final class KokoroModelDownloadService {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    nonisolated private static func declaredFiles(from manifest: [String: Any]) throws -> [DeclaredFile] {
-        var files: [DeclaredFile] = []
-
-        func append(path: String, bytes bytesValue: Any?, sha shaValue: Any?) throws {
-            guard let bytes = int64Value(bytesValue), bytes > 0,
-                  let sha = (shaValue as? String)?.lowercased(), !sha.isEmpty else {
-                throw DownloadError.invalidManifest
-            }
-            files.append(DeclaredFile(relativePath: path, bytes: bytes, sha256: sha))
+    nonisolated private static func downloadVerified(
+        _ file: DeclaredFile,
+        revision: String,
+        into modelDirectory: URL,
+        fileManager: FileManager
+    ) async throws {
+        let destination = modelDirectory.appendingPathComponent(file.relativePath, isDirectory: false)
+        try fileManager.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let digest = try await downloadFile(
+            repositoryPath: file.relativePath,
+            revision: revision,
+            destination: destination,
+            fileManager: fileManager
+        )
+        guard digest == file.sha256 else {
+            throw DownloadError.checksumMismatch(file.relativePath)
         }
+    }
 
+    nonisolated private static func requiredFiles(from manifest: [String: Any]) throws -> [DeclaredFile] {
+        var files: [DeclaredFile] = []
         guard let packages = manifest["model_packages"] as? [[String: Any]], !packages.isEmpty else {
             throw DownloadError.invalidManifest
         }
@@ -320,18 +351,9 @@ final class KokoroModelDownloadService {
             }
             for file in packageFiles {
                 guard let relative = file["path"] as? String else { throw DownloadError.invalidManifest }
-                try append(path: "\(packagePath)/\(relative)", bytes: file["bytes"], sha: file["sha256"])
+                files.append(try declaredFile(path: "\(packagePath)/\(relative)", bytes: file["bytes"], sha: file["sha256"]))
             }
         }
-
-        guard let voices = manifest["voices"] as? [[String: Any]], !voices.isEmpty else {
-            throw DownloadError.invalidManifest
-        }
-        for voice in voices {
-            guard let path = voice["path"] as? String else { throw DownloadError.invalidManifest }
-            try append(path: path, bytes: voice["bytes"], sha: voice["sha256"])
-        }
-
         guard let runtimeAssets = manifest["runtime_assets"] as? [String: Any] else {
             throw DownloadError.invalidManifest
         }
@@ -339,10 +361,25 @@ final class KokoroModelDownloadService {
             guard let asset = runtimeAssets[key] as? [String: Any], let path = asset["path"] as? String else {
                 throw DownloadError.invalidManifest
             }
-            try append(path: path, bytes: asset["bytes"], sha: asset["sha256"])
+            files.append(try declaredFile(path: path, bytes: asset["bytes"], sha: asset["sha256"]))
         }
-
         return files
+    }
+
+    nonisolated private static func voiceEntries(_ voiceObjects: [[String: Any]]) throws -> [DeclaredFile] {
+        guard !voiceObjects.isEmpty else { throw DownloadError.invalidManifest }
+        return try voiceObjects.map { object in
+            guard let path = object["path"] as? String else { throw DownloadError.invalidManifest }
+            return try declaredFile(path: path, bytes: object["bytes"], sha: object["sha256"])
+        }
+    }
+
+    nonisolated private static func declaredFile(path: String, bytes: Any?, sha: Any?) throws -> DeclaredFile {
+        guard let byteCount = int64Value(bytes), byteCount > 0,
+              let digest = (sha as? String)?.lowercased(), !digest.isEmpty else {
+            throw DownloadError.invalidManifest
+        }
+        return DeclaredFile(relativePath: path, bytes: byteCount, sha256: digest)
     }
 
     nonisolated private static func int64Value(_ value: Any?) -> Int64? {
