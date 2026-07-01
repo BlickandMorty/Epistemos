@@ -1009,6 +1009,7 @@ struct HTMLWorkspaceEditorView: View {
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         regenerateInstruction = current.isEmpty ? directive : current + "\n" + directive
         regenerateSheetPresented = true
+        regenerateContextStatusText = status
         statusText = status
         beginRegenerateSurface(instructionOverride: regenerateInstruction)
     }

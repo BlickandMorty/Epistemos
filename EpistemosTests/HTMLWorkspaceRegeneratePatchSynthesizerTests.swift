@@ -160,6 +160,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func applyPreviewContextItem(_ item: HTMLWorkspaceRegenerateContextItem)"))
         #expect(editor.contains("Use this picked read-only workspace context item as a primary source"))
         #expect(editor.contains("private func startRegenerateWithContextDirective(_ directive: String, status: String)"))
+        #expect(editor.contains("regenerateContextStatusText = status"))
         #expect(editor.contains("private func droppedPreviewTargetDirective() -> String"))
         #expect(editor.contains("Target: update the selected preview element/section"))
         #expect(editor.contains("Target: update the current preview surface as a whole."))
