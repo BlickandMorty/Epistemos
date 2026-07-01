@@ -389,6 +389,20 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             if (!Number.isFinite(raw) || raw <= 0) { return defaultTimeoutMs; }
             return Math.max(100, Math.min(maxTimeoutMs, raw));
           };
+          const nextRequestId = () => {
+            requestCounter += 1;
+            try {
+              if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return 'safeapi-' + window.crypto.randomUUID();
+              }
+              if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+                const values = new Uint32Array(2);
+                window.crypto.getRandomValues(values);
+                return 'safeapi-' + requestCounter.toString(36) + '-' + values[0].toString(36) + values[1].toString(36);
+              }
+            } catch (error) {}
+            return 'safeapi-' + requestCounter.toString(36) + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+          };
           const preparePayload = (command, message = null, details = null) => {
             const name = bounded(command, maxCommandLength);
             if (!name) { return null; }
@@ -397,7 +411,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             const payload = {
               command: name,
               safeAPIVersion: \(safeAPIVersion),
-              requestId: 'safeapi-' + (++requestCounter)
+              requestId: nextRequestId()
             };
             const text = bounded(message, maxMessageLength);
             if (text) { payload.message = text; }
