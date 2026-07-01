@@ -1066,8 +1066,8 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func applyDroppedPreviewContext(_ payload: String) {
-        guard let context = HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: payload) else {
-            statusText = "Drop an Epistemos workspace context item"
+        guard let context = HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: payload, matching: package) else {
+            statusText = "Drop a current Epistemos workspace context item"
             return
         }
         let directive = """

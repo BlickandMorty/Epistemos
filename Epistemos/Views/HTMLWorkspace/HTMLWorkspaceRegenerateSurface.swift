@@ -810,10 +810,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     static func verifiedPreviewDropPayload(from payload: String) -> String? {
         let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= 4_096 else { return nil }
-        let lines = trimmed
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let lines = normalizedPayloadLines(from: trimmed)
 
         guard lines.contains("drop_action: regenerate_preview_context"),
               lines.contains("readonly: true"),
@@ -828,6 +825,17 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         }
 
         return trimmed
+    }
+
+    static func verifiedPreviewDropPayload(
+        from payload: String,
+        matching package: HTMLWorkspacePackage
+    ) -> String? {
+        guard let trimmed = verifiedPreviewDropPayload(from: payload),
+              let contextID = lineValue("context_id: ", in: normalizedPayloadLines(from: trimmed)) else {
+            return nil
+        }
+        return items(from: package).contains { $0.contextID == contextID } ? trimmed : nil
     }
 
     static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {
@@ -891,6 +899,19 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
 
     private static func hasLinePrefix(_ prefix: String, in lines: [String]) -> Bool {
         lines.contains { $0.hasPrefix(prefix) && $0.count > prefix.count }
+    }
+
+    private static func lineValue(_ prefix: String, in lines: [String]) -> String? {
+        guard let line = lines.first(where: { $0.hasPrefix(prefix) }) else { return nil }
+        let value = line.dropFirst(prefix.count).trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : String(value)
+    }
+
+    private static func normalizedPayloadLines(from payload: String) -> [String] {
+        payload
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }
 
