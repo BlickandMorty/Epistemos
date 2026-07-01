@@ -88,7 +88,7 @@ async fn complete_task_impl(input: &Value) -> Result<Value, ToolError> {
     let data = raw.get("data").cloned().unwrap_or_else(|| json!({}));
     let (final_result, final_result_truncated) =
         bounded_task_text(data.get("final_result"), MAX_TASK_RESULT_CHARS);
-    let (errors, errors_truncated) = bounded_task_errors(data.get("errors"));
+    let (errors, errors_truncated) = bounded_task_error_fields(&data);
     let adapter_truncated = data
         .get("truncated")
         .and_then(Value::as_bool)
@@ -226,13 +226,34 @@ fn bounded_with_truncation_marker(text: &str, cap: usize, total: usize) -> Strin
     format!("{prefix}{marker}")
 }
 
+fn bounded_task_error_fields(data: &Value) -> (Value, bool) {
+    let mut items: Vec<&Value> = Vec::new();
+    if let Some(error) = data.get("error") {
+        items.push(error);
+    }
+    if let Some(errors) = data.get("errors") {
+        match errors {
+            Value::Array(values) => items.extend(values),
+            value => items.push(value),
+        }
+    }
+    bounded_task_error_items(items)
+}
+
 fn bounded_task_errors(value: Option<&Value>) -> (Value, bool) {
-    let Some(Value::Array(items)) = value else {
+    let Some(errors) = value else {
         return (json!([]), false);
     };
+    match errors {
+        Value::Array(items) => bounded_task_error_items(items.iter().collect()),
+        value => bounded_task_error_items(vec![value]),
+    }
+}
+
+fn bounded_task_error_items(items: Vec<&Value>) -> (Value, bool) {
     let mut truncated = items.len() > MAX_TASK_ERRORS;
     let errors = items
-        .iter()
+        .into_iter()
         .take(MAX_TASK_ERRORS)
         .filter_map(|item| {
             if item.is_null() {
@@ -326,11 +347,7 @@ fn inferred_task_status(is_done: Option<bool>, successful: Option<bool>) -> &'st
     }
 }
 
-fn task_outcome_success(
-    status: &str,
-    is_done: Option<bool>,
-    successful: Option<bool>,
-) -> bool {
+fn task_outcome_success(status: &str, is_done: Option<bool>, successful: Option<bool>) -> bool {
     match status {
         "completed" => {
             (successful == Some(true) || is_done == Some(true))
@@ -351,14 +368,6 @@ mod tests {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
-
-    use tokio::sync::Mutex as AsyncMutex;
-
-    static TEST_ENV_LOCK: std::sync::OnceLock<AsyncMutex<()>> = std::sync::OnceLock::new();
-
-    fn env_lock() -> &'static AsyncMutex<()> {
-        TEST_ENV_LOCK.get_or_init(|| AsyncMutex::new(()))
-    }
 
     struct EnvGuard {
         key: &'static str,
@@ -420,10 +429,11 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake browse
 
     #[tokio::test]
     async fn browser_complete_task_delegates_high_level_task_to_adapter() {
-        let _env_guard = env_lock().lock().await;
+        let _env_guard = crate::test_support::env_lock();
         let temp = tempfile::tempdir().unwrap();
         let script = make_fake_task_browser(temp.path());
         let log_path = temp.path().join("browser.log");
+        let _adapter = EnvGuard::set("EPISTEMOS_BROWSER_USE_AGENT_BROWSER", script.as_os_str());
         let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
         let _log = EnvGuard::set("FAKE_BROWSER_LOG", log_path.as_os_str());
 
@@ -533,11 +543,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake browse
             "incomplete"
         );
         assert_eq!(
-            normalized_task_status(
-                Some("completed"),
-                Some(&json!(true)),
-                Some(&json!(false))
-            ),
+            normalized_task_status(Some("completed"), Some(&json!(true)), Some(&json!(false))),
             "failed"
         );
         assert_eq!(task_outcome_success("completed", None, None), false);
@@ -554,6 +560,37 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake browse
         assert_eq!(errors_present, true);
         assert_eq!(status, "failed");
         assert!(!(task_outcome_success(status, Some(true), Some(true)) && !errors_present));
+    }
+
+    #[test]
+    fn browser_complete_task_singular_error_fields_prevent_successful_outcome() {
+        let data = json!({
+            "status": "completed",
+            "is_done": true,
+            "successful": true,
+            "error": "token=sk-secret-token",
+            "errors": "authorization_code=oauth-code"
+        });
+        let (errors, truncated) = bounded_task_error_fields(&data);
+        let errors_present = task_errors_present(&errors);
+        let status = task_status_after_errors(
+            normalized_task_status(
+                data.get("status").and_then(Value::as_str),
+                data.get("is_done"),
+                data.get("successful"),
+            ),
+            errors_present,
+        );
+        let serialized = errors.to_string();
+
+        assert_eq!(truncated, false);
+        assert_eq!(errors.as_array().unwrap().len(), 2);
+        assert_eq!(errors_present, true);
+        assert_eq!(status, "failed");
+        assert!(!(task_outcome_success(status, Some(true), Some(true)) && !errors_present));
+        assert!(serialized.contains("[redacted]"));
+        assert!(!serialized.contains("sk-secret-token"));
+        assert!(!serialized.contains("oauth-code"));
     }
 
     #[test]

@@ -206,9 +206,11 @@ struct BrowserUseAdapterPlan3Tests {
             #expect(taskSource.contains(required), "Missing browser-use task policy string: \(required)")
         }
         for required in [
+            "bounded_task_error_fields",
             "task_errors_present",
             "task_status_after_errors",
             "browser_complete_task_errors_prevent_successful_completed_outcome",
+            "browser_complete_task_singular_error_fields_prevent_successful_outcome",
             "redact_browser_error_detail",
             "browser_complete_task_redacts_adapter_error_values",
             "bounded_with_truncation_marker",
@@ -216,6 +218,7 @@ struct BrowserUseAdapterPlan3Tests {
         ] {
             #expect(rustTaskSource.contains(required), "Missing browser.complete_task Rust policy string: \(required)")
         }
+        #expect(!rustTaskSource.contains("bounded_task_errors(data.get(\"errors\"))"))
         #expect(!source.contains("str(response.get(\"error\""))
         #expect(!source.contains("return error\n    return fallback"))
         #expect(!source.contains("raise AdapterError(nested)"))

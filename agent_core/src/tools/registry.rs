@@ -4300,6 +4300,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
 
         let old_path = std::env::var_os("PATH");
         let old_log = std::env::var_os("FAKE_BROWSER_LOG");
+        let old_adapter = std::env::var_os("EPISTEMOS_BROWSER_USE_AGENT_BROWSER");
         let path_value = match &old_path {
             Some(path) => {
                 let mut value = std::ffi::OsString::from(&bin_dir);
@@ -4310,6 +4311,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
             None => std::ffi::OsString::from(&bin_dir),
         };
         let log_path = temp.path().join("browser.log");
+        std::env::set_var("EPISTEMOS_BROWSER_USE_AGENT_BROWSER", &script_path);
         std::env::set_var("PATH", path_value);
         std::env::set_var("FAKE_BROWSER_LOG", &log_path);
 
@@ -4331,6 +4333,10 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
         match old_log {
             Some(value) => std::env::set_var("FAKE_BROWSER_LOG", value),
             None => std::env::remove_var("FAKE_BROWSER_LOG"),
+        }
+        match old_adapter {
+            Some(value) => std::env::set_var("EPISTEMOS_BROWSER_USE_AGENT_BROWSER", value),
+            None => std::env::remove_var("EPISTEMOS_BROWSER_USE_AGENT_BROWSER"),
         }
 
         let parsed: serde_json::Value =
