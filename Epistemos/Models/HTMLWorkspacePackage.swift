@@ -243,6 +243,9 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
         let scriptSources = allowPythonRuntime
             ? "'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' \(localResources)"
             : "'unsafe-inline' \(localResources)"
+        let workerSources = allowPythonRuntime
+            ? "blob: \(localResources)"
+            : "'none'"
         if allowNetwork {
             return [
                 "default-src 'none'",
@@ -251,6 +254,8 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
                 "script-src \(scriptSources)",
                 "font-src data: \(localResources)",
                 "connect-src https: \(localResources)",
+                "worker-src \(workerSources)",
+                "child-src \(workerSources)",
                 "media-src data: blob: https: \(localResources)",
                 "frame-src 'none'",
                 "base-uri 'none'",
@@ -264,6 +269,8 @@ nonisolated public struct HTMLWorkspaceSandboxPolicy: Codable, Sendable, Hashabl
             "script-src \(scriptSources)",
             "font-src data: \(localResources)",
             "connect-src \(localResources)",
+            "worker-src \(workerSources)",
+            "child-src \(workerSources)",
             "media-src data: blob: \(localResources)",
             "frame-src 'none'",
             "base-uri 'none'",

@@ -47,6 +47,7 @@ struct SSHWCapabilityStatusTests {
         #expect(regenerate?.note.contains("awaits current in-app proof") == true)
         let python = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Python (Pyodide / WASM)" }
         #expect(python?.isLive == false)
+        #expect(python?.note.contains("local/blob worker CSP") == true)
         #expect(python?.note.contains("insertable demo scaffold") == true)
         #expect(python?.note.contains("runtime probe") == true)
         #expect(python?.note.contains("awaits current in-app proof") == true)
@@ -81,6 +82,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("hover-highlighted DOM picker"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("focused style edits"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("local/blob worker CSP"))
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceCapabilityStatus.swift")
         #expect(source.contains("out-of-lane build error"))
         #expect(!source.contains("Landing compile error"))

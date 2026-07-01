@@ -153,8 +153,28 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(csp.contains("script-src 'unsafe-inline' \(localResource)"))
         #expect(csp.contains("font-src data: \(localResource)"))
         #expect(csp.contains("connect-src \(localResource)"))
+        #expect(csp.contains("worker-src 'none'"))
+        #expect(csp.contains("child-src 'none'"))
         #expect(csp.contains("media-src data: blob: \(localResource)"))
+        #expect(!csp.contains("wasm-unsafe-eval"))
         #expect(!csp.contains("connect-src https:"))
+    }
+
+    @Test("HTMLWorkspace Python CSP admits WASM eval and local workers without network")
+    func pythonCSPAllowsWASMLocalWorkersOnly() {
+        var policy = HTMLWorkspaceSandboxPolicy.offlineDefault
+        policy.allowPythonRuntime = true
+        let csp = policy.contentSecurityPolicy
+        let localResource = HTMLWorkspaceLocalResourceScheme.contentSecurityPolicySource
+
+        #expect(csp.contains("default-src 'none'"))
+        #expect(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' \(localResource)"))
+        #expect(csp.contains("connect-src \(localResource)"))
+        #expect(csp.contains("worker-src blob: \(localResource)"))
+        #expect(csp.contains("child-src blob: \(localResource)"))
+        #expect(csp.contains("frame-src 'none'"))
+        #expect(!csp.contains("connect-src https:"))
+        #expect(!csp.contains("worker-src https:"))
     }
 
     @Test("HTMLWorkspace preview identity tracks asset bytes but not data-only updates")
