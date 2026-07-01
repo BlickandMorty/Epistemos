@@ -976,11 +976,14 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         private func dispatchAppBridgeResponse(command: HTMLWorkspaceSafeAPI.Command, in webView: WKWebView?) {
             guard let webView, !isDetached else { return }
             let response = HTMLWorkspaceSafeAPI.diagnosticMessage(for: command, package: package)
+            let isSupported = command.isSupported
             let script = """
             window.dispatchEvent(new CustomEvent('htmlworkspace:appbridge', {
               detail: {
                 command: \(Self.javaScriptStringLiteral(command.name)),
                 requestId: \(Self.optionalJavaScriptStringLiteral(command.requestID)),
+                ok: \(isSupported ? "true" : "false"),
+                error: \(Self.optionalJavaScriptStringLiteral(isSupported ? nil : response)),
                 message: \(Self.javaScriptStringLiteral(response)),
                 safeAPIVersion: \(package.manifest.sandboxPolicy.safeAPIVersion)
               }

@@ -460,12 +460,21 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             const entry = pendingRequests.get(requestId);
             pendingRequests.delete(requestId);
             window.clearTimeout(entry.timer);
-            entry.resolve(Object.freeze({
+            const response = Object.freeze({
               command: typeof detail.command === 'string' ? detail.command : null,
               requestId,
               message: typeof detail.message === 'string' ? detail.message : '',
               safeAPIVersion: Number.isFinite(Number(detail.safeAPIVersion)) ? Number(detail.safeAPIVersion) : \(safeAPIVersion)
-            }));
+            });
+            if (detail.ok === false) {
+              entry.reject(bridgeError(
+                typeof detail.error === 'string' && detail.error
+                  ? detail.error
+                  : response.message || 'HTML Workspace app bridge request rejected'
+              ));
+              return;
+            }
+            entry.resolve(response);
           });
           return Object.freeze({
             enabled: true,

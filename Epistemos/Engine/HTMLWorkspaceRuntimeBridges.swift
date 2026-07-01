@@ -26,6 +26,10 @@ nonisolated enum HTMLWorkspaceSafeAPI {
         let eventName: String?
         let attributes: [String: String]
 
+        var isSupported: Bool {
+            HTMLWorkspaceSafeAPI.isSupportedCommandName(name)
+        }
+
         static func fromMessageBody(_ body: Any) -> Command? {
             if let raw = boundedString(body, limit: maxCommandLength) {
                 return Command(name: raw, message: nil, requestID: nil, eventName: nil, attributes: [:])
@@ -94,6 +98,15 @@ nonisolated enum HTMLWorkspaceSafeAPI {
                 attributes[boundedKey] = boundedValue
             }
             return attributes
+        }
+    }
+
+    static func isSupportedCommandName(_ name: String) -> Bool {
+        switch name.lowercased() {
+        case "ping", "workspace.status", "status", "event.record", "record":
+            return true
+        default:
+            return false
         }
     }
 
