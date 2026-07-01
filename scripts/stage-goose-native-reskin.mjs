@@ -187,11 +187,11 @@ function applyMainCSS() {
   --epistemos-glass-fill-muted: color-mix(in srgb, var(--color-background-secondary) 76%, transparent);
   --epistemos-glass-border: color-mix(in srgb, var(--color-border-primary) 78%, transparent);
   --epistemos-control-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.05),
-    0 12px 32px rgba(0, 0, 0, 0.08);
+    0 1px 1px color-mix(in srgb, var(--color-text-primary) 5%, transparent),
+    0 12px 32px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   --epistemos-popover-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.08),
-    0 18px 48px rgba(0, 0, 0, 0.14);
+    0 1px 1px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    0 18px 48px color-mix(in srgb, var(--color-text-primary) 14%, transparent);
   --radius: 11px;
 }
 
@@ -202,11 +202,11 @@ function applyMainCSS() {
   --epistemos-glass-fill-muted: color-mix(in srgb, var(--color-background-secondary) 66%, transparent);
   --epistemos-glass-border: color-mix(in srgb, var(--color-border-tertiary) 72%, transparent);
   --epistemos-control-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.18),
-    0 14px 38px rgba(0, 0, 0, 0.24);
+    0 1px 1px color-mix(in srgb, var(--color-text-inverse) 18%, transparent),
+    0 14px 38px color-mix(in srgb, var(--color-text-inverse) 24%, transparent);
   --epistemos-popover-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.26),
-    0 20px 52px rgba(0, 0, 0, 0.36);
+    0 1px 1px color-mix(in srgb, var(--color-text-inverse) 26%, transparent),
+    0 20px 52px color-mix(in srgb, var(--color-text-inverse) 36%, transparent);
 }
 
 html,
@@ -469,11 +469,11 @@ body {
       color-mix(in srgb, var(--color-background-primary) 88%, transparent),
       color-mix(in srgb, var(--color-background-secondary) 62%, transparent)
     ) !important;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 18px 46px color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
 }
 
 .dark .goose-epistemos .goose-chat-input-card {
-  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.34) !important;
+  box-shadow: 0 20px 54px color-mix(in srgb, var(--color-text-inverse) 34%, transparent) !important;
 }
 
 .goose-epistemos .goose-message {
@@ -483,11 +483,11 @@ body {
 .goose-epistemos :is(.goose-tool-call, .goose-message-content, .goose-message-tool) {
   border-radius: 14px !important;
   background-color: var(--epistemos-glass-fill-muted) !important;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--color-text-primary) 7%, transparent) !important;
 }
 
 .dark .goose-epistemos :is(.goose-tool-call, .goose-message-content, .goose-message-tool) {
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--color-text-inverse) 24%, transparent) !important;
 }
 
 .goose-epistemos .goose-tool-call > :first-child,
@@ -554,11 +554,11 @@ body {
   background-color: var(--epistemos-glass-fill) !important;
   border-color: var(--epistemos-glass-border) !important;
   border-radius: 14px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-text-primary) 7%, transparent) !important;
 }
 
 .dark .goose-epistemos :is(.ep-native-screen-card, .ep-native-list-card) {
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--color-text-inverse) 24%, transparent) !important;
 }
 
 .goose-epistemos .ep-native-list-card {
@@ -718,7 +718,7 @@ body {
   --epistemos-flat-separator: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   --epistemos-flat-focus: color-mix(in srgb, var(--epistemos-accent) 34%, transparent);
   --epistemos-control-shadow: none;
-  --epistemos-popover-shadow: 0 18px 56px rgba(0, 0, 0, 0.12);
+  --epistemos-popover-shadow: 0 18px 56px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   background: var(--epistemos-flat-app-bg) !important;
 }
 
@@ -727,8 +727,8 @@ body {
   --epistemos-flat-surface: color-mix(in srgb, var(--color-background-secondary) 42%, var(--color-background-primary));
   --epistemos-flat-surface-strong: color-mix(in srgb, var(--color-background-secondary) 60%, var(--color-background-primary));
   --epistemos-flat-hover: color-mix(in srgb, var(--color-background-secondary) 72%, var(--color-background-primary));
-  --epistemos-flat-separator: color-mix(in srgb, white 10%, transparent);
-  --epistemos-popover-shadow: 0 18px 56px rgba(0, 0, 0, 0.32);
+  --epistemos-flat-separator: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --epistemos-popover-shadow: 0 18px 56px color-mix(in srgb, var(--color-text-inverse) 32%, transparent);
 }
 
 html,
@@ -1163,7 +1163,7 @@ body,
   --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 34%, var(--color-background-primary));
   --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 52%, var(--color-background-primary));
   --epistemos-claude-hover: color-mix(in srgb, var(--color-background-secondary) 68%, var(--color-background-primary));
-  --epistemos-claude-soft-shadow: 0 14px 34px color-mix(in srgb, black 20%, transparent);
+  --epistemos-claude-soft-shadow: 0 14px 34px color-mix(in srgb, var(--color-text-inverse) 20%, transparent);
 }
 
 html,
@@ -6903,8 +6903,8 @@ function applyFinalFlatPixelAudit() {
   --epistemos-claude-sidebar-hover: color-mix(in srgb, var(--color-background-secondary) 64%, var(--color-background-primary));
   --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 28%, var(--color-background-primary));
   --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 44%, var(--color-background-primary));
-  --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, black 26%, transparent);
-  --epistemos-claude-composer-shadow: 0 16px 44px color-mix(in srgb, black 24%, transparent);
+  --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, var(--color-text-inverse) 26%, transparent);
+  --epistemos-claude-composer-shadow: 0 16px 44px color-mix(in srgb, var(--color-text-inverse) 24%, transparent);
 }
 
 html,
