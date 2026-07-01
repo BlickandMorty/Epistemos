@@ -1048,7 +1048,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     }
 
     private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [BrowserUseRuntimeArtifactRequirement] {
-        var requirements = [
+        var requirements: [BrowserUseRuntimeArtifactRequirement] = [
             .init(
                 name: "Python 3.11 executable",
                 url: paths.pythonExecutableURL,

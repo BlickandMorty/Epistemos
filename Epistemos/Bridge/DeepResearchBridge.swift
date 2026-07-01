@@ -76,7 +76,7 @@ enum DeepResearchRuntimeDiagnostics {
         return runtimeMessage("Deep research runtime failed (domain=\(domain) code=\(nsError.code)).")
     }
 
-    private static func safeDomain(_ domain: String) -> String {
+    private nonisolated static func safeDomain(_ domain: String) -> String {
         let bounded = String(domain.prefix(maxDomainCharacters + 32))
         let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
