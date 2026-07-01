@@ -2769,6 +2769,13 @@ function replaceRequired(label, pattern, replacement) {
 }
 
 replaceRequired(
+  'extension deeplink import',
+  `import { ExtensionInstallModal } from './components/ExtensionInstallModal';`,
+  `import { ExtensionInstallModal } from './components/ExtensionInstallModal';
+import { addExtensionFromDeepLink } from './components/settings/extensions';`
+);
+
+replaceRequired(
   'remove active session handler',
   `    const handleSessionDeleted = (event: Event) => {
       const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
@@ -2814,13 +2821,57 @@ replaceRequired(
     };`
 );
 
+replaceRequired(
+  'extension deeplink event handler',
+  `  const { addExtension } = useConfig();
+
+  useEffect(() => {
+    try {`,
+  `  const { addExtension } = useConfig();
+
+  useEffect(() => {
+    const handleAddExtension = async (_event: IpcRendererEvent, ...args: unknown[]) => {
+      const link = args[0] as string;
+      if (!link) {
+        return;
+      }
+
+      window.electron.logInfo(\`Adding extension from deep link \${link}\`);
+      try {
+        await addExtensionFromDeepLink(link, addExtension, (view, options) => {
+          setView(view as View, options as ViewOptions);
+        });
+      } catch (error) {
+        console.error('Unexpected error adding extension from deep link:', error);
+        trackErrorWithContext(error, {
+          component: 'AppInner',
+          action: 'add_extension_deeplink',
+          recoverable: true,
+        });
+      }
+    };
+
+    window.electron.on('add-extension', handleAddExtension);
+    return () => {
+      window.electron.off('add-extension', handleAddExtension);
+    };
+  }, [addExtension, setView]);
+
+  useEffect(() => {
+    try {`
+);
+
 for (const snippet of [
+  "import { addExtensionFromDeepLink } from './components/settings/extensions';",
   'const removeActiveSession =',
   'const handleRemoveActiveSession =',
   'AppEvents.REMOVE_ACTIVE_SESSION',
+  "window.electron.on('add-extension', handleAddExtension)",
+  'addExtensionFromDeepLink(link, addExtension',
+  "action: 'add_extension_deeplink'",
 ]) {
   if (!source.includes(snippet)) {
-    throw new Error(`App staged source is missing active session removal snippet: ${snippet}`);
+    throw new Error(`App staged source is missing required snippet: ${snippet}`);
   }
 }
 
@@ -7133,6 +7184,9 @@ JS
     grep -q "REMOVE_ACTIVE_SESSION = 'remove-active-session'" "$WORK_ROOT/ui/desktop/src/constants/events.ts"
     grep -q "const removeActiveSession =" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "const handleRemoveActiveSession =" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "addExtensionFromDeepLink(link, addExtension" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "window.electron.on('add-extension', handleAddExtension)" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "action: 'add_extension_deeplink'" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "data-epistemos-session-tabs" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-tabs-command-switch" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const closeSessionTab =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
