@@ -17,11 +17,11 @@ const REQUIRED_SOURCE_REFS: [&str; 10] = [
     "Epistemos/Engine/TriageService.swift",
     "Epistemos/Engine/PipelineService.swift",
     "Epistemos/State/AgentCommandCenterState.swift",
-    "Epistemos/State/InferenceState+RouteProfiles.swift",
-    "Epistemos/LocalAgent/RuntimeRouter.swift",
-    "Epistemos/LocalAgent/LocalAgentLoop.swift",
-    "Epistemos/LocalAgent/LocalAgentCommandDispatcher.swift",
-    "Epistemos/SystemG/RealSystemGRunSeam.swift",
+    "Epistemos/State/InferenceState.swift",
+    "Epistemos/Engine/RuntimeExecutor.swift",
+    "agent_core/src/agent_loop.rs",
+    "agent_core/src/dispatcher.rs",
+    "agent_core/src/agent_runtime_v2/system_g_runtime.rs",
     "agent_core/src/command_center.rs",
     "agent_core/src/routing.rs",
 ];
@@ -599,7 +599,7 @@ mod tests {
         let mut missing_source = witness.card.clone();
         missing_source
             .source_refs
-            .retain(|value| value != "Epistemos/LocalAgent/RuntimeRouter.swift");
+            .retain(|value| value != "Epistemos/Engine/RuntimeExecutor.swift");
         assert!(missing_source.validate().is_err());
 
         let mut hidden = witness.card.clone();
