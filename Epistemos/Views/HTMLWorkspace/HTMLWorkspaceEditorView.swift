@@ -541,6 +541,7 @@ struct HTMLWorkspaceEditorView: View {
                 )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
+                    .onDrop(of: [UTType.plainText], isTargeted: nil, perform: handlePreviewContextDrop)
             }
 
             if inspectorVisible {
@@ -880,6 +881,53 @@ struct HTMLWorkspaceEditorView: View {
         }
         regenerateContextStatusText = "Focused \(item.title)"
         statusText = "Vault context item focused"
+    }
+
+    private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard !isRegenerating,
+              let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) else {
+            return false
+        }
+
+        provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
+            let payload: String?
+            if let string = item as? String {
+                payload = string
+            } else if let string = item as? NSString {
+                payload = string as String
+            } else if let data = item as? Data {
+                payload = String(data: data, encoding: .utf8)
+            } else {
+                payload = nil
+            }
+            guard let payload else { return }
+            Task { @MainActor in
+                applyDroppedPreviewContext(payload)
+            }
+        }
+        return true
+    }
+
+    private func applyDroppedPreviewContext(_ payload: String) {
+        let context = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !context.isEmpty else {
+            statusText = "Dropped context was empty"
+            return
+        }
+        let directive = """
+        Use this dropped read-only context as a primary source; keep provenance visible and do not invent missing details:
+        \(boundedDroppedContext(context))
+        """
+        let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        regenerateInstruction = current.isEmpty ? directive : current + "\n" + directive
+        regenerateSheetPresented = true
+        statusText = "Dropped context added"
+        beginRegenerateSurface(instructionOverride: regenerateInstruction)
+    }
+
+    private func boundedDroppedContext(_ value: String) -> String {
+        guard value.count > 1_200 else { return value }
+        return String(value.prefix(1_200)) + "\n[truncated]"
     }
 
     private func beginRegenerateSurface() {
