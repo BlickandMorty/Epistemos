@@ -286,7 +286,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(theme.resolved.foreground.color)
                     .disabled(isRegenerating || isRefreshingContext)
-                    .help(preset.instruction)
+                    .help(preset.helpText)
                 }
             }
         }
@@ -429,6 +429,11 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
 
     static func presets(in family: Family) -> [HTMLWorkspaceRegeneratePreset] {
         all.filter { $0.family == family }
+    }
+
+    var helpText: String {
+        guard !requiredContextKindInstruction.isEmpty else { return instruction }
+        return "\(instruction) \(requiredContextKindInstruction)"
     }
 
     func contextQuery(

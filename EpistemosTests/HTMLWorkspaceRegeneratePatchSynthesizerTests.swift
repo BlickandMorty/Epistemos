@@ -274,6 +274,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(notes.requiredContextKind == nil)
         #expect(captures.requiredContextKind == "recent_capture")
         #expect(related.requiredContextKind == "graph_related_note")
+        #expect(notes.helpText == notes.instruction)
+        #expect(captures.helpText.contains(#"context_kind "recent_capture""#))
+        #expect(related.helpText.contains(#"context_kind "graph_related_note""#))
 
         let instruction = captures.instruction(contextQuery: "recent captures Project Atlas")
         #expect(instruction.contains("VaultSyncService.searchFullAsync"))
