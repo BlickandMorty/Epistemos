@@ -79,6 +79,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("context_id: \\(safeContextID)"))
         #expect(sheet.contains("drop_action: regenerate_preview_context"))
         #expect(sheet.contains("readonly: true"))
+        #expect(sheet.contains("static func verifiedPreviewDropPayload(from payload: String) -> String?"))
+        #expect(sheet.contains("hasLinePrefix(\"context_id: context_kind:\""))
+        #expect(sheet.contains("hasLinePrefix(\"Provenance: \""))
         #expect(sheet.contains("HTMLWorkspaceRegeneratePreset.Family.allCases"))
         #expect(sheet.contains("FlowLayout(spacing: 6)"))
         #expect(sheet.contains("Label(\"Recovery response fallback\", systemImage: \"terminal\")"))
@@ -155,6 +158,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("boundedDroppedContext(item.dragPayload)"))
         #expect(editor.contains("private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool"))
         #expect(editor.contains("private func applyDroppedPreviewContext(_ payload: String)"))
+        #expect(editor.contains("HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: payload)"))
+        #expect(editor.contains(#"statusText = "Drop an Epistemos workspace context item""#))
         #expect(editor.contains("Use this dropped read-only context as a primary source"))
         #expect(editor.contains("private func applyPreviewContextItem(_ item: HTMLWorkspaceRegenerateContextItem)"))
         #expect(editor.contains("Use this picked read-only workspace context item as a primary source"))
@@ -401,6 +406,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(items.first?.dragPayload.contains("Source: Vault search result / vault_record") == true)
         #expect(items.first?.dragPayload.contains("Provenance: VaultSyncService.searchFullAsync") == true)
         #expect(items.first?.dragPayload.contains("snippet: alpha snippet") == true)
+        #expect(HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: items.first?.dragPayload ?? "") == items.first?.dragPayload.trimmingCharacters(in: .whitespacesAndNewlines))
+        #expect(HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: "random pasted text") == nil)
+        #expect(HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: items.first?.dragPayload.replacingOccurrences(of: "readonly: true", with: "readonly: false") ?? "") == nil)
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
 

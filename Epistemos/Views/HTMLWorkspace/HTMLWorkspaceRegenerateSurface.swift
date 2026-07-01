@@ -730,6 +730,29 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         """
     }
 
+    static func verifiedPreviewDropPayload(from payload: String) -> String? {
+        let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 4_096 else { return nil }
+        let lines = trimmed
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard lines.contains("drop_action: regenerate_preview_context"),
+              lines.contains("readonly: true"),
+              hasLinePrefix("context_id: context_kind:", in: lines),
+              hasLinePrefix("page_id: ", in: lines),
+              hasLinePrefix("title: ", in: lines),
+              hasLinePrefix("context_kind: ", in: lines),
+              hasLinePrefix("source_label: ", in: lines),
+              hasLinePrefix("Provenance: ", in: lines),
+              hasLinePrefix("snippet: ", in: lines) else {
+            return nil
+        }
+
+        return trimmed
+    }
+
     static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {
         guard let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON) else {
             return []
@@ -786,6 +809,10 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
 
     private static func inlineIDPart(_ value: String) -> String {
         value.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    private static func hasLinePrefix(_ prefix: String, in lines: [String]) -> Bool {
+        lines.contains { $0.hasPrefix(prefix) && $0.count > prefix.count }
     }
 }
 
