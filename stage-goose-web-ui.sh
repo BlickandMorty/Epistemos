@@ -6422,7 +6422,7 @@ if (source.includes("        sharing: 'sharing',")) {
 if (source.includes("        gateway: 'sharing',")) {
   source = source.replace(
     "        gateway: 'sharing',",
-    "        gateway: USE_ACP_CHAT ? 'models' : 'sharing',"
+    "        gateway: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-gateway-settings"
   );
 }
 if (source.includes("        prompts: 'prompts',")) {
@@ -6496,6 +6496,7 @@ const sharingContentReplacement = `                {!USE_ACP_CHAT && (
                     <div className="space-y-8 pb-8">
                       <SessionSharingSection />
                       <ExternalBackendSection />
+                      {/* epistemos-acp-hide-gateway-settings */}
                       {!tunnelDisabled && <GatewaySettingsSection />}
                     </div>
                   </TabsContent>
@@ -6643,7 +6644,9 @@ for (const snippet of [
   acpImport,
   'const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing',
   "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing",
+  "gateway: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-gateway-settings",
   'setTunnelDisabled(true); // epistemos-acp-hide-session-sharing',
+  'epistemos-acp-hide-gateway-settings',
   "prompts: USE_ACP_CHAT ? 'models' : 'prompts', // epistemos-acp-hide-prompts-settings",
   'epistemos-acp-hide-prompts-settings',
   "localInference && !USE_ACP_CHAT",
@@ -7795,6 +7798,8 @@ JS
     grep -q "epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "const \\[tunnelDisabled, setTunnelDisabled\\] = useState(USE_ACP_CHAT); // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "sharing: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-session-sharing" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "epistemos-acp-hide-gateway-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
+    grep -q "gateway: USE_ACP_CHAT ? 'models' : 'sharing', // epistemos-acp-hide-gateway-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "epistemos-acp-navigation-active-session" "$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
     grep -q "export async function acpGetSessionListItem" "$WORK_ROOT/ui/desktop/src/acp/sessions.ts"
     grep -q "client.goose.sessionInfo_unstable({ sessionId })" "$WORK_ROOT/ui/desktop/src/acp/sessions.ts"

@@ -448,6 +448,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-hide-session-sharing"))
         #expect(stageScript.contains("const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT);"))
         #expect(stageScript.contains("sharing: USE_ACP_CHAT ? 'models' : 'sharing'"))
+        #expect(stageScript.contains("epistemos-acp-hide-gateway-settings"))
+        #expect(stageScript.contains("gateway: USE_ACP_CHAT ? 'models' : 'sharing'"))
         #expect(stageScript.contains("epistemos-acp-hide-updates"))
         #expect(stageScript.contains("const shouldShowUpdates = !USE_ACP_CHAT && !window.appConfig.get('GOOSE_VERSION');"))
         #expect(stageScript.contains("epistemos-acp-navigation-active-session"))
