@@ -555,10 +555,24 @@ enum GooseWebBootShim {
               return null;
             }
           };
+          const sessionDeepLinkURL = (rawURL) => {
+            if (typeof rawURL !== 'string' || rawURL.trim() === '') return null;
+            try {
+              const url = new URL(rawURL);
+              return url.protocol === 'goose:' && url.hostname === 'sessions' ? url.href : null;
+            } catch {
+              return null;
+            }
+          };
           const forwardGooseDeepLink = (rawURL) => {
-            const href = extensionDeepLinkURL(rawURL);
-            if (!href) return false;
-            emitEvent('add-extension', href);
+            const extensionHref = extensionDeepLinkURL(rawURL);
+            if (extensionHref) {
+              emitEvent('add-extension', extensionHref);
+              return true;
+            }
+            const sessionHref = sessionDeepLinkURL(rawURL);
+            if (!sessionHref) return false;
+            emitEvent('open-shared-session', sessionHref);
             return true;
           };
           const forwardExternalOpen = (rawURL) => {
