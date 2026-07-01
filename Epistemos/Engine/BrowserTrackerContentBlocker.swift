@@ -25,7 +25,7 @@ nonisolated enum BrowserTrackerContentBlocker {
     static var ruleListJSON: String {
         let rules = blockedDomainPatterns.compactMap { domain -> [String: Any]? in
             guard let urlFilter = urlFilter(forBlockedDomainPattern: domain) else { return nil }
-            [
+            return [
                 "trigger": [
                     "url-filter": urlFilter,
                 ],
