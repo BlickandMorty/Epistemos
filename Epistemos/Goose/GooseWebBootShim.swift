@@ -546,6 +546,21 @@ enum GooseWebBootShim {
               return null;
             }
           };
+          const extensionDeepLinkURL = (rawURL) => {
+            if (typeof rawURL !== 'string' || rawURL.trim() === '') return null;
+            try {
+              const url = new URL(rawURL);
+              return url.protocol === 'goose:' && url.hostname === 'extension' ? url.href : null;
+            } catch {
+              return null;
+            }
+          };
+          const forwardGooseDeepLink = (rawURL) => {
+            const href = extensionDeepLinkURL(rawURL);
+            if (!href) return false;
+            emitEvent('add-extension', href);
+            return true;
+          };
           const forwardExternalOpen = (rawURL) => {
             const href = externalOpenURL(rawURL);
             if (!href) return false;
@@ -558,14 +573,17 @@ enum GooseWebBootShim {
           Object.defineProperty(window, 'open', {
             configurable: true,
             value: (url, target, features) => {
+              if (forwardGooseDeepLink(url)) return null;
               if (forwardExternalOpen(url)) return null;
               return nativeWindowOpen ? nativeWindowOpen(url, target, features) : null;
             }
           });
           document.addEventListener('click', (event) => {
             const target = event.target instanceof Element ? event.target : null;
-            const anchor = target?.closest?.('a[target="_blank"][href]');
-            if (!anchor || !forwardExternalOpen(anchor.href)) return;
+            const anchor = target?.closest?.('a[href]');
+            if (!anchor || (!forwardGooseDeepLink(anchor.href) && !(
+              anchor.matches('a[target="_blank"][href]') && forwardExternalOpen(anchor.href)
+            ))) return;
             event.preventDefault();
             event.stopPropagation();
           }, true);
