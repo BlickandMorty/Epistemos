@@ -956,6 +956,7 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextRefreshNonce &+= 1
         isRefreshingRegenerateContext = false
         package.manifest.dataFeed = nil
+        package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
         regenerateContextStatusText = "Workspace context cleared"
         statusText = "Workspace context cleared"
     }
@@ -1537,6 +1538,7 @@ struct HTMLWorkspaceEditorView: View {
 
     private func clearVaultSearchFeed() {
         package.manifest.dataFeed = nil
+        package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
         statusText = "Vault feed cleared"
         selectedPane = .data
     }

@@ -469,6 +469,10 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
             .epistemos
     }
 
+    static func clearedDataJSON(from dataJSON: String) -> String {
+        metadata(from: dataJSON) == nil ? dataJSON : "{}"
+    }
+
     static func requiredContextKind(for package: HTMLWorkspacePackage) -> String? {
         guard let feed = package.manifest.dataFeed,
               let metadata = metadata(from: package.dataJSON),

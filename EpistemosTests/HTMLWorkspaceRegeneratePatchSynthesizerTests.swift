@@ -153,6 +153,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func refreshRegenerateVaultContext()"))
         #expect(editor.contains("VaultSyncService.searchFullAsync") || editor.contains("vaultSync.searchFullAsync"))
         #expect(editor.contains("private func clearRegenerateVaultContext()"))
+        #expect(editor.contains("package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)"))
         #expect(editor.contains("private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem)"))
         #expect(editor.contains("Use this focused read-only workspace context item as a primary source"))
         #expect(editor.contains("boundedDroppedContext(item.dragPayload)"))

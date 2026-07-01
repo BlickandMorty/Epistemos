@@ -133,6 +133,20 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.stale == false)
     }
 
+    @Test("HTMLWorkspace data feed clearing removes only generated feed envelopes")
+    func dataFeedClearingRemovesOnlyGeneratedFeedEnvelopes() {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)
+        let feedJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
+            feed: feed,
+            error: "Feed pending",
+            requiredContextKind: "recent_capture"
+        )
+        let customJSON = #"{"results":[{"title":"user data"}]}"#
+
+        #expect(HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: feedJSON) == "{}")
+        #expect(HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: customJSON) == customJSON)
+    }
+
     @Test("HTMLWorkspace data feed status exposes explicit context kinds")
     @MainActor
     func dataFeedStatusExposesExplicitContextKinds() throws {
