@@ -1534,9 +1534,16 @@ struct GooseWebViewBootShimTests {
         )
         #expect(GooseWebSurfaceView.boundedPlaceholderStatus(" \n\t ") == "Goose surface unavailable.")
 
-        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceSupport.swift")
         #expect(source.contains("let boundedStatus = boundedPlaceholderStatus(status)"))
+        #expect(source.contains("let acpLine = placeholderACPLine(acpURL)"))
+        #expect(source.contains("background: var(--color-background-primary, Canvas);"))
+        #expect(source.contains("color: var(--color-text-primary, CanvasText);"))
+        #expect(source.contains("color: var(--color-text-secondary, color-mix(in srgb, CanvasText 72%, transparent));"))
+        #expect(source.contains("guard !trimmedACPURL.isEmpty else { return \"\" }"))
         #expect(!source.contains("escapeHTML(status)"))
+        #expect(!source.contains("<p><code>\\(escapeHTML(acpURL))</code></p>"))
+        #expect(!source.contains("background: Canvas; color: CanvasText;"))
     }
 
     @Test("Goose Web UI load waits until the loopback server can serve the index")

@@ -209,6 +209,7 @@ extension GooseWebSurfaceView {
 
     static func placeholderHTML(status: String, acpURL: String) -> String {
         let boundedStatus = boundedPlaceholderStatus(status)
+        let acpLine = placeholderACPLine(acpURL)
         return """
         <!doctype html>
         <html>
@@ -217,10 +218,18 @@ extension GooseWebSurfaceView {
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
-            body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: Canvas; color: CanvasText; }
+            body {
+              margin: 0;
+              min-height: 100vh;
+              display: grid;
+              place-items: center;
+              background: var(--color-background-primary, Canvas);
+              color: var(--color-text-primary, CanvasText);
+              cursor: default;
+            }
             main { width: min(560px, calc(100vw - 48px)); }
-            h1 { font-size: 16px; font-weight: 650; margin: 0 0 10px; }
-            p { font-size: 13px; line-height: 1.45; margin: 0 0 8px; color: color-mix(in srgb, CanvasText 72%, transparent); }
+            h1 { font-size: 15px; font-weight: 650; margin: 0 0 10px; letter-spacing: 0; }
+            p { font-size: 13px; line-height: 1.45; margin: 0 0 8px; color: var(--color-text-secondary, color-mix(in srgb, CanvasText 72%, transparent)); }
             code { font-family: "SF Mono", ui-monospace, monospace; font-size: 12px; }
           </style>
         </head>
@@ -228,11 +237,17 @@ extension GooseWebSurfaceView {
           <main>
             <h1>Epistemos Goose</h1>
             <p><code>\(escapeHTML(boundedStatus))</code></p>
-            <p><code>\(escapeHTML(acpURL))</code></p>
+            \(acpLine)
           </main>
         </body>
         </html>
         """
+    }
+
+    static func placeholderACPLine(_ acpURL: String) -> String {
+        let trimmedACPURL = acpURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedACPURL.isEmpty else { return "" }
+        return "<p class=\"detail\"><code>\(escapeHTML(trimmedACPURL))</code></p>"
     }
 
     nonisolated static func boundedPlaceholderStatus(_ status: String) -> String {
