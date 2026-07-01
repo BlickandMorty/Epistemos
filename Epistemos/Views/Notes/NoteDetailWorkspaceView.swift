@@ -63,6 +63,10 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
 private struct SourceEditorRoute {
     let filePath: String
     let language: String
+    /// True for a DISPLAY-ONLY note-backed markdown route (a note with no on-disk file yet).
+    /// The filePath is a display label + snapshot key only — never written to page.filePath and
+    /// never written to disk; the real dedup'd path is assigned by vault export. (source-toggle 2026-07-01)
+    var isNoteBacked: Bool = false
 
     var isMarkdown: Bool {
         CodeLanguage.isMarkdownDocument(path: filePath)
@@ -1297,7 +1301,7 @@ struct NoteDetailWorkspaceView: View {
         if let page = pages.first,
            let route = sourceEditorRoute(for: page),
            let sourceContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
-            saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent)
+            saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent, noteBacked: route.isNoteBacked)
             return
         }
 
@@ -1373,7 +1377,7 @@ struct NoteDetailWorkspaceView: View {
                             )
                         },
                         onContentChange: { newContent in
-                            saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
+                            saveCodeFileContent(page: page, filePath: route.filePath, content: newContent, noteBacked: route.isNoteBacked)
                         },
                         // SS-GC: in the embedded home graph, give the code editor the same
                         // landing-variant theme the prose branch gets, so its top bar paints the
@@ -1447,9 +1451,9 @@ struct NoteDetailWorkspaceView: View {
     }
 
     /// Saves code file content back to disk and updates associated page state
-    private func saveCodeFileContent(page: SDPage, filePath: String, content: String) {
+    private func saveCodeFileContent(page: SDPage, filePath: String, content: String, noteBacked: Bool = false) {
         if CodeLanguage.isMarkdownDocument(path: filePath) {
-            saveMarkdownSourceContent(page: page, filePath: filePath, content: content)
+            saveMarkdownSourceContent(page: page, filePath: filePath, content: content, noteBacked: noteBacked)
             return
         }
 
@@ -1499,13 +1503,46 @@ struct NoteDetailWorkspaceView: View {
         modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)
     }
 
-    private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String) {
+    private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String, noteBacked: Bool = false) {
         let fileURL = URL(fileURLWithPath: filePath)
         Task { @MainActor in
             let pageId = page.id
             let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
             let persistedSourceBody = persistedContent.body
             guard stageBodyWrite(pageId: pageId, fullText: persistedSourceBody) else { return }
+
+            if noteBacked {
+                // DISPLAY-ONLY route: never bind page.filePath to the synthesized path and never
+                // write a file directly (that would create a spurious/colliding vault file and
+                // corrupt the note's sync identity). Persist the body via the note pipeline and let
+                // the normal vault export assign the real, dedup'd .md path + page.filePath. After
+                // that first save the note has a real filePath and Source takes the on-disk branch. (source-toggle 2026-07-01)
+                persistedContent.apply(to: page)
+                page.updatedAt = .now
+                page.needsVaultSync = true
+                do {
+                    try modelContext.save()
+                } catch {
+                    Log.app.error("CodeEditor: failed to save note-backed markdown Source state: \(error.localizedDescription, privacy: .public)")
+                    return
+                }
+                codeFileBodySnapshot = CodeFileBodySnapshot(pageId: pageId, filePath: filePath, body: content)
+                persistedBody = persistedSourceBody
+                modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedSourceBody)
+                AppBootstrap.shared?.graphState.needsRefresh = true
+                scheduleMetricsRefresh(body: persistedSourceBody, includeMarkdownHeadings: false)
+                if let modelContainer = AppBootstrap.shared?.modelContainer {
+                    Task {
+                        await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                            pageId: pageId,
+                            body: persistedSourceBody,
+                            modelContainer: modelContainer
+                        )
+                    }
+                }
+                vaultSync.savePage(pageId: pageId)
+                return
+            }
 
             if page.filePath != filePath {
                 page.filePath = filePath
@@ -2052,16 +2089,13 @@ struct NoteDetailWorkspaceView: View {
     private func sourceFileRoute(for page: SDPage) -> SourceEditorRoute? {
         guard let path = page.filePath,
               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            // Note-backed markdown with no resolved on-disk filePath yet (commit 0fda59df6 made
-            // the Source editor mount from the note body). Offer Source against the note's OWN
-            // canonical vault-relative markdown path if it has one — saveMarkdownSourceContent
-            // is note-backed (writes the body) and sets page.filePath to this REAL canonical
-            // path. We never synthesize a fake path here (that would corrupt the note's vault-
-            // sync identity); without a canonical path there is simply no Source lens. (source-toggle 2026-07-01)
-            if let canonical = activeVaultMarkdownSourcePath(for: page) {
-                return SourceEditorRoute(filePath: canonical, language: "markdown")
-            }
-            return nil
+            // No on-disk filePath yet. vaultRelativeNotePath is DERIVED from filePath, so the
+            // canonical-vault-path gate was unconditionally nil here — THAT was the toggle-missing
+            // regression. Offer Source against a DISPLAY-ONLY note-backed markdown route mounted
+            // from the note body. The synthesized path is never written to page.filePath or disk;
+            // the first Source save runs the normal vault export, which assigns the real dedup'd
+            // path + page.filePath, after which Source opens take the on-disk branch. (source-toggle 2026-07-01)
+            return noteBackedSourceRoute(for: page)
         }
         if CodeLanguage.isMarkdownDocument(path: path) {
             let markdownPath = canonicalMarkdownSourcePath(for: page, fallbackPath: path)
@@ -2069,6 +2103,25 @@ struct NoteDetailWorkspaceView: View {
         }
         guard let language = CodeLanguage.detect(from: path) else { return nil }
         return SourceEditorRoute(filePath: path, language: language)
+    }
+
+    /// DISPLAY-ONLY route for a note with no on-disk file yet. Anchored under the active vault
+    /// only so the Source header/icon read a plausible location; NOTHING is written to this path
+    /// (see saveMarkdownSourceContent's noteBacked branch). No dedup here — the real path +
+    /// page.filePath are assigned by VaultIndexActor.exportPage on the first save. (source-toggle 2026-07-01)
+    private func noteBackedSourceRoute(for page: SDPage) -> SourceEditorRoute {
+        let base = noteBackedSourceDisplayName(for: page)
+        let parent = vaultSync.vaultURL ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let displayPath = parent.appendingPathComponent("\(base).md", isDirectory: false).path
+        return SourceEditorRoute(filePath: displayPath, language: "markdown", isNoteBacked: true)
+    }
+
+    private func noteBackedSourceDisplayName(for page: SDPage) -> String {
+        let forbidden = CharacterSet(charactersIn: ":/\\?*\"<>|#^[]{}").union(.controlCharacters)
+        var name = String(page.title.unicodeScalars.filter { !forbidden.contains($0) })
+            .trimmingCharacters(in: .whitespaces)
+        if name.count > 200 { name = String(name.prefix(200)) }
+        return name.isEmpty ? "Untitled" : name
     }
 
     private func canonicalMarkdownSourcePath(for page: SDPage, fallbackPath: String) -> String {
@@ -2127,6 +2180,13 @@ struct NoteDetailWorkspaceView: View {
         let seededMarkdownSource = isMarkdownSource
             ? seedMarkdownSourceSnapshot(for: page, route: route)
             : nil
+
+        if route.isNoteBacked {
+            // No on-disk file yet: the snapshot seeded from the note body (seedMarkdownSourceSnapshot
+            // above) is authoritative. Reading `filePath` from disk would fail, or worse, load an
+            // unrelated vault file sharing the synthesized display name. (source-toggle 2026-07-01)
+            return
+        }
 
         guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
