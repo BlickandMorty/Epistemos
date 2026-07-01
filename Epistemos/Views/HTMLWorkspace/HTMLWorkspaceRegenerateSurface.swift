@@ -468,7 +468,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
 
     private var requiredContextKindInstruction: String {
         guard let requiredContextKind else { return "" }
-        return "This preset requires explicit data.json records with context_kind \"\(requiredContextKind)\"; if none are present, show that source as unavailable instead of relabeling generic vault results."
+        return "This preset requires explicit data.json records with context_kind \"\(requiredContextKind)\"; honor _epistemos.required_context_available, and if it is false or no matching records are present, show that source as unavailable instead of relabeling generic vault results."
     }
 
     private func bounded(_ value: String, limit: Int) -> String {

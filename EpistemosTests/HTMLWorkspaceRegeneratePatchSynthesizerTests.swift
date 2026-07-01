@@ -288,6 +288,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(instruction.contains("context-kind tabs"))
         #expect(instruction.contains("bind them to data.json only"))
         #expect(instruction.contains(#"context_kind "recent_capture""#))
+        #expect(instruction.contains("_epistemos.required_context_available"))
         #expect(instruction.contains("instead of relabeling generic vault results"))
 
         let relatedInstruction = related.instruction(contextQuery: "related notes Project Atlas")
