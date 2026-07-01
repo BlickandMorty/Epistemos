@@ -7472,7 +7472,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-telemetry-native-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "<TelemetrySettings />" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "epistemos-acp-hide-local-inference-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
-    grep -q "epistemos-acp-hide-local-model-settings" "$ROOT_DIR/stage-goose-web-ui.sh"
+    grep -q "epistemos-acp-hide-local-model-settings" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
     grep -q "import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
     grep -q "!USE_ACP_CHAT && currentProvider === 'local' && currentModel" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
     grep -q "!USE_ACP_CHAT && isLocalModelSettingsOpen && currentModel" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"

@@ -502,6 +502,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!stageScript.contains("epistemos-acp-hide-telemetry-settings"))
         #expect(stageScript.contains("epistemos-acp-hide-local-inference-settings"))
         #expect(stageScript.contains("epistemos-acp-hide-local-model-settings"))
+        #expect(stageScript.contains(#""$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx""#))
         #expect(stageScript.contains("!USE_ACP_CHAT && currentProvider === 'local' && currentModel"))
         #expect(stageScript.contains("!USE_ACP_CHAT && isLocalModelSettingsOpen && currentModel"))
         #expect(stageScript.contains("epistemos-acp-hide-generic-config-settings"))
