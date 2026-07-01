@@ -210,6 +210,25 @@ struct HTMLWorkspaceRegenerateSheet: View {
             }
             .font(.caption)
 
+            FlowLayout(spacing: 6) {
+                ForEach(HTMLWorkspaceRegenerateContextShortcut.all) { shortcut in
+                    Button {
+                        contextQuery = shortcut.query
+                    } label: {
+                        Label(shortcut.title, systemImage: shortcut.systemImage)
+                            .font(pixelMicroFont)
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(theme.resolved.foreground.color)
+                    .disabled(isRegenerating || isRefreshingContext)
+                    .help(shortcut.helpText)
+                }
+            }
+
             if let contextStatusText, !contextStatusText.isEmpty {
                 Text(contextStatusText)
                     .font(.caption2)
@@ -328,6 +347,29 @@ struct HTMLWorkspaceRegenerateSheet: View {
             .background(streamBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .padding(.top, 8)
+    }
+}
+
+nonisolated struct HTMLWorkspaceRegenerateContextShortcut: Identifiable, Sendable, Equatable {
+    var id: String
+    var title: String
+    var systemImage: String
+    var query: String
+
+    static let all: [HTMLWorkspaceRegenerateContextShortcut] = [
+        .init(id: "notes", title: "Notes", systemImage: "doc.text", query: "notes"),
+        .init(id: "pdfs", title: "PDFs", systemImage: "doc.richtext", query: "pdf notes"),
+        .init(id: "folders", title: "Folders", systemImage: "folder", query: "folder notes"),
+        .init(id: "captures", title: "Captures", systemImage: "tray.full", query: "recent captures"),
+        .init(id: "meetings", title: "Meetings", systemImage: "person.2", query: "meeting notes"),
+        .init(id: "clips", title: "Web clips", systemImage: "globe", query: "web clips"),
+        .init(id: "chats", title: "Chats", systemImage: "bubble.left.and.bubble.right", query: "recent chats"),
+        .init(id: "graph", title: "Related", systemImage: "point.3.connected.trianglepath.dotted", query: "related notes"),
+        .init(id: "claims", title: "Claims", systemImage: "checkmark.shield", query: "provenance claims"),
+    ]
+
+    var helpText: String {
+        "Seed the context search with \(query)"
     }
 }
 

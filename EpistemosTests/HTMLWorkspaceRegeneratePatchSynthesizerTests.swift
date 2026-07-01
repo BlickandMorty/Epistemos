@@ -62,6 +62,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("Label(\"Workspace Context\", systemImage: \"tray.full\")"))
         #expect(sheet.contains("TextField(\"Search notes, PDFs, folders, captures, clips, chats, graph, claims\", text: $contextQuery)"))
         #expect(sheet.contains("Label(isRefreshingContext ? \"Searching\" : \"Add Context\", systemImage: \"magnifyingglass.circle\")"))
+        #expect(sheet.contains("HTMLWorkspaceRegenerateContextShortcut.all"))
+        #expect(sheet.contains("contextQuery = shortcut.query"))
+        #expect(sheet.contains("nonisolated struct HTMLWorkspaceRegenerateContextShortcut"))
         #expect(sheet.contains("private var pixelCaptionFont: Font"))
         #expect(sheet.contains("private var pixelControlFont: Font"))
         #expect(sheet.contains("private var pixelMicroFont: Font"))
@@ -222,6 +225,47 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("Text(item.rankDescriptor)"))
         #expect(picker.contains("item.systemImage"))
         #expect(picker.contains("Pick read-only context for this preview surface"))
+    }
+
+    @Test("context shortcuts expose source families without becoming regenerate presets")
+    @MainActor
+    func contextShortcutsExposeSourceFamilies() {
+        #expect(HTMLWorkspaceRegenerateContextShortcut.all.map(\.title) == [
+            "Notes",
+            "PDFs",
+            "Folders",
+            "Captures",
+            "Meetings",
+            "Web clips",
+            "Chats",
+            "Related",
+            "Claims",
+        ])
+        #expect(HTMLWorkspaceRegenerateContextShortcut.all.map(\.query) == [
+            "notes",
+            "pdf notes",
+            "folder notes",
+            "recent captures",
+            "meeting notes",
+            "web clips",
+            "recent chats",
+            "related notes",
+            "provenance claims",
+        ])
+        let kinds = HTMLWorkspaceRegenerateContextShortcut.all
+            .map { HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: $0.query) }
+        #expect(kinds == [
+            "note",
+            "pdf_note",
+            "folder_note",
+            "recent_capture",
+            "meeting_note",
+            "web_clip",
+            "recent_chat",
+            "graph_related_note",
+            "provenance_claim",
+        ])
+        #expect(HTMLWorkspaceRegeneratePreset.all.map(\.title).contains("Claims") == false)
     }
 
     @Test("regenerate presets expose required one-click categories")
