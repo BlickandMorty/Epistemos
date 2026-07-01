@@ -6818,7 +6818,8 @@ function applyFinalFlatPixelAudit() {
       .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent)) !important;', 'outline: none !important;')
       .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent));', 'outline: none !important;')
       .replaceAll('outline-offset: 2px !important;', 'outline-offset: 0 !important;')
-      .replaceAll('outline-offset: 2px;', 'outline-offset: 0;');
+      .replaceAll('outline-offset: 2px;', 'outline-offset: 0;')
+      .replaceAll('bg-black/20', 'ep-native-modal-scrim');
 
     if (!isCSS && !isThemeTokens) {
       next = next
@@ -6885,6 +6886,7 @@ function applyFinalFlatPixelAudit() {
   --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 56%, var(--color-background-primary));
   --epistemos-claude-active: color-mix(in srgb, var(--epistemos-pixel-accent) 9%, var(--epistemos-claude-sidebar-hover));
   --epistemos-claude-focus: color-mix(in srgb, var(--epistemos-pixel-accent) 6%, var(--epistemos-claude-surface-strong));
+  --epistemos-claude-modal-scrim: color-mix(in srgb, var(--color-background-inverse) 18%, transparent);
   --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, var(--color-background-inverse) 10%, transparent);
   --epistemos-claude-composer-shadow: 0 14px 38px color-mix(in srgb, var(--color-text-primary) 5%, transparent);
   background: var(--epistemos-claude-bg) !important;
@@ -7038,6 +7040,11 @@ body,
   [role='tab'][aria-selected='true']
 ) {
   background: var(--epistemos-claude-active) !important;
+}
+
+.ep-native-modal-scrim,
+.goose-epistemos .ep-native-modal-scrim {
+  background: color-mix(in srgb, var(--color-background-inverse) 18%, transparent) !important;
 }
 
 .goose-epistemos [class~='bg-[var(--epistemos-accent)]'] {

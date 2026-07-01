@@ -6676,6 +6676,10 @@ if (!source.includes(acpImport)) {
   }
   source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
 }
+const localModelSettingsMarker = '// epistemos-acp-hide-local-model-settings';
+if (!source.includes(localModelSettingsMarker)) {
+  source = source.replace(acpImport, `${acpImport}\n${localModelSettingsMarker}`);
+}
 
 // epistemos-acp-hide-local-model-settings: this footer gear opens
 // ModelSettingsPanel, which is backed by local-inference REST endpoints that
@@ -6700,6 +6704,7 @@ if (!source.includes(localSettingsModalReplacement)) {
 
 for (const snippet of [
   acpImport,
+  localModelSettingsMarker,
   "!USE_ACP_CHAT && currentProvider === 'local' && currentModel",
   '!USE_ACP_CHAT && isLocalModelSettingsOpen && currentModel',
 ]) {
@@ -7628,9 +7633,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     ! grep -q "border-b border-border-primary bg-background-primary px-3" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "hover:bg-background-secondary/72 hover:text-text-primary" "$WORK_ROOT/ui/desktop/src/components/McpApps/McpAppRenderer.tsx"
     grep -q "rounded-\\[8px\\] bg-background-primary/70 p-1.5" "$WORK_ROOT/ui/desktop/src/components/MarkdownContent.tsx"
-    grep -q "fixed inset-0 z-\\[9999\\] bg-black/20" "$WORK_ROOT/ui/desktop/src/components/ui/BaseModal.tsx"
+    grep -q "fixed inset-0 z-\\[9999\\] ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/components/ui/BaseModal.tsx"
     grep -q "rounded-\\[14px\\] bg-background-primary/92" "$WORK_ROOT/ui/desktop/src/components/ui/BaseModal.tsx"
-    grep -q "fixed inset-0 z-50 flex items-center justify-center bg-black/20" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    grep -q "fixed inset-0 z-50 flex items-center justify-center ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
     grep -q "bg-\\[var(--epistemos-accent)\\] text-text-inverse hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
     grep -q "epistemos-diagnostics-link-config" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
     grep -q "VITE_EPISTEMOS_BUG_REPORT_URL" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
@@ -7641,11 +7646,11 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "bg-background-warning/55 text-text-warning" "$WORK_ROOT/ui/desktop/src/components/alerts/AlertBox.tsx"
     grep -q "mt-2 flex items-center text-text-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/subcomponents/SecureStorageNotice.tsx"
     grep -q "group-hover:text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx"
-    grep -q "fixed inset-0 z-50 flex items-center justify-center bg-black/20 animate-\\[fadein_200ms_ease-in\\]" "$WORK_ROOT/ui/desktop/src/components/ParameterInputModal.tsx"
+    grep -q "fixed inset-0 z-50 flex items-center justify-center ep-native-modal-scrim animate-\\[fadein_200ms_ease-in\\]" "$WORK_ROOT/ui/desktop/src/components/ParameterInputModal.tsx"
     grep -q "w-full max-w-md rounded-\\[14px\\] bg-background-primary/92 p-6" "$WORK_ROOT/ui/desktop/src/components/ParameterInputModal.tsx"
     grep -q "goose-message-content rounded-t-\\[12px\\] bg-background-secondary/62" "$WORK_ROOT/ui/desktop/src/components/ElicitationRequest.tsx"
     grep -q "goose-message-content rounded-b-\\[12px\\] bg-background-primary/54" "$WORK_ROOT/ui/desktop/src/components/ElicitationRequest.tsx"
-    grep -q "fixed inset-0 z-\\[500\\] flex items-center justify-center bg-black/20" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/SubRecipeModal.tsx"
+    grep -q "fixed inset-0 z-\\[500\\] flex items-center justify-center ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/SubRecipeModal.tsx"
     grep -q "flex items-center justify-between bg-background-primary/42 p-6" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/SubRecipeModal.tsx"
     grep -q "w-full rounded-\\[10px\\] bg-background-primary/60 p-3 text-text-standard" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/SubRecipeModal.tsx"
     grep -q "flex gap-2 bg-background-primary/42 p-6" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/SubRecipeModal.tsx"
@@ -7659,13 +7664,13 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "accent-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/CreateSubRecipeInline.tsx"
     ! grep -q "border-t border-borderSubtle" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/CreateSubRecipeInline.tsx"
     ! grep -q "border border-border-subtle" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/CreateSubRecipeInline.tsx"
-    grep -q "fixed inset-0 z-\\[400\\] flex items-center justify-center bg-black/20" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/InstructionsEditor.tsx"
+    grep -q "fixed inset-0 z-\\[400\\] flex items-center justify-center ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/InstructionsEditor.tsx"
     grep -q "w-\\[900px\\].*rounded-\\[14px\\] bg-background-primary/92" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/InstructionsEditor.tsx"
     grep -q "rounded-\\[10px\\] bg-background-primary/42 p-3" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/InstructionsEditor.tsx"
-    grep -q "fixed inset-0 z-\\[400\\] flex items-center justify-center bg-black/20" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/JsonSchemaEditor.tsx"
+    grep -q "fixed inset-0 z-\\[400\\] flex items-center justify-center ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/JsonSchemaEditor.tsx"
     grep -q "w-\\[800px\\].*rounded-\\[14px\\] bg-background-primary/92" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/JsonSchemaEditor.tsx"
     grep -q "rounded-\\[10px\\] bg-background-primary/42 p-3" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/JsonSchemaEditor.tsx"
-    grep -q "fixed inset-0 z-50 bg-black/20" "$WORK_ROOT/ui/desktop/src/components/ui/sheet.tsx"
+    grep -q "fixed inset-0 z-50 ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/components/ui/sheet.tsx"
     grep -q "cn(index > 0 && 'pt-3')" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/BottomMenuAlertPopover.tsx"
     grep -q "mt-3 pt-3" "$WORK_ROOT/ui/desktop/src/components/GroupedExtensionLoadingToast.tsx"
     grep -q "scrollbar-width: auto !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
@@ -7683,6 +7688,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "border-width: 0 !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "border-right-width: 0 !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "background: var(--epistemos-claude-focus) !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q -- "--epistemos-claude-modal-scrim:" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q ".ep-native-modal-scrim" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q ".goose-epistemos .bg-background-tertiary" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     node - "$WORK_ROOT/ui/desktop/src/styles/main.css" <<'JS'
 const fs = require('node:fs');
@@ -7698,6 +7705,10 @@ JS
     grep -q "background: color-mix(in srgb, var(--epistemos-pixel-accent) 7%, var(--epistemos-claude-surface))" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     if grep -R -E "focus:ring|ring-blue|text-blue|bg-blue|border-blue|#0066cc|#2997ff|outline-hidden|outline: 2px solid|inset 0 0 0 1px|ring-\\[3px\\]|ring-\\[var\\(--epistemos-accent\\)\\]" "$WORK_ROOT/ui/desktop/src" >/dev/null 2>&1; then
         echo "Goose Web UI staging still contains blue/ring/outline visual leftovers." >&2
+        exit 1
+    fi
+    if grep -R -q "bg-black/20" "$WORK_ROOT/ui/desktop/src" >/dev/null 2>&1; then
+        echo "Goose Web UI staging still contains hardcoded modal scrim leftovers." >&2
         exit 1
     fi
     if grep -R -E "border-(b|t|l|r|x|y) border-border|border border-border" "$WORK_ROOT/ui/desktop/src/components" >/dev/null 2>&1; then
