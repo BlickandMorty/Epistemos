@@ -197,7 +197,7 @@ struct MeetingNoteView: View {
         if isPreparing {
             return "Preparing"
         }
-        isRecording ? "Stop" : "Start"
+        return isRecording ? "Stop" : "Start"
     }
 
     private var recordingButtonSystemImage: String {
