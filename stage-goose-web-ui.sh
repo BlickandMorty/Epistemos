@@ -2980,6 +2980,7 @@ if (!source.includes('const SessionTabsStrip')) {
         </button>
         {activeSessions.slice(0, 9).map((session, index) => {
           const active = session.sessionId === activeSessionId;
+          const isSplitPeer = session.sessionId === splitPeerId;
           const label = sessionNameById.get(session.sessionId) || \`Session \${index + 1}\`;
           return (
             <div
@@ -2989,6 +2990,8 @@ if (!source.includes('const SessionTabsStrip')) {
                 'group flex min-w-0 max-w-[200px] items-center gap-1 rounded-[8px] px-2 py-1.5 text-xs transition-colors',
                 active
                   ? 'bg-[var(--epistemos-accent)]/12 text-text-primary'
+                  : isSplitPeer
+                    ? 'bg-[var(--epistemos-accent)]/8 text-text-primary'
                   : 'text-text-secondary hover:bg-background-secondary/56 hover:text-text-primary'
               )}
             >
@@ -3005,6 +3008,24 @@ if (!source.includes('const SessionTabsStrip')) {
                   {index + 1}
                 </span>
               </button>
+              {isSplitMode && !active && (
+                <button
+                  type="button"
+                  aria-pressed={isSplitPeer}
+                  aria-label={\`Show \${label} beside current session\`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(splitPeerPathForSession(session.sessionId));
+                  }}
+                  className={cn(
+                    'shrink-0 rounded-[6px] p-0.5 text-text-secondary opacity-55 transition hover:bg-background-secondary/70 hover:text-text-primary hover:opacity-100',
+                    isSplitPeer && 'bg-[var(--epistemos-accent)]/12 text-text-primary opacity-100'
+                  )}
+                  data-epistemos-session-split-peer
+                >
+                  <Columns2 className="h-3 w-3" />
+                </button>
+              )}
               <button
                 type="button"
                 aria-label={\`Close \${label}\`}
@@ -3044,6 +3065,9 @@ for (const snippet of [
   'const splitPeerPathForSession =',
   "searchParams.get('epistemosSplitPeer')",
   'const cycleSplitPeer =',
+  'const isSplitPeer =',
+  'data-epistemos-session-split-peer',
+  'Show ${label} beside current session',
   'const closeSessionTab =',
   'const toggleSplitView =',
   "event.key.toLowerCase() === 'd'",
@@ -7059,6 +7083,9 @@ JS
     grep -q "const splitPeerPathForSession = useCallback" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "searchParams.get('epistemosSplitPeer')" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const cycleSplitPeer = useCallback" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "const isSplitPeer =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "data-epistemos-session-split-peer" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q 'Show \${label} beside current session' "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q 'Close \${label}' "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-split-toggle" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const toggleSplitView =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
