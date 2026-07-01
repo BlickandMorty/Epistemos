@@ -90,7 +90,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <button type="button" data-pin-context>Pin source</button>
         <span data-filter-count>0 visible</span>
       </section>
-      <section id="pinned-context" class="pinned-context" data-pinned-context aria-label="Pinned context sources">
+      <section id="pinned-context" class="pinned-context" data-pinned-context data-context-dropzone aria-label="Pinned context sources">
         <p class="empty">No pinned sources yet.</p>
       </section>
       <section id="context-feed" class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
@@ -363,6 +363,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       gap: 10px;
       margin-top: 18px;
       padding: 16px;
+      transition: box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .pinned-context.is-drop-target {
+      background: color-mix(in srgb, var(--epistemos-workspace-accent) 14%, transparent);
+      box-shadow: 0 12px 30px color-mix(in srgb, var(--epistemos-workspace-accent) 18%, transparent);
     }
 
     .pinned-card {
@@ -552,6 +558,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     let selectedContextKind = 'all';
     let selectedResultKey = null;
     let pinnedContextKeys = loadPinnedContextKeys();
+    const contextDragType = 'application/x-epistemos-context-key';
     const selectedDetailViews = ['summary', 'metadata'];
     const selectedDetailLabels = { summary: 'Summary', metadata: 'Metadata' };
     let selectedDetailView = 'summary';
@@ -852,6 +859,34 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderVaultResults();
     }
 
+    function hasContextDrag(event) {
+      const types = Array.from(event.dataTransfer?.types || []);
+      return types.includes(contextDragType) || types.includes('text/plain');
+    }
+
+    function droppedContextKey(event) {
+      return String(
+        event.dataTransfer?.getData(contextDragType) ||
+        event.dataTransfer?.getData('text/plain') ||
+        ''
+      ).trim();
+    }
+
+    function pinDroppedContextKey(key) {
+      const data = HTMLWorkspace.data || {};
+      const allResults = Array.isArray(data.results) ? data.results : [];
+      const exists = key && allResults.some((result) => resultKey(result) === key);
+      if (!exists) { return; }
+      selectedContextKind = 'all';
+      selectedResultKey = key;
+      pinContextKey(key);
+      renderVaultResults();
+    }
+
+    function clearPinnedDropTarget() {
+      HTMLWorkspace.q('[data-pinned-context]')?.classList.remove('is-drop-target');
+    }
+
     function rankDatum(result, index) {
       const value = Number(result.rank);
       if (!Number.isFinite(value) || value <= 0) { return null; }
@@ -935,6 +970,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           class: selectedResult && key === resultKey(selectedResult) ? 'result-card is-selected' : 'result-card',
           'data-result-key': key,
           'data-rank': result.rank ?? index,
+          draggable: 'true',
           role: 'button',
           tabindex: '0'
         }, [
@@ -946,6 +982,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         card.addEventListener('click', () => {
           selectedResultKey = key;
           renderVaultResults();
+        });
+        card.addEventListener('dragstart', (event) => {
+          if (!event.dataTransfer) { return; }
+          event.dataTransfer.effectAllowed = 'copy';
+          event.dataTransfer.setData(contextDragType, key);
+          event.dataTransfer.setData('text/plain', key);
         });
         card.addEventListener('keydown', (event) => {
           if (event.key !== 'Enter' && event.key !== ' ') { return; }
@@ -966,6 +1008,20 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderVaultResults();
     });
     HTMLWorkspace.q('[data-pin-context]')?.addEventListener('click', pinSelectedContext);
+    HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('dragover', (event) => {
+      if (!hasContextDrag(event)) { return; }
+      event.preventDefault();
+      if (event.dataTransfer) { event.dataTransfer.dropEffect = 'copy'; }
+      event.currentTarget.classList.add('is-drop-target');
+    });
+    HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('dragleave', clearPinnedDropTarget);
+    HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('drop', (event) => {
+      if (!hasContextDrag(event)) { return; }
+      event.preventDefault();
+      const key = droppedContextKey(event);
+      clearPinnedDropTarget();
+      pinDroppedContextKey(key);
+    });
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
     """
