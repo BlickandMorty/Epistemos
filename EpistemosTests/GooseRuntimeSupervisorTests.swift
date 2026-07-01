@@ -572,6 +572,8 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("maxGitWorktreePathCharacters"))
         #expect(bridge.contains("maxGitBranchNameCharacters"))
         #expect(bridge.contains("maxGitRemoteURLCharacters"))
+        #expect(bridge.contains("item[\"branch\"] = currentBranch"))
+        #expect(bridge.contains("nonisolated static func gitWorktreeBranchName(_ ref: String) -> String?"))
         #expect(bridge.contains("private func readGitDiff(_ path: String)"))
         #expect(bridge.contains("\"pullRequestURL\": pullRequestURLValue"))
         #expect(bridge.contains("private func gitHubPullRequestContext(_ path: String, git: String)"))
@@ -2284,6 +2286,9 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(" \n/tmp/project\n ") == "/tmp/project")
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(" \n\t ") == nil)
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(oversizedPath) == nil)
+        #expect(GooseWebNativeAffordanceBridge.gitWorktreeBranchName("refs/heads/feature/goose-ui") == "feature/goose-ui")
+        #expect(GooseWebNativeAffordanceBridge.gitWorktreeBranchName("feature/goose-ui") == "feature/goose-ui")
+        #expect(GooseWebNativeAffordanceBridge.gitWorktreeBranchName("refs/heads/bad..branch") == nil)
     }
 
     @Test("git compare URL parser accepts only bounded GitHub remotes and branches")

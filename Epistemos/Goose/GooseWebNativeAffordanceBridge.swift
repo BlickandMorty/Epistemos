@@ -820,7 +820,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
-    private func listGitWorktreeDirs(_ path: String) -> [String] {
+    private func listGitWorktreeDirs(_ path: String) -> [[String: Any]] {
         let expandedPath = Self.standardizedPath(expandTilde(path))
         var isDirectory: ObjCBool = false
         guard isPathAllowed(expandedPath),
@@ -885,17 +885,43 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         guard outputData.count <= Self.maxGitWorktreeListBytes else { return [] }
         let output = String(data: outputData, encoding: .utf8) ?? ""
         var seen = Set<String>()
-        var worktrees: [String] = []
-        output.enumerateLines { line, stop in
-            guard line.hasPrefix("worktree "),
-                  let path = Self.boundedGitWorktreePath(String(line.dropFirst("worktree ".count))),
+        var worktrees: [[String: Any]] = []
+        var currentPath: String?
+        var currentBranch: String?
+
+        func appendCurrentWorktree(stop: inout Bool) {
+            guard let path = currentPath,
                   seen.insert(path).inserted else {
+                currentPath = nil
+                currentBranch = nil
                 return
             }
-            worktrees.append(path)
+
+            var item: [String: Any] = ["path": path]
+            if let currentBranch {
+                item["branch"] = currentBranch
+            }
+            worktrees.append(item)
+            currentPath = nil
+            currentBranch = nil
             if worktrees.count >= Self.maxGitWorktreeEntries {
                 stop = true
             }
+        }
+
+        output.enumerateLines { line, stop in
+            if line.hasPrefix("worktree ") {
+                appendCurrentWorktree(stop: &stop)
+                guard !stop else { return }
+                currentPath = Self.boundedGitWorktreePath(String(line.dropFirst("worktree ".count)))
+                currentBranch = nil
+            } else if line.hasPrefix("branch ") {
+                currentBranch = Self.gitWorktreeBranchName(String(line.dropFirst("branch ".count)))
+            }
+        }
+        if worktrees.count < Self.maxGitWorktreeEntries {
+            var stop = false
+            appendCurrentWorktree(stop: &stop)
         }
         return worktrees
     }
@@ -1204,6 +1230,13 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return nil
         }
         return trimmed
+    }
+
+    nonisolated static func gitWorktreeBranchName(_ ref: String) -> String? {
+        let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefix = "refs/heads/"
+        let branch = trimmed.hasPrefix(prefix) ? String(trimmed.dropFirst(prefix.count)) : trimmed
+        return boundedGitBranchName(branch)
     }
 
     nonisolated static func boundedGitRemoteURL(_ remote: String) -> String? {

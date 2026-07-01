@@ -5613,7 +5613,61 @@ function epistemosDirParent(dir: string): string {
   const parts = cleaned.split(/[\\\\/]/);
   parts.pop();
   return parts.join('/') || '/';
+}
+
+type EpistemosWorktreeEntry = {
+  path: string;
+  branch?: string | null;
+};
+
+type EpistemosWorktreeResult = string | EpistemosWorktreeEntry;
+
+function epistemosWorktreeEntry(value: EpistemosWorktreeResult): EpistemosWorktreeEntry | null {
+  if (typeof value === 'string') {
+    return value ? { path: value } : null;
+  }
+  if (value && typeof value.path === 'string' && value.path) {
+    return {
+      path: value.path,
+      branch: typeof value.branch === 'string' && value.branch ? value.branch : null,
+    };
+  }
+  return null;
+}
+
+function epistemosWorktreeTitle(entry: EpistemosWorktreeEntry): string {
+  return entry.branch || epistemosDirBaseName(entry.path);
 }`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher worktree typed state',
+    `  const [worktreeDirs, setWorktreeDirs] = useState<string[]>([]);`,
+    `  const [worktreeDirs, setWorktreeDirs] = useState<EpistemosWorktreeEntry[]>([]);`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher worktree normalization',
+    `    setRecentDirs(recent);
+    setWorktreeDirs(worktrees);`,
+    `    const normalizedWorktrees = (Array.isArray(worktrees) ? worktrees : [])
+      .map(epistemosWorktreeEntry)
+      .filter((entry): entry is EpistemosWorktreeEntry => Boolean(entry));
+
+    setRecentDirs(recent);
+    setWorktreeDirs(normalizedWorktrees);`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher worktree path filter',
+    `  const filteredWorktreeDirs = useMemo(
+    () => worktreeDirs.filter((dir) => dir && dir !== workingDir),
+    [worktreeDirs, workingDir]
+  );`,
+    `  const filteredWorktreeDirs = useMemo(
+    () => worktreeDirs.filter((entry) => entry.path && entry.path !== workingDir),
+    [worktreeDirs, workingDir]
+  );`
   );
   source = replaceRequired(
     source,
@@ -5674,11 +5728,15 @@ function epistemosDirParent(dir: string): string {
   source = replaceRequired(
     source,
     'directory switcher worktree readable rows',
-    `<DropdownMenuItem
+    `filteredWorktreeDirs.map((dir) => (
+                <DropdownMenuItem
                   key={\`worktree-\${dir}\`}
                   onSelect={() => void handleSelectDirectory(dir)}
                 >`,
-    `<DropdownMenuItem
+    `filteredWorktreeDirs.map((entry) => {
+                const dir = entry.path;
+                return (
+                <DropdownMenuItem
                   key={\`worktree-\${dir}\`}
                   onSelect={() => void handleStartWorktreeSession(dir)}
                   data-epistemos-worktree-new-session
@@ -5692,12 +5750,21 @@ function epistemosDirParent(dir: string): string {
     `<GitBranch className="mr-2 h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1" data-epistemos-worktree-menu-item>
                     <span className="block truncate font-medium text-text-primary">
-                      {epistemosDirBaseName(dir)}
+                      {epistemosWorktreeTitle(entry)}
                     </span>
                     <span className="block truncate text-[11px] text-text-secondary">
-                      New isolated chat in {epistemosDirParent(dir)}
+                      {entry.branch ? epistemosDirBaseName(dir) + ' · ' + epistemosDirParent(dir) : 'New isolated chat in ' + epistemosDirParent(dir)}
                     </span>
                   </span>`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher worktree entry map close',
+    `                </DropdownMenuItem>
+              ))`,
+    `                </DropdownMenuItem>
+                );
+              })`
   );
   source = replaceRequired(
     source,

@@ -7710,6 +7710,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "text-text-warning" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/ContextWindowIndicator.tsx"
     grep -q "function epistemosDirBaseName" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
     grep -q "handleStartWorktreeSession" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
+    grep -q "epistemosWorktreeTitle" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
     grep -q "data-epistemos-worktree-menu-item" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
     grep -q "data-epistemos-worktree-new-session" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
     grep -q "New isolated chat in" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
