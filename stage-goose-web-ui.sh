@@ -8095,6 +8095,7 @@ for required_marker in \
     "epistemos-native-catalog-screen-polish" \
     "epistemos-native-loading-error-polish" \
     "epistemos-native-flat-source-surfaces" \
+    "ep-native-modal-scrim" \
     "provider-catalog-template-choice"; do
     if ! grep -R -q -- "$required_marker" "$STAGED_OUTPUT/index.html" "$STAGED_OUTPUT/assets" 2>/dev/null; then
         echo "Goose Web UI artifact is missing required ACP provider catalog marker: $required_marker" >&2

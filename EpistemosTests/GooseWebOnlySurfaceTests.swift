@@ -331,6 +331,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("background: var(--epistemos-claude-focus) !important"))
         #expect(stageScript.contains("--epistemos-claude-modal-scrim:"))
         #expect(stageScript.contains("ep-native-modal-scrim"))
+        #expect(stageScript.contains(#""ep-native-modal-scrim" \"#))
         #expect(stageScript.contains("bg-black/[0-9]+|bg-white/[0-9]+|text-white|text-black"))
         #expect(stageScript.contains("Goose Web UI staging still contains hardcoded black/white modal or text leftovers."))
         #expect(stageScript.contains("--epistemos-claude-composer-shadow:"))
