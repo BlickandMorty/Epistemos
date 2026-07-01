@@ -139,7 +139,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     DisclosureGroup(isExpanded: $advancedFallbackVisible) {
                         advancedFallback
                     } label: {
-                        Label("Advanced response paste fallback", systemImage: "terminal")
+                        Label("Recovery response fallback", systemImage: "terminal")
                             .font(pixelCaptionFont)
                             .foregroundStyle(mutedText)
                     }
@@ -287,15 +287,15 @@ struct HTMLWorkspaceRegenerateSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Button(action: onCopyPrompt) {
-                    Label("Copy Prompt", systemImage: "doc.on.doc")
+                    Label("Copy Recovery Prompt", systemImage: "doc.on.doc")
                 }
                 .disabled(isRegenerating || instructionIsEmpty)
                 Button(action: onPreviewStream) {
-                    Label("Preview Response", systemImage: "eye")
+                    Label("Preview Recovery Response", systemImage: "eye")
                 }
                 .disabled(isRegenerating || streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Button(action: onApplyStream) {
-                    Label("Apply Response", systemImage: "checkmark.circle")
+                    Label("Apply Recovery Response", systemImage: "checkmark.circle")
                 }
                 .disabled(isRegenerating || streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -303,7 +303,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
 
             ZStack(alignment: .topLeading) {
                 if streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(isRegenerating ? "Streaming response..." : "Paste a regenerate response for offline recovery.")
+                    Text(isRegenerating ? "Streaming response..." : "Paste a saved regenerate response only if live streaming failed.")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(mutedText)
                         .padding(12)

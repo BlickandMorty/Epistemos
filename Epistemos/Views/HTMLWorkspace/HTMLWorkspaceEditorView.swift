@@ -1197,7 +1197,7 @@ struct HTMLWorkspaceEditorView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)
         regenerateErrorText = nil
-        statusText = "Regenerate prompt copied"
+        statusText = "Regenerate recovery prompt copied"
     }
 
     private func restorePreviewAfterRegenerate() {
