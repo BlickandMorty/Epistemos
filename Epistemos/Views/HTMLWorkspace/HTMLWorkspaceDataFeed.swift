@@ -7,12 +7,48 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
     let title: String
     let snippet: String
     let rank: Double
+    let contextKind: String
+    let sourceLabel: String
+    let provenance: String
+
+    init(
+        pageID: String,
+        title: String,
+        snippet: String,
+        rank: Double,
+        contextKind: String = "vault_record",
+        sourceLabel: String = "Vault search result",
+        provenance: String = HTMLWorkspaceDataFeedJSONEnvelope.provenance
+    ) {
+        self.pageID = pageID
+        self.title = title
+        self.snippet = snippet
+        self.rank = rank
+        self.contextKind = contextKind
+        self.sourceLabel = sourceLabel
+        self.provenance = provenance
+    }
 
     private enum CodingKeys: String, CodingKey {
         case pageID = "page_id"
         case title
         case snippet
         case rank
+        case contextKind = "context_kind"
+        case sourceLabel = "source_label"
+        case provenance
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        pageID = try container.decode(String.self, forKey: .pageID)
+        title = try container.decode(String.self, forKey: .title)
+        snippet = try container.decode(String.self, forKey: .snippet)
+        rank = try container.decode(Double.self, forKey: .rank)
+        contextKind = try container.decodeIfPresent(String.self, forKey: .contextKind) ?? "vault_record"
+        sourceLabel = try container.decodeIfPresent(String.self, forKey: .sourceLabel) ?? "Vault search result"
+        provenance = try container.decodeIfPresent(String.self, forKey: .provenance)
+            ?? HTMLWorkspaceDataFeedJSONEnvelope.provenance
     }
 }
 
@@ -21,6 +57,7 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
     let query: String
     let limit: Int
     let resultCount: Int
+    let contextKinds: [String]
     let refreshedAtMS: Int64
     let provenance: String
     let stale: Bool
@@ -32,11 +69,50 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         case query
         case limit
         case resultCount = "result_count"
+        case contextKinds = "context_kinds"
         case refreshedAtMS = "refreshed_at_ms"
         case provenance
         case stale
         case status
         case error
+    }
+
+    init(
+        source: String,
+        query: String,
+        limit: Int,
+        resultCount: Int,
+        contextKinds: [String],
+        refreshedAtMS: Int64,
+        provenance: String,
+        stale: Bool,
+        status: String,
+        error: String?
+    ) {
+        self.source = source
+        self.query = query
+        self.limit = limit
+        self.resultCount = resultCount
+        self.contextKinds = contextKinds
+        self.refreshedAtMS = refreshedAtMS
+        self.provenance = provenance
+        self.stale = stale
+        self.status = status
+        self.error = error
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        source = try container.decode(String.self, forKey: .source)
+        query = try container.decode(String.self, forKey: .query)
+        limit = try container.decode(Int.self, forKey: .limit)
+        resultCount = try container.decode(Int.self, forKey: .resultCount)
+        contextKinds = try container.decodeIfPresent([String].self, forKey: .contextKinds) ?? []
+        refreshedAtMS = try container.decode(Int64.self, forKey: .refreshedAtMS)
+        provenance = try container.decode(String.self, forKey: .provenance)
+        stale = try container.decode(Bool.self, forKey: .stale)
+        status = try container.decode(String.self, forKey: .status)
+        error = try container.decodeIfPresent(String.self, forKey: .error)
     }
 }
 
@@ -118,6 +194,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             query: feed.normalizedQuery,
             limit: feed.effectiveLimit,
             resultCount: results.count,
+            contextKinds: contextKinds(from: results),
             refreshedAtMS: refreshedAtMS,
             provenance: provenance,
             stale: stale,
@@ -130,9 +207,14 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         )
         guard let data = try? JSONEncoder.epdocCanonical.encode(envelope),
               let json = String(data: data, encoding: .utf8) else {
-            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
+            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":["vault_record"],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
         }
         return json
+    }
+
+    private static func contextKinds(from results: [HTMLWorkspaceDataFeedResult]) -> [String] {
+        let kinds = Set(results.map(\.contextKind).filter { !$0.isEmpty })
+        return kinds.isEmpty ? ["vault_record"] : kinds.sorted()
     }
 }
 

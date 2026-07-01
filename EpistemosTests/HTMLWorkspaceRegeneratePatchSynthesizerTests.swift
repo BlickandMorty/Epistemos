@@ -69,6 +69,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains(".font(pixelControlFont)"))
         #expect(sheet.contains(".font(pixelMicroFont)"))
         #expect(sheet.contains("ForEach(contextItems)"))
+        #expect(sheet.contains("Text(item.sourceLabel)"))
         #expect(sheet.contains(".onDrag"))
         #expect(sheet.contains("NSItemProvider(object: item.dragPayload as NSString)"))
         #expect(sheet.contains("nonisolated struct HTMLWorkspaceRegenerateContextItem"))
@@ -166,6 +167,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(sidebar.contains("NSItemProvider(object: item.dragPayload as NSString)"))
         #expect(sidebar.contains("Drag into the preview or click to apply context"))
+        #expect(sidebar.contains("Text(item.sourceLabel)"))
         #expect(sidebar.contains("Text(\"Workspace Context\")"))
         #expect(sidebar.contains("private var pixelCaptionFont: Font"))
         #expect(sidebar.contains("private var pixelMicroFont: Font"))
@@ -180,6 +182,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("onOpenContextSearch()"))
         #expect(picker.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(picker.contains("onPickContextItem(item)"))
+        #expect(picker.contains("item.sourceLabel"))
         #expect(picker.contains("Pick read-only context for this preview surface"))
     }
 
@@ -262,8 +265,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
 
         #expect(prompt.contains("Verified Epistemos context:"))
         #expect(prompt.contains("vault_search.query: substrate provenance"))
+        #expect(prompt.contains("vault_search.context_kinds: vault_record"))
         #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
-        #expect(prompt.contains("- Research Note [page-1] rank 0.87: substrate provenance witness"))
+        #expect(prompt.contains("- Research Note [page-1] Vault search result / vault_record rank 0.87: substrate provenance witness"))
         #expect(prompt.contains("grounding_rule: preserve real data provenance"))
 
         let emptyPrompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
@@ -293,7 +297,12 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
 
         #expect(items.map(\.pageID) == ["note-a", "note-b"])
         #expect(items.first?.title == "Alpha Note")
+        #expect(items.first?.contextKind == "vault_record")
+        #expect(items.first?.sourceLabel == "Vault search result")
+        #expect(items.first?.provenance == "VaultSyncService.searchFullAsync")
         #expect(items.first?.dragPayload.contains("Workspace context: Alpha Note [note-a]") == true)
+        #expect(items.first?.dragPayload.contains("Source: Vault search result / vault_record") == true)
+        #expect(items.first?.dragPayload.contains("Provenance: VaultSyncService.searchFullAsync") == true)
         #expect(items.first?.dragPayload.contains("alpha snippet") == true)
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
@@ -320,7 +329,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(item.pageID.hasSuffix("..."))
         #expect(item.title.hasSuffix("..."))
         #expect(item.snippet.hasSuffix("..."))
-        #expect(item.dragPayload.count < 700)
+        #expect(item.dragPayload.count < 920)
     }
 
     @Test("regenerate preview package swaps reset stale route selection")

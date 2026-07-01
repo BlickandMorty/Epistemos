@@ -121,9 +121,13 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(rendered.contains(#""provenance" : "VaultSyncService.searchFullAsync""#))
         #expect(rendered.contains(#""stale" : false"#))
         #expect(rendered.contains(#""page_id" : "page-1""#))
+        #expect(rendered.contains(#""context_kind" : "vault_record""#))
+        #expect(rendered.contains(#""source_label" : "Vault search result""#))
+        #expect(rendered.contains(#""context_kinds" : ["#))
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.resultCount == 1)
+        #expect(metadata.contextKinds == ["vault_record"])
         #expect(metadata.refreshedAtMS == 1_700_000_000_000)
         #expect(metadata.stale == false)
     }
@@ -138,6 +142,7 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.stale)
+        #expect(metadata.contextKinds == ["vault_record"])
         #expect(metadata.refreshedAtMS == 0)
         #expect(metadata.error == "Vault feed unavailable")
     }
@@ -515,6 +520,17 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("font-family: var(--epistemos-workspace-heading-font);"))
         #expect(package.styleCSS.contains(".metric-card strong"))
         #expect(package.styleCSS.contains("line-height: 0.95"))
+    }
+
+    @Test("vault search dashboard uses flat source-aware context cards")
+    func vaultSearchDashboardUsesFlatSourceAwareContextCards() {
+        let package = HTMLWorkspaceVaultSearchDashboardTemplate.package(query: "context")
+
+        #expect(package.styleCSS.contains("box-shadow: 0 10px 28px"))
+        #expect(!package.styleCSS.contains("border: 1px solid var(--epistemos-workspace-border);"))
+        #expect(package.scriptJS.contains("result.source_label || 'Vault search result'"))
+        #expect(package.scriptJS.contains("result.context_kind || 'vault_record'"))
+        #expect(package.scriptJS.contains("class: 'source-label'"))
     }
 
     @Test("starter template detection distinguishes untouched defaults from edited workspaces")

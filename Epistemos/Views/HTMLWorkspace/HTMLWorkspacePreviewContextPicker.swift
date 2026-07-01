@@ -40,7 +40,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
                     Button {
                         onPickContextItem(item)
                     } label: {
-                        Label(item.title, systemImage: "doc.text")
+                        Label("\(item.title) / \(item.sourceLabel)", systemImage: "doc.text")
                     }
                     .help(item.dragPayload)
                 }

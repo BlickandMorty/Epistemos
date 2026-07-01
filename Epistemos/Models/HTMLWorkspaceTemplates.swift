@@ -123,9 +123,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     .feed-summary article,
     .result-card {
-      border: 1px solid var(--epistemos-workspace-border);
       border-radius: 8px;
       background: var(--epistemos-workspace-card);
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 9%, transparent);
     }
 
     .feed-summary article {
@@ -133,6 +133,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     }
 
     .feed-summary span,
+    .source-label,
     .result-card small,
     .feed-meta,
     .empty {
@@ -226,7 +227,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         host.append(HTMLWorkspace.el('article', { class: 'result-card', 'data-rank': result.rank ?? index }, [
           HTMLWorkspace.el('small', {}, `#${index + 1} / ${result.page_id || 'vault'}`),
           HTMLWorkspace.el('h2', {}, result.title || 'Untitled'),
-          HTMLWorkspace.el('p', {}, result.snippet || '')
+          HTMLWorkspace.el('p', {}, result.snippet || ''),
+          HTMLWorkspace.el('small', { class: 'source-label' }, `${result.source_label || 'Vault search result'} / ${result.context_kind || 'vault_record'}`)
         ]));
       });
     }
