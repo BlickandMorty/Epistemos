@@ -34,9 +34,10 @@ final class AgentSurfaceWindowController {
         window.title = "Epistemos Goose"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.backgroundColor = .clear
+        window.backgroundColor = bootstrap.uiState.theme.resolved.background.nsColor
         window.isOpaque = false
         window.hasShadow = true
+        window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.minSize = NSSize(width: 760, height: 520)
@@ -47,8 +48,9 @@ final class AgentSurfaceWindowController {
         let host = NSHostingView(rootView: view)
         host.sizingOptions = .minSize
         host.wantsLayer = true
-        host.layer?.backgroundColor = NSColor.clear.cgColor
+        host.layer?.backgroundColor = bootstrap.uiState.theme.resolved.background.nsColor.cgColor
         host.layer?.cornerRadius = 18
+        host.layer?.cornerCurve = .continuous
         host.layer?.masksToBounds = true
         window.contentView = host
         WindowThemeStyler.refreshChrome(of: window)
