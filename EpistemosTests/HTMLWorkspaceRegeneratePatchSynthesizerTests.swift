@@ -947,7 +947,18 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(result.package.scriptJS.contains("visibleRegenerate"))
         #expect(result.package.dataJSON == #"{"visible":true}"#)
         #expect(result.package.manifest.generationProvenance?.operation == .regenerate)
-        #expect(result.package.manifest.generationProvenance?.reversibleSnapshotName == HTMLWorkspacePatchApplier.reversibleSnapshotName(for: package))
+        let snapshotName = try #require(result.package.manifest.generationProvenance?.reversibleSnapshotName)
+        #expect(snapshotName == HTMLWorkspacePatchApplier.reversibleSnapshotName(for: package))
+        #expect(result.package.snapshots[snapshotName] != nil)
+
+        let restored = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: snapshotName), to: result.package)
+        #expect(restored.indexHTML == package.indexHTML)
+        #expect(restored.styleCSS == package.styleCSS)
+        #expect(restored.scriptJS == package.scriptJS)
+        #expect(restored.dataJSON == package.dataJSON)
+        #expect(restored.routes == package.routes)
+        #expect(restored.assets == package.assets)
+        #expect(restored.manifest.generationProvenance?.operation == .restoreSnapshot)
     }
 
     @Test("regenerate application refuses stale current package before overwriting")
