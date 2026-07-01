@@ -355,6 +355,71 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(explicitChatResults.isEmpty)
     }
 
+    @MainActor
+    @Test("PDF note context source emits real imported PDF and arXiv notes")
+    func pdfNoteContextSourceEmitsRealImportedPDFAndArxivNotes() throws {
+        let schema = Schema([SDPage.self, SDBlock.self, SDChat.self, SDMessage.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+
+        let arxiv = SDPage(title: "Attention Paper")
+        arxiv.body = "Transformer abstract and parsed full text."
+        arxiv.frontMatter = [
+            "source": "arxiv",
+            "source_kind": "pdf",
+            "source_pdf": "arXiv/2401.12345.pdf",
+            "arxiv_id": "2401.12345",
+            "authors": "A. Researcher",
+            "categories": "cs.CL",
+        ]
+        let imported = SDPage(title: "Manual PDF")
+        imported.body = "Converted manual PDF body."
+        imported.frontMatter = [
+            "source_kind": "pdf",
+            "source_pdf": "Imported/Manual.pdf",
+        ]
+        let generic = SDPage(title: "Loose")
+        generic.body = "not a pdf"
+        context.insert(arxiv)
+        context.insert(imported)
+        context.insert(generic)
+        try context.save()
+
+        let arxivResults = HTMLWorkspaceDataFeedContextSources.pdfNoteResults(
+            query: "arxiv: 2401.12345",
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(arxivResults.map(\.pageID) == [arxiv.id])
+        #expect(arxivResults.first?.contextKind == "pdf_note")
+        #expect(arxivResults.first?.sourceLabel == "arXiv paper: 2401.12345")
+        #expect(arxivResults.first?.provenance.contains("ArxivIngestService / arxiv / pdf") == true)
+        #expect(arxivResults.first?.provenance.contains("source_pdf:arXiv/2401.12345.pdf") == true)
+
+        let pdfResults = HTMLWorkspaceDataFeedContextSources.pdfNoteResults(
+            query: "pdf manual",
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(pdfResults.map(\.pageID) == [imported.id])
+        #expect(pdfResults.first?.sourceLabel == "Imported PDF")
+        #expect(pdfResults.first?.provenance.contains("LiteParsePDFImportController / pdf") == true)
+
+        let genericResult = SearchResult(pageId: generic.id, title: "Generic", snippet: "generic", rank: 0.7)
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "papers transformer"
+        )
+        #expect(triggeredResults.map(\.pageID) == [arxiv.id])
+        #expect(triggeredResults.first?.contextKind == "pdf_note")
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
