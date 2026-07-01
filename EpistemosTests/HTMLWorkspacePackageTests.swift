@@ -184,18 +184,51 @@ nonisolated struct HTMLWorkspacePackageTests {
                     provenance: "GraphState"
                 ),
             ],
-            refreshedAt: Date(timeIntervalSince1970: 1_700_000_003)
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_003),
+            requiredContextKind: "graph_related_note"
         )
 
         #expect(rendered.contains(#""context_kind" : "recent_capture""#))
         #expect(rendered.contains(#""context_kind" : "graph_related_note""#))
         #expect(rendered.contains(#""source_label" : "Recent capture""#))
         #expect(rendered.contains(#""provenance" : "GraphState""#))
+        #expect(rendered.contains(#""required_context_kind" : "graph_related_note""#))
+        #expect(rendered.contains(#""required_context_available" : true"#))
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.contextKinds == ["graph_related_note", "recent_capture"])
+        #expect(metadata.requiredContextKind == "graph_related_note")
+        #expect(metadata.requiredContextAvailable == true)
         #expect(metadata.resultCount == 2)
         #expect(!metadata.stale)
+    }
+
+    @Test("HTMLWorkspace data feed records unavailable required context without relabeling results")
+    func dataFeedRecordsUnavailableRequiredContextWithoutRelabelingResults() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "recent captures project", limit: 2)
+        let rendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(
+                    pageId: "page-1",
+                    title: "Generic note",
+                    snippet: "not an explicit capture",
+                    rank: 0.5
+                )
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_004),
+            requiredContextKind: "recent_capture"
+        )
+
+        #expect(rendered.contains(#""context_kind" : "vault_record""#))
+        #expect(!rendered.contains(#""context_kind" : "recent_capture""#))
+        #expect(rendered.contains(#""required_context_kind" : "recent_capture""#))
+        #expect(rendered.contains(#""required_context_available" : false"#))
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
+        #expect(metadata.contextKinds == ["vault_record"])
+        #expect(metadata.requiredContextKind == "recent_capture")
+        #expect(metadata.requiredContextAvailable == false)
     }
 
     @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
@@ -204,7 +237,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)
         let rendered = HTMLWorkspaceDataFeedRenderer.staleRender(
             feed: feed,
-            error: "Vault feed unavailable"
+            error: "Vault feed unavailable",
+            requiredContextKind: "recent_capture"
         )
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
@@ -212,12 +246,16 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.contextKinds == ["vault_record"])
         #expect(metadata.refreshedAtMS == 0)
         #expect(metadata.error == "Vault feed unavailable")
+        #expect(metadata.requiredContextKind == "recent_capture")
+        #expect(metadata.requiredContextAvailable == false)
 
         var package = Self.samplePackage()
         package.manifest.dataFeed = feed
         package.dataJSON = rendered
         let compact = try #require(HTMLWorkspaceDataFeedStatus.compactLine(for: package))
+        let detail = try #require(HTMLWorkspaceDataFeedStatus.detailLine(for: package))
         #expect(compact == "Feed stale: 0 / vault_record")
+        #expect(detail.contains("required: recent_capture unavailable"))
     }
 
     @Test("HTMLWorkspace offline CSP admits package-local resources without network")
@@ -427,7 +465,9 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.manifest.dataFeed?.limit == HTMLWorkspaceDataFeed.maxLimit)
         #expect(package.indexHTML.contains("data-vault-results"))
         #expect(package.indexHTML.contains("data-result-filter"))
+        #expect(package.indexHTML.contains("data-context-picker"))
         #expect(package.indexHTML.contains("data-filter-count"))
+        #expect(package.indexHTML.contains("data-context-requirement"))
         #expect(package.indexHTML.contains("data-context-tabs"))
         #expect(package.indexHTML.contains("data-result-chart"))
         #expect(package.indexHTML.contains("data-result-detail"))
@@ -442,6 +482,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.indexHTML.contains(#"id="vault-results""#))
         #expect(package.styleCSS.contains(".result-card"))
         #expect(package.styleCSS.contains(".feed-controls input"))
+        #expect(package.styleCSS.contains(".feed-controls select"))
         #expect(package.styleCSS.contains(".workspace-nav"))
         #expect(package.styleCSS.contains("scroll-margin-top"))
         #expect(package.styleCSS.contains(".context-tab"))
@@ -449,6 +490,13 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains(".result-detail"))
         #expect(package.scriptJS.contains("renderVaultResults"))
         #expect(package.scriptJS.contains("visibleResults(allResults)"))
+        #expect(package.scriptJS.contains("function renderContextPicker(results, selected)"))
+        #expect(package.scriptJS.contains("picker.disabled = results.length === 0;"))
+        #expect(package.scriptJS.contains("selectedResultKey = event.currentTarget.value || null;"))
+        #expect(package.scriptJS.contains("function requiredContextLabel(meta)"))
+        #expect(package.scriptJS.contains("meta.required_context_kind"))
+        #expect(package.scriptJS.contains("meta.required_context_available"))
+        #expect(package.scriptJS.contains("text('[data-context-requirement]', requiredContextLabel(meta));"))
         #expect(package.scriptJS.contains("renderContextTabs(allResults, meta)"))
         #expect(package.scriptJS.contains("renderResultChart(results)"))
         #expect(package.scriptJS.contains("renderResultDetail(results)"))

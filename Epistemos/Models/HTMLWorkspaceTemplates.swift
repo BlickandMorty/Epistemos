@@ -59,6 +59,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       <section class="feed-meta" aria-label="Feed provenance">
         <span data-refresh>Waiting for refresh</span>
         <span data-provenance>VaultSyncService.searchFullAsync</span>
+        <span data-context-requirement></span>
       </section>
       <nav class="workspace-nav" aria-label="Workspace sections">
         <a href="#context-feed">Context</a>
@@ -70,6 +71,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <label>
           <span>Filter</span>
           <input data-result-filter type="search" placeholder="Search visible results">
+        </label>
+        <label>
+          <span>Pick source</span>
+          <select data-context-picker aria-label="Pick context source"></select>
         </label>
         <span data-filter-count>0 visible</span>
       </section>
@@ -223,7 +228,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       font-size: 12px;
     }
 
-    .feed-controls input {
+    .feed-controls input,
+    .feed-controls select {
       appearance: none;
       width: 100%;
       box-sizing: border-box;
@@ -236,7 +242,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       box-shadow: 0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 8%, transparent);
     }
 
-    .feed-controls input:focus {
+    .feed-controls input:focus,
+    .feed-controls select:focus {
       outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
       outline-offset: 2px;
     }
@@ -485,6 +492,14 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return `${allResults.length} visible`;
     }
 
+    function requiredContextLabel(meta) {
+      const kind = String(meta.required_context_kind || '').trim();
+      if (!kind) { return ''; }
+      return meta.required_context_available
+        ? `Required ${kind}: available`
+        : `Required ${kind}: unavailable`;
+    }
+
     function renderContextTabs(allResults, meta) {
       const host = HTMLWorkspace.q('[data-context-tabs]');
       if (!host) { return; }
@@ -558,6 +573,22 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       ]));
     }
 
+    function renderContextPicker(results, selected) {
+      const picker = HTMLWorkspace.q('[data-context-picker]');
+      if (!picker) { return; }
+      picker.replaceChildren();
+      picker.disabled = results.length === 0;
+      if (results.length === 0) {
+        picker.append(HTMLWorkspace.el('option', { value: '' }, 'No visible sources'));
+        return;
+      }
+      results.forEach((result, index) => {
+        const key = resultKey(result);
+        picker.append(HTMLWorkspace.el('option', { value: key }, result.title || result.page_id || `Source ${index + 1}`));
+      });
+      picker.value = selected ? resultKey(selected) : resultKey(results[0]);
+    }
+
     function rankDatum(result, index) {
       const value = Number(result.rank);
       if (!Number.isFinite(value) || value <= 0) { return null; }
@@ -618,9 +649,11 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-feed-status]', status);
       text('[data-refresh]', refreshed);
       text('[data-provenance]', meta.provenance || 'No provenance recorded');
+      text('[data-context-requirement]', requiredContextLabel(meta));
       text('[data-filter-count]', resultCountLabel(results, allResults, filter));
-      renderResultChart(results);
       const selectedResult = activeResult(results);
+      renderContextPicker(results, selectedResult);
+      renderResultChart(results);
       renderResultDetail(results);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
@@ -661,6 +694,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     renderVaultResults();
     HTMLWorkspace.q('[data-result-filter]')?.addEventListener('input', renderVaultResults);
+    HTMLWorkspace.q('[data-context-picker]')?.addEventListener('change', (event) => {
+      selectedResultKey = event.currentTarget.value || null;
+      renderVaultResults();
+    });
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
     """
