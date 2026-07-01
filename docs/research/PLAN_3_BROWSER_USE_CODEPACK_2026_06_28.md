@@ -186,7 +186,7 @@ version checks off.
 `EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
 binding, non-secret JSON round-trip behavior, owner-only settings file permissions, no-follow bounded regular-file
 settings JSON reads, decoded settings validation before returning UI/runtime state, bounded path diagnostics that avoid
-full user-local paths, and symlink rejection before the settings store reads or writes disk; non-secret environment
+full user-local paths, and symlink plus multi-hardlink rejection before the settings store reads or writes disk; non-secret environment
 settings are bounded before launch and reject control characters plus leading/trailing whitespace so `.env` escaping
 cannot diverge from the raw `Process.environment` map.
 `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path guard that rejects final symlinks plus
@@ -198,8 +198,8 @@ exact `web-ui/webui.py --ip 127.0.0.1 --port 7788 --theme Ocean` loopback plan, 
 artifact symlink aliases and symlink escapes before launch planning (except the expected internal `.venv/bin/python`
 final symlink when it resolves inside the packaged runtime root), reports runtime artifact diagnostics as bounded paths relative to the
 runtime root instead of full user-local paths, writes the Keychain-combined launch `.env` under Application Support
-with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
-secrets are written, rejects non-regular file artifacts before launch planning, removes that exact generated `.env` again through a no-follow descriptor/`fstat` exact-content check if cancellation, process launch, or health probing prevents
+with owner-only permissions while rejecting symlinked env directories/files, symlinked parent components, and multi-hardlink existing env files before
+secrets are written, rejects non-regular file artifacts before launch planning, removes that exact generated `.env` again through a no-follow descriptor/`fstat` exact-content and single-link check if cancellation, process launch, or health probing prevents
 a usable runtime from starting, stops any prior runtime before writing a replacement `.env`, removes the active generated
 `.env` on stop, launches the Pro process and only reports it usable after an injected loopback health probe validates
 `http://127.0.0.1:<port>/`, returns runtime readiness text and rejected-redirect health diagnostics through the shared

@@ -544,18 +544,19 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
             )
         }
 
-        let attributes = try FileManager.default.attributesOfItem(atPath: settingsURL.path)
-        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+        let fileStatus = try Self.existingSettingsFileStatus(at: settingsURL)
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             throw BrowserUseSettingsStoreError.invalidFile(
                 "browser-use settings file must be a regular file at \(settingsPath)"
             )
         }
-        guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
+        guard fileStatus.st_nlink <= 1 else {
             throw BrowserUseSettingsStoreError.invalidFile(
-                "browser-use settings file size is unavailable at \(settingsPath)"
+                "browser-use settings file has multiple hard links"
             )
         }
-        if size > UInt64(Self.maxSettingsBytes) {
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(Self.maxSettingsBytes) else {
             throw BrowserUseSettingsStoreError.invalidFile(
                 "browser-use settings file exceeds \(Self.maxSettingsBytes) bytes"
             )
@@ -595,6 +596,7 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
             try Self.writeExclusiveSettingsData(data, to: temporaryURL)
             if FileManager.default.fileExists(atPath: settingsURL.path) {
                 try Self.rejectSettingsSymlinkPath(at: settingsURL, label: "file")
+                try Self.validateExistingSettingsFileForReplacement(at: settingsURL)
                 try FileManager.default.removeItem(at: settingsURL)
             }
             try FileManager.default.moveItem(at: temporaryURL, to: settingsURL)
@@ -624,6 +626,32 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         }
     }
 
+    private static func existingSettingsFileStatus(at url: URL) throws -> stat {
+        let settingsPath = settingsPathDescription(url)
+        var fileStatus = stat()
+        guard lstat(url.path, &fileStatus) == 0 else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file attributes unavailable at \(settingsPath)"
+            )
+        }
+        return fileStatus
+    }
+
+    private static func validateExistingSettingsFileForReplacement(at url: URL) throws {
+        let settingsPath = settingsPathDescription(url)
+        let fileStatus = try existingSettingsFileStatus(at: url)
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file must be a regular file at \(settingsPath)"
+            )
+        }
+        guard fileStatus.st_nlink <= 1 else {
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file has multiple hard links"
+            )
+        }
+    }
+
     private static func readSettingsData(at url: URL) throws -> Data {
         let settingsPath = settingsPathDescription(url)
         let fd = url.path.withCString { path in
@@ -646,6 +674,12 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
             close(fd)
             throw BrowserUseSettingsStoreError.invalidFile(
                 "browser-use settings file must be a regular file at \(settingsPath)"
+            )
+        }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            throw BrowserUseSettingsStoreError.invalidFile(
+                "browser-use settings file has multiple hard links"
             )
         }
         guard fileStatus.st_size >= 0,

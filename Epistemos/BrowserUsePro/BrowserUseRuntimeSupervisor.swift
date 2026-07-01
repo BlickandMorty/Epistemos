@@ -244,6 +244,7 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
             try writeExclusiveEnvironmentFile(contents, to: temporaryURL)
             if fileManager.fileExists(atPath: url.path) {
                 try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
+                try validateExistingEnvironmentFileForReplacement(at: url)
                 try fileManager.removeItem(at: url)
             }
             try fileManager.moveItem(at: temporaryURL, to: url)
@@ -297,6 +298,25 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
         }
     }
 
+    private static func validateExistingEnvironmentFileForReplacement(at url: URL) throws {
+        var fileStatus = stat()
+        guard lstat(url.path, &fileStatus) == 0 else {
+            throw BrowserUseRuntimeSupervisorError.unavailable(
+                "browser-use environment file attributes unavailable"
+            )
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            throw BrowserUseRuntimeSupervisorError.unavailable(
+                "browser-use environment file must be a regular file"
+            )
+        }
+        guard fileStatus.st_nlink <= 1 else {
+            throw BrowserUseRuntimeSupervisorError.unavailable(
+                "browser-use environment file has multiple hard links"
+            )
+        }
+    }
+
     private static func writeExclusiveEnvironmentFile(_ contents: String, to url: URL) throws {
         let fd = url.path.withCString { path in
             open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
@@ -332,6 +352,7 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
             return nil
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
               fileStatus.st_size == off_t(expectedByteCount) else {
             close(fd)
             return nil

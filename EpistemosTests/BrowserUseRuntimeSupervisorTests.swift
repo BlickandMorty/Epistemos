@@ -548,6 +548,34 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(outsideContents == "OPENAI_API_KEY=outside\n")
     }
 
+    @Test("environment file writer rejects hardlinked launch env paths")
+    func environmentFileWriterRejectsHardlinkedLaunchEnvPaths() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-env-hardlink-\(UUID().uuidString)", isDirectory: true)
+        let directory = root.appendingPathComponent("safe", isDirectory: true)
+        let outsideFile = root.appendingPathComponent("outside.env", isDirectory: false)
+        let hardlinkedFile = directory.appendingPathComponent(".env", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("OPENAI_API_KEY=outside\n".utf8).write(to: outsideFile)
+        guard (try? FileManager.default.linkItem(at: outsideFile, to: hardlinkedFile)) != nil else {
+            return
+        }
+
+        do {
+            try BrowserUseEnvironmentFileWriter.write("OPENAI_API_KEY=sk-test\n", to: hardlinkedFile)
+            Issue.record("Expected hardlinked browser-use env file to be rejected before replacement")
+        } catch let error as BrowserUseRuntimeSupervisorError {
+            #expect(error.errorDescription?.contains("environment file has multiple hard links") == true)
+        }
+
+        BrowserUseEnvironmentFileWriter.removeIfCurrent("OPENAI_API_KEY=outside\n", at: hardlinkedFile)
+        #expect(FileManager.default.fileExists(atPath: hardlinkedFile.path))
+        let outsideContents = try String(contentsOf: outsideFile, encoding: .utf8)
+        #expect(outsideContents == "OPENAI_API_KEY=outside\n")
+    }
+
     @Test("start terminates the existing Pro runtime before relaunch")
     func startTerminatesExistingProRuntimeBeforeRelaunch() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -790,6 +818,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
             "S_IFREG",
+            "st_nlink <= 1",
+            "environment file has multiple hard links",
             "launchedProcess = try launchProcess(plan)",
             "process = launchedProcess",
             "private static func defaultLaunchProcess",

@@ -432,6 +432,43 @@ struct BrowserUseSettingsStoreTests {
         #expect(outsideContents == "{\"outside\":true}\n")
     }
 
+    @Test("settings store rejects hardlinked JSON paths before reading or replacing")
+    func settingsStoreRejectsHardlinkedJSONPathsBeforeReadingOrReplacing() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-hardlink-\(UUID().uuidString)", isDirectory: true)
+        let directory = root.appendingPathComponent("safe", isDirectory: true)
+        let outsideFile = root.appendingPathComponent("outside.json", isDirectory: false)
+        let hardlinkedFile = directory.appendingPathComponent("settings.json", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("{\"outside\":true}\n".utf8).write(to: outsideFile)
+        guard (try? FileManager.default.linkItem(at: outsideFile, to: hardlinkedFile)) != nil else {
+            return
+        }
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: hardlinkedFile).load()
+            Issue.record("Expected hardlinked browser-use settings file to be rejected on read")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file has multiple hard links") == true)
+            #expect(error.errorDescription?.contains(hardlinkedFile.path) == false)
+            #expect(error.errorDescription?.contains(root.path) == false)
+        }
+
+        do {
+            try BrowserUseSettingsStore(settingsURL: hardlinkedFile).save(.default)
+            Issue.record("Expected hardlinked browser-use settings file to be rejected before replacement")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("settings file has multiple hard links") == true)
+            #expect(error.errorDescription?.contains(hardlinkedFile.path) == false)
+            #expect(error.errorDescription?.contains(root.path) == false)
+        }
+
+        let outsideContents = try String(contentsOf: outsideFile, encoding: .utf8)
+        #expect(outsideContents == "{\"outside\":true}\n")
+    }
+
     @Test("settings store source keeps bounded no-follow JSON reads")
     func settingsStoreSourceKeepsBoundedNoFollowJSONReads() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift")
@@ -439,6 +476,8 @@ struct BrowserUseSettingsStoreTests {
             "readSettingsData",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
+            "st_nlink <= 1",
+            "settings file has multiple hard links",
             "readToEnd()",
             "data.count <= Self.maxSettingsBytes",
             "maxSecretValueBytes",
