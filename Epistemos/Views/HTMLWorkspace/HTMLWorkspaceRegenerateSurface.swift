@@ -365,28 +365,28 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
             family: .addThing,
             title: "Add chart",
             systemImage: "chart.bar.xaxis",
-            instruction: "Regenerate this workspace and add an inline chart derived only from the available data or explicit content. If no numeric data exists, include an honest empty state."
+            instruction: "Preserve the current surface and add an inline chart derived only from the available data or explicit content. Do not wipe existing sections; inject the chart where it fits. If no numeric data exists, include an honest empty state."
         ),
         .init(
             id: "add-search",
             family: .addThing,
             title: "Add search box",
             systemImage: "magnifyingglass",
-            instruction: "Regenerate this workspace and add local search over the visible sections and data. Keep it offline and responsive."
+            instruction: "Preserve the current surface and add local search over the visible sections and data. Do not wipe existing sections; inject the search controls where they fit. Keep it offline and responsive."
         ),
         .init(
             id: "add-table",
             family: .addThing,
             title: "Add table",
             systemImage: "tablecells",
-            instruction: "Regenerate this workspace and add a scannable table from the current content or data. Preserve source honesty if records are sparse."
+            instruction: "Preserve the current surface and add a scannable table from the current content or data. Do not wipe existing sections; inject the table where it fits. Preserve source honesty if records are sparse."
         ),
         .init(
             id: "add-nav",
             family: .addThing,
             title: "Add nav",
             systemImage: "sidebar.left",
-            instruction: "Regenerate this workspace and add persistent navigation for sections, routes, or key entities already present in the content."
+            instruction: "Preserve the current surface and add persistent navigation for sections, routes, or key entities already present in the content. Do not wipe existing sections; inject the nav where it fits."
         ),
         .init(
             id: "vault-notes-cards",

@@ -203,7 +203,17 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
             "Related notes",
         ])
         #expect(HTMLWorkspaceRegeneratePreset.all.count == 11)
-        #expect(HTMLWorkspaceRegeneratePreset.all.allSatisfy { $0.instruction.contains("Regenerate") })
+        #expect(HTMLWorkspaceRegeneratePreset.presets(in: .layout).allSatisfy { $0.instruction.contains("Regenerate") })
+        #expect(HTMLWorkspaceRegeneratePreset.presets(in: .vaultData).allSatisfy { $0.instruction.contains("Regenerate") })
+    }
+
+    @Test("add-a-thing presets preserve the current surface")
+    func addAThingPresetsPreserveCurrentSurface() {
+        let addThingInstructions = HTMLWorkspaceRegeneratePreset.presets(in: .addThing).map(\.instruction)
+
+        #expect(addThingInstructions.allSatisfy { $0.contains("Preserve the current surface") })
+        #expect(addThingInstructions.allSatisfy { $0.contains("Do not wipe existing sections") })
+        #expect(addThingInstructions.allSatisfy { $0.contains("inject") })
     }
 
     @Test("vault data presets seed specific real context queries")
