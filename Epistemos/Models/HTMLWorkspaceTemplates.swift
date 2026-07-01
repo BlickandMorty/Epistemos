@@ -561,6 +561,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     let selectedResultKey = null;
     let pinnedContextKeys = [];
     let sectionContextKeys = {};
+    let sectionContextLabels = {};
     let contextDropStatus = '';
     let contextDropKey = null;
     const pinnedContextLimit = 16;
@@ -889,7 +890,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     function bindDropzoneContext(dropzone, key) {
       if (!dropzone || !key) { return; }
-      sectionContextKeys[dropzoneContextID(dropzone)] = key;
+      const sectionID = dropzoneContextID(dropzone);
+      sectionContextKeys[sectionID] = key;
+      sectionContextLabels[sectionID] = dropzoneContextLabel(dropzone);
       dropzone.dataset.contextKey = key;
     }
 
@@ -901,8 +904,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       }
       Object.keys(sectionContextKeys).forEach((sectionID) => {
         if (byKey.has(sectionContextKeys[sectionID])) { return; }
+        const sectionLabel = sectionContextLabels[sectionID] || sectionID;
         delete sectionContextKeys[sectionID];
-        contextDropStatus = `Dropped context for ${sectionID} is no longer in the current data.json feed.`;
+        delete sectionContextLabels[sectionID];
+        contextDropStatus = `Dropped context for ${sectionLabel} is no longer in the current data.json feed.`;
       });
     }
 
@@ -1021,6 +1026,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         dropzone.toggleAttribute('data-context-bound', !!result);
         if (!result) {
           delete dropzone.dataset.contextKey;
+          delete sectionContextLabels[sectionID];
           return;
         }
         const badge = HTMLWorkspace.el('p', {
