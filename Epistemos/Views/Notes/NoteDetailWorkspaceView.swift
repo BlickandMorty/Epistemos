@@ -32,17 +32,6 @@ private struct CodeFileBodySnapshot: Equatable, Sendable {
     }
 }
 
-private struct CodeFileBodyLoadFailure: Equatable, Sendable {
-    let pageId: String
-    let filePath: String
-    let message: String
-
-    func message(ifMatches currentPageId: String, filePath currentFilePath: String) -> String? {
-        guard pageId == currentPageId, filePath == currentFilePath else { return nil }
-        return message
-    }
-}
-
 enum NoteWorkspaceMode: String, CaseIterable, Hashable {
     case edit
     case preview
@@ -74,6 +63,10 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
 private struct SourceEditorRoute {
     let filePath: String
     let language: String
+
+    var isMarkdown: Bool {
+        CodeLanguage.isMarkdownDocument(path: filePath)
+    }
 }
 
 private struct SourceEditorPersistedContent {
@@ -707,7 +700,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
-    @State private var codeFileLoadFailure: CodeFileBodyLoadFailure?
     @State private var persistedBody: String
     @State private var showLegacyRecoverySheet = false
     @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
@@ -850,7 +842,7 @@ struct NoteDetailWorkspaceView: View {
             }
             .keyboardShortcut("n", modifiers: .command)
             .hidden()
-            Button("") { vaultSync.savePage(pageId: pageId) }
+            Button("") { saveCurrentNoteToDisk() }
                 .keyboardShortcut("s", modifiers: .command)
                 .hidden()
             Button("") { vaultSync.saveAllDirtyPages() }
@@ -1241,18 +1233,27 @@ struct NoteDetailWorkspaceView: View {
     private func performNoteWorkspaceQuickAction(_ action: NoteWorkspaceQuickAction) {
         switch action {
         case .saveToDisk:
-            vaultSync.savePage(pageId: pageId)
+            saveCurrentNoteToDisk()
         case .notesSidebar:
             UtilityWindowManager.shared.show(.notes)
         }
     }
 
+    private func saveCurrentNoteToDisk() {
+        if let page = pages.first,
+           let route = sourceEditorRoute(for: page),
+           let sourceContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
+            saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent)
+            return
+        }
+
+        flushCurrentEditor()
+        vaultSync.savePage(pageId: pageId)
+    }
+
     private var codeFileLineCount: Int {
         guard let page = pages.first,
               let route = sourceEditorRoute(for: page) else { return 0 }
-        if needsRawMarkdownSourceSnapshot(page: page, route: route) {
-            return 0
-        }
         let content = cachedSourceEditorContent(page: page, route: route)
         return CodeEditorLineMetrics.lineCount(content)
     }
@@ -1292,26 +1293,27 @@ struct NoteDetailWorkspaceView: View {
                 VStack(spacing: 0) {
                     sourceModeHeader(for: page, route: route)
 
-                    if let failureMessage = rawMarkdownSourceLoadFailureMessage(page: page, route: route) {
-                        rawMarkdownSourceFailureSurface(message: failureMessage, route: route)
-                    } else if needsRawMarkdownSourceSnapshot(page: page, route: route) {
-                        rawMarkdownSourceLoadingSurface(route: route)
-                    } else {
-                        CodeEditorView(
-                            content: cachedSourceEditorContent(page: page, route: route),
-                            language: route.language,
-                            filePath: route.filePath,
-                            onContentChange: { newContent in
-                                saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
-                            },
-                            // SS-GC: in the embedded home graph, give the code editor the same
-                            // landing-variant theme the prose branch gets, so its top bar paints the
-                            // graph backdrop instead of a white card. nil elsewhere = unchanged.
-                            themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
-                        )
-                        .id("\(page.id)::\(route.filePath)")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    }
+                    CodeEditorView(
+                        content: cachedSourceEditorContent(page: page, route: route),
+                        language: route.language,
+                        filePath: route.filePath,
+                        onTextSnapshot: { latestContent in
+                            recordSourceEditorSnapshot(
+                                page: page,
+                                filePath: route.filePath,
+                                content: latestContent
+                            )
+                        },
+                        onContentChange: { newContent in
+                            saveCodeFileContent(page: page, filePath: route.filePath, content: newContent)
+                        },
+                        // SS-GC: in the embedded home graph, give the code editor the same
+                        // landing-variant theme the prose branch gets, so its top bar paints the
+                        // graph backdrop instead of a white card. nil elsewhere = unchanged.
+                        themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
+                    )
+                    .id("\(page.id)::\(route.filePath)")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
                 .sheet(isPresented: $showMarkEditSourceSettings) {
                     #if canImport(MarkEditKit)
@@ -1341,54 +1343,6 @@ struct NoteDetailWorkspaceView: View {
             maxHeight: .infinity,
             alignment: .topLeading
         )
-    }
-
-    private func rawMarkdownSourceLoadingSurface(route: SourceEditorRoute) -> some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.small)
-
-            Text("Loading Source")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(ui.theme.resolved.foreground.color)
-
-            Text(URL(fileURLWithPath: route.filePath).lastPathComponent)
-                .font(.system(size: 12))
-                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.58))
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
-    }
-
-    private func rawMarkdownSourceFailureSurface(message: String, route: SourceEditorRoute) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: "doc.badge.exclamationmark")
-                .font(.system(size: 22, weight: .regular))
-                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
-
-            Text("Source Unavailable")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(ui.theme.resolved.foreground.color)
-
-            Text(message)
-                .font(.system(size: 12))
-                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.62))
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(maxWidth: 420)
-
-            Text(URL(fileURLWithPath: route.filePath).lastPathComponent)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.45))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 420)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
     }
 
     @ViewBuilder
@@ -1431,6 +1385,11 @@ struct NoteDetailWorkspaceView: View {
 
     /// Saves code file content back to disk and updates associated page state
     private func saveCodeFileContent(page: SDPage, filePath: String, content: String) {
+        if CodeLanguage.isMarkdownDocument(path: filePath) {
+            saveMarkdownSourceContent(page: page, filePath: filePath, content: content)
+            return
+        }
+
         guard let vaultURL = vaultSync.vaultURL else {
             Log.app.error("CodeEditor: failed to save code file because no active vault contains \(filePath, privacy: .public)")
             return
@@ -1449,7 +1408,6 @@ struct NoteDetailWorkspaceView: View {
                     filePath: filePath,
                     body: content
                 )
-                codeFileLoadFailure = nil
                 try Self.applyDirectCodeFileSave(
                     content,
                     to: page,
@@ -1463,6 +1421,90 @@ struct NoteDetailWorkspaceView: View {
                 }
             } catch {
                 Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func recordSourceEditorSnapshot(page: SDPage, filePath: String, content: String) {
+        codeFileBodySnapshot = CodeFileBodySnapshot(
+            pageId: page.id,
+            filePath: filePath,
+            body: content
+        )
+        guard CodeLanguage.isMarkdownDocument(path: filePath) else { return }
+        let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
+        modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)
+    }
+
+    private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String) {
+        let fileURL = URL(fileURLWithPath: filePath)
+        Task { @MainActor in
+            let pageId = page.id
+            let persistedContent = SourceEditorPersistedContent(rawContent: content, filePath: filePath)
+            let persistedSourceBody = persistedContent.body
+            guard stageBodyWrite(pageId: pageId, fullText: persistedSourceBody) else { return }
+
+            if page.filePath != filePath {
+                page.filePath = filePath
+            }
+            persistedContent.apply(to: page)
+            page.updatedAt = .now
+            page.needsVaultSync = true
+
+            do {
+                try modelContext.save()
+            } catch {
+                Log.app.error("CodeEditor: failed to save markdown Source note state: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+
+            codeFileBodySnapshot = CodeFileBodySnapshot(
+                pageId: pageId,
+                filePath: filePath,
+                body: content
+            )
+            persistedBody = persistedSourceBody
+            modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: persistedSourceBody)
+            AppBootstrap.shared?.graphState.needsRefresh = true
+            scheduleMetricsRefresh(body: persistedSourceBody, includeMarkdownHeadings: false)
+
+            if let modelContainer = AppBootstrap.shared?.modelContainer {
+                Task {
+                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                        pageId: pageId,
+                        body: persistedSourceBody,
+                        modelContainer: modelContainer
+                    )
+                }
+            }
+
+            guard let vaultURL = vaultSync.vaultURL else {
+                Log.app.error("CodeEditor: saved markdown Source note state without an active vault for \(filePath, privacy: .public)")
+                return
+            }
+
+            do {
+                try await CodeFileService.updateCodeFileAsync(
+                    at: fileURL,
+                    vaultRoot: vaultURL,
+                    body: content
+                )
+            } catch {
+                Log.app.error("CodeEditor: failed to write markdown Source file directly: \(error.localizedDescription, privacy: .public)")
+                vaultSync.savePage(pageId: pageId)
+                return
+            }
+
+            guard codeFileBodySnapshot?.body(ifMatches: pageId, filePath: filePath) == content else {
+                return
+            }
+            page.lastSyncedBodyHash = SDPage.bodyHash(persistedSourceBody)
+            page.lastSyncedAt = .now
+            page.needsVaultSync = false
+            do {
+                try modelContext.save()
+            } catch {
+                Log.app.error("CodeEditor: failed to save markdown Source sync state: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -1895,26 +1937,15 @@ struct NoteDetailWorkspaceView: View {
         return page.body
     }
 
-    /// Markdown Source mode must prefer the raw disk-backed source snapshot.
-    /// The prose snapshot is intentionally a note body and can omit file-only
-    /// details such as front matter.
+    /// Markdown Source mode prefers a source snapshot when available, but it
+    /// must always be able to mount from the note-backed body used by Prose.
     private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String {
-        if CodeLanguage.isMarkdownDocument(path: route.filePath),
+        if route.isMarkdown,
            let cached = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) {
             return cached
         }
 
         return cachedCodeFileContent(page: page, filePath: route.filePath)
-    }
-
-    private func rawMarkdownSourceLoadFailureMessage(page: SDPage, route: SourceEditorRoute) -> String? {
-        guard CodeLanguage.isMarkdownDocument(path: route.filePath) else { return nil }
-        return codeFileLoadFailure?.message(ifMatches: page.id, filePath: route.filePath)
-    }
-
-    private func needsRawMarkdownSourceSnapshot(page: SDPage, route: SourceEditorRoute) -> Bool {
-        guard CodeLanguage.isMarkdownDocument(path: route.filePath) else { return false }
-        return codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) == nil
     }
 
     private func isMarkdownDocument(_ page: SDPage) -> Bool {
@@ -1956,10 +1987,47 @@ struct NoteDetailWorkspaceView: View {
             return nil
         }
         if CodeLanguage.isMarkdownDocument(path: path) {
-            return SourceEditorRoute(filePath: path, language: "markdown")
+            let markdownPath = canonicalMarkdownSourcePath(for: page, fallbackPath: path)
+            return SourceEditorRoute(filePath: markdownPath, language: "markdown")
         }
         guard let language = CodeLanguage.detect(from: path) else { return nil }
         return SourceEditorRoute(filePath: path, language: language)
+    }
+
+    private func canonicalMarkdownSourcePath(for page: SDPage, fallbackPath: String) -> String {
+        activeVaultMarkdownSourcePath(for: page) ?? fallbackPath
+    }
+
+    private func activeVaultMarkdownSourcePath(for page: SDPage) -> String? {
+        guard let vaultURL = vaultSync.vaultURL,
+              let relativePath = page.vaultRelativeNotePath?.trimmingCharacters(
+                in: .whitespacesAndNewlines
+              ),
+              !relativePath.isEmpty,
+              !relativePath.hasPrefix("/"),
+              !relativePath.hasPrefix("\\")
+        else { return nil }
+
+        let components = relativePath.split { character in
+            character == "/" || character == "\\"
+        }.map(String.init)
+        guard !components.isEmpty,
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
+        else { return nil }
+
+        let normalizedPath = components.joined(separator: "/")
+        let candidate = vaultURL
+            .standardizedFileURL
+            .appendingPathComponent(normalizedPath, isDirectory: false)
+            .standardizedFileURL
+        let rootPath = vaultURL.standardizedFileURL.path
+        let candidatePath = candidate.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        guard candidatePath.hasPrefix(prefix),
+              CodeLanguage.isMarkdownDocument(path: candidatePath)
+        else { return nil }
+
+        return candidatePath
     }
 
     private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute? {
@@ -1971,7 +2039,6 @@ struct NoteDetailWorkspaceView: View {
 
     private func scheduleCodeFileBodyRefresh(for page: SDPage?) {
         codeFileLoadTask?.cancel()
-        codeFileLoadFailure = nil
         guard let page,
               let route = sourceEditorRoute(for: page) else {
             codeFileBodySnapshot = nil
@@ -1979,24 +2046,22 @@ struct NoteDetailWorkspaceView: View {
         }
 
         let filePath = route.filePath
+        let isMarkdownSource = route.isMarkdown
+        let seededMarkdownSource = isMarkdownSource
+            ? seedMarkdownSourceSnapshot(for: page, route: route)
+            : nil
+
         guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
                 "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .public)"
             )
-            if CodeLanguage.isMarkdownDocument(path: filePath) {
-                codeFileLoadFailure = CodeFileBodyLoadFailure(
+            if !isMarkdownSource {
+                codeFileBodySnapshot = CodeFileBodySnapshot(
                     pageId: page.id,
                     filePath: filePath,
-                    message: "No active vault is available for this source file."
+                    body: page.body
                 )
-                codeFileBodySnapshot = nil
-                return
             }
-            codeFileBodySnapshot = CodeFileBodySnapshot(
-                pageId: page.id,
-                filePath: filePath,
-                body: page.body
-            )
             return
         }
 
@@ -2009,9 +2074,15 @@ struct NoteDetailWorkspaceView: View {
                     vaultRoot: vaultURL
                 )
                 guard !Task.isCancelled,
-                      pages.first?.id == pageId,
-                      pages.first?.filePath == filePath else { return }
-                if !CodeLanguage.isMarkdownDocument(path: filePath) {
+                      currentSourceRouteMatches(pageId: pageId, filePath: filePath) else { return }
+                if isMarkdownSource {
+                    guard let currentPage = pages.first,
+                          currentPage.needsVaultSync != true,
+                          markdownSourceFallbackContent(for: currentPage, filePath: filePath) == seededMarkdownSource,
+                          codeFileBodySnapshot?.body(ifMatches: pageId, filePath: filePath) == seededMarkdownSource else {
+                        return
+                    }
+                } else {
                     if let snapshot = currentModeBodySnapshot(for: pageId), !snapshot.isEmpty {
                         return
                     }
@@ -2024,7 +2095,6 @@ struct NoteDetailWorkspaceView: View {
                     filePath: filePath,
                     body: loaded.body
                 )
-                codeFileLoadFailure = nil
                 let persistedContent = SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)
                 persistedBody = persistedContent.body
                 if persistedContent.isMarkdownSource {
@@ -2033,30 +2103,82 @@ struct NoteDetailWorkspaceView: View {
                 scheduleMetricsRefresh(body: persistedContent.body, includeMarkdownHeadings: false)
             } catch {
                 guard !Task.isCancelled,
-                      pages.first?.id == pageId,
-                      pages.first?.filePath == filePath else { return }
+                      currentSourceRouteMatches(pageId: pageId, filePath: filePath) else { return }
                 Log.notes.error(
                     "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
-                if CodeLanguage.isMarkdownDocument(path: filePath) {
-                    codeFileLoadFailure = CodeFileBodyLoadFailure(
-                        pageId: pageId,
-                        filePath: filePath,
-                        message: error.localizedDescription
-                    )
-                    codeFileBodySnapshot = nil
-                }
             }
         }
+    }
+
+    private func currentSourceRouteMatches(pageId: String, filePath: String) -> Bool {
+        guard let currentPage = pages.first,
+              currentPage.id == pageId,
+              let currentRoute = sourceFileRoute(for: currentPage) else {
+            return false
+        }
+        return currentRoute.filePath == filePath
+    }
+
+    @discardableResult
+    private func seedMarkdownSourceSnapshot(for page: SDPage, route: SourceEditorRoute) -> String {
+        let body = markdownSourceFallbackContent(for: page, filePath: route.filePath)
+        codeFileBodySnapshot = CodeFileBodySnapshot(
+            pageId: page.id,
+            filePath: route.filePath,
+            body: body
+        )
+        return body
+    }
+
+    private func markdownSourceFallbackContent(for page: SDPage, filePath: String? = nil) -> String {
+        let body = markdownSourceFallbackBody(for: page)
+        guard let sourcePath = filePath ?? page.filePath else {
+            return body
+        }
+        let sourceURL = URL(fileURLWithPath: sourcePath)
+        guard VaultIndexActor.shouldWriteMarkdownFrontMatter(to: sourceURL) else {
+            return body
+        }
+        return VaultIndexActor.buildMarkdownSource(
+            pageId: page.id,
+            title: page.title,
+            tags: page.tags,
+            emoji: page.emoji,
+            isJournal: page.isJournal,
+            journalDate: page.journalDate,
+            parentPageId: page.parentPageId,
+            templateId: page.templateId,
+            frontMatter: page.frontMatter,
+            body: body
+        )
+    }
+
+    private func markdownSourceFallbackBody(for page: SDPage) -> String {
+        if let snapshot = currentModeBodySnapshot(for: page.id), !snapshot.isEmpty {
+            return snapshot
+        }
+        let managed = NoteWindowManager.shared.currentBody(for: page.id)
+        if !managed.isEmpty {
+            return managed
+        }
+        let persisted = persistedBodyFor(page)
+        if !persisted.isEmpty {
+            return persisted
+        }
+        return page.body
     }
 
     private func currentEditorBody(for page: SDPage) -> String? {
         if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
             return responder.string
         }
-        return resolvedNoteMode(for: page) == .preview
-            ? currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)
-            : nil
+        switch resolvedNoteMode(for: page) {
+        case .source, .preview:
+            return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)
+        case .edit:
+            return nil
+        }
     }
 
     private func flushCurrentEditor() {

@@ -39,7 +39,7 @@ import Foundation
 // true off-main I/O (RCA13 P1-015 / RCA5-P1-001).
 nonisolated public final class CodeFileService: @unchecked Sendable {
 
-    public enum ServiceError: Error, CustomStringConvertible {
+    public enum ServiceError: Error, CustomStringConvertible, LocalizedError {
         case nameContainsPathSeparators
         case nameIsEmpty
         case fileAlreadyExists(URL)
@@ -80,6 +80,10 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
             case let .reservedCachePath(url):
                 return "CodeFileService: source path is inside reserved .epcache storage: \(url.path)"
             }
+        }
+
+        public var errorDescription: String? {
+            description
         }
     }
 

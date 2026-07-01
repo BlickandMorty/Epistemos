@@ -34,10 +34,16 @@ nonisolated struct CodeEditorPolishTests {
         #expect(workspaceSource.contains("private func availableNoteModes(for page: SDPage) -> [NoteWorkspaceMode]"))
         #expect(!workspaceSource.contains("epistemos.markdownLens"))
         #expect(!workspaceSource.contains("MarkdownDocumentLens"))
-        #expect(workspaceSource.contains(#"return SourceEditorRoute(filePath: path, language: "markdown")"#))
+        #expect(workspaceSource.contains("let markdownPath = canonicalMarkdownSourcePath(for: page, fallbackPath: path)"))
+        #expect(workspaceSource.contains(#"return SourceEditorRoute(filePath: markdownPath, language: "markdown")"#))
+        #expect(workspaceSource.contains("private func activeVaultMarkdownSourcePath(for page: SDPage) -> String?"))
+        #expect(workspaceSource.contains("page.filePath = filePath"))
         #expect(workspaceSource.contains("private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String"))
         #expect(workspaceSource.contains("content: cachedSourceEditorContent(page: page, route: route)"))
-        #expect(workspaceSource.contains("if !CodeLanguage.isMarkdownDocument(path: filePath)"))
+        #expect(workspaceSource.contains("if CodeLanguage.isMarkdownDocument(path: filePath)"))
+        #expect(workspaceSource.contains("private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String)"))
+        #expect(workspaceSource.contains("private func currentSourceRouteMatches(pageId: String, filePath: String) -> Bool"))
+        #expect(workspaceSource.contains("let currentRoute = sourceFileRoute(for: currentPage)"))
         #expect(workspaceSource.contains("private struct SourceEditorPersistedContent"))
         #expect(workspaceSource.contains("SourceEditorPersistedContent(rawContent: content, filePath: filePath)"))
         #expect(workspaceSource.contains("SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)"))
@@ -45,30 +51,70 @@ nonisolated struct CodeEditorPolishTests {
         #expect(!workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
     }
 
-    @Test("Markdown Source waits for a raw source snapshot before mounting editor")
-    func markdownSourceWaitsForRawSourceSnapshotBeforeMountingEditor() throws {
+    @Test("Markdown Source mounts from note fallback and enriches from raw source safely")
+    func markdownSourceMountsFromNoteFallbackAndEnrichesFromRawSourceSafely() throws {
         let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        #expect(workspaceSource.contains("private struct CodeFileBodyLoadFailure"),
-                "Markdown Source load failures need scoped state instead of silently falling back to page.body.")
-        #expect(workspaceSource.contains("private func needsRawMarkdownSourceSnapshot(page: SDPage, route: SourceEditorRoute) -> Bool"),
-                "Markdown Source should have an explicit raw-snapshot gate before mounting the editor.")
-        #expect(workspaceSource.contains("rawMarkdownSourceFailureSurface(message: failureMessage, route: route)"),
-                "Read failures should render an error surface, not a body-only editor.")
-        #expect(workspaceSource.contains("rawMarkdownSourceLoadingSurface(route: route)"),
-                "Markdown Source should show a loading surface while the raw disk snapshot is pending.")
-        #expect(workspaceSource.contains("return codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath) == nil"),
-                "The gate must be satisfied only by a raw snapshot for the same page and file path.")
-        #expect(workspaceSource.contains("if needsRawMarkdownSourceSnapshot(page: page, route: route) {\n            return 0\n        }"),
-                "Status counts should not be derived from prose fallback content while raw Source is pending.")
+        #expect(workspaceSource.contains("private func seedMarkdownSourceSnapshot(for page: SDPage, route: SourceEditorRoute) -> String"),
+                "Markdown Source should seed a same-page snapshot before any async file read can fail.")
+        #expect(workspaceSource.contains("private func markdownSourceFallbackContent(for page: SDPage, filePath: String? = nil) -> String"),
+                "Markdown Source fallback should be an explicit note-backed policy.")
+        #expect(workspaceSource.contains("VaultIndexActor.buildMarkdownSource("),
+                "Markdown Source fallback must preserve the same front-matter envelope as vault export.")
+        #expect(workspaceSource.contains("let seededMarkdownSource = isMarkdownSource"),
+                "Raw-source enrichment should know which fallback content it is allowed to replace.")
+        #expect(workspaceSource.contains("onTextSnapshot: { latestContent in"),
+                "Source text should update workspace state immediately instead of waiting for debounced persistence.")
+        #expect(workspaceSource.contains("recordSourceEditorSnapshot(\n                                page: page,\n                                filePath: route.filePath,\n                                content: latestContent"),
+                "The Source editor must feed latest text into the note workspace before lens switches.")
+        #expect(workspaceSource.contains("private func recordSourceEditorSnapshot(page: SDPage, filePath: String, content: String)"),
+                "Immediate Source snapshots should live in the note workspace, not as an extra editor storage layer.")
+        #expect(workspaceSource.contains("modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)"),
+                "Markdown Source snapshots must provide the front-matter-stripped body that Prose expects.")
+        #expect(workspaceSource.contains("case .source, .preview:\n            return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)"),
+                "Switching away from Source must flush the live Source snapshot instead of clobbering it with stale persisted body.")
+        #expect(workspaceSource.contains("guard let currentPage = pages.first,"),
+                "Raw-source enrichment must not overwrite unsynced note edits.")
+        #expect(workspaceSource.contains("currentPage.needsVaultSync != true,"),
+                "Raw-source enrichment must not overwrite unsynced note edits.")
+        #expect(workspaceSource.contains("markdownSourceFallbackContent(for: currentPage, filePath: filePath) == seededMarkdownSource"),
+                "Raw-source enrichment must not overwrite newer Prose or managed-editor text.")
+        #expect(workspaceSource.contains("currentSourceRouteMatches(pageId: pageId, filePath: filePath)"),
+                "Raw-source enrichment must validate against the resolved Source route, not a stale page.filePath.")
+        #expect(workspaceSource.contains("codeFileBodySnapshot?.body(ifMatches: pageId, filePath: filePath) == seededMarkdownSource"),
+                "Raw-source enrichment must not overwrite Source edits made after mounting.")
+        #expect(workspaceSource.contains("if !isMarkdownSource {\n                codeFileBodySnapshot = CodeFileBodySnapshot("),
+                "No-vault fallback should be special only for non-markdown code files; markdown already has a note snapshot.")
+        #expect(workspaceSource.contains("page.needsVaultSync = true"),
+                "Markdown Source saves should be note-backed first, matching Prose robustness.")
+        #expect(workspaceSource.contains("private func saveCurrentNoteToDisk()"),
+                "Save affordances should share one flush path.")
+        #expect(workspaceSource.contains("Button(\"\") { saveCurrentNoteToDisk() }"),
+                "Cmd-S must flush the active editor before hitting disk.")
+        #expect(workspaceSource.contains("case .saveToDisk:\n            saveCurrentNoteToDisk()"),
+                "The visible Save to Disk action must flush Source snapshots, not just call vaultSync directly.")
+        #expect(workspaceSource.contains("let sourceContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath)"),
+                "Source-mode saves should force-persist the latest CodeEditor snapshot.")
+        #expect(workspaceSource.contains("saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent)"),
+                "Source-mode saves should use the code-file save path so markdown front matter and code files persist immediately.")
+        #expect(!workspaceSource.contains("case .saveToDisk:\n            vaultSync.savePage(pageId: pageId)"),
+                "Save to Disk must not bypass the Source snapshot.")
         #expect(workspaceSource.contains("CodeEditorLineMetrics.lineCount(content)"),
                 "Source status counts should reuse the non-allocating code editor line counter.")
         #expect(!workspaceSource.contains(#"return content.components(separatedBy: "\n").count"#),
                 "Source status counts must not allocate a full line array.")
-        #expect(workspaceSource.contains(#"message: "No active vault is available for this source file.""#),
-                "Without a vault, markdown Source must report failure rather than treating page.body as raw source.")
-        #expect(!workspaceSource.contains("if CodeLanguage.isMarkdownDocument(path: filePath) {\n                codeFileBodySnapshot = CodeFileBodySnapshot(\n                    pageId: page.id,\n                    filePath: filePath,\n                    body: page.body"),
-                "Markdown Source must not synthesize a raw snapshot from the stripped page body.")
+        #expect(!workspaceSource.contains("private struct CodeFileBodyLoadFailure"),
+                "Markdown Source should not have a dedicated error state that can block the editor.")
+        #expect(!workspaceSource.contains("private func needsRawMarkdownSourceSnapshot(page: SDPage, route: SourceEditorRoute) -> Bool"),
+                "Markdown Source should not require disk content before mounting.")
+        #expect(!workspaceSource.contains("rawMarkdownSourceFailureSurface"),
+                "Markdown Source read failures should not replace the editor with an unavailable surface.")
+        #expect(!workspaceSource.contains("rawMarkdownSourceLoadingSurface"),
+                "Markdown Source should mount from note state instead of showing a blocking loader.")
+        #expect(!workspaceSource.contains("Source Unavailable"),
+                "Markdown Source should not expose CodeFileService read failures as a permanent source panel.")
+        #expect(!workspaceSource.contains(#"message: "No active vault is available for this source file.""#),
+                "Missing vault state must not hide markdown Source when note content is available.")
     }
 
     // MARK: - OutlineParserCache (item 3)
@@ -229,12 +275,30 @@ nonisolated struct CodeEditorPolishTests {
                 "CodeEditorView should construct the canonical debouncer when the editor appears.")
         #expect(source.contains("ensureContentDebouncer().enqueue(newText)"),
                 "Text changes must enqueue into CodeEditorContentDebouncer, not bypass it with a local Task debounce.")
+        #expect(source.contains("let onTextSnapshot: ((String) -> Void)?"),
+                "Hosts need an immediate live text snapshot separate from debounced persistence.")
+        let snapshotRange = try #require(source.range(of: "onTextSnapshot?(newText)"))
+        let enqueueRange = try #require(source.range(of: "ensureContentDebouncer().enqueue(newText)"))
+        #expect(snapshotRange.lowerBound < enqueueRange.lowerBound,
+                "Source lens snapshots should update before the save debouncer can defer persistence.")
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(500))"),
                 "The old ad-hoc 500ms content-change debounce should not remain in the editor text-change path.")
         let flushRange = try #require(source.range(of: "contentDebouncer?.flush(text)"))
         let detachRange = try #require(source.range(of: "contentDebouncer?.detach()"))
         #expect(flushRange.lowerBound < detachRange.lowerBound,
                 "CodeEditorView must flush the visible Source text before detaching the debouncer during lens switches.")
+    }
+
+    @Test("MarkEdit Source engine flushes latest text during teardown")
+    func markEditSourceEngineFlushesLatestTextDuringTeardown() throws {
+        let markEditChrome = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+
+        let flushRange = try #require(markEditChrome.range(of: "flushCurrentTextBeforeDetach(from: viewController)"))
+        let pollingCancelRange = try #require(markEditChrome.range(of: "pollingTask?.cancel()"))
+        #expect(flushRange.lowerBound < pollingCancelRange.lowerBound,
+                "Full MarkEdit markdown chrome must sample editor text before teardown cancels polling.")
+        #expect(markEditChrome.contains("let nextText = await viewController.editorText"))
+        #expect(markEditChrome.contains("applyObservedText(nextText)"))
     }
 
     @Test("CodeEditorView feeds live preferences into MarkEdit CoreEditor")

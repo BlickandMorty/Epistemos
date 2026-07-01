@@ -61,6 +61,14 @@ struct CodeFileServiceTests {
         sourceArtifacts: []
     )
 
+    @Test("service errors expose useful localized descriptions")
+    func serviceErrorsExposeUsefulLocalizedDescriptions() {
+        let error = CodeFileService.ServiceError.pathEscapesVault(URL(fileURLWithPath: "/tmp/outside.md"))
+
+        #expect(error.localizedDescription.contains("CodeFileService: path escapes vault containment"))
+        #expect(!error.localizedDescription.contains("ServiceError error"))
+    }
+
     // MARK: - Create
 
     @Test("createCodeFile writes the source file + sidecar with provenance")

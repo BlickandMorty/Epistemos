@@ -205,6 +205,9 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
 
     func detach() {
         applyGeneration += 1
+        if let viewController {
+            flushCurrentTextBeforeDetach(from: viewController)
+        }
         applyTask?.cancel()
         applyTask = nil
         pollingTask?.cancel()
@@ -325,6 +328,18 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         guard !isApplyingFromSwift,
               let nextText = await viewController.editorText,
               nextText != text.wrappedValue else { return }
+        applyObservedText(nextText)
+    }
+
+    private func flushCurrentTextBeforeDetach(from viewController: EditorViewController) {
+        Task { @MainActor [self, viewController] in
+            guard let nextText = await viewController.editorText else { return }
+            applyObservedText(nextText)
+        }
+    }
+
+    private func applyObservedText(_ nextText: String) {
+        guard nextText != text.wrappedValue else { return }
         text.wrappedValue = nextText
         document?.stringValue = nextText
         lastAppliedText = nextText

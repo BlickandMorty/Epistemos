@@ -1432,6 +1432,7 @@ struct CodeEditorView: View {
     let initialContent: String
     let language: String
     let filePath: String?  // Optional: for code-to-graph linking
+    let onTextSnapshot: ((String) -> Void)?
     let onContentChange: ((String) -> Void)?
     /// SS-GC (owner 2026-06-20): when the code editor is mounted inside the embedded
     /// home-graph surface, its top bar must paint the GRAPH backdrop so it isn't a white
@@ -1516,12 +1517,14 @@ struct CodeEditorView: View {
         content: String,
         language: String,
         filePath: String? = nil,
+        onTextSnapshot: ((String) -> Void)? = nil,
         onContentChange: ((String) -> Void)? = nil,
         themeOverride: EpistemosTheme? = nil
     ) {
         self.initialContent = content
         self.language = language
         self.filePath = filePath
+        self.onTextSnapshot = onTextSnapshot
         self.onContentChange = onContentChange
         self.themeOverride = themeOverride
         _text = State(initialValue: content)
@@ -1559,6 +1562,7 @@ struct CodeEditorView: View {
                 semanticLookupTask?.cancel()
                 livePreviewTask?.cancel()
                 livePreviewTask = nil
+                onTextSnapshot?(text)
                 contentDebouncer?.flush(text)
                 contentDebouncer?.detach()
                 contentDebouncer = nil
@@ -1569,6 +1573,7 @@ struct CodeEditorView: View {
                 semanticLookupTask?.cancel()
                 semanticStatusMessage = nil
                 semanticStatusIsLoading = false
+                onTextSnapshot?(newText)
                 ensureContentDebouncer().enqueue(newText)
                 if showOutlineNavigator {
                     scheduleOutlineRefresh(for: newText)
