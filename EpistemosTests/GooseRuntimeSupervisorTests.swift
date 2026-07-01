@@ -576,11 +576,13 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("nonisolated static func gitWorktreeBranchName(_ ref: String) -> String?"))
         #expect(bridge.contains("private func readGitDiff(_ path: String)"))
         #expect(bridge.contains("\"pullRequestURL\": pullRequestURLValue"))
+        #expect(bridge.contains("\"pullRequestSearchURL\": pullRequestSearchURLValue"))
         #expect(bridge.contains("private func gitHubPullRequestContext(_ path: String, git: String)"))
         #expect(bridge.contains("private func readGitStatus(_ path: String, git: String)"))
         #expect(bridge.contains("private func readGitHubCompareURL(_ path: String)"))
         #expect(bridge.contains("nonisolated static func gitHubRepositoryPath(from remote: String) -> String?"))
         #expect(bridge.contains("nonisolated static func gitHubCompareURL(repositoryPath: String, branch: String) -> String?"))
+        #expect(bridge.contains("nonisolated static func gitHubPullRequestSearchURL(repositoryPath: String, branch: String) -> String?"))
         #expect(bridge.contains("\"--branch\""))
         #expect(bridge.contains("\"--untracked-files=normal\""))
         #expect(bridge.contains("Git diff timed out."))
@@ -2312,6 +2314,12 @@ struct GooseWebNativeAffordanceBridgeTests {
                 repositoryPath: "epistemos/app",
                 branch: "feature/goose-ui"
             ) == "https://github.com/epistemos/app/compare/feature/goose-ui?expand=1"
+        )
+        #expect(
+            GooseWebNativeAffordanceBridge.gitHubPullRequestSearchURL(
+                repositoryPath: "epistemos/app",
+                branch: "feature/goose-ui"
+            ) == "https://github.com/epistemos/app/pulls?q=is:pr%20head:feature/goose-ui"
         )
     }
 

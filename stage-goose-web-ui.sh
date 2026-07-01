@@ -5456,6 +5456,7 @@ source = source.replace(
           status?: string | null;
           branch?: string | null;
           pullRequestURL?: string | null;
+          pullRequestSearchURL?: string | null;
           diff?: string;
           truncated?: boolean;
           path?: string | null;
@@ -5486,7 +5487,9 @@ source = source.replace(
       const branchBlock = branchName ? 'Branch: ' + branchName + '\\n' : '';
       const pullRequestURL = typeof result?.pullRequestURL === 'string' ? result.pullRequestURL.trim() : '';
       const pullRequestBlock = pullRequestURL ? 'Pull request: ' + pullRequestURL + '\\n\\n' : '';
-      const contextText = 'Git diff for ' + diffPath + suffix + ':\\n' + branchBlock + pullRequestBlock + statusBlock + '\`\`\`diff\\n' + rawDiff + '\\n\`\`\`';
+      const pullRequestSearchURL = typeof result?.pullRequestSearchURL === 'string' ? result.pullRequestSearchURL.trim() : '';
+      const pullRequestSearchBlock = pullRequestSearchURL ? 'Existing pull requests: ' + pullRequestSearchURL + '\\n\\n' : '';
+      const contextText = 'Git diff for ' + diffPath + suffix + ':\\n' + branchBlock + pullRequestBlock + pullRequestSearchBlock + statusBlock + '\`\`\`diff\\n' + rawDiff + '\\n\`\`\`';
       const prefix = displayValue.trimEnd();
       const nextValue = prefix ? prefix + '\\n\\n' + contextText : contextText;
       setDisplayValue(nextValue);
@@ -5669,6 +5672,7 @@ for (const snippet of [
   'Branch:',
   'Git status:',
   'Pull request:',
+  'Existing pull requests:',
   'Attach git diff',
   'handleOpenGitHubPullRequest',
   'readGitHubCompareURL(currentWorkingDir)',
@@ -7661,6 +7665,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "readGitDiff(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Branch:" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Pull request:" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "Existing pull requests:" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Attach git diff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "handleOpenGitHubPullRequest" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "readGitHubCompareURL(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
