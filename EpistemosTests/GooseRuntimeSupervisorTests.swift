@@ -1757,6 +1757,7 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["closeApp"] == .implementedNative)
         #expect(ledger["openNotificationsSettings"] == .implementedNative)
         #expect(ledger["showNotification"] == .implementedNative)
+        #expect(ledger["setWindowTitle"] == .implementedNative)
         #expect(ledger["setMenuBarIcon"] == .implementedNative)
         #expect(ledger["getMenuBarIconState"] == .implementedNative)
         #expect(ledger["setDockIcon"] == .implementedNative)
@@ -1765,6 +1766,8 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["getWakelockState"] == .implementedNative)
         #expect(ledger["setSpellcheck"] == .implementedNative)
         #expect(ledger["getSpellcheckState"] == .implementedNative)
+        #expect(ledger["isAnyWindowFocused"] == .implementedNative)
+        #expect(ledger["getIsFullScreen"] == .implementedNative)
         #expect(ledger["addRecentDir"] == .implementedNative)
         #expect(ledger["listRecentDirs"] == .implementedNative)
         #expect(ledger["hasAcceptedRecipeBefore"] == .implementedNative)
@@ -1809,6 +1812,7 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('closeApp', [appName])"))
         #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
         #expect(script.contains("postNativeAffordance('showNotification', [data || {}])"))
+        #expect(script.contains("postNativeAffordance('setWindowTitle', [title])"))
         #expect(script.contains("postNativeAffordance('getSetting', [key])"))
         #expect(script.contains("postNativeAffordance('setSetting', [key, value])"))
         #expect(script.contains("postNativeAffordance('setMenuBarIcon', [show])"))
@@ -1819,6 +1823,8 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('getWakelockState')"))
         #expect(script.contains("postNativeAffordance('setSpellcheck', [enabled])"))
         #expect(script.contains("postNativeAffordance('getSpellcheckState')"))
+        #expect(script.contains("postNativeAffordance('isAnyWindowFocused')"))
+        #expect(script.contains("postNativeAffordance('getIsFullScreen')"))
         #expect(script.contains("postNativeAffordance('addRecentDir', [dir])"))
         #expect(script.contains("postNativeAffordance('listRecentDirs')"))
         #expect(script.contains("postNativeAffordance('hasAcceptedRecipeBefore', [recipe])"))
@@ -1840,6 +1846,7 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("visibleError('closeApp')"))
         #expect(!script.contains("visibleError('openNotificationsSettings')"))
         #expect(!script.contains("visibleError('showNotification')"))
+        #expect(!script.contains("visibleError('setWindowTitle')"))
         #expect(!script.contains("visibleError('getSetting')"))
         #expect(!script.contains("visibleError('setSetting')"))
         #expect(!script.contains("visibleError('setMenuBarIcon')"))
@@ -1850,6 +1857,8 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("visibleError('getWakelockState')"))
         #expect(!script.contains("visibleError('setSpellcheck')"))
         #expect(!script.contains("visibleError('getSpellcheckState')"))
+        #expect(!script.contains("visibleError('isAnyWindowFocused')"))
+        #expect(!script.contains("visibleError('getIsFullScreen')"))
     }
 
     @Test("surface registers the native affordance bridge separately from prompt replies")
@@ -2061,6 +2070,11 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(boundedButtons.allSatisfy { $0.count <= GooseWebNativeAffordanceBridge.maxNativeDialogButtonCharacters })
         #expect(boundedButtons.allSatisfy { !$0.contains("\u{0008}") })
         #expect(GooseWebNativeAffordanceBridge.boundedNativeDialogButtons(["", "  "]) == ["OK"])
+        let boundedWindowTitle = GooseWebNativeAffordanceBridge.boundedNativeWindowTitle(
+            "\u{0007} " + String(repeating: "w", count: GooseWebNativeAffordanceBridge.maxNativeDialogTitleCharacters + 9)
+        )
+        #expect(boundedWindowTitle?.count == GooseWebNativeAffordanceBridge.maxNativeDialogTitleCharacters)
+        #expect(GooseWebNativeAffordanceBridge.boundedNativeWindowTitle("  ") == "Epistemos Goose")
     }
 
     @Test("native bridge bounds notification text and file dialog filters")
@@ -2430,6 +2444,9 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(try bridge.handleAffordance(name: "getDockIconState", args: []) as? Bool == true)
         #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
         #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == true)
+        #expect((try bridge.handleAffordance(name: "setWindowTitle", args: ["Epistemos Goose"]) as? Bool) != nil)
+        #expect((try bridge.handleAffordance(name: "isAnyWindowFocused", args: []) as? Bool) != nil)
+        #expect((try bridge.handleAffordance(name: "getIsFullScreen", args: []) as? Bool) != nil)
 
         #expect(try bridge.handleAffordance(name: "setSpellcheck", args: [false]) as? Bool == true)
         #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == false)

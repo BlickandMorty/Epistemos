@@ -253,6 +253,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return openNotificationsSettings()
         case "showNotification":
             return showNotification(dictionaryArgument(args, at: 0) ?? [:])
+        case "setWindowTitle":
+            guard let title = Self.boundedNativeWindowTitle(stringArgument(args, at: 0)) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return setWindowTitle(title)
         case "getSetting":
             guard let key = Self.boundedNativeSettingKey(stringArgument(args, at: 0)) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -292,6 +297,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return setSpellcheck(enabled)
         case "getSpellcheckState":
             return spellcheckState()
+        case "isAnyWindowFocused":
+            return isAnyWindowFocused()
+        case "getIsFullScreen":
+            return getIsFullScreen()
         case "addRecentDir":
             guard let path = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -476,6 +485,14 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return fallback }
         return String(trimmed.prefix(Swift.max(0, maxCharacters)))
+    }
+
+    nonisolated static func boundedNativeWindowTitle(_ rawText: String?) -> String? {
+        boundedNativeDialogText(
+            rawText,
+            maxCharacters: maxNativeDialogTitleCharacters,
+            fallback: "Epistemos Goose"
+        )
     }
 
     nonisolated static func boundedNativeErrorMessage(
@@ -1108,6 +1125,25 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         )
         UNUserNotificationCenter.current().add(request)
         return true
+    }
+
+    private func setWindowTitle(_ title: String) -> Bool {
+        guard let window = targetHostWindow() else { return false }
+        window.title = title
+        return true
+    }
+
+    private func isAnyWindowFocused() -> Bool {
+        NSApp.windows.contains { $0.isKeyWindow || $0.isMainWindow }
+    }
+
+    private func getIsFullScreen() -> Bool {
+        guard let window = targetHostWindow() else { return false }
+        return window.styleMask.contains(.fullScreen)
+    }
+
+    private func targetHostWindow() -> NSWindow? {
+        NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible }
     }
 
     private func setMenuBarIcon(_ show: Bool) -> Bool {
