@@ -422,12 +422,27 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: Self.samplePackage()) == nil)
     }
 
+    @MainActor
+    @Test("HTMLWorkspace answer packet emits refresh only provenance claim context feeds")
+    func answerPacketEmitsRefreshOnlyProvenanceClaimContextFeeds() {
+        var claimPackage = Self.samplePackage()
+        claimPackage.manifest.dataFeed = .vaultSearch(query: "claims tool execution", limit: 3)
+        #expect(HTMLWorkspaceDataFeedStatus.shouldRefreshForAnswerPacket(for: claimPackage))
+
+        var capturePackage = Self.samplePackage()
+        capturePackage.manifest.dataFeed = .vaultSearch(query: "recent captures alpha", limit: 3)
+        #expect(!HTMLWorkspaceDataFeedStatus.shouldRefreshForAnswerPacket(for: capturePackage))
+        #expect(!HTMLWorkspaceDataFeedStatus.shouldRefreshForAnswerPacket(for: Self.samplePackage()))
+    }
+
     @Test("HTMLWorkspace data feed binder preserves required context kind on refresh renders")
     func dataFeedBinderPreservesRequiredContextKindOnRefreshRenders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
 
         #expect(source.contains("let requiredContextKind = HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package)"))
         #expect(source.contains("HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
+        #expect(source.contains("AnswerPacketEmitter.didEmitNotification"))
+        #expect(source.contains("HTMLWorkspaceDataFeedStatus.shouldRefreshForAnswerPacket(for: package)"))
         #expect(source.contains("requiredContextKind: requiredContextKind"))
         #expect(source.contains("applyStaleRender(feed: feed, error: \"Data feed query is empty\", requiredContextKind: requiredContextKind)"))
         #expect(source.contains("applyStaleRender(feed: feed, error: \"Vault feed unavailable\", requiredContextKind: requiredContextKind)"))

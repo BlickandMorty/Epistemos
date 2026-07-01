@@ -476,6 +476,14 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
     }
 
     @MainActor
+    static func shouldRefreshForAnswerPacket(for package: HTMLWorkspacePackage) -> Bool {
+        guard let feed = package.manifest.dataFeed else { return false }
+        let requiredKind = requiredContextKind(for: package)
+            ?? HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)
+        return requiredKind == "provenance_claim"
+    }
+
+    @MainActor
     static func compactLine(for package: HTMLWorkspacePackage) -> String? {
         guard package.manifest.dataFeed != nil else { return nil }
         guard let metadata = metadata(from: package.dataJSON) else { return "Feed pending" }
@@ -540,6 +548,11 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
                 guard package.manifest.dataFeed != nil,
                       HTMLWorkspaceDataFeedStatus.shouldRefresh(for: notification) else { return }
                 scheduleRefresh(reason: "search index updated")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: AnswerPacketEmitter.didEmitNotification)) { _ in
+                guard package.manifest.dataFeed != nil,
+                      HTMLWorkspaceDataFeedStatus.shouldRefreshForAnswerPacket(for: package) else { return }
+                scheduleRefresh(reason: "answer packet emitted")
             }
             .onDisappear {
                 refreshTask?.cancel()
