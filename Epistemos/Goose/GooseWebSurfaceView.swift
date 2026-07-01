@@ -92,6 +92,7 @@ struct GooseWebSurfaceView: View {
             nativeACPOverlay
         }
         .background(background)
+        .ignoresSafeArea()
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)

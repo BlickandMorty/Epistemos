@@ -64,6 +64,7 @@ struct GooseWebOnlySurfaceSourceTests {
 
         let webView = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
         #expect(webView.contains("WebView(page)"))
+        #expect(webView.contains(".ignoresSafeArea()"))
         #expect(webView.contains("nativeACPOverlay"))
         #expect(webView.contains("private func setWebRoute"))
         #expect(webView.contains("route: activeWebRoute"))
