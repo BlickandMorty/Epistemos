@@ -23,7 +23,7 @@ struct VoiceCodepackPlan3Tests {
             "SSML/prosody fallback exists",
             "Personal Voice authorization is live",
             "Pro Kokoro gate is honest",
-            "Local Kokoro package install is real but runtime-disabled",
+            "Local Kokoro package install/removal is real but runtime-disabled",
             "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
             "Pro-only Voice settings section",
             "Pro neural voice",
@@ -36,7 +36,7 @@ struct VoiceCodepackPlan3Tests {
             "[DONE] Add Personal Voice authorization",
             "[DONE] Add the Kokoro Pro gate",
             "[DONE] Add the Pro-only Kokoro settings status/runtime affordance",
-            "[DONE] Add a local checked-package installer"
+            "[DONE] Add a local checked-package installer/remover"
         ] {
             #expect(plan.contains(required), "Missing voice codepack state: \(required)")
         }
@@ -80,7 +80,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("bounded-before-trim model-relative status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
         #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
-        #expect(capabilities.contains("local checked-package installer"))
+        #expect(capabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("no committed model asset, network downloader, neural inference"))
         #expect(capabilities.contains("runtime, Python, subprocess, or MAS-visible Kokoro row"))
 
@@ -392,11 +392,18 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("ToolbarCapsuleButton("))
         #expect(section.contains("theme.resolved.headingAccent.color"))
         #expect(section.contains("Install Package"))
+        #expect(section.contains("Remove Package"))
         #expect(section.contains("NSOpenPanel()"))
+        #expect(section.contains("systemImage: \"trash\""))
+        #expect(section.contains("isBusy"))
         #expect(section.contains("startAccessingSecurityScopedResource()"))
         #expect(section.contains("KokoroVoicePackageInstaller.installCheckedPackage"))
+        #expect(section.contains("KokoroVoicePackageInstaller.removeInstalledPackage"))
         #expect(installer.contains("nonisolated enum KokoroVoicePackageInstaller"))
         #expect(installer.contains("installCheckedPackage("))
+        #expect(installer.contains("removeInstalledPackage("))
+        #expect(installer.contains("packagePathExists"))
+        #expect(installer.contains("package could not be removed"))
         #expect(installer.contains("rejectSymlinkDescendants"))
         #expect(installer.contains("sourceModelDirectory("))
         #expect(installer.contains("KokoroVoiceGateStatus.status("))
@@ -468,6 +475,16 @@ struct VoiceCodepackPlan3Tests {
             atPath: targetRoot
                 .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
                 .appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: false)
+                .path
+        ))
+
+        let removed = try KokoroVoicePackageInstaller.removeInstalledPackage(modelRoot: targetRoot)
+
+        #expect(!removed.status.isReady)
+        #expect(removed.status.state == .missingModel)
+        #expect(!FileManager.default.fileExists(
+            atPath: targetRoot
+                .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
                 .path
         ))
         #else

@@ -49,6 +49,22 @@ nonisolated enum KokoroVoicePackageInstaller {
         }
     }
 
+    static func removeInstalledPackage(
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) throws -> InstallResult {
+        do {
+            return try removeInstalledPackageImpl(
+                modelRoot: modelRoot,
+                fileManager: fileManager
+            )
+        } catch let error as InstallError {
+            throw error
+        } catch {
+            throw InstallError.installFailed("filesystem operation failed")
+        }
+    }
+
     static func statusMessage(for error: Error) -> String {
         if let installError = error as? InstallError {
             return VoiceCapturePresentationBounds.statusMessage(
@@ -148,6 +164,51 @@ nonisolated enum KokoroVoicePackageInstaller {
         #endif
     }
 
+    private static func removeInstalledPackageImpl(
+        modelRoot: URL?,
+        fileManager: FileManager
+    ) throws -> InstallResult {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        throw InstallError.unavailableInAppStoreBuild
+        #else
+        guard let modelRoot else {
+            throw InstallError.modelRootUnavailable
+        }
+
+        try fileManager.createDirectory(at: modelRoot, withIntermediateDirectories: true)
+        try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: modelRoot.path)
+
+        let finalModelDirectory = modelRoot.appendingPathComponent(
+            KokoroVoiceGateStatus.modelDirectoryName,
+            isDirectory: true
+        )
+        let removalDirectory = modelRoot.appendingPathComponent(
+            ".kokoro-remove-\(UUID().uuidString)",
+            isDirectory: true
+        )
+
+        if packagePathExists(finalModelDirectory, fileManager: fileManager) {
+            do {
+                try fileManager.moveItem(at: finalModelDirectory, to: removalDirectory)
+                try fileManager.removeItem(at: removalDirectory)
+            } catch {
+                try? fileManager.removeItem(at: removalDirectory)
+                throw InstallError.installFailed("package could not be removed")
+            }
+        }
+
+        let removedStatus = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
+        guard removedStatus.state != .packageReady else {
+            throw InstallError.installFailed("package could not be removed")
+        }
+        return InstallResult(status: removedStatus)
+        #endif
+    }
+
     private static func sourceModelDirectory(
         from selectedURL: URL,
         fileManager: FileManager
@@ -204,6 +265,13 @@ nonisolated enum KokoroVoicePackageInstaller {
     private static func isDirectory(_ url: URL, fileManager: FileManager) -> Bool {
         var isDirectory = ObjCBool(false)
         return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    private static func packagePathExists(_ url: URL, fileManager: FileManager) -> Bool {
+        if fileManager.fileExists(atPath: url.path) {
+            return true
+        }
+        return (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
     }
 
     private static func relativeDiagnostic(_ url: URL, rootURL: URL) -> String {

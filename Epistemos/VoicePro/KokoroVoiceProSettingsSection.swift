@@ -62,9 +62,14 @@ struct KokoroVoiceProSettingsSection: View {
     @State private var status = KokoroVoiceGateStatus.status()
     @State private var installMessage: String?
     @State private var isInstalling = false
+    @State private var isRemoving = false
 
     private var theme: EpistemosTheme {
         ui.theme
+    }
+
+    private var isBusy: Bool {
+        isInstalling || isRemoving
     }
 
     private var mutedTint: Color {
@@ -139,7 +144,21 @@ struct KokoroVoiceProSettingsSection: View {
                 ) {
                     choosePackageForInstall()
                 }
-                .disabled(isInstalling)
+                .disabled(isBusy)
+
+                if status.state == .packageReady {
+                    ToolbarCapsuleButton(
+                        title: isRemoving ? "Removing" : "Remove Package",
+                        systemImage: "trash",
+                        role: .toolbarUtility,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Remove the installed local Kokoro package",
+                        accessibilityLabel: "Remove the installed local Kokoro package"
+                    ) {
+                        removeInstalledPackage()
+                    }
+                    .disabled(isBusy)
+                }
 
                 ToolbarCapsuleButton(
                     title: "Refresh",
@@ -151,9 +170,9 @@ struct KokoroVoiceProSettingsSection: View {
                 ) {
                     status = KokoroVoiceGateStatus.status()
                 }
-                .disabled(isInstalling)
+                .disabled(isBusy)
 
-                if isInstalling {
+                if isBusy {
                     ProgressView()
                         .controlSize(.small)
                 }
@@ -162,7 +181,7 @@ struct KokoroVoiceProSettingsSection: View {
     }
 
     private func choosePackageForInstall() {
-        guard !isInstalling else { return }
+        guard !isBusy else { return }
 
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -179,6 +198,8 @@ struct KokoroVoiceProSettingsSection: View {
     }
 
     private func installPackage(from url: URL) {
+        guard !isBusy else { return }
+
         isInstalling = true
         installMessage = "Checking local Kokoro package..."
         let gainedSecurityScope = url.startAccessingSecurityScopedResource()
@@ -199,6 +220,33 @@ struct KokoroVoiceProSettingsSection: View {
                 installMessage = VoiceCapturePresentationBounds.statusMessage(
                     "Installed checked Kokoro package. \(result.status.headline)",
                     fallback: "Kokoro package installed."
+                )
+            } catch {
+                installMessage = KokoroVoicePackageInstaller.statusMessage(for: error)
+                status = KokoroVoiceGateStatus.status()
+            }
+        }
+    }
+
+    private func removeInstalledPackage() {
+        guard !isBusy else { return }
+
+        isRemoving = true
+        installMessage = "Removing local Kokoro package..."
+
+        Task { @MainActor in
+            defer {
+                isRemoving = false
+            }
+
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    try KokoroVoicePackageInstaller.removeInstalledPackage()
+                }.value
+                status = result.status
+                installMessage = VoiceCapturePresentationBounds.statusMessage(
+                    "Removed local Kokoro package. \(result.status.headline)",
+                    fallback: "Kokoro package removed."
                 )
             } catch {
                 installMessage = KokoroVoicePackageInstaller.statusMessage(for: error)

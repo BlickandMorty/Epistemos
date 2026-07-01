@@ -55,11 +55,12 @@
   instead of local absolute model paths. A Pro-only
   Voice settings section now shows the `Apple AVSpeech` / `Pro neural voice` runtime affordance and keeps AVSpeech
   selected until both the checked package and real neural inference runtime are proven.
-- **Local Kokoro package install is real but runtime-disabled:** `KokoroVoicePackageInstaller` lets Pro users choose a
+- **Local Kokoro package install/removal is real but runtime-disabled:** `KokoroVoicePackageInstaller` lets Pro users choose a
   prepared `kokoro-82m-coreml` folder (or its parent), validates it with the existing gate, rejects symlink descendants,
   stages it under Application Support with backup/restore finalization, and revalidates the installed package before the
-  settings row reports `packageReady`. There is still no committed Kokoro model asset, neural inference runtime, Python,
-  subprocess, network downloader, or MAS-visible Kokoro row.
+  settings row reports `packageReady`; the same Pro settings row can remove the installed local package and return the
+  gate to missing-model status without enabling the neural runtime. There is still no committed Kokoro model asset,
+  neural inference runtime, Python, subprocess, network downloader, or MAS-visible Kokoro row.
 
 ## Delivered MAS-safe fixes
 1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
@@ -89,8 +90,8 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
   package-ready still keeps `isReady=false` until synthesis works.
 - `[DONE]` Add a Pro-only Voice settings status/runtime affordance that says "Pro neural voice" but falls back to
   AVSpeech by disabling the Pro lane until the checked package gate and real neural inference runtime are both proven.
-- `[DONE]` Add a Pro-only local checked-package installer so a prepared package can reach `packageReady` without adding
-  a network downloader or neural runtime.
+- `[DONE]` Add a Pro-only local checked-package installer/remover so a prepared package can reach `packageReady` and be
+  cleared again without adding a network downloader or neural runtime.
 - Store model assets outside MAS target resources; never commit model weights.
 - Integrate through the existing model download manager only after that manager is proven healthy.
 - The Pro runtime row must continue saying "Pro neural voice" and fall back to AVSpeech instantly when missing or when
@@ -113,11 +114,11 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `Epistemos/Views/Settings/VoiceSettingsDetailView.swift` — composes Apple voice controls with the Pro-only Kokoro
   status/runtime affordance outside the MAS-safe Apple picker.
 - `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only "Pro neural voice" row backed by the gate status,
-  with theme-derived badge tints and shared native capsule install/refresh chrome.
-- `Epistemos/VoicePro/KokoroVoicePackageInstaller.swift` — Pro-only local checked-package installer with symlink
-  descendant rejection, staged copy, backup/restore finalization, and bounded status diagnostics.
+  with theme-derived badge tints and shared native capsule install/remove/refresh chrome.
+- `Epistemos/VoicePro/KokoroVoicePackageInstaller.swift` — Pro-only local checked-package installer/remover with symlink
+  descendant rejection, staged copy, backup/restore finalization, gate-backed removal, and bounded status diagnostics.
 - `EpistemosTests/VoiceCodepackPlan3Tests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade,
-  Pro Kokoro status/install UI, and no Kokoro/MAS subprocess leakage.
+  Pro Kokoro status/install/remove UI, and no Kokoro/MAS subprocess leakage.
 
 ## Plan boundaries
 - Do not edit `Epistemos/Goose/*` or `Epistemos/Agent/*`.
@@ -149,5 +150,5 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 6. [DONE] Add Personal Voice authorization.
 7. [DONE] Add the Kokoro Pro gate as status-only.
 8. [DONE] Add the Pro-only Kokoro settings status/runtime affordance.
-9. [DONE] Add a local checked-package installer. Network model download and neural inference integration remain deferred
-   until model download health and real audio synthesis are proven.
+9. [DONE] Add a local checked-package installer/remover. Network model download and neural inference integration remain
+   deferred until model download health and real audio synthesis are proven.
