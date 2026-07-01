@@ -435,7 +435,7 @@ body {
   [data-slot='dropdown-menu-sub-trigger']
 ):focus {
   background-color: var(--epistemos-accent) !important;
-  color: white !important;
+  color: var(--color-text-inverse) !important;
 }
 
 .goose-epistemos :is(input, textarea, [contenteditable='true']) {

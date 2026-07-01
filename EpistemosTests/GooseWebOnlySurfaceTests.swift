@@ -228,6 +228,7 @@ struct GooseWebOnlySurfaceSourceTests {
 """))
         #expect(reskin.contains("[class~='bg-[var(--epistemos-accent)]']"))
         #expect(reskin.contains("color: var(--color-text-inverse) !important;"))
+        #expect(!reskin.contains("color: white !important;"))
         #expect(reskin.contains(".ep-display"))
         #expect(reskin.contains(".ep-pixel"))
         #expect(reskin.contains(":is(h1, h2, h3, h4, h5, h6):not(.ep-display):not(.ep-pixel)"))
