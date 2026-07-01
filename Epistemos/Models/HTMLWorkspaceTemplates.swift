@@ -683,6 +683,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return results[0];
     }
 
+    function sectionBoundResult(sectionID, allResults) {
+      const key = sectionContextKeys[sectionID];
+      if (!key) { return null; }
+      return allResults.find((result) => resultKey(result) === key) || null;
+    }
+
     function detailRow(label, value) {
       return HTMLWorkspace.el('div', {}, [
         HTMLWorkspace.el('span', { class: 'detail-label' }, label),
@@ -709,18 +715,19 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       );
     }
 
-    function renderResultDetail(results) {
+    function renderResultDetail(results, allResults) {
       const host = HTMLWorkspace.q('[data-result-detail]');
       if (!host) { return; }
       host.replaceChildren();
 
-      const selected = activeResult(results);
+      const boundResult = sectionBoundResult('selected-source', allResults);
+      const selected = boundResult || activeResult(results);
       if (!selected) {
         host.append(HTMLWorkspace.el('p', { class: 'empty' }, 'No visible result selected.'));
         return;
       }
 
-      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, 'Selected source'));
+      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, boundResult ? 'Dropped section source' : 'Selected source'));
       host.append(renderDetailTabs());
       if (selectedDetailView === 'metadata') {
         host.append(HTMLWorkspace.el('div', { class: 'detail-grid' }, [
@@ -1074,7 +1081,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       updatePinButton(selectedResult);
       renderPinnedContext(allResults);
       renderResultChart(results);
-      renderResultDetail(results);
+      renderResultDetail(results, allResults);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
       if (!host) {
