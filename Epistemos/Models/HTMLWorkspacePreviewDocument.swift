@@ -217,6 +217,37 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
           const safeScope = keyComponent(scope, 'state');
           return `epistemos.htmlWorkspace.contextState.v1.${safeWorkspaceID}.${safeScope}`;
         };
+        const boundedString = (value, limit) => {
+          const text = String(value || '').trim();
+          return text && text.length <= limit ? text : '';
+        };
+        const boundedKeyList = (values) => {
+          const keys = [];
+          (Array.isArray(values) ? values : []).forEach((value) => {
+            const key = boundedString(value, 1024);
+            if (key && !keys.includes(key)) { keys.push(key); }
+          });
+          return keys.slice(-16);
+        };
+        const boundedRecord = (value, valueLimit) => {
+          const output = {};
+          if (!value || typeof value !== 'object' || Array.isArray(value)) { return output; }
+          Object.entries(value).slice(0, 24).forEach(([rawID, rawValue]) => {
+            const id = boundedString(rawID, 128);
+            const text = boundedString(rawValue, valueLimit);
+            if (id && text) { output[id] = text; }
+          });
+          return output;
+        };
+        const normalizedContextState = (value) => {
+          if (!value || typeof value !== 'object' || Array.isArray(value)) { return null; }
+          return {
+            pinnedContextKeys: boundedKeyList(value.pinnedContextKeys),
+            sectionContextKeys: boundedRecord(value.sectionContextKeys, 1024),
+            sectionContextLabels: boundedRecord(value.sectionContextLabels, 160),
+            contextDropKey: boundedString(value.contextDropKey, 1024)
+          };
+        };
         const unavailable = Object.freeze({ unavailable: true });
         return Object.freeze({
           load(scope) {
@@ -226,7 +257,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
               const raw = store.getItem(storageKey(scope));
               if (!raw) { return null; }
               if (raw.length > maxStateLength) { return unavailable; }
-              return JSON.parse(raw);
+              return normalizedContextState(JSON.parse(raw));
             } catch (error) {
               return unavailable;
             }
@@ -235,7 +266,9 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             try {
               const store = window.localStorage;
               if (!store) { return false; }
-              const raw = JSON.stringify(value);
+              const normalized = normalizedContextState(value);
+              if (!normalized) { return false; }
+              const raw = JSON.stringify(normalized);
               if (!raw || raw.length > maxStateLength) { return false; }
               store.setItem(storageKey(scope), raw);
               return true;
