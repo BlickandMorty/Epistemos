@@ -57,6 +57,9 @@ final class AgentSurfaceWindowController {
         window.contentView?.superview?.wantsLayer = true
         window.contentView?.superview?.layer?.backgroundColor = NSColor.clear.cgColor
         window.contentView?.superview?.layer?.isOpaque = false
+        window.contentView?.superview?.layer?.cornerRadius = 18
+        window.contentView?.superview?.layer?.cornerCurve = .continuous
+        window.contentView?.superview?.layer?.masksToBounds = true
         WindowThemeStyler.refreshChrome(of: window)
 
         observer = NotificationCenter.default.addObserver(
