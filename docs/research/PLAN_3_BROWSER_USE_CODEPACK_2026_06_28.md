@@ -158,7 +158,7 @@ and skips symlink descendants before resolving/checking the symlink target. Laun
 separate from the native WKWebView Browser. Runtime signature verification uses strict Security.framework validation with
 nested-code and all-architecture checks, matching the packaging script's deep `codesign --verify` contract.
 `Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
-it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
+it reads the same gate/manifest, lists full-clone pins and packaging gaps including all three Playwright payload revision fields, states the two-browser boundary, and exposes
 no runtime launch control. It renders refresh/save/reload/reset/secret-clear actions through shared
 `ToolbarCapsuleButton` chrome instead of local plain/borderless buttons, and separates repeated diagnostic rows with
 spacing instead of hard `Divider()` rules. Settings labels, icons, and diagnostics use Epistemos theme foreground/muted

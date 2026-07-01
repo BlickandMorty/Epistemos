@@ -74,15 +74,6 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
                     signedBundleURL: signedBundleURL
                 )
             }
-
-            let bundledRoot = resourceRootURL.appendingPathComponent("BrowserUsePro", isDirectory: true)
-            if fileManager.fileExists(atPath: bundledRoot.appendingPathComponent("VENDOR_MANIFEST.json").path) {
-                return BrowserUseRuntimePaths(
-                    vendorRoot: bundledRoot,
-                    buildRoot: bundledRoot,
-                    stateRoot: defaultStateRoot(fileManager: fileManager, filePath: filePath)
-                )
-            }
         }
 
         var cursor = URL(fileURLWithPath: filePath).deletingLastPathComponent()
@@ -163,7 +154,7 @@ nonisolated enum BrowserUseRuntimeReadiness: Equatable, Sendable {
         case .unavailable(let reason):
             return reason
         case .ready(let plan):
-            return "browser-use Pro runtime ready at \(plan.loopbackURL.absoluteString)"
+            return "browser-use Pro runtime ready at \(BrowserUseLoopbackPolicy.redactedDescription(for: plan.loopbackURL))"
         }
     }
 }
@@ -211,6 +202,21 @@ private struct BrowserUseRuntimeArtifactRequirement {
     let url: URL
     let kind: BrowserUseRuntimeArtifactKind
     let rootURL: URL
+    let allowsInternalSymlink: Bool
+
+    init(
+        name: String,
+        url: URL,
+        kind: BrowserUseRuntimeArtifactKind,
+        rootURL: URL,
+        allowsInternalSymlink: Bool = false
+    ) {
+        self.name = name
+        self.url = url
+        self.kind = kind
+        self.rootURL = rootURL
+        self.allowsInternalSymlink = allowsInternalSymlink
+    }
 }
 
 nonisolated enum BrowserUseEnvironmentFileWriter {
@@ -242,6 +248,23 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
         } catch {
             try? fileManager.removeItem(at: temporaryURL)
             throw error
+        }
+    }
+
+    static func removeIfCurrent(
+        _ contents: String,
+        at url: URL,
+        fileManager: FileManager = .default
+    ) {
+        do {
+            try rejectEnvironmentSymlinkPath(at: url, label: "file", fileManager: fileManager)
+            let expectedByteCount = contents.utf8.count
+            guard readEnvironmentFileNoFollow(at: url, expectedByteCount: expectedByteCount) == contents else {
+                return
+            }
+            try fileManager.removeItem(at: url)
+        } catch {
+            return
         }
     }
 
@@ -291,12 +314,40 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
         }
     }
 
+    private static func readEnvironmentFileNoFollow(at url: URL, expectedByteCount: Int) -> String? {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            return nil
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            return nil
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_size == off_t(expectedByteCount) else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              data.count == expectedByteCount else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
     private static func pathDiagnostic(_ url: URL) -> String {
         let filename = url.lastPathComponent.isEmpty ? "[path]" : url.lastPathComponent
         guard filename.count > maxPathDiagnosticLength else {
             return filename
         }
-        return String(filename.prefix(maxPathDiagnosticLength)) + "..."
+        return String(filename.prefix(maxPathDiagnosticLength - 3)) + "..."
     }
 }
 
@@ -370,6 +421,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let maxThemeLength = 64
     private static let maxURLDiagnosticLength = 120
     private static let maxPathDiagnosticLength = 160
+    private static let maxInheritedEnvironmentValueLength = 4096
 
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
@@ -393,6 +445,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
     #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private var process: BrowserUseRuntimeProcessHandle?
+    private var activeEnvironmentFileCleanup: (() -> Void)?
     #endif
 
     init?(
@@ -470,28 +523,48 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             if shouldCancel() {
                 throw CancellationError()
             }
+            stopLocked()
             try BrowserUseEnvironmentFileWriter.write(
                 plan.environmentFileContents,
                 to: plan.environmentFileURL,
                 fileManager: fileManager
             )
+            let environmentFileContents = plan.environmentFileContents
+            let environmentFileURL = plan.environmentFileURL
+            let cleanupFileManager = fileManager
+            let cleanupEnvironmentFile = {
+                BrowserUseEnvironmentFileWriter.removeIfCurrent(
+                    environmentFileContents,
+                    at: environmentFileURL,
+                    fileManager: cleanupFileManager
+                )
+            }
             if shouldCancel() {
+                cleanupEnvironmentFile()
                 throw CancellationError()
             }
 
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            cleanupEnvironmentFile()
             throw BrowserUseRuntimeSupervisorError.appStoreBuild
             #else
-            stopLocked()
-            let launchedProcess = try launchProcess(plan)
+            let launchedProcess: BrowserUseRuntimeProcessHandle
+            do {
+                launchedProcess = try launchProcess(plan)
+            } catch {
+                cleanupEnvironmentFile()
+                throw error
+            }
             process = launchedProcess
             do {
                 try healthProbe(plan, shouldCancel)
             } catch {
                 launchedProcess.terminate()
                 process = nil
+                cleanupEnvironmentFile()
                 throw error
             }
+            activeEnvironmentFileCleanup = cleanupEnvironmentFile
             return plan
             #endif
         }
@@ -507,6 +580,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         process?.terminate()
         process = nil
+        activeEnvironmentFileCleanup?()
+        activeEnvironmentFileCleanup = nil
         #endif
     }
 
@@ -581,6 +656,11 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
         let task = session.dataTask(with: request) { _, response, error in
             defer { semaphore.signal() }
+            if let redirectProblem = redirectDelegate.loadProblem() {
+                result.store(problem: redirectProblem)
+                return
+            }
+
             if let error {
                 result.store(problem: BrowserUseDiagnostics.statusMessage(for: error, fallback: "request failed"))
                 return
@@ -588,11 +668,6 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 result.store(problem: "response was not HTTP")
-                return
-            }
-
-            if let redirectProblem = redirectDelegate.loadProblem() {
-                result.store(problem: redirectProblem)
                 return
             }
 
@@ -618,22 +693,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     }
 
     private static func redactedURLDescription(_ url: URL) -> String {
-        let sourceComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        guard let scheme = sourceComponents?.scheme ?? url.scheme,
-              let host = sourceComponents?.host ?? url.host,
-              !host.isEmpty else {
-            return "[redacted URL]"
-        }
-
-        var displayComponents = URLComponents()
-        displayComponents.scheme = scheme
-        displayComponents.host = host
-        displayComponents.port = sourceComponents?.port ?? url.port
-        let rendered = displayComponents.string ?? "\(scheme)://\(host)"
-        if rendered.count <= maxURLDiagnosticLength {
-            return rendered
-        }
-        return String(rendered.prefix(maxURLDiagnosticLength)) + "..."
+        BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxURLDiagnosticLength)
     }
 
     static func loopbackHTTPRedirectProblem(
@@ -680,6 +740,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 url: requirement.url,
                 kind: requirement.kind,
                 rootURL: requirement.rootURL,
+                allowsInternalSymlink: requirement.allowsInternalSymlink,
                 fileManager: fileManager
             ) {
                 return .unavailable("browser-use Pro runtime \(problem)")
@@ -729,11 +790,21 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
     private static func inheritedRuntimeEnvironment(from processEnvironment: [String: String]) -> [String: String] {
         Dictionary(uniqueKeysWithValues: processEnvironment.compactMap { key, value in
-            guard inheritedEnvironmentAllowlist.contains(key), !value.isEmpty else {
+            guard inheritedEnvironmentAllowlist.contains(key),
+                  let value = sanitizedInheritedEnvironmentValue(value) else {
                 return nil
             }
             return (key, value)
         })
+    }
+
+    private static func sanitizedInheritedEnvironmentValue(_ value: String) -> String? {
+        guard !value.isEmpty,
+              value.utf8.count <= maxInheritedEnvironmentValueLength,
+              value.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
+            return nil
+        }
+        return value
     }
 
     private static func normalizedThemeArgument(_ theme: String) -> String? {
@@ -755,12 +826,17 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         url: URL,
         kind: BrowserUseRuntimeArtifactKind,
         rootURL: URL,
+        allowsInternalSymlink: Bool,
         fileManager: FileManager
     ) -> String? {
         let diagnosticPath = runtimeArtifactPathDescription(url, relativeTo: rootURL)
-        if BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) != nil,
-           !resolvesInsideRuntimeRoot(url, relativeTo: rootURL) {
-            return "\(name) resolves outside browser-use runtime root at \(diagnosticPath)"
+        if let symlinkComponent = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
+            if !resolvesInsideRuntimeRoot(url, relativeTo: rootURL) {
+                return "\(name) resolves outside browser-use runtime root at \(diagnosticPath)"
+            }
+            if !allowsInternalSymlink || symlinkComponent.standardizedFileURL.path != url.standardizedFileURL.path {
+                return "\(name) path must not include symlink component at \(diagnosticPath)"
+            }
         }
 
         var isDirectory = ObjCBool(false)
@@ -770,18 +846,33 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         guard resolvesInsideRuntimeRoot(url, relativeTo: rootURL) else {
             return "\(name) resolves outside browser-use runtime root at \(diagnosticPath)"
         }
+        let inspectedURL = allowsInternalSymlink
+            ? url.standardizedFileURL.resolvingSymlinksInPath()
+            : url.standardizedFileURL
+        let artifactType = fileType(at: inspectedURL, fileManager: fileManager)
 
         switch kind {
         case .file:
-            return isDirectory.boolValue ? "\(name) is a directory at \(diagnosticPath)" : nil
+            if isDirectory.boolValue {
+                return "\(name) is a directory at \(diagnosticPath)"
+            }
+            return artifactType == .typeRegular ? nil : "\(name) is not a regular file at \(diagnosticPath)"
         case .executableFile:
             if isDirectory.boolValue {
                 return "\(name) is a directory at \(diagnosticPath)"
+            }
+            guard artifactType == .typeRegular else {
+                return "\(name) is not a regular file at \(diagnosticPath)"
             }
             return fileManager.isExecutableFile(atPath: url.path) ? nil : "\(name) is not executable at \(diagnosticPath)"
         case .directory:
             return isDirectory.boolValue ? nil : "\(name) is not a directory at \(diagnosticPath)"
         }
+    }
+
+    private static func fileType(at url: URL, fileManager: FileManager) -> FileAttributeType? {
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+        return attributes?[.type] as? FileAttributeType
     }
 
     private static func runtimeArtifactPathDescription(_ url: URL, relativeTo rootURL: URL) -> String {
@@ -800,7 +891,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         guard description.count > maxPathDiagnosticLength else {
             return description
         }
-        return String(description.prefix(maxPathDiagnosticLength)) + "..."
+        return String(description.prefix(maxPathDiagnosticLength - 3)) + "..."
     }
 
     private static func resolvesInsideRuntimeRoot(_ url: URL, relativeTo rootURL: URL) -> Bool {
@@ -815,7 +906,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 name: "Python 3.11 executable",
                 url: paths.pythonExecutableURL,
                 kind: .executableFile,
-                rootURL: paths.buildRoot
+                rootURL: paths.buildRoot,
+                allowsInternalSymlink: true
             ),
             .init(
                 name: "web-ui entrypoint",

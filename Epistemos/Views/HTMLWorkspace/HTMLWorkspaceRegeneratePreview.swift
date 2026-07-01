@@ -190,9 +190,10 @@ nonisolated enum HTMLWorkspaceRegeneratePreview {
     }
 
     private static func boundedInstruction(_ instruction: String) -> String {
-        let trimmed = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(instruction.prefix(240 + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 240 else { return trimmed }
-        return String(trimmed.prefix(240)) + "..."
+        return String(trimmed.prefix(240 - 3)) + "..."
     }
 
     private static func dataJSON(for request: String) -> String {

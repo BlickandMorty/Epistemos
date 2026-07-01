@@ -4,6 +4,9 @@ use super::registry::ToolError;
 
 const SNAPSHOT_CHAR_CAP: usize = 8_000;
 const MAX_BROWSER_REF_CHARS: usize = 64;
+pub(crate) const MAX_BROWSER_TYPE_TEXT_CHARS: usize = 16_384;
+pub(crate) const MAX_BROWSER_PRESS_KEY_CHARS: usize = 128;
+pub(crate) const MAX_BROWSER_EVAL_CHARS: usize = 65_536;
 
 pub(crate) fn optional_bool_field(input: &Value, field: &str) -> Result<Option<bool>, ToolError> {
     let Some(value) = input.get(field) else {
@@ -50,6 +53,19 @@ pub(crate) fn normalize_ref(raw_ref: &str) -> Result<String, ToolError> {
     }
 }
 
+pub(crate) fn ensure_max_chars(
+    value: &str,
+    field: &str,
+    max_chars: usize,
+) -> Result<(), ToolError> {
+    if value.chars().count() > max_chars {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' exceeds {max_chars} characters"
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn truncate_snapshot(snapshot: &str) -> (String, bool) {
     let total_chars = snapshot.chars().count();
     if total_chars <= SNAPSHOT_CHAR_CAP {
@@ -88,5 +104,12 @@ mod tests {
         assert!(long_truncated);
         assert!(truncated.contains("Truncated"));
         assert!(!truncated.contains(&"x".repeat(SNAPSHOT_CHAR_CAP + 1)));
+    }
+
+    #[test]
+    fn browser_input_rejects_oversized_command_text() {
+        assert!(ensure_max_chars("abc", "text", 3).is_ok());
+        assert!(format!("{}", ensure_max_chars("abcd", "text", 3).unwrap_err())
+            .contains("'text' exceeds 3 characters"));
     }
 }

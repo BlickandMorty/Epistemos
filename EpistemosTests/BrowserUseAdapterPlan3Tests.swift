@@ -63,6 +63,7 @@ struct BrowserUseAdapterPlan3Tests {
             "allowed_macos_compat_symlink",
             "validate_private_runtime_directory",
             "AGENT_BROWSER_SOCKET_DIR must not include symlink component",
+            "MAX_PATH_DIAGNOSTIC_CHARS - 3",
             "AGENT_BROWSER_SOCKET_DIR must be owner-only",
             "AGENT_BROWSER_SCREENSHOT_DIR",
             "AGENT_BROWSER_SCREENSHOT_DIR must be owner-only",
@@ -187,6 +188,7 @@ struct BrowserUseAdapterPlan3Tests {
             "os.open(path, flags)",
             "os.fstat(fd)",
             "O_NOFOLLOW",
+            "MAX_PATH_DIAGNOSTIC_CHARS - 3",
         ] {
             #expect(envSource.contains(required), "Missing browser-use env policy string: \(required)")
         }
@@ -372,6 +374,7 @@ struct BrowserUseAdapterPlan3Tests {
             "require_packaged_payload_root_layout",
             "BrowserUsePro.bundle payload root path must be Contents/Resources/BrowserUsePro",
             "SIGNATURE_MANIFEST.json",
+            "MAX_PATH_DIAGNOSTIC_CHARS.saturating_sub(3)",
             "is_second_precision_utc_timestamp",
             "created_utc mismatch",
             "codesign_contract mismatch",

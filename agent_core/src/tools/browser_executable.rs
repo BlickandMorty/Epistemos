@@ -1,10 +1,13 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsString;
 use std::fs;
+use std::io::Read;
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
+use serde::Deserialize;
 use tokio::process::Command;
 
 use super::registry::ToolError;
@@ -14,6 +17,84 @@ const BROWSER_USE_VENDOR_ROOT_ENV: &str = "EPISTEMOS_BROWSER_USE_VENDOR_ROOT";
 const BROWSER_USE_CDP_URL_ENV: &str = "EPISTEMOS_BROWSER_USE_CDP_URL";
 const BROWSER_USE_ADAPTER_FILENAME: &str = "epistemos_agent_browser.py";
 const MAX_PATH_DIAGNOSTIC_CHARS: usize = 160;
+const MAX_SIGNATURE_MANIFEST_BYTES: u64 = 1024 * 1024;
+const MAX_SIGNATURE_PAYLOAD_FILE_COUNT: u64 = 250_000;
+const EXPECTED_SIGNATURE_SCHEMA_VERSION: u64 = 1;
+const EXPECTED_SIGNATURE_PACKAGE_NAME: &str = "BrowserUsePro";
+const EXPECTED_SIGNATURE_RUNTIME_LANE: &str = "pro-developer-id-only";
+const EXPECTED_SIGNATURE_PAYLOAD_ROOT: &str = "Contents/Resources/BrowserUsePro";
+const EXPECTED_PYTHON_VERSION_PREFIX: &str = "Python 3.11.";
+const EXPECTED_BROWSER_USE_PACKAGE_VERSION: &str = "0.13.2";
+const EXPECTED_CODESIGN_CONTRACT: &str = "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime.";
+const ALLOWED_SIGNATURE_TYPES: &[&str] = &["ad-hoc", "apple-development", "developer-id"];
+
+struct RequiredSignatureComponent {
+    name: &'static str,
+    repo: &'static str,
+    commit: &'static str,
+    package_version: Option<&'static str>,
+}
+
+const REQUIRED_SIGNATURE_COMPONENTS: &[RequiredSignatureComponent] = &[
+    RequiredSignatureComponent {
+        name: "browser-use",
+        repo: "https://github.com/browser-use/browser-use.git",
+        commit: "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+        package_version: Some("0.13.2"),
+    },
+    RequiredSignatureComponent {
+        name: "web-ui",
+        repo: "https://github.com/browser-use/web-ui.git",
+        commit: "61962296c38a0d064e0ba02c827192b7a81d1819",
+        package_version: None,
+    },
+    RequiredSignatureComponent {
+        name: "cdp-use",
+        repo: "https://github.com/browser-use/cdp-use.git",
+        commit: "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
+        package_version: Some("1.4.5"),
+    },
+];
+
+struct RequiredPlaywrightRevision {
+    name: &'static str,
+    revision: &'static str,
+}
+
+const REQUIRED_PLAYWRIGHT_REVISIONS: &[RequiredPlaywrightRevision] = &[
+    RequiredPlaywrightRevision {
+        name: "chromium",
+        revision: "1223",
+    },
+    RequiredPlaywrightRevision {
+        name: "chromium_headless_shell",
+        revision: "1223",
+    },
+    RequiredPlaywrightRevision {
+        name: "ffmpeg",
+        revision: "1011",
+    },
+];
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SignatureManifest {
+    schema_version: u64,
+    package_name: String,
+    runtime_lane: String,
+    signature_type: String,
+    signing_identity: String,
+    payload_root: String,
+    file_count: u64,
+    python: String,
+    browser_use_version: String,
+    component_repos: BTreeMap<String, String>,
+    component_commits: BTreeMap<String, String>,
+    component_versions: BTreeMap<String, Option<String>>,
+    playwright_revisions: BTreeMap<String, String>,
+    created_utc: String,
+    codesign_contract: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum BrowserExecutable {
@@ -70,7 +151,10 @@ fn resolve_agent_browser(
 
     for candidate in packaged_agent_browser_candidates() {
         if is_executable(&candidate) {
-            return require_explicit_executable_browser(candidate, "BrowserUsePro.bundle");
+            let BrowserExecutable::Direct(candidate) =
+                require_explicit_executable_browser(candidate, "BrowserUsePro.bundle")?;
+            require_packaged_browser_use_bundle_evidence(&candidate)?;
+            return Ok(BrowserExecutable::Direct(candidate));
         }
     }
 
@@ -133,6 +217,330 @@ fn require_executable_browser(
     Err(ToolError::ExecutionFailed(format!(
         "{source} resolved to '{}', but it is not an executable file",
         path_diagnostic(&path)
+    )))
+}
+
+fn require_packaged_browser_use_bundle_evidence(adapter_path: &Path) -> Result<(), ToolError> {
+    let payload_root = adapter_path.parent().ok_or_else(|| {
+        ToolError::ExecutionFailed(
+            "BrowserUsePro.bundle adapter resolved without a payload root".into(),
+        )
+    })?;
+    require_packaged_payload_root_layout(payload_root)?;
+    for required in [
+        payload_root.join("VENDOR_MANIFEST.json"),
+        payload_root.join("BUILD_MANIFEST.json"),
+    ] {
+        require_regular_packaged_file(&required)?;
+    }
+
+    let signature_manifest = payload_root.join("SIGNATURE_MANIFEST.json");
+    require_regular_packaged_file(&signature_manifest)?;
+    let manifest = read_bounded_signature_manifest(&signature_manifest)?;
+    require_signature_manifest_evidence(&manifest)
+}
+
+fn require_packaged_payload_root_layout(payload_root: &Path) -> Result<(), ToolError> {
+    let Some(resources_dir) = payload_root.parent() else {
+        return Err(packaged_payload_root_problem());
+    };
+    let Some(contents_dir) = resources_dir.parent() else {
+        return Err(packaged_payload_root_problem());
+    };
+    let Some(bundle_dir) = contents_dir.parent() else {
+        return Err(packaged_payload_root_problem());
+    };
+
+    if path_file_name_eq(payload_root, "BrowserUsePro")
+        && path_file_name_eq(resources_dir, "Resources")
+        && path_file_name_eq(contents_dir, "Contents")
+        && path_file_name_eq(bundle_dir, "BrowserUsePro.bundle")
+    {
+        return Ok(());
+    }
+
+    Err(packaged_payload_root_problem())
+}
+
+fn packaged_payload_root_problem() -> ToolError {
+    ToolError::ExecutionFailed(
+        "BrowserUsePro.bundle payload root path must be Contents/Resources/BrowserUsePro".into(),
+    )
+}
+
+fn path_file_name_eq(path: &Path, expected: &str) -> bool {
+    path.file_name().and_then(|name| name.to_str()) == Some(expected)
+}
+
+fn require_regular_packaged_file(path: &Path) -> Result<(), ToolError> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle is missing required package evidence '{}': {error}",
+            path_diagnostic(path)
+        ))
+    })?;
+    if !metadata.file_type().is_file() {
+        return Err(ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle package evidence '{}' must be a regular file",
+            path_diagnostic(path)
+        )));
+    }
+    Ok(())
+}
+
+fn read_bounded_signature_manifest(path: &Path) -> Result<String, ToolError> {
+    let mut file = open_signature_manifest_file(path)?;
+    let metadata = file.metadata().map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle signature manifest could not be inspected: {error}"
+        ))
+    })?;
+    if !metadata.file_type().is_file() {
+        return Err(ToolError::ExecutionFailed(
+            "BrowserUsePro.bundle signature manifest must be a regular file".into(),
+        ));
+    }
+    if metadata.len() > MAX_SIGNATURE_MANIFEST_BYTES {
+        return Err(ToolError::ExecutionFailed(
+            "BrowserUsePro.bundle signature manifest is too large".into(),
+        ));
+    }
+    let mut manifest = String::new();
+    file.by_ref()
+        .take(MAX_SIGNATURE_MANIFEST_BYTES + 1)
+        .read_to_string(&mut manifest)
+        .map_err(|error| {
+            ToolError::ExecutionFailed(format!(
+                "BrowserUsePro.bundle signature manifest could not be read: {error}"
+            ))
+        })?;
+    if manifest.len() as u64 > MAX_SIGNATURE_MANIFEST_BYTES {
+        return Err(ToolError::ExecutionFailed(
+            "BrowserUsePro.bundle signature manifest is too large".into(),
+        ));
+    }
+    Ok(manifest)
+}
+
+fn open_signature_manifest_file(path: &Path) -> Result<fs::File, ToolError> {
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    options.open(path).map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle signature manifest could not be read: {error}"
+        ))
+    })
+}
+
+fn require_signature_manifest_evidence(manifest: &str) -> Result<(), ToolError> {
+    let manifest: SignatureManifest = serde_json::from_str(manifest).map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle signature manifest could not be decoded: {error}"
+        ))
+    })?;
+
+    if manifest.schema_version != EXPECTED_SIGNATURE_SCHEMA_VERSION {
+        return Err(signature_manifest_problem("schema_version mismatch"));
+    }
+    if manifest.package_name != EXPECTED_SIGNATURE_PACKAGE_NAME {
+        return Err(signature_manifest_problem("package_name mismatch"));
+    }
+    if manifest.runtime_lane != EXPECTED_SIGNATURE_RUNTIME_LANE {
+        return Err(signature_manifest_problem("runtime_lane mismatch"));
+    }
+    if !ALLOWED_SIGNATURE_TYPES.contains(&manifest.signature_type.as_str()) {
+        return Err(signature_manifest_problem("signature_type is unsupported"));
+    }
+    if manifest.signing_identity.trim().is_empty() {
+        return Err(signature_manifest_problem("signing_identity is empty"));
+    }
+    if manifest.payload_root != EXPECTED_SIGNATURE_PAYLOAD_ROOT {
+        return Err(signature_manifest_problem("payload_root mismatch"));
+    }
+    if manifest.file_count == 0 || manifest.file_count > MAX_SIGNATURE_PAYLOAD_FILE_COUNT {
+        return Err(signature_manifest_problem("file_count is out of range"));
+    }
+    if !manifest.python.starts_with(EXPECTED_PYTHON_VERSION_PREFIX) {
+        return Err(signature_manifest_problem("python mismatch"));
+    }
+    if manifest.browser_use_version != EXPECTED_BROWSER_USE_PACKAGE_VERSION {
+        return Err(signature_manifest_problem("browser_use_version mismatch"));
+    }
+    if !is_second_precision_utc_timestamp(&manifest.created_utc) {
+        return Err(signature_manifest_problem("created_utc mismatch"));
+    }
+    if manifest.codesign_contract != EXPECTED_CODESIGN_CONTRACT {
+        return Err(signature_manifest_problem("codesign_contract mismatch"));
+    }
+
+    require_known_component_keys(&manifest.component_repos, "component_repos")?;
+    require_known_component_keys(&manifest.component_commits, "component_commits")?;
+    require_known_component_keys(&manifest.component_versions, "component_versions")?;
+
+    for component in REQUIRED_SIGNATURE_COMPONENTS {
+        require_component_value(
+            &manifest.component_repos,
+            "component_repos",
+            component.name,
+            "repo",
+            component.repo,
+        )?;
+        require_component_value(
+            &manifest.component_commits,
+            "component_commits",
+            component.name,
+            "commit",
+            component.commit,
+        )?;
+        require_component_package_version(&manifest.component_versions, component)?;
+    }
+
+    require_known_playwright_revision_keys(&manifest.playwright_revisions)?;
+    for revision in REQUIRED_PLAYWRIGHT_REVISIONS {
+        require_playwright_revision(&manifest.playwright_revisions, revision)?;
+    }
+
+    Ok(())
+}
+
+fn signature_manifest_problem(message: &'static str) -> ToolError {
+    ToolError::ExecutionFailed(format!(
+        "BrowserUsePro.bundle signature manifest {message}"
+    ))
+}
+
+fn is_second_precision_utc_timestamp(value: &str) -> bool {
+    let bytes = value.trim().as_bytes();
+    if bytes.len() != 20 {
+        return false;
+    }
+    for (index, byte) in bytes.iter().enumerate() {
+        match index {
+            4 | 7 => {
+                if *byte != b'-' {
+                    return false;
+                }
+            }
+            10 => {
+                if *byte != b'T' {
+                    return false;
+                }
+            }
+            13 | 16 => {
+                if *byte != b':' {
+                    return false;
+                }
+            }
+            19 => {
+                if *byte != b'Z' {
+                    return false;
+                }
+            }
+            _ => {
+                if !byte.is_ascii_digit() {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+fn require_known_component_keys<T>(
+    evidence: &BTreeMap<String, T>,
+    label: &'static str,
+) -> Result<(), ToolError> {
+    for name in evidence.keys() {
+        if !REQUIRED_SIGNATURE_COMPONENTS
+            .iter()
+            .any(|component| component.name == name.as_str())
+        {
+            return Err(ToolError::ExecutionFailed(format!(
+                "BrowserUsePro.bundle signature manifest {label} has unexpected component {name}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn require_component_value(
+    evidence: &BTreeMap<String, String>,
+    evidence_name: &'static str,
+    component_name: &'static str,
+    label: &'static str,
+    expected: &'static str,
+) -> Result<(), ToolError> {
+    let actual = evidence
+        .get(component_name)
+        .ok_or_else(|| {
+            ToolError::ExecutionFailed(format!(
+                "BrowserUsePro.bundle signature manifest is missing {component_name} {label} evidence in {evidence_name}"
+            ))
+        })?;
+    if actual.as_str() == expected {
+        return Ok(());
+    }
+    Err(ToolError::ExecutionFailed(format!(
+        "BrowserUsePro.bundle signature manifest {component_name} {label} evidence mismatch"
+    )))
+}
+
+fn require_component_package_version(
+    evidence: &BTreeMap<String, Option<String>>,
+    component: &RequiredSignatureComponent,
+) -> Result<(), ToolError> {
+    let actual = evidence.get(component.name).ok_or_else(|| {
+        ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle signature manifest is missing {} package version evidence",
+            component.name
+        ))
+    })?;
+    match (component.package_version, actual.as_deref()) {
+        (Some(expected), Some(actual)) if actual == expected => Ok(()),
+        (None, None) => Ok(()),
+        _ => Err(ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle signature manifest {} package version evidence mismatch",
+            component.name
+        ))),
+    }
+}
+
+fn require_known_playwright_revision_keys(
+    evidence: &BTreeMap<String, String>,
+) -> Result<(), ToolError> {
+    for name in evidence.keys() {
+        if !REQUIRED_PLAYWRIGHT_REVISIONS
+            .iter()
+            .any(|revision| revision.name == name.as_str())
+        {
+            return Err(ToolError::ExecutionFailed(format!(
+                "BrowserUsePro.bundle signature manifest has unexpected Playwright revision {name}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn require_playwright_revision(
+    evidence: &BTreeMap<String, String>,
+    revision: &RequiredPlaywrightRevision,
+) -> Result<(), ToolError> {
+    let actual = evidence.get(revision.name).ok_or_else(|| {
+        ToolError::ExecutionFailed(format!(
+            "BrowserUsePro.bundle signature manifest is missing {} Playwright revision evidence",
+            revision.name
+        ))
+    })?;
+    if actual.as_str() == revision.revision {
+        return Ok(());
+    }
+    Err(ToolError::ExecutionFailed(format!(
+        "BrowserUsePro.bundle signature manifest {} Playwright revision mismatch",
+        revision.name
     )))
 }
 
@@ -205,7 +613,11 @@ fn path_diagnostic(path: &Path) -> String {
     if label.chars().count() <= MAX_PATH_DIAGNOSTIC_CHARS {
         return label.to_string();
     }
-    label.chars().take(MAX_PATH_DIAGNOSTIC_CHARS).collect()
+    label
+        .chars()
+        .take(MAX_PATH_DIAGNOSTIC_CHARS.saturating_sub(3))
+        .chain("...".chars())
+        .collect()
 }
 
 fn allowed_macos_compat_symlink(path: &Path) -> bool {

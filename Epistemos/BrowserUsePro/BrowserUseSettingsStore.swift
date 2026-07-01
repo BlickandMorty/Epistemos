@@ -246,6 +246,7 @@ nonisolated struct BrowserUseSettings: Codable, Equatable, Sendable {
 }
 
 nonisolated enum BrowserUseSettingsValidation {
+    private static let maxEnvironmentValueBytes = 4096
     private static let allowedProxyServerSchemes: Set<String> = [
         "http",
         "https",
@@ -255,6 +256,15 @@ nonisolated enum BrowserUseSettingsValidation {
     ]
 
     static func problem(in settings: BrowserUseSettings) -> String? {
+        if let environmentProblem = nonSecretEnvironmentValueProblem(settings.nonSecretEnvironmentPairs) {
+            return environmentProblem
+        }
+        if let providerEndpointProblem = providerEndpointProblem(settings.providers) {
+            return providerEndpointProblem
+        }
+        if let cloudEndpointProblem = cloudEndpointProblem(settings.runtime) {
+            return cloudEndpointProblem
+        }
         let browser = settings.browser
         guard (1...65535).contains(browser.debuggingPort) else {
             return "browser debugging port must be between 1 and 65535"
@@ -274,6 +284,82 @@ nonisolated enum BrowserUseSettingsValidation {
         }
         guard (1...128).contains(browser.resolutionDepth) else {
             return "browser resolution depth must be between 1 and 128"
+        }
+        return nil
+    }
+
+    private static func nonSecretEnvironmentValueProblem(_ pairs: [BrowserUseEnvironmentPair]) -> String? {
+        for pair in pairs {
+            if pair.value.utf8.count > maxEnvironmentValueBytes {
+                return "\(pair.name) exceeds \(maxEnvironmentValueBytes) bytes"
+            }
+            if pair.value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+                return "\(pair.name) must not include control characters"
+            }
+            if pair.value != pair.value.trimmingCharacters(in: .whitespacesAndNewlines) {
+                return "\(pair.name) must not include leading or trailing whitespace"
+            }
+        }
+        return nil
+    }
+
+    private static func providerEndpointProblem(_ providers: BrowserUseProviderSettings) -> String? {
+        for (name, value) in [
+            ("OPENAI_ENDPOINT", providers.openAIEndpoint),
+            ("ANTHROPIC_ENDPOINT", providers.anthropicEndpoint),
+            ("GOOGLE_ENDPOINT", providers.googleEndpoint),
+            ("AZURE_OPENAI_ENDPOINT", providers.azureOpenAIEndpoint),
+            ("DEEPSEEK_ENDPOINT", providers.deepSeekEndpoint),
+            ("MISTRAL_ENDPOINT", providers.mistralEndpoint),
+            ("OLLAMA_ENDPOINT", providers.ollamaEndpoint),
+            ("ALIBABA_ENDPOINT", providers.alibabaEndpoint),
+            ("MODELSCOPE_ENDPOINT", providers.modelScopeEndpoint),
+            ("MOONSHOT_ENDPOINT", providers.moonshotEndpoint),
+            ("UNBOUND_ENDPOINT", providers.unboundEndpoint),
+            ("SILICONFLOW_ENDPOINT", providers.siliconFlowEndpoint),
+            ("IBM_ENDPOINT", providers.ibmEndpoint),
+            ("GROK_ENDPOINT", providers.grokEndpoint),
+        ] {
+            if let problem = httpEndpointProblem(name: name, rawValue: value) {
+                return problem
+            }
+        }
+        return nil
+    }
+
+    private static func cloudEndpointProblem(_ runtime: BrowserUseRuntimeSettings) -> String? {
+        for (name, value) in [
+            ("BROWSER_USE_CLOUD_API_URL", runtime.cloudAPIURL),
+            ("BROWSER_USE_CLOUD_UI_URL", runtime.cloudUIURL),
+            ("BROWSER_USE_CLOUD_BASE_URL", runtime.cloudBaseURL),
+        ] {
+            if let problem = httpEndpointProblem(name: name, rawValue: value) {
+                return problem
+            }
+        }
+        return nil
+    }
+
+    private static func httpEndpointProblem(name: String, rawValue: String) -> String? {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            return nil
+        }
+        guard let components = URLComponents(string: value),
+              let scheme = components.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              let host = components.host,
+              !host.isEmpty else {
+            return "\(name) must be an http or https URL"
+        }
+        if components.user != nil || components.password != nil {
+            return "\(name) must not include username or password credentials"
+        }
+        if components.query != nil {
+            return "\(name) must not include a URL query"
+        }
+        if components.fragment != nil {
+            return "\(name) must not include a URL fragment"
         }
         return nil
     }
@@ -584,7 +670,7 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         guard filename.count > maxPathDiagnosticLength else {
             return filename
         }
-        return String(filename.prefix(maxPathDiagnosticLength)) + "..."
+        return String(filename.prefix(maxPathDiagnosticLength - 3)) + "..."
     }
 }
 

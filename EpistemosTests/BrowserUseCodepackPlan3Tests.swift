@@ -273,6 +273,8 @@ struct BrowserUseCodepackPlan3Tests {
             "private var foregroundTint: Color",
             "private var mutedTint: Color",
             "private var rowGap: some View",
+            "headless_shell_revision=",
+            "ffmpeg_revision=",
             "Reset browser-use Pro settings to defaults",
             "Native Browser tab",
             "browser-use does not drive it",

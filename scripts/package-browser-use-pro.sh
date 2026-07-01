@@ -103,7 +103,7 @@ remove_python_bytecode() {
   find "$payload_root" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 }
 
-if [[ "$skip_build" -eq 0 && ! -x "$venv_python" ]]; then
+if [[ "$skip_build" -eq 0 ]]; then
   "$vendor_root/build-pro-payload.sh" --repo-root "$repo_root" --build-root "$build_root"
 fi
 
@@ -165,11 +165,51 @@ ln -s "python" "$payload_root/.venv/bin/python3"
 ln -s "python" "$payload_root/.venv/bin/python3.11"
 
 python3 - <<'PY' "$payload_root/.venv/pyvenv.cfg"
+import os
+import stat
 from pathlib import Path
 import sys
 
+MAX_PYVENV_CFG_BYTES = 64 * 1024
+
+
+def read_text_no_follow(path, label, max_bytes):
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SystemExit(f"{label} is not a regular file")
+        if metadata.st_size < 0 or metadata.st_size > max_bytes:
+            raise SystemExit(f"{label} is too large")
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            data = handle.read(max_bytes + 1)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    if len(data) > max_bytes:
+        raise SystemExit(f"{label} is too large")
+    return data.decode("utf-8")
+
+
+def write_text_no_follow(path, text, label):
+    flags = os.O_WRONLY | os.O_TRUNC | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SystemExit(f"{label} is not a regular file")
+        with os.fdopen(fd, "wb") as handle:
+            fd = -1
+            handle.write(text.encode("utf-8"))
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
 path = Path(sys.argv[1])
-lines = path.read_text(encoding="utf-8").splitlines()
+lines = read_text_no_follow(path, "pyvenv.cfg", MAX_PYVENV_CFG_BYTES).splitlines()
 rewritten = []
 did_home = False
 for line in lines:
@@ -180,7 +220,7 @@ for line in lines:
         rewritten.append(line)
 if not did_home:
     rewritten.insert(0, "home = ../../.python/bin")
-path.write_text("\n".join(rewritten) + "\n", encoding="utf-8")
+write_text_no_follow(path, "\n".join(rewritten) + "\n", "pyvenv.cfg")
 PY
 
 remove_python_bytecode
@@ -237,6 +277,8 @@ file_count="$(find "$payload_root" -type f ! -path "$payload_root/SIGNATURE_MANI
 python_version="$("$payload_root/.venv/bin/python" --version 2>&1)"
 
 SIGNATURE_MANIFEST="$payload_root/SIGNATURE_MANIFEST.json" \
+VENDOR_MANIFEST="$payload_root/VENDOR_MANIFEST.json" \
+BUILD_MANIFEST="$payload_root/BUILD_MANIFEST.json" \
 SIGNATURE_TYPE="$signature_type" \
 SIGNING_IDENTITY="$sign_identity" \
 FILE_COUNT="$file_count" \
@@ -244,8 +286,151 @@ PYTHON_VERSION="$python_version" \
 python3 - <<'PY'
 import json
 import os
+import stat
 from pathlib import Path
 from datetime import datetime, timezone
+
+MAX_PACKAGE_MANIFEST_BYTES = 1024 * 1024
+
+expected_components = {
+    "browser-use": {
+        "repo": "https://github.com/browser-use/browser-use.git",
+        "commit": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+        "package_version": "0.13.2",
+    },
+    "web-ui": {
+        "repo": "https://github.com/browser-use/web-ui.git",
+        "commit": "61962296c38a0d064e0ba02c827192b7a81d1819",
+        "package_version": None,
+    },
+    "cdp-use": {
+        "repo": "https://github.com/browser-use/cdp-use.git",
+        "commit": "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
+        "package_version": "1.4.5",
+    },
+}
+
+
+def read_text_no_follow(path, label, max_bytes=MAX_PACKAGE_MANIFEST_BYTES):
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SystemExit(f"{label} is not a regular file")
+        if metadata.st_size <= 0 or metadata.st_size > max_bytes:
+            raise SystemExit(f"{label} is empty or too large")
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            data = handle.read(max_bytes + 1)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    if len(data) > max_bytes:
+        raise SystemExit(f"{label} is too large")
+    return data.decode("utf-8")
+
+
+def write_text_no_follow(path, text, label):
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_TRUNC
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    fd = os.open(path, flags, 0o644)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SystemExit(f"{label} is not a regular file")
+        with os.fdopen(fd, "wb") as handle:
+            fd = -1
+            handle.write(text.encode("utf-8"))
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
+def required_string(component, key):
+    value = component.get(key)
+    if not isinstance(value, str):
+        raise SystemExit("VENDOR_MANIFEST.json has non-string component pin evidence")
+    value = value.strip()
+    if not value:
+        raise SystemExit("VENDOR_MANIFEST.json has malformed component pin evidence")
+    return value
+
+
+def optional_version(component):
+    value = component.get("package_version")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise SystemExit("VENDOR_MANIFEST.json has malformed component version evidence")
+    return value.strip()
+
+
+def component_evidence(vendor_manifest):
+    repos = {}
+    commits = {}
+    versions = {}
+    for component in vendor_manifest.get("components", []):
+        if not isinstance(component, dict):
+            raise SystemExit("VENDOR_MANIFEST.json has malformed component entry")
+        name = required_string(component, "name")
+        if name in commits:
+            raise SystemExit(f"VENDOR_MANIFEST.json has duplicate component pin evidence for {name}")
+        repos[name] = required_string(component, "repo")
+        commits[name] = required_string(component, "commit")
+        versions[name] = optional_version(component)
+    if not commits:
+        raise SystemExit("VENDOR_MANIFEST.json has no component pins to record")
+    return repos, commits, versions
+
+
+def component_pin_problems(repos, commits, versions):
+    problems = []
+    for name, expected in sorted(expected_components.items()):
+        if name not in commits:
+            problems.append(f"missing {name}")
+            continue
+        if repos.get(name) != expected["repo"]:
+            problems.append(f"{name} repo mismatch")
+        if commits.get(name) != expected["commit"]:
+            problems.append(f"{name} commit mismatch")
+        if versions.get(name) != expected["package_version"]:
+            problems.append(f"{name} package version mismatch")
+    for name in sorted(commits):
+        if name not in expected_components:
+            problems.append(f"unexpected {name}")
+    return problems
+
+
+def required_playwright_revision(build_manifest, key, expected):
+    value = build_manifest.get(key)
+    if not isinstance(value, str):
+        raise SystemExit(f"BUILD_MANIFEST.json has malformed {key}")
+    value = value.strip()
+    if value != expected:
+        raise SystemExit(f"BUILD_MANIFEST.json {key} mismatch")
+    return value
+
+
+vendor_manifest = json.loads(read_text_no_follow(Path(os.environ["VENDOR_MANIFEST"]), "VENDOR_MANIFEST.json"))
+build_manifest = json.loads(read_text_no_follow(Path(os.environ["BUILD_MANIFEST"]), "BUILD_MANIFEST.json"))
+component_repos, component_commits, component_versions = component_evidence(vendor_manifest)
+pin_problems = component_pin_problems(component_repos, component_commits, component_versions)
+if pin_problems:
+    raise SystemExit("VENDOR_MANIFEST.json component pins mismatch: " + "; ".join(pin_problems))
+playwright_revisions = {
+    "chromium": required_playwright_revision(build_manifest, "chromium_revision", "1223"),
+    "chromium_headless_shell": required_playwright_revision(build_manifest, "headless_shell_revision", "1223"),
+    "ffmpeg": required_playwright_revision(build_manifest, "ffmpeg_revision", "1011"),
+}
+python_version = os.environ["PYTHON_VERSION"].strip()
+if not python_version.startswith("Python 3.11."):
+    raise SystemExit(f"BrowserUsePro requires Python 3.11, got {python_version}")
 
 payload = {
     "schema_version": 1,
@@ -255,15 +440,20 @@ payload = {
     "signing_identity": os.environ["SIGNING_IDENTITY"],
     "payload_root": "Contents/Resources/BrowserUsePro",
     "file_count": int(os.environ["FILE_COUNT"]),
-    "python": os.environ["PYTHON_VERSION"],
+    "python": python_version,
     "browser_use_version": "0.13.2",
+    "component_repos": component_repos,
+    "component_commits": component_commits,
+    "component_versions": component_versions,
+    "playwright_revisions": playwright_revisions,
     "created_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
     "codesign_contract": "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime.",
 }
 
-Path(os.environ["SIGNATURE_MANIFEST"]).write_text(
+write_text_no_follow(
+    Path(os.environ["SIGNATURE_MANIFEST"]),
     json.dumps(payload, indent=2, sort_keys=True) + "\n",
-    encoding="utf-8",
+    "SIGNATURE_MANIFEST.json",
 )
 PY
 

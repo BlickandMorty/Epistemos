@@ -1,5 +1,24 @@
 import SwiftUI
 
+private struct BrowserUseSettingsInputChrome: ViewModifier {
+    let theme: EpistemosTheme
+    let maxWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .font(.caption)
+            .foregroundStyle(theme.resolved.foreground.color)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .frame(maxWidth: maxWidth)
+            .background {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(theme.resolved.card.color.opacity(theme.isDark ? 0.34 : 0.58))
+            }
+    }
+}
+
 struct BrowserUseSettingsView: View {
     @Environment(UIState.self) private var ui
     private let settingsStore = BrowserUseSettingsStore()
@@ -9,11 +28,14 @@ struct BrowserUseSettingsView: View {
     @State private var manifest: BrowserUseVendorManifest?
     @State private var manifestReadError: String?
     @State private var settings = BrowserUseSettings.default
+    @State private var persistedSettings = BrowserUseSettings.default
     @State private var settingsReadError: String?
     @State private var settingsSaveMessage: String?
     @State private var secretPresence: Set<BrowserUseSecretBinding> = []
     @State private var secretDrafts: [BrowserUseSecretBinding: String] = [:]
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+    private var foregroundTint: Color { theme.resolved.foreground.color }
+    private var mutedTint: Color { theme.resolved.mutedForeground.color }
 
     var body: some View {
         ScrollView {
@@ -41,14 +63,14 @@ struct BrowserUseSettingsView: View {
         SettingsSurfaceCard {
             HStack(alignment: .top, spacing: 14) {
                 IntegrationBrandMarkView(brand: .browserUse, size: 32)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("browser-use Pro")
                         .font(.headline)
                     Text("Developer ID automation lane for the vendored browser-use Chromium robot. The App Store Browser tab stays a separate, human-driven WKWebView.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
@@ -58,13 +80,15 @@ struct BrowserUseSettingsView: View {
                     }
                 }
                 Spacer()
-                Button {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "arrow.clockwise",
+                    role: .toolbarUtility,
+                    helpText: "Refresh browser-use Pro status",
+                    accessibilityLabel: "Refresh browser-use Pro status"
+                ) {
                     refresh()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
                 }
-                .buttonStyle(.plain)
-                .help("Refresh browser-use Pro status")
             }
         }
     }
@@ -87,7 +111,7 @@ struct BrowserUseSettingsView: View {
                         .font(.subheadline.weight(.semibold))
                     Text(status.detail)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -110,14 +134,18 @@ struct BrowserUseSettingsView: View {
                     ForEach(manifest.components, id: \.name) { component in
                         HStack(alignment: .top, spacing: 12) {
                             IntegrationBrandMarkView(brand: .browserUse, size: 22)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(mutedTint)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(component.name)
                                     .font(.subheadline.weight(.semibold))
                                 Text("\(component.repo) @ \(component.commit.prefix(12))")
                                     .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(mutedTint)
                                     .lineLimit(1)
+                                    .textSelection(.enabled)
+                                Text(sourceComponentPackageVersion(component))
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(mutedTint)
                                     .textSelection(.enabled)
                             }
                             Spacer()
@@ -129,7 +157,7 @@ struct BrowserUseSettingsView: View {
                             ChannelStatusPill(title: "\(component.fileCount) files", tint: statusTint(.info))
                         }
                         if component.name != manifest.components.last?.name {
-                            Divider()
+                            rowGap
                         }
                     }
                 } else {
@@ -157,11 +185,41 @@ struct BrowserUseSettingsView: View {
                 }
 
                 if let manifest {
-                    packagingRow("requirements.lock", artifact: manifest.packagingArtifacts.requirementsLock)
-                    Divider()
-                    packagingRow("wheels", artifact: manifest.packagingArtifacts.wheelhouse)
-                    Divider()
-                    packagingRow("Playwright Chromium", artifact: manifest.packagingArtifacts.playwrightChromium)
+                    packagingPathListRow(
+                        "agent-browser adapter",
+                        artifact: manifest.packagingArtifacts.agentBrowserAdapter,
+                        readyStatus: BrowserUseVendorManifest.PackagingArtifacts.agentBrowserAdapterReadyStatus
+                    )
+                    rowGap
+                    packagingRow(
+                        "build-pro-payload.sh",
+                        artifact: manifest.packagingArtifacts.buildScript,
+                        readyStatus: BrowserUseVendorManifest.PackagingArtifacts.buildScriptReadyStatus
+                    )
+                    rowGap
+                    packagingRow(
+                        "BUILD_MANIFEST.json",
+                        artifact: manifest.packagingArtifacts.buildManifest,
+                        readyStatus: BrowserUseVendorManifest.PackagingArtifacts.buildManifestReadyStatus
+                    )
+                    rowGap
+                    packagingRow(
+                        "requirements.lock",
+                        artifact: manifest.packagingArtifacts.requirementsLock,
+                        readyStatus: BrowserUseVendorManifest.PackagingArtifacts.requirementsLockReadyStatus
+                    )
+                    rowGap
+                    packagingRow(
+                        "wheels",
+                        artifact: manifest.packagingArtifacts.wheelhouse,
+                        readyStatus: BrowserUseVendorManifest.PackagingArtifacts.wheelhouseReadyStatus
+                    )
+                    rowGap
+                    packagingRow(
+                        "Playwright Chromium",
+                        artifact: manifest.packagingArtifacts.playwrightChromium,
+                        readyStatus: BrowserUseVendorManifest.PackagingArtifacts.playwrightChromiumReadyStatus
+                    )
                 } else {
                     statusMessage(
                         title: "Packaging state unknown",
@@ -189,25 +247,25 @@ struct BrowserUseSettingsView: View {
                     value: settings.providers.defaultLLM,
                     detail: "Preserves the web-ui DEFAULT_LLM selector."
                 )
-                Divider()
+                rowGap
                 settingsFactRow(
                     "Privacy defaults",
                     value: "Telemetry off, cloud sync off, version checks off",
                     detail: "Epistemos writes the browser-use environment from explicit settings at Pro launch."
                 )
-                Divider()
+                rowGap
                 settingsFactRow(
                     "Browser profile",
                     value: "\(settings.browser.resolution), CDP \(settings.browser.debuggingHost):\(settings.browser.debuggingPort)",
                     detail: "Keeps browser path, user data, own-browser, CDP, and browser-use executable settings."
                 )
-                Divider()
+                rowGap
                 settingsFactRow(
                     "Secret bindings",
                     value: "\(secretPresence.count)/\(BrowserUseSecretBinding.allCases.count) Keychain environment keys stored",
                     detail: "Provider keys, cloud keys, proxy credentials, AWS credentials, and VNC password are not stored in manifests."
                 )
-                Divider()
+                rowGap
                 settingsFactRow(
                     "Non-secret settings",
                     value: "\(BrowserUseEnvironmentRenderer.dictionary(settings.nonSecretEnvironmentPairs).count) environment keys",
@@ -215,35 +273,49 @@ struct BrowserUseSettingsView: View {
                 )
 
                 if let settingsReadError {
-                    Divider()
+                    rowGap
                     statusMessage(title: "Settings load failed", detail: settingsReadError, tint: statusTint(.warning))
                 }
 
                 if let settingsSaveMessage {
-                    Divider()
+                    rowGap
                     statusMessage(title: "Settings", detail: settingsSaveMessage, tint: statusTint(.info))
                 }
 
                 HStack(spacing: 10) {
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: "Save Settings",
+                        systemImage: "checkmark.circle",
+                        role: .primaryAction,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Save browser-use Pro settings",
+                        accessibilityLabel: "Save browser-use Pro settings"
+                    ) {
                         saveSettings()
-                    } label: {
-                        Label("Save Settings", systemImage: "checkmark.circle")
                     }
 
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: "Reload",
+                        systemImage: "arrow.clockwise",
+                        role: .toolbarUtility,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Reload browser-use Pro settings",
+                        accessibilityLabel: "Reload browser-use Pro settings"
+                    ) {
                         loadSettings()
-                    } label: {
-                        Label("Reload", systemImage: "arrow.clockwise")
                     }
 
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: "Reset",
+                        systemImage: "arrow.counterclockwise",
+                        role: .secondaryGhost,
+                        chromePolicy: .bareUntilPressed,
+                        helpText: "Reset browser-use Pro settings to defaults",
+                        accessibilityLabel: "Reset browser-use Pro settings to defaults"
+                    ) {
                         settings = .default
                         settingsSaveMessage = "Defaults staged. Save to write them."
-                    } label: {
-                        Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
                     }
-                    .buttonStyle(.borderless)
                 }
             }
         }
@@ -342,7 +414,7 @@ struct BrowserUseSettingsView: View {
                                 .font(.subheadline.weight(.semibold))
                             Text(binding.environmentName)
                                 .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(mutedTint)
                         }
                         Spacer()
                         ChannelStatusPill(
@@ -353,19 +425,20 @@ struct BrowserUseSettingsView: View {
                             secretPresence.contains(binding) ? "Replace value" : "Add value",
                             text: secretDraftBinding(for: binding)
                         )
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 240)
-                        Button {
+                        .modifier(BrowserUseSettingsInputChrome(theme: theme, maxWidth: 240))
+                        ToolbarCapsuleButton(
+                            title: nil,
+                            systemImage: "trash",
+                            role: .secondaryGhost,
+                            helpText: "Clear \(binding.environmentName)",
+                            accessibilityLabel: "Clear \(binding.environmentName)"
+                        ) {
                             clearSecret(binding)
-                        } label: {
-                            Image(systemName: "trash")
                         }
-                        .buttonStyle(.borderless)
                         .disabled(!secretPresence.contains(binding) && secretDrafts[binding, default: ""].isEmpty)
-                        .help("Clear \(binding.environmentName)")
                     }
                     if binding != BrowserUseSecretBinding.allCases.last {
-                        Divider()
+                        rowGap
                     }
                 }
             }
@@ -398,9 +471,39 @@ struct BrowserUseSettingsView: View {
     }
 
     @ViewBuilder
+    private func packagingPathListRow(
+        _ title: String,
+        artifact: BrowserUseVendorManifest.PackagingPathListArtifact,
+        readyStatus: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(artifact.expectedPaths.joined(separator: "\n"))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(mutedTint)
+                    .textSelection(.enabled)
+                if let notes = artifact.notes {
+                    Text(notes)
+                        .font(.caption)
+                        .foregroundStyle(mutedTint)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer()
+            ChannelStatusPill(
+                title: artifact.status,
+                tint: packagingStatusTint(artifact.status, readyStatus: readyStatus)
+            )
+        }
+    }
+
+    @ViewBuilder
     private func packagingRow(
         _ title: String,
-        artifact: BrowserUseVendorManifest.PackagingArtifact
+        artifact: BrowserUseVendorManifest.PackagingArtifact,
+        readyStatus: String
     ) -> some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
@@ -408,19 +511,25 @@ struct BrowserUseSettingsView: View {
                     .font(.subheadline.weight(.semibold))
                 Text(artifact.expectedPath)
                     .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                     .textSelection(.enabled)
+                if let metadata = packagingArtifactMetadata(artifact) {
+                    Text(metadata)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(mutedTint)
+                        .textSelection(.enabled)
+                }
                 if let notes = artifact.notes {
                     Text(notes)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
             ChannelStatusPill(
                 title: artifact.status,
-                tint: artifact.status == "staged" ? statusTint(.ready) : statusTint(.warning)
+                tint: packagingStatusTint(artifact.status, readyStatus: readyStatus)
             )
         }
     }
@@ -429,13 +538,13 @@ struct BrowserUseSettingsView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: symbol)
                 .frame(width: 18, height: 18)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(mutedTint)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -445,20 +554,24 @@ struct BrowserUseSettingsView: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "slider.horizontal.3")
                 .frame(width: 18, height: 18)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(mutedTint)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                 Text(value)
                     .font(.caption.monospaced())
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(foregroundTint)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var rowGap: some View {
+        Color.clear.frame(height: 4)
     }
 
     private func sectionHeader(_ title: String, detail: String) -> some View {
@@ -467,7 +580,7 @@ struct BrowserUseSettingsView: View {
                 .font(.headline)
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(mutedTint)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -475,8 +588,7 @@ struct BrowserUseSettingsView: View {
     private func settingTextField(_ title: String, text: Binding<String>) -> some View {
         LabeledContent(title) {
             TextField(title, text: text)
-                .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 520)
+                .modifier(BrowserUseSettingsInputChrome(theme: theme, maxWidth: 520))
         }
     }
 
@@ -489,7 +601,7 @@ struct BrowserUseSettingsView: View {
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
             }
         }
     }
@@ -517,13 +629,44 @@ struct BrowserUseSettingsView: View {
         tone.color(in: theme)
     }
 
+    private func packagingStatusTint(_ status: String, readyStatus: String) -> Color {
+        status == readyStatus ? statusTint(.ready) : statusTint(.warning)
+    }
+
+    private func packagingArtifactMetadata(_ artifact: BrowserUseVendorManifest.PackagingArtifact) -> String? {
+        var values: [String] = []
+        if let fileCount = artifact.fileCount {
+            values.append("file_count=\(fileCount)")
+        }
+        if let chromiumRevision = artifact.chromiumRevision {
+            values.append("chromium_revision=\(chromiumRevision)")
+        }
+        if let headlessShellRevision = artifact.headlessShellRevision {
+            values.append("headless_shell_revision=\(headlessShellRevision)")
+        }
+        if let ffmpegRevision = artifact.ffmpegRevision {
+            values.append("ffmpeg_revision=\(ffmpegRevision)")
+        }
+        return values.isEmpty ? nil : values.joined(separator: "\n")
+    }
+
+    private func sourceComponentPackageVersion(_ component: BrowserUseVendorManifest.Component) -> String {
+        if let packageVersion = component.packageVersion {
+            return "package_version=\(packageVersion)"
+        }
+        return "package_version=null"
+    }
+
     private func loadSettings() {
         do {
-            settings = try settingsStore.load()
+            let loadedSettings = try settingsStore.load()
+            settings = loadedSettings
+            persistedSettings = loadedSettings
             settingsReadError = nil
             settingsSaveMessage = nil
         } catch {
             settings = .default
+            persistedSettings = .default
             settingsReadError = BrowserUseDiagnostics.statusMessage(for: error, fallback: "settings load failed")
         }
 
@@ -533,21 +676,27 @@ struct BrowserUseSettingsView: View {
 
     private func saveSettings() {
         if let problem = BrowserUseSettingsValidation.problem(in: settings) {
-            settingsSaveMessage = "Settings invalid: \(problem)"
+            settingsSaveMessage = BrowserUseDiagnostics.statusMessage(
+                "Settings invalid: \(problem)",
+                fallback: "settings invalid"
+            )
             return
         }
 
         do {
             try settingsStore.save(settings)
+            persistedSettings = settings
             var failedSecretNames: [String] = []
+            var failedSecretDrafts: [BrowserUseSecretBinding: String] = [:]
             for (binding, value) in secretDrafts where !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 if !secretStore.save(value, for: binding) {
                     failedSecretNames.append(binding.environmentName)
+                    failedSecretDrafts[binding] = value
                 }
             }
             secretPresence = Set(BrowserUseSecretBinding.allCases.filter { secretStore.load($0) != nil })
-            secretDrafts = [:]
-            let environmentMessage = renderEnvironmentFileMessage()
+            secretDrafts = failedSecretDrafts
+            let environmentMessage = renderEnvironmentFileMessage(using: settings)
             if failedSecretNames.isEmpty {
                 settingsSaveMessage = joinedStatusMessages(
                     "Saved browser-use Pro settings.",
@@ -570,18 +719,18 @@ struct BrowserUseSettingsView: View {
         secretPresence.remove(binding)
         settingsSaveMessage = joinedStatusMessages(
             "Cleared \(binding.environmentName).",
-            renderEnvironmentFileMessage()
+            renderEnvironmentFileMessage(using: persistedSettings)
         )
     }
 
-    private func renderEnvironmentFileMessage() -> String {
+    private func renderEnvironmentFileMessage(using environmentSettings: BrowserUseSettings) -> String {
         guard let paths = BrowserUseRuntimePaths.defaultPaths() else {
             return "Runtime .env not rendered because the browser-use Pro payload is not installed."
         }
 
         do {
             try BrowserUseEnvironmentFileWriter.write(
-                BrowserUseEnvironmentRenderer.render(settings: settings, secretStore: secretStore),
+                BrowserUseEnvironmentRenderer.render(settings: environmentSettings, secretStore: secretStore),
                 to: paths.environmentFileURL
             )
             return "Runtime .env refreshed."
@@ -591,10 +740,11 @@ struct BrowserUseSettingsView: View {
     }
 
     private func joinedStatusMessages(_ values: String...) -> String {
-        values
+        let joined = values
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+        return BrowserUseDiagnostics.statusMessage(joined, fallback: "browser-use settings status")
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<BrowserUseSettings, Value>) -> Binding<Value> {

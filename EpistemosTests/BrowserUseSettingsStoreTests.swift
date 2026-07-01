@@ -113,6 +113,24 @@ struct BrowserUseSettingsStoreTests {
         }
     }
 
+    @Test("settings validation rejects control and oversized non-secret environment values")
+    func settingsValidationRejectsUnsafeNonSecretEnvironmentValues() {
+        var control = BrowserUseSettings.default
+        control.providers.defaultLLM = "openai\nINJECTED=1"
+        #expect(BrowserUseSettingsValidation.problem(in: control)?.contains("DEFAULT_LLM") == true)
+        #expect(BrowserUseSettingsValidation.problem(in: control)?.contains("control characters") == true)
+
+        var oversized = BrowserUseSettings.default
+        oversized.runtime.noProxy = String(repeating: "x", count: 4097)
+        #expect(BrowserUseSettingsValidation.problem(in: oversized)?.contains("BROWSER_USE_NO_PROXY") == true)
+        #expect(BrowserUseSettingsValidation.problem(in: oversized)?.contains("4096 bytes") == true)
+
+        var padded = BrowserUseSettings.default
+        padded.browser.browserPath = " /Applications/Google Chrome.app"
+        #expect(BrowserUseSettingsValidation.problem(in: padded)?.contains("BROWSER_PATH") == true)
+        #expect(BrowserUseSettingsValidation.problem(in: padded)?.contains("leading or trailing whitespace") == true)
+    }
+
     @Test("secret store saves values by environment-key binding")
     func secretStoreSavesValuesByEnvironmentKeyBinding() {
         let harness = SecretHarness()
@@ -351,6 +369,7 @@ struct BrowserUseSettingsStoreTests {
         }
         #expect(source.contains("maxPathDiagnosticLength"))
         #expect(source.contains("settingsPathDescription"))
+        #expect(source.contains("maxPathDiagnosticLength - 3"))
         #expect(!source.contains("Data(contentsOf: settingsURL)"))
     }
 

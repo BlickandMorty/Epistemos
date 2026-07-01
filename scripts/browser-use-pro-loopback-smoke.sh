@@ -76,7 +76,7 @@ fi
 
 if [[ -n "$signed_bundle" ]]; then
   signed_bundle="$(cd -- "$signed_bundle" && pwd)"
-  /usr/bin/codesign --verify --strict --verbose=2 "$signed_bundle" >/dev/null
+  /usr/bin/codesign --verify --deep --strict --verbose=2 "$signed_bundle" >/dev/null
   payload_root="$signed_bundle/Contents/Resources/BrowserUsePro"
 elif [[ -n "$payload_root" ]]; then
   payload_root="$(cd -- "$payload_root" && pwd)"
@@ -103,9 +103,12 @@ fi
 [[ -f "$build_manifest" ]] || { echo "Missing browser-use BUILD_MANIFEST.json at $build_manifest" >&2; exit 66; }
 [[ -d "$wheelhouse_dir" ]] || { echo "Missing browser-use wheelhouse at $wheelhouse_dir" >&2; exit 66; }
 [[ -d "$playwright_dir" ]] || { echo "Missing browser-use Playwright payload at $playwright_dir" >&2; exit 66; }
-if [[ -n "$signed_bundle" && ! -f "$payload_root/SIGNATURE_MANIFEST.json" ]]; then
-  echo "Missing signed package evidence at $payload_root/SIGNATURE_MANIFEST.json" >&2
-  exit 66
+if [[ -n "$signed_bundle" ]]; then
+  signature_manifest="$payload_root/SIGNATURE_MANIFEST.json"
+  if [[ ! -f "$signature_manifest" || -L "$signature_manifest" ]]; then
+    echo "Missing regular signed package evidence at $signature_manifest" >&2
+    exit 66
+  fi
 fi
 
 if [[ -z "$port" ]]; then
@@ -140,6 +143,7 @@ body_file="$artifact_dir/root.html"
 result_file="$artifact_dir/result.json"
 loopback_url="http://127.0.0.1:$port/"
 webui_pid=""
+rm -f "$log_file" "$body_file" "$result_file"
 
 write_result() {
   local passed="$1"
@@ -163,10 +167,54 @@ write_result() {
   "$python_bin" - <<'PY'
 import json
 import os
+import stat
 from pathlib import Path
 
+MAX_BODY_SAMPLE_BYTES = 256 * 1024
+
+
+def read_body_sample_no_follow(path):
+    if not path.exists():
+        return b"", False
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            return b"", False
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            data = handle.read(MAX_BODY_SAMPLE_BYTES + 1)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    return data[:MAX_BODY_SAMPLE_BYTES], len(data) > MAX_BODY_SAMPLE_BYTES
+
+
+def write_text_no_follow(path, text):
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_TRUNC
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    fd = os.open(path, flags, 0o600)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SystemExit("result evidence path is not a regular file")
+        with os.fdopen(fd, "wb") as handle:
+            fd = -1
+            handle.write(text.encode("utf-8"))
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
 body_path = Path(os.environ["BODY_FILE"])
-body = body_path.read_text(encoding="utf-8", errors="replace") if body_path.exists() else ""
+body_bytes, body_truncated = read_body_sample_no_follow(body_path)
+body = body_bytes.decode("utf-8", errors="replace")
 lower_body = body.lower()
 markers = {
     "html": "<html" in lower_body,
@@ -186,6 +234,7 @@ payload = {
     "artifact_dir": os.environ["ARTIFACT_DIR"],
     "log_file": os.environ["LOG_FILE"],
     "body_file": os.environ["BODY_FILE"],
+    "body_truncated": body_truncated,
     "python": os.environ["PYTHON_BIN"],
     "webui": os.environ["WEBUI_PY"],
     "playwright_browsers_path": os.environ["PLAYWRIGHT_DIR"],
@@ -193,7 +242,7 @@ payload = {
     "signed_bundle": os.environ["SIGNED_BUNDLE"] or None,
     "secrets": "not recorded",
 }
-Path(os.environ["RESULT_FILE"]).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+write_text_no_follow(Path(os.environ["RESULT_FILE"]), json.dumps(payload, indent=2, sort_keys=True) + "\n")
 PY
 }
 

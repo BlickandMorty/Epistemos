@@ -20,7 +20,8 @@ use super::browser_command::{
 };
 use super::browser_executable::cdp_url_from_env;
 use super::browser_input::{
-    normalize_ref, optional_bool_field, optional_string_field, truncate_snapshot,
+    ensure_max_chars, normalize_ref, optional_bool_field, optional_string_field, truncate_snapshot,
+    MAX_BROWSER_EVAL_CHARS, MAX_BROWSER_PRESS_KEY_CHARS, MAX_BROWSER_TYPE_TEXT_CHARS,
 };
 use super::browser_output::{
     bound_console_value, normalize_console_items, normalize_image_results, normalize_snapshot_refs,
@@ -298,6 +299,7 @@ async fn type_impl(manager: &BrowserManager, input: &Value) -> Result<Value, Too
         .get("text")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'text'".into()))?;
+    ensure_max_chars(text, "text", MAX_BROWSER_TYPE_TEXT_CHARS)?;
     let normalized = normalize_ref(raw_ref)?;
     manager
         .run_existing("fill", &[normalized.clone(), text.to_string()])
@@ -351,6 +353,7 @@ async fn press_impl(manager: &BrowserManager, input: &Value) -> Result<Value, To
     if key.trim().is_empty() {
         return Err(ToolError::InvalidArguments("key cannot be empty".into()));
     }
+    ensure_max_chars(key, "key", MAX_BROWSER_PRESS_KEY_CHARS)?;
     manager.run_existing("press", &[key.to_string()]).await?;
     Ok(json!({
         "success": true,
@@ -470,11 +473,13 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
         .unwrap_or_else(|| screenshot_path.clone());
 
     if !actual_path.exists() {
+        cleanup_screenshot_file(&screenshot_path)?;
         return Err(ToolError::ExecutionFailed(
             "browser screenshot was not created in private screenshot directory".into(),
         ));
     }
     if !path_resolves_inside(&actual_path, screenshot_directory) {
+        cleanup_screenshot_file(&screenshot_path)?;
         return Err(ToolError::ExecutionFailed(
             "browser screenshot resolved outside private screenshot directory".into(),
         ));
@@ -506,6 +511,9 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
 async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, ToolError> {
     let clear = optional_bool_field(input, "clear")?.unwrap_or(false);
     let expression = optional_string_field(input, "expression")?;
+    if let Some(expression) = expression {
+        ensure_max_chars(expression, "expression", MAX_BROWSER_EVAL_CHARS)?;
+    }
     let mut console_args = Vec::new();
     let mut error_args = Vec::new();
     if clear {
@@ -1326,6 +1334,27 @@ esac
                 .await
                 .unwrap_err();
         assert!(format!("{console_expression_err}").contains("expression"));
+
+        let oversized_type_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Type)
+            .execute(&json!({
+                "ref": "@e1",
+                "text": "x".repeat(MAX_BROWSER_TYPE_TEXT_CHARS + 1)
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{oversized_type_err}").contains("'text' exceeds"));
+
+        let oversized_key_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Press)
+            .execute(&json!({ "key": "x".repeat(MAX_BROWSER_PRESS_KEY_CHARS + 1) }))
+            .await
+            .unwrap_err();
+        assert!(format!("{oversized_key_err}").contains("'key' exceeds"));
+
+        let oversized_eval_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Console)
+            .execute(&json!({ "expression": "x".repeat(MAX_BROWSER_EVAL_CHARS + 1) }))
+            .await
+            .unwrap_err();
+        assert!(format!("{oversized_eval_err}").contains("'expression' exceeds"));
 
         let vision_ack_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Vision)
             .execute(&json!({

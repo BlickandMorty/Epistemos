@@ -59,6 +59,7 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(plan.workingDirectoryURL == paths.stateRoot)
         #expect(plan.environmentFileURL == paths.environmentFileURL)
         #expect(plan.loopbackURL.absoluteString == "http://127.0.0.1:7878/")
+        #expect(readiness.message == "browser-use Pro runtime ready at http://127.0.0.1:7878")
         #expect(plan.arguments == [
             paths.webUIEntrypointURL.path,
             "--ip", "127.0.0.1",
@@ -103,6 +104,35 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(plan.environmentFileContents.contains("OPENAI_API_KEY=sk-rotating-1\n"))
         #expect(!plan.environmentFileContents.contains("sk-rotating-2"))
         #expect(secrets.openAILoadCount == 1)
+    }
+
+    @Test("ready launch plan bounds inherited allowlist environment values")
+    func readyLaunchPlanBoundsInheritedAllowlistEnvironmentValues() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [
+                BrowserUseProGateStatus.flagName: "1",
+                "HOME": "/Users/me",
+                "PATH": String(repeating: "x", count: 4097),
+                "LANG": "en_US\nINJECTED=1",
+            ],
+            host: "127.0.0.1",
+            port: 7878
+        )
+
+        guard case .ready(let plan) = readiness else {
+            Issue.record("Expected ready runtime plan, got \(readiness.message)")
+            return
+        }
+
+        #expect(plan.environment["HOME"] == "/Users/me")
+        #expect(plan.environment["PATH"] == nil)
+        #expect(plan.environment["LANG"] == nil)
     }
 
     @Test("readiness rejects non-loopback hosts before launch planning")
@@ -228,6 +258,43 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(readiness.message.contains("debugging port"))
     }
 
+    @Test("readiness rejects secret-bearing provider and cloud endpoint URLs before launch planning")
+    func readinessRejectsSecretBearingEndpointURLsBeforeLaunchPlanning() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+
+        var providerSettings = BrowserUseSettings.default
+        providerSettings.providers.openAIEndpoint = "https://user:pass@example.com/v1"
+        let providerReadiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: providerSettings,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: "127.0.0.1",
+            port: 7878
+        )
+        #expect(!providerReadiness.isReady)
+        #expect(providerReadiness.message.contains("settings invalid"))
+        #expect(providerReadiness.message.contains("OPENAI_ENDPOINT"))
+        #expect(providerReadiness.message.contains("username or password credentials"))
+
+        var cloudSettings = BrowserUseSettings.default
+        cloudSettings.runtime.cloudAPIURL = "https://api.example.com/v1?token=secret"
+        let cloudReadiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: cloudSettings,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: "127.0.0.1",
+            port: 7878
+        )
+        #expect(!cloudReadiness.isReady)
+        #expect(cloudReadiness.message.contains("settings invalid"))
+        #expect(cloudReadiness.message.contains("BROWSER_USE_CLOUD_API_URL"))
+        #expect(cloudReadiness.message.contains("URL query"))
+        #expect(!cloudReadiness.message.contains("secret"))
+    }
+
     @Test("readiness rejects non-executable Python payload before launch planning")
     func readinessRejectsNonExecutablePythonPayloadBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
@@ -236,6 +303,7 @@ struct BrowserUseRuntimeSupervisorTests {
             [.posixPermissions: 0o644],
             ofItemAtPath: paths.pythonExecutableURL.path
         )
+        try refreshSignedRuntimeFixtureSignature(paths)
 
         let readiness = BrowserUseRuntimeSupervisor.readiness(
             paths: paths,
@@ -248,8 +316,8 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(readiness.message.contains("Python 3.11 executable is not executable"))
     }
 
-    @Test("readiness rejects runtime artifact symlinks outside packaged roots before launch planning")
-    func readinessRejectsRuntimeArtifactSymlinksOutsidePackagedRootsBeforeLaunchPlanning() throws {
+    @Test("readiness rejects signed payload symlinks outside package before launch planning")
+    func readinessRejectsSignedPayloadSymlinksOutsidePackageBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
         let outsidePython = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-outside-python-\(UUID().uuidString)", isDirectory: false)
@@ -271,7 +339,8 @@ struct BrowserUseRuntimeSupervisorTests {
         )
 
         #expect(!readiness.isReady)
-        #expect(readiness.message.contains("Python 3.11 executable resolves outside browser-use runtime root"))
+        #expect(readiness.message.contains("signed package invalid"))
+        #expect(readiness.message.contains("signature payload symlink resolves outside package"))
         #expect(readiness.message.contains(".venv/bin/python"))
         #expect(!readiness.message.contains(outsidePython.path))
         #expect(!readiness.message.contains(paths.buildRoot.path))
@@ -282,6 +351,7 @@ struct BrowserUseRuntimeSupervisorTests {
         let paths = try runtimeFixture(packaged: true)
         defer { removeFixture(paths) }
         try FileManager.default.removeItem(at: paths.webUIEntrypointURL)
+        try refreshSignedRuntimeFixtureSignature(paths)
 
         let readiness = BrowserUseRuntimeSupervisor.readiness(
             paths: paths,
@@ -324,8 +394,8 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(paths.pythonExecutableURL.path.hasSuffix("BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/.venv/bin/python"))
     }
 
-    @Test("default paths still keep raw bundled Pro resource fallback for older dev bundles")
-    func defaultPathsKeepRawBundledProResourceFallback() throws {
+    @Test("default paths reject raw bundled Pro resources outside signed bundle")
+    func defaultPathsRejectRawBundledProResourcesOutsideSignedBundle() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-raw-bundled-\(UUID().uuidString)", isDirectory: true)
         let resourceRoot = root.appendingPathComponent("Resources", isDirectory: true)
@@ -337,14 +407,12 @@ struct BrowserUseRuntimeSupervisorTests {
             to: bundledRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
         )
 
-        let paths = try #require(BrowserUseRuntimePaths.defaultPaths(
+        let paths = BrowserUseRuntimePaths.defaultPaths(
             filePath: root.appendingPathComponent("NoSourceLayout.swift").path,
             resourceRootURL: resourceRoot
-        ))
+        )
 
-        #expect(paths.vendorRoot == bundledRoot)
-        #expect(paths.buildRoot == bundledRoot)
-        #expect(paths.signedBundleURL == nil)
+        #expect(paths == nil)
     }
 
     @Test("environment file writer stores launch-time env outside source with owner-only permissions")
@@ -609,6 +677,8 @@ struct BrowserUseRuntimeSupervisorTests {
             "PYTHONDONTWRITEBYTECODE",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
+            "sanitizedInheritedEnvironmentValue",
+            "maxInheritedEnvironmentValueLength",
             "maxThemeLength",
             "normalizedThemeArgument",
             "invalid Web UI theme",
@@ -633,13 +703,25 @@ struct BrowserUseRuntimeSupervisorTests {
             "BrowserUseDiagnostics.statusMessage(for: error, fallback: \"request failed\")",
             "redactedURLDescription",
             "maxURLDiagnosticLength",
+            "BrowserUseLoopbackPolicy.redactedDescription(for: plan.loopbackURL)",
+            "BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxURLDiagnosticLength)",
             "maxPathDiagnosticLength",
+            "maxPathDiagnosticLength - 3",
             "runtimeArtifactPathDescription",
+            "fileType(at:",
+            ".typeRegular",
+            "is not a regular file",
             "try healthProbe(plan, shouldCancel)",
             "launchedProcess.terminate()",
             "stop()",
             "stopLocked()",
-            "let launchedProcess = try launchProcess(plan)",
+            "activeEnvironmentFileCleanup",
+            "BrowserUseEnvironmentFileWriter.removeIfCurrent",
+            "readEnvironmentFileNoFollow",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "S_IFREG",
+            "launchedProcess = try launchProcess(plan)",
             "process = launchedProcess",
             "private static func defaultLaunchProcess",
             "let runtime = Process()",
@@ -651,6 +733,7 @@ struct BrowserUseRuntimeSupervisorTests {
             #expect(source.contains(required), "Missing runtime supervisor contract string: \(required)")
         }
         #expect(!source.contains("request failed: \\(error.localizedDescription)"))
+        #expect(!source.contains("plan.loopbackURL.absoluteString"))
 
         for forbidden in [
             "NSWorkspace",
@@ -668,10 +751,51 @@ struct BrowserUseRuntimeSupervisorTests {
     private func runtimeFixture(packaged: Bool) throws -> BrowserUseRuntimePaths {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-runtime-\(UUID().uuidString)", isDirectory: true)
-        let vendorRoot = root.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
-        let buildRoot = root.appendingPathComponent("build/browser-use-pro", isDirectory: true)
         let stateRoot = root.appendingPathComponent("state", isDirectory: true)
 
+        if packaged {
+            let signedBundleURL = root.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+            let vendorRoot = signedBundleURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("BrowserUsePro", isDirectory: true)
+            try FileManager.default.createDirectory(at: vendorRoot, withIntermediateDirectories: true)
+            try Data(runtimeInfoPlist.utf8).write(
+                to: signedBundleURL
+                    .appendingPathComponent("Contents", isDirectory: true)
+                    .appendingPathComponent("Info.plist", isDirectory: false)
+            )
+            try writeRuntimePayloadFixture(vendorRoot: vendorRoot, buildRoot: vendorRoot, packaged: true)
+            let fileCount = try payloadFixtureFileCount(in: vendorRoot)
+            try Data(signatureManifestJSON(fileCount: fileCount).utf8).write(
+                to: vendorRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
+            )
+            try runProcess("/usr/bin/codesign", arguments: [
+                "--force",
+                "--sign",
+                "-",
+                signedBundleURL.path,
+            ])
+            return BrowserUseRuntimePaths(
+                vendorRoot: vendorRoot,
+                buildRoot: vendorRoot,
+                stateRoot: stateRoot,
+                signedBundleURL: signedBundleURL
+            )
+        }
+
+        let vendorRoot = root.appendingPathComponent("agent_core/vendor/browser-use", isDirectory: true)
+        let buildRoot = root.appendingPathComponent("build/browser-use-pro", isDirectory: true)
+        try writeRuntimePayloadFixture(vendorRoot: vendorRoot, buildRoot: buildRoot, packaged: false)
+
+        return BrowserUseRuntimePaths(vendorRoot: vendorRoot, buildRoot: buildRoot, stateRoot: stateRoot)
+    }
+
+    private func writeRuntimePayloadFixture(
+        vendorRoot: URL,
+        buildRoot: URL,
+        packaged: Bool
+    ) throws {
         try FileManager.default.createDirectory(
             at: vendorRoot.appendingPathComponent("web-ui", isDirectory: true),
             withIntermediateDirectories: true
@@ -691,32 +815,43 @@ struct BrowserUseRuntimeSupervisorTests {
                 .appendingPathComponent("web-ui", isDirectory: true)
                 .appendingPathComponent("webui.py", isDirectory: false)
         )
+        try writeExecutableFixture(vendorRoot.appendingPathComponent("epistemos_agent_browser.py", isDirectory: false))
+        try Data("env\n".utf8).write(
+            to: vendorRoot.appendingPathComponent("epistemos_browser_env.py", isDirectory: false)
+        )
+        try Data("task\n".utf8).write(
+            to: vendorRoot.appendingPathComponent("epistemos_browser_task.py", isDirectory: false)
+        )
+        try writeExecutableFixture(vendorRoot.appendingPathComponent("build-pro-payload.sh", isDirectory: false))
 
         if packaged {
             try FileManager.default.createDirectory(
                 at: vendorRoot.appendingPathComponent("wheels", isDirectory: true),
                 withIntermediateDirectories: true
             )
+            try writeWheelhouseFixtureFiles(in: vendorRoot.appendingPathComponent("wheels", isDirectory: true))
             try FileManager.default.createDirectory(
                 at: vendorRoot.appendingPathComponent("playwright", isDirectory: true),
                 withIntermediateDirectories: true
             )
+            try writePlaywrightRevisionMarkers(in: vendorRoot.appendingPathComponent("playwright", isDirectory: true))
             try Data("{\"schema_version\":1}\n".utf8).write(
                 to: vendorRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
             )
             try Data("# generated test lock\n".utf8).write(
                 to: vendorRoot.appendingPathComponent("requirements.lock", isDirectory: false)
             )
+            try writeWebUICompatibilityFixtureFiles(in: vendorRoot)
         }
 
         try Data(vendorManifestJSON(packaged: packaged).utf8).write(
             to: vendorRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
         )
-
-        return BrowserUseRuntimePaths(vendorRoot: vendorRoot, buildRoot: buildRoot, stateRoot: stateRoot)
     }
 
     private func vendorManifestJSON(packaged: Bool) -> String {
+        let buildScriptStatus = packaged ? "landed" : "not_landed"
+        let buildManifestStatus = packaged ? "generated" : "not_generated"
         let requirementsStatus = packaged ? "generated" : "not_generated"
         let wheelhouseStatus = packaged ? "staged" : "not_staged"
         let chromiumStatus = packaged ? "staged" : "not_staged"
@@ -739,6 +874,7 @@ struct BrowserUseRuntimeSupervisorTests {
               "repo": "https://github.com/browser-use/browser-use.git",
               "commit": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
               "license": "MIT",
+              "package_version": "0.13.2",
               "full_clone": true,
               "file_count": 501
             },
@@ -747,6 +883,7 @@ struct BrowserUseRuntimeSupervisorTests {
               "repo": "https://github.com/browser-use/web-ui.git",
               "commit": "61962296c38a0d064e0ba02c827192b7a81d1819",
               "license": "MIT",
+              "package_version": null,
               "full_clone": true,
               "file_count": 42
             },
@@ -755,26 +892,234 @@ struct BrowserUseRuntimeSupervisorTests {
               "repo": "https://github.com/browser-use/cdp-use.git",
               "commit": "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
               "license": "MIT",
+              "package_version": "1.4.5",
               "full_clone": true,
               "file_count": 357
             }
           ],
           "packaging_artifacts": {
+            "agent_browser_adapter": {
+              "status": "\(buildScriptStatus)",
+              "expected_paths": [
+                "epistemos_agent_browser.py",
+                "epistemos_browser_env.py",
+                "epistemos_browser_task.py"
+              ]
+            },
+            "web_ui_runtime_compatibility": {
+              "status": "\(buildScriptStatus)",
+              "expected_paths": [
+                "browser-use/browser_use/browser/browser.py",
+                "browser-use/browser_use/browser/context.py",
+                "browser-use/browser_use/browser/chrome.py",
+                "browser-use/browser_use/browser/utils/__init__.py",
+                "browser-use/browser_use/browser/utils/screen_resolution.py",
+                "browser-use/browser_use/controller/service.py",
+                "browser-use/browser_use/controller/registry/__init__.py",
+                "browser-use/browser_use/controller/registry/service.py",
+                "browser-use/browser_use/controller/registry/views.py",
+                "browser-use/browser_use/controller/views.py"
+              ]
+            },
+            "web_ui_dry_run_submit": {
+              "status": "\(buildScriptStatus)",
+              "expected_path": "web-ui/src/webui/components/browser_use_agent_tab.py",
+              "env_var": "EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT",
+              "marker": "Epistemos browser-use WebUI dry-run task-submit complete"
+            },
+            "build_script": {
+              "status": "\(buildScriptStatus)",
+              "expected_path": "build-pro-payload.sh"
+            },
+            "build_manifest": {
+              "status": "\(buildManifestStatus)",
+              "expected_path": "BUILD_MANIFEST.json"
+            },
             "requirements_lock": {
               "status": "\(requirementsStatus)",
               "expected_path": "requirements.lock"
             },
             "wheelhouse": {
               "status": "\(wheelhouseStatus)",
-              "expected_path": "wheels/"
+              "expected_path": "wheels/",
+              "file_count": 177
             },
             "playwright_chromium": {
               "status": "\(chromiumStatus)",
-              "expected_path": "playwright/"
+              "expected_path": "playwright/",
+              "chromium_revision": "1223",
+              "headless_shell_revision": "1223",
+              "ffmpeg_revision": "1011"
             }
           }
         }
         """
+    }
+
+    private func writeWebUICompatibilityFixtureFiles(in payloadRoot: URL) throws {
+        for relativePath in [
+            "browser-use/browser_use/browser/browser.py",
+            "browser-use/browser_use/browser/context.py",
+            "browser-use/browser_use/browser/chrome.py",
+            "browser-use/browser_use/browser/utils/__init__.py",
+            "browser-use/browser_use/browser/utils/screen_resolution.py",
+            "browser-use/browser_use/controller/service.py",
+            "browser-use/browser_use/controller/registry/__init__.py",
+            "browser-use/browser_use/controller/registry/service.py",
+            "browser-use/browser_use/controller/registry/views.py",
+            "browser-use/browser_use/controller/views.py",
+        ] {
+            try writeTextFixture(relativePath, in: payloadRoot, contents: "shim\n")
+        }
+        try writeTextFixture(
+            "web-ui/src/webui/components/browser_use_agent_tab.py",
+            in: payloadRoot,
+            contents: "dry run hook\n"
+        )
+    }
+
+    private func writeTextFixture(_ relativePath: String, in root: URL, contents: String) throws {
+        let url = root.appendingPathComponent(relativePath, isDirectory: false)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(contents.utf8).write(to: url)
+    }
+
+    private func writeWheelhouseFixtureFiles(in wheelhouseURL: URL) throws {
+        for index in 0..<177 {
+            try Data("wheel \(index)\n".utf8).write(
+                to: wheelhouseURL.appendingPathComponent("fixture-\(index).whl", isDirectory: false)
+            )
+        }
+    }
+
+    private func writePlaywrightRevisionMarkers(in playwrightURL: URL) throws {
+        for directoryName in [
+            "chromium-1223",
+            "chromium_headless_shell-1223",
+            "ffmpeg-1011",
+        ] {
+            let directoryURL = playwrightURL.appendingPathComponent(directoryName, isDirectory: true)
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            try Data("ok\n".utf8).write(
+                to: directoryURL.appendingPathComponent("INSTALLATION_COMPLETE", isDirectory: false)
+            )
+        }
+    }
+
+    private func writeExecutableFixture(_ url: URL) throws {
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+
+    private func payloadFixtureFileCount(in payloadRoot: URL) throws -> Int {
+        var fileCount = 0
+        let enumerator = try #require(FileManager.default.enumerator(
+            at: payloadRoot,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: []
+        ))
+        for case let url as URL in enumerator {
+            guard url.lastPathComponent != "SIGNATURE_MANIFEST.json" else { continue }
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+            if values.isRegularFile == true {
+                fileCount += 1
+            }
+        }
+        return fileCount
+    }
+
+    private func refreshSignedRuntimeFixtureSignature(_ paths: BrowserUseRuntimePaths) throws {
+        guard let signedBundleURL = paths.signedBundleURL else { return }
+        let signatureURL = paths.vendorRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
+        try? FileManager.default.removeItem(at: signatureURL)
+        let fileCount = try payloadFixtureFileCount(in: paths.vendorRoot)
+        try Data(signatureManifestJSON(fileCount: fileCount).utf8).write(to: signatureURL)
+        try runProcess("/usr/bin/codesign", arguments: [
+            "--force",
+            "--sign",
+            "-",
+            signedBundleURL.path,
+        ])
+    }
+
+    private func signatureManifestJSON(fileCount: Int) -> String {
+        """
+        {
+          "schema_version": 1,
+          "package_name": "BrowserUsePro",
+          "runtime_lane": "pro-developer-id-only",
+          "signature_type": "ad-hoc",
+          "signing_identity": "-",
+          "payload_root": "Contents/Resources/BrowserUsePro",
+          "file_count": \(fileCount),
+          "python": "Python 3.11.15",
+          "browser_use_version": "0.13.2",
+          "component_repos": {
+            "browser-use": "https://github.com/browser-use/browser-use.git",
+            "web-ui": "https://github.com/browser-use/web-ui.git",
+            "cdp-use": "https://github.com/browser-use/cdp-use.git"
+          },
+          "component_commits": {
+            "browser-use": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+            "web-ui": "61962296c38a0d064e0ba02c827192b7a81d1819",
+            "cdp-use": "a318684daab5ab3a9a516fcab447ed4bdfb92be9"
+          },
+          "component_versions": {
+            "browser-use": "0.13.2",
+            "web-ui": null,
+            "cdp-use": "1.4.5"
+          },
+          "playwright_revisions": {
+            "chromium": "1223",
+            "chromium_headless_shell": "1223",
+            "ffmpeg": "1011"
+          },
+          "created_utc": "2026-06-30T00:00:00Z",
+          "codesign_contract": "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime."
+        }
+        """
+    }
+
+    private var runtimeInfoPlist: String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>CFBundleIdentifier</key>
+          <string>com.epistemos.browserusepro.runtime-test</string>
+          <key>CFBundleName</key>
+          <string>BrowserUsePro</string>
+          <key>CFBundlePackageType</key>
+          <string>BNDL</string>
+          <key>CFBundleVersion</key>
+          <string>1</string>
+        </dict>
+        </plist>
+        """
+    }
+
+    private func runProcess(_ executable: String, arguments: [String]) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus != 0 {
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(
+                domain: "BrowserUseRuntimeSupervisorTests",
+                code: Int(process.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey: output]
+            )
+        }
     }
 
     private func mode(for url: URL) throws -> Int {
@@ -784,6 +1129,10 @@ struct BrowserUseRuntimeSupervisorTests {
     }
 
     private func removeFixture(_ paths: BrowserUseRuntimePaths) {
+        if let signedBundleURL = paths.signedBundleURL {
+            try? FileManager.default.removeItem(at: signedBundleURL.deletingLastPathComponent())
+            return
+        }
         let root = paths.vendorRoot
             .deletingLastPathComponent()
             .deletingLastPathComponent()
