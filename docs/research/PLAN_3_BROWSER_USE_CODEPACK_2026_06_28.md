@@ -210,7 +210,8 @@ terminates the launched process if the loopback health probe fails, and compiles
 `scripts/browser-use-pro-loopback-smoke.sh` now exercises that staged server shape outside the app host by launching the
 vendored Gradio UI on `127.0.0.1`, setting `PYTHON_DOTENV_DISABLED=true`, `PLAYWRIGHT_BROWSERS_PATH` to the staged
 Chromium payload, and writing a bounded `result.json` plus `webui.log` in a caller-selected or temporary artifact
-directory without recording secrets. `[VERIFIED-CODE]`
+directory without recording secrets; caller-provided artifact directories are rejected if the final path is a symlink
+before evidence files are written. `[VERIFIED-CODE]`
 The smoke forced web-ui compatibility fixes now landed in the vendored Pro payload: optional LangChain MCP/provider
 packages are no longer imported at UI module load, missing optional provider packages fail only when that provider is
 selected, `ToolCallingMethod`/`is_model_without_tool_support`/`BrowserState` compatibility exports exist for the pinned
@@ -549,7 +550,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Loopback server smoke harness: `scripts/browser-use-pro-loopback-smoke.sh` starts the staged Pro `webui.py` on
   `127.0.0.1`, forces the staged Playwright browser path, disables dotenv reloading and Gradio analytics, polls only the
   loopback root URL with a 5-600 second timeout bound, writes non-secret `result.json`/`webui.log` evidence with bounded
-  body sampling and a no-follow result writer, and kills the child process on pass, timeout, or early exit. This is complemented by the real Gradio WKWebView shell/control smoke
+  body sampling and a no-follow result writer, rejects symlinked caller artifact directories before writing evidence,
+  and kills the child process on pass, timeout, or early exit. This is complemented by the real Gradio WKWebView shell/control smoke
   and the no-provider task-submit dry-run smoke.
 - Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream
   source counts, including the `web_ui_dry_run_submit` no-provider hook; the pinned web-ui must import/build a Gradio

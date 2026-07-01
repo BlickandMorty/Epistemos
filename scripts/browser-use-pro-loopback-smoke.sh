@@ -133,8 +133,16 @@ fi
 if [[ -z "$artifact_dir" ]]; then
   artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/epistemos-browser-use-pro-smoke.XXXXXX")"
 else
+  if [[ -L "$artifact_dir" ]]; then
+    echo "Artifact directory must not be a symlink: $artifact_dir" >&2
+    exit 66
+  fi
   mkdir -p "$artifact_dir"
-  artifact_dir="$(cd -- "$artifact_dir" && pwd)"
+  if [[ -L "$artifact_dir" ]]; then
+    echo "Artifact directory must not be a symlink: $artifact_dir" >&2
+    exit 66
+  fi
+  artifact_dir="$(cd -P -- "$artifact_dir" && pwd)"
 fi
 
 state_root="$(mktemp -d "${TMPDIR:-/tmp}/epistemos-browser-use-pro-state.XXXXXX")"

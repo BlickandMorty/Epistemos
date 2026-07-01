@@ -922,6 +922,8 @@ struct BrowserUseCodepackPlan3Tests {
             "os.open(path, flags, 0o600)",
             "os.fstat(fd)",
             "O_NOFOLLOW",
+            "Artifact directory must not be a symlink",
+            "artifact_dir=\"$(cd -P -- \"$artifact_dir\" && pwd)\"",
             "body_truncated",
             "secrets\": \"not recorded\"",
             "curl -fsS --max-time 2",
@@ -979,6 +981,8 @@ struct BrowserUseCodepackPlan3Tests {
             "Port must be an integer from 1024 through 65535",
             "--signed-bundle is required for the gate smoke; pass --skip-gate",
             "At least one smoke must run.",
+            "Artifact directory must not be a symlink",
+            "artifact_dir=\"$(cd -P -- \"$artifact_dir\" && pwd)\"",
             "browser-use Pro smoke suite OK",
         ] {
             #expect(script.contains(required), "Missing browser-use Pro suite string: \(required)")

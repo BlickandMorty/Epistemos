@@ -113,8 +113,16 @@ fi
 if [[ -z "$artifact_dir" ]]; then
   artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/epistemos-browser-use-pro-suite.XXXXXX")"
 else
+  if [[ -L "$artifact_dir" ]]; then
+    echo "Artifact directory must not be a symlink: $artifact_dir" >&2
+    exit 66
+  fi
   mkdir -p "$artifact_dir"
-  artifact_dir="$(cd -- "$artifact_dir" && pwd)"
+  if [[ -L "$artifact_dir" ]]; then
+    echo "Artifact directory must not be a symlink: $artifact_dir" >&2
+    exit 66
+  fi
+  artifact_dir="$(cd -P -- "$artifact_dir" && pwd)"
 fi
 
 echo "browser-use Pro smoke suite artifacts: $artifact_dir"
