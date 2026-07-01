@@ -70,7 +70,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("MarkEdit CoreEditor adapter uses vendored bundle and generated MarkEdit bridge surface")
     func markEditCoreEditorAdapterUsesVendoredBundleAndBridgeSurface() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let source = try Self.markEditCoreEditorAdapterSource()
         let state = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
         let resources = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
 
@@ -94,7 +94,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("CoreEditor adapter waits for the JS bridge before the first reset")
     func markEditCoreEditorAdapterWaitsForBridgeBeforeInitialReset() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let source = try Self.markEditCoreEditorAdapterSource()
 
         #expect(source.contains("waitForCoreEditorReady"))
         #expect(source.contains("window.webModules?.core?.resetEditor"))
@@ -105,7 +105,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("CoreEditor embed registers MarkEdit native bridge and fails visibly when reset is blank")
     func markEditCoreEditorRegistersNativeBridgeAndBlankResetDiagnostics() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let source = try Self.markEditCoreEditorAdapterSource()
 
         #expect(source.contains(#"static let nativeMessageHandlerName = "bridge""#))
         #expect(source.contains(#"static let baseURL = URL(string: "http://localhost/")"#))
@@ -115,6 +115,13 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("removeScriptMessageHandler(\n            forName: MarkEditCoreEditorBridge.nativeMessageHandlerName,\n            contentWorld: .page"))
         #expect(source.contains("callAsyncJavaScript(script, in: nil, in: .page)"))
         #expect(!source.contains("(async () => {"))
+        #expect(source.contains("bootstrapEditorAfterNativeLoadNotification()"))
+        #expect(source.contains(#"methodName == "notifyWindowDidLoad""#))
+        #expect(source.contains(#"const text = typeof config.text === "string" ? config.text : "";"#))
+        #expect(source.contains("documentChanged: true"))
+        #expect(source.contains("private static func nativeBridgeReply(moduleName: String?, methodName: String?) -> Any?"))
+        #expect(source.contains(#"case ("api", "getPasteboardItems"):"#))
+        #expect(source.contains(#"case ("foundationModels", "availability"):"#))
         #expect(source.contains("setTimeout(finish, 100)"))
         #expect(source.contains("CoreEditor reset completed with no rendered CodeMirror text"))
         #expect(source.contains("resetFailureMessage(result: scriptResult, error: scriptError)"))
@@ -134,7 +141,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("CoreEditor WebView navigation allows only local bootstrap and chunk resources")
     func markEditCoreEditorWebViewNavigationAllowsOnlyLocalBootstrapAndChunks() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let source = try Self.markEditCoreEditorAdapterSource()
 
         #expect(source.contains("private static func isAllowedNavigation(_ navigationAction: WKNavigationAction) -> Bool"))
         #expect(source.contains("case MarkEditCoreEditorBridge.chunkScheme:"))
@@ -145,16 +152,32 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
     @Test("CoreEditor teardown invalidates callbacks before stopping the WKWebView")
     func markEditCoreEditorTeardownRemovesHandlersBeforeStoppingLoad() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let source = try Self.markEditCoreEditorAdapterSource()
         let detach = try Self.extractFunction(
             signature: "func detach(from webView: WKWebView)",
             from: source
         )
 
+        #expect(source.contains("private var isDetached = false"))
+        #expect(source.contains("private var pendingSelectionRequest: CoreEditorSelectionRequest?"))
         #expect(detach.contains("loadGeneration += 1"))
+        #expect(detach.contains("isDetached = true"))
+        #expect(Self.offset(of: "isDetached = true", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
         #expect(Self.offset(of: "loadGeneration += 1", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
         #expect(Self.offset(of: "removeScriptMessageHandler", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
         #expect(!detach.contains("loadGeneration += 1\n        loadGeneration += 1"))
+        #expect(source.contains("guard !isDetached else { return }"))
+        #expect(source.contains("if hasLoadedEditor, !webView.isLoading"))
+        #expect(source.contains("guard !isDetached, hasLoadedEditor, !webView.isLoading else"))
+        #expect(source.contains("!self.isDetached else { return }"))
+        #expect(source.contains("pendingSelectionRequest = selectionRequest"))
+        #expect(source.contains("self.lastSelectionRequestID = selectionRequest.id"))
+        #expect(source.contains("""
+            guard !isDetached else {
+                decisionHandler(.cancel)
+                return
+            }
+            """))
     }
 
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
@@ -186,6 +209,12 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("rsync -a --delete \"$CORE_EDITOR_SOURCE_DIR/\" \"$CORE_EDITOR_BUNDLE_DIR/\""))
         #expect(source.contains("rsync -a --delete \"$CORE_EDITOR_CHUNKS_SOURCE_DIR/\" \"$CORE_EDITOR_CHUNKS_BUNDLE_DIR/\""))
         #expect(source.contains("bundle_coreeditor_resources"))
+    }
+
+    private static func markEditCoreEditorAdapterSource() throws -> String {
+        try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+            + "\n"
+            + loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
     }
 
     private static func extractBlock(named name: String, from source: String) throws -> String {

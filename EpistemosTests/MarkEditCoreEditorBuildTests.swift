@@ -40,4 +40,33 @@ nonisolated struct MarkEditCoreEditorBuildTests {
         #expect(viteConfig.contains("base: command === 'build' ? '/chunk-loader/' : ''"))
         #expect(viteConfig.contains("assetsDir: 'chunks'"))
     }
+
+    @Test("Generated CoreEditor HTML points at staged chunks that the WK scheme loader can serve")
+    func generatedCoreEditorHTMLReferencesExistingStagedChunks() throws {
+        let html = try loadMirroredSourceTextFile("Epistemos/Resources/CoreEditor/index.html")
+        let runtime = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorRuntimeResources.swift")
+        let references = Self.chunkReferences(in: html)
+
+        #expect(!references.isEmpty)
+        #expect(html.contains("/chunk-loader/chunks/"))
+        #expect(runtime.contains(#".replacingOccurrences(of: "/chunk-loader/", with: "\(MarkEditCoreEditorBridge.chunkScheme)://")"#))
+        #expect(runtime.contains("subdirectory: MarkEditCoreEditorBridge.resourceSubpath"))
+
+        for reference in references {
+            #expect(
+                repoFileExists("Epistemos/Resources/CoreEditor/\(reference)"),
+                "Missing CoreEditor resource: \(reference)"
+            )
+            #expect(
+                repoFileExists("Epistemos/Resources/\(reference)"),
+                "Missing fallback chunk resource: \(reference)"
+            )
+        }
+    }
+
+    private static func chunkReferences(in html: String) -> [String] {
+        html.components(separatedBy: "\"")
+            .filter { $0.hasPrefix("/chunk-loader/chunks/") }
+            .map { String($0.dropFirst("/chunk-loader/".count)) }
+    }
 }
