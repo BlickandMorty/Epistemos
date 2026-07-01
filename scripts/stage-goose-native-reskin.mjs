@@ -2217,7 +2217,28 @@ function applyToolAndPopoverSurfaces() {
     'font-mono text-xs text-textSubtle',
     'font-sans text-xs text-textSubtle'
   );
+  source = replaceAllRequired(
+    source,
+    'tool response detail separators borderless',
+    'border-t border-border-primary',
+    'bg-background-primary/24'
+  );
   write('src/components/ToolCallWithResponse.tsx', source);
+
+  source = read('src/components/ToolCallConfirmation.tsx');
+  source = replaceRequired(
+    source,
+    'tool confirmation card borderless',
+    'className="goose-message-content bg-background-primary border border-border-primary rounded-[6px] overflow-hidden"',
+    'className="goose-message-content overflow-hidden rounded-[12px] bg-background-primary/54"'
+  );
+  source = replaceRequired(
+    source,
+    'tool confirmation header native',
+    'className="bg-background-secondary px-3 py-2 text-xs font-mono text-text-primary"',
+    'className="bg-background-secondary/62 px-3 py-2 text-xs font-sans text-text-primary"'
+  );
+  write('src/components/ToolCallConfirmation.tsx', source);
 
   source = read('src/components/MentionPopover.tsx');
   source = replaceRequired(
@@ -5586,7 +5607,40 @@ function applyRemainingTokenDriftSurfaces() {
     'className="text-red-400 text-xs mt-2 mb-2"',
     'className="mb-2 mt-2 text-xs text-text-danger"'
   );
+  source = replaceRequired(
+    source,
+    'user edit card borderless',
+    'className="w-full max-w-4xl mx-auto text-text-primary rounded-[6px] border border-border-primary bg-background-secondary py-3 px-3 my-2 transition-all duration-200 ease-in-out"',
+    'className="mx-auto my-2 w-full max-w-4xl rounded-[12px] bg-background-secondary/56 px-3 py-3 text-text-primary transition-all duration-200 ease-in-out"'
+  );
+  source = replaceRequired(
+    source,
+    'user edit textarea borderless',
+    'className="w-full resize-none bg-background-primary text-text-primary placeholder:text-text-secondary border border-border-primary rounded-[5px] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-200 text-sm leading-relaxed font-mono"',
+    'className="w-full resize-none rounded-[10px] bg-background-primary/60 text-sm leading-relaxed text-text-primary placeholder:text-text-secondary outline-none transition-colors duration-200 focus:bg-background-secondary/72"'
+  );
   write('src/components/UserMessage.tsx', source);
+
+  source = read('src/components/BaseChat.tsx');
+  source = replaceRequired(
+    source,
+    'base chat error card borderless',
+    'className="text-text-danger bg-background-danger border border-border-danger p-4 mb-4 max-w-md"',
+    'className="mb-4 max-w-md rounded-[12px] bg-background-danger/35 p-4 text-text-danger"'
+  );
+  source = replaceRequired(
+    source,
+    'base chat go home button borderless',
+    'className="px-4 py-2 text-center cursor-pointer text-text-primary border border-border-primary hover:bg-background-secondary transition-all duration-150"',
+    'className="cursor-pointer rounded-[8px] bg-background-secondary/56 px-4 py-2 text-center text-text-primary transition-all duration-150 hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'base chat docs chip borderless',
+    'className="no-drag flex items-center gap-2 border border-border-secondary bg-background-primary/90 px-2 py-1 text-[11px] font-mono uppercase text-text-secondary hover:text-text-primary"',
+    'className="no-drag flex items-center gap-2 rounded-[8px] bg-background-primary/58 px-2 py-1 text-[11px] font-sans uppercase text-text-secondary hover:text-text-primary"'
+  );
+  write('src/components/BaseChat.tsx', source);
 
   source = read('src/components/context_management/CreditsExhaustedNotification.tsx');
   source = replaceRequired(
