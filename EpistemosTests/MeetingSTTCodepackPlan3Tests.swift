@@ -34,6 +34,8 @@ struct MeetingSTTCodepackPlan3Tests {
             ".frame(maxWidth: 220, alignment: .trailing)",
             "private var isSaved: Bool",
             "private var canSave: Bool",
+            "Saved note: \\(title)",
+            "VoiceCapturePresentationBounds.statusMessage(\"Saved note:",
             ".disabled(!canSave)",
             ".environment(UIState())",
         ] {

@@ -348,6 +348,8 @@ struct MeetingNoteCaptureServiceTests {
         #expect(view.contains("guard canSave else { return }"))
         #expect(view.contains(".disabled(!canSave)"))
         #expect(view.contains("private var isSaved: Bool"))
+        #expect(view.contains("case .saved(_, let title):"))
+        #expect(view.contains("VoiceCapturePresentationBounds.statusMessage(\"Saved note:"))
         #expect(view.contains("showingDiscardConfirmation = true"))
         #expect(view.contains(".confirmationDialog("))
         #expect(view.contains("Button(\"Discard Transcript\", role: .destructive)"))

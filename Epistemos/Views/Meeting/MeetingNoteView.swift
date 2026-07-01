@@ -176,8 +176,8 @@ struct MeetingNoteView: View {
             return "Recording"
         case .finalizing:
             return "Saving"
-        case .saved:
-            return "Saved"
+        case .saved(_, let title):
+            return VoiceCapturePresentationBounds.statusMessage("Saved note: \(title)")
         case .error(let message):
             return message
         }
