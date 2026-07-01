@@ -560,6 +560,9 @@ nonisolated struct VaultMCPCore {
         guard normalizedPath.count <= maxRelativePathCharacters else {
             throw VaultMCPPathError.pathTooLong
         }
+        guard !containsControlPathScalar(normalizedPath) else {
+            throw VaultMCPPathError.invalidPathCharacters
+        }
         if allowCurrentDirectory && normalizedPath == "." {
             return vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
         }
@@ -631,6 +634,10 @@ nonisolated struct VaultMCPCore {
         }
     }
 
+    private static func containsControlPathScalar(_ relativePath: String) -> Bool {
+        relativePath.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+    }
+
     private static func relativePath(for url: URL, under root: URL) -> String? {
         let rootPath = root.standardizedFileURL.path
         let filePath = url.standardizedFileURL.path
@@ -658,6 +665,8 @@ nonisolated struct VaultMCPCore {
             "symlinked vault resources cannot be read"
         case .invalidEncoding:
             "markdown resource is not valid UTF-8"
+        case .invalidPathCharacters:
+            "vault resource path contains control characters"
         case .none:
             "read failed"
         }
@@ -731,4 +740,5 @@ private enum VaultMCPPathError: Error, Sendable {
     case hiddenPath
     case symlinkPath
     case invalidEncoding
+    case invalidPathCharacters
 }

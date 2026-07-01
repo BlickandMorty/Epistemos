@@ -109,6 +109,10 @@ struct VaultMCPCoreTests {
         try FileManager.default.createSymbolicLink(
             at: root.appendingPathComponent("VisibleHiddenAlias.md"),
             withDestinationURL: hiddenNote)
+        try "not markdown".write(
+            to: root.appendingPathComponent("Truncated.txt"),
+            atomically: true,
+            encoding: .utf8)
 
         let recorder = CallRecorder()
         let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
@@ -122,6 +126,7 @@ struct VaultMCPCoreTests {
             #"{"name":"vault.read","arguments":{"path":"Linked.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"VisibleAlias.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"VisibleHiddenAlias.md"}}"#,
+            #"{"name":"vault.read","arguments":{"path":"Truncated.txt\u0000.md"}}"#,
         ] {
             let response = await core.handle(
                 requestJSON: #"{"jsonrpc":"2.0","id":22,"method":"tools/call","params":\#(payload)}"#)
@@ -449,6 +454,10 @@ struct VaultMCPCoreTests {
         try FileManager.default.createSymbolicLink(
             at: folder.appendingPathComponent("LinkedJSON.md"),
             withDestinationURL: json)
+        try "Not markdown".write(
+            to: root.appendingPathComponent("Secret.txt"),
+            atomically: true,
+            encoding: .utf8)
 
         let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
         let read = await core.handle(
@@ -509,6 +518,17 @@ struct VaultMCPCoreTests {
         let visibleSymlinkError = try #require(visibleSymlinkObject["error"] as? [String: Any])
         #expect(visibleSymlinkError["code"] as? Int == -32602)
         #expect((visibleSymlinkError["message"] as? String)?.contains("symlinked vault resources") == true)
+
+        let nulTruncation = await core.handle(
+            requestJSON: #"""
+            {"jsonrpc":"2.0","id":16,"method":"resources/read","params":{"uri":"vault:///Secret.txt%00.md"}}
+            """#)
+        let nulTruncationObject = try Self.jsonObject(nulTruncation)
+        let nulTruncationError = try #require(nulTruncationObject["error"] as? [String: Any])
+        #expect(nulTruncationError["code"] as? Int == -32602)
+        #expect(
+            (nulTruncationError["message"] as? String)?
+                .contains("control characters") == true)
     }
 
     @Test("resources/read rejects oversized markdown before loading it")
@@ -593,6 +613,8 @@ struct VaultMCPCoreTests {
         #expect(source.contains("lstat"))
         #expect(source.contains("S_IFLNK"))
         #expect(source.contains("symlinked vault resources cannot be read"))
+        #expect(source.contains("containsControlPathScalar"))
+        #expect(source.contains("CharacterSet.controlCharacters"))
         #expect(source.contains("O_NOFOLLOW"))
         #expect(source.contains("fstat"))
         #expect(source.contains("Task.detached(priority: .utility)"))
