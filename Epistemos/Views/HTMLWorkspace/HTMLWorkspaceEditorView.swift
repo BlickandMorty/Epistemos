@@ -1012,6 +1012,12 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
+        guard !isRegenerating,
+              !isRefreshingRegenerateContext,
+              isCurrentRegenerateContextItem(item) else {
+            statusText = "Pick a current Epistemos workspace context item"
+            return
+        }
         let directive = """
         Use this focused read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
         Context:
@@ -1029,6 +1035,7 @@ struct HTMLWorkspaceEditorView: View {
 
     private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool {
         guard !isRegenerating,
+              !isRefreshingRegenerateContext,
               let dropProvider = previewContextDropProvider(from: providers) else {
             return false
         }
@@ -1080,6 +1087,12 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func applyPreviewContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
+        guard !isRegenerating,
+              !isRefreshingRegenerateContext,
+              isCurrentRegenerateContextItem(item) else {
+            statusText = "Pick a current Epistemos workspace context item"
+            return
+        }
         let directive = """
         Use this picked read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
         \(droppedPreviewTargetDirective())
@@ -1087,6 +1100,10 @@ struct HTMLWorkspaceEditorView: View {
         \(boundedDroppedContext(item.dragPayload))
         """
         startRegenerateWithContextDirective(directive, status: "Picked context added")
+    }
+
+    private func isCurrentRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) -> Bool {
+        regenerateContextItems.contains { $0.contextID == item.contextID }
     }
 
     private func refreshPreviewContextShortcut(_ shortcut: HTMLWorkspaceRegenerateContextShortcut) {
