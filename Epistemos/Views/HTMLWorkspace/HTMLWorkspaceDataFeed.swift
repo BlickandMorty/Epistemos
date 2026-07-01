@@ -164,7 +164,7 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
 
     static func normalizedContextKinds(_ values: [String]) -> [String] {
         let kinds = Set(values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
-        return kinds.isEmpty ? ["vault_record"] : kinds.sorted()
+        return kinds.sorted()
     }
 
     private static func normalizedOptional(_ value: String?) -> String? {
@@ -376,6 +376,9 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     ) -> String {
         let contextKinds = HTMLWorkspaceDataFeedMetadata.normalizedContextKinds(results.map(\.contextKind))
         let normalizedRequiredKind = normalizedRequiredContextKind(requiredContextKind)
+        let requiredContextAvailable = normalizedRequiredKind.map { requiredKind in
+            results.contains { $0.contextKind == requiredKind }
+        }
         let metadata = HTMLWorkspaceDataFeedMetadata(
             source: feed.source.rawValue,
             query: feed.normalizedQuery,
@@ -388,7 +391,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             status: status,
             error: error,
             requiredContextKind: normalizedRequiredKind,
-            requiredContextAvailable: normalizedRequiredKind.map { contextKinds.contains($0) }
+            requiredContextAvailable: requiredContextAvailable
         )
         let envelope = HTMLWorkspaceDataFeedEnvelope(
             results: results,
@@ -396,7 +399,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         )
         guard let data = try? JSONEncoder.epdocCanonical.encode(envelope),
               let json = String(data: data, encoding: .utf8) else {
-            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":["vault_record"],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
+            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":[],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
         }
         return json
     }

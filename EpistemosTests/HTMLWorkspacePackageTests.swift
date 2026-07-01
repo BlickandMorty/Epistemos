@@ -272,6 +272,28 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.requiredContextAvailable == false)
     }
 
+    @Test("HTMLWorkspace data feed records empty required context without synthetic kinds")
+    func dataFeedRecordsEmptyRequiredContextWithoutSyntheticKinds() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "recent captures missing", limit: 2)
+        let rendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            contextResults: [],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_007),
+            requiredContextKind: "recent_capture"
+        )
+
+        #expect(rendered.contains(#""context_kinds" : []"#))
+        #expect(!rendered.contains(#""context_kind" : "vault_record""#))
+        #expect(rendered.contains(#""required_context_kind" : "recent_capture""#))
+        #expect(rendered.contains(#""required_context_available" : false"#))
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
+        #expect(metadata.contextKinds == [])
+        #expect(metadata.resultCount == 0)
+        #expect(metadata.requiredContextKind == "recent_capture")
+        #expect(metadata.requiredContextAvailable == false)
+    }
+
     @Test("HTMLWorkspace data feed metadata decode normalizes context kind labels")
     func dataFeedMetadataDecodeNormalizesContextKindLabels() throws {
         let json = """
@@ -403,7 +425,7 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.stale)
-        #expect(metadata.contextKinds == ["vault_record"])
+        #expect(metadata.contextKinds == [])
         #expect(metadata.refreshedAtMS == 0)
         #expect(metadata.error == "Vault feed unavailable")
         #expect(metadata.requiredContextKind == "recent_capture")
@@ -414,7 +436,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         package.dataJSON = rendered
         let compact = try #require(HTMLWorkspaceDataFeedStatus.compactLine(for: package))
         let detail = try #require(HTMLWorkspaceDataFeedStatus.detailLine(for: package))
-        #expect(compact == "Feed stale: 0 / vault_record / required: recent_capture unavailable")
+        #expect(compact == "Feed stale: 0 / none / required: recent_capture unavailable")
         #expect(detail.contains("required: recent_capture unavailable"))
     }
 
@@ -635,11 +657,11 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.indexHTML.contains("data-result-chart"))
         #expect(package.indexHTML.contains("data-result-detail"))
         #expect(package.indexHTML.contains(#"aria-label="Workspace sections""#))
-        #expect(package.indexHTML.contains(#"href="#context-feed""#))
-        #expect(package.indexHTML.contains(#"href="#pinned-context""#))
-        #expect(package.indexHTML.contains(#"href="#rank-signal""#))
-        #expect(package.indexHTML.contains(#"href="#selected-source""#))
-        #expect(package.indexHTML.contains(#"href="#vault-results""#))
+        #expect(package.indexHTML.contains(##"href="#context-feed""##))
+        #expect(package.indexHTML.contains(##"href="#pinned-context""##))
+        #expect(package.indexHTML.contains(##"href="#rank-signal""##))
+        #expect(package.indexHTML.contains(##"href="#selected-source""##))
+        #expect(package.indexHTML.contains(##"href="#vault-results""##))
         #expect(package.indexHTML.contains(#"id="context-feed""#))
         #expect(package.indexHTML.contains(#"id="pinned-context""#))
         #expect(package.indexHTML.contains(#"id="rank-signal""#))

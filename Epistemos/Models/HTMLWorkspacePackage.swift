@@ -336,7 +336,7 @@ nonisolated public enum HTMLWorkspaceDataFeedJSONEnvelope {
             "query": feed.normalizedQuery,
             "limit": feed.effectiveLimit,
             "result_count": 0,
-            "context_kinds": ["vault_record"],
+            "context_kinds": [],
             "refreshed_at_ms": refreshedAtMS,
             "provenance": provenance,
             "stale": true,
@@ -355,7 +355,7 @@ nonisolated public enum HTMLWorkspaceDataFeedJSONEnvelope {
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
               let json = String(data: data, encoding: .utf8) else {
-            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":["vault_record"],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
+            return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":[],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
         }
         return json
     }
