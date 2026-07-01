@@ -756,7 +756,11 @@ struct NoteDetailWorkspaceView: View {
         self.pageId = pageId
         self.presentation = presentation
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
-        _persistedBody = State(initialValue: NoteWindowManager.shared.currentBody(for: pageId))
+        // NON-BLOCKING seed (feeds preview/metrics/outline): reading the body from disk here
+        // (NoteFileStorage queue.sync + Data(contentsOf:)) ran on @MainActor during window
+        // layout and was the second half of the note-open freeze. Hydrated off-main in
+        // noteCanvas.onAppear. (note-freeze 2026-07-01)
+        _persistedBody = State(initialValue: NoteWindowManager.shared.editorBody(for: pageId) ?? "")
         _deterministicOutlineState = State(
             initialValue: KnowledgeCoreOutlineProjectionState()
         )
@@ -1101,7 +1105,13 @@ struct NoteDetailWorkspaceView: View {
                 Task { @MainActor in
                     refreshTabCount()
                     if let page = pages.first {
-                        let body = persistedBodyFor(page)
+                        // Hydrate the preview/metrics body OFF the main thread — the init seed
+                        // is now non-blocking. (note-freeze 2026-07-01)
+                        let pid = page.id
+                        let raw = await Task.detached(priority: .utility) {
+                            NoteFileStorage.readBody(pageId: pid, mapped: false, fast: true)
+                        }.value
+                        let body = Self.resolvedPersistedBody(raw, for: page)
                         if persistedBody != body {
                             persistedBody = body
                         }

@@ -180,6 +180,27 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return
         }
 
+        // The git-worktree affordance spawns a Process() and waits up to 3s; running it on
+        // @MainActor (the sync handleAffordance path) FROZE the UI for ~3s every time the Goose
+        // surface's directory chip (DirSwitcher) queried worktrees on transition. Route it
+        // off-main, mirroring the getAllowedExtensions carve-out above. (goose-3s 2026-07-01)
+        #if !EPISTEMOS_APP_STORE
+        if name == "listGitWorktreeDirs" {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    guard let path = self.stringArgument(args, at: 0) else {
+                        throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+                    }
+                    replyHandler(await self.listGitWorktreeDirsOffMain(path), nil)
+                } catch {
+                    replyHandler(nil, Self.nativeErrorMessage(for: error))
+                }
+            }
+            return
+        }
+        #endif
+
         do {
             replyHandler(try handleAffordance(name: name, args: args), nil)
         } catch {
@@ -880,19 +901,48 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
-    private func listGitWorktreeDirs(_ path: String) -> [[String: Any]] {
+    /// FAST @MainActor validation (filesystem stats + scoped-root allow-check) shared by the
+    /// sync + off-main callers. Returns the resolved git binary, expanded path, and minimal
+    /// env, or nil when the path isn't allowed / isn't a real directory.
+    private func gitWorktreeInvocation(for path: String) -> (git: String, expandedPath: String, env: [String: String])? {
         let expandedPath = Self.standardizedPath(expandTilde(path))
         var isDirectory: ObjCBool = false
         guard isPathAllowed(expandedPath),
               fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
               isDirectory.boolValue,
               !isSymbolicLink(expandedPath) else {
-            return []
+            return nil
         }
         let git = resolveBinaryPath("git")
-        guard !git.isEmpty else { return [] }
+        guard !git.isEmpty else { return nil }
+        return (git, expandedPath, gitProcessEnvironment(git: git))
+    }
 
+    private func listGitWorktreeDirs(_ path: String) -> [[String: Any]] {
+        guard let inv = gitWorktreeInvocation(for: path) else { return [] }
+        return Self.runGitWorktreeList(git: inv.git, expandedPath: inv.expandedPath, environment: inv.env)
+    }
+
+    /// Off-main variant. The git Process()+semaphore.wait(+3) blocked @MainActor and was the
+    /// exact 3-second freeze when the Goose surface's directory chip (DirSwitcher) queried git
+    /// worktrees as the surface became active. Validation stays on @MainActor (fast fs stats);
+    /// only the subprocess wait is detached. Behavior/timeouts/caps are identical. (goose-3s 2026-07-01)
+    private func listGitWorktreeDirsOffMain(_ path: String) async -> [[String: Any]] {
+        guard let inv = gitWorktreeInvocation(for: path) else { return [] }
+        let box = await Task.detached(priority: .userInitiated) {
+            GooseAffordanceResultBox(value: Self.runGitWorktreeList(
+                git: inv.git, expandedPath: inv.expandedPath, environment: inv.env))
+        }.value
+        return box.value
+    }
+
+    nonisolated static func runGitWorktreeList(
+        git: String,
+        expandedPath: String,
+        environment: [String: String]
+    ) -> [[String: Any]] {
         let process = Process()
+        process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         // review LOW-2: this runs git on a WEB-CHOSEN directory, so neutralize attacker-controlled git
         // config that could run code. `-c core.fsmonitor=false` blocks a malicious repo `.git/config`
@@ -902,11 +952,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             "-c", "protocol.allow=never",
             "-C", expandedPath, "worktree", "list", "--porcelain",
         ]
-        // SECURITY (deep-hardening 2026-06-29 #23): set an explicit minimal environment instead of
-        // inheriting the full process env (which carries DYLD_*/LD_*/Malloc*/NODE_*/PYTHON* etc.).
-        // review LOW-2: also ignore SYSTEM + GLOBAL git config (~/.gitconfig can carry tokens/pagers/
-        // hooks); only the repo config git needs for `worktree list` is consulted.
-        process.environment = gitProcessEnvironment(git: git)
+        // Minimal env computed on @MainActor by the caller (gitWorktreeInvocation) and passed in —
+        // DYLD_*/LD_*/Malloc*/NODE_*/PYTHON* stripped + SYSTEM/GLOBAL git config ignored.
+        process.environment = environment
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
@@ -2744,6 +2792,14 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 /// but ANY external origin, arbitrary file: path, ws:/wss:, javascript:/data:/app-deeplink
 /// navigation is denied.
 /// Mutable byte box handed to a background pipe-drain (review M4).
+/// Ferries a non-Sendable [[String: Any]] affordance result across the actor boundary from an
+/// off-main worker back to the @MainActor bridge. `nonisolated` so its init runs off-main under
+/// the module's SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor. (goose-3s 2026-07-01)
+private nonisolated final class GooseAffordanceResultBox: @unchecked Sendable {
+    let value: [[String: Any]]
+    init(value: [[String: Any]]) { self.value = value }
+}
+
 private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable {
     private let lock = NSLock()
     private var data = Data()
