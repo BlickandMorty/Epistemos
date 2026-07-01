@@ -5293,7 +5293,7 @@ if (!source.includes(acpImport)) {
 
 // epistemos-acp-hide-reset-provider-settings: Goose ACP can save defaults but
 // cannot delete/clear them, so the reset card would otherwise be a no-op.
-const resetProviderCardAnchor = `      <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">
+const resetProviderCardAnchor = `      <Card className="bg-background-primary/42 pb-2">
         <CardHeader className="pb-0">
           <CardTitle className="">{intl.formatMessage(i18n.resetTitle)}</CardTitle>
           <CardDescription>
@@ -5305,7 +5305,7 @@ const resetProviderCardAnchor = `      <Card className="border-border-secondary 
         </CardContent>
       </Card>`;
 const resetProviderCardReplacement = `      {!USE_ACP_CHAT && (
-        <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl" data-epistemos-acp-hide-reset-provider-settings="true">
+        <Card className="bg-background-primary/42 pb-2" data-epistemos-acp-hide-reset-provider-settings="true">
           <CardHeader className="pb-0">
             <CardTitle className="">{intl.formatMessage(i18n.resetTitle)}</CardTitle>
             <CardDescription>
@@ -6054,17 +6054,24 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
         exit 1
     fi
     grep -q "bg-\\[var(--epistemos-accent)\\] text-white hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/button.tsx"
-    grep -q "rounded-\\[8px\\] border border-border-primary bg-background-primary/70" "$WORK_ROOT/ui/desktop/src/components/ui/input.tsx"
-    grep -q "rounded-\\[11px\\] border border-border-secondary" "$WORK_ROOT/ui/desktop/src/components/ui/card.tsx"
-    grep -q "rounded-\\[14px\\] border border-border-primary" "$WORK_ROOT/ui/desktop/src/components/ui/dialog.tsx"
+    grep -q "rounded-\\[8px\\] bg-background-primary/60" "$WORK_ROOT/ui/desktop/src/components/ui/input.tsx"
+    grep -q "rounded-\\[11px\\] py-3 shadow-none" "$WORK_ROOT/ui/desktop/src/components/ui/card.tsx"
+    grep -q "rounded-\\[14px\\] p-5 shadow-2xl" "$WORK_ROOT/ui/desktop/src/components/ui/dialog.tsx"
+    grep -q "bg-background-secondary/56 p-1" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
+    grep -q "data-\\[state=active\\]:bg-background-primary/78" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
     grep -q "rounded-\\[9px\\] border border-border-primary p-1 shadow-lg backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/ui/dropdown-menu.tsx"
     grep -q "className=\"goose-epistemos relative w-screen h-screen overflow-hidden bg-transparent flex flex-col\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "relative flex h-full w-full flex-col overflow-hidden bg-transparent" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
     grep -q "className=\"h-screen w-full bg-transparent" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingGuard.tsx"
     grep -q "rounded-\\[12px\\] border border-border-success bg-background-success/55" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingSuccess.tsx"
     grep -q "rounded-\\[10px\\] border border-border-secondary bg-background-primary/68 p-3" "$WORK_ROOT/ui/desktop/src/components/onboarding/LocalModelPicker.tsx"
     grep -q "backgroundColor = 'bg-transparent'" "$WORK_ROOT/ui/desktop/src/components/Layout/MainPanelLayout.tsx"
     grep -q "bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "goose-chat-input-card overflow-hidden rounded-\\[16px\\] bg-background-primary/40" "$WORK_ROOT/ui/desktop/src/components/ChatInputCard.tsx"
+    grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] bg-background-primary/42 p-4" "$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
+    grep -q "bg-background-primary/42 p-3 pb-4" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
+    grep -q "bg-background-primary/42 pb-2" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
+    grep -q "rounded-\\[10px\\] bg-background-danger/28 p-3" "$WORK_ROOT/ui/desktop/src/components/settings/reset_provider/ResetProviderSection.tsx"
     grep -q "rounded-\\[8px\\] px-2.5 py-1.5 text-\\[13px\\]" "$WORK_ROOT/ui/desktop/src/components/Layout/NavigationPanel.tsx"
     grep -q "text-left flex-1 truncate font-sans tracking-normal" "$WORK_ROOT/ui/desktop/src/components/Layout/NavigationPanel.tsx"
     grep -q "ep-pixel flex items-center gap-1" "$WORK_ROOT/ui/desktop/src/components/Layout/NavigationPanel.tsx"
@@ -6189,11 +6196,12 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "focus:border-transparent" "$WORK_ROOT/ui/desktop/src/components/settings/config/ConfigSettings.tsx"
     grep -q "min-h-\\[500px\\] w-full flex-1 resize-y rounded-\\[10px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/PromptsSettingsSection.tsx"
     grep -q "border-border-warning bg-background-warning/55" "$WORK_ROOT/ui/desktop/src/components/settings/PromptsSettingsSection.tsx"
-    grep -q "bg-background-primary/68 p-3 pb-4" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
-    grep -q "rounded-\\[10px\\] border border-border-danger bg-background-danger/35" "$WORK_ROOT/ui/desktop/src/components/settings/reset_provider/ResetProviderSection.tsx"
-    grep -q "bg-background-primary/45 px-2" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
-    grep -q "rounded-\\[14px\\] border border-border-primary bg-background-primary/88" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
-    grep -q "border-b border-border-secondary bg-background-primary/45 px-4 py-3" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
+    grep -q "bg-background-primary/42 p-3 pb-4" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
+    grep -q "bg-background-primary/42 pb-2" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
+    grep -q "rounded-\\[10px\\] bg-background-danger/28 p-3" "$WORK_ROOT/ui/desktop/src/components/settings/reset_provider/ResetProviderSection.tsx"
+    grep -q "bg-background-primary/34 px-2" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
+    grep -q "rounded-\\[14px\\] bg-background-primary/92 shadow-2xl" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
+    grep -q "bg-background-primary/45 px-4 py-3" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
     grep -q "sm:max-w-\\[560px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "rounded-\\[10px\\] border px-3 py-2.5 text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "peer-checked:border-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
@@ -6206,7 +6214,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "ep-native-badge min-w-\\[120px\\] px-2 py-1" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/KeyboardShortcutsSection.tsx"
     grep -q "rounded-\\[9px\\] border border-transparent px-3 py-2.5" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/KeyboardShortcutsSection.tsx"
     grep -q "h-\\[22px\\] w-\\[38px\\]" "$WORK_ROOT/ui/desktop/src/components/ui/switch.tsx"
-    grep -q "rounded-\\[10px\\] bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
+    grep -q "rounded-\\[10px\\] bg-background-secondary/56" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
     grep -q "select__menu z-\\[9999\\] absolute backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/ui/Select.tsx"
     grep -q "base: './'" "$RENDERER_CONFIG"
     if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_TYPECHECK:-0}" = "1" ]; then

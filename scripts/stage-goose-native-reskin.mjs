@@ -1420,19 +1420,19 @@ function applyButton() {
     source,
     'button default variant',
     "default: 'bg-background-inverse text-text-inverse hover:bg-background-inverse/90 shadow-none'",
-    "default: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90 shadow-sm'"
+    "default: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90 shadow-none'"
   );
   source = replaceRequired(
     source,
     'button outline variant',
     "outline: 'border hover:bg-background-secondary'",
-    "outline: 'border border-border-primary bg-background-primary/55 hover:bg-background-secondary/75 backdrop-blur-xl'"
+    "outline: 'bg-background-primary/45 hover:bg-background-secondary/75'"
   );
   source = replaceRequired(
     source,
     'button secondary variant',
     "secondary:\n          'bg-background-secondary text-text-primary hover:bg-background-secondary/80 shadow-none'",
-    "secondary:\n          'bg-background-secondary/72 text-text-primary hover:bg-background-secondary/90 shadow-sm backdrop-blur-xl'"
+    "secondary:\n          'bg-background-secondary/72 text-text-primary hover:bg-background-secondary/90 shadow-none'"
   );
   source = source.replaceAll("rounded-[5px]", "rounded-[8px]");
   write('src/components/ui/button.tsx', source);
@@ -1444,7 +1444,7 @@ function applyInput() {
     source,
     'input native geometry',
     "'flex h-9 w-full rounded-[5px] border border-border-primary focus:border-border-secondary hover:border-border-secondary bg-background-primary px-3 py-1 text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-secondary placeholder:font-light focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50'",
-    "'flex h-9 w-full rounded-[8px] border border-border-primary bg-background-primary/70 px-3 py-1 text-sm transition-all duration-200 ease-[var(--epistemos-control-ease)] file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-secondary placeholder:font-light hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50'"
+    "'flex h-9 w-full rounded-[8px] bg-background-primary/60 px-3 py-1 text-sm transition-colors duration-200 ease-[var(--epistemos-control-ease)] file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-secondary placeholder:font-light hover:bg-background-secondary/62 focus:bg-background-secondary/72 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50'"
   );
   write('src/components/ui/input.tsx', source);
 }
@@ -1455,7 +1455,7 @@ function applyCard() {
     source,
     'card native glass',
     "'bg-background-primary text-text-primary flex flex-col gap-3 rounded-[6px] border border-border-secondary py-3 shadow-none'",
-    "'bg-background-primary/72 text-text-primary flex flex-col gap-3 rounded-[11px] border border-border-secondary py-3 shadow-sm backdrop-blur-xl'"
+    "'bg-background-primary/58 text-text-primary flex flex-col gap-3 rounded-[11px] py-3 shadow-none'"
   );
   source = replaceRequired(
     source,
@@ -1478,13 +1478,13 @@ function applyDialog() {
     source,
     'dialog content',
     "'bg-background-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[6px] border border-border-primary p-5 shadow-none duration-150 sm:max-w-lg'",
-    "'bg-background-primary/86 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[14px] border border-border-primary p-5 shadow-2xl backdrop-blur-xl duration-200 ease-[var(--epistemos-control-ease)] sm:max-w-lg'"
+    "'bg-background-primary/92 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[14px] p-5 shadow-2xl duration-200 ease-[var(--epistemos-control-ease)] sm:max-w-lg'"
   );
   source = replaceRequired(
     source,
     'dialog close button',
     `DialogPrimitive.Close className="ring-offset-background p-1 hover:bg-background-secondary rounded-[4px] focus:ring-ring data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:ring-1 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`,
-    `DialogPrimitive.Close className="ring-offset-background p-1 hover:bg-background-secondary rounded-[8px] focus:ring-[var(--epistemos-accent)] data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:ring-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`
+    `DialogPrimitive.Close className="p-1 hover:bg-background-secondary rounded-[8px] data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`
   );
   source = replaceRequired(
     source,
@@ -1567,13 +1567,13 @@ function applyTabs() {
     source,
     'tabs list',
     "'flex h-auto justify-start rounded-[6px] bg-background-primary p-1 text-muted-foreground gap-1'",
-    "'flex h-auto justify-start rounded-[10px] bg-background-secondary/70 p-1 text-muted-foreground gap-1 backdrop-blur-xl'"
+    "'flex h-auto justify-start rounded-[10px] bg-background-secondary/56 p-1 text-muted-foreground gap-1'"
   );
   source = replaceRequired(
     source,
     'tabs trigger',
     "'flex items-center justify-start whitespace-nowrap rounded-[5px] px-3 py-1.5 text-xs font-mono ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background-secondary data-[state=active]:text-text-primary data-[state=active]:shadow-none hover:bg-background-secondary hover:text-text-primary'",
-    "'flex items-center justify-start whitespace-nowrap rounded-[7px] px-3 py-1.5 text-xs font-sans ring-offset-background transition-all duration-200 ease-[var(--epistemos-control-ease)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background-primary data-[state=active]:text-text-primary data-[state=active]:shadow-sm hover:bg-background-primary/80 hover:text-text-primary'"
+    "'flex items-center justify-start whitespace-nowrap rounded-[7px] px-3 py-1.5 text-xs font-sans transition-colors duration-200 ease-[var(--epistemos-control-ease)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background-primary/78 data-[state=active]:text-text-primary hover:bg-background-primary/68 hover:text-text-primary'"
   );
   write('src/components/ui/tabs.tsx', source);
 }
@@ -1881,13 +1881,13 @@ function applyAppSurfaces() {
     source,
     'launcher frame',
     'className="relative flex h-full w-full flex-col overflow-hidden border border-border-primary bg-background-primary/95"',
-    'className="relative flex h-full w-full flex-col overflow-hidden rounded-[22px] border border-border-primary bg-background-primary/70 shadow-[0_18px_48px_rgba(0,0,0,.14)] backdrop-blur-xl"'
+    'className="relative flex h-full w-full flex-col overflow-hidden bg-transparent"'
   );
   source = replaceRequired(
     source,
     'launcher segmented control',
     'className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1 border border-border-primary bg-background-primary/90 p-1"',
-    'className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1 rounded-[10px] border border-border-primary bg-background-secondary/70 p-1 shadow-sm backdrop-blur-xl"'
+    'className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1 rounded-[10px] bg-background-secondary/56 p-1"'
   );
   source = replaceRequired(
     source,
@@ -1899,13 +1899,13 @@ function applyAppSurfaces() {
     source,
     'launcher selected segment',
     "? 'bg-background-tertiary text-text-primary'",
-    "? 'bg-background-primary text-text-primary shadow-sm'"
+    "? 'bg-background-primary/78 text-text-primary'"
   );
   source = replaceRequired(
     source,
     'launcher input card',
     'className="goose-chat-input-card flex h-14 items-center border border-border-primary bg-background-secondary"',
-    'className="goose-chat-input-card flex h-14 items-center rounded-[14px] border border-border-primary bg-background-primary/76 shadow-[0_10px_32px_rgba(0,0,0,.10)] backdrop-blur-xl"'
+    'className="goose-chat-input-card flex h-14 items-center rounded-[14px] bg-background-primary/40"'
   );
   source = replaceRequired(
     source,
@@ -1923,7 +1923,7 @@ function applyAppSurfaces() {
     source,
     'launcher launching card',
     'className="border border-border-primary bg-background-primary px-4 py-3 font-mono text-xs uppercase text-text-primary"',
-    'className="rounded-[11px] border border-border-primary bg-background-primary/85 px-4 py-3 font-sans text-xs uppercase text-text-primary shadow-lg backdrop-blur-xl"'
+    'className="rounded-[11px] bg-background-primary/58 px-4 py-3 font-sans text-xs uppercase text-text-primary"'
   );
   write('src/components/LauncherView.tsx', source);
 
@@ -2228,7 +2228,7 @@ function applyProviderCatalogSurfaces() {
     source,
     'provider settings header glass',
     'className="flex flex-col pb-5 border-b border-border-secondary"',
-    'className="ep-native-header-band flex flex-col rounded-[16px] border border-border-secondary p-4 shadow-sm"'
+    'className="ep-native-header-band flex flex-col rounded-[16px] bg-background-primary/42 p-4"'
   );
   source = replaceRequired(
     source,
@@ -2282,19 +2282,19 @@ function applyProviderCatalogSurfaces() {
     source,
     'provider card outer radius',
     'rounded-[6px] group/card border',
-    'ep-native-list-card rounded-[14px] group/card border'
+    'ep-native-list-card rounded-[14px] group/card'
   );
   source = replaceRequired(
     source,
     'provider card disabled fill',
     "? 'bg-background-secondary border-border-primary'",
-    "? 'bg-background-secondary/56 border-border-secondary opacity-70'"
+    "? 'bg-background-secondary/46 opacity-70'"
   );
   source = replaceRequired(
     source,
     'provider card enabled fill',
     ": 'bg-background-primary border-border-primary hover:border-primary'",
-    ": 'bg-background-primary/64 border-border-secondary hover:border-[var(--epistemos-accent)] hover:bg-background-primary/78'"
+    ": 'bg-background-primary/46 hover:bg-background-primary/68'"
   );
   source = replaceRequired(
     source,
@@ -3335,7 +3335,7 @@ function applyModelSettingsSurfaces() {
     source,
     'models summary card native glass',
     'className="p-2 pb-4"',
-    'className="border-border-secondary bg-background-primary/68 p-3 pb-4 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/42 p-3 pb-4"'
   );
   source = replaceRequired(
     source,
@@ -3347,7 +3347,7 @@ function applyModelSettingsSurfaces() {
     source,
     'models reset card native glass',
     'className="pb-2 rounded-lg"',
-    'className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/42 pb-2"'
   );
   source = replaceRequired(
     source,
@@ -3371,7 +3371,7 @@ function applyModelSettingsSurfaces() {
     source,
     'reset provider container native',
     'className="p-2"',
-    'className="rounded-[10px] border border-border-danger bg-background-danger/35 p-3"'
+    'className="rounded-[10px] bg-background-danger/28 p-3"'
   );
   source = replaceRequired(
     source,
@@ -3386,7 +3386,7 @@ function applyModelSettingsSurfaces() {
     source,
     'model bottom trigger native',
     'className="flex items-center hover:cursor-pointer max-w-[180px] md:max-w-[200px] lg:max-w-[380px] min-w-0 text-text-primary/70 hover:text-text-primary transition-colors"',
-    'className="flex h-8 min-w-0 max-w-[180px] items-center rounded-[8px] border border-transparent bg-background-primary/45 px-2 text-text-primary/75 transition-all hover:cursor-pointer hover:border-border-secondary hover:bg-background-secondary/65 hover:text-text-primary md:max-w-[200px] lg:max-w-[380px]"'
+    'className="flex h-8 min-w-0 max-w-[180px] items-center rounded-[8px] bg-background-primary/34 px-2 text-text-primary/75 transition-colors hover:cursor-pointer hover:bg-background-secondary/65 hover:text-text-primary md:max-w-[200px] lg:max-w-[380px]"'
   );
   source = replaceRequired(
     source,
@@ -3404,13 +3404,13 @@ function applyModelSettingsSurfaces() {
     source,
     'model bottom local modal native',
     'className="bg-background-primary border border-border-primary rounded-[6px] shadow-none w-[480px] max-h-[80vh] flex flex-col"',
-    'className="flex max-h-[80vh] w-[480px] flex-col rounded-[14px] border border-border-primary bg-background-primary/88 shadow-2xl backdrop-blur-xl"'
+    'className="flex max-h-[80vh] w-[480px] flex-col rounded-[14px] bg-background-primary/92 shadow-2xl"'
   );
   source = replaceRequired(
     source,
     'model bottom local modal header native',
     'className="flex items-center justify-between px-4 py-3 border-b border-border-subtle"',
-    'className="flex items-center justify-between border-b border-border-secondary bg-background-primary/45 px-4 py-3 backdrop-blur-xl"'
+    'className="flex items-center justify-between bg-background-primary/45 px-4 py-3"'
   );
   source = replaceRequired(
     source,
