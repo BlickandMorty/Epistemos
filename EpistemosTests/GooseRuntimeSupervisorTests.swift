@@ -40,8 +40,8 @@ struct GooseRuntimeSupervisorTests {
         }
     }
 
-    @Test("App Store Goose branch starts in-process ACP instead of gating Goose unavailable")
-    func appStoreGooseBranchStartsInProcessACP() throws {
+    @Test("App Store Goose branch stays owner-gated before in-process ACP")
+    func appStoreGooseBranchStaysOwnerGatedBeforeInProcessACP() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
         let appStoreStart = try #require(source.range(of: "#if EPISTEMOS_APP_STORE"))
         let appStoreEnd = try #require(source.range(
@@ -49,6 +49,10 @@ struct GooseRuntimeSupervisorTests {
             range: appStoreStart.upperBound..<source.endIndex
         ))
         let appStoreBranch = source[appStoreStart.lowerBound..<appStoreEnd.lowerBound]
+        let ownerGate = try #require(appStoreBranch.range(of: #"EPISTEMOS_MAS_GOOSE_V0"] == "1""#))
+        let inProcessStart = try #require(appStoreBranch.range(of: "runInProcessAgentCore"))
+        #expect(ownerGate.lowerBound < inProcessStart.lowerBound)
+        #expect(appStoreBranch.contains("MAS Goose (in-process) is owner-gated and in development"))
         #expect(appStoreBranch.contains("runInProcessAgentCore"))
         #expect(source.contains("let server = GooseInProcessACPServer"))
         #expect(!appStoreBranch.contains("Goose is available in the Pro / Developer-ID build"))
