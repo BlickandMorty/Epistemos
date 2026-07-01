@@ -318,6 +318,7 @@ struct WorkCloneSettingsTests {
             ".config/opencode",
             "epistemos-vault",
             "epistemos-native",
+            ".posixPermissions: 0o600",
         ] {
             #expect(openCodeRuntime.contains(requiredContract))
         }

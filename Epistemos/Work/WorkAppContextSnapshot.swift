@@ -172,7 +172,8 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
     }
 
     private static func clean(_ value: String?, limit: Int) -> String? {
-        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let bounded = String((value ?? "").prefix(limit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         guard limit > 3, trimmed.count > limit else { return trimmed }
         return String(trimmed.prefix(limit - 3)) + "..."
@@ -188,8 +189,9 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
     }
 
     private static func compact(_ value: String, limit: Int) -> String {
-        guard limit > 3, value.count > limit else { return value }
-        return String(value.prefix(limit - 3)) + "..."
+        let bounded = String(value.prefix(limit + 32))
+        guard limit > 3, bounded.count > limit else { return bounded }
+        return String(bounded.prefix(limit - 3)) + "..."
     }
 }
 

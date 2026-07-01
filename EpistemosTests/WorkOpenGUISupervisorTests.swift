@@ -259,6 +259,7 @@ struct WorkOpenGUISupervisorTests {
 
     @Test("OpenGUI native MCP config merge preserves existing workspace config")
     func openGUINativeMCPMergePreservesExistingConfig() throws {
+        let provisionerSource = try loadMirroredSourceTextFile("Epistemos/Work/WorkOpenGUIProvisioner.swift")
         let existing = """
         {
           "$schema": "https://opencode.ai/config.json",
@@ -281,6 +282,17 @@ struct WorkOpenGUISupervisorTests {
         #expect(native["url"] as? String == "http://127.0.0.1:5511/mcp")
         #expect((native["headers"] as? [String: String])?["Authorization"] == "Bearer tok")
         #expect(native["enabled"] as? Bool == true)
+        #expect(provisionerSource.contains("readExistingConfigTextNoFollow"))
+        #expect(provisionerSource.contains("maxExistingConfigBytes"))
+        #expect(provisionerSource.contains("open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)"))
+        #expect(provisionerSource.contains("fstat(fd"))
+        #expect(provisionerSource.contains("readToEnd()"))
+        #expect(provisionerSource.contains(".posixPermissions: 0o600"))
+        #expect(provisionerSource.contains("writeOwnerOnlyConfigData"))
+        #expect(provisionerSource.contains("writeExclusiveOwnerOnlyData"))
+        #expect(provisionerSource.contains("O_EXCL | O_NOFOLLOW | O_CLOEXEC"))
+        #expect(!provisionerSource.contains("String(contentsOf: configURL, encoding: .utf8)"))
+        #expect(!provisionerSource.contains(".write(to: configURL, options: .atomic)"))
     }
 
     @Test("OpenGUI native MCP config merge only accepts user-space loopback /mcp registrations with a bearer")
@@ -301,6 +313,15 @@ struct WorkOpenGUISupervisorTests {
             WorkNativeMCPRegistration(url: "http://127.0.0.1/mcp", token: "tok"),
             WorkNativeMCPRegistration(url: "http://127.0.0.1:0/mcp", token: "tok"),
             WorkNativeMCPRegistration(url: "http://127.0.0.1:80/mcp", token: "tok"),
+            WorkNativeMCPRegistration(url: "http://user:pass@127.0.0.1:5511/mcp", token: "tok"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp?token=secret", token: "tok"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp#frag", token: "tok"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp", token: " tok"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp", token: "tok 123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp", token: "tok\n123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp", token: "tok:123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp", token: "tok@123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5511/mcp", token: #"tok"123"#),
         ] {
             #expect(!WorkOpenGUIProvisioner.isValidNativeMCPRegistration(bad))
             #expect(WorkOpenGUIProvisioner.mergedNativeMCPConfigJSON(existingJSON: nil, registration: bad) == nil)

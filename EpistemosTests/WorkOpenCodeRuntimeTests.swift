@@ -140,6 +140,18 @@ struct WorkOpenCodeRuntimeTests {
         #expect(src.contains("OPENCODE_CONFIG"))
         // LIVE launch path must use the merge-preserving writer, not the clobbering one (0.49).
         #expect(src.contains("writeMergedFusionConfig("))
+        #expect(src.contains("readExistingConfigTextNoFollow"))
+        #expect(src.contains("maxExistingConfigBytes"))
+        #expect(src.contains("open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)"))
+        #expect(src.contains("fstat(fd"))
+        #expect(src.contains("readToEnd()"))
+        #expect(src.contains(".posixPermissions: 0o700"))
+        #expect(src.contains(".posixPermissions: 0o600"))
+        #expect(src.contains("writeOwnerOnlyConfigData"))
+        #expect(src.contains("writeExclusiveOwnerOnlyData"))
+        #expect(src.contains("O_EXCL | O_NOFOLLOW | O_CLOEXEC"))
+        #expect(!src.contains("String(contentsOf: file, encoding: .utf8)"))
+        #expect(!src.contains("json.write(to: file, atomically: true"))
         // 0.49b + honest-no-vault (owner 2026-06-24): the fusion MCP server roots at the Epistemos APP VAULT
         // (skills/context bridge) ONLY when a vault is active — NEVER the shell cwd AND NEVER a silent empty
         // default. No active vault → fusion is omitted entirely (diag 8af17c841).
@@ -199,6 +211,15 @@ struct WorkOpenCodeRuntimeTests {
             WorkNativeMCPRegistration(url: "http://127.0.0.1/mcp", token: "tok123"),
             WorkNativeMCPRegistration(url: "http://127.0.0.1:0/mcp", token: "tok123"),
             WorkNativeMCPRegistration(url: "http://127.0.0.1:80/mcp", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://user:pass@127.0.0.1:5599/mcp", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp?token=secret", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp#frag", token: "tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: " tok123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: "tok 123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: "tok\n123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: "tok:123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: "tok@123"),
+            WorkNativeMCPRegistration(url: "http://127.0.0.1:5599/mcp", token: #"tok"123"#),
         ] {
             let json = WorkOpenCodeRuntime.mergedOpenCodeConfigJSON(
                 existingJSON: nil,

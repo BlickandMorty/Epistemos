@@ -205,8 +205,7 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
 
     /// The full security + routing decision for one request. Order: path → method → origin+auth.
     static func routeOutcome(method: String, path: String, headers: [String: String], token: String) -> RouteOutcome {
-        let normalizedPath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
-        guard normalizedPath == mcpPath else { return .notFound }
+        guard path == mcpPath else { return .notFound }
         guard method.uppercased() == "POST" else { return .methodNotAllowed }
         guard isAllowedOrigin(headers: headers), isAuthorized(headers: headers, token: token) else {
             return .unauthorized
@@ -217,9 +216,11 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
     /// Extract the bearer token from an `Authorization: Bearer <token>` header (case-insensitive scheme).
     static func bearerToken(from headers: [String: String]) -> String? {
         guard let value = headers["authorization"] else { return nil }
-        let parts = value.split(separator: " ", maxSplits: 1)
+        let parts = value.split(maxSplits: 1, omittingEmptySubsequences: true) {
+            $0 == " " || $0 == "\t"
+        }
         guard parts.count == 2, parts[0].lowercased() == "bearer" else { return nil }
-        let token = parts[1].trimmingCharacters(in: .whitespaces)
+        let token = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
         return token.isEmpty ? nil : token
     }
 
@@ -237,7 +238,12 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
         guard let components = URLComponents(string: origin),
               let scheme = components.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
-              let host = components.host?.lowercased() else {
+              let host = components.host?.lowercased(),
+              components.user == nil,
+              components.password == nil,
+              components.path.isEmpty,
+              components.query == nil,
+              components.fragment == nil else {
             return false
         }
         return host == "127.0.0.1" || host == "localhost" || host == "::1" || host == "[::1]"
@@ -341,18 +347,21 @@ nonisolated struct WorkMCPHTTPRequest: Equatable {
         var lines = headerText.components(separatedBy: "\r\n")
         guard let requestLine = lines.first else { return .invalid }
         lines.removeFirst()
-        let requestParts = requestLine.split(separator: " ")
-        guard requestParts.count >= 2 else { return .invalid }
+        let requestParts = requestLine.split(separator: " ", omittingEmptySubsequences: false)
+        guard requestParts.count == 3,
+              requestParts.allSatisfy({ !$0.isEmpty }),
+              requestParts[2] == "HTTP/1.1" else { return .invalid }
         let method = String(requestParts[0])
-        let rawPath = String(requestParts[1])
-        let path = rawPath.split(separator: "?", maxSplits: 1).first.map(String.init) ?? rawPath
+        let path = String(requestParts[1])
 
         var headers: [String: String] = [:]
         var sawContentLength = false
         for line in lines where !line.isEmpty {
-            guard let colon = line.firstIndex(of: ":") else { continue }
+            guard let colon = line.firstIndex(of: ":") else { return .invalid }
             let key = line[line.startIndex..<colon].trimmingCharacters(in: .whitespaces).lowercased()
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            guard headers[key] == nil else { return .invalid }
+            if key == "transfer-encoding" { return .invalid }
             if key == "content-length" {
                 if sawContentLength { return .invalid }
                 sawContentLength = true
@@ -371,6 +380,7 @@ nonisolated struct WorkMCPHTTPRequest: Equatable {
         let bodyStart = range.upperBound
         let available = buffer.distance(from: bodyStart, to: buffer.endIndex)
         if available < contentLength { return .needMore }
+        if available > contentLength { return .invalid }
         let body = contentLength > 0
             ? buffer.subdata(in: bodyStart..<buffer.index(bodyStart, offsetBy: contentLength))
             : Data()

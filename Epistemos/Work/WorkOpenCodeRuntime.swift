@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 // WORK = OpenCode shell — the bundled-runtime resolver + lazy lifecycle (owner
@@ -23,6 +24,10 @@ import Foundation
 // and is itself Equatable) can use this Equatable conformance off the main actor. Both fields are Sendable value
 // types, so escaping the module's default MainActor isolation is safe.
 nonisolated struct WorkNativeMCPRegistration: Equatable, Sendable {
+    private static let safeBearerTokenCharacters = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~+/="
+    )
+
     let url: String
     let token: String
 
@@ -31,15 +36,26 @@ nonisolated struct WorkNativeMCPRegistration: Equatable, Sendable {
     }
 
     static func isTrustedLoopbackMCP(url: String, token: String) -> Bool {
-        let token = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty,
+        guard isSafeBearerToken(token),
               let components = URLComponents(string: url),
               components.scheme?.lowercased() == "http",
               components.path == WorkNativeMCPServer.mcpPath,
               let host = components.host,
               let port = components.port,
-              (1024...65535).contains(port) else { return false }
+              (1024...65535).contains(port),
+              components.user == nil,
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil else { return false }
         return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
+
+    static func isSafeBearerToken(_ token: String) -> Bool {
+        token == token.trimmingCharacters(in: .whitespacesAndNewlines)
+            && !token.isEmpty
+            && token.unicodeScalars.allSatisfy { scalar in
+                safeBearerTokenCharacters.contains(scalar)
+            }
     }
 }
 
@@ -50,6 +66,7 @@ nonisolated enum WorkOpenCodeRuntime {
     static let defaultPort = 4096
     /// Kill-on-idle window for the work runtime (owner: lazy-launch, kill-on-idle).
     static let idleTimeout: TimeInterval = 300
+    private static let maxExistingConfigBytes = 1024 * 1024
 
     /// Where the bundled OpenCode runtime launcher lives once vendored + bundled into
     /// the signed .app. Honest nil until then (no fake "present").
@@ -139,10 +156,12 @@ nonisolated enum WorkOpenCodeRuntime {
     /// merge-preserving `writeMergedFusionConfig` so user-installed MCPs survive a relaunch (0.49).
     static func writeFusionConfig(_ json: String) -> String? {
         guard let file = fusionConfigURL() else { return nil }
+        let directory = file.deletingLastPathComponent()
         do {
             try FileManager.default.createDirectory(
-                at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try json.write(to: file, atomically: true, encoding: .utf8)
+                at: directory, withIntermediateDirectories: true)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+            try writeOwnerOnlyConfigData(Data(json.utf8), to: file)
             return file.path
         } catch {
             return nil
@@ -188,7 +207,8 @@ nonisolated enum WorkOpenCodeRuntime {
         else { return nil }
         do {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-            try json.write(to: file, atomically: true, encoding: .utf8)
+            try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
+            try writeOwnerOnlyConfigData(Data(json.utf8), to: file)
             return file.path
         } catch {
             return nil
@@ -255,17 +275,83 @@ nonisolated enum WorkOpenCodeRuntime {
         stdioServerPath: String, vaultRoot: String, nativeMCP: WorkNativeMCPRegistration? = nil
     ) -> String? {
         guard let file = fusionConfigURL() else { return nil }
-        let existing = try? String(contentsOf: file, encoding: .utf8)
+        let directory = file.deletingLastPathComponent()
+        let existing = readExistingConfigTextNoFollow(at: file)
         let json = mergedOpenCodeConfigJSON(
             existingJSON: existing, stdioServerPath: stdioServerPath, vaultRoot: vaultRoot,
             nativeMCP: nativeMCP)
         do {
             try FileManager.default.createDirectory(
-                at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try json.write(to: file, atomically: true, encoding: .utf8)
+                at: directory, withIntermediateDirectories: true)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+            try writeOwnerOnlyConfigData(Data(json.utf8), to: file)
             return file.path
         } catch {
             return nil
+        }
+    }
+
+    private static func readExistingConfigTextNoFollow(at file: URL) -> String? {
+        let fd = file.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else { return nil }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            return nil
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxExistingConfigBytes) else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              data.count <= maxExistingConfigBytes else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func writeOwnerOnlyConfigData(_ data: Data, to file: URL) throws {
+        let directory = file.deletingLastPathComponent()
+        let temporary = directory.appendingPathComponent(".\(file.lastPathComponent).\(UUID().uuidString).tmp")
+        do {
+            try writeExclusiveOwnerOnlyData(data, to: temporary)
+            let destinationExists = FileManager.default.fileExists(atPath: file.path)
+                || (try? FileManager.default.destinationOfSymbolicLink(atPath: file.path)) != nil
+            if destinationExists {
+                try FileManager.default.removeItem(at: file)
+            }
+            try FileManager.default.moveItem(at: temporary, to: file)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
+    }
+
+    private static func writeExclusiveOwnerOnlyData(_ data: Data, to file: URL) throws {
+        let fd = file.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        }
+        guard fd >= 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        do {
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
         }
     }
 }

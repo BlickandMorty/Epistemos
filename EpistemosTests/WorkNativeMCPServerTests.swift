@@ -78,8 +78,11 @@ struct WorkNativeMCPServerTests {
     @Test("Work native MCP server source routes failures through diagnostics")
     func workNativeMCPServerSourceRoutesFailuresThroughDiagnostics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Work/WorkNativeMCPServer.swift")
+        let diagnostics = try loadMirroredSourceTextFile("Epistemos/Work/WorkServerDiagnostics.swift")
 
         #expect(source.contains("WorkServerDiagnostics.statusMessage(for: error"))
+        #expect(diagnostics.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(diagnostics.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
     }
@@ -93,11 +96,11 @@ struct WorkNativeMCPServerTests {
         #expect(outcome == .dispatch)
     }
 
-    @Test("query string on the path is stripped before matching")
-    func dispatchesWithQueryString() {
+    @Test("query string on the MCP path is refused")
+    func rejectsQueryStringOnMCPPath() {
         let outcome = WorkNativeMCPServer.routeOutcome(
             method: "POST", path: "/mcp?session=1", headers: authHeaders(token), token: token)
-        #expect(outcome == .dispatch)
+        #expect(outcome == .notFound)
     }
 
     @Test("wrong / missing bearer → unauthorized")
@@ -138,6 +141,8 @@ struct WorkNativeMCPServerTests {
     func parsesBearer() {
         #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "Bearer abc"]) == "abc")
         #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "bearer abc"]) == "abc")
+        #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "Bearer\tabc"]) == "abc")
+        #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "Bearer  \tabc"]) == "abc")
         #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "Basic abc"]) == nil)
         #expect(WorkNativeMCPServer.bearerToken(from: [:]) == nil)
         #expect(WorkNativeMCPServer.bearerToken(from: ["authorization": "Bearer "]) == nil)
@@ -152,6 +157,10 @@ struct WorkNativeMCPServerTests {
         #expect(WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://[::1]:3000"]))
         #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "file://localhost/private.html"]))
         #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "https://app.evil.com"]))
+        #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://user:pass@localhost:3000"]))
+        #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://localhost:3000/path"]))
+        #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://localhost:3000?token=secret"]))
+        #expect(!WorkNativeMCPServer.isAllowedOrigin(headers: ["origin": "http://localhost:3000#frag"]))
     }
 
     @Test("isAllowedOrigin: HOST-exact match — substring-spoof loopback origins are REFUSED")
@@ -236,6 +245,16 @@ struct WorkNativeMCPServerTests {
         #expect(WorkMCPHTTPRequest.parse(Data(raw.utf8)) == .needMore)
     }
 
+    @Test("parse rejects malformed HTTP request lines")
+    func parseRejectsMalformedRequestLine() {
+        #expect(WorkMCPHTTPRequest.parse(Data("POST /mcp\r\n\r\n".utf8)) == .invalid)
+        #expect(WorkMCPHTTPRequest.parse(Data("POST /mcp HTTP/1.1 extra\r\n\r\n".utf8)) == .invalid)
+        #expect(WorkMCPHTTPRequest.parse(Data("POST  /mcp HTTP/1.1\r\n\r\n".utf8)) == .invalid)
+        #expect(WorkMCPHTTPRequest.parse(Data("POST /mcp  HTTP/1.1\r\n\r\n".utf8)) == .invalid)
+        #expect(WorkMCPHTTPRequest.parse(Data("POST /mcp BOGUS/1.1\r\n\r\n".utf8)) == .invalid)
+        #expect(WorkMCPHTTPRequest.parse(Data("POST /mcp HTTP/2\r\n\r\n".utf8)) == .invalid)
+    }
+
     @Test("parse rejects malformed or negative Content-Length")
     func parseRejectsBadContentLength() {
         let negative = "POST /mcp HTTP/1.1\r\nContent-Length: -1\r\n\r\n"
@@ -246,6 +265,21 @@ struct WorkNativeMCPServerTests {
 
         let duplicate = "POST /mcp HTTP/1.1\r\nContent-Length: 2\r\nContent-Length: 2\r\n\r\n{}"
         #expect(WorkMCPHTTPRequest.parse(Data(duplicate.utf8)) == .invalid)
+    }
+
+    @Test("parse rejects duplicate, malformed, transfer-encoded, or trailing request framing")
+    func parseRejectsSmuggledRequestFraming() {
+        let duplicateAuthorization = "POST /mcp HTTP/1.1\r\nAuthorization: Bearer a\r\nAuthorization: Bearer b\r\nContent-Length: 2\r\n\r\n{}"
+        #expect(WorkMCPHTTPRequest.parse(Data(duplicateAuthorization.utf8)) == .invalid)
+
+        let malformedHeader = "POST /mcp HTTP/1.1\r\nAuthorization Bearer a\r\nContent-Length: 2\r\n\r\n{}"
+        #expect(WorkMCPHTTPRequest.parse(Data(malformedHeader.utf8)) == .invalid)
+
+        let transferEncoding = "POST /mcp HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
+        #expect(WorkMCPHTTPRequest.parse(Data(transferEncoding.utf8)) == .invalid)
+
+        let trailingBytes = "POST /mcp HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}GET /mcp HTTP/1.1\r\n\r\n"
+        #expect(WorkMCPHTTPRequest.parse(Data(trailingBytes.utf8)) == .invalid)
     }
 
     @Test("parse returns tooLarge for declared Content-Length over the caller cap before waiting for a body")

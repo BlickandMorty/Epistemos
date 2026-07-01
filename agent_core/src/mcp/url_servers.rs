@@ -99,10 +99,7 @@ fn load_entries(path: &Path) -> Vec<UrlMcpServerEntry> {
         Err(_) => return Vec::new(),
     };
     let file_type = metadata.file_type();
-    if file_type.is_symlink()
-        || !file_type.is_file()
-        || metadata.len() > MAX_CONFIG_BYTES as u64
-    {
+    if file_type.is_symlink() || !file_type.is_file() || metadata.len() > MAX_CONFIG_BYTES as u64 {
         return Vec::new();
     }
 
@@ -162,6 +159,17 @@ fn entry_to_config(entry: UrlMcpServerEntry) -> Option<McpServerConfig> {
 
 fn validated_https_url(raw: &str) -> Option<String> {
     let url = raw.trim();
+    let scheme = url.get(..8)?;
+    if !scheme.eq_ignore_ascii_case("https://") {
+        return None;
+    }
+    let authority_and_path = url.get(8..)?;
+    if matches!(
+        authority_and_path.chars().next(),
+        None | Some('/' | '?' | '#')
+    ) {
+        return None;
+    }
     let parsed = reqwest::Url::parse(url).ok()?;
     if parsed.scheme() != "https"
         || parsed.host_str().unwrap_or_default().is_empty()

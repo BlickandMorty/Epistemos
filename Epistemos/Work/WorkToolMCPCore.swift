@@ -2,8 +2,8 @@ import Foundation
 
 // W-R3 (2026-06-24): the protocol CORE for the app-hosted MCP that exposes the FULL native Epistemos tool
 // set to OpenCode (owner requirement: "every tool expressed"). Pure JSON-RPC request→response shaping over
-// the existing `nonisolated OmegaToolRegistry` catalog + the production `LocalAgentToolExecutor` (which
-// actually executes Swift-side tools — computer-use via DeviceAgentService/AXorcist, vault via Rust FFI).
+// the Rust tool catalog, Swift-owned native descriptors, and the production `LocalAgentToolExecutor` (which
+// actually executes Swift-side tools — computer-use via ComputerUseBridge, vault via Rust FFI).
 //
 // This is the EXECUTABLE bridge the external `omega_mcp_stdio` can't be: that Rust stdio server can only
 // run Rust-side tools, so Swift-side tools (see/click/type) return an honest error there. Here, tools/call
@@ -14,6 +14,7 @@ import Foundation
 
 struct WorkToolMCPCore {
     static let contextSnapshotToolName = "epistemos.context.snapshot"
+    private static let maxDiagnosticIdentifierCharacters = 96
 
     /// Executes a tool by (name, argumentsJson). Production passes the app's real `LocalAgentToolExecutor`;
     /// tests pass a stub.
@@ -51,20 +52,33 @@ struct WorkToolMCPCore {
                 result: ["tools": tools])
         case "tools/call":
             guard let params = req["params"] as? [String: Any],
-                  let name = params["name"] as? String,
-                  !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                  let rawName = params["name"] as? String else {
+                return Self.errorResponse(id: id, code: -32602, message: "tools/call requires params.name")
+            }
+            let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else {
                 return Self.errorResponse(id: id, code: -32602, message: "tools/call requires params.name")
             }
             if name == Self.contextSnapshotToolName {
+                guard appContextProvider != nil else {
+                    return Self.errorResponse(id: id, code: -32601, message: "Tool not found: \(Self.diagnosticIdentifier(name))")
+                }
                 return Self.successResponse(
                     id: id,
                     result: Self.toolCallResult(from: Self.contextSnapshotResult(appContextProvider?())))
             }
+            guard let callableName = Self.callableToolName(
+                name,
+                distribution: distribution,
+                nativeToolVaultPath: nativeToolVaultPath
+            ) else {
+                return Self.errorResponse(id: id, code: -32601, message: "Tool not found: \(Self.diagnosticIdentifier(name))")
+            }
             let argumentsJSON = Self.argumentsJSON(from: params["arguments"])
-            let result = await executor(name, argumentsJSON)
+            let result = await executor(callableName, argumentsJSON)
             return Self.successResponse(id: id, result: Self.toolCallResult(from: result))
         default:
-            return Self.errorResponse(id: id, code: -32601, message: "Method not found: \(method)")
+            return Self.errorResponse(id: id, code: -32601, message: "Method not found: \(Self.diagnosticIdentifier(method))")
         }
     }
 
@@ -79,11 +93,84 @@ struct WorkToolMCPCore {
             distribution: distribution,
             nativeToolVaultPath: nativeToolVaultPath
         ), !agentCoreTools.isEmpty {
-            return agentCoreTools
+            return Self.mergedToolDescriptors([
+                agentCoreTools,
+                swiftNativeToolDescriptors(distribution: distribution),
+            ])
         }
 
+        return Self.mergedToolDescriptors([
+            omegaToolDescriptors(distribution: distribution),
+            swiftNativeToolDescriptors(distribution: distribution),
+        ])
+    }
+
+    static func callableToolName(
+        _ rawName: String,
+        distribution: ToolSurfacePolicy.Distribution,
+        nativeToolVaultPath: String? = nil
+    ) -> String? {
+        let canonicalName = AgentToolNameAliases.canonical(rawName)
+        guard !canonicalName.isEmpty else {
+            return nil
+        }
+        return advertisedCallableToolName(
+            matching: rawName,
+            distribution: distribution,
+            nativeToolVaultPath: nativeToolVaultPath
+        )
+    }
+
+    private static func advertisedCallableToolName(
+        matching rawName: String,
+        distribution: ToolSurfacePolicy.Distribution,
+        nativeToolVaultPath: String?
+    ) -> String? {
+        for descriptor in toolsList(distribution: distribution, nativeToolVaultPath: nativeToolVaultPath) {
+            guard let name = descriptor["name"] as? String else { continue }
+            let canonicalName = AgentToolNameAliases.canonical(name)
+            guard !canonicalName.isEmpty else { continue }
+            if AgentToolNameAliases.containsEquivalent(
+                AgentToolNameAliases.equivalentNames(for: canonicalName),
+                rawName
+            ) {
+                return canonicalName
+            }
+        }
+        return nil
+    }
+
+    private static func omegaToolDescriptors(
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> [[String: Any]] {
         let json = OmegaToolRegistry.planningSchemasJson(distribution: distribution)
         return (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [[String: Any]] ?? []
+    }
+
+    private static func swiftNativeToolDescriptors(
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> [[String: Any]] {
+        ToolSurfacePolicy.surfacedTools(
+            WorkNativeToolExecutor.toolDefinitions,
+            distribution: distribution
+        ).map(\.planningSchema)
+    }
+
+    private static func mergedToolDescriptors(_ descriptorGroups: [[[String: Any]]]) -> [[String: Any]] {
+        var seenNames: Set<String> = []
+        var merged: [[String: Any]] = []
+        for descriptor in descriptorGroups.flatMap({ $0 }) {
+            guard let name = descriptor["name"] as? String else { continue }
+            let canonicalName = AgentToolNameAliases.canonical(name)
+            guard !canonicalName.isEmpty,
+                  seenNames.insert(canonicalName).inserted else {
+                continue
+            }
+            var canonicalized = descriptor
+            canonicalized["name"] = canonicalName
+            merged.append(canonicalized)
+        }
+        return merged
     }
 
     #if canImport(agent_coreFFI)
@@ -175,6 +262,43 @@ struct WorkToolMCPCore {
 
     static func errorResponse(id: Any, code: Int, message: String) -> String {
         jsonRPC(["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]])
+    }
+
+    static func diagnosticIdentifier(_ rawValue: String) -> String {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "[empty]" }
+        guard !looksSecretBearing(trimmed) else { return "[redacted]" }
+        guard trimmed.count > maxDiagnosticIdentifierCharacters else { return trimmed }
+
+        let end = trimmed.index(trimmed.startIndex, offsetBy: maxDiagnosticIdentifierCharacters - 3)
+        return String(trimmed[..<end]) + "..."
+    }
+
+    private static func looksSecretBearing(_ value: String) -> Bool {
+        let lower = value.lowercased()
+        let secretMarkers = [
+            "authorization",
+            "bearer",
+            "api_key",
+            "api-key",
+            "apikey",
+            "access_token",
+            "refresh_token",
+            "client_secret",
+            "id_token",
+            "auth_code",
+            "password",
+            "secret",
+            "token=",
+            "token:",
+            "sk-",
+            "ghp_",
+            "xoxb-",
+        ]
+        if secretMarkers.contains(where: { lower.contains($0) }) {
+            return true
+        }
+        return lower.contains("://") && (lower.contains("@") || lower.contains("?") || lower.contains("#"))
     }
 
     private static func jsonRPC(_ object: [String: Any]) -> String {
