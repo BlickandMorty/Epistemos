@@ -396,6 +396,30 @@ nonisolated public extension UasAddress {
                     || (scalar.value >= 97 && scalar.value <= 102)
             }
     }
+
+    fileprivate static func isWellFormedWireAddress(_ value: String) -> Bool {
+        let parts = value.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return false }
+
+        let kind = String(parts[0])
+        let rest = String(parts[1])
+        let restParts = rest.split(separator: "@", omittingEmptySubsequences: false)
+        guard restParts.count == 2 else { return false }
+
+        let hash = String(restParts[0])
+        let createdAtMs = String(restParts[1])
+        return isValidWireToken(kind)
+            && isCanonicalBlake3Hex(hash)
+            && isCanonicalUInt64String(createdAtMs)
+    }
+
+    private static func isCanonicalUInt64String(_ value: String) -> Bool {
+        !value.isEmpty
+            && value.unicodeScalars.allSatisfy { scalar in
+                scalar.value >= 48 && scalar.value <= 57
+            }
+            && UInt64(value) != nil
+    }
 }
 
 nonisolated public extension AcsAnchor {
@@ -426,13 +450,17 @@ nonisolated public extension AcsAnchor {
 
     private static func isValidOptionalProjectionField(_ value: String?) -> Bool {
         guard let value else { return true }
-        return !value.isEmpty
+        guard !value.isEmpty
             && value.trimmingCharacters(in: .whitespacesAndNewlines) == value
             && value.unicodeScalars.allSatisfy { scalar in
                 !CharacterSet.whitespacesAndNewlines.contains(scalar)
                     && !CharacterSet.controlCharacters.contains(scalar)
                     && scalar.value != 124
-            }
+            } else {
+            return false
+        }
+
+        return !value.contains("@") || UasAddress.isWellFormedWireAddress(value)
     }
 
     private static func isValidOptionalPacketID(_ value: String?) -> Bool {

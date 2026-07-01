@@ -61,6 +61,33 @@ struct VRMLabelHonestLabelTests {
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [emptyUAS, malformedACS])) == .plausibleButUnverified)
     }
 
+    @Test("malformed ACS projection fields cannot promote active claims to verified")
+    func malformedACSProjectionFieldsCannotPromoteVerified() {
+        let malformedSource = Self.anchoredClaim(
+            id: "claim-bad-source",
+            sourceHash: "not@uas",
+            activePacketId: "pkt-test",
+            compatibilityEdge: "edge-1")
+        let malformedCompatibilityEdge = Self.anchoredClaim(
+            id: "claim-bad-edge",
+            sourceHash: "blake3:abc",
+            activePacketId: "pkt-test",
+            compatibilityEdge: "edge@not-uas")
+        let validUASWireAddress = "vault_note:\(String(repeating: "a", count: 64))@0"
+        let validProjectedAnchor = Self.anchoredClaim(
+            id: "claim-valid-projection",
+            sourceHash: validUASWireAddress,
+            activePacketId: "pkt-test",
+            compatibilityEdge: validUASWireAddress)
+
+        #expect(malformedSource.hasVerificationAnchor == false)
+        #expect(malformedCompatibilityEdge.hasVerificationAnchor == false)
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [malformedSource])) == .plausibleButUnverified)
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [malformedCompatibilityEdge])) == .plausibleButUnverified)
+        #expect(validProjectedAnchor.hasVerificationAnchor)
+        #expect(VRMLabel.honestLabel(for: Self.packet(claims: [validProjectedAnchor])) == .verified)
+    }
+
     @Test("ACS-anchored speculative claims do not become verified")
     func acsAnchoredSpeculativeClaimsStayPlausible() {
         let packet = Self.packet(claims: [
@@ -339,6 +366,31 @@ struct VRMLabelHonestLabelTests {
                 activePacketId: activePacketId,
                 salience: 0.7
             ) : nil
+        )
+    }
+
+    private static func anchoredClaim(
+        id: String,
+        sourceHash: String?,
+        activePacketId: String?,
+        compatibilityEdge: String?
+    ) -> Claim {
+        Claim(
+            id: id,
+            text: "active empirical claim with ACS projection fields",
+            status: .active,
+            createdAtMs: 1_783_000_000_000,
+            kind: .empirical,
+            acsAnchor: AcsAnchor(
+                anchorId: "anchor-\(id)",
+                theoremId: "E1",
+                plane: .episodic,
+                residency: .verifiedFloor,
+                sourceHash: sourceHash,
+                activePacketId: activePacketId,
+                compatibilityEdge: compatibilityEdge,
+                salience: 0.7
+            )
         )
     }
 }
