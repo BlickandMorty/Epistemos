@@ -36,6 +36,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
     func regenerateSheetExposesTargetWorkspaceAndHashBeforeReplace() throws {
         let sheet = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceRegenerateSurface.swift")
         let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceRegenerateContextSidebar.swift")
 
         #expect(sheet.contains("let workspaceID: String"))
         #expect(sheet.contains("let expectedContentHash: String"))
@@ -93,7 +94,11 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("isRefreshingContext: isRefreshingRegenerateContext"))
         #expect(editor.contains("hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil"))
         #expect(editor.contains("hasVaultContext: package.manifest.dataFeed != nil"))
-        #expect(editor.contains("contextItems: HTMLWorkspaceRegenerateContextItem.items(from: package)"))
+        #expect(editor.contains("contextItems: regenerateContextItems"))
+        #expect(editor.contains("private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem]"))
+        #expect(editor.contains("private var shouldShowPreviewContextSidebar: Bool"))
+        #expect(editor.contains("HTMLWorkspaceRegenerateContextSidebar("))
+        #expect(editor.contains("shouldShowPreviewContextSidebar"))
         #expect(editor.contains("canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil"))
         #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
         #expect(editor.contains("onRefreshContext: refreshRegenerateVaultContext"))
@@ -143,6 +148,10 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func applyRegenerateStreamText()"))
         #expect(editor.contains("HTMLWorkspaceRegenerateApplication.apply("))
         #expect(editor.contains("HTMLWorkspaceRegeneratePreview.candidatePackage("))
+        #expect(sidebar.contains("struct HTMLWorkspaceRegenerateContextSidebar: View"))
+        #expect(sidebar.contains("NSItemProvider(object: item.dragPayload as NSString)"))
+        #expect(sidebar.contains("Drag into the preview or click to focus context"))
+        #expect(sidebar.contains("Text(\"Workspace Context\")"))
     }
 
     @Test("regenerate presets expose required one-click categories")

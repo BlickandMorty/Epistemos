@@ -108,7 +108,7 @@ struct HTMLWorkspaceEditorView: View {
                 isRefreshingContext: isRefreshingRegenerateContext,
                 hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil,
                 hasVaultContext: package.manifest.dataFeed != nil,
-                contextItems: HTMLWorkspaceRegenerateContextItem.items(from: package),
+                contextItems: regenerateContextItems,
                 canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil,
                 onCancel: {
                     if isRegenerating {
@@ -544,6 +544,19 @@ struct HTMLWorkspaceEditorView: View {
                     .onDrop(of: [UTType.plainText], isTargeted: nil, perform: handlePreviewContextDrop)
             }
 
+            if shouldShowPreviewContextSidebar {
+                HTMLWorkspaceRegenerateContextSidebar(
+                    contextItems: regenerateContextItems,
+                    contextStatusText: regenerateContextStatusLine,
+                    isRegenerating: isRegenerating,
+                    isRefreshingContext: isRefreshingRegenerateContext,
+                    panelFill: panelFill,
+                    theme: workspaceTheme,
+                    onFocusContextItem: focusRegenerateContextItem
+                )
+                .frame(minWidth: 190, idealWidth: 220, maxWidth: 260)
+            }
+
             if inspectorVisible {
                 inspectorPanel
                     .frame(minWidth: 210, idealWidth: 250, maxWidth: 310)
@@ -614,6 +627,14 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextStatusText
             ?? HTMLWorkspaceDataFeedStatus.detailLine(for: package)
             ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
+    }
+
+    private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem] {
+        HTMLWorkspaceRegenerateContextItem.items(from: package)
+    }
+
+    private var shouldShowPreviewContextSidebar: Bool {
+        regenerateSheetPresented || package.manifest.dataFeed != nil
     }
 
     private var selectedPaneSubtitle: String {
