@@ -382,14 +382,17 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.indexHTML.contains("data-filter-count"))
         #expect(package.indexHTML.contains("data-context-tabs"))
         #expect(package.indexHTML.contains("data-result-chart"))
+        #expect(package.indexHTML.contains("data-result-detail"))
         #expect(package.styleCSS.contains(".result-card"))
         #expect(package.styleCSS.contains(".feed-controls input"))
         #expect(package.styleCSS.contains(".context-tab"))
         #expect(package.styleCSS.contains(".feed-chart"))
+        #expect(package.styleCSS.contains(".result-detail"))
         #expect(package.scriptJS.contains("renderVaultResults"))
         #expect(package.scriptJS.contains("visibleResults(allResults)"))
         #expect(package.scriptJS.contains("renderContextTabs(allResults, meta)"))
         #expect(package.scriptJS.contains("renderResultChart(results)"))
+        #expect(package.scriptJS.contains("renderResultDetail(results)"))
         #expect(package.scriptJS.contains("addEventListener('input', renderVaultResults)"))
         #expect(package.scriptJS.contains("htmlworkspace:datachange"))
 
@@ -605,6 +608,25 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("'data-context-kind': kind"))
         #expect(package.scriptJS.contains("renderVaultResults();"))
         #expect(!package.scriptJS.contains("fakeContext"))
+    }
+
+    @Test("vault search dashboard cards select real result detail")
+    func vaultSearchDashboardCardsSelectRealResultDetail() {
+        let package = HTMLWorkspaceVaultSearchDashboardTemplate.package(query: "context")
+
+        #expect(package.indexHTML.contains(#"aria-label="Selected result detail""#))
+        #expect(package.scriptJS.contains("let selectedResultKey = null;"))
+        #expect(package.scriptJS.contains("function resultKey(result)"))
+        #expect(package.scriptJS.contains("function activeResult(results)"))
+        #expect(package.scriptJS.contains("function renderResultDetail(results)"))
+        #expect(package.scriptJS.contains("function detailRow(label, value)"))
+        #expect(package.scriptJS.contains("'data-result-key': key"))
+        #expect(package.scriptJS.contains("role: 'button'"))
+        #expect(package.scriptJS.contains("tabindex: '0'"))
+        #expect(package.scriptJS.contains("card.addEventListener('click'"))
+        #expect(package.scriptJS.contains("card.addEventListener('keydown'"))
+        #expect(package.scriptJS.contains("selected.provenance || 'VaultSyncService.searchFullAsync'"))
+        #expect(package.scriptJS.contains("No visible result selected."))
     }
 
     @Test("starter template detection distinguishes untouched defaults from edited workspaces")

@@ -71,6 +71,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       <section class="feed-chart" data-result-chart aria-label="Result rank chart">
         <p class="empty">Waiting for ranked results.</p>
       </section>
+      <section class="result-detail" data-result-detail aria-label="Selected result detail">
+        <p class="empty">Select a result to inspect its source.</p>
+      </section>
       <section class="results" data-vault-results aria-live="polite"></section>
     </main>
     """
@@ -134,6 +137,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     .feed-summary article,
     .feed-chart,
+    .result-detail,
     .result-card {
       border-radius: 8px;
       background: var(--epistemos-workspace-card);
@@ -146,6 +150,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     .feed-summary span,
     .source-label,
+    .detail-label,
     .result-card small,
     .feed-meta,
     .empty {
@@ -289,6 +294,44 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text-align: right;
     }
 
+    .result-detail {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+      padding: 16px;
+    }
+
+    .result-detail h2 {
+      margin: 0;
+      font-family: var(--epistemos-workspace-heading-font);
+      font-weight: 400;
+      font-synthesis: none;
+      letter-spacing: 0;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin: 0;
+    }
+
+    .detail-grid div {
+      min-width: 0;
+    }
+
+    .detail-label {
+      display: block;
+      font-size: 12px;
+    }
+
+    .detail-value {
+      display: block;
+      margin-top: 4px;
+      overflow-wrap: anywhere;
+      font-variant-numeric: tabular-nums;
+    }
+
     .results {
       display: grid;
       gap: 10px;
@@ -297,6 +340,18 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     .result-card {
       padding: 16px;
+      cursor: pointer;
+    }
+
+    .result-card.is-selected {
+      box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--epistemos-workspace-accent) 64%, transparent),
+        0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 9%, transparent);
+    }
+
+    .result-card:focus {
+      outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
+      outline-offset: 2px;
     }
 
     .result-card h2 {
@@ -336,9 +391,19 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     }
 
     let selectedContextKind = 'all';
+    let selectedResultKey = null;
 
     function resultContextKind(result) {
       return String(result.context_kind || 'vault_record').trim() || 'vault_record';
+    }
+
+    function resultKey(result) {
+      return [
+        result.page_id,
+        result.title,
+        result.source_label,
+        result.rank
+      ].map((part) => String(part || '').trim()).join('|') || 'vault-result';
     }
 
     function resultSearchText(result) {
@@ -404,6 +469,49 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       });
     }
 
+    function activeResult(results) {
+      if (results.length === 0) {
+        selectedResultKey = null;
+        return null;
+      }
+      const selected = selectedResultKey
+        ? results.find((result) => resultKey(result) === selectedResultKey)
+        : null;
+      if (selected) { return selected; }
+      selectedResultKey = resultKey(results[0]);
+      return results[0];
+    }
+
+    function detailRow(label, value) {
+      return HTMLWorkspace.el('div', {}, [
+        HTMLWorkspace.el('span', { class: 'detail-label' }, label),
+        HTMLWorkspace.el('strong', { class: 'detail-value' }, value || 'Unavailable')
+      ]);
+    }
+
+    function renderResultDetail(results) {
+      const host = HTMLWorkspace.q('[data-result-detail]');
+      if (!host) { return; }
+      host.replaceChildren();
+
+      const selected = activeResult(results);
+      if (!selected) {
+        host.append(HTMLWorkspace.el('p', { class: 'empty' }, 'No visible result selected.'));
+        return;
+      }
+
+      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, 'Selected source'));
+      host.append(HTMLWorkspace.el('h2', {}, selected.title || 'Untitled'));
+      host.append(HTMLWorkspace.el('p', {}, selected.snippet || 'No snippet available.'));
+      host.append(HTMLWorkspace.el('div', { class: 'detail-grid' }, [
+        detailRow('Page', selected.page_id || 'vault'),
+        detailRow('Rank', Number.isFinite(Number(selected.rank)) ? Number(selected.rank).toFixed(2) : 'Unavailable'),
+        detailRow('Context', resultContextKind(selected)),
+        detailRow('Source', selected.source_label || 'Vault search result'),
+        detailRow('Provenance', selected.provenance || 'VaultSyncService.searchFullAsync')
+      ]));
+    }
+
     function rankDatum(result, index) {
       const value = Number(result.rank);
       if (!Number.isFinite(value) || value <= 0) { return null; }
@@ -466,6 +574,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-provenance]', meta.provenance || 'No provenance recorded');
       text('[data-filter-count]', filter ? `${results.length} visible / ${allResults.length} total` : `${allResults.length} visible`);
       renderResultChart(results);
+      const selectedResult = activeResult(results);
+      renderResultDetail(results);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
       if (!host) { return; }
@@ -476,12 +586,30 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       }
 
       results.forEach((result, index) => {
-        host.append(HTMLWorkspace.el('article', { class: 'result-card', 'data-rank': result.rank ?? index }, [
+        const key = resultKey(result);
+        const card = HTMLWorkspace.el('article', {
+          class: selectedResult && key === resultKey(selectedResult) ? 'result-card is-selected' : 'result-card',
+          'data-result-key': key,
+          'data-rank': result.rank ?? index,
+          role: 'button',
+          tabindex: '0'
+        }, [
           HTMLWorkspace.el('small', {}, `#${index + 1} / ${result.page_id || 'vault'}`),
           HTMLWorkspace.el('h2', {}, result.title || 'Untitled'),
           HTMLWorkspace.el('p', {}, result.snippet || ''),
           HTMLWorkspace.el('small', { class: 'source-label' }, `${result.source_label || 'Vault search result'} / ${result.context_kind || 'vault_record'}`)
-        ]));
+        ]);
+        card.addEventListener('click', () => {
+          selectedResultKey = key;
+          renderVaultResults();
+        });
+        card.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') { return; }
+          event.preventDefault();
+          selectedResultKey = key;
+          renderVaultResults();
+        });
+        host.append(card);
       });
     }
 
