@@ -353,8 +353,13 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.manifest.dataFeed?.normalizedQuery == "substrate provenance")
         #expect(package.manifest.dataFeed?.limit == HTMLWorkspaceDataFeed.maxLimit)
         #expect(package.indexHTML.contains("data-vault-results"))
+        #expect(package.indexHTML.contains("data-result-filter"))
+        #expect(package.indexHTML.contains("data-filter-count"))
         #expect(package.styleCSS.contains(".result-card"))
+        #expect(package.styleCSS.contains(".feed-controls input"))
         #expect(package.scriptJS.contains("renderVaultResults"))
+        #expect(package.scriptJS.contains("visibleResults(allResults)"))
+        #expect(package.scriptJS.contains("addEventListener('input', renderVaultResults)"))
         #expect(package.scriptJS.contains("htmlworkspace:datachange"))
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: package.dataJSON))
@@ -530,8 +535,13 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         #expect(package.styleCSS.contains("box-shadow: 0 10px 28px"))
         #expect(!package.styleCSS.contains("border: 1px solid var(--epistemos-workspace-border);"))
+        #expect(!package.styleCSS.contains("border: 1px"))
+        #expect(package.styleCSS.contains("border: 0"))
+        #expect(package.scriptJS.contains("resultSearchText(result)"))
+        #expect(package.scriptJS.contains("No results match this filter."))
         #expect(package.scriptJS.contains("result.source_label || 'Vault search result'"))
         #expect(package.scriptJS.contains("result.context_kind || 'vault_record'"))
+        #expect(package.scriptJS.contains("result.provenance"))
         #expect(package.scriptJS.contains("class: 'source-label'"))
     }
 

@@ -60,6 +60,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <span data-refresh>Waiting for refresh</span>
         <span data-provenance>VaultSyncService.searchFullAsync</span>
       </section>
+      <section class="feed-controls" aria-label="Result controls">
+        <label>
+          <span>Filter</span>
+          <input data-result-filter type="search" placeholder="Search visible results">
+        </label>
+        <span data-filter-count>0 visible</span>
+      </section>
       <section class="results" data-vault-results aria-live="polite"></section>
     </main>
     """
@@ -158,6 +165,45 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       font-size: 12px;
     }
 
+    .feed-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .feed-controls label {
+      flex: 1 1 240px;
+      display: grid;
+      gap: 6px;
+      color: var(--epistemos-workspace-muted);
+      font-size: 12px;
+    }
+
+    .feed-controls input {
+      appearance: none;
+      width: 100%;
+      box-sizing: border-box;
+      border: 0;
+      border-radius: 8px;
+      background: var(--epistemos-workspace-card);
+      color: var(--epistemos-workspace-fg);
+      font: inherit;
+      padding: 10px 12px;
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 8%, transparent);
+    }
+
+    .feed-controls input:focus {
+      outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
+      outline-offset: 2px;
+    }
+
+    [data-filter-count] {
+      color: var(--epistemos-workspace-muted);
+      font-size: 12px;
+    }
+
     .results {
       display: grid;
       gap: 10px;
@@ -200,26 +246,50 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       }
     }
 
+    function normalized(value) {
+      return String(value || '').toLowerCase();
+    }
+
+    function resultSearchText(result) {
+      return [
+        result.title,
+        result.snippet,
+        result.page_id,
+        result.source_label,
+        result.context_kind,
+        result.provenance
+      ].map(normalized).join(' ');
+    }
+
+    function visibleResults(results) {
+      const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
+      if (!filter) { return results; }
+      return results.filter((result) => resultSearchText(result).includes(filter));
+    }
+
     function renderVaultResults() {
       const data = HTMLWorkspace.data || {};
       const meta = data._epistemos || {};
-      const results = Array.isArray(data.results) ? data.results : [];
+      const allResults = Array.isArray(data.results) ? data.results : [];
+      const results = visibleResults(allResults);
+      const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
       const status = meta.stale ? 'Stale' : (meta.status || 'Fresh');
       const refreshed = meta.refreshed_at_ms
         ? new Date(meta.refreshed_at_ms).toLocaleString()
         : 'Waiting for refresh';
 
       text('[data-query]', meta.query || 'No query');
-      text('[data-count]', meta.result_count ?? results.length);
+      text('[data-count]', meta.result_count ?? allResults.length);
       text('[data-feed-status]', status);
       text('[data-refresh]', refreshed);
       text('[data-provenance]', meta.provenance || 'No provenance recorded');
+      text('[data-filter-count]', filter ? `${results.length} visible / ${allResults.length} total` : `${allResults.length} visible`);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
       if (!host) { return; }
       host.replaceChildren();
       if (results.length === 0) {
-        host.append(HTMLWorkspace.el('p', { class: 'empty' }, meta.error || 'No matching notes yet.'));
+        host.append(HTMLWorkspace.el('p', { class: 'empty' }, filter ? 'No results match this filter.' : (meta.error || 'No matching notes yet.')));
         return;
       }
 
@@ -234,6 +304,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     }
 
     renderVaultResults();
+    HTMLWorkspace.q('[data-result-filter]')?.addEventListener('input', renderVaultResults);
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
     """
