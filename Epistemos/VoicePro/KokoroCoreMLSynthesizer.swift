@@ -174,8 +174,20 @@ nonisolated enum KokoroCoreMLSynthesizer {
         switch character {
         case "\n", "\r", "\t":
             return [" "]
-        case "-":
+        case "-", "\u{2010}", "\u{2011}", "\u{2012}", "\u{2013}", "\u{2014}", "\u{2212}":
             return ["\u{2014}"]
+        case "&":
+            return Array(" and ").map(String.init)
+        case "%":
+            return Array(" percent ").map(String.init)
+        case "+":
+            return Array(" plus ").map(String.init)
+        case "/":
+            return Array(" slash ").map(String.init)
+        case "@":
+            return Array(" at ").map(String.init)
+        case "#":
+            return Array(" number ").map(String.init)
         case "0":
             return Array(" zero ").map(String.init)
         case "1":

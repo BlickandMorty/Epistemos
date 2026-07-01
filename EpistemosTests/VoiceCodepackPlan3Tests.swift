@@ -497,6 +497,9 @@ struct VoiceCodepackPlan3Tests {
             "KokoroCoreMLRuntimeLoader.isLinked",
             "static func renderRawText(",
             "rawVocabularyChunks(",
+            "replacementSymbols(for:",
+            "return Array(\" percent \").map(String.init)",
+            "return Array(\" slash \").map(String.init)",
             "attentionMask",
             "KokoroCoreMLSynthesizer.renderRawText",
             "PcmJoiner.join",
@@ -510,7 +513,15 @@ struct VoiceCodepackPlan3Tests {
             "charactersSpoken: spoken"
         ] {
             let source: String
-            if ["static func renderRawText(", "rawVocabularyChunks(", "attentionMask", "PcmJoiner.join"].contains(required) {
+            if [
+                "static func renderRawText(",
+                "rawVocabularyChunks(",
+                "replacementSymbols(for:",
+                "return Array(\" percent \").map(String.init)",
+                "return Array(\" slash \").map(String.init)",
+                "attentionMask",
+                "PcmJoiner.join"
+            ].contains(required) {
                 source = bridge
             } else if [
                 "KokoroCoreMLRuntimeLoader.isLinked",

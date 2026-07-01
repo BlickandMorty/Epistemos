@@ -64,7 +64,8 @@
   `KokoroPipeline` product, and `KokoroCoreMLRuntimeLoader` turns a checked local package into CoreML model/runtime URLs,
   parses `runtime/kokoro-vocab.json` plus `runtime/hnsf_weights.json` through bounded no-follow reads, loads the exact
   `af_heart` 256-Float32 voice embedding, and instantiates `KokoroPipeline` on demand. `KokoroCoreMLSynthesizer` tokenizes
-  supported raw vocabulary characters, chunks to the manifest duration-token cap, joins synthesized 24 kHz PCM, and
+  supported raw vocabulary characters, spells digits and common symbols (`&`, `%`, `+`, `/`, `@`, `#`) into vocabulary
+  text, normalizes dash variants to the Kokoro dash token, chunks to the manifest duration-token cap, joins synthesized 24 kHz PCM, and
   `EpistemosSpeechSynthesizer` plays it through `AVAudioEngine` while advancing observable read-aloud progress from
   `AVAudioPlayerNode` render time. Shared read-aloud controls now preflight empty and over-cap text against the same
   Kokoro input envelope before starting playback, so oversized text cannot flip the UI into speaking state or interrupt
@@ -187,5 +188,5 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 8. [DONE] Add the Pro-only Kokoro settings status/runtime affordance.
 9. [DONE] Add a local checked-package installer/remover.
 10. [DONE] Vendor native `KokoroPipeline` source and add a checked-bundle loader.
-11. [DONE] Wire native CoreML raw-vocabulary synthesis and `AVAudioEngine` playback. Network model download and
-    high-quality phonemization remain deferred polish.
+11. [DONE] Wire native CoreML raw-vocabulary synthesis and `AVAudioEngine` playback. Common symbol spelling is handled
+    in the raw-vocabulary tokenizer; network model download and high-quality phonemization remain deferred polish.
