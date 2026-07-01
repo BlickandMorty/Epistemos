@@ -441,6 +441,40 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
+    @Test("signed BrowserUsePro payload rejects non-printable signing identities")
+    func signedBrowserUseProPayloadRejectsNonPrintableSigningIdentities() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-signed-bundle-identity-\(UUID().uuidString)", isDirectory: true)
+        let bundleURL = root.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+        let payloadRoot = bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .appendingPathComponent("BrowserUsePro", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifest = Self.signatureManifestJSON.replacingOccurrences(
+            of: #""signing_identity": "-""#,
+            with: #""signing_identity": "\u0007\t\n""#
+        )
+        try writeSignedBrowserUseBundleFixture(
+            root: root,
+            bundleURL: bundleURL,
+            payloadRoot: payloadRoot,
+            signatureManifestJSON: manifest
+        )
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: signed package invalid")
+        #expect(status.detail.contains("signature manifest signing identity is empty"))
+        #endif
+    }
+
     @Test("signed BrowserUsePro payload rejects symlink escapes")
     func signedBrowserUseProPayloadRejectsSymlinkEscapes() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -531,6 +565,8 @@ struct BrowserUseProGateStatusTests {
             "manifest runtime lane mismatch",
             "manifest native Browser boundary mismatch",
             "signature manifest top-level keys mismatch",
+            "normalizedSigningIdentity(",
+            "signature manifest signing identity is empty",
             "isSecondPrecisionUTCTimestamp",
             "signature manifest codesign contract mismatch",
             "signed packaged payload ready",
@@ -589,7 +625,8 @@ struct BrowserUseProGateStatusTests {
         root: URL,
         bundleURL: URL,
         payloadRoot: URL,
-        includeInternalSymlink: Bool = false
+        includeInternalSymlink: Bool = false,
+        signatureManifestJSON: String = Self.signatureManifestJSON
     ) throws {
         try FileManager.default.createDirectory(at: payloadRoot, withIntermediateDirectories: true)
         try Data(Self.infoPlist.utf8).write(
@@ -644,7 +681,7 @@ struct BrowserUseProGateStatusTests {
                 withDestinationURL: payloadRoot.appendingPathComponent("requirements.lock", isDirectory: false)
             )
         }
-        try Data(Self.signatureManifestJSON.utf8).write(
+        try Data(signatureManifestJSON.utf8).write(
             to: payloadRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
         )
         try Data(Self.packageResultJSON.utf8).write(

@@ -222,7 +222,7 @@ nonisolated enum BrowserUseSignedBundleStatus {
             guard allowedSignatureTypes.contains(manifest.signatureType) else {
                 return invalid("signature manifest signature type is unsupported")
             }
-            guard !manifest.signingIdentity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard let signingIdentity = normalizedSigningIdentity(manifest.signingIdentity) else {
                 return invalid("signature manifest signing identity is empty")
             }
             guard manifest.fileCount > 0 else {
@@ -277,7 +277,7 @@ nonisolated enum BrowserUseSignedBundleStatus {
             guard let signatureProblem = codeSignatureProblem(for: bundleURL) else {
                 return Status(
                     isValid: true,
-                    detail: "Signed \(bundleName) verified (\(manifest.signatureType), identity \(bounded(manifest.signingIdentity))). \(packageResultSummary(packageResult))"
+                    detail: "Signed \(bundleName) verified (\(manifest.signatureType), identity \(signingIdentity)). \(packageResultSummary(packageResult))"
                 )
             }
             return invalid(signatureProblem)
@@ -655,6 +655,19 @@ nonisolated enum BrowserUseSignedBundleStatus {
             return "code signature verification failed (status \(verifyStatus))"
         }
         return nil
+    }
+
+    private static func normalizedSigningIdentity(_ value: String) -> String? {
+        let bounded = String(value.prefix(maxStatusMessageCharacters + 1))
+        let trimmed = normalizedDiagnostic(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        return rawBoundedDiagnostic(
+            trimmed,
+            maxCharacters: maxStatusMessageCharacters,
+            fallback: "signature identity unavailable"
+        )
     }
 
     private static func isSecondPrecisionUTCTimestamp(_ value: String) -> Bool {

@@ -155,7 +155,7 @@ MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`
 can report `browser-use Pro: signed packaged payload ready` only after the declared `requirements.lock`, wheelhouse,
 Chromium payload, web-ui compatibility shims, dry-run submit hook, `BUILD_MANIFEST.json`, `SIGNATURE_MANIFEST.json`,
 package-result checkpoint evidence, and enclosing `BrowserUsePro.bundle` signature
-verify; signature type, signing identity, package-result `codesign_verified`, Python version, and smoke-suite command are validated before the ready gate; the manifest and package-result files are regular-file checked,
+verify; signature type, printable signing identity, package-result `codesign_verified`, Python version, and smoke-suite command are validated before the ready gate; the manifest and package-result files are regular-file checked,
 symlink-path rejected, read through no-follow descriptors, and capped before JSON decode (1 MiB for the signature
 manifest, 64 KiB for the package result); manifest-declared
 artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
