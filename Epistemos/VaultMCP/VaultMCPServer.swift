@@ -15,7 +15,7 @@ nonisolated enum VaultMCPServerDiagnostics {
 
     static func statusMessage(_ message: String) -> String {
         let bounded = String(message.prefix(maxStatusMessageCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? "listener failed" : trimmed
         guard description.count > maxStatusMessageCharacters else {
             return description
@@ -38,6 +38,26 @@ nonisolated enum VaultMCPServerDiagnostics {
         }
         let safeDomain = String(value.prefix(maxDomainCharacters))
         return safeDomain.isEmpty ? "Network" : safeDomain
+    }
+
+    private static func normalizedDisplayText(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 }
 

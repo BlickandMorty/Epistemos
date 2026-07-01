@@ -25,8 +25,8 @@ struct BestOfPresetPlan3Tests {
             "allowedToolNames: Set(VaultMCPCore.readToolNames)",
             "cap request bodies at 8 MiB",
             "registry display fields raw-capped and control-stripped",
-            "raw failure/domain strings bounded before",
-            "raw listener/domain and protocol diagnostic strings bounded before trim/validation",
+            "raw failure/domain strings and success-message display names\nbounded and control/whitespace-normalized",
+            "raw listener/domain strings bounded and control/whitespace-normalized before trim/validation",
         ] {
             #expect(capability.contains(required), "Capability doc missing shipped extensibility state: \(required)")
         }
@@ -41,7 +41,7 @@ struct BestOfPresetPlan3Tests {
             "BrowserUseSettingsView",
             "off the SwiftUI path",
             "Registry fields are raw-capped, control-stripped",
-            "raw failure/domain strings bounded before trimming or punctuation validation",
+            "raw failure/domain strings and success-message display names bounded and control/whitespace-normalized",
             "raw-bounded MCP URL diagnostic helper",
         ] {
             #expect(extensibility.contains(required), "Extensibility codepack missing shipped marker: \(required)")
@@ -128,7 +128,7 @@ struct BestOfPresetPlan3Tests {
             "Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap",
             "requires a JSON-RPC 2.0 object envelope",
             "Swift method/tool protocol diagnostics bound raw strings before trimming",
-            "bounds raw listener/domain strings before",
+            "bounds and control/whitespace-normalizes raw listener/domain strings before",
         ] {
             #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")
         }

@@ -48,8 +48,8 @@ Loopback `/mcp` NWListener binding `VaultMCPCore`, delegating auth/framing/routi
 helpers (one audited copy of the security logic). Difference from `WorkNativeMCPServer`: a **persistent** bearer token
 (not per-launch). Lifecycle = same `start()`/`stop()` + `.ready`→`WorkNativeMCPRegistration{url,token}` shape;
 `WorkNativeMCPRegistration.isTrustedLoopbackMCP (:33)` validates it for free. Listener failure status uses bounded
-domain/code diagnostics rather than raw localized network descriptions, and bounds raw listener/domain strings before
-trimming or validating punctuation.
+domain/code diagnostics rather than raw localized network descriptions, and bounds and control/whitespace-normalizes raw
+listener/domain strings before trimming or validating punctuation.
 
 ## 3. `VaultMCPTokenStore.swift` [DELIVERED]
 `currentToken()` returns the stored token or mints+persists one (`WorkNativeMCPServer.randomToken()` CSPRNG, 24-byte

@@ -225,6 +225,7 @@ struct VaultMCPServerLifecycleTests {
         let paddedOversized = VaultMCPServerDiagnostics.statusMessage(
             String(repeating: " ", count: VaultMCPServerDiagnostics.maxStatusMessageCharacters + 64) + "late detail"
         )
+        let normalized = VaultMCPServerDiagnostics.statusMessage("receive\nfailed\tbad\u{0007}")
 
         #expect(status.contains("domain=VaultMCPPathLeak"))
         #expect(status.contains("code=91"))
@@ -235,6 +236,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(status.count <= VaultMCPServerDiagnostics.maxStatusMessageCharacters)
         #expect(oversized.count == VaultMCPServerDiagnostics.maxStatusMessageCharacters)
         #expect(paddedOversized == "listener failed")
+        #expect(normalized == "receive failed bad")
     }
 
     @Test("host scopes running registration to the active vault")
@@ -306,6 +308,8 @@ struct VaultMCPServerLifecycleTests {
         #expect(server.contains("maxStatusMessageCharacters"))
         #expect(server.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
         #expect(server.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(server.contains("normalizedDisplayText(bounded)"))
+        #expect(server.contains("CharacterSet.controlCharacters"))
         #expect(server.contains("maxStatusMessageCharacters - 3"))
         #expect(!server.contains("error.localizedDescription"))
 

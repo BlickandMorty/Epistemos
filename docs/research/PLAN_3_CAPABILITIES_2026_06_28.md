@@ -290,7 +290,7 @@ trusted-loopback-validated structured JSON client config copy), and the Rust res
 JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch; the core
 also requires a JSON-RPC 2.0 object envelope, caps echoed string request IDs and protocol error diagnostics, and rejects
 overlong relative vault paths before containment/file work. Listener failure status is bounded to domain/code
-diagnostics, with raw listener/domain and protocol diagnostic strings bounded before trim/validation. Host registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched
+diagnostics, with raw listener/domain strings bounded and control/whitespace-normalized before trim/validation and protocol diagnostic strings bounded before trim/validation. Host registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched
 read-only servers.
 `resources/list` and `resources/read` delegate to `MCPDispatcher.dispatch()` after `set_vault_root`; `tools/list` and
 `tools/call` stay on the Swift read-only surface so write verbs are never advertised by the app-hosted server. Rust
