@@ -6306,6 +6306,24 @@ for (const snippet of [
 fs.writeFileSync(chatPath, chatSource);
 
 let appSource = fs.readFileSync(appPath, 'utf8');
+const appAcpImport = "import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';";
+if (!appSource.includes(appAcpImport)) {
+  const importAnchor = "import UpdateSection from './UpdateSection';";
+  if (!appSource.includes(importAnchor)) {
+    throw new Error('AppSettingsSection UpdateSection import anchor not found');
+  }
+  appSource = appSource.replace(importAnchor, `${importAnchor}\n${appAcpImport}`);
+}
+// epistemos-acp-hide-updates: the Electron updater shell is intentionally hidden
+// in Epistemos's Goose WebView; do not render a fake Check/Download/Install card.
+const updatesAnchor = "  const shouldShowUpdates = !window.appConfig.get('GOOSE_VERSION');";
+const updatesReplacement = "  const shouldShowUpdates = !USE_ACP_CHAT && !window.appConfig.get('GOOSE_VERSION'); // epistemos-acp-hide-updates";
+if (!appSource.includes('epistemos-acp-hide-updates')) {
+  if (!appSource.includes(updatesAnchor)) {
+    throw new Error('AppSettingsSection update visibility anchor not found');
+  }
+  appSource = appSource.replace(updatesAnchor, updatesReplacement);
+}
 // epistemos-acp-telemetry-native-settings: GOOSE_TELEMETRY_ENABLED is
 // Epistemos-owned in ACP mode. Keep the setting visible because ConfigContext
 // now persists local ACP config through the native settings bridge and the
@@ -6320,6 +6338,8 @@ if (!appSource.includes('epistemos-acp-telemetry-native-settings')) {
   appSource = appSource.replace(telemetryAnchor, telemetryReplacement);
 }
 for (const snippet of [
+  appAcpImport,
+  'epistemos-acp-hide-updates',
   'epistemos-acp-telemetry-native-settings',
   '<TelemetrySettings />',
 ]) {
@@ -6983,6 +7003,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "h-1.5 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "mt-2 text-xs text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "data-epistemos-acp-hide-security-settings" "$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
+    grep -q "epistemos-acp-hide-updates" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "epistemos-acp-telemetry-native-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "<TelemetrySettings />" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "epistemos-acp-hide-local-inference-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"

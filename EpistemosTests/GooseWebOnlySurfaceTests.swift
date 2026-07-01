@@ -407,6 +407,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-hide-session-sharing"))
         #expect(stageScript.contains("const [tunnelDisabled, setTunnelDisabled] = useState(USE_ACP_CHAT);"))
         #expect(stageScript.contains("sharing: USE_ACP_CHAT ? 'models' : 'sharing'"))
+        #expect(stageScript.contains("epistemos-acp-hide-updates"))
+        #expect(stageScript.contains("const shouldShowUpdates = !USE_ACP_CHAT && !window.appConfig.get('GOOSE_VERSION');"))
         #expect(stageScript.contains("epistemos-acp-navigation-active-session"))
         #expect(stageScript.contains("export async function acpGetSessionListItem"))
         #expect(stageScript.contains("client.goose.sessionInfo_unstable({ sessionId })"))
