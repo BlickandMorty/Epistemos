@@ -236,6 +236,10 @@ struct HTMLWorkspaceRegenerateSheet: View {
                                         .font(pixelMicroFont)
                                         .foregroundStyle(mutedText)
                                         .lineLimit(1)
+                                    Text(item.rankDescriptor)
+                                        .font(pixelMicroFont)
+                                        .foregroundStyle(mutedText)
+                                        .lineLimit(1)
                                     Text(item.provenanceDescriptor)
                                         .font(pixelMicroFont)
                                         .foregroundStyle(mutedText)
@@ -670,6 +674,10 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
 
     var provenanceDescriptor: String {
         "via \(provenance)"
+    }
+
+    var rankDescriptor: String {
+        rank.isFinite ? "rank \(String(format: "%.4f", rank))" : "rank unavailable"
     }
 
     var systemImage: String {
