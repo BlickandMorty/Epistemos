@@ -2689,6 +2689,109 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+APP_EVENTS_FILE="$WORK_ROOT/ui/desktop/src/constants/events.ts"
+node - "$APP_EVENTS_FILE" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`AppEvents ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+replaceRequired(
+  'active session removal event',
+  `  ADD_ACTIVE_SESSION = 'add-active-session',
+  CLEAR_INITIAL_MESSAGE = 'clear-initial-message',`,
+  `  ADD_ACTIVE_SESSION = 'add-active-session',
+  REMOVE_ACTIVE_SESSION = 'remove-active-session',
+  CLEAR_INITIAL_MESSAGE = 'clear-initial-message',`
+);
+
+if (!source.includes("REMOVE_ACTIVE_SESSION = 'remove-active-session'")) {
+  throw new Error('AppEvents staged source is missing REMOVE_ACTIVE_SESSION');
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+APP_FILE="$WORK_ROOT/ui/desktop/src/App.tsx"
+node - "$APP_FILE" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`App active sessions ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+replaceRequired(
+  'remove active session handler',
+  `    const handleSessionDeleted = (event: Event) => {
+      const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+
+      setActiveSessions((prev) => {
+        return prev.filter((session) => session.sessionId !== sessionId);
+      });
+    };
+
+    window.addEventListener(AppEvents.ADD_ACTIVE_SESSION, handleAddActiveSession);
+    window.addEventListener(AppEvents.CLEAR_INITIAL_MESSAGE, handleClearInitialMessage);
+    window.addEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+    return () => {
+      window.removeEventListener(AppEvents.ADD_ACTIVE_SESSION, handleAddActiveSession);
+      window.removeEventListener(AppEvents.CLEAR_INITIAL_MESSAGE, handleClearInitialMessage);
+      window.removeEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+    };`,
+  `    const removeActiveSession = (sessionId: string) => {
+      setActiveSessions((prev) => {
+        return prev.filter((session) => session.sessionId !== sessionId);
+      });
+    };
+
+    const handleSessionDeleted = (event: Event) => {
+      const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+      removeActiveSession(sessionId);
+    };
+
+    const handleRemoveActiveSession = (event: Event) => {
+      const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+      removeActiveSession(sessionId);
+    };
+
+    window.addEventListener(AppEvents.ADD_ACTIVE_SESSION, handleAddActiveSession);
+    window.addEventListener(AppEvents.REMOVE_ACTIVE_SESSION, handleRemoveActiveSession);
+    window.addEventListener(AppEvents.CLEAR_INITIAL_MESSAGE, handleClearInitialMessage);
+    window.addEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+    return () => {
+      window.removeEventListener(AppEvents.ADD_ACTIVE_SESSION, handleAddActiveSession);
+      window.removeEventListener(AppEvents.REMOVE_ACTIVE_SESSION, handleRemoveActiveSession);
+      window.removeEventListener(AppEvents.CLEAR_INITIAL_MESSAGE, handleClearInitialMessage);
+      window.removeEventListener(AppEvents.SESSION_DELETED, handleSessionDeleted);
+    };`
+);
+
+for (const snippet of [
+  'const removeActiveSession =',
+  'const handleRemoveActiveSession =',
+  'AppEvents.REMOVE_ACTIVE_SESSION',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`App staged source is missing active session removal snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 APP_LAYOUT="$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
 node - "$APP_LAYOUT" <<'NODE'
 const fs = require('fs');
@@ -2702,6 +2805,12 @@ function replaceRequired(label, pattern, replacement) {
   }
   source = next;
 }
+
+replaceRequired(
+  'lucide close icon import for session tabs',
+  `import { Menu, PanelLeft } from 'lucide-react';`,
+  `import { Menu, PanelLeft, X } from 'lucide-react';`
+);
 
 replaceRequired(
   'react hooks import for session tabs',
@@ -2721,6 +2830,15 @@ if (!source.includes("import { useNavigationSessions } from '../../hooks/useNavi
     `import { Navigation } from './NavigationPanel';`,
     `import { Navigation } from './NavigationPanel';
 import { useNavigationSessions } from '../../hooks/useNavigationSessions';`
+  );
+}
+
+if (!source.includes("import { AppEvents } from '../../constants/events';")) {
+  replaceRequired(
+    'app events import for session tabs',
+    `import { useNavigationSessions } from '../../hooks/useNavigationSessions';`,
+    `import { useNavigationSessions } from '../../hooks/useNavigationSessions';
+import { AppEvents } from '../../constants/events';`
   );
 }
 
@@ -2762,6 +2880,21 @@ if (!source.includes('const SessionTabsStrip')) {
     [recentSessions]
   );
 
+  const closeSessionTab = (sessionId: string) => {
+    const closingIndex = activeSessions.findIndex((session) => session.sessionId === sessionId);
+    const fallbackSession = activeSessions[closingIndex + 1] || activeSessions[closingIndex - 1];
+
+    window.dispatchEvent(
+      new CustomEvent(AppEvents.REMOVE_ACTIVE_SESSION, {
+        detail: { sessionId },
+      })
+    );
+
+    if (sessionId === activeSessionId) {
+      navigate(fallbackSession ? \`/pair?resumeSessionId=\${fallbackSession.sessionId}\` : '/');
+    }
+  };
+
   if (activeSessions.length <= 1) return null;
 
   return (
@@ -2779,25 +2912,41 @@ if (!source.includes('const SessionTabsStrip')) {
           const active = session.sessionId === activeSessionId;
           const label = sessionNameById.get(session.sessionId) || \`Session \${index + 1}\`;
           return (
-            <button
+            <div
               key={session.sessionId}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              title={label}
-              onClick={() => navigate(\`/pair?resumeSessionId=\${session.sessionId}\`)}
+              role="presentation"
               className={cn(
-                'flex min-w-0 max-w-[180px] items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-xs transition-colors',
+                'group flex min-w-0 max-w-[200px] items-center gap-1 rounded-[8px] px-2 py-1.5 text-xs transition-colors',
                 active
                   ? 'bg-[var(--epistemos-accent)]/12 text-text-primary'
                   : 'text-text-secondary hover:bg-background-secondary/56 hover:text-text-primary'
               )}
             >
-              <span className="truncate">{label}</span>
-              <span className="shrink-0 font-mono text-[10px] text-text-secondary">
-                {index + 1}
-              </span>
-            </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                title={label}
+                onClick={() => navigate(\`/pair?resumeSessionId=\${session.sessionId}\`)}
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              >
+                <span className="truncate">{label}</span>
+                <span className="shrink-0 font-mono text-[10px] text-text-secondary">
+                  {index + 1}
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={\`Close \${label}\`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  closeSessionTab(session.sessionId);
+                }}
+                className="shrink-0 rounded-[6px] p-0.5 text-text-secondary opacity-55 transition hover:bg-background-secondary/70 hover:text-text-primary hover:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           );
         })}
       </div>
@@ -2820,6 +2969,9 @@ replaceRequired(
 
 for (const snippet of [
   'const SessionTabsStrip',
+  'REMOVE_ACTIVE_SESSION',
+  'const closeSessionTab =',
+  '<X className="h-3 w-3" />',
   'data-epistemos-session-tabs',
   'data-epistemos-session-tabs-command-switch',
   "window.addEventListener('keydown', handleKeyDown)",
@@ -6722,8 +6874,13 @@ JS
     grep -q "rounded-\\[10px\\] bg-background-primary/54 p-3" "$WORK_ROOT/ui/desktop/src/components/onboarding/LocalModelPicker.tsx"
     grep -q "backgroundColor = 'bg-transparent'" "$WORK_ROOT/ui/desktop/src/components/Layout/MainPanelLayout.tsx"
     grep -q "bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "REMOVE_ACTIVE_SESSION = 'remove-active-session'" "$WORK_ROOT/ui/desktop/src/constants/events.ts"
+    grep -q "const removeActiveSession =" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "const handleRemoveActiveSession =" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "data-epistemos-session-tabs" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-tabs-command-switch" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "const closeSessionTab =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q 'Close \${label}' "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "goose-chat-input-card overflow-hidden rounded-\\[16px\\] bg-background-primary/40" "$WORK_ROOT/ui/desktop/src/components/ChatInputCard.tsx"
     grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] bg-background-primary/42 p-4" "$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
