@@ -69,22 +69,10 @@ struct ProseEditorView: View {
         self.initialBodyOverride = initialBodyOverride
         self.navigationContext = navigationContext
         self.themeOverride = themeOverride
-        // NON-BLOCKING seed: never read the note body from disk here — NoteFileStorage.readBody
-        // does a serial-queue .sync + Data(contentsOf:) that runs on @MainActor during SwiftUI
-        // init/layout and FROZE the note on open (a queued write blocks the pendingBodyQueue.sync).
-        // Seed from live in-memory sources only; the real disk body is hydrated off-main in .task
-        // below. `initialBodyHydrated` gates editing/persistence until the disk body has loaded so
-        // a fast keystroke can never clobber unread on-disk content. (note-freeze 2026-07-01)
-        let seed = initialBodyOverride ?? NoteWindowManager.shared.editorBody(for: page.id)
-        _bodyText = State(initialValue: seed ?? "")
-        _lastPersistedBody = State(initialValue: seed ?? "")
-        _initialBodyHydrated = State(initialValue: seed != nil)
+        let snapshot = Self.initialBodySnapshot(for: page, preferredBody: initialBodyOverride)
+        _bodyText = State(initialValue: snapshot.bodyText)
+        _lastPersistedBody = State(initialValue: snapshot.lastPersistedBody)
     }
-
-    /// False until the on-disk body has been hydrated off-main (see .task in body). While
-    /// false the editor is read-only and never persists, so the non-blocking empty seed
-    /// cannot overwrite unread on-disk content. Starts true when we already had a live seed.
-    @State private var initialBodyHydrated: Bool
 
     static func initialBodySnapshot(for page: SDPage) -> (bodyText: String, lastPersistedBody: String) {
         initialBodySnapshot(for: page, preferredBody: nil)
@@ -105,26 +93,6 @@ struct ProseEditorView: View {
         lastAutoReadNoteId = noteId
         guard VoicePreferences.shared.noteReadAloud == .auto, body.count > 500 else { return }
         _ = EpistemosSpeechSynthesizer.shared.speak(MarkdownRippleTextExtractor.displayText(from: body))
-    }
-
-    /// Read the on-disk note body OFF the main thread and apply it, replacing the non-blocking
-    /// init seed. Guarded so it never clobbers in-progress edits — the editor is read-only until
-    /// this completes, so on first mount bodyText always still equals the seed. `force` bypasses
-    /// the edit-guard for explicit external changes (restore-to-version / vault sync). (note-freeze 2026-07-01)
-    private func hydrateBodyFromDisk(pageId: String, force: Bool = false) async {
-        let disk = await Task.detached(priority: .userInitiated) {
-            NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
-        }.value
-        guard page.id == pageId else { return }
-        guard force || bodyText == lastPersistedBody else {
-            initialBodyHydrated = true
-            return
-        }
-        let clean = Self.stripOrphanedInlineAIResponse(in: disk, page: page)
-        lastPersistedBody = clean
-        bodyText = clean
-        initialBodyHydrated = true
-        syncBlocks(body: clean)
     }
 
     private static func currentBody(for page: SDPage, preferredBody: String? = nil) -> String {
@@ -274,7 +242,7 @@ struct ProseEditorView: View {
             isFocused: isFocused,
             theme: themeOverride ?? ui.theme,
             themeSyncKey: ui.appearanceSyncKey,
-            isEditable: isEditable && initialBodyHydrated,
+            isEditable: isEditable,
             isFocusMode: notesUI.isFocusMode,
             modelContext: modelContext,
             onWikilinkClick: handleWikilinkClick,
@@ -284,12 +252,6 @@ struct ProseEditorView: View {
             outlineFoldMode: notesUI.outlineFoldMode,
             usesTransparentEditorBackground: navigationContext == .graph
         )
-        // Hydrate the on-disk body OFF the main thread — reading it synchronously during
-        // init/onChange FROZE note-open (queue.sync + Data(contentsOf:) on @MainActor). Runs
-        // on first mount and re-runs on every page switch (id:). (note-freeze 2026-07-01)
-        .task(id: page.id) {
-            if !initialBodyHydrated { await hydrateBodyFromDisk(pageId: page.id) }
-        }
         .onAppear {
             repairOrphanedInlineAIResponseIfNeeded()
             syncBlocks(body: bodyText)
@@ -298,16 +260,15 @@ struct ProseEditorView: View {
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
             saveTask?.cancel()
-            // Non-blocking re-seed for the switched-to page; .task(id:) re-hydrates off-main.
-            let seed = NoteWindowManager.shared.editorBody(for: page.id)
-            bodyText = seed ?? ""
-            lastPersistedBody = seed ?? ""
-            initialBodyHydrated = (seed != nil)
+            let body = Self.currentBody(for: page)
+            bodyText = body
+            lastPersistedBody = body
+            repairOrphanedInlineAIResponseIfNeeded()
+            syncBlocks(body: body)
+            maybeAutoReadAloudOnOpen(noteId: page.id, body: body)
         }
         .onChange(of: bodyText) { _, newValue in
-            // Never persist until the disk body has hydrated — otherwise the empty seed could
-            // overwrite unread on-disk content. (The editor is read-only until hydrated too.)
-            guard initialBodyHydrated, newValue != lastPersistedBody else { return }
+            guard newValue != lastPersistedBody else { return }
             debouncedSave(newValue)
         }
         // Detect external body changes (restore-to-version, vault sync, etc.)
@@ -319,7 +280,10 @@ struct ProseEditorView: View {
             guard let changedId = notification.userInfo?["pageId"] as? String,
                   changedId == page.id else { return }
             saveTask?.cancel()
-            Task { await hydrateBodyFromDisk(pageId: page.id, force: true) }
+            let fresh = Self.currentBody(for: page)
+            bodyText = fresh
+            lastPersistedBody = fresh
+            repairOrphanedInlineAIResponseIfNeeded()
         }
         // Flush in-memory edits to disk when another editor is about to read our body
         // (e.g. transclusion edit on one of our blocks from a different note).
