@@ -359,7 +359,7 @@ extension GooseWebSurfaceView {
     }
 
     private static func cssColor(_ token: EpistemosTheme.ResolvedColorToken) -> String {
-        guard let srgb = token.nsColor.usingColorSpace(.sRGB) else { return "#000000" }
+        guard let srgb = token.nsColor.usingColorSpace(.sRGB) else { return "currentColor" }
         let red = Int((srgb.redComponent * 255).rounded())
         let green = Int((srgb.greenComponent * 255).rounded())
         let blue = Int((srgb.blueComponent * 255).rounded())

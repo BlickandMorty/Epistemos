@@ -538,6 +538,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(support.contains("document.documentElement.style.colorScheme"))
         #expect(support.contains("window.electron?.broadcastThemeChange?.({"))
         #expect(support.contains("epistemosTheme:"))
+        #expect(!support.contains("return \"#000000\""))
         #expect(!support.contains("EPISTEMOS_GOOSE_NATIVE_ROUTES"))
         #expect(!support.contains("epistemos.goose.nativeRoutes"))
 
