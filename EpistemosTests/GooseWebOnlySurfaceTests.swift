@@ -228,6 +228,9 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!reskin.contains("box-shadow: inset 0 0 0 1px var(--epistemos-flat-focus)"))
         #expect(!reskin.contains("goose-message-tool mt-1 rounded-[12px] border border-border-secondary bg-background-primary/68"))
         #expect(!reskin.contains("bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl"))
+        #expect(reskin.contains("function epistemosDirBaseName"))
+        #expect(reskin.contains("data-epistemos-worktree-menu-item"))
+        #expect(reskin.contains("data-epistemos-recent-dir-menu-item"))
 
         let stageScript = try loadMirroredSourceTextFile("stage-goose-web-ui.sh")
         #expect(stageScript.contains("Goose Web UI staging still contains blue/ring/outline visual leftovers."))
@@ -237,6 +240,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("fill|stroke"))
         #expect(stageScript.contains("Goose Web UI artifact still contains hardcoded Tailwind palette leftovers after bundle postprocess."))
         #expect(stageScript.contains("['text-orange-500', 'text-text-warning']"))
+        #expect(stageScript.contains("data-epistemos-worktree-menu-item"))
         #expect(stageScript.contains("outline-hidden|outline: 2px solid"))
         #expect(stageScript.contains("epistemos-native-claude-pixel-contract"))
         #expect(stageScript.contains("epistemos-native-claude-desktop-lock"))

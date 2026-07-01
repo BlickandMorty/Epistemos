@@ -5563,6 +5563,88 @@ function applyStatusIndicatorSurfaces() {
     "return 'text-text-danger';"
   );
   write('src/components/bottom_menu/ContextWindowIndicator.tsx', source);
+
+  source = read('src/components/bottom_menu/DirSwitcher.tsx');
+  source = replaceRequired(
+    source,
+    'directory switcher readable path helpers',
+    `interface DirSwitcherProps {
+  className: string;
+  sessionId: string | undefined;
+  workingDir: string;
+  onWorkingDirChange?: (newDir: string) => Promise<void> | void;
+  onRestartStart?: () => void;
+  onRestartEnd?: () => void;
+}`,
+    `interface DirSwitcherProps {
+  className: string;
+  sessionId: string | undefined;
+  workingDir: string;
+  onWorkingDirChange?: (newDir: string) => Promise<void> | void;
+  onRestartStart?: () => void;
+  onRestartEnd?: () => void;
+}
+
+function epistemosDirBaseName(dir: string): string {
+  const cleaned = dir.replace(/[\\\\/]+$/, '');
+  return cleaned.split(/[\\\\/]/).pop() || dir;
+}
+
+function epistemosDirParent(dir: string): string {
+  const cleaned = dir.replace(/[\\\\/]+$/, '');
+  const parts = cleaned.split(/[\\\\/]/);
+  parts.pop();
+  return parts.join('/') || '/';
+}`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher trigger basename helper',
+    `{workingDir.replace(/\\/+\$/, '').split('/').pop() || workingDir}`,
+    `{epistemosDirBaseName(workingDir)}`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher current readable row',
+    `<span className="truncate">{workingDir}</span>
+              <Check className="ml-auto h-4 w-4" />`,
+    `<span className="min-w-0 flex-1" data-epistemos-dir-menu-item>
+                <span className="block truncate font-medium text-text-primary">
+                  {epistemosDirBaseName(workingDir)}
+                </span>
+                <span className="block truncate text-[11px] text-text-secondary">
+                  {epistemosDirParent(workingDir)}
+                </span>
+              </span>
+              <Check className="ml-2 h-4 w-4 shrink-0" />`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher worktree readable rows',
+    `<GitBranch className="mr-2 h-4 w-4" />
+                  <span className="truncate">{dir}</span>`,
+    `<GitBranch className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1" data-epistemos-worktree-menu-item>
+                    <span className="block truncate font-medium text-text-primary">
+                      {epistemosDirBaseName(dir)}
+                    </span>
+                    <span className="block truncate text-[11px] text-text-secondary">{dir}</span>
+                  </span>`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher recent readable rows',
+    `<FolderDot className="mr-2 h-4 w-4" />
+                    <span className="truncate">{dir}</span>`,
+    `<FolderDot className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1" data-epistemos-recent-dir-menu-item>
+                      <span className="block truncate font-medium text-text-primary">
+                        {epistemosDirBaseName(dir)}
+                      </span>
+                      <span className="block truncate text-[11px] text-text-secondary">{dir}</span>
+                    </span>`
+  );
+  write('src/components/bottom_menu/DirSwitcher.tsx', source);
 }
 
 function applyFormValidationSurfaces() {
