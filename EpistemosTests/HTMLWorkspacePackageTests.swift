@@ -980,6 +980,14 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("font-family: var(--epistemos-workspace-heading-font);"))
         #expect(package.styleCSS.contains(".metric-card strong"))
         #expect(package.styleCSS.contains("line-height: 0.95"))
+        #expect(package.styleCSS.contains(".metric-card {\n              padding: 14px;\n              border: 0;"))
+        #expect(package.styleCSS.contains("box-shadow: 0 10px 28px"))
+        #expect(package.scriptJS.contains("if (metrics.length === 0)"))
+        #expect(package.scriptJS.contains("No local data attached yet."))
+        #expect(package.dataJSON.contains(#""metrics": []"#))
+        #expect(!package.dataJSON.contains("Nodes"))
+        #expect(!package.dataJSON.contains("Signals"))
+        #expect(!package.dataJSON.contains("Views"))
     }
 
     @Test("vault search dashboard uses flat source-aware context cards")

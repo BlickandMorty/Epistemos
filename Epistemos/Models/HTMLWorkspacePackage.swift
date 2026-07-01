@@ -548,9 +548,10 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
 
             .metric-card {
               padding: 14px;
-              border: 1px solid var(--epistemos-workspace-border);
+              border: 0;
               border-radius: 8px;
               background: var(--epistemos-workspace-card);
+              box-shadow: 0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 9%, transparent);
             }
 
             .metric-card strong {
@@ -570,27 +571,33 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
               font-size: 12px;
               color: var(--epistemos-workspace-muted);
             }
+
+            .empty {
+              margin: 0;
+              color: var(--epistemos-workspace-muted);
+              font-size: 13px;
+            }
             """,
             scriptJS: """
             const metrics = HTMLWorkspace.data.metrics || [];
             const grid = HTMLWorkspace.q('[data-metrics]');
             if (grid) {
-              metrics.forEach((metric) => {
-                grid.append(HTMLWorkspace.el('article', { class: 'metric-card' }, [
-                  HTMLWorkspace.el('span', {}, metric.label),
-                  HTMLWorkspace.el('strong', { class: 'metric-value', 'data-metric-value': '' }, String(metric.value))
-                ]));
-              });
+              if (metrics.length === 0) {
+                grid.append(HTMLWorkspace.el('p', { class: 'empty' }, 'No local data attached yet.'));
+              } else {
+                metrics.forEach((metric) => {
+                  grid.append(HTMLWorkspace.el('article', { class: 'metric-card' }, [
+                    HTMLWorkspace.el('span', {}, metric.label),
+                    HTMLWorkspace.el('strong', { class: 'metric-value', 'data-metric-value': '' }, String(metric.value))
+                  ]));
+                });
+              }
             }
             document.documentElement.dataset.htmlWorkspace = 'ready';
             """,
             dataJSON: """
             {
-              "metrics": [
-                { "label": "Nodes", "value": 128 },
-                { "label": "Signals", "value": 42 },
-                { "label": "Views", "value": 7 }
-              ]
+              "metrics": []
             }
             """
         )
