@@ -547,6 +547,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.stale)
         #expect(metadata.contextKinds == [])
         #expect(metadata.refreshedAtMS == 0)
+        #expect(metadata.provenance == "HTMLWorkspaceDataFeedContextSources.recent_capture")
         #expect(metadata.error == "Vault feed unavailable")
         #expect(metadata.requiredContextKind == "recent_capture")
         #expect(metadata.requiredContextAvailable == false)
@@ -764,6 +765,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.query == "substrate provenance")
         #expect(metadata.limit == 3)
         #expect(metadata.refreshedAtMS == 0)
+        #expect(metadata.provenance == HTMLWorkspaceDataFeedJSONEnvelope.provenance)
         #expect(metadata.stale)
         #expect(metadata.error == "Feed pending")
     }

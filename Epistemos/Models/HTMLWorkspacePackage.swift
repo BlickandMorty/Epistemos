@@ -338,7 +338,7 @@ nonisolated public enum HTMLWorkspaceDataFeedJSONEnvelope {
             "result_count": 0,
             "context_kinds": [],
             "refreshed_at_ms": refreshedAtMS,
-            "provenance": provenance,
+            "provenance": metadataProvenance(requiredContextKind: requiredContextKind),
             "stale": true,
             "status": "stale",
             "error": error,
@@ -358,6 +358,12 @@ nonisolated public enum HTMLWorkspaceDataFeedJSONEnvelope {
             return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":[],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
         }
         return json
+    }
+
+    private static func metadataProvenance(requiredContextKind: String?) -> String {
+        let requiredKind = requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !requiredKind.isEmpty, requiredKind != "vault_record" else { return provenance }
+        return "HTMLWorkspaceDataFeedContextSources.\(requiredKind)"
     }
 }
 
