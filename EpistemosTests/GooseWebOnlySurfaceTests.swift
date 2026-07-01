@@ -445,6 +445,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("handleAttachGitDiff"))
         #expect(stageScript.contains("readGitDiff(currentWorkingDir)"))
         #expect(stageScript.contains("Git status:"))
+        #expect(stageScript.contains("Pull request:"))
         #expect(stageScript.contains("Attach git diff"))
         #expect(stageScript.contains("handleOpenGitHubPullRequest"))
         #expect(stageScript.contains("readGitHubCompareURL(currentWorkingDir)"))

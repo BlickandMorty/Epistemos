@@ -905,15 +905,21 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         func result(
             ok: Bool,
             status: String? = nil,
+            branch: String? = nil,
+            pullRequestURL: String? = nil,
             diff: String = "",
             truncated: Bool = false,
             error: String? = nil
         ) -> [String: Any] {
             let errorValue: Any = error.map { $0 as Any } ?? NSNull()
             let statusValue: Any = status.map { $0 as Any } ?? NSNull()
+            let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
+            let pullRequestURLValue: Any = pullRequestURL.map { $0 as Any } ?? NSNull()
             [
                 "ok": ok,
                 "status": statusValue,
+                "branch": branchValue,
+                "pullRequestURL": pullRequestURLValue,
                 "diff": diff,
                 "truncated": truncated,
                 "path": expandedPath,
@@ -993,7 +999,36 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return result(ok: false, error: "No tracked changes to attach.")
         }
         let status = readGitStatus(expandedPath, git: git)
-        return result(ok: true, status: status, diff: diff, truncated: truncated)
+        let pullRequest = gitHubPullRequestContext(expandedPath, git: git)
+        return result(
+            ok: true,
+            status: status,
+            branch: pullRequest?.branch,
+            pullRequestURL: pullRequest?.url,
+            diff: diff,
+            truncated: truncated
+        )
+    }
+
+    private func gitHubPullRequestContext(_ path: String, git: String) -> (url: String, branch: String)? {
+        guard let branch = readGitSingleLine(
+            path,
+            git: git,
+            arguments: ["rev-parse", "--abbrev-ref", "HEAD"],
+            maxBytes: Self.maxGitBranchNameCharacters + 1
+        ).flatMap(Self.boundedGitBranchName),
+              branch != "HEAD",
+              let remote = readGitSingleLine(
+                path,
+                git: git,
+                arguments: ["remote", "get-url", "origin"],
+                maxBytes: Self.maxGitRemoteURLCharacters + 1
+              ).flatMap(Self.boundedGitRemoteURL),
+              let repositoryPath = Self.gitHubRepositoryPath(from: remote),
+              let pullRequestURL = Self.gitHubCompareURL(repositoryPath: repositoryPath, branch: branch) else {
+            return nil
+        }
+        return (pullRequestURL, branch)
     }
 
     private func readGitStatus(_ path: String, git: String) -> String? {
@@ -1097,10 +1132,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return result(ok: false, branch: branch, error: "No origin remote is available.")
         }
         guard let repositoryPath = Self.gitHubRepositoryPath(from: remote),
-              let compareURL = Self.gitHubCompareURL(repositoryPath: repositoryPath, branch: branch) else {
+              let pullRequestURL = Self.gitHubCompareURL(repositoryPath: repositoryPath, branch: branch) else {
             return result(ok: false, branch: branch, error: "The origin remote cannot open a GitHub pull request.")
         }
-        return result(ok: true, url: compareURL, branch: branch)
+        return result(ok: true, url: pullRequestURL, branch: branch)
     }
 
     private func readGitSingleLine(

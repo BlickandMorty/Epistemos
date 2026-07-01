@@ -573,6 +573,8 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("maxGitBranchNameCharacters"))
         #expect(bridge.contains("maxGitRemoteURLCharacters"))
         #expect(bridge.contains("private func readGitDiff(_ path: String)"))
+        #expect(bridge.contains("\"pullRequestURL\": pullRequestURLValue"))
+        #expect(bridge.contains("private func gitHubPullRequestContext(_ path: String, git: String)"))
         #expect(bridge.contains("private func readGitStatus(_ path: String, git: String)"))
         #expect(bridge.contains("private func readGitHubCompareURL(_ path: String)"))
         #expect(bridge.contains("nonisolated static func gitHubRepositoryPath(from remote: String) -> String?"))
