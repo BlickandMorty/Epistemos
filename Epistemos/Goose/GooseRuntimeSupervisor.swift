@@ -152,7 +152,7 @@ final class GooseRuntimeSupervisor {
 
     private var process: Process?
     private var inProcessACPServer: GooseInProcessACPServer?
-    private var masPromptStreamer: (any GooseMASPromptStreaming)?
+    private var masAgentCoreRunner: (any GooseMASAgentCoreRunning)?
     private var lifecycleTask: Task<Void, Never>?
     private var outputTask: Task<Void, Never>?
 
@@ -166,7 +166,7 @@ final class GooseRuntimeSupervisor {
         allowPortFallback: Bool = false,
         disableKeyring: Bool = false,
         builtins: [String] = ["developer"],
-        masPromptStreamer: (any GooseMASPromptStreaming)? = nil,
+        masAgentCoreRunner: (any GooseMASAgentCoreRunning)? = nil,
         healthCheck: @escaping @Sendable (URL) async -> Bool = GooseRuntimeSupervisor.healthCheck(base:)
     ) {
         switch status {
@@ -186,7 +186,7 @@ final class GooseRuntimeSupervisor {
             return
         }
         let resolvedSecretKey = secretKey ?? Self.randomSecretKey()
-        self.masPromptStreamer = masPromptStreamer ?? AppBootstrap.shared?.cloudLLMClient
+        self.masAgentCoreRunner = masAgentCoreRunner ?? GooseMASAgentCoreRunner()
         status = .starting
         lifecycleTask = Task { [weak self] in
             await self?.runInProcessAgentCore(
@@ -229,7 +229,7 @@ final class GooseRuntimeSupervisor {
         process = nil
         inProcessACPServer?.stop()
         inProcessACPServer = nil
-        masPromptStreamer = nil
+        masAgentCoreRunner = nil
         switch status {
         case .starting, .running:
             status = .stopped
@@ -245,7 +245,7 @@ final class GooseRuntimeSupervisor {
         }
         inProcessACPServer?.stop()
         inProcessACPServer = nil
-        masPromptStreamer = nil
+        masAgentCoreRunner = nil
         switch status {
         case .starting, .running:
             status = .failed(Self.boundedStatusMessage(message))
@@ -261,7 +261,7 @@ final class GooseRuntimeSupervisor {
         #if EPISTEMOS_APP_STORE
         let server = GooseInProcessACPServer(
             secretKey: secretKey,
-            promptStreamer: masPromptStreamer
+            agentCoreRunner: masAgentCoreRunner
         )
         inProcessACPServer = server
         do {

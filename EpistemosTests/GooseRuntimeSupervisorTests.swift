@@ -59,6 +59,24 @@ struct GooseRuntimeSupervisorTests {
         #expect(!appStoreBranch.contains("Process("))
     }
 
+    @Test("MAS in-process prompt path uses agent_core FFI instead of direct cloud streaming")
+    func masInProcessPromptPathUsesAgentCoreFFI() throws {
+        let server = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+        let supervisor = try loadRepoTextFile("Epistemos/Goose/GooseRuntimeSupervisor.swift")
+
+        #expect(server.contains("runAgentSession("))
+        #expect(server.contains("GooseMASAgentCoreRunner"))
+        #expect(server.contains("AgentStreamEventDelegate"))
+        #expect(server.contains(#""agent_thought_chunk""#))
+        #expect(server.contains(#""tool_call_update""#))
+        #expect(server.contains("autoApproveReads: false"))
+        #expect(server.contains("enableBash: false"))
+        #expect(server.contains(#""Computer-use is Pro-only in the App Store Goose backend.""#))
+        #expect(!server.contains("extension CloudLLMClient: GooseMASPromptStreaming"))
+        #expect(!server.contains("streamGooseMASPrompt"))
+        #expect(!supervisor.contains("AppBootstrap.shared?.cloudLLMClient"))
+    }
+
     @Test("MAS in-process ACP implements the WebUI config methods used during first render")
     func masInProcessACPImplementsWebUIConfigMethods() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")

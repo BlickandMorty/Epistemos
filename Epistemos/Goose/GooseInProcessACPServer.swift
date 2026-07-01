@@ -3,22 +3,245 @@ import Foundation
 import Network
 import os
 
-@MainActor
-protocol GooseMASPromptStreaming: AnyObject {
-    func streamGooseMASPrompt(
+protocol GooseMASAgentCoreRunning: AnyObject, Sendable {
+    func streamGooseMASAgentCoreRun(
+        sessionID: String,
         prompt: String,
         systemPrompt: String?,
-        maxTokens: Int
-    ) -> AsyncThrowingStream<String, Error>
+        maxTokens: Int,
+        providerName: String,
+        vaultPath: String
+    ) -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error>
 }
 
-extension CloudLLMClient: GooseMASPromptStreaming {
-    func streamGooseMASPrompt(
+nonisolated enum GooseMASAgentCoreRunEvent: Sendable, Equatable {
+    case textDelta(String)
+    case thinkingDelta(String)
+    case toolStarted(id: String, name: String, inputJson: String)
+    case toolCompleted(id: String, name: String, result: String, isError: Bool)
+    case permissionRequired(id: String, toolName: String, inputJson: String, riskLevel: String)
+    case complete(stopReason: String, inputTokens: Int, outputTokens: Int)
+    case error(String)
+}
+
+nonisolated final class GooseMASAgentCoreRunner: GooseMASAgentCoreRunning, @unchecked Sendable {
+    private static let defaultVaultPath = NSHomeDirectory()
+    private static let allowedMASTools = [
+        "vault.search",
+        "vault.read",
+        "vault.write",
+        "vault.list",
+        "knowledge.recall",
+        "web.search",
+        "web.fetch",
+        "http_fetch",
+        "think",
+    ]
+
+    func streamGooseMASAgentCoreRun(
+        sessionID: String,
         prompt: String,
         systemPrompt: String?,
-        maxTokens: Int
-    ) -> AsyncThrowingStream<String, Error> {
-        stream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens)
+        maxTokens: Int,
+        providerName: String,
+        vaultPath: String
+    ) -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let delegate = GooseMASAgentCoreDelegate { event in
+                continuation.yield(event)
+            }
+            let normalizedVaultPath = vaultPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            let toolConfig = ToolConfig(
+                vaultPath: normalizedVaultPath.isEmpty ? Self.defaultVaultPath : normalizedVaultPath,
+                enableBash: false,
+                enableWebSearch: true,
+                toolTier: "agent",
+                allowedToolNames: Self.allowedMASTools
+            )
+            let agentConfig = AgentConfigFFI(
+                maxTurns: 24,
+                maxOutputTokens: UInt32(max(1, min(maxTokens, 16_384))),
+                contextThreshold: 120_000,
+                enableThinking: true,
+                effort: "high",
+                systemPrompt: systemPrompt,
+                autoApproveReads: false,
+                autoApproveWrites: false,
+                promptMode: "general",
+                maxCostUsd: nil
+            )
+            let task = Task {
+                do {
+                    let result = try await runAgentSession(
+                        sessionId: sessionID,
+                        objective: prompt,
+                        providerName: providerName,
+                        toolConfig: toolConfig,
+                        agentConfig: agentConfig,
+                        delegate: delegate
+                    )
+                    delegate.finishIfNeeded(
+                        stopReason: "end_turn",
+                        inputTokens: Int(result.inputTokens),
+                        outputTokens: Int(result.outputTokens)
+                    )
+                    continuation.finish()
+                } catch {
+                    delegate.emit(.error(EngineLogDiagnostics.logMessage(
+                        for: error,
+                        fallback: "agent_core MAS run failed"
+                    )))
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+                cancelAgentSession(sessionId: sessionID)
+            }
+        }
+    }
+}
+
+nonisolated private final class GooseMASAgentCoreDelegate: AgentStreamEventDelegate, @unchecked Sendable {
+    private let emitEvent: @Sendable (GooseMASAgentCoreRunEvent) -> Void
+    private let lock = NSLock()
+    private var didComplete = false
+
+    init(emit: @escaping @Sendable (GooseMASAgentCoreRunEvent) -> Void) {
+        self.emitEvent = emit
+    }
+
+    func emit(_ event: GooseMASAgentCoreRunEvent) {
+        emitEvent(event)
+    }
+
+    func finishIfNeeded(stopReason: String, inputTokens: Int, outputTokens: Int) {
+        lock.lock()
+        let shouldFinish = !didComplete
+        didComplete = true
+        lock.unlock()
+        guard shouldFinish else { return }
+        emit(.complete(stopReason: stopReason, inputTokens: inputTokens, outputTokens: outputTokens))
+    }
+
+    func onThinkingDelta(thought: String) {
+        emit(.thinkingDelta(thought))
+    }
+
+    func onTextDelta(delta: String) {
+        emit(.textDelta(delta))
+    }
+
+    func onToolInputDelta(index: UInt32, partialJson: String) {
+        _ = index
+        _ = partialJson
+    }
+
+    func onToolStarted(toolUseId: String, name: String, inputJson: String) {
+        emit(.toolStarted(id: toolUseId, name: name, inputJson: inputJson))
+    }
+
+    func onToolCompleted(toolUseId: String, result: String, isError: Bool) {
+        emit(.toolCompleted(id: toolUseId, name: "", result: result, isError: isError))
+    }
+
+    func onSubagentSpawned(agentId: String, role: String) {
+        emit(.toolStarted(id: agentId, name: "subagent.\(role)", inputJson: "{}"))
+    }
+
+    func onPermissionRequired(
+        permissionId: String,
+        toolName: String,
+        inputJson: String,
+        riskLevel: String
+    ) {
+        emit(.permissionRequired(id: permissionId, toolName: toolName, inputJson: inputJson, riskLevel: riskLevel))
+    }
+
+    func onContextCompacting(currentTokens: UInt32) {
+        emit(.thinkingDelta("Compacting context at \(currentTokens) tokens."))
+    }
+
+    func onContextCompacted(newMessageCount: UInt32) {
+        emit(.thinkingDelta("Context compacted to \(newMessageCount) messages."))
+    }
+
+    func onTurnStarted(turnNumber: UInt32, messageCount: UInt32) {
+        _ = turnNumber
+        _ = messageCount
+    }
+
+    func onComplete(stopReason: String, inputTokens: UInt32, outputTokens: UInt32) {
+        finishIfNeeded(
+            stopReason: stopReason,
+            inputTokens: Int(inputTokens),
+            outputTokens: Int(outputTokens)
+        )
+    }
+
+    func onError(message: String) {
+        emit(.error(message))
+    }
+
+    func executeComputerAction(actionJson: String) -> String {
+        _ = actionJson
+        return #"{"success":false,"error":"Computer-use is Pro-only in the App Store Goose backend."}"#
+    }
+
+    func waitForPermission(permissionId: String) -> Bool {
+        _ = permissionId
+        return false
+    }
+
+    func askUserQuestion(questionJson: String) -> String {
+        _ = questionJson
+        return #"{"response":"","choice_index":null}"#
+    }
+
+    func perceiveApp(appName: String, depth: String) -> String {
+        _ = appName
+        _ = depth
+        return #"{"elements":[],"screenshot_path":null,"latency_ms":0,"error":"macOS app perception is Pro-only in the App Store Goose backend."}"#
+    }
+
+    func interactWithApp(actionJson: String) -> String {
+        _ = actionJson
+        return #"{"success":false,"element_found":false,"action_performed":false,"error":"macOS app control is Pro-only in the App Store Goose backend."}"#
+    }
+
+    func startScreenWatch(watchJson: String) -> String {
+        _ = watchJson
+        return #"{"triggered":false,"reason":"screen watch is Pro-only in the App Store Goose backend.","elapsed_ms":0}"#
+    }
+
+    func manageSsmState(actionJson: String) -> String {
+        _ = actionJson
+        return #"{"success":false,"state_size_mb":0,"layers":0,"dtype":"none","duration_ms":0,"states":[],"error":"SSM state is unavailable in the App Store Goose backend."}"#
+    }
+
+    func generateConstrained(prompt: String, grammarJson: String) -> String {
+        _ = prompt
+        _ = grammarJson
+        return #"{"output":"","tokens_generated":0,"constraint_violations_masked":0,"error":"constrained local generation is unavailable in the App Store Goose backend."}"#
+    }
+
+    func generateImage(prompt: String, aspectRatio: String) -> String {
+        _ = prompt
+        _ = aspectRatio
+        return #"{"error":"image generation is unavailable in the App Store Goose backend."}"#
+    }
+
+    func triggerNightbrainJob(jobType: String, priority: String) -> String {
+        _ = jobType
+        _ = priority
+        return #"{"job_id":"","status":"unavailable","estimated_duration_s":0,"error":"NightBrain is unavailable in the App Store Goose backend."}"#
+    }
+
+    func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String {
+        _ = noteId
+        _ = cursorOffset
+        return #"{"matches":[],"complexity":0,"suggestions":[]}"#
     }
 }
 
@@ -56,8 +279,8 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         let maxTokens: Int
     }
 
-    private struct PromptStreamerBox: @unchecked Sendable {
-        let streamer: (any GooseMASPromptStreaming)?
+    private struct AgentCoreRunnerBox: @unchecked Sendable {
+        let runner: any GooseMASAgentCoreRunning
     }
 
     private static let logger = Logger(subsystem: "com.epistemos.goose", category: "GooseInProcessACPServer")
@@ -67,7 +290,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
 
     private let secretKey: String
     private let catalog: GooseMASAgentCoreCatalog
-    private let promptStreamer: PromptStreamerBox
+    private let agentCoreRunner: AgentCoreRunnerBox
     private let queue = DispatchQueue(label: "com.epistemos.goose.inprocess-acp", qos: .userInitiated)
     private var configValues: [String: Any] = [:]
     private var providerConfigValues: [String: [String: String]] = [:]
@@ -84,11 +307,11 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     init(
         secretKey: String,
         catalog: GooseMASAgentCoreCatalog = .load(),
-        promptStreamer: (any GooseMASPromptStreaming)? = nil
+        agentCoreRunner: (any GooseMASAgentCoreRunning)? = nil
     ) {
         self.secretKey = secretKey
         self.catalog = catalog
-        self.promptStreamer = PromptStreamerBox(streamer: promptStreamer)
+        self.agentCoreRunner = AgentCoreRunnerBox(runner: agentCoreRunner ?? GooseMASAgentCoreRunner())
         let defaultProvider = catalog.providers.first { $0.configured } ?? catalog.providers.first
         self.defaultProviderID = defaultProvider?.providerId
         self.defaultModelID = defaultProvider?.defaultModel
@@ -792,48 +1015,91 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             )
             return
         }
-        let streamerBox = promptStreamer
-        guard streamerBox.streamer != nil else {
-            finishPromptRun(
-                run,
-                on: box,
-                errorMessage: "No configured cloud model client is available for the MAS in-process backend."
-            )
-            return
-        }
+        let runnerBox = agentCoreRunner
 
-        Task { [weak self, box, run, streamerBox] in
+        Task { [weak self, box, run, runnerBox] in
             guard let self else { return }
             var outputUTF8Bytes = 0
             do {
-                guard let streamer = streamerBox.streamer else {
-                    self.finishPromptRun(
-                        run,
-                        on: box,
-                        errorMessage: "No configured cloud model client is available for the MAS in-process backend."
-                    )
-                    return
-                }
-                let stream = await streamer.streamGooseMASPrompt(
+                let providerName = self.providerNameForAgentCore()
+                let stream = runnerBox.runner.streamGooseMASAgentCoreRun(
+                    sessionID: run.sessionID,
                     prompt: run.prompt,
                     systemPrompt: run.systemPrompt,
-                    maxTokens: run.maxTokens
+                    maxTokens: run.maxTokens,
+                    providerName: providerName,
+                    vaultPath: self.vaultPathForAgentCore()
                 )
-                for try await chunk in stream {
+                for try await event in stream {
                     if Task.isCancelled {
                         self.finishPromptRun(run, on: box, stopReason: "cancelled", outputUTF8Bytes: outputUTF8Bytes)
                         return
                     }
-                    guard !chunk.isEmpty else { continue }
-                    outputUTF8Bytes += chunk.utf8.count
-                    self.sendJSONMessages([
-                        Self.agentMessageChunk(
-                            sessionID: run.sessionID,
-                            messageID: run.messageID,
-                            created: run.created,
-                            text: chunk
-                        ),
-                    ], on: box)
+                    switch event {
+                    case .textDelta(let chunk):
+                        guard !chunk.isEmpty else { continue }
+                        outputUTF8Bytes += chunk.utf8.count
+                        self.sendJSONMessages([
+                            Self.agentMessageChunk(
+                                sessionID: run.sessionID,
+                                messageID: run.messageID,
+                                created: run.created,
+                                text: chunk
+                            ),
+                        ], on: box)
+                    case .thinkingDelta(let thought):
+                        guard !thought.isEmpty else { continue }
+                        self.sendJSONMessages([
+                            Self.agentThoughtChunk(
+                                sessionID: run.sessionID,
+                                messageID: run.messageID,
+                                created: run.created,
+                                text: thought
+                            ),
+                        ], on: box)
+                    case .toolStarted(let id, let name, let inputJson):
+                        self.sendJSONMessages([
+                            Self.toolCallNotification(
+                                sessionID: run.sessionID,
+                                toolCallID: id,
+                                title: Self.toolTitle(name: name, inputJson: inputJson),
+                                kind: Self.toolKind(for: name),
+                                status: "in_progress"
+                            ),
+                        ], on: box)
+                    case .toolCompleted(let id, let name, let result, let isError):
+                        self.sendJSONMessages([
+                            Self.toolCallUpdateNotification(
+                                sessionID: run.sessionID,
+                                toolCallID: id,
+                                title: Self.toolResultTitle(name: name, result: result, isError: isError),
+                                kind: Self.toolKind(for: name),
+                                status: isError ? "failed" : "completed"
+                            ),
+                        ], on: box)
+                    case .permissionRequired(let id, let toolName, let inputJson, let riskLevel):
+                        self.sendJSONMessages([
+                            Self.toolCallUpdateNotification(
+                                sessionID: run.sessionID,
+                                toolCallID: id,
+                                title: Self.permissionTitle(toolName: toolName, inputJson: inputJson, riskLevel: riskLevel),
+                                kind: Self.toolKind(for: toolName),
+                                status: "pending"
+                            ),
+                        ], on: box)
+                    case .complete(let stopReason, let inputTokens, let outputTokens):
+                        self.finishPromptRun(
+                            run,
+                            on: box,
+                            stopReason: stopReason,
+                            inputTokens: inputTokens,
+                            outputTokens: outputTokens
+                        )
+                        return
+                    case .error(let message):
+                        self.finishPromptRun(run, on: box, errorMessage: message)
+                        return
+                    }
                 }
                 self.finishPromptRun(run, on: box, stopReason: "end_turn", outputUTF8Bytes: outputUTF8Bytes)
             } catch {
@@ -879,6 +1145,35 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private func finishPromptRun(
         _ run: PromptRun,
         on box: WebSocketConnectionBox,
+        stopReason: String,
+        inputTokens: Int,
+        outputTokens: Int
+    ) {
+        sendJSONMessages([
+            Self.clearActiveRunNotification(sessionID: run.sessionID),
+            Self.usageNotification(
+                sessionID: run.sessionID,
+                inputTokens: inputTokens,
+                outputTokens: outputTokens
+            ),
+            Self.jsonResponse(
+                id: run.requestID,
+                result: [
+                    "stopReason": stopReason,
+                    "usage": [
+                        "inputTokens": inputTokens,
+                        "outputTokens": outputTokens,
+                        "totalTokens": inputTokens + outputTokens,
+                    ],
+                    "_meta": catalog.metadata(),
+                ]
+            ),
+        ], on: box)
+    }
+
+    private func finishPromptRun(
+        _ run: PromptRun,
+        on box: WebSocketConnectionBox,
         errorMessage: String
     ) {
         sendJSONMessages([
@@ -900,6 +1195,34 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
                 ]
             ),
         ], on: box)
+    }
+
+    private func providerNameForAgentCore() -> String {
+        let providerID = defaultProviderID ?? providerConfigValues.keys.sorted().first ?? ""
+        switch providerID {
+        case "anthropic":
+            return "claude_opus"
+        case "openai":
+            return "openai"
+        case "google":
+            return "gemini_pro"
+        case "deepseek", "kimi", "zai", "minimax":
+            return providerID
+        default:
+            return providerID.isEmpty ? "claude_opus" : providerID
+        }
+    }
+
+    private func vaultPathForAgentCore() -> String {
+        let candidates = [
+            configValues["EPISTEMOS_VAULT_PATH"] as? String,
+            configValues["VAULT_PATH"] as? String,
+            sessions.values.first?.cwd,
+            NSHomeDirectory(),
+        ]
+        return candidates
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? NSHomeDirectory()
     }
 
     private static func promptText(from params: [String: Any]) -> String {
@@ -966,6 +1289,123 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
                 ],
             ]
         )
+    }
+
+    private static func agentThoughtChunk(
+        sessionID: String,
+        messageID: String,
+        created: Int,
+        text: String
+    ) -> String {
+        jsonNotification(
+            method: "session/update",
+            params: [
+                "sessionId": sessionID,
+                "update": [
+                    "sessionUpdate": "agent_thought_chunk",
+                    "content": [
+                        "type": "text",
+                        "text": text,
+                    ],
+                    "_meta": [
+                        "goose": [
+                            "created": created,
+                            "messageId": messageID,
+                        ],
+                    ],
+                ],
+            ]
+        )
+    }
+
+    private static func toolCallNotification(
+        sessionID: String,
+        toolCallID: String,
+        title: String,
+        kind: String,
+        status: String
+    ) -> String {
+        jsonNotification(
+            method: "session/update",
+            params: [
+                "sessionId": sessionID,
+                "update": [
+                    "sessionUpdate": "tool_call",
+                    "toolCallId": toolCallID,
+                    "title": title,
+                    "kind": kind,
+                    "status": status,
+                ],
+            ]
+        )
+    }
+
+    private static func toolCallUpdateNotification(
+        sessionID: String,
+        toolCallID: String,
+        title: String,
+        kind: String,
+        status: String
+    ) -> String {
+        jsonNotification(
+            method: "session/update",
+            params: [
+                "sessionId": sessionID,
+                "update": [
+                    "sessionUpdate": "tool_call_update",
+                    "toolCallId": toolCallID,
+                    "title": title,
+                    "kind": kind,
+                    "status": status,
+                ],
+            ]
+        )
+    }
+
+    private static func toolTitle(name: String, inputJson: String) -> String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = trimmedName.isEmpty ? "Tool" : trimmedName
+        guard inputJson.utf8.count <= 180 else { return base }
+        let compactInput = inputJson
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        guard !compactInput.isEmpty, compactInput != "{}" else { return base }
+        return "\(base) \(compactInput)"
+    }
+
+    private static func toolResultTitle(name: String, result: String, isError: Bool) -> String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = trimmedName.isEmpty ? "Tool" : trimmedName
+        let prefix = isError ? "\(base) failed" : "\(base) completed"
+        let compactResult = result
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        guard !compactResult.isEmpty else { return prefix }
+        return "\(prefix): \(String(compactResult.prefix(180)))"
+    }
+
+    private static func permissionTitle(toolName: String, inputJson: String, riskLevel: String) -> String {
+        let name = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let risk = riskLevel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = name.isEmpty ? "Tool permission" : "Permission: \(name)"
+        let compactInput = inputJson
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        let details = compactInput.isEmpty || compactInput == "{}" ? "" : " \(String(compactInput.prefix(120)))"
+        return risk.isEmpty ? "\(base)\(details)" : "\(base) [\(risk)]\(details)"
+    }
+
+    private static func toolKind(for name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("search") { return "search" }
+        if lower.contains("read") || lower.contains("recall") || lower.contains("list") { return "read" }
+        if lower.contains("write") || lower.contains("edit") || lower.contains("patch") { return "edit" }
+        if lower.contains("delete") || lower.contains("remove") { return "delete" }
+        if lower.contains("move") { return "move" }
+        if lower.contains("fetch") || lower.contains("http") || lower.contains("web") { return "fetch" }
+        if lower.contains("think") { return "think" }
+        if lower.contains("shell") || lower.contains("terminal") || lower.contains("execute") { return "execute" }
+        return "other"
     }
 
     private static func clearActiveRunNotification(sessionID: String) -> String {
