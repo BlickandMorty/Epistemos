@@ -660,6 +660,10 @@ nonisolated enum KokoroVoiceGateStatus {
             close(fd)
             return nil
         }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            return nil
+        }
         guard fileStatus.st_size >= 0,
               UInt64(fileStatus.st_size) <= UInt64(maxManifestBytes) else {
             close(fd)
@@ -689,6 +693,7 @@ nonisolated enum KokoroVoiceGateStatus {
             return nil
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
               fileStatus.st_size > 0 else {
             close(fd)
             return nil
@@ -716,6 +721,7 @@ nonisolated enum KokoroVoiceGateStatus {
             return nil
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
               fileStatus.st_size > 0,
               UInt64(fileStatus.st_size) == expectedBytes else {
             close(fd)

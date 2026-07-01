@@ -91,7 +91,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("raw status/domain strings bounded and\n  control/whitespace-normalized"))
         #expect(capabilities.contains("status ellipsis kept inside the configured cap"))
         #expect(capabilities.contains("Kokoro-82M is Pro-only"))
-        #expect(capabilities.contains("rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched"))
+        #expect(capabilities.contains("rejects symlink-routed, hardlinked, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched"))
         #expect(capabilities.contains("declared package byte caps"))
         #expect(capabilities.contains("bounded, control/whitespace-normalized model-relative\n  status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
@@ -425,6 +425,7 @@ struct VoiceCodepackPlan3Tests {
             "destinationOfSymbolicLink",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
+            "st_nlink <= 1",
             "JSONSerialization.jsonObject",
             "FileAttributeType == .typeRegular",
             "FileAttributeType == .typeDirectory",
@@ -490,6 +491,7 @@ struct VoiceCodepackPlan3Tests {
             "runtime starter voice is invalid",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
+            "st_nlink <= 1",
             "CFBooleanGetTypeID",
             "runtimeNotLinked",
             "KokoroCoreMLRuntimeLoader.isLinked",
@@ -1218,6 +1220,58 @@ struct VoiceCodepackPlan3Tests {
         #expect(!packageSymlink.isReady)
         #expect(packageSymlink.detail.contains("coreml/kokoro_duration_t32.mlpackage path must not include symlink component"))
         #expect(packageSymlink.detail.contains(outsidePackage.path) == false)
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro Pro gate rejects hardlinked artifacts")
+    func kokoroProGateRejectsHardlinkedArtifacts() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-hardlink-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: false)
+        let manifestAlias = root.appendingPathComponent("manifest-alias.json", isDirectory: false)
+        let voiceURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.starterVoicePath, isDirectory: false)
+        let voiceAlias = root.appendingPathComponent("voice-alias.bin", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeValidKokoroPackage(at: modelDirectory)
+        var exercisedHardlink = false
+
+        if (try? FileManager.default.linkItem(at: manifestURL, to: manifestAlias)) != nil {
+            exercisedHardlink = true
+            let manifestStatus = KokoroVoiceGateStatus.status(
+                environment: [KokoroVoiceGateStatus.flagName: "1"],
+                modelRoot: root
+            )
+
+            #expect(!manifestStatus.isReady)
+            #expect(manifestStatus.state == .missingModel)
+            #expect(manifestStatus.detail.contains("KokoroRuntimeManifest.json could not be read safely"))
+            #expect(manifestStatus.detail.contains(root.path) == false)
+            #expect(manifestStatus.detail.contains(modelDirectory.path) == false)
+            try FileManager.default.removeItem(at: manifestAlias)
+        }
+
+        if (try? FileManager.default.linkItem(at: voiceURL, to: voiceAlias)) != nil {
+            exercisedHardlink = true
+            let voiceStatus = KokoroVoiceGateStatus.status(
+                environment: [KokoroVoiceGateStatus.flagName: "1"],
+                modelRoot: root
+            )
+
+            #expect(!voiceStatus.isReady)
+            #expect(voiceStatus.state == .missingModel)
+            #expect(voiceStatus.detail.contains("voices/af_heart.bin could not be read safely"))
+            #expect(voiceStatus.detail.contains(root.path) == false)
+            #expect(voiceStatus.detail.contains(modelDirectory.path) == false)
+        }
+
+        guard exercisedHardlink else {
+            return
+        }
         #else
         #expect(true)
         #endif

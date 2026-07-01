@@ -464,7 +464,7 @@ Folded in as clean Plan-3 capabilities:
   Read-aloud/Quick Capture/Settings controls surface TTS unavailable instead of silently falling back
   to AVSpeech when that gate is not ready.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
-  status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
+  status-gated and rejects symlink-routed, hardlinked, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
   model artifacts with integer declared package byte caps and bounded, control/whitespace-normalized model-relative
   status diagnostics with ellipsis inside configured caps and requires the complete manifest-declared duration/bucket
   CoreML package families plus exact runtime vocab/HNSF/starter-voice shapes before reporting ready. A checked package reports `packageReady` with manifest-derived package evidence

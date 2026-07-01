@@ -170,7 +170,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
   does not regress to ad hoc borderless/raw accent chrome.
 - STT facade tests prove partial/final transcript helpers stay inside the capture pipeline text envelope before callbacks.
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
-- Kokoro gate tests prove malformed, symlink-routed, non-regular, placeholder, digest-mismatched,
+- Kokoro gate tests prove malformed, symlink-routed, hardlinked, non-regular, placeholder, digest-mismatched,
   oversized/invalid-manifest, or invalid manifest-metadata model artifacts keep TTS unavailable with no AVSpeech fallback
   and without exposing local model roots in UI-facing status details.
 - MAS boundary guard proves no Kokoro weights, Python, subprocess, or Chromium-like runtime enters the App Store target.

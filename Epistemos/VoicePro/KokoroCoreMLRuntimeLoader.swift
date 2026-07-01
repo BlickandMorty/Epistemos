@@ -296,6 +296,7 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
             throw LoadError.runtimeAssetUnreadable(name)
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
               fileStatus.st_size > 0,
               UInt64(fileStatus.st_size) <= UInt64(maxRuntimeAssetBytes) else {
             close(fd)
@@ -324,6 +325,7 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         var fileStatus = stat()
         guard fstat(fd, &fileStatus) == 0,
               (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
               fileStatus.st_size > 0,
               UInt64(fileStatus.st_size) <= UInt64(KokoroVoiceGateStatus.maxPackageFileBytes) else {
             throw LoadError.runtimeAssetUnreadable(name)
