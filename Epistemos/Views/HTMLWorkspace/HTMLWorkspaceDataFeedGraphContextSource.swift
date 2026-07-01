@@ -58,7 +58,7 @@ extension HTMLWorkspaceDataFeedContextSources {
     }
 
     static func shouldUseGraphRelatedNoteResults(for query: String?) -> Bool {
-        let normalizedQuery = normalized(query).lowercased()
+        let normalizedQuery = (normalized(query) ?? "").lowercased()
         guard !normalizedQuery.isEmpty else { return false }
         if normalizedQuery.hasPrefix("graph:") || normalizedQuery.hasPrefix("related:") {
             return true
