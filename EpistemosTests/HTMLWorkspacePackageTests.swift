@@ -215,8 +215,8 @@ nonisolated struct HTMLWorkspacePackageTests {
                     snippet: "captured text",
                     rank: 0.91,
                     contextKind: "  recent_capture  ",
-                    sourceLabel: "Recent capture",
-                    provenance: "CaptureStore"
+                    sourceLabel: "  Recent capture  ",
+                    provenance: "  CaptureStore  "
                 ),
                 HTMLWorkspaceDataFeedResult(
                     pageID: "generic-1",
@@ -224,8 +224,8 @@ nonisolated struct HTMLWorkspacePackageTests {
                     snippet: "generic text",
                     rank: 0.42,
                     contextKind: "   ",
-                    sourceLabel: "Vault search result",
-                    provenance: "VaultSyncService.searchFullAsync"
+                    sourceLabel: "   ",
+                    provenance: "   "
                 ),
             ],
             refreshedAt: Date(timeIntervalSince1970: 1_700_000_006),
@@ -237,6 +237,10 @@ nonisolated struct HTMLWorkspacePackageTests {
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.contextKinds == ["recent_capture", "vault_record"])
         #expect(metadata.requiredContextAvailable == true)
+
+        let envelope = try JSONDecoder().decode(HTMLWorkspaceDataFeedEnvelope.self, from: Data(rendered.utf8))
+        #expect(envelope.results.map(\.sourceLabel) == ["Recent capture", "Vault search result"])
+        #expect(envelope.results.map(\.provenance) == ["CaptureStore", HTMLWorkspaceDataFeedJSONEnvelope.provenance])
     }
 
     @Test("HTMLWorkspace data feed records unavailable required context without relabeling results")

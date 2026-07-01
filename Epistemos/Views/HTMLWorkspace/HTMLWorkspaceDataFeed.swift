@@ -25,8 +25,8 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
         self.snippet = snippet
         self.rank = rank
         self.contextKind = Self.normalizedContextKind(contextKind)
-        self.sourceLabel = sourceLabel
-        self.provenance = provenance
+        self.sourceLabel = Self.normalizedNonEmpty(sourceLabel, default: "Vault search result")
+        self.provenance = Self.normalizedNonEmpty(provenance, default: HTMLWorkspaceDataFeedJSONEnvelope.provenance)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -48,14 +48,24 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
         contextKind = Self.normalizedContextKind(
             try container.decodeIfPresent(String.self, forKey: .contextKind) ?? "vault_record"
         )
-        sourceLabel = try container.decodeIfPresent(String.self, forKey: .sourceLabel) ?? "Vault search result"
-        provenance = try container.decodeIfPresent(String.self, forKey: .provenance)
-            ?? HTMLWorkspaceDataFeedJSONEnvelope.provenance
+        sourceLabel = Self.normalizedNonEmpty(
+            try container.decodeIfPresent(String.self, forKey: .sourceLabel),
+            default: "Vault search result"
+        )
+        provenance = Self.normalizedNonEmpty(
+            try container.decodeIfPresent(String.self, forKey: .provenance),
+            default: HTMLWorkspaceDataFeedJSONEnvelope.provenance
+        )
     }
 
     private static func normalizedContextKind(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "vault_record" : trimmed
+    }
+
+    private static func normalizedNonEmpty(_ value: String?, default defaultValue: String) -> String {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? defaultValue : trimmed
     }
 }
 
