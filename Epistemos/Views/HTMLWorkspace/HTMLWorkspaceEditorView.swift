@@ -877,7 +877,67 @@ struct HTMLWorkspaceEditorView: View {
 
     private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
         regenerateInstruction = preset.instruction
+        if preset.family == .vaultData {
+            runVaultDataRegeneratePreset(preset)
+            return
+        }
         beginRegenerateSurface(instructionOverride: preset.instruction)
+    }
+
+    private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
+        let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? package.manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            : regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            regenerateContextStatusText = "Vault context query required"
+            statusText = "Vault context query required"
+            return
+        }
+
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
+        regenerateContextQuery = query
+        regenerateContextTask?.cancel()
+        regenerateContextRefreshNonce &+= 1
+        let refreshNonce = regenerateContextRefreshNonce
+        isRefreshingRegenerateContext = true
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
+            feed: feed,
+            error: "Feed pending"
+        )
+        regenerateContextStatusText = "Vault context pending"
+        statusText = "Refreshing vault context"
+
+        guard let vaultSync = AppBootstrap.shared?.vaultSync else {
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
+                feed: feed,
+                error: "Vault feed unavailable"
+            )
+            isRefreshingRegenerateContext = false
+            regenerateContextTask = nil
+            regenerateContextStatusText = "Vault feed unavailable"
+            beginRegenerateSurface(instructionOverride: preset.instruction)
+            return
+        }
+
+        regenerateContextTask = Task { @MainActor in
+            defer {
+                if regenerateContextRefreshNonce == refreshNonce {
+                    isRefreshingRegenerateContext = false
+                    regenerateContextTask = nil
+                }
+            }
+
+            let results = await vaultSync.searchFullAsync(
+                query: feed.normalizedQuery,
+                limit: feed.effectiveLimit
+            )
+            guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
+            regenerateContextStatusText = "Vault context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
+            statusText = "Vault context ready"
+            beginRegenerateSurface(instructionOverride: preset.instruction)
+        }
     }
 
     private func beginRegenerateSurface(instructionOverride: String?) {
