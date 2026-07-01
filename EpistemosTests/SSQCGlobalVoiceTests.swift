@@ -5,7 +5,7 @@ import Foundation
 
 // SS-QC (owner 2026-06-20) originally added Apple voice selection. Plan 3 owner update
 // 2026-06-30 makes shipped TTS Kokoro-only, so the old resolution helpers are retained
-// for compatibility but the visible picker and playback path must be gated unavailable.
+// for compatibility but the visible picker and playback path must route through the Kokoro gate.
 @Suite("SS-QC — global default voice")
 struct SSQCGlobalVoiceTests {
 
@@ -35,7 +35,7 @@ struct SSQCGlobalVoiceTests {
         #expect(EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier(defaults: defaults) == nil)
     }
 
-    @Test("Settings mounts a Kokoro-only unavailable picker instead of Apple voice fallback")
+    @Test("Settings mounts a Kokoro gate instead of Apple voice fallback")
     func wiring() throws {
         let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
         #expect(synth.contains("kokoroOnlyUnavailableMessage"))

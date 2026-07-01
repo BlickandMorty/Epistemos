@@ -5,7 +5,7 @@ import Foundation
 
 // SS-QC (D) (owner 2026-06-20): manual TTS read-back in Quick Capture.
 // Plan 3 owner update 2026-06-30: the button stays mounted, but playback is
-// Kokoro-only and honestly disabled until native synthesis is wired.
+// Kokoro-only and gated by native package/runtime readiness.
 @Suite("SS-QC quick-capture TTS read-back (manual)")
 struct SSQCQuickCaptureReadBackTests {
 

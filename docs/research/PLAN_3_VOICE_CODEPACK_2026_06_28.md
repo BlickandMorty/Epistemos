@@ -5,10 +5,10 @@
 > voice engines/settings/shared controls; Plan 2 editor surfaces are integration consumers only.
 
 ## Shipped state `[VERIFIED-CODE]`
-- **Kokoro-only TTS is honestly unavailable until synthesis/playback is wired:** `EpistemosSpeechSynthesizer.speak()`
-  refuses playback while `KokoroVoiceGateStatus.isReady == false` and the native Kokoro playback bridge is not wired.
-  It does not call `AVSpeechSynthesizer.speak` as a silent fallback. `ReadAloudButton` remains visible through native
-  capsule chrome but disables itself with the same Kokoro-only unavailable status.
+- **Kokoro-only TTS is live when a checked Pro CoreML package is installed:** `EpistemosSpeechSynthesizer.speak()`
+  refuses playback while `KokoroVoiceGateStatus.isReady == false`; when the checked `mattmireles/kokoro-coreml`
+  package is present in a Pro build, it renders through native `KokoroPipeline` + `AVAudioEngine` playback. It does not
+  call `AVSpeechSynthesizer.speak` as a silent fallback.
 - **Legacy Apple voice code is unwired from the shipped TTS path:** the AVSpeech catalogue, global default identifier,
   Personal Voice helpers, and voice-quality hints remain in code only for compatibility and future migration. Shipped
   read-aloud/TTS surfaces do not expose an Apple voice picker or use AVSpeech as the playback path.
@@ -37,13 +37,13 @@
 - **Reusable mic API has no inert auto-stop flag:** `VoiceInputButton` is manual by design; surfaces that support
   automatic silence-stop own the policy at their capture-service boundary.
 - **Legacy Apple voice compatibility helpers stay source-guarded:** `preferredVoice()` resolves installed voices by
-  Premium > Enhanced > Default, `speak(..., prosody:)` still has an SSML/plain utterance builder for any future migration,
-  and those helpers are not wired into shipped playback while Kokoro synthesis is unavailable.
+  Premium > Enhanced > Default, and the SSML/plain utterance builder remains for migration only. Those helpers are not
+  wired into shipped playback; Kokoro is the playback path.
 - **Personal Voice authorization is live but not a shipped TTS fallback:** `EpistemosSpeechSynthesizer` wraps
   `AVSpeechSynthesizer.personalVoiceAuthorizationStatus` and `requestPersonalVoiceAuthorization` behind a macOS 14+
-  availability gate. `ModelVoicePickerSection` exposes an unavailable TTS state until Kokoro synthesis is live and keeps
+  availability gate. `ModelVoicePickerSection` exposes an unavailable TTS state until the Kokoro package/runtime gate is ready and keeps
   any hidden legacy picker affordances on theme-derived tints instead of hardcoded system colors.
-- **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as a status-only gate. MAS returns unavailable, Pro
+- **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as the package/runtime gate. MAS returns unavailable, Pro
   requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `KokoroRuntimeManifest.json` / segmented
   `mattmireles/kokoro-coreml` bundle assets keeps text-to-speech unavailable with no Apple AVSpeech fallback. Package
   verification rejects symlink-routed or non-regular model artifacts, requires a bounded no-follow runtime manifest with
@@ -54,28 +54,28 @@
   vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests before reporting `packageReady`. Package-ready status
   carries manifest-derived package evidence (Core ML package count, voice count, runtime asset count, checked file count,
   and declared bytes) without exposing local roots.
-  `isReady` remains false until real neural synthesis is wired and
-  selectable. Status details use bounded-before-trim model-relative diagnostics with ellipsis inside configured caps
-  instead of local absolute model paths. A Pro-only
-  Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and keeps TTS
-  unavailable until both the checked package and real native Kokoro synthesis runtime are proven.
-- **Native Kokoro Swift/CoreML runtime source is staged but playback-disabled:** `LocalPackages/KokoroPipeline` vendors
+  `isReady` is true only when the checked package can feed the linked native playback path. Status details use
+  bounded-before-trim model-relative diagnostics with ellipsis inside configured caps instead of local absolute model
+  paths. A Pro-only Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and
+  selects `Kokoro neural voice` only when that package/runtime gate is ready.
+- **Native Kokoro Swift/CoreML playback is wired:** `LocalPackages/KokoroPipeline` vendors
   the upstream Swift package pinned at `052bdcd8333d4ac38d77485a5067d9a1e3397cac`, `project.yml` links the
-  `KokoroPipeline` product, and `KokoroCoreMLRuntimeLoader` can turn a checked local package into CoreML model/runtime
-  URLs, parse `runtime/hnsf_weights.json` through a bounded no-follow read, validate the starter voice binary envelope,
-  and instantiate `KokoroPipeline` on demand. This is native Swift/CoreML plumbing only: no model weights are committed,
-  no network downloader is added, and `speak()` still refuses playback until the raw-text phonemization/tokenization,
-  audio rendering, and read-aloud state bridge are wired.
-- **Local Kokoro package install/removal is real but playback-disabled:** `KokoroVoicePackageInstaller` lets Pro users choose a
+  `KokoroPipeline` product, and `KokoroCoreMLRuntimeLoader` turns a checked local package into CoreML model/runtime URLs,
+  parses `runtime/kokoro-vocab.json` plus `runtime/hnsf_weights.json` through bounded no-follow reads, loads the
+  `af_heart` Float32 voice embedding, and instantiates `KokoroPipeline` on demand. `KokoroCoreMLSynthesizer` tokenizes
+  supported raw vocabulary characters, chunks to the manifest duration-token cap, joins synthesized 24 kHz PCM, and
+  `EpistemosSpeechSynthesizer` plays it through `AVAudioEngine`. This remains native Swift/CoreML only: no model weights
+  are committed and no network downloader is added. A higher-quality phonemizer remains future polish; the live path is
+  an honest raw-vocabulary Kokoro path.
+- **Local Kokoro package install/removal is real and playback-enabling:** `KokoroVoicePackageInstaller` lets Pro users choose a
   prepared `kokoro-82m-coreml` folder (or its parent), validates it with the existing gate, rejects symlink descendants,
   rejects symlink-routed install roots before Application Support writes, stages it under Application Support with backup/restore finalization, revalidates the installed package before the
   settings row reports `packageReady`, and a failed replacement install rolls back to the previous package instead of deleting the backup; the same Pro settings row now displays the gate's manifest-derived package
-  evidence and can remove the installed local package, returning the gate to missing-model status without enabling
-  playback. There is still no committed Kokoro model asset, network downloader, Python, subprocess, MAS-visible Kokoro
-  row, or live TTS playback path.
+  evidence and can remove the installed local package, returning the gate to missing-model status. There is still no
+  committed Kokoro model asset, network downloader, Python, subprocess, or MAS-visible Kokoro row.
 - **Voice live smoke covers Pro Kokoro gate, settings presentation, and checked package install/removal:** the bounded
   operator smoke now exercises the checked installer stage, gate-backed removal, manifest-derived package evidence, and
-  playback-disabled `packageReady` presentation without enabling TTS playback.
+  package-ready `Kokoro neural voice` presentation without running a synthesis job.
 
 ## Delivered MAS-safe fixes
 1. **Gate shipped TTS as Kokoro-only.** `[DONE]` `EpistemosSpeechSynthesizer.speak()` returns no playback while Kokoro
@@ -99,26 +99,27 @@ Meeting/lecture note should get its own codepack, but Voice provides the reusabl
 - Meeting capture builds on that facade, materializes transcript into a note, and saves through the deterministic
   `TextCapturePipeline` path. It must not couple directly to the composer mic button.
 
-## Pro Kokoro lane `[NATIVE RUNTIME SOURCE STAGED; PLAYBACK DEFERRED]`
+## Pro Kokoro lane `[NATIVE COREML PLAYBACK WIRED]`
 Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `[DONE]` Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.packageReady`;
-  package-ready still keeps `isReady=false` until playback works.
+  package-ready reports `isReady=true` only when the linked native playback path can consume the checked package.
 - `[DONE]` Add a Pro-only Voice settings status/runtime affordance that says "TTS unavailable" until the checked package
-  gate, native loader, and playback bridge are all proven. The disabled target runtime is "Kokoro neural voice"; there is
-  no Apple AVSpeech fallback lane.
+  gate is ready, then selects "Kokoro neural voice"; there is no Apple AVSpeech fallback lane.
 - `[DONE]` Add a Pro-only local checked-package installer/remover so a prepared package can reach `packageReady` and be
-  cleared again without adding a network downloader or enabling playback.
+  cleared again without adding a network downloader.
 - `[DONE]` Vendor the native Swift/CoreML `KokoroPipeline` source and add a checked-bundle runtime loader for CoreML
-  model URLs plus HNSF/starter-voice runtime assets without enabling playback.
+  model URLs plus vocab/HNSF/starter-voice runtime assets.
+- `[DONE]` Add `KokoroCoreMLSynthesizer` and wire `EpistemosSpeechSynthesizer.speak()` to native CoreML synthesis plus
+  `AVAudioEngine` playback for checked Pro packages.
 - Store model assets outside MAS target resources; never commit model weights.
 - Integrate through the existing model download manager only after that manager is proven healthy.
-- The Pro runtime row must continue saying "TTS unavailable" until a checked package and proven Kokoro synthesis runtime
-  exist; package readiness without synthesis must not enable playback.
+- The Pro runtime row must continue saying "TTS unavailable" until a checked package and linked native Kokoro runtime
+  exist.
 - Do not add Python/subprocess inference on the MAS path.
 
 ## Shipped files / source guards
-- `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — Kokoro-only TTS availability gate; legacy AVSpeech helpers remain
-  compatibility-only and are not the shipped playback path.
+- `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — Kokoro-only TTS availability gate and native CoreML audio
+  playback bridge; legacy AVSpeech helpers remain compatibility-only and are not the shipped playback path.
 - `Epistemos/Views/Shared/ReadAloudButton.swift` — shared Kokoro-only read-aloud control on native capsule chrome with
   theme-derived progress drawing and honest unavailable state.
 - `Epistemos/Views/Shared/ModelVoicePickerSection.swift` — unavailable Kokoro-only TTS state plus hidden legacy Apple
@@ -137,11 +138,13 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `Epistemos/VoicePro/KokoroVoicePackageInstaller.swift` — Pro-only local checked-package installer/remover with symlink
   descendant rejection, staged copy, failed-finalization rollback, gate-backed removal, and bounded status diagnostics.
 - `Epistemos/VoicePro/KokoroCoreMLRuntimeLoader.swift` — native Swift/CoreML checked-bundle loader for
-  `KokoroPipeline`, bounded runtime manifest/HNSF reads, and starter-voice envelope validation without playback.
+  `KokoroPipeline`, bounded runtime manifest/vocab/HNSF reads, and starter-voice embedding loading.
+- `Epistemos/VoicePro/KokoroCoreMLSynthesizer.swift` — raw-vocabulary tokenizer/chunker plus `KokoroPipeline` PCM
+  synthesis bridge.
 - `LocalPackages/KokoroPipeline` — vendored upstream Swift package (`KokoroPipeline`) pinned at
   `052bdcd8333d4ac38d77485a5067d9a1e3397cac`; no model weights.
 - `scripts/voice-live-smoke.swift` — bounded operator smoke for transcript/status helpers plus the Pro Kokoro gate,
-  settings presentation, manifest-derived package evidence, and checked package install/removal without enabling playback.
+  settings presentation, manifest-derived package evidence, and checked package install/removal without running synthesis.
 - `EpistemosTests/VoiceCodepackPlan3Tests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade,
   Pro Kokoro status/install/remove UI, and no Kokoro/MAS subprocess leakage.
 
@@ -154,7 +157,8 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - Do not surface a "Premium" or "neural" label unless the selected voice/runtime proves that capability.
 
 ## Verification gates
-- Unit/source tests prove `speak()` does not call `AVSpeechSynthesizer.speak` while Kokoro synthesis is unavailable.
+- Unit/source tests prove `speak()` does not call `AVSpeechSynthesizer.speak`; checked Pro packages use the native Kokoro
+  path.
 - Source guards prove Personal Voice access stays compatibility-only and unavailable TTS UI uses shared theme chrome
   without hardcoded system colors or ad hoc bordered/link buttons.
 - Settings source guard proves every visible Auto/Manual row has a behavior consumer or an honest unavailable state.
@@ -178,6 +182,6 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 7. [DONE] Add the Kokoro Pro gate as status-only.
 8. [DONE] Add the Pro-only Kokoro settings status/runtime affordance.
 9. [DONE] Add a local checked-package installer/remover.
-10. [DONE] Vendor native `KokoroPipeline` source and add a checked-bundle loader. Network model download,
-    phonemization/tokenization, audio playback, and live read-aloud integration remain deferred until model download
-    health and real audio synthesis are proven.
+10. [DONE] Vendor native `KokoroPipeline` source and add a checked-bundle loader.
+11. [DONE] Wire native CoreML raw-vocabulary synthesis and `AVAudioEngine` playback. Network model download and
+    high-quality phonemization remain deferred polish.

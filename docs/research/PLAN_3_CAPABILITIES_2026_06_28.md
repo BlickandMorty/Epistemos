@@ -444,19 +444,20 @@ Folded in as clean Plan-3 capabilities:
   partial/final transcript output capped to the capture pipeline envelope and finite/clamped download progress plus
   capped, domain/code-redacted status/error text for UI display, with raw status/domain strings bounded before trimming
   and status ellipsis kept inside the configured cap. `EpistemosSpeechSynthesizer.speak()` refuses playback while the
-  Kokoro gate remains `isReady=false` and the playback bridge is not wired, even though the native Swift/CoreML
-  `KokoroPipeline` source and checked-bundle loader are now staged; read-aloud/Quick Capture/Settings controls surface
-  TTS unavailable instead of silently falling back to AVSpeech.
+  Kokoro gate is not ready; with a checked Pro `mattmireles/kokoro-coreml` package, the linked native
+  Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text, synthesizes 24 kHz PCM, and plays through
+  `AVAudioEngine`. Read-aloud/Quick Capture/Settings controls surface TTS unavailable instead of silently falling back
+  to AVSpeech when that gate is not ready.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
   model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
   with ellipsis inside configured caps and requires the complete manifest-declared duration/bucket CoreML package
   families before reporting ready. A checked package reports `packageReady` with manifest-derived package evidence
-  (Core ML package count, voice count, runtime asset count, checked file count, and declared bytes) while keeping
-  runtime `isReady=false` until real synthesis is wired. Developer ID builds now show a Pro-only Voice settings
+  (Core ML package count, voice count, runtime asset count, checked file count, and declared bytes) and flips
+  `isReady=true` only when the native playback path is linked. Developer ID builds now show a Pro-only Voice settings
   status/runtime affordance labelled `TTS unavailable` / `Kokoro neural voice` plus a local checked-package
-  installer/remover; no Apple AVSpeech fallback, committed model asset, network downloader, live TTS playback path,
-  Python, subprocess, or MAS-visible Kokoro row enters the App Store path.
+  installer/remover; no Apple AVSpeech fallback, committed model asset, network downloader, Python, subprocess, or
+  MAS-visible Kokoro row enters the App Store path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
   Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo downloads or official-logo claims. Classifier input for arbitrary MCP/skill/connector names is bounded before

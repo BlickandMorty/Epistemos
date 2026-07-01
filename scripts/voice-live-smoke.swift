@@ -99,8 +99,8 @@ enum VoiceLiveSmoke {
             environment: [KokoroVoiceGateStatus.flagName: "1"],
             modelRoot: root
         )
-        guard packageReady.state == .packageReady, !packageReady.isReady else {
-            fail("Kokoro gate did not keep the checked package distinct from runtime readiness: \(packageReady.detail)")
+        guard packageReady.state == .packageReady, packageReady.isReady else {
+            fail("Kokoro gate did not mark the checked package ready for native playback: \(packageReady.detail)")
         }
         guard let packageEvidence = packageReady.packageEvidence,
               packageEvidence.manifestFileCount == 23,
@@ -108,15 +108,15 @@ enum VoiceLiveSmoke {
               packageEvidence.voiceCount == 1,
               packageEvidence.runtimeAssetCount == 2,
               packageEvidence.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier,
-              packageEvidence.settingsSummary.contains("Kokoro playback remains unavailable") else {
-            fail("Kokoro gate did not expose checked package evidence without enabling playback")
+              packageEvidence.settingsSummary.contains("Kokoro playback uses this native bundle") else {
+            fail("Kokoro gate did not expose checked package evidence for native playback")
         }
         let packageReadyPresentation = KokoroVoiceProSettingsModel.presentation(for: packageReady)
-        guard packageReadyPresentation.selectedRuntime == .textToSpeechUnavailable,
-              !packageReadyPresentation.proRuntimeEnabled,
-              packageReadyPresentation.badgeTitle == "Package ready",
+        guard packageReadyPresentation.selectedRuntime == .kokoroNeural,
+              packageReadyPresentation.proRuntimeEnabled,
+              packageReadyPresentation.badgeTitle == "Ready",
               packageReadyPresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.manifestFileName) == true else {
-            fail("Kokoro Pro presentation did not keep TTS unavailable while playback is deferred")
+            fail("Kokoro Pro presentation did not enable Kokoro neural voice for a checked package")
         }
 
         let installerTargetRoot = root.appendingPathComponent("InstallerTarget", isDirectory: true)
@@ -125,8 +125,8 @@ enum VoiceLiveSmoke {
                 from: modelDirectory,
                 modelRoot: installerTargetRoot
             )
-            guard installed.status.state == .packageReady, !installed.status.isReady else {
-                fail("Kokoro installer did not stage a checked package without enabling runtime: \(installed.status.detail)")
+            guard installed.status.state == .packageReady, installed.status.isReady else {
+                fail("Kokoro installer did not enable native playback for a checked package: \(installed.status.detail)")
             }
             guard installed.status.packageEvidence?.manifestFileCount == 23,
                   installed.status.packageEvidence?.settingsSummary.contains("declared bytes") == true else {
@@ -185,9 +185,9 @@ enum VoiceLiveSmoke {
             ))
         }
 
-        let runtimeVocab = Data(#"{"hello":1}"#.utf8)
-        let hnsfWeights = Data(#"{"amplitude":1.0}"#.utf8)
-        let voice = Data(repeating: 7, count: 256)
+        let runtimeVocab = kokoroRuntimeVocabFixtureData()
+        let hnsfWeights = kokoroHNSFWeightsFixtureData()
+        let voice = kokoroStarterVoiceFixtureData()
         try writeFixtureFile(runtimeVocab, relativePath: KokoroVoiceGateStatus.runtimeVocabPath, root: modelDirectory)
         try writeFixtureFile(hnsfWeights, relativePath: KokoroVoiceGateStatus.runtimeHNSFWeightsPath, root: modelDirectory)
         try writeFixtureFile(voice, relativePath: KokoroVoiceGateStatus.starterVoicePath, root: modelDirectory)
@@ -196,9 +196,9 @@ enum VoiceLiveSmoke {
     }
 
     static func kokoroRuntimeManifestData(packageOverrides: [[String: Any]]) throws -> Data {
-        let runtimeVocab = Data(#"{"hello":1}"#.utf8)
-        let hnsfWeights = Data(#"{"amplitude":1.0}"#.utf8)
-        let voice = Data(repeating: 7, count: 256)
+        let runtimeVocab = kokoroRuntimeVocabFixtureData()
+        let hnsfWeights = kokoroHNSFWeightsFixtureData()
+        let voice = kokoroStarterVoiceFixtureData()
         let object: [String: Any] = [
             "schema_version": KokoroVoiceGateStatus.manifestSchemaVersion,
             "hf_repo_id": KokoroVoiceGateStatus.upstreamRepositoryID,
@@ -253,6 +253,25 @@ enum VoiceLiveSmoke {
             "bytes": data.count,
             "sha256": sha256Hex(data),
         ]
+    }
+
+    static func kokoroRuntimeVocabFixtureData() -> Data {
+        Data(#"{"vocab":{"h":1,"e":2,"l":3,"o":4,"w":5,"r":6,"d":7," ":16}}"#.utf8)
+    }
+
+    static func kokoroHNSFWeightsFixtureData() -> Data {
+        Data(#"{"linear_weights":[1,0,0,0,1,0,0,0,1],"linear_bias":0}"#.utf8)
+    }
+
+    static func kokoroStarterVoiceFixtureData() -> Data {
+        let values = [Float](
+            repeating: 0.125,
+            count: KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions
+        )
+        return values.withUnsafeBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else { return Data() }
+            return Data(bytes: UnsafeRawPointer(baseAddress), count: buffer.count * MemoryLayout<Float>.stride)
+        }
     }
 
     static func writeFixtureFile(_ data: Data, relativePath: String, root: URL) throws {

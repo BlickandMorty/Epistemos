@@ -20,7 +20,9 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         let vocabularyURL: URL
         let hnsfWeightsURL: URL
         let starterVoiceURL: URL
+        let vocabulary: [String: Int32]
         let hnsfWeights: HNSFWeights
+        let starterVoiceEmbedding: [Float]
         let buckets: [Int]
         let durationTokenSizes: [Int]
         let sampleRateHz: Int
@@ -35,6 +37,7 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         case packageNotReady(String)
         case runtimeNotLinked
         case runtimeAssetUnreadable(String)
+        case invalidVocabulary(String)
         case invalidHNSFWeights(String)
         case invalidStarterVoice(String)
         case pipelineLoadFailed(String)
@@ -47,6 +50,8 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
                 return "KokoroPipeline is not linked in this build."
             case .runtimeAssetUnreadable(let detail):
                 return "Kokoro runtime asset could not be read: \(detail)"
+            case .invalidVocabulary(let detail):
+                return "Kokoro vocabulary is invalid: \(detail)"
             case .invalidHNSFWeights(let detail):
                 return "Kokoro HNSF weights are invalid: \(detail)"
             case .invalidStarterVoice(let detail):
@@ -102,8 +107,9 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         )
 
         let manifestShape = try readRuntimeManifestShape(at: manifestURL)
+        let vocabulary = try readVocabulary(at: vocabularyURL)
         let hnsfWeights = try readHNSFWeights(at: hnsfURL)
-        try validateStarterVoice(at: voiceURL)
+        let starterVoiceEmbedding = try validateStarterVoice(at: voiceURL)
 
         return RuntimeResources(
             modelDirectoryURL: modelDirectory,
@@ -112,7 +118,9 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
             vocabularyURL: vocabularyURL,
             hnsfWeightsURL: hnsfURL,
             starterVoiceURL: voiceURL,
+            vocabulary: vocabulary,
             hnsfWeights: hnsfWeights,
+            starterVoiceEmbedding: starterVoiceEmbedding,
             buckets: manifestShape.buckets,
             durationTokenSizes: manifestShape.durationTokenSizes,
             sampleRateHz: KokoroVoiceGateStatus.sampleRateHz
@@ -137,6 +145,39 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         throw LoadError.runtimeNotLinked
     }
     #endif
+
+    private static func readVocabulary(at url: URL) throws -> [String: Int32] {
+        let data = try readRuntimeAssetDataNoFollow(at: url, name: KokoroVoiceGateStatus.runtimeVocabPath)
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw LoadError.invalidVocabulary("JSON decode failed")
+        }
+        guard let dictionary = object as? [String: Any],
+              let rawVocabulary = dictionary["vocab"] as? [String: Any],
+              !rawVocabulary.isEmpty else {
+            throw LoadError.invalidVocabulary("expected non-empty vocab object")
+        }
+
+        var vocabulary = [String: Int32]()
+        vocabulary.reserveCapacity(rawVocabulary.count)
+        for (symbol, rawTokenID) in rawVocabulary {
+            guard !symbol.isEmpty else {
+                throw LoadError.invalidVocabulary("vocab symbols must be non-empty")
+            }
+            guard let tokenID = integerValue(rawTokenID),
+                  tokenID > 0,
+                  tokenID <= Int(Int32.max) else {
+                throw LoadError.invalidVocabulary("vocab token ids must be positive Int32 values")
+            }
+            vocabulary[symbol] = Int32(tokenID)
+        }
+        guard vocabulary[" "] == 16 else {
+            throw LoadError.invalidVocabulary("whitespace token id is missing")
+        }
+        return vocabulary
+    }
 
     private static func readHNSFWeights(at url: URL) throws -> HNSFWeights {
         let data = try readRuntimeAssetDataNoFollow(at: url, name: KokoroVoiceGateStatus.runtimeHNSFWeightsPath)
@@ -188,11 +229,9 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         )
     }
 
-    private static func validateStarterVoice(at url: URL) throws {
-        let byteCount = try regularFileByteCountNoFollow(
-            at: url,
-            name: KokoroVoiceGateStatus.starterVoicePath
-        )
+    private static func validateStarterVoice(at url: URL) throws -> [Float] {
+        let data = try readRuntimeAssetDataNoFollow(at: url, name: KokoroVoiceGateStatus.starterVoicePath)
+        let byteCount = UInt64(data.count)
         guard byteCount % UInt64(MemoryLayout<Float>.size) == 0 else {
             throw LoadError.invalidStarterVoice("voice embedding bytes must align to Float32")
         }
@@ -200,6 +239,16 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         guard floatCount >= UInt64(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions) else {
             throw LoadError.invalidStarterVoice("voice embedding is shorter than 256 Float32 values")
         }
+
+        var values = [Float](repeating: 0, count: Int(floatCount))
+        _ = values.withUnsafeMutableBytes { buffer in
+            data.copyBytes(to: buffer)
+        }
+        let embedding = Array(values.prefix(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions))
+        guard embedding.allSatisfy(\.isFinite) else {
+            throw LoadError.invalidStarterVoice("voice embedding must contain finite Float32 values")
+        }
+        return embedding
     }
 
     private static func readRuntimeAssetDataNoFollow(at url: URL, name: String) throws -> Data {

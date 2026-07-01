@@ -6,9 +6,9 @@ import OSLog
 //
 // Wave 9.1 - AVSpeech catalogue and preference compatibility.
 // Wave 9.1.b - premium-voice catalogue + interactive playback controls.
-// Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. Until the
-// native Kokoro loader is proven through playback, speak() honestly refuses
-// playback instead of falling back to Apple's basic AVSpeech voice.
+// Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. A checked
+// Pro Kokoro package renders through the native CoreML playback path; absent
+// that package, speak() refuses playback instead of falling back to AVSpeech.
 //
 // Earlier W9 builds used AVSpeechSynthesizer for read-aloud. The helpers below
 // remain so existing voice preferences and Personal Voice authorization state
@@ -128,7 +128,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     public static let shared = EpistemosSpeechSynthesizer()
 
     nonisolated static let kokoroOnlyUnavailableMessage =
-        "Kokoro text-to-speech is unavailable until native Kokoro playback is wired. Apple AVSpeech is not used as a fallback."
+        "Kokoro text-to-speech requires a checked Pro Kokoro CoreML package. Apple AVSpeech is not used as a fallback."
 
     private nonisolated static var nativeKokoroSynthesisEngineLinked: Bool {
         KokoroCoreMLRuntimeLoader.isLinked
@@ -171,10 +171,24 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     )
     private let synthesizer = AVSpeechSynthesizer()
     private var inflight: [String: AVSpeechUtterance] = [:]
+    private let kokoroEngine = AVAudioEngine()
+    private let kokoroPlayer = AVAudioPlayerNode()
+    private var kokoroPlaybackTask: Task<Void, Never>?
+    private var activeKokoroUtteranceID: String?
+    private var activeKokoroCharactersTotal = 0
 
     private override init() {
         super.init()
         synthesizer.delegate = self
+        kokoroEngine.attach(kokoroPlayer)
+        if let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Double(KokoroVoiceGateStatus.sampleRateHz),
+            channels: 1,
+            interleaved: false
+        ) {
+            kokoroEngine.connect(kokoroPlayer, to: kokoroEngine.mainMixerNode, format: format)
+        }
         // macOS pre-warms slowly on first use; voice-list enumeration
         // is cheap and sidesteps the first-speak hitch.
         _ = AVSpeechSynthesisVoice.speechVoices()
@@ -199,20 +213,74 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         if synthesizer.isSpeaking || synthesizer.isPaused {
             synthesizer.stopSpeaking(at: .immediate)
         }
+        stopKokoroPlayback()
         inflight.removeAll()
         state = .idle
-        Self.log.info(
-            "TTS unavailable chars=\(cleaned.count, privacy: .public); Kokoro-only synthesis is not wired and AVSpeech fallback is disabled"
+
+        guard Self.isTextToSpeechAvailable() else {
+            Self.log.info(
+                "TTS unavailable chars=\(cleaned.count, privacy: .public); Kokoro package is not ready and AVSpeech fallback is disabled"
+            )
+            return nil
+        }
+
+        _ = voiceIdentifier
+        _ = pitch
+        let utteranceID = UUID().uuidString
+        activeKokoroUtteranceID = utteranceID
+        activeKokoroCharactersTotal = cleaned.count
+        state = .speaking(
+            utteranceId: utteranceID,
+            charactersTotal: cleaned.count,
+            charactersSpoken: 0
         )
-        return nil
+        let speed = Self.kokoroSpeedMultiplier(rate: prosody?.rate ?? rate)
+        kokoroPlaybackTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let rendered = try await Task.detached(priority: .userInitiated) {
+                    try KokoroCoreMLSynthesizer.renderRawText(cleaned, speed: speed)
+                }.value
+                try Task.checkCancellation()
+                try self.playKokoroAudio(
+                    rendered,
+                    utteranceID: utteranceID,
+                    charactersTotal: cleaned.count
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                self.failKokoroPlayback(utteranceID: utteranceID, error: error)
+            }
+        }
+        Self.log.info(
+            "Kokoro TTS queued chars=\(cleaned.count, privacy: .public)"
+        )
+        return utteranceID
     }
 
     public func pause() {
+        if kokoroPlayer.isPlaying, let activeKokoroUtteranceID {
+            kokoroPlayer.pause()
+            state = .paused(utteranceId: activeKokoroUtteranceID)
+            return
+        }
         guard synthesizer.isSpeaking else { return }
         synthesizer.pauseSpeaking(at: .word)
     }
 
     public func resume() {
+        if let activeKokoroUtteranceID,
+           case let .paused(pausedID) = state,
+           pausedID == activeKokoroUtteranceID {
+            kokoroPlayer.play()
+            state = .speaking(
+                utteranceId: activeKokoroUtteranceID,
+                charactersTotal: activeKokoroCharactersTotal,
+                charactersSpoken: 0
+            )
+            return
+        }
         if synthesizer.isPaused {
             synthesizer.continueSpeaking()
         }
@@ -222,12 +290,117 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         if synthesizer.isSpeaking || synthesizer.isPaused {
             synthesizer.stopSpeaking(at: .immediate)
         }
+        stopKokoroPlayback()
         state = .idle
         inflight.removeAll()
     }
 
-    public var isSpeaking: Bool { synthesizer.isSpeaking }
-    public var isPaused: Bool { synthesizer.isPaused }
+    public var isSpeaking: Bool {
+        synthesizer.isSpeaking || kokoroPlayer.isPlaying || activeKokoroUtteranceID != nil
+    }
+
+    public var isPaused: Bool {
+        if case .paused = state, activeKokoroUtteranceID != nil {
+            return true
+        }
+        return synthesizer.isPaused
+    }
+
+    private enum KokoroPlaybackError: Error {
+        case invalidAudioFormat
+        case bufferAllocationFailed
+        case audioTooLong
+    }
+
+    private func playKokoroAudio(
+        _ rendered: KokoroCoreMLSynthesizer.RenderedAudio,
+        utteranceID: String,
+        charactersTotal: Int
+    ) throws {
+        guard activeKokoroUtteranceID == utteranceID else { return }
+        let buffer = try pcmBuffer(for: rendered)
+        if !kokoroEngine.isRunning {
+            try kokoroEngine.start()
+        }
+        kokoroPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
+            Task { @MainActor in
+                self?.completeKokoroPlayback(utteranceID: utteranceID)
+            }
+        }
+        kokoroPlayer.play()
+        activeKokoroCharactersTotal = charactersTotal
+        state = .speaking(
+            utteranceId: utteranceID,
+            charactersTotal: charactersTotal,
+            charactersSpoken: 0
+        )
+    }
+
+    private func pcmBuffer(for rendered: KokoroCoreMLSynthesizer.RenderedAudio) throws -> AVAudioPCMBuffer {
+        guard !rendered.samples.isEmpty,
+              rendered.samples.count <= Int(UInt32.max),
+              let format = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: Double(rendered.sampleRateHz),
+                channels: 1,
+                interleaved: false
+              ) else {
+            throw KokoroPlaybackError.invalidAudioFormat
+        }
+        let frameCount = AVAudioFrameCount(rendered.samples.count)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount),
+              let channel = buffer.floatChannelData?[0] else {
+            throw KokoroPlaybackError.bufferAllocationFailed
+        }
+        buffer.frameLength = frameCount
+        rendered.samples.withUnsafeBufferPointer { samples in
+            if let baseAddress = samples.baseAddress {
+                channel.update(from: baseAddress, count: samples.count)
+            }
+        }
+        return buffer
+    }
+
+    private func failKokoroPlayback(utteranceID: String, error: Error) {
+        guard activeKokoroUtteranceID == utteranceID else { return }
+        let nsError = error as NSError
+        Self.log.error(
+            "Kokoro TTS failed domain=\(VoiceCaptureDiagnostics.safeDomain(nsError.domain), privacy: .public) code=\(nsError.code, privacy: .public)"
+        )
+        kokoroPlayer.stop()
+        kokoroEngine.pause()
+        activeKokoroUtteranceID = nil
+        activeKokoroCharactersTotal = 0
+        kokoroPlaybackTask = nil
+        state = .idle
+    }
+
+    private func completeKokoroPlayback(utteranceID: String) {
+        guard activeKokoroUtteranceID == utteranceID else { return }
+        activeKokoroUtteranceID = nil
+        activeKokoroCharactersTotal = 0
+        kokoroPlaybackTask = nil
+        state = .idle
+        kokoroEngine.pause()
+    }
+
+    private func stopKokoroPlayback() {
+        kokoroPlaybackTask?.cancel()
+        kokoroPlaybackTask = nil
+        if activeKokoroUtteranceID != nil || kokoroPlayer.isPlaying {
+            kokoroPlayer.stop()
+        }
+        activeKokoroUtteranceID = nil
+        activeKokoroCharactersTotal = 0
+    }
+
+    private nonisolated static func kokoroSpeedMultiplier(rate: Float) -> Float {
+        let defaultRate = AVSpeechUtteranceDefaultSpeechRate
+        guard rate.isFinite, defaultRate.isFinite, defaultRate > 0 else {
+            return 1.0
+        }
+        return min(1.6, max(0.6, rate / defaultRate))
+    }
 
     // MARK: - Voice catalogue
 

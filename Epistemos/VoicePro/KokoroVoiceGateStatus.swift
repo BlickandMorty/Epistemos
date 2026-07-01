@@ -47,8 +47,8 @@ nonisolated enum KokoroVoiceGateStatus {
 
     struct Status: Equatable, Sendable {
         let state: State
-        /// Runtime readiness, not merely model-package readiness. Keep false
-        /// until neural synthesis is actually wired and selectable.
+        /// Runtime readiness, not merely model-package readiness. True only
+        /// when the checked package can feed the native Kokoro playback path.
         let isReady: Bool
         let headline: String
         let detail: String
@@ -71,7 +71,7 @@ nonisolated enum KokoroVoiceGateStatus {
             let packageLabel = modelPackageCount == 1 ? "Core ML package" : "Core ML packages"
             let voiceLabel = voiceCount == 1 ? "voice" : "voices"
             let fileLabel = manifestFileCount == 1 ? "file" : "files"
-            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle. Kokoro playback remains unavailable until the native loader is proven end-to-end."
+            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle. Kokoro playback uses this native bundle when the Pro runtime is active."
         }
     }
 
@@ -97,7 +97,7 @@ nonisolated enum KokoroVoiceGateStatus {
             state: .unavailable,
             isReady: false,
             headline: "Kokoro voice: unavailable in App Store build",
-            detail: "Text-to-speech is Kokoro-only. The App Store build has no shipped TTS until native Kokoro synthesis is wired; Apple AVSpeech is not used as a fallback."
+            detail: "Text-to-speech is Kokoro-only. The App Store build does not include the Pro Kokoro runtime package; Apple AVSpeech is not used as a fallback."
         )
         #else
         guard isEnabled(environment[flagName]) else {
@@ -150,11 +150,16 @@ nonisolated enum KokoroVoiceGateStatus {
         }
 
         let packageEvidence = manifestCheck.manifest.map(packageEvidence(from:))
+        let runtimeLinked = KokoroCoreMLRuntimeLoader.isLinked
         return Status(
             state: .packageReady,
-            isReady: false,
-            headline: "Kokoro voice: CoreML runtime package ready, synthesis deferred",
-            detail: "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName), but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
+            isReady: runtimeLinked,
+            headline: runtimeLinked
+                ? "Kokoro voice: native CoreML playback ready"
+                : "Kokoro voice: CoreML runtime package ready, runtime not linked",
+            detail: runtimeLinked
+                ? "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName). Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback."
+                : "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName), but KokoroPipeline is not linked in this build. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: packageEvidence
         )
         #endif

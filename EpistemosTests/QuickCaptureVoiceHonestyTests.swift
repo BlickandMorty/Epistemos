@@ -16,10 +16,11 @@ struct QuickCaptureVoiceHonestyTests {
         #expect(src.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
     }
 
-    @Test("shared TTS refuses AVSpeech fallback until Kokoro synthesis is live")
-    func hintIsActionable() throws {
+    @Test("shared TTS uses the Kokoro gate without AVSpeech fallback")
+    func sharedTTSUsesKokoroGateWithoutAVSpeechFallback() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
         #expect(src.contains("kokoroOnlyUnavailableMessage"))
+        #expect(src.contains("KokoroCoreMLSynthesizer.renderRawText"))
         #expect(src.contains("Apple AVSpeech is not used as a fallback"))
         #expect(!src.contains("synthesizer.speak(utterance)"))
     }

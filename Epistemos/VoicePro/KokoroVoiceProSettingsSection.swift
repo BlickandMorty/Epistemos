@@ -31,11 +31,11 @@ nonisolated enum KokoroVoiceProSettingsModel {
         switch status.state {
         case .packageReady:
             return Presentation(
-                selectedRuntime: .textToSpeechUnavailable,
-                proRuntimeEnabled: false,
+                selectedRuntime: status.isReady ? .kokoroNeural : .textToSpeechUnavailable,
+                proRuntimeEnabled: status.isReady,
                 headline: status.headline,
                 detail: status.detail,
-                badgeTitle: "Package ready",
+                badgeTitle: status.isReady ? "Ready" : "Package ready",
                 packageEvidenceSummary: status.packageEvidence?.settingsSummary
             )
         case .missingModel:
