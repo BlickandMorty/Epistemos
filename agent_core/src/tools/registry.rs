@@ -149,7 +149,10 @@ fn mas_runtime_preflight(
             tool = tool.name.as_str(),
             "App Store runtime preflight denied forbidden tool"
         );
-        return Err(ToolError::PermissionDenied);
+        return Err(ToolError::ProGated(format!(
+            "'{}' needs shell / terminal / process access that the sandboxed App Store build cannot provide. It is available in Epistemos Pro.",
+            tool.name
+        )));
     }
 
     if matches!(tool.risk_level, RiskLevel::Destructive) {
@@ -157,7 +160,10 @@ fn mas_runtime_preflight(
             tool = tool.name.as_str(),
             "App Store runtime preflight denied destructive tool"
         );
-        return Err(ToolError::PermissionDenied);
+        return Err(ToolError::ProGated(format!(
+            "'{}' is a destructive operation the sandboxed App Store build does not run. It is available in Epistemos Pro.",
+            tool.name
+        )));
     }
 
     if matches!(tool.risk_level, RiskLevel::Modification)
@@ -168,7 +174,10 @@ fn mas_runtime_preflight(
             tool = tool.name.as_str(),
             "App Store runtime preflight denied unscoped mutating tool"
         );
-        return Err(ToolError::PermissionDenied);
+        return Err(ToolError::ProGated(format!(
+            "'{}' needs a scoped write grant the sandboxed App Store build cannot issue. It is available in Epistemos Pro.",
+            tool.name
+        )));
     }
 
     Ok(())
@@ -398,6 +407,11 @@ pub enum ToolError {
     NotFound(String),
     #[error("permission denied")]
     PermissionDenied,
+    /// The tool exists but is gated off this build (App Store / non-`pro-build`).
+    /// The message is model- and user-facing, so it names the tool and points to
+    /// Epistemos Pro — an honest "Pro only" gate, never a bare denial or silent drop.
+    #[error("{0}")]
+    ProGated(String),
 }
 
 pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
@@ -4822,7 +4836,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
                 &serde_json::json!({ "command": "echo nope" }),
             )
             .await;
-        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+        assert!(matches!(result, Err(ToolError::ProGated(_))));
     }
 
     #[cfg(not(feature = "pro-build"))]
@@ -4854,7 +4868,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
                 .execute(name, &serde_json::json!({ "command": "echo nope" }))
                 .await;
             assert!(
-                matches!(result, Err(ToolError::PermissionDenied)),
+                matches!(result, Err(ToolError::ProGated(_))),
                 "{name} must be denied by the MAS name gate even as a ReadOnly tool"
             );
         }
@@ -4876,7 +4890,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
                 &serde_json::json!({ "path": "anything" }),
             )
             .await;
-        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+        assert!(matches!(result, Err(ToolError::ProGated(_))));
     }
 
     #[cfg(not(feature = "pro-build"))]
@@ -4895,7 +4909,7 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
                 &serde_json::json!({ "action": "mutate" }),
             )
             .await;
-        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+        assert!(matches!(result, Err(ToolError::ProGated(_))));
     }
 
     #[cfg(not(feature = "pro-build"))]
