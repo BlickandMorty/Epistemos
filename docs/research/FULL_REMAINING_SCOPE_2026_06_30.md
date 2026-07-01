@@ -117,7 +117,7 @@
 3. **Extensibility**: skill/MCP install UI (registry browse + URL-MCP install, no token values written), best-of preset (idempotent+reversible, honest Pro-gating), **vault-as-MCP-server** (read-only enforced at core, Keychain token, OFF by default).
 4. **Apple-native**: QuickLook preview + VisionKit Live Text + QuickLook thumbnails (hardened file policies); **landing feature buttons** (one per capability, honest Pro pills); **arXiv pull** (search + ingest + frontmatter, hardened temp-file + magic-byte, tests). arXiv PRIORITY-0 temp-file bug ✅ fixed.
 5. **Browser**: lite native WKWebView tab (MAS-safe, human-driven, ⌘⇧B) ✅; **browser-use Pro** 🔒 (vendored core 0.13.2 + Gradio web-ui in WKWebView + Chromium payload + signed-bundle gate + the subordinate browser-scoped sub-agent + hardened Rust browser tools) — extensively built + tested.
-6. **Meeting/STT note** ✅ (on-device Apple SpeechAnalyzer, macOS 26), **Voice** ✅ (AVSpeech TTS + live STT; Kokoro neural 🔒 Pro status-gated), **whole-app brand logos** ✅ (registry + honest fallbacks, no fakes, model logos untouched).
+6. **Meeting/STT note** ✅ (on-device Apple SpeechAnalyzer, macOS 26), **Voice** 🔨 (Apple-native STT live; TTS is Kokoro-only and honestly unavailable until native synthesis is wired; no AVSpeech fallback), **whole-app brand logos** ✅ (registry + honest fallbacks, no fakes, model logos untouched).
 
 ### ⬜ Left — edge-hardening (the plan's "work mode" = deep review, few tests)
 - PDF→md edge cases: encrypted / 0-byte / scanned / multi-column through EdgeParse + unpdf.
@@ -125,7 +125,7 @@
 
 ### ⏸ Deferred (owner-blocked or phase-gated)
 - ClaimLedger **full BFS retraction cascade** — needs owner sign-off + new Rust write FFI (`record_claim_json`/`retract_claim_json`).
-- **Kokoro neural voice** — model packaging/download + real synthesis (status-gated `isReady=false` until wired).
+- **Kokoro TTS** — native no-Python synthesis engine + model packaging/download (status-gated `isReady=false` until wired).
 - Scanned/**OCR lane** for PDF→md (future Apple Vision/PDFKit).
 - browser-use **release notarization** (distribution ops, not a runtime gate).
 - Later logo slices (utility-panel metadata + optional licensed assets).
