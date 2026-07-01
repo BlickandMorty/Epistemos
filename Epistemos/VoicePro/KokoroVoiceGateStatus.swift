@@ -13,6 +13,7 @@ nonisolated enum KokoroVoiceGateStatus {
     static let runtimeIdentifier = "coreml"
     static let maxManifestBytes = 64 * 1024
     static let maxManifestFileCount = 128
+    static let maxPackageEntryCount = 250_000
     static let maxPackageFileBytes = UInt64(2) * 1024 * 1024 * 1024
     static let maxPackageTotalBytes = UInt64(4) * 1024 * 1024 * 1024
     private static let maxPathDiagnosticLength = 160
@@ -289,6 +290,7 @@ nonisolated enum KokoroVoiceGateStatus {
         fileManager: FileManager
     ) -> String? {
         var verifiedPayloadFile = false
+        let declaredPaths = Set(manifest.files.map(\.path))
         for file in manifest.files {
             let fileURL = packageURL.appendingPathComponent(file.path, isDirectory: false)
             let displayName = "\(modelPackageName)/\(pathDiagnostic(file.path))"
@@ -318,7 +320,65 @@ nonisolated enum KokoroVoiceGateStatus {
             }
             verifiedPayloadFile = verifiedPayloadFile || file.path != packageManifestFileName
         }
+        if let coverageProblem = packageCoverageProblem(
+            declaredPaths: declaredPaths,
+            packageURL: packageURL,
+            fileManager: fileManager
+        ) {
+            return coverageProblem
+        }
         return verifiedPayloadFile ? nil : "\(modelPackageName) has no verified model payload file"
+    }
+
+    private static func packageCoverageProblem(
+        declaredPaths: Set<String>,
+        packageURL: URL,
+        fileManager: FileManager
+    ) -> String? {
+        guard let enumerator = fileManager.enumerator(
+            at: packageURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
+            options: []
+        ) else {
+            return "\(modelPackageName) could not be enumerated"
+        }
+
+        var visited = 0
+        var seenFiles = Set<String>()
+        for case let url as URL in enumerator {
+            visited += 1
+            guard visited <= maxPackageEntryCount else {
+                return "\(modelPackageName) contains too many entries"
+            }
+            guard let relativePath = packageRelativePath(url, relativeTo: packageURL) else {
+                return "\(modelPackageName) contains an unreadable path"
+            }
+
+            let values: URLResourceValues
+            do {
+                values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey])
+            } catch {
+                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) attributes unavailable"
+            }
+            if values.isSymbolicLink == true {
+                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) is a symlink"
+            }
+            if values.isDirectory == true {
+                continue
+            }
+            guard values.isRegularFile == true else {
+                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) is not a regular file"
+            }
+            guard declaredPaths.contains(relativePath) else {
+                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) is not listed in manifest"
+            }
+            seenFiles.insert(relativePath)
+        }
+
+        guard seenFiles == declaredPaths else {
+            return "\(modelPackageName) manifest does not match package contents"
+        }
+        return nil
     }
 
     private static func readManifestDataNoFollow(at url: URL) -> Data? {
@@ -556,6 +616,16 @@ nonisolated enum KokoroVoiceGateStatus {
         let root = rootURL.standardizedFileURL.resolvingSymlinksInPath()
         let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
         return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
+    }
+
+    private static func packageRelativePath(_ url: URL, relativeTo packageURL: URL) -> String? {
+        let root = packageURL.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        let prefix = root + "/"
+        guard path.hasPrefix(prefix) else {
+            return nil
+        }
+        return String(path.dropFirst(prefix.count))
     }
 
     private static func pathDiagnostic(_ url: URL, relativeTo rootURL: URL) -> String {

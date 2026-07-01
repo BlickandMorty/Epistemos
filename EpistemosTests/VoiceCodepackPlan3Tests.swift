@@ -681,6 +681,37 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
+    @Test("Kokoro Pro gate rejects unmanifested package files")
+    func kokoroProGateRejectsUnmanifestedPackageFiles() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-extra-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        let extraFileURL = packageURL
+            .appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent("com.apple.CoreML", isDirectory: true)
+            .appendingPathComponent("extra.mlmodel", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeValidKokoroPackage(at: modelDirectory)
+        try Data("unmanifested payload\n".utf8).write(to: extraFileURL)
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!status.isReady)
+        #expect(status.state == .missingModel)
+        #expect(status.detail.contains("Kokoro82M.mlpackage/Data/com.apple.CoreML/extra.mlmodel is not listed in manifest"))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #else
+        #expect(true)
+        #endif
+    }
+
     @Test("Kokoro Pro gate rejects placeholder manifests and empty packages")
     func kokoroProGateRejectsPlaceholderManifestsAndEmptyPackages() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
