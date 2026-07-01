@@ -339,6 +339,8 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private static let maxWebSocketBufferBytes = 2 * 1024 * 1024
     private static let defaultPromptMaxTokens = 4_096
     private static let permissionResponseTimeoutSeconds: TimeInterval = 300
+    private static let thirdPartyAIConsentDefaultsKey =
+        "Epistemos.Goose.MAS.ThirdPartyAIConsentProviderIDs.v1"
 
     private let secretKey: String
     private let catalog: GooseMASAgentCoreCatalog
@@ -750,6 +752,9 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return [Self.jsonResponse(id: id, result: result)]
         case "session/prompt":
             let run = makePromptRun(id: id, params: params)
+            if let consentError = thirdPartyAIConsentDenialResponse(id: id) {
+                return [consentError]
+            }
             beginPromptRun(run, on: box)
             return [
                 Self.jsonNotification(
@@ -811,6 +816,12 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         case "_goose/unstable/defaults/save":
             saveDefaults(params: params)
             return [Self.jsonResponse(id: id, result: defaultsResult())]
+        case "_goose/unstable/epistemos/third-party-ai-consent/read":
+            return [Self.jsonResponse(id: id, result: thirdPartyAIConsentReadResult())]
+        case "_goose/unstable/epistemos/third-party-ai-consent/save":
+            return [Self.jsonResponse(id: id, result: thirdPartyAIConsentSaveResult(params: params))]
+        case "_goose/unstable/epistemos/third-party-ai-consent/revoke":
+            return [Self.jsonResponse(id: id, result: thirdPartyAIConsentRevokeResult(params: params))]
         case "_goose/unstable/config/extensions/list",
              "_goose/unstable/extensions/list":
             return [Self.jsonResponse(id: id, result: catalog.extensionsResult())]
@@ -1044,6 +1055,56 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             "items": [],
             "_meta": catalog.metadata(),
         ]
+    }
+
+    private func thirdPartyAIConsentReadResult() -> [String: Any] {
+        let granted = thirdPartyAIConsentProviderIDs()
+        return [
+            "providers": catalog.providers.map { provider in
+                [
+                    "providerId": provider.providerId,
+                    "providerName": provider.providerName,
+                    "requiresConsent": Self.requiresThirdPartyAIConsent(provider),
+                    "accepted": granted.contains(provider.providerId),
+                ]
+            },
+            "selectedProviderId": selectedProviderIDForConsent() ?? NSNull(),
+            "selectedProviderRequiresConsent": selectedProviderRequiresThirdPartyAIConsent(),
+            "selectedProviderAccepted": selectedProviderHasThirdPartyAIConsent(),
+            "remoteMcpEndpoints": [],
+            "_meta": [
+                "goose": [
+                    "policyProfile": catalog.policyProfile,
+                    "thirdPartyAIConsentRequired": true,
+                    "appReviewGuideline": "5.1.2(i)",
+                ],
+            ],
+        ]
+    }
+
+    private func thirdPartyAIConsentSaveResult(params: [String: Any]) -> [String: Any] {
+        let providerIDs = Self.consentProviderIDs(from: params, fallback: selectedProviderIDForConsent())
+        let accepted = params["accepted"] as? Bool ?? true
+        var granted = thirdPartyAIConsentProviderIDs()
+        if accepted {
+            granted.formUnion(providerIDs)
+        } else {
+            granted.subtract(providerIDs)
+        }
+        saveThirdPartyAIConsentProviderIDs(granted)
+        return thirdPartyAIConsentReadResult()
+    }
+
+    private func thirdPartyAIConsentRevokeResult(params: [String: Any]) -> [String: Any] {
+        var granted = thirdPartyAIConsentProviderIDs()
+        let providerIDs = Self.consentProviderIDs(from: params, fallback: selectedProviderIDForConsent())
+        if providerIDs.isEmpty || params["all"] as? Bool == true {
+            granted.removeAll()
+        } else {
+            granted.subtract(providerIDs)
+        }
+        saveThirdPartyAIConsentProviderIDs(granted)
+        return thirdPartyAIConsentReadResult()
     }
 
     private func makePromptRun(id: Any?, params: [String: Any]) -> PromptRun {
@@ -1284,6 +1345,66 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         return candidates
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty } ?? NSHomeDirectory()
+    }
+
+    private func thirdPartyAIConsentDenialResponse(id: Any?) -> String? {
+        #if EPISTEMOS_APP_STORE
+        guard selectedProviderRequiresThirdPartyAIConsent(),
+              !selectedProviderHasThirdPartyAIConsent() else {
+            return nil
+        }
+        let providerID = selectedProviderIDForConsent() ?? "unknown"
+        return Self.jsonError(
+            id: id,
+            code: -32043,
+            message: "Third-party AI consent is required before MAS Goose can send this prompt.",
+            data: [
+                "providerId": providerID,
+                "policyProfile": catalog.policyProfile,
+                "appReviewGuideline": "5.1.2(i)",
+                "consentReadMethod": "_goose/unstable/epistemos/third-party-ai-consent/read",
+                "consentSaveMethod": "_goose/unstable/epistemos/third-party-ai-consent/save",
+            ]
+        )
+        #else
+        _ = id
+        return nil
+        #endif
+    }
+
+    private func selectedProviderRequiresThirdPartyAIConsent() -> Bool {
+        guard let provider = selectedProviderForConsent() else { return true }
+        return Self.requiresThirdPartyAIConsent(provider)
+    }
+
+    private func selectedProviderHasThirdPartyAIConsent() -> Bool {
+        guard let providerID = selectedProviderIDForConsent() else { return false }
+        return thirdPartyAIConsentProviderIDs().contains(providerID)
+    }
+
+    private func selectedProviderIDForConsent() -> String? {
+        selectedProviderForConsent()?.providerId
+            ?? defaultProviderID
+            ?? providerConfigValues.keys.sorted().first
+    }
+
+    private func selectedProviderForConsent() -> GooseMASAgentCoreCatalog.Provider? {
+        let providerID = defaultProviderID ?? providerConfigValues.keys.sorted().first
+        guard let providerID else { return catalog.providers.first }
+        return catalog.providers.first { $0.providerId == providerID }
+            ?? catalog.providers.first
+    }
+
+    private func thirdPartyAIConsentProviderIDs() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: Self.thirdPartyAIConsentDefaultsKey) ?? [])
+    }
+
+    private func saveThirdPartyAIConsentProviderIDs(_ providerIDs: Set<String>) {
+        let bounded = providerIDs
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map { String($0.prefix(GooseACPProtocolBounds.maxInventoryIDCharacters)) }
+            .sorted()
+        UserDefaults.standard.set(bounded, forKey: Self.thirdPartyAIConsentDefaultsKey)
     }
 
     private func requestAgentCorePermission(
@@ -1601,6 +1722,42 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         return !normalized.contains("reject")
             && !normalized.contains("deny")
             && !normalized.contains("cancel")
+    }
+
+    private static func requiresThirdPartyAIConsent(_ provider: GooseMASAgentCoreCatalog.Provider) -> Bool {
+        let haystack = [
+            provider.providerId,
+            provider.providerType,
+            provider.category,
+        ]
+        .joined(separator: " ")
+        .lowercased()
+        for localToken in ["local", "mlx", "foundation", "apple", "ollama"] where haystack.contains(localToken) {
+            return false
+        }
+        return true
+    }
+
+    private static func consentProviderIDs(from params: [String: Any], fallback: String?) -> Set<String> {
+        var values: [String] = []
+        if let providerID = params["providerId"] as? String {
+            values.append(providerID)
+        }
+        if let providerIDs = params["providerIds"] as? [String] {
+            values.append(contentsOf: providerIDs)
+        }
+        if values.isEmpty, let fallback {
+            values.append(fallback)
+        }
+        return Set(values.compactMap { raw in
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty,
+                  trimmed.count <= GooseACPProtocolBounds.maxInventoryIDCharacters,
+                  !trimmed.utf8.contains(0) else {
+                return nil
+            }
+            return trimmed
+        })
     }
 
     private static func isProGated(method: String) -> Bool {
