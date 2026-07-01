@@ -469,16 +469,23 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
             .epistemos
     }
 
+    static func metadata(from dataJSON: String, matching feed: HTMLWorkspaceDataFeed) -> HTMLWorkspaceDataFeedMetadata? {
+        guard let metadata = metadata(from: dataJSON),
+              metadata.source == feed.source.rawValue,
+              metadata.query == feed.normalizedQuery,
+              metadata.limit == feed.effectiveLimit else {
+            return nil
+        }
+        return metadata
+    }
+
     static func clearedDataJSON(from dataJSON: String) -> String {
         metadata(from: dataJSON) == nil ? dataJSON : "{}"
     }
 
     static func requiredContextKind(for package: HTMLWorkspacePackage) -> String? {
         guard let feed = package.manifest.dataFeed,
-              let metadata = metadata(from: package.dataJSON),
-              metadata.source == feed.source.rawValue,
-              metadata.query == feed.normalizedQuery,
-              metadata.limit == feed.effectiveLimit else {
+              let metadata = metadata(from: package.dataJSON, matching: feed) else {
             return nil
         }
         let kind = metadata.requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -502,8 +509,8 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
 
     @MainActor
     static func compactLine(for package: HTMLWorkspacePackage) -> String? {
-        guard package.manifest.dataFeed != nil else { return nil }
-        guard let metadata = metadata(from: package.dataJSON) else { return "Feed pending" }
+        guard let feed = package.manifest.dataFeed else { return nil }
+        guard let metadata = metadata(from: package.dataJSON, matching: feed) else { return "Feed pending" }
         let status = metadata.stale ? "Feed stale" : "Feed fresh"
         let requirementSuffix = contextRequirementText(for: metadata).map { " / \($0)" } ?? ""
         return "\(status): \(metadata.resultCount) / \(contextKindsText(for: metadata))\(requirementSuffix)"
@@ -512,7 +519,7 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
     @MainActor
     static func detailLine(for package: HTMLWorkspacePackage) -> String? {
         guard let feed = package.manifest.dataFeed else { return nil }
-        guard let metadata = metadata(from: package.dataJSON) else {
+        guard let metadata = metadata(from: package.dataJSON, matching: feed) else {
             return "Vault search: \(feed.normalizedQuery)"
         }
         let age = refreshedAgeText(refreshedAtMS: metadata.refreshedAtMS)

@@ -147,6 +147,25 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: customJSON) == customJSON)
     }
 
+    @Test("HTMLWorkspace data feed status ignores mismatched generated envelopes")
+    @MainActor
+    func dataFeedStatusIgnoresMismatchedGeneratedEnvelopes() {
+        let attachedFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "attached context", limit: 2)
+        let staleFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "attached context", limit: 4)
+        var package = Self.samplePackage()
+        package.manifest.dataFeed = attachedFeed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
+            feed: staleFeed,
+            error: "Old feed pending",
+            requiredContextKind: "recent_capture"
+        )
+
+        #expect(HTMLWorkspaceDataFeedStatus.metadata(from: package.dataJSON, matching: attachedFeed) == nil)
+        #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package) == nil)
+        #expect(HTMLWorkspaceDataFeedStatus.compactLine(for: package) == "Feed pending")
+        #expect(HTMLWorkspaceDataFeedStatus.detailLine(for: package) == "Vault search: attached context")
+    }
+
     @Test("HTMLWorkspace data feed status exposes explicit context kinds")
     @MainActor
     func dataFeedStatusExposesExplicitContextKinds() throws {
