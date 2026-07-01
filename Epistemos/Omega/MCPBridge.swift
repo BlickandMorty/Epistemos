@@ -238,6 +238,8 @@ nonisolated enum OmegaToolRegistry {
 @MainActor @Observable
 final class MCPBridge {
     private static let maxDispatchRequestBytes = 1024 * 1024
+    private static let maxJSONRPCIDStringCharacters = 128
+    private static let maxPolicyGateToolNameCharacters = 128
 
     /// The Rust-side dispatcher (UniFFI object).
     /// Nil if the database path couldn't be resolved.
@@ -340,7 +342,7 @@ final class MCPBridge {
             return nil
         }
 
-        let id = request["id"] ?? NSNull()
+        let id = Self.jsonRpcResponseID(from: request["id"])
         switch method {
         case "tools/list":
             let visibleTools = OmegaToolRegistry.surfacedTools(
@@ -361,14 +363,15 @@ final class MCPBridge {
                 toolName,
                 distribution: distribution
             ) else {
+                let safeToolName = Self.boundedPolicyGateToolName(toolName)
                 recordToolCallPolicyDenial(
-                    toolName: toolName,
+                    toolName: safeToolName,
                     distribution: distribution
                 )
                 return Self.jsonRpcError(
                     id: id,
                     code: -32601,
-                    message: "Tool not found: \(toolName)"
+                    message: "Tool not found: \(safeToolName)"
                 )
             }
             return nil
@@ -477,6 +480,53 @@ final class MCPBridge {
         case .proResearch:
             "pro_research"
         }
+    }
+
+    private static func jsonRpcResponseID(from rawID: Any?) -> Any {
+        guard let rawID else { return NSNull() }
+        if rawID is NSNull {
+            return NSNull()
+        }
+        if let id = rawID as? String {
+            return boundedJSONRPCIDString(id)
+        }
+        if let id = rawID as? NSNumber {
+            guard String(cString: id.objCType) != "c" else { return NSNull() }
+            return id
+        }
+        return NSNull()
+    }
+
+    private static func boundedJSONRPCIDString(_ value: String) -> String {
+        let bounded = String(value.prefix(maxJSONRPCIDStringCharacters + 32))
+        guard bounded.count > maxJSONRPCIDStringCharacters else {
+            return bounded
+        }
+        return String(bounded.prefix(maxJSONRPCIDStringCharacters - 3)) + "..."
+    }
+
+    private static func boundedPolicyGateToolName(_ value: String) -> String {
+        let bounded = String(value.prefix(maxPolicyGateToolNameCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return "<unnamed>"
+        }
+        guard trimmed.unicodeScalars.allSatisfy(isPolicyGateToolNameScalar) else {
+            return "<invalid>"
+        }
+        guard trimmed.count > maxPolicyGateToolNameCharacters else {
+            return trimmed
+        }
+        return String(trimmed.prefix(maxPolicyGateToolNameCharacters - 3)) + "..."
+    }
+
+    private static func isPolicyGateToolNameScalar(_ scalar: Unicode.Scalar) -> Bool {
+        scalar == "."
+            || scalar == "_"
+            || scalar == "-"
+            || (65...90).contains(Int(scalar.value))
+            || (97...122).contains(Int(scalar.value))
+            || (48...57).contains(Int(scalar.value))
     }
 
     private static func jsonRpcSuccess(id: Any, result: [String: Any]) -> String {

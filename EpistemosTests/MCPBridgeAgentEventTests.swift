@@ -102,14 +102,65 @@ struct MCPBridgeAgentEventTests {
         #expect(captured.isEmpty)
     }
 
+    @Test("Policy gate bounds denied tool names and JSON RPC response ids")
+    func policyGateBoundsDeniedToolNamesAndJSONRPCResponseIDs() throws {
+        var captured: [AgentProvenanceEvent] = []
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 123_456 },
+            persist: { event in
+                captured.append(event)
+                return true
+            }
+        )
+        let bridge = MCPBridge(agentProvenanceRecorder: recorder)
+        let longToolName = String(repeating: "a", count: 320)
+        let longID = String(repeating: "i", count: 320)
+        let request = """
+        {"jsonrpc":"2.0","method":"tools/call","params":{"name":"\(longToolName)","arguments":{}},"id":"\(longID)"}
+        """
+
+        let response = bridge.dispatch(request, distribution: .coreAppStore)
+        let responseJSON = try Self.jsonObject(from: response)
+        let error = try #require(responseJSON["error"] as? [String: Any])
+        let message = try #require(error["message"] as? String)
+        let responseID = try #require(responseJSON["id"] as? String)
+
+        #expect(message.hasPrefix("Tool not found: "))
+        #expect(message.hasSuffix("..."))
+        #expect(!message.contains(longToolName))
+        #expect(responseID.hasSuffix("..."))
+        #expect(responseID.count < longID.count)
+        #expect(captured.count == 2)
+        #expect(captured.allSatisfy { ($0.tool?.toolName.count ?? 0) < longToolName.count })
+        #expect(captured.allSatisfy { $0.tool?.toolName.hasSuffix("...") == true })
+    }
+
+    @Test("Policy gate drops non scalar JSON RPC response ids")
+    func policyGateDropsNonScalarJSONRPCResponseIDs() throws {
+        let bridge = MCPBridge()
+        let response = bridge.dispatch(
+            #"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"run_command","arguments":{}},"id":{"secret":"leak"}}"#,
+            distribution: .coreAppStore
+        )
+        let responseJSON = try Self.jsonObject(from: response)
+
+        #expect(responseJSON["id"] is NSNull)
+        #expect(!response.contains("leak"))
+    }
+
     @Test("MCPBridge policy provenance source avoids raw JSON RPC payload persistence")
     func mcpBridgePolicyProvenanceSourceAvoidsRawJSONRPCPayloadPersistence() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Omega/MCPBridge.swift")
 
         #expect(source.contains("recordToolCallPolicyDenial"))
         #expect(source.contains("maxDispatchRequestBytes"))
+        #expect(source.contains("maxJSONRPCIDStringCharacters"))
+        #expect(source.contains("boundedPolicyGateToolName"))
+        #expect(source.contains("jsonRpcResponseID(from: request[\"id\"])"))
         #expect(source.contains("MCP request exceeds maximum size."))
         #expect(source.contains(#""policy_gate":"tool_surface""#))
+        #expect(!source.contains("let id = request[\"id\"] ?? NSNull()"))
+        #expect(!source.contains("Tool not found: \\(toolName)"))
         #expect(!source.contains("argumentsJSON: requestJson"))
         #expect(!source.contains("resultJSON: gateResponse"))
         #expect(!source.contains(#"params["arguments"]"#))
