@@ -691,6 +691,7 @@ struct HTMLWorkspaceEditorView: View {
     private var restoreSnapshotName: String? {
         let name = package.manifest.generationProvenance?.reversibleSnapshotName?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let name, !name.isEmpty else { return nil }
+        guard package.snapshots[name] != nil else { return nil }
         return name
     }
 

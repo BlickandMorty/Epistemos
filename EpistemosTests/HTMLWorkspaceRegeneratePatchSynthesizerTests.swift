@@ -171,6 +171,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("canRestorePreviousSurface: restoreSnapshotName != nil"))
         #expect(editor.contains("restoreSnapshotName: restoreSnapshotName"))
         #expect(editor.contains("private var restoreSnapshotName: String?"))
+        #expect(editor.contains("guard package.snapshots[name] != nil else { return nil }"))
         #expect(editor.contains("private var restorePreviousSurfaceHelpText: String"))
         #expect(editor.contains(".help(restorePreviousSurfaceHelpText)"))
         #expect(editor.contains("statusText = \"Previous surface restored from \\(name)\""))
