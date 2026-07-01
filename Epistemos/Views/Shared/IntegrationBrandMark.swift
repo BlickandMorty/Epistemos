@@ -162,6 +162,9 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func mcpRegistry(source: String, installKind: String, name: String) -> IntegrationBrand {
+        if isBrowserUse(normalizedHaystack(source, installKind, name)) {
+            return .browserUse
+        }
         let named = installedMCPServer(name: name, host: "")
         if named != .remoteMCP {
             return named
@@ -192,6 +195,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     static func bestOfPreset(kind: String, id: String, displayName: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(id, displayName)
+        if isBrowserUse(haystack) { return .browserUse }
         if haystack.contains("context7") { return .context7 }
         if haystack.contains("anthropic") && haystack.contains("skill") { return .anthropicSkills }
         if haystack.contains("vault") { return .vault }
@@ -220,6 +224,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     static func skillDiscovery(source: String, identifier: String, category: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, category)
+        if isBrowserUse(normalizedHaystack(source, identifier, category)) { return .browserUse }
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
 
@@ -248,6 +253,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     static func skillInventory(identifier: String, description: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, description)
+        if isBrowserUse(haystack) { return .browserUse }
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
         if haystack.contains("codex") { return .codexSkills }
@@ -271,6 +277,12 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
 
     private static func normalizedHaystack(_ values: String...) -> String {
         values.map(normalized).joined(separator: " ")
+    }
+
+    private static func isBrowserUse(_ haystack: String) -> Bool {
+        haystack.contains("browser-use")
+            || haystack.contains("browseruse")
+            || haystack.contains("browser use")
     }
 
     private static func normalized(_ value: String) -> String {

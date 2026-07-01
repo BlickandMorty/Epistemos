@@ -37,7 +37,9 @@
   `IntegrationBrandMarkView`.
 - [VERIFIED-CODE] The browser-use Pro Settings diagnostics surface uses the
   non-model `IntegrationBrandMarkView` and does not share claims with the native
-  Browser tab.
+  Browser tab. Marketplace, preset, and skill rows that mention browser-use now
+  resolve to the browser-use Pro brand instead of a generic GitHub/skill mark,
+  preserving the native Browser versus Chromium robot boundary.
 - [VERIFIED-CODE] `LandingFeatureButton` exposes an `integrationBrand` mapping
   for every Plan 3 landing feature button, and `LandingFeatureButtonTile` passes
   that mapping into `PixelLandingCommandTile` so each Plan 3 landing shortcut

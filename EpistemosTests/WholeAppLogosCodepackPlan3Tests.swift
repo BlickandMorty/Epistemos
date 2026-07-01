@@ -64,6 +64,7 @@ struct WholeAppLogosCodepackPlan3Tests {
             "static func skillInstallSource",
             "static func skillInventory",
             "static func landingFeature",
+            "private static func isBrowserUse",
             "maxClassifierInputCharacters",
             "normalizedHaystack",
             "String(value.prefix(maxClassifierInputCharacters))"
@@ -200,11 +201,16 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(IntegrationBrand.mcpRegistry(source: "unknown", installKind: "REMOTEURL", name: "Search") == .remoteMCP)
         #expect(IntegrationBrand.bestOfPreset(kind: "remoteMCP", id: "vault", displayName: "Vault") == .vault)
         #expect(IntegrationBrand.bestOfPreset(kind: "SKILLREPO", id: "plain", displayName: "Plain") == .skillRepo)
+        #expect(IntegrationBrand.bestOfPreset(kind: "skillRepo", id: "browser-use", displayName: "Browser Use") == .browserUse)
         #expect(IntegrationBrand.connector(id: "google-drive", displayName: "Drive") == .googleDrive)
         #expect(IntegrationBrand.skillDiscovery(source: "codex", identifier: "docs", category: "research") == .codexSkills)
+        #expect(IntegrationBrand.skillDiscovery(source: "github", identifier: "browser-use", category: "automation") == .browserUse)
+        #expect(IntegrationBrand.skillDiscovery(source: "browser-use", identifier: "docs", category: "automation") == .browserUse)
         #expect(IntegrationBrand.skillInstallSource(rawValue: "localPath") == .localSkill)
         #expect(IntegrationBrand.skillInstallSource(rawValue: "LOCALPATH") == .localSkill)
         #expect(IntegrationBrand.skillInventory(identifier: "github-helper", description: "GitHub tools") == .github)
+        #expect(IntegrationBrand.skillInventory(identifier: "browseruse-helper", description: "Chromium automation") == .browserUse)
+        #expect(IntegrationBrand.mcpRegistry(source: "github", installKind: "skillRepo", name: "browser-use") == .browserUse)
 
         let longTail = String(repeating: "x", count: IntegrationBrand.maxClassifierInputCharacters + 64)
         #expect(IntegrationBrand.connector(id: "slack-\(longTail)", displayName: "") == .slack)
