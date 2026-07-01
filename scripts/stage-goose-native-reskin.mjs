@@ -1595,7 +1595,7 @@ function applySelect() {
     source,
     'select control',
     "`border ${isFocused ? 'border-border-primary' : 'border-border-primary'} focus:border-border-primary hover:border-border-primary rounded-md w-full px-4 py-2 text-sm text-text-secondary hover:cursor-pointer`",
-    "`rounded-[8px] w-full px-3 py-1.5 min-h-9 text-sm text-text-secondary bg-background-primary/70 hover:cursor-pointer hover:bg-background-secondary/72 transition-colors duration-200 ease-[var(--epistemos-control-ease)]`"
+    "`rounded-[8px] w-full px-3 py-1.5 min-h-9 text-sm text-text-secondary ${isFocused ? 'bg-background-secondary/72' : 'bg-background-primary/70'} hover:cursor-pointer hover:bg-background-secondary/72 transition-colors duration-200 ease-[var(--epistemos-control-ease)]`"
   );
   source = replaceRequired(
     source,

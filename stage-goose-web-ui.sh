@@ -835,28 +835,74 @@ const localAcpConfigDefaults = new Map<string, string>([
   ['GOOSE_TELEMETRY_ENABLED', 'false'],
 ]);
 const LOCAL_ACP_CONFIG_MARKER = 'local-acp-config-GOOSE_TELEMETRY_ENABLED';
+const LOCAL_ACP_NATIVE_CONFIG_MARKER = 'local-acp-native-config-persistence';
+const LOCAL_ACP_NATIVE_CONFIG_PREFIX = 'acp.localConfig.';
 
 function isLocalAcpConfigKey(key: string): boolean {
   void LOCAL_ACP_CONFIG_MARKER;
   return localAcpConfigKeys.has(key);
 }
 
-function localAcpConfigValue(key: string): string | null {
+function configValue(value: unknown): string {
+  return typeof value === 'string' ? value : String(value);
+}
+
+type LocalAcpNativeSettingsElectron = {
+  getSetting?: (key: string) => Promise<unknown>;
+  setSetting?: (key: string, value: unknown) => Promise<void>;
+};
+
+function localAcpNativeSettingsBridge(): LocalAcpNativeSettingsElectron | null {
+  void LOCAL_ACP_NATIVE_CONFIG_MARKER;
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  return (window as Window & { electron?: LocalAcpNativeSettingsElectron }).electron ?? null;
+}
+
+async function readNativeLocalAcpConfigValue(key: string): Promise<string | null> {
+  const bridge = localAcpNativeSettingsBridge();
+  if (!bridge?.getSetting) {
+    return null;
+  }
+  const value = await bridge.getSetting(`${LOCAL_ACP_NATIVE_CONFIG_PREFIX}${key}`);
+  return value == null ? null : configValue(value);
+}
+
+async function saveNativeLocalAcpConfigValue(key: string, value: unknown): Promise<void> {
+  const bridge = localAcpNativeSettingsBridge();
+  if (!bridge?.setSetting) {
+    return;
+  }
+  await bridge.setSetting(`${LOCAL_ACP_NATIVE_CONFIG_PREFIX}${key}`, configValue(value));
+}
+
+async function removeNativeLocalAcpConfigValue(key: string): Promise<void> {
+  const bridge = localAcpNativeSettingsBridge();
+  if (!bridge?.setSetting) {
+    return;
+  }
+  await bridge.setSetting(`${LOCAL_ACP_NATIVE_CONFIG_PREFIX}${key}`, null);
+}
+
+async function localAcpConfigValue(key: string): Promise<string | null> {
   if (localAcpConfigValues.has(key)) {
     return localAcpConfigValues.get(key) ?? null;
   }
+  const nativeValue = await readNativeLocalAcpConfigValue(key);
+  if (nativeValue !== null) {
+    localAcpConfigValues.set(key, nativeValue);
+    return nativeValue;
+  }
   return localAcpConfigDefaults.get(key) ?? null;
-}
-
-function configValue(value: unknown): string {
-  return typeof value === 'string' ? value : String(value);
 }
 
 // config_key -> Goose PreferenceKey wire string (camelCase). These keys persist
 // LIVE via preferences/save+read so they survive restart and the agent actually
 // applies them. Keys NOT here (GOOSE_MODE, GOOSE_MAX_TURNS, GOOSE_TELEMETRY_ENABLED,
-// SECURITY_*) have no preference home in goose serve 1.39.0 and stay in the
-// in-memory map. Marker: epistemos-acp-preference-backed-config.
+// SECURITY_*) have no preference home in goose serve 1.39.0, so Epistemos persists
+// them through its native settings bridge instead of a reload-only memory map.
+// Marker: epistemos-acp-preference-backed-config.
 const preferenceBackedConfigKeys: Record<string, PreferenceKey> = {
   GOOSE_THINKING_EFFORT: 'gooseThinkingEffort',
   GOOSE_AUTO_COMPACT_THRESHOLD: 'autoCompactThreshold',
@@ -908,11 +954,11 @@ export async function readAcpProviderConfigValue(key: string): Promise<string | 
     try {
       return await readPreferenceConfig(key);
     } catch {
-      return localAcpConfigValue(key);
+      return await localAcpConfigValue(key);
     }
   }
   if (isLocalAcpConfigKey(key)) {
-    return localAcpConfigValue(key);
+    return await localAcpConfigValue(key);
   }
   try {
     const provider = await providerForConfigKey(key);
@@ -937,7 +983,7 @@ export async function readAcpProviderConfigValue(key: string): Promise<string | 
 export async function reconstructAcpConfig(): Promise<Record<string, unknown>> {
   const config: Record<string, unknown> = {};
   for (const key of localAcpConfigKeys) {
-    const value = localAcpConfigValue(key);
+    const value = await localAcpConfigValue(key);
     if (value !== null) {
       config[key] = value;
     }
@@ -998,7 +1044,9 @@ export async function upsertAcpProviderConfig(
     return;
   }
   if (isLocalAcpConfigKey(key)) {
-    localAcpConfigValues.set(key, configValue(value));
+    const stringValue = configValue(value);
+    localAcpConfigValues.set(key, stringValue);
+    await saveNativeLocalAcpConfigValue(key, stringValue);
     return;
   }
   const provider = await providerForConfigKey(key);
@@ -1038,6 +1086,7 @@ export async function removeAcpProviderConfig(key: string): Promise<void> {
   }
   if (isLocalAcpConfigKey(key)) {
     localAcpConfigValues.delete(key);
+    await removeNativeLocalAcpConfigValue(key);
     return;
   }
   const provider = await providerForConfigKey(key);
@@ -5854,6 +5903,11 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "shared-getAcpClient-provider-inventory" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "localAcpConfigKeys = new Set" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "local-acp-config-GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "local-acp-native-config-persistence" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "LOCAL_ACP_NATIVE_CONFIG_PREFIX = 'acp.localConfig.'" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "readNativeLocalAcpConfigValue" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "saveNativeLocalAcpConfigValue" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "removeNativeLocalAcpConfigValue" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-renderer-telemetry-config" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
     grep -q "readAcpProviderConfigValue(TELEMETRY_CONFIG_KEY)" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
