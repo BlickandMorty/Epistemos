@@ -1856,40 +1856,67 @@ actor VaultIndexActor {
         return !rawID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Build markdown with front-matter from an SDPage.
-    private func buildMarkdown(for page: SDPage, body: String) -> String {
+    /// Build markdown with front-matter from page primitives.
+    nonisolated static func buildMarkdownSource(
+        pageId: String,
+        title: String,
+        tags: [String],
+        emoji: String,
+        isJournal: Bool,
+        journalDate: String?,
+        parentPageId: String?,
+        templateId: String?,
+        frontMatter: [String: String],
+        body: String
+    ) -> String {
         var lines: [String] = ["---"]
-        lines.append("id: \(page.id)")
-        lines.append("title: \(yamlEscapeTitle(page.title))")
-        if !page.tags.isEmpty {
-            lines.append("tags: [\(page.tags.joined(separator: ", "))]")
+        lines.append("id: \(pageId)")
+        lines.append("title: \(yamlEscapeTitle(title))")
+        if !tags.isEmpty {
+            lines.append("tags: [\(tags.joined(separator: ", "))]")
         }
-        if !page.emoji.isEmpty {
-            lines.append("icon: \(page.emoji)")
+        if !emoji.isEmpty {
+            lines.append("icon: \(emoji)")
         }
-        if page.isJournal {
+        if isJournal {
             lines.append("journal: true")
         }
-        if let date = page.journalDate {
+        if let date = journalDate {
             lines.append("date: \(date)")
         }
-        if let parentId = page.parentPageId {
+        if let parentId = parentPageId {
             lines.append("parent: \(parentId)")
         }
-        if let templateId = page.templateId {
+        if let templateId {
             lines.append("template: \(templateId)")
         }
         // Include any extra front-matter keys
         let knownKeys: Set<String> = [
             "id", "title", "tags", "icon", "journal", "date", "parent", "template",
         ]
-        for (key, value) in page.frontMatter where !knownKeys.contains(key) {
-            lines.append("\(key): \(value)")
+        for key in frontMatter.keys.sorted() where !knownKeys.contains(key) {
+            lines.append("\(key): \(yamlEscapeFrontMatterValue(frontMatter[key] ?? ""))")
         }
         lines.append("---")
         lines.append("")
         lines.append(body)
         return lines.joined(separator: "\n")
+    }
+
+    /// Build markdown with front-matter from an SDPage.
+    private func buildMarkdown(for page: SDPage, body: String) -> String {
+        Self.buildMarkdownSource(
+            pageId: page.id,
+            title: page.title,
+            tags: page.tags,
+            emoji: page.emoji,
+            isJournal: page.isJournal,
+            journalDate: page.journalDate,
+            parentPageId: page.parentPageId,
+            templateId: page.templateId,
+            frontMatter: page.frontMatter,
+            body: body
+        )
     }
 
     nonisolated static func shouldWriteMarkdownFrontMatter(to fileURL: URL) -> Bool {
@@ -1902,7 +1929,7 @@ actor VaultIndexActor {
     }
 
     /// YAML-escape a title for front-matter: wrap in double quotes if it contains special chars.
-    private func yamlEscapeTitle(_ title: String) -> String {
+    private nonisolated static func yamlEscapeTitle(_ title: String) -> String {
         let needsQuoting = title.contains(":") || title.contains("\"") ||
                             title.contains("#") || title.hasPrefix(" ") ||
                             title.hasSuffix(" ") || title.contains("'") ||
@@ -1912,6 +1939,15 @@ actor VaultIndexActor {
             return "\"\(escaped)\""
         }
         return title
+    }
+
+    private nonisolated static func yamlEscapeFrontMatterValue(_ value: String) -> String {
+        let normalized = value
+            .replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return yamlEscapeTitle(normalized)
     }
 
     /// Count words in text content. Use native tokenization for normal notes and

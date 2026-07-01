@@ -30,6 +30,10 @@ struct RetrievalDiagnosticsTests {
 
     @Test("retrieval surfaces do not publish raw thrown errors")
     func retrievalSurfacesDoNotPublishRawThrownErrors() throws {
+        let diagnostics = try loadMirroredSourceTextFile("Epistemos/Engine/RetrievalDiagnostics.swift")
+        #expect(diagnostics.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(diagnostics.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+
         let paths = [
             "Epistemos/Eidos/EidosBridge.swift",
             "Epistemos/Eidos/EidosWiring.swift",

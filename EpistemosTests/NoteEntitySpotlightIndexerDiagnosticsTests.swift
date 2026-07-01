@@ -33,6 +33,8 @@ struct NoteEntitySpotlightIndexerDiagnosticsTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/NoteEntitySpotlightIndexer.swift")
 
         #expect(source.contains("NoteEntitySpotlightDiagnostics.logMessage"))
+        #expect(source.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
     }

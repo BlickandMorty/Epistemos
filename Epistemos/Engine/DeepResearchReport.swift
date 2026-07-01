@@ -47,11 +47,15 @@ enum DeepResearchReportBounds {
     }
 
     private static func capped(_ value: String, limit: Int) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(limit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > limit else {
             return trimmed
         }
-        return String(trimmed.prefix(limit)) + "..."
+        guard limit > 3 else {
+            return String(trimmed.prefix(limit))
+        }
+        return String(trimmed.prefix(limit - 3)) + "..."
     }
 }
 

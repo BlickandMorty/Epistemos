@@ -108,11 +108,11 @@ struct DeepResearchReportRendererTests {
             DeepResearchOutcome(objective: "obj", report: longReport, findings: findings)
         )
 
-        #expect(out.hasPrefix(String(repeating: "r", count: DeepResearchReportBounds.maxReportCharacters) + "..."))
         #expect(out.contains("**Sources** · \(DeepResearchReportBounds.maxRenderedFindings) sub-questions"))
-        #expect(out.contains("**[\(String(repeating: "i", count: DeepResearchReportBounds.maxFindingIDCharacters))...]**"))
-        #expect(out.contains(String(repeating: "q", count: DeepResearchReportBounds.maxFindingQuestionCharacters) + "..."))
-        #expect(out.contains(String(repeating: "b", count: DeepResearchReportBounds.maxFindingBodyCharacters) + "..."))
+        #expect(out.hasPrefix(String(repeating: "r", count: DeepResearchReportBounds.maxReportCharacters - 3) + "..."))
+        #expect(out.contains("**[\(String(repeating: "i", count: DeepResearchReportBounds.maxFindingIDCharacters - 3))...]**"))
+        #expect(out.contains(String(repeating: "q", count: DeepResearchReportBounds.maxFindingQuestionCharacters - 3) + "..."))
+        #expect(out.contains(String(repeating: "b", count: DeepResearchReportBounds.maxFindingBodyCharacters - 3) + "..."))
         #expect(out.contains("2 additional source entries omitted from display"))
         #expect(!out.contains("q\(DeepResearchReportBounds.maxRenderedFindings)"))
     }

@@ -30,6 +30,10 @@ struct EngineLogDiagnosticsTests {
 
     @Test("Dataview and KnowledgeIndex logs route through redacted diagnostics")
     func dataviewAndKnowledgeIndexLogsRouteThroughRedactedDiagnostics() throws {
+        let diagnostics = try loadMirroredSourceTextFile("Epistemos/Engine/EngineLogDiagnostics.swift")
+        #expect(diagnostics.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(diagnostics.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+
         let dataview = try loadMirroredSourceTextFile("Epistemos/Engine/DataviewService.swift")
         let knowledgeIndex = try loadMirroredSourceTextFile("Epistemos/Engine/KnowledgeIndexBuilder.swift")
 
