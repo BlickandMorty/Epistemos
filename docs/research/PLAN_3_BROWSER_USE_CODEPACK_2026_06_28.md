@@ -125,7 +125,7 @@ through a bounded no-follow regular-file descriptor before reporting the signed 
 Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
 `build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>
 --theme Ocean`, probes the Gradio root document over loopback with a 5-600 second timeout bound, writes non-secret
-evidence through a no-follow result descriptor with a bounded root-body sample, verifies any supplied signed bundle with deep strict `codesign`, rejects symlinked signature evidence, and
+evidence through no-follow descriptors with bounded root-body/log samples staged from a private state directory, verifies any supplied signed bundle with deep strict `codesign`, rejects symlinked signature evidence, and
 always tears down the child process. A local WKWebView fixture dry-run shell smoke also landed: it loads a loopback fixture in the
 isolated named-store shell, submits a no-provider fixture action, and verifies non-loopback navigation blocking. A real
 Gradio WKWebView shell/control smoke also landed: it starts the staged loopback Gradio server, loads it in the
@@ -553,7 +553,7 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Loopback server smoke harness: `scripts/browser-use-pro-loopback-smoke.sh` starts the staged Pro `webui.py` on
   `127.0.0.1`, forces the staged Playwright browser path, disables dotenv reloading and Gradio analytics, polls only the
   loopback root URL with a 5-600 second timeout bound, writes non-secret `result.json`/`webui.log` evidence with bounded
-  body sampling and a no-follow result writer, rejects symlinked caller artifact directories before writing evidence,
+  body/log sampling through no-follow evidence writers after staging probe output in a private state directory, rejects symlinked caller artifact directories before writing evidence,
   and kills the child process on pass, timeout, or early exit. This is complemented by the real Gradio WKWebView shell/control smoke
   and the no-provider task-submit dry-run smoke.
 - Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream

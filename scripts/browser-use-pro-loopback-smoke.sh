@@ -149,9 +149,114 @@ state_root="$(mktemp -d "${TMPDIR:-/tmp}/epistemos-browser-use-pro-state.XXXXXX"
 log_file="$artifact_dir/webui.log"
 body_file="$artifact_dir/root.html"
 result_file="$artifact_dir/result.json"
+state_log_file="$state_root/webui.log"
+probe_body_file="$state_root/root.html"
+max_log_evidence_bytes=$((1024 * 1024))
+max_body_evidence_bytes=$((1024 * 1024))
 loopback_url="http://127.0.0.1:$port/"
 webui_pid=""
-rm -f "$log_file" "$body_file" "$result_file"
+chmod 700 "$state_root"
+
+copy_evidence_no_follow() {
+  local source_path="$1"
+  local destination_path="$2"
+  local label="$3"
+  local max_bytes="$4"
+  SOURCE_PATH="$source_path" \
+  DESTINATION_PATH="$destination_path" \
+  EVIDENCE_LABEL="$label" \
+  MAX_EVIDENCE_BYTES="$max_bytes" \
+  PYTHONDONTWRITEBYTECODE=1 \
+  "$python_bin" - <<'PY'
+import os
+import stat
+from pathlib import Path
+
+source = Path(os.environ["SOURCE_PATH"])
+destination = Path(os.environ["DESTINATION_PATH"])
+label = os.environ["EVIDENCE_LABEL"]
+max_bytes = int(os.environ["MAX_EVIDENCE_BYTES"])
+if max_bytes <= 0:
+    raise SystemExit(f"{label} byte cap is invalid")
+
+read_flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+read_fd = os.open(source, read_flags)
+try:
+    metadata = os.fstat(read_fd)
+    if not stat.S_ISREG(metadata.st_mode):
+        raise SystemExit(f"{label} source is not a regular file")
+    with os.fdopen(read_fd, "rb") as handle:
+        read_fd = -1
+        data = handle.read(max_bytes + 1)
+finally:
+    if read_fd >= 0:
+        os.close(read_fd)
+
+if len(data) > max_bytes:
+    data = data[:max_bytes] + b"\n[epistemos-smoke: evidence truncated]\n"
+
+write_flags = (
+    os.O_WRONLY
+    | os.O_CREAT
+    | os.O_TRUNC
+    | getattr(os, "O_CLOEXEC", 0)
+    | getattr(os, "O_NOFOLLOW", 0)
+)
+write_fd = os.open(destination, write_flags, 0o600)
+try:
+    metadata = os.fstat(write_fd)
+    if not stat.S_ISREG(metadata.st_mode):
+        raise SystemExit(f"{label} destination is not a regular file")
+    with os.fdopen(write_fd, "wb") as handle:
+        write_fd = -1
+        handle.write(data)
+finally:
+    if write_fd >= 0:
+        os.close(write_fd)
+PY
+}
+
+body_has_marker_no_follow() {
+  local source_path="$1"
+  SOURCE_PATH="$source_path" \
+  PYTHONDONTWRITEBYTECODE=1 \
+  "$python_bin" - <<'PY'
+import os
+import stat
+import sys
+from pathlib import Path
+
+max_sample_bytes = 256 * 1024
+path = Path(os.environ["SOURCE_PATH"])
+flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+fd = os.open(path, flags)
+try:
+    metadata = os.fstat(fd)
+    if not stat.S_ISREG(metadata.st_mode):
+        raise SystemExit(1)
+    with os.fdopen(fd, "rb") as handle:
+        fd = -1
+        body = handle.read(max_sample_bytes)
+finally:
+    if fd >= 0:
+        os.close(fd)
+
+lower_body = body.decode("utf-8", errors="replace").lower()
+if any(marker in lower_body for marker in ("gradio", "browser use webui", "<html")):
+    sys.exit(0)
+sys.exit(1)
+PY
+}
+
+sync_log_evidence() {
+  copy_evidence_no_follow "$state_log_file" "$log_file" "web-ui log evidence" "$max_log_evidence_bytes"
+}
+
+sync_body_evidence() {
+  if [[ -f "$probe_body_file" ]]; then
+    copy_evidence_no_follow "$probe_body_file" "$body_file" "root body evidence" "$max_body_evidence_bytes"
+  fi
+}
 
 write_result() {
   local passed="$1"
@@ -269,6 +374,8 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$state_root/home" "$state_root/browser-use-home"
+: >"$state_log_file"
+: >"$probe_body_file"
 
 (
   cd "$state_root"
@@ -282,21 +389,26 @@ mkdir -p "$state_root/home" "$state_root/browser-use-home"
   BROWSER_USE_VERSION_CHECK=false \
   GRADIO_ANALYTICS_ENABLED=False \
   "$python_bin" "$webui_py" --ip 127.0.0.1 --port "$port" --theme Ocean
-) >"$log_file" 2>&1 &
+) >"$state_log_file" 2>&1 &
 webui_pid=$!
 
 deadline=$((SECONDS + timeout_seconds))
 http_status=""
 while (( SECONDS < deadline )); do
   if ! kill -0 "$webui_pid" 2>/dev/null; then
+    sync_log_evidence
+    sync_body_evidence
     write_result false "web-ui process exited before becoming healthy" "$http_status"
     echo "browser-use Pro Web UI exited before readiness; evidence: $result_file" >&2
-    tail -n 40 "$log_file" >&2 || true
+    tail -n 40 "$state_log_file" >&2 || true
     exit 2
   fi
 
-  http_status="$(curl -fsS --max-time 2 -o "$body_file" -w '%{http_code}' "$loopback_url" 2>/dev/null || true)"
-  if [[ "$http_status" == "200" ]] && grep -qi 'gradio\|browser use webui\|<html' "$body_file"; then
+  : >"$probe_body_file"
+  http_status="$(curl -fsS --max-time 2 -o "$probe_body_file" -w '%{http_code}' "$loopback_url" 2>/dev/null || true)"
+  sync_body_evidence
+  if [[ "$http_status" == "200" ]] && body_has_marker_no_follow "$probe_body_file"; then
+    sync_log_evidence
     write_result true "loopback Gradio root answered" "$http_status"
     echo "browser-use Pro loopback smoke passed: $loopback_url"
     echo "evidence: $result_file"
@@ -306,7 +418,9 @@ while (( SECONDS < deadline )); do
   sleep 1
 done
 
+sync_log_evidence
+sync_body_evidence
 write_result false "timed out waiting for loopback Gradio root" "$http_status"
 echo "browser-use Pro loopback smoke timed out; evidence: $result_file" >&2
-tail -n 40 "$log_file" >&2 || true
+tail -n 40 "$state_log_file" >&2 || true
 exit 2
