@@ -311,6 +311,7 @@ extension GooseWebSurfaceView {
         let mutedForeground = cssColor(resolved.mutedForeground)
         let border = cssColor(resolved.border)
         let accent = cssColor(resolved.accent)
+        let quietFocus = "color-mix(in srgb, \(accent) 7%, \(surfaceStrong))"
         let inverseBackground = cssColor(resolved.foreground)
         let inverseText = cssColor(resolved.background)
         let colorScheme = theme.isDark ? "dark" : "light"
@@ -329,20 +330,35 @@ extension GooseWebSurfaceView {
           --color-text-tertiary: \(mutedForeground) !important;
           --color-text-inverse: \(inverseText) !important;
           --color-text-info: \(accent) !important;
-          --color-border-primary: \(border) !important;
-          --color-border-secondary: \(border) !important;
-          --color-border-tertiary: \(border) !important;
-          --color-border-info: \(accent) !important;
-          --color-ring-primary: \(accent) !important;
-          --color-ring-secondary: \(accent) !important;
-          --color-ring-info: \(accent) !important;
+          --color-border-primary: transparent !important;
+          --color-border-secondary: transparent !important;
+          --color-border-tertiary: transparent !important;
+          --color-border-info: transparent !important;
+          --color-ring-primary: transparent !important;
+          --color-ring-secondary: transparent !important;
+          --color-ring-info: transparent !important;
           --epistemos-accent: \(accent) !important;
+          --epistemos-quiet-focus: \(quietFocus) !important;
+          --epistemos-radius-base: 11px !important;
+          --epistemos-radius-control: 8px !important;
+          --epistemos-radius-panel: 9px !important;
           --epistemos-theme-background: \(background) !important;
           --epistemos-theme-surface: \(surface) !important;
           --epistemos-theme-surface-strong: \(surfaceStrong) !important;
           --epistemos-theme-foreground: \(foreground) !important;
           --epistemos-theme-muted-foreground: \(mutedForeground) !important;
-          --epistemos-theme-border: \(border) !important;
+          --epistemos-theme-border: transparent !important;
+          --epistemos-theme-border-source: \(border) !important;
+        }
+        :root :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus,
+        :root :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible,
+        .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus,
+        .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible {
+          outline: none !important;
+          box-shadow: none !important;
+          --tw-ring-color: transparent !important;
+          --tw-ring-shadow: 0 0 #0000 !important;
+          --tw-ring-offset-shadow: 0 0 #0000 !important;
         }
         * { -webkit-font-smoothing: antialiased; }
         html,

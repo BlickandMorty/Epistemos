@@ -37,10 +37,12 @@ final class GooseSurfaceWindowController {
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.minSize = NSSize(width: 760, height: 520)
-        window.appearance = NSAppearance(named: bootstrap.uiState.theme.isDark ? .darkAqua : .aqua)
+        applyWindowTheme(window, theme: bootstrap.uiState.theme)
 
-        let view = GooseWebSurfaceView(theme: bootstrap.uiState.theme)
-            .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
+        let view = GooseSurfaceHostedRootView(uiState: bootstrap.uiState) { [weak self, weak window] theme in
+            guard let self, let window else { return }
+            self.applyWindowTheme(window, theme: theme)
+        }
         let host = NSHostingView(rootView: view)
         host.sizingOptions = .minSize
         host.wantsLayer = true
@@ -56,7 +58,6 @@ final class GooseSurfaceWindowController {
         window.contentView?.superview?.layer?.cornerRadius = 18
         window.contentView?.superview?.layer?.cornerCurve = .continuous
         window.contentView?.superview?.layer?.masksToBounds = true
-        WindowThemeStyler.refreshChrome(of: window)
 
         observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
@@ -80,6 +81,11 @@ final class GooseSurfaceWindowController {
         window = nil
     }
 
+    private func applyWindowTheme(_ window: NSWindow, theme: EpistemosTheme) {
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        WindowThemeStyler.refreshChrome(of: window)
+    }
+
     private func presentUnavailableAlert(message: String) {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -87,5 +93,25 @@ final class GooseSurfaceWindowController {
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+}
+
+@MainActor
+private struct GooseSurfaceHostedRootView: View {
+    let uiState: UIState
+    let onThemeChange: (EpistemosTheme) -> Void
+
+    var body: some View {
+        let theme = uiState.theme
+        GooseWebSurfaceView(theme: theme)
+            .preferredColorScheme(uiState.preferredColorScheme)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
+            .onAppear {
+                onThemeChange(theme)
+            }
+            .onChange(of: theme) { _, newTheme in
+                onThemeChange(newTheme)
+            }
     }
 }
