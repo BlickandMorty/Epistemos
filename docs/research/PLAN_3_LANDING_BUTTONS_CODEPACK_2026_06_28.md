@@ -23,7 +23,8 @@
 ## `Epistemos/Views/Landing/LandingFeatureButtons.swift` [DELIVERED]
 - **`enum LandingFeatureButton: CaseIterable`** — one case per feature (`pdfImport`/`arxiv`/`provenance`/`extensions`/
   `vaultMCP`/`browser`/`browserUsePro`/`meetingNote`/`voice`). Each derives
-  `title`/`glyph`(reuse `PixelGlyphKind`)/theme-token `accent(in:)`/`haptic`/`isProOnly`/`isAvailableInThisBuild` (compile-time).
+  `title`/`glyph`(reuse `PixelGlyphKind`)/theme-token `accent(in:)`/`haptic`/`isProOnly`/`isAvailableInThisBuild`;
+  meeting additionally uses `MeetingNoteLandingGateStatus` for macOS 26 SpeechAnalyzer plus microphone denial checks.
   Adding a feature = **1 enum case + 1 switch line**.
 - **`LandingFeatureButtonTile`** — wraps the existing `PixelLandingCommandTile` (unchanged) + overlays a "PRO" pill when
   `isProOnly && !isAvailableInThisBuild`; `.help` text honest. Pro-only feature tiles do not also reuse the shortcut

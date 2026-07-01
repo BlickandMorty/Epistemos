@@ -7,6 +7,7 @@ struct MeetingSTTCodepackPlan3Tests {
     func codepackUsesCanonicalVoiceAndCaptureSeams() throws {
         let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_MEETING_STT_CODEPACK_2026_06_28.md")
         let view = try loadMirroredSourceTextFile("Epistemos/Views/Meeting/MeetingNoteView.swift")
+        let buttons = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingFeatureButtons.swift")
 
         for required in [
             "LiveVoiceInputService",
@@ -46,6 +47,9 @@ struct MeetingSTTCodepackPlan3Tests {
         #expect(!view.contains("Divider()"))
         #expect(!view.contains("textBackgroundColor"))
         #expect(!view.contains(".foregroundStyle(.secondary)"))
+        #expect(buttons.contains("MeetingNoteLandingGateStatus.status().isActive"))
+        #expect(buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
+        #expect(buttons.contains("microphone access in System Settings"))
     }
 
     @Test("codepack preserves Plan 3 boundaries and MAS honesty")

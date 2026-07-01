@@ -34,7 +34,9 @@
   dividers. The toolbar status label truncates long bounded diagnostics instead of expanding the row, and Save is
   disabled after a successful `.saved` state until the user starts a new capture so the same transcript cannot be saved
   repeatedly. The saved state reports the created note title through the same bounded toolbar status path. A Settings
-  row is not required for the first pass. When the window disappears, the service drains any pending final/partial text
+  row is not required for the first pass. The landing button checks macOS 26 SpeechAnalyzer availability plus denied or
+  restricted microphone authorization before opening the surface, and otherwise reports a bounded unavailable reason.
+  When the window disappears, the service drains any pending final/partial text
   into the meeting buffer and tears down the shared voice facade so stale shared transcript state cannot leak into a
   later capture surface.
 

@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Testing
 
@@ -44,6 +45,7 @@ struct LandingFeatureButtonsPlan3Tests {
 
         #expect(buttons.contains("brand: feature.integrationBrand"))
         #expect(buttons.contains("LandingFeatureButtonTextPolicy"))
+        #expect(buttons.contains("MeetingNoteLandingGateStatus"))
         #expect(buttons.contains("maxUnavailableMessageCharacters"))
         #expect(buttons.contains("maxHelpTextCharacters"))
         #expect(buttons.contains("String(value.prefix(limit + 1))"))
@@ -94,6 +96,9 @@ struct LandingFeatureButtonsPlan3Tests {
 
         #expect(buttons.contains("LiteParseImportGateStatus.status().isActive"))
         #expect(buttons.contains("ArxivPullGateStatus.status().isActive"))
+        #expect(buttons.contains("MeetingNoteLandingGateStatus.status().isActive"))
+        #expect(buttons.contains("MeetingNoteLandingGateStatus.status().detail"))
+        #expect(buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
         #expect(buttons.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(buttons.contains("case .browser:"))
         #expect(buttons.contains("case .browserUsePro:"))
@@ -121,6 +126,39 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(LandingFeatureButtonTextPolicy.helpText(" \n ") == "Feature unavailable.")
         #expect(LandingFeatureButtonTextPolicy.unavailableMessage("Pro\nfeature\tlocked\u{0007}") == "Pro feature locked")
         #expect(LandingFeatureButtonTextPolicy.helpText("Open\nfeature\tsettings\u{0007}") == "Open feature settings")
+    }
+
+    @Test("meeting landing gate honors SpeechAnalyzer and microphone authorization")
+    func meetingLandingGateHonorsSpeechAnalyzerAndMicrophoneAuthorization() {
+        let sdkUnavailable = MeetingNoteLandingGateStatus.status(
+            speechAnalyzerAvailable: false,
+            audioAuthorizationStatus: .authorized
+        )
+        #expect(!sdkUnavailable.isActive)
+        #expect(sdkUnavailable.detail.contains("macOS 26 SpeechAnalyzer"))
+
+        let denied = MeetingNoteLandingGateStatus.status(
+            speechAnalyzerAvailable: true,
+            audioAuthorizationStatus: .denied
+        )
+        #expect(!denied.isActive)
+        #expect(denied.detail.contains("microphone access"))
+
+        let restricted = MeetingNoteLandingGateStatus.status(
+            speechAnalyzerAvailable: true,
+            audioAuthorizationStatus: .restricted
+        )
+        #expect(!restricted.isActive)
+        #expect(restricted.headline.contains("microphone unavailable"))
+
+        #expect(MeetingNoteLandingGateStatus.status(
+            speechAnalyzerAvailable: true,
+            audioAuthorizationStatus: .notDetermined
+        ).isActive)
+        #expect(MeetingNoteLandingGateStatus.status(
+            speechAnalyzerAvailable: true,
+            audioAuthorizationStatus: .authorized
+        ).isActive)
     }
 
     @Test("voice landing shortcut opens the real voice settings pane")

@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 nonisolated enum LandingFeatureButtonTextPolicy {
@@ -42,6 +43,55 @@ nonisolated enum LandingFeatureButtonTextPolicy {
             }
         }
         return normalized
+    }
+}
+
+nonisolated enum MeetingNoteLandingGateStatus {
+    struct Status: Equatable, Sendable {
+        let isActive: Bool
+        let headline: String
+        let detail: String
+    }
+
+    static var isSpeechAnalyzerAvailable: Bool {
+        if #available(macOS 26.0, *) {
+            return true
+        }
+        return false
+    }
+
+    static func status(
+        speechAnalyzerAvailable: Bool = isSpeechAnalyzerAvailable,
+        audioAuthorizationStatus: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+    ) -> Status {
+        guard speechAnalyzerAvailable else {
+            return Status(
+                isActive: false,
+                headline: "Meeting notes: unavailable",
+                detail: "Meeting notes require macOS 26 SpeechAnalyzer for on-device transcription."
+            )
+        }
+
+        switch audioAuthorizationStatus {
+        case .denied, .restricted:
+            return Status(
+                isActive: false,
+                headline: "Meeting notes: microphone unavailable",
+                detail: "Meeting notes require microphone access in System Settings before on-device transcription can start."
+            )
+        case .notDetermined, .authorized:
+            return Status(
+                isActive: true,
+                headline: "Meeting notes: ready",
+                detail: "Meeting notes use macOS 26 SpeechAnalyzer for on-device transcription. Microphone permission is requested when recording starts."
+            )
+        @unknown default:
+            return Status(
+                isActive: false,
+                headline: "Meeting notes: microphone status unknown",
+                detail: "Meeting notes are unavailable until microphone authorization can be checked."
+            )
+        }
     }
 }
 
@@ -139,10 +189,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .provenance, .extensions:
             return true
         case .meetingNote:
-            if #available(macOS 26.0, *) {
-                return true
-            }
-            return false
+            return MeetingNoteLandingGateStatus.status().isActive
         case .browser, .voice:
             return true
         }
@@ -161,7 +208,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .vaultMCP:
             return "vault MCP is available in Epistemos Pro."
         case .meetingNote:
-            return "Meeting notes require macOS 26 SpeechAnalyzer."
+            return MeetingNoteLandingGateStatus.status().detail
         case .voice:
             return "Voice settings are unavailable in this build."
         case .provenance, .extensions:
