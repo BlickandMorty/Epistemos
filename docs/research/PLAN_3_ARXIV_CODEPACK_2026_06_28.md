@@ -42,7 +42,8 @@
   metadata-label strings are bounded before trimming, and ellipsis stays inside configured caps. The sheet's
   close/search/add controls render through shared `ToolbarCapsuleButton` chrome, the search field uses plain flat
   theme-token input chrome instead of a rounded bordered field, brand/status/result metadata reads `UIState` theme
-  tokens, and result rows use spacing rather than hard `Divider()` rules.
+  tokens, and result rows use spacing rather than hard `Divider()` rules. Sheet disappearance cancels live work and
+  immediately clears busy indicators so a closing search sheet cannot leave stale search or per-paper ingest state.
 - **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,
   explicit `0/false/no/off` kill switch. Search+metadata+download are HTTPS-only; note creation still requires real
   markdown from the local PDF importer. If the parser bridge is absent in a Swift-only host or the parser rejects the

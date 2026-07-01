@@ -250,6 +250,8 @@ struct ArxivSearchView: View {
             task.cancel()
         }
         ingestTasks.removeAll()
+        isSearching = false
+        ingestingIDs.removeAll()
     }
 
     private func search() async {

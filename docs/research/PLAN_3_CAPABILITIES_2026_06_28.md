@@ -354,7 +354,7 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   written into the note body is bounded before file materialization; successful ingest status reports the vault-relative `source_pdf` path; the search field uses flat theme-token input chrome; request/parser/status failures are mapped to bounded
   domain/code diagnostics; downloaded temp PDFs are opened with `O_NOFOLLOW`,
   regular-file checked, symlink rejected, capped at 128 MiB, magic-sniffed, and renamed to `.pdf` before parsing;
-  failures create no note and unexpected external errors are reported with bounded domain/code diagnostics instead of
+  sheet close cancels live work and clears search/ingest busy indicators; failures create no note and unexpected external errors are reported with bounded domain/code diagnostics instead of
   raw localized filesystem strings.
 - **Meeting/lecture note — SHIPPED (Pass 9):** user-driven on-device Apple Speech/SpeechAnalyzer capture through
   `LiveVoiceInputService`, buffered by `MeetingNoteCaptureService`, then saved through `TextCapturePipeline` as a
