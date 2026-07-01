@@ -4,17 +4,15 @@ import OSLog
 
 // MARK: - EpistemosSpeechSynthesizer
 //
-// Wave 9.1 — Apple-native TTS via AVSpeechSynthesizer.
-// Wave 9.1.b — premium-voice catalogue + interactive playback controls.
+// Wave 9.1 - AVSpeech catalogue and preference compatibility.
+// Wave 9.1.b - premium-voice catalogue + interactive playback controls.
 // Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. Until a
 // native Kokoro synthesis engine is wired, speak() honestly refuses playback
 // instead of falling back to Apple's basic AVSpeech voice.
 //
-// Per the W9 verdict (docs/WAVE_9_POLISH_AND_NATIVE.md): of the eight
-// Apple-native ML / capture frameworks Epistemos already integrates,
-// AVSpeechSynthesizer was the lone holdout. Quality tier is opportunistically
-// upgraded — we prefer Premium > Enhanced > Default and surface a download hint
-// when a Premium voice exists in Apple's catalogue but is not yet locally installed.
+// Earlier W9 builds used AVSpeechSynthesizer for read-aloud. The helpers below
+// remain so existing voice preferences and Personal Voice authorization state
+// can migrate cleanly, but they are not the shipped read-aloud engine.
 //
 // ## Why a singleton actor
 //
@@ -35,8 +33,8 @@ import OSLog
 //   subscribe to `state` (Observation) for UI updates.
 // - Does NOT auto-download Premium voices: macOS surfaces those via
 //   System Settings → Spoken Content → System Voice → Manage Voices.
-//   We surface the install hint via `voiceQualityHint` so the
-//   Settings UI can deep-link the user there.
+//   `voiceQualityHint` reports legacy catalogue quality without advertising
+//   AVSpeech as a runtime fallback.
 
 @MainActor
 @Observable
@@ -350,27 +348,27 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }.first?.identifier
     }
 
-    /// Hint string for the Settings UI: tells the user whether they
-    /// have Premium voices available locally and, if not, points them
-    /// at System Settings → Spoken Content → System Voice → Manage
-    /// Voices to install one. Returned text is plain English; callers
-    /// can render it in a HelpRow without any logic.
+    /// Hint string for legacy voice-catalogue surfaces. It reports local Apple
+    /// catalogue quality without presenting AVSpeech as the shipped TTS runtime.
     public static func voiceQualityHint() -> (tier: VoiceQualityTier, message: String) {
         let voices = AVSpeechSynthesisVoice.speechVoices()
         let hasPremium = voices.contains { $0.quality == .premium }
         if hasPremium {
-            return (.premium, "Premium voice installed — using Apple’s highest-quality TTS.")
+            return (
+                .premium,
+                "Premium Apple voice catalogue is installed for legacy selection only. Shipped text-to-speech remains Kokoro-only; AVSpeech is not used as a fallback."
+            )
         }
         let hasEnhanced = voices.contains { $0.quality == .enhanced }
         if hasEnhanced {
             return (
                 .enhanced,
-                "Enhanced voice installed. For higher quality, install a Premium voice in System Settings → Spoken Content → Manage Voices."
+                "Enhanced Apple voice catalogue is installed for legacy selection only. Shipped text-to-speech remains Kokoro-only; AVSpeech is not used as a fallback."
             )
         }
         return (
             .default,
-            "Only the default Compact voice is installed. Open System Settings → Spoken Content → Manage Voices to download an Enhanced or Premium voice."
+            "Only the default Apple voice catalogue entry is installed for legacy selection. Shipped text-to-speech remains Kokoro-only; AVSpeech is not used as a fallback."
         )
     }
 
