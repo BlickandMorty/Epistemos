@@ -6162,6 +6162,52 @@ if (navigationSource.includes('getSession({ path: { session_id: activeSessionId 
 fs.writeFileSync(navigationPath, navigationSource);
 NODE
 
+ACP_CHAT_SESSION_HOOK="$WORK_ROOT/ui/desktop/src/hooks/useAcpChatSession.ts"
+node - "$ACP_CHAT_SESSION_HOOK" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const importWithRest = "import { Message, Session, TokenState, updateFromSession } from '../api';";
+const importWithoutRest = "import { Message, Session, TokenState } from '../api';";
+if (source.includes(importWithRest)) {
+  source = source.replace(importWithRest, importWithoutRest);
+}
+
+const restEffectAnchor = `  useEffect(() => {
+    if (session) {
+      updateFromSession({
+        body: {
+          session_id: session.id,
+        },
+        throwOnError: true,
+      });
+    }
+  }, [session]);
+
+`;
+const restEffectReplacement = `  // epistemos-acp-skip-update-from-session-rest: loadAcpSession already reconciles
+  // the ACP session into the live chat store. goose serve does not mount the
+  // retired REST /agent/update_from_session endpoint.
+
+`;
+if (!source.includes('epistemos-acp-skip-update-from-session-rest')) {
+  if (!source.includes(restEffectAnchor)) {
+    throw new Error('useAcpChatSession updateFromSession REST anchor not found');
+  }
+  source = source.replace(restEffectAnchor, restEffectReplacement);
+}
+
+if (source.includes('updateFromSession')) {
+  throw new Error('useAcpChatSession still calls dead REST updateFromSession');
+}
+if (!source.includes('epistemos-acp-skip-update-from-session-rest')) {
+  throw new Error('useAcpChatSession staged source is missing ACP updateFromSession skip marker');
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 SESSIONS_VIEW="$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"
 node - "$SESSIONS_VIEW" <<'NODE'
 const fs = require('fs');
@@ -7683,6 +7729,11 @@ JS
     grep -q "acpGetSessionListItem(activeSessionId)" "$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"
     if grep -q "getSession({ path: { session_id: activeSessionId }" "$WORK_ROOT/ui/desktop/src/hooks/useNavigationSessions.ts"; then
         echo "Goose Web UI navigation hook still calls REST getSession for active sessions." >&2
+        exit 1
+    fi
+    grep -q "epistemos-acp-skip-update-from-session-rest" "$WORK_ROOT/ui/desktop/src/hooks/useAcpChatSession.ts"
+    if grep -q "updateFromSession" "$WORK_ROOT/ui/desktop/src/hooks/useAcpChatSession.ts"; then
+        echo "Goose Web UI ACP chat hook still calls REST updateFromSession." >&2
         exit 1
     fi
     grep -q "epistemos-acp-session-details-route-to-chat" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionsView.tsx"

@@ -453,6 +453,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("client.goose.sessionInfo_unstable({ sessionId })"))
         #expect(stageScript.contains("acpGetSessionListItem(activeSessionId)"))
         #expect(stageScript.contains("Goose Web UI navigation hook still calls REST getSession for active sessions."))
+        #expect(stageScript.contains("epistemos-acp-skip-update-from-session-rest"))
+        #expect(stageScript.contains("Goose Web UI ACP chat hook still calls REST updateFromSession."))
         #expect(stageScript.contains("epistemos-acp-session-details-route-to-chat"))
         #expect(stageScript.contains("epistemos-acp-hide-prompts-settings"))
         #expect(stageScript.contains("prompts: USE_ACP_CHAT ? 'models' : 'prompts'"))
