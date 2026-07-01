@@ -119,6 +119,8 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("required-source availability metadata that survives data-feed refresh"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("structured prompt context records"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("stable drag context IDs"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("validated read-only context drops"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("feed-envelope source/query/limit matching"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("selected-preview prompt targeting"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("source-kind compact feed status"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("source-kind compact feed status with required-source availability"))
