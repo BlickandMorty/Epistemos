@@ -585,6 +585,90 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return String((result && result.provenance) || '').trim() || feedProvenance(meta);
     }
 
+    function contextStateScopeComponent(value, fallback) {
+      const text = String(value || fallback || '').trim().slice(0, 160);
+      return (text || fallback || 'workspace').replace(/[^A-Za-z0-9._:-]+/g, '_');
+    }
+
+    function contextStateScope() {
+      const data = HTMLWorkspace.data || {};
+      const meta = data._epistemos || {};
+      const source = contextStateScopeComponent(meta.source, 'feed');
+      const query = contextStateScopeComponent(meta.query, 'unscoped');
+      const limit = contextStateScopeComponent(meta.limit, 'limit');
+      return `vault-context.${source}.${query}.${limit}`;
+    }
+
+    function boundedStoredContextKey(value) {
+      const key = String(value || '').trim();
+      return key && key.length <= 1024 ? key : '';
+    }
+
+    function uniqueBoundedContextKeys(values) {
+      const keys = [];
+      (Array.isArray(values) ? values : []).forEach((value) => {
+        const key = boundedStoredContextKey(value);
+        if (key && !keys.includes(key)) { keys.push(key); }
+      });
+      return keys.slice(-pinnedContextLimit);
+    }
+
+    function boundedStoredContextMap(value, valueLimit = 1024) {
+      const output = {};
+      if (!value || typeof value !== 'object' || Array.isArray(value)) { return output; }
+      Object.entries(value).slice(0, 24).forEach(([rawID, rawValue]) => {
+        const sectionID = String(rawID || '').trim().slice(0, 128);
+        const text = String(rawValue || '').trim().slice(0, valueLimit);
+        if (sectionID && text) { output[sectionID] = text; }
+      });
+      return output;
+    }
+
+    function replaceObjectContents(target, next) {
+      Object.keys(target).forEach((key) => delete target[key]);
+      Object.assign(target, next);
+    }
+
+    let activeContextStateScope = null;
+
+    function syncPersistedContextState() {
+      const scope = contextStateScope();
+      if (activeContextStateScope === scope) { return; }
+      activeContextStateScope = scope;
+      pinnedContextKeys.splice(0, pinnedContextKeys.length);
+      replaceObjectContents(sectionContextKeys, {});
+      replaceObjectContents(sectionContextLabels, {});
+      contextDropKey = null;
+      const state = HTMLWorkspace.contextState?.load(scope);
+      if (!state) { return; }
+      if (state.unavailable) {
+        contextDropStatus = 'Stored context state unavailable for this preview.';
+        return;
+      }
+      pinnedContextKeys.push(...uniqueBoundedContextKeys(state.pinnedContextKeys));
+      replaceObjectContents(sectionContextKeys, boundedStoredContextMap(state.sectionContextKeys));
+      replaceObjectContents(sectionContextLabels, boundedStoredContextMap(state.sectionContextLabels, 160));
+      contextDropKey = boundedStoredContextKey(state.contextDropKey) || null;
+    }
+
+    function savePersistedContextState() {
+      const scope = contextStateScope();
+      activeContextStateScope = scope;
+      const didSave = HTMLWorkspace.contextState?.save(scope, {
+        pinnedContextKeys: uniqueBoundedContextKeys(pinnedContextKeys),
+        sectionContextKeys: boundedStoredContextMap(sectionContextKeys),
+        sectionContextLabels: boundedStoredContextMap(sectionContextLabels, 160),
+        contextDropKey: boundedStoredContextKey(contextDropKey)
+      });
+      if (!didSave) {
+        contextDropStatus = 'Context pins are active for this session only.';
+      }
+    }
+
+    function shouldValidateContextState(allResults, meta = {}) {
+      return allResults.length > 0 || meta.stale === false;
+    }
+
     function resultKey(result) {
       return [
         result.page_id,
@@ -831,20 +915,29 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       app.record(eventName, contextRecordAttributes(result, extra));
     }
 
-    function renderPinnedContext(allResults) {
+    function renderPinnedContext(allResults, meta = {}) {
       const host = HTMLWorkspace.q('[data-pinned-context]');
       if (!host) { return; }
       host.replaceChildren();
 
       const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
-      for (let index = pinnedContextKeys.length - 1; index >= 0; index -= 1) {
-        if (!byKey.has(pinnedContextKeys[index])) {
-          pinnedContextKeys.splice(index, 1);
+      let didPrunePinnedContext = false;
+      if (shouldValidateContextState(allResults, meta)) {
+        for (let index = pinnedContextKeys.length - 1; index >= 0; index -= 1) {
+          if (!byKey.has(pinnedContextKeys[index])) {
+            pinnedContextKeys.splice(index, 1);
+            didPrunePinnedContext = true;
+          }
         }
       }
+      if (didPrunePinnedContext) { savePersistedContextState(); }
 
       if (pinnedContextKeys.length === 0) {
         host.append(HTMLWorkspace.el('p', { class: 'empty' }, 'No pinned sources yet.'));
+        return;
+      }
+      if (allResults.length === 0) {
+        host.append(HTMLWorkspace.el('p', { class: 'empty' }, 'Pinned sources waiting for the current feed refresh.'));
         return;
       }
 
@@ -877,6 +970,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           const removeIndex = pinnedContextKeys.indexOf(key);
           if (removeIndex >= 0) {
             pinnedContextKeys.splice(removeIndex, 1);
+            savePersistedContextState();
           }
           renderVaultResults();
         });
@@ -898,6 +992,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         if (pinnedContextKeys.length > pinnedContextLimit) {
           pinnedContextKeys.splice(0, pinnedContextKeys.length - pinnedContextLimit);
         }
+        savePersistedContextState();
       }
     }
 
@@ -928,36 +1023,46 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       sectionContextKeys[sectionID] = key;
       sectionContextLabels[sectionID] = dropzoneContextLabel(dropzone);
       dropzone.dataset.contextKey = key;
+      savePersistedContextState();
     }
 
     function forgetContextKey(key) {
-      if (!key) { return; }
+      if (!key) { return false; }
+      let didForget = false;
       if (selectedResultKey === key) {
         selectedResultKey = null;
+        didForget = true;
       }
       for (let index = pinnedContextKeys.length - 1; index >= 0; index -= 1) {
         if (pinnedContextKeys[index] === key) {
           pinnedContextKeys.splice(index, 1);
+          didForget = true;
         }
       }
+      return didForget;
     }
 
-    function refreshContextDropStatus(allResults) {
+    function refreshContextDropStatus(allResults, meta = {}) {
+      if (!shouldValidateContextState(allResults, meta)) { return; }
       const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
+      let didPruneContextState = false;
       if (contextDropKey && !byKey.has(contextDropKey)) {
-        forgetContextKey(contextDropKey);
+        didPruneContextState = forgetContextKey(contextDropKey) || didPruneContextState;
         contextDropKey = null;
+        didPruneContextState = true;
         contextDropStatus = 'Dropped context is no longer in the current data.json feed.';
       }
       Object.keys(sectionContextKeys).forEach((sectionID) => {
         const staleKey = sectionContextKeys[sectionID];
         if (byKey.has(staleKey)) { return; }
         const sectionLabel = sectionContextLabels[sectionID] || sectionID;
-        forgetContextKey(staleKey);
+        didPruneContextState = forgetContextKey(staleKey) || didPruneContextState;
         delete sectionContextKeys[sectionID];
         delete sectionContextLabels[sectionID];
+        didPruneContextState = true;
         contextDropStatus = `Dropped context for ${sectionLabel} is no longer in the current data.json feed.`;
       });
+      if (didPruneContextState) { savePersistedContextState(); }
     }
 
     function hasContextDrag(event) {
@@ -1033,6 +1138,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       selectedResultKey = key;
       pinContextKey(key);
       bindDropzoneContext(dropzone, key);
+      savePersistedContextState();
       recordContextEvent('workspace.context.drop', result, {
         section: dropzone ? dropzoneContextLabel(dropzone) : 'workspace'
       });
@@ -1144,7 +1250,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const data = HTMLWorkspace.data || {};
       const meta = data._epistemos || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
-      refreshContextDropStatus(allResults);
+      syncPersistedContextState();
+      refreshContextDropStatus(allResults, meta);
       renderContextTabs(allResults, meta);
       const results = sortedResults(visibleResults(allResults));
       const displayedResults = sectionAugmentedResults('vault-results', results, allResults);
@@ -1166,7 +1273,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const selectedResult = activeResult(displayedResults);
       renderContextPicker(displayedResults, selectedResult);
       updatePinButton(selectedResult);
-      renderPinnedContext(allResults);
+      renderPinnedContext(allResults, meta);
       renderResultChart(results, allResults);
       renderResultDetail(displayedResults, allResults, meta);
 

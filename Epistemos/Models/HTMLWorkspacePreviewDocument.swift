@@ -117,6 +117,7 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
           <script type="application/json" id="workspace-data">\(escapeScriptData(package.dataJSON))</script>
           <script id="epistemos-workspace-runtime">
         \(HTMLWorkspacePreviewRuntime.script(
+            workspaceID: package.manifest.id,
             pythonPolicyEnabled: package.manifest.sandboxPolicy.allowPythonRuntime,
             appBridgeEnabled: package.manifest.sandboxPolicy.allowAppBridge,
             safeAPIVersion: package.manifest.sandboxPolicy.safeAPIVersion
@@ -144,6 +145,7 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
 
 nonisolated enum HTMLWorkspacePreviewRuntime {
     static func script(
+        workspaceID: String,
         pythonPolicyEnabled: Bool,
         appBridgeEnabled: Bool,
         safeAPIVersion: UInt32
@@ -176,6 +178,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
       const state = {
         data: parseWorkspaceData(dataNode?.textContent || '{}')
       };
+      const workspaceID = \(stringLiteral(workspaceID));
       const appBridge = \(appBridgeJavaScript);
       const replaceWorkspaceData = (nextData, rawJSON = null, emitEvent = true) => {
         state.data = nextData;
@@ -202,6 +205,46 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
       });
 
       replaceWorkspaceData(state.data, dataNode?.textContent || '{}', false);
+
+      const contextState = (() => {
+        const maxStateLength = 12000;
+        const keyComponent = (value, fallback) => {
+          const text = String(value || fallback || '').trim().slice(0, 160);
+          return (text || fallback || 'workspace').replace(/[^A-Za-z0-9._:-]+/g, '_');
+        };
+        const storageKey = (scope) => {
+          const safeWorkspaceID = keyComponent(workspaceID, 'workspace');
+          const safeScope = keyComponent(scope, 'state');
+          return `epistemos.htmlWorkspace.contextState.v1.${safeWorkspaceID}.${safeScope}`;
+        };
+        const unavailable = Object.freeze({ unavailable: true });
+        return Object.freeze({
+          load(scope) {
+            try {
+              const store = window.localStorage;
+              if (!store) { return null; }
+              const raw = store.getItem(storageKey(scope));
+              if (!raw) { return null; }
+              if (raw.length > maxStateLength) { return unavailable; }
+              return JSON.parse(raw);
+            } catch (error) {
+              return unavailable;
+            }
+          },
+          save(scope, value) {
+            try {
+              const store = window.localStorage;
+              if (!store) { return false; }
+              const raw = JSON.stringify(value);
+              if (!raw || raw.length > maxStateLength) { return false; }
+              store.setItem(storageKey(scope), raw);
+              return true;
+            } catch (error) {
+              return false;
+            }
+          }
+        });
+      })();
 
       const pythonRuntime = (() => {
         const enabled = \(pythonPolicyEnabled ? "true" : "false");
@@ -280,6 +323,8 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
 
       const toArray = (children) => Array.isArray(children) ? children : [children];
       const api = {
+        workspaceID,
+        contextState,
         get data() {
           return state.data;
         },
@@ -533,6 +578,14 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
         guard let data = try? JSONEncoder().encode(values),
               let literal = String(data: data, encoding: .utf8) else {
             return "[]"
+        }
+        return literal
+    }
+
+    private static func stringLiteral(_ value: String) -> String {
+        guard let data = try? JSONEncoder().encode(value),
+              let literal = String(data: data, encoding: .utf8) else {
+            return #""""#
         }
         return literal
     }
