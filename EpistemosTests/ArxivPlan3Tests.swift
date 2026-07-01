@@ -45,6 +45,36 @@ struct ArxivPlan3Tests {
         }
     }
 
+    @Test("search rejects same-host Atom response query rewrites")
+    func searchRejectsSameHostAtomResponseQueryRewrites() async throws {
+        let client = ArxivClient { request in
+            let requestURL = try #require(request.url)
+            var components = try #require(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
+            components.queryItems = [
+                URLQueryItem(name: "search_query", value: "all:rewritten"),
+                URLQueryItem(name: "sortBy", value: "submittedDate"),
+                URLQueryItem(name: "sortOrder", value: "descending"),
+                URLQueryItem(name: "start", value: "0"),
+                URLQueryItem(name: "max_results", value: "12"),
+            ]
+            let responseURL = try #require(components.url)
+            let response = try #require(HTTPURLResponse(
+                url: responseURL,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            ))
+            return (Data(Self.atomFixture.utf8), response)
+        }
+
+        do {
+            _ = try await client.search(query: "retrieval augmented generation", maxResults: 12)
+            Issue.record("Expected same-host arXiv Atom query rewrite to be rejected")
+        } catch let error as ArxivClientError {
+            #expect(error == .invalidResponse)
+        }
+    }
+
     @Test("search diagnostics redact path-leaking transport errors")
     func searchDiagnosticsRedactPathLeakingTransportErrors() async throws {
         let privatePath = "/private/var/folders/arxiv/token.xml"
@@ -272,6 +302,7 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("conversion and file materialization run off"))
         #expect(codepack.contains("exceeds the 128 MiB cap"))
         #expect(codepack.contains("request/XML parser failures are reported as bounded domain/code diagnostics"))
+        #expect(codepack.contains("requested HTTPS host/path/query"))
         #expect(codepack.contains("search or ingest status"))
         #expect(codepack.contains("sheet status reports that copied PDF"))
         #expect(codepack.contains("abstract body text is bounded before the note write"))
@@ -285,11 +316,15 @@ struct ArxivPlan3Tests {
         #expect(capabilities.contains("network-fed SwiftUI display strings\n  are bounded before trimming"))
         #expect(capabilities.contains("abstract text written into the note body is bounded"))
         #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
+        #expect(capabilities.contains("requested HTTPS\n  host/path/query"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
         #expect(client.contains("isCanonicalPDFPath"))
         #expect(client.contains("newStyleIDPattern"))
         #expect(client.contains("oldStyleIDPattern"))
+        #expect(client.contains("validateSearchResponse(response, requestURL: request.url)"))
+        #expect(client.contains("response.percentEncodedQuery == request.percentEncodedQuery"))
+        #expect(client.contains("response.percentEncodedFragment == nil"))
         #expect(client.contains("parser.shouldResolveExternalEntities = false"))
         #expect(client.contains("maxParsedPapers"))
         #expect(client.contains("maxSearchQueryCharacters"))

@@ -19,7 +19,8 @@
   parsed papers, element text, and repeated authors/categories inside the 5 MiB response envelope.
   PDF links normalize to HTTPS only for canonical new-style or old-style `/pdf/<arxiv-id>` paths; credentials, queries,
   fragments, encoded path tricks, traversal suffixes, and arbitrary non-ID paths are rejected before download. Defaults
-  plain text to `all:`; request/XML parser failures are reported as bounded domain/code diagnostics before status text.
+  plain text to `all:`; final Atom response URLs must stay on the requested HTTPS host/path/query after redirects;
+  request/XML parser failures are reported as bounded domain/code diagnostics before status text.
   Networking only.
 - **`Epistemos/Arxiv/ArxivIngestService.swift` [DELIVERED]** — `ingest(paper,vaultURL,modelContext,graphState,importer)`:
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI

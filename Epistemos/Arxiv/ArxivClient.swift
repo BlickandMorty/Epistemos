@@ -171,7 +171,7 @@ nonisolated struct ArxivClient: Sendable {
         let request = try Self.searchRequest(query: query, maxResults: maxResults)
         do {
             let (data, response) = try await fetch(request)
-            try Self.validateSearchResponse(response)
+            try Self.validateSearchResponse(response, requestURL: request.url)
             return try Self.parseSearchResponse(data)
         } catch is CancellationError {
             throw CancellationError()
@@ -205,23 +205,29 @@ nonisolated struct ArxivClient: Sendable {
         return request
     }
 
-    static func validateSearchResponse(_ response: URLResponse) throws {
+    static func validateSearchResponse(_ response: URLResponse, requestURL: URL?) throws {
         guard let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode),
               let finalURL = http.url,
-              isAllowedSearchResponseURL(finalURL) else {
+              let requestURL,
+              isAllowedSearchResponseURL(finalURL, requestURL: requestURL) else {
             throw ArxivClientError.invalidResponse
         }
     }
 
-    static func isAllowedSearchResponseURL(_ url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased(),
-              scheme == "https",
-              let host = url.host?.lowercased(),
-              host == "export.arxiv.org" else {
+    static func isAllowedSearchResponseURL(_ url: URL, requestURL: URL) -> Bool {
+        guard let response = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let request = URLComponents(url: requestURL, resolvingAgainstBaseURL: false),
+              response.scheme?.lowercased() == "https",
+              response.host?.lowercased() == "export.arxiv.org",
+              response.percentEncodedPath == "/api/query",
+              response.percentEncodedQuery == request.percentEncodedQuery,
+              response.user == nil,
+              response.password == nil,
+              response.percentEncodedFragment == nil else {
             return false
         }
-        return url.path == "/api/query"
+        return true
     }
 
     static func parseSearchResponse(_ data: Data) throws -> [ArxivPaper] {
