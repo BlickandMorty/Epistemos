@@ -510,6 +510,17 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "plain substrate search") == nil)
     }
 
+    @MainActor
+    @Test("standalone context source classifier separates local reads from vault search reads")
+    func standaloneContextSourceClassifierSeparatesLocalReadsFromVaultSearchReads() {
+        for kind in ["recent_capture", "pdf_note", "folder_note", "meeting_note", "web_clip", "recent_chat", "provenance_claim"] {
+            #expect(HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(kind))
+        }
+        #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("note"))
+        #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("graph_related_note"))
+        #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(nil))
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
@@ -517,6 +528,8 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(source.contains("let contextResults = HTMLWorkspaceDataFeedContextSources.results("))
         #expect(source.contains("for: requiredContextKind"))
         #expect(source.contains("HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
+        #expect(source.contains("HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind)"))
+        #expect(source.contains("scheduleStandaloneRefresh(feed: feed, requiredContextKind: requiredContextKind, reason: reason)"))
         #expect(source.contains("query: feed.normalizedQuery"))
         #expect(source.contains("contextResults: contextResults"))
     }
@@ -528,6 +541,8 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(source.contains("let contextResults = HTMLWorkspaceDataFeedContextSources.results("))
         #expect(source.contains("for: requiredContextKind"))
         #expect(source.contains("let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
+        #expect(source.contains("HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind)"))
+        #expect(source.contains("HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(preset.requiredContextKind)"))
         #expect(source.contains("query: feed.normalizedQuery"))
         #expect(source.contains("requiredContextKind: requiredContextKind"))
     }

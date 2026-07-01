@@ -248,6 +248,18 @@ enum HTMLWorkspaceDataFeedContextSources {
         return nil
     }
 
+    static func usesStandaloneContextSource(_ requiredContextKind: String?) -> Bool {
+        [
+            "recent_capture",
+            "pdf_note",
+            "folder_note",
+            "meeting_note",
+            "web_clip",
+            "recent_chat",
+            "provenance_claim",
+        ].contains(normalized(requiredContextKind))
+    }
+
     static func recentCaptureResults(
         modelContainer: ModelContainer?,
         limit: Int
@@ -572,6 +584,10 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             applyStaleRender(feed: feed, error: "Data feed query is empty", requiredContextKind: requiredContextKind)
             return
         }
+        if HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind) {
+            scheduleStandaloneRefresh(feed: feed, requiredContextKind: requiredContextKind, reason: reason)
+            return
+        }
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             applyStaleRender(feed: feed, error: "Vault feed unavailable", requiredContextKind: requiredContextKind)
             return
@@ -591,6 +607,36 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             let contextResults = HTMLWorkspaceDataFeedContextSources.results(
                 for: requiredContextKind,
                 searchResults: results,
+                modelContainer: AppBootstrap.shared?.modelContainer,
+                limit: feed.effectiveLimit,
+                query: feed.normalizedQuery
+            )
+            let nextJSON = HTMLWorkspaceDataFeedRenderer.render(
+                feed: feed,
+                contextResults: contextResults,
+                requiredContextKind: requiredContextKind
+            )
+            if package.dataJSON != nextJSON {
+                package.dataJSON = nextJSON
+            }
+            statusText = "Data feed refreshed"
+        }
+    }
+
+    private func scheduleStandaloneRefresh(
+        feed: HTMLWorkspaceDataFeed,
+        requiredContextKind: String?,
+        reason: String
+    ) {
+        refreshTask = Task { @MainActor in
+            if reason != "initial" {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+            guard !Task.isCancelled else { return }
+            statusText = "Refreshing data feed"
+            let contextResults = HTMLWorkspaceDataFeedContextSources.results(
+                for: requiredContextKind,
+                searchResults: [],
                 modelContainer: AppBootstrap.shared?.modelContainer,
                 limit: feed.effectiveLimit,
                 query: feed.normalizedQuery

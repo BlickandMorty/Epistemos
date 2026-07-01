@@ -900,6 +900,13 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextStatusText = "Workspace context pending"
         statusText = "Refreshing workspace context"
 
+        if HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind) {
+            let attachedStatus = attachStandaloneRegenerateContext(feed: feed, requiredContextKind: requiredContextKind)
+            regenerateContextStatusText = attachedStatus
+            statusText = attachedStatus
+            return
+        }
+
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
                 feed: feed,
@@ -1118,6 +1125,16 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextStatusText = "Workspace context pending"
         statusText = "Refreshing workspace context"
 
+        if HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(preset.requiredContextKind) {
+            regenerateContextStatusText = attachStandaloneRegenerateContext(
+                feed: feed,
+                requiredContextKind: preset.requiredContextKind
+            )
+            statusText = "Workspace context ready"
+            beginRegenerateSurface(instructionOverride: contextualInstruction)
+            return
+        }
+
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
                 feed: feed,
@@ -1160,6 +1177,27 @@ struct HTMLWorkspaceEditorView: View {
             statusText = "Workspace context ready"
             beginRegenerateSurface(instructionOverride: contextualInstruction)
         }
+    }
+
+    private func attachStandaloneRegenerateContext(
+        feed: HTMLWorkspaceDataFeed,
+        requiredContextKind: String?
+    ) -> String {
+        let contextResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: requiredContextKind,
+            searchResults: [],
+            modelContainer: AppBootstrap.shared?.modelContainer,
+            limit: feed.effectiveLimit,
+            query: feed.normalizedQuery
+        )
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            contextResults: contextResults,
+            requiredContextKind: requiredContextKind
+        )
+        isRefreshingRegenerateContext = false
+        regenerateContextTask = nil
+        return "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
     }
 
     private func beginRegenerateSurface(instructionOverride: String?) {
