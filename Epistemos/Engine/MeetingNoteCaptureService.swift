@@ -58,6 +58,11 @@ final class MeetingNoteCaptureService {
     }
 
     private typealias PipelineFactory = @MainActor () -> TextCapturePipeline
+    private typealias PipelineRunner = @MainActor (
+        _ transcription: String,
+        _ modelContext: ModelContext,
+        _ sourceMetadata: CaptureSourceMetadata
+    ) async throws -> CaptureResult
     private typealias DateProvider = @MainActor () -> Date
     private typealias AutoStopPreference = @MainActor () -> Bool
     private typealias SleepProvider = @MainActor (Duration) async throws -> Void
@@ -66,6 +71,8 @@ final class MeetingNoteCaptureService {
     private let voiceInput: any MeetingVoiceInputProviding
     @ObservationIgnored
     private let pipelineFactory: PipelineFactory
+    @ObservationIgnored
+    private let pipelineRunner: PipelineRunner?
     @ObservationIgnored
     private let now: DateProvider
     @ObservationIgnored
@@ -91,6 +98,7 @@ final class MeetingNoteCaptureService {
     init(
         voiceInput: (any MeetingVoiceInputProviding)? = nil,
         pipelineFactory: @escaping @MainActor () -> TextCapturePipeline = { TextCapturePipeline() },
+        pipelineRunner: PipelineRunner? = nil,
         now: @escaping @MainActor () -> Date = { Date() },
         isAutoStopOnSilenceEnabled: @escaping @MainActor () -> Bool = {
             VoicePreferences.shared.dictationAutoStop == .auto
@@ -102,6 +110,7 @@ final class MeetingNoteCaptureService {
     ) {
         self.voiceInput = voiceInput ?? LiveVoiceInputService.shared
         self.pipelineFactory = pipelineFactory
+        self.pipelineRunner = pipelineRunner
         self.now = now
         self.isAutoStopOnSilenceEnabled = isAutoStopOnSilenceEnabled
         self.autoStopSilenceDelay = autoStopSilenceDelay
@@ -219,7 +228,8 @@ final class MeetingNoteCaptureService {
             throw TextCaptureError.persistenceFailed("meeting note is already saving")
         }
 
-        captureGeneration = UUID()
+        let finalizeGeneration = UUID()
+        captureGeneration = finalizeGeneration
         refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
         cancelAutoStopSilence()
         voiceInput.stop()
@@ -239,11 +249,19 @@ final class MeetingNoteCaptureService {
 
         state = .finalizing
         do {
-            let result = try await pipelineFactory().runFromAudio(
-                transcription: transcript,
-                modelContext: modelContext,
-                sourceMetadata: metadata
-            )
+            let result: CaptureResult
+            if let pipelineRunner {
+                result = try await pipelineRunner(transcript, modelContext, metadata)
+            } else {
+                result = try await pipelineFactory().runFromAudio(
+                    transcription: transcript,
+                    modelContext: modelContext,
+                    sourceMetadata: metadata
+                )
+            }
+            guard isCurrentCapture(finalizeGeneration) else {
+                return result
+            }
             savedResult = result
             state = .saved(
                 pageID: result.createdNoteID ?? "",
@@ -251,7 +269,9 @@ final class MeetingNoteCaptureService {
             )
             return result
         } catch {
-            state = .error(MeetingCaptureDiagnostics.statusMessage(for: error))
+            if isCurrentCapture(finalizeGeneration) {
+                state = .error(MeetingCaptureDiagnostics.statusMessage(for: error))
+            }
             throw error
         }
     }

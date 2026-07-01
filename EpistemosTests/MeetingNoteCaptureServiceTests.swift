@@ -279,6 +279,58 @@ struct MeetingNoteCaptureServiceTests {
         #expect(title == first.title)
     }
 
+    @Test("discard during finalization does not revive saved state")
+    func discardDuringFinalizationDoesNotReviveSavedState() async throws {
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let voice = FakeMeetingVoiceInput()
+        var resumePipeline: (() -> Void)?
+        let service = MeetingNoteCaptureService(
+            voiceInput: voice,
+            pipelineRunner: { transcription, modelContext, metadata in
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    resumePipeline = {
+                        continuation.resume()
+                    }
+                }
+                return try await TextCapturePipeline().runFromAudio(
+                    transcription: transcription,
+                    modelContext: modelContext,
+                    sourceMetadata: metadata
+                )
+            }
+        )
+
+        await service.start()
+        service.recordFinal("Save after discard should not revive the UI state.")
+
+        let saveTask = Task { @MainActor in
+            try await service.finalize(modelContext: context)
+        }
+        for _ in 0..<50 where resumePipeline == nil {
+            await Task.yield()
+        }
+        guard let resume = resumePipeline else {
+            Issue.record("Expected meeting save pipeline to suspend")
+            saveTask.cancel()
+            return
+        }
+        #expect(service.state == .finalizing)
+
+        service.discard()
+        #expect(service.state == .idle)
+        #expect(service.transcriptText.isEmpty)
+
+        resume()
+        _ = try await saveTask.value
+
+        #expect(service.state == .idle)
+        #expect(service.transcriptText.isEmpty)
+        #expect(voice.stopCallCount == 1)
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+        #expect(pages.count == 1)
+    }
+
     @Test("auto dictation preference stops meeting capture after final silence")
     func autoStopPreferenceStopsAfterFinalSilence() async {
         let voice = FakeMeetingVoiceInput()
@@ -366,6 +418,9 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("VoiceCapturePresentationBounds.statusMessage"))
         #expect(source.contains("MeetingCaptureDiagnostics"))
         #expect(source.contains("statusMessage(for error: Error)"))
+        #expect(source.contains("let finalizeGeneration = UUID()"))
+        #expect(source.contains("guard isCurrentCapture(finalizeGeneration) else"))
+        #expect(source.contains("if isCurrentCapture(finalizeGeneration)"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("EpistemosSpeechAnalyzer"))
         #expect(!source.contains("Whisper"))
