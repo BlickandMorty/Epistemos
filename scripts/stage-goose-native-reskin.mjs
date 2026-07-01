@@ -2250,7 +2250,7 @@ function applyChatSurfaces() {
     source,
     'chat input file type badge borderless',
     'className="flex-shrink-0 w-8 h-8 bg-background-primary border border-border-primary flex items-center justify-center text-xs font-mono text-text-secondary"',
-    'className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] bg-background-primary/70 text-xs font-mono text-text-secondary"'
+    'className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] bg-background-primary/70 text-xs font-sans font-medium text-text-secondary"'
   );
   write('src/components/ChatInput.tsx', source);
 
