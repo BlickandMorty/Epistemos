@@ -544,17 +544,16 @@ struct HTMLWorkspaceEditorView: View {
                     .frame(minWidth: 360)
                     .onDrop(of: [UTType.plainText], isTargeted: nil, perform: handlePreviewContextDrop)
 
-                    if shouldShowPreviewContextSidebar {
-                        HTMLWorkspacePreviewContextPicker(
-                            contextItems: regenerateContextItems,
-                            contextStatusText: regenerateContextStatusLine,
-                            isRegenerating: isRegenerating,
-                            isRefreshingContext: isRefreshingRegenerateContext,
-                            theme: workspaceTheme,
-                            onPickContextItem: applyPreviewContextItem
-                        )
-                        .padding(12)
-                    }
+                    HTMLWorkspacePreviewContextPicker(
+                        contextItems: regenerateContextItems,
+                        contextStatusText: regenerateContextStatusLine,
+                        isRegenerating: isRegenerating,
+                        isRefreshingContext: isRefreshingRegenerateContext,
+                        theme: workspaceTheme,
+                        onOpenContextSearch: openRegenerateSheet,
+                        onPickContextItem: applyPreviewContextItem
+                    )
+                    .padding(12)
                 }
             }
 

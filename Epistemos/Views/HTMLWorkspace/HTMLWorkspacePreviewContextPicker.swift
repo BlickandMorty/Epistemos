@@ -6,6 +6,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
     let isRegenerating: Bool
     let isRefreshingContext: Bool
     let theme: EpistemosTheme
+    let onOpenContextSearch: () -> Void
     let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
 
     private var pickerFill: Color {
@@ -18,9 +19,16 @@ struct HTMLWorkspacePreviewContextPicker: View {
 
     var body: some View {
         Menu {
+            Button {
+                onOpenContextSearch()
+            } label: {
+                Label("Search Context", systemImage: "magnifyingglass")
+            }
+            .disabled(isRefreshingContext)
+
             if let contextStatusText, !contextStatusText.isEmpty {
-                Text(contextStatusText)
                 Divider()
+                Text(contextStatusText)
             }
 
             if isRefreshingContext {
