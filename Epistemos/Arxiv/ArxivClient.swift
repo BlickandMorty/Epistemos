@@ -13,7 +13,8 @@ nonisolated struct ArxivPaper: Identifiable, Equatable, Sendable {
     let categories: [String]
 
     var shortID: String {
-        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = ArxivSearchDiagnostics.normalizedDisplayText(id)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         if let last = trimmed.split(separator: "/").last {
             return String(last).replacingOccurrences(of: "v\\d+$", with: "", options: .regularExpression)
         }
@@ -54,27 +55,28 @@ nonisolated enum ArxivSearchDiagnostics {
 
     static func statusMessage(for error: Error) -> String {
         if let error = error as? ArxivClientError {
-            return error.errorDescription ?? "arXiv request failed."
+            return failureReason(error.errorDescription ?? "arXiv request failed.", fallback: "arXiv request failed.")
         }
         if let error = error as? ArxivIngestError {
-            return error.errorDescription ?? "arXiv ingest failed."
+            return failureReason(error.errorDescription ?? "arXiv ingest failed.", fallback: "arXiv ingest failed.")
         }
         return externalErrorDescription(error, fallback: "arXiv operation failed")
     }
 
     private static func failureReason(_ message: String, fallback: String) -> String {
         let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > maxFailureReasonCharacters else {
             return description
         }
-        return String(description.prefix(maxFailureReasonCharacters - 3)) + "..."
+        return (String(description.prefix(maxFailureReasonCharacters - 3)) + "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func safeDomain(_ domain: String) -> String {
         let bounded = String(domain.prefix(maxDomainCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"
@@ -87,6 +89,26 @@ nonisolated enum ArxivSearchDiagnostics {
         }
         let safeDomain = String(value.prefix(maxDomainCharacters))
         return safeDomain.isEmpty ? "Error" : safeDomain
+    }
+
+    static func normalizedDisplayText(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 }
 

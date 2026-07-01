@@ -37,9 +37,9 @@
   → no note + a bounded reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`), and
-  caps network-fed title/author/summary/metadata/status display strings before trimming and SwiftUI render. Search and ingest status
+  caps network-fed title/author/summary/metadata/status display strings before SwiftUI render. Search and ingest status
   failures route through the arXiv diagnostics helper instead of raw localized error descriptions; raw diagnostic and
-  metadata-label strings are bounded before trimming, and ellipsis stays inside configured caps. The sheet's
+  metadata-label strings are bounded, control/whitespace-normalized, and kept with ellipsis inside configured caps before display. The sheet's
   close/search/add controls render through shared `ToolbarCapsuleButton` chrome, the search field uses plain flat
   theme-token input chrome instead of a rounded bordered field, brand/status/result metadata reads `UIState` theme
   tokens, and result rows use spacing rather than hard `Divider()` rules. Sheet disappearance cancels live work and

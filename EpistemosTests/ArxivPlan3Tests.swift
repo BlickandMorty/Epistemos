@@ -105,6 +105,36 @@ struct ArxivPlan3Tests {
         }
     }
 
+    @Test("arXiv display text normalizes embedded control characters")
+    func arxivDisplayTextNormalizesEmbeddedControlCharacters() throws {
+        let requestMessage = ArxivSearchDiagnostics.statusMessage(
+            for: ArxivClientError.requestFailed("bad\nrequest\t\u{0007}")
+        )
+        let ingestMessage = ArxivIngestDiagnostics.failureReason(
+            "download\nfailed\t\u{0007}",
+            fallback: "download failed"
+        )
+        let paper = try Self.paper(
+            id: "https://arxiv.org/abs/2401.12345v2\n",
+            title: "Control\nTitle\t\u{0007}",
+            summary: "Line\none\tline\u{0007}two",
+            authors: ["Ada\nLovelace", "Grace\tHopper"],
+            categories: ["cs.AI\n", "cs.CL\t"]
+        )
+        let draft = ArxivNoteDraft(paper: paper, parsedMarkdown: "Parsed text.")
+
+        #expect(requestMessage == "arXiv request failed: bad request")
+        #expect(ingestMessage == "download failed")
+        #expect(ArxivSearchPresentation.title("Graph\nRAG\t\u{0007}") == "Graph RAG")
+        #expect(ArxivSearchPresentation.authors(["Ada\nLovelace", "Grace\tHopper"]) == "Ada Lovelace, Grace Hopper")
+        #expect(ArxivSearchDiagnostics.safeDomain("NS\nCocoa\tError") == "Error")
+        #expect(paper.shortID == "2401.12345")
+        #expect(draft.markdownBody.contains("# Control Title"))
+        #expect(draft.markdownBody.contains("Line one line two"))
+        #expect(draft.frontMatter["authors"] == "Ada Lovelace; Grace Hopper")
+        #expect(draft.frontMatter["categories"] == "cs.AI, cs.CL")
+    }
+
     @Test("Atom parser extracts paper metadata and PDF link")
     func parsesAtom() throws {
         let papers = try ArxivClient.parseSearchResponse(Data(Self.atomFixture.utf8))
@@ -308,13 +338,13 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("sheet disappearance cancels live work and immediately clears busy indicators"))
         #expect(codepack.contains("abstract body text is bounded before the note write"))
         #expect(codepack.contains("imported outcome's\n  vault-relative `source_pdf` matches"))
-        #expect(codepack.contains("raw diagnostic and\n  metadata-label strings are bounded before trimming"))
-        #expect(codepack.contains("ellipsis stays inside configured caps"))
+        #expect(codepack.contains("raw diagnostic and\n  metadata-label strings are bounded, control/whitespace-normalized"))
+        #expect(codepack.contains("kept with ellipsis inside configured caps before display"))
         #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
         #expect(capabilities.contains("successful ingest status reports the vault-relative `source_pdf` path"))
         #expect(capabilities.contains("capped at 128 MiB"))
-        #expect(capabilities.contains("network-fed SwiftUI display strings\n  are bounded before trimming"))
+        #expect(capabilities.contains("network-fed SwiftUI display strings are bounded and\n  control/whitespace-normalized before display"))
         #expect(capabilities.contains("abstract text written into the note body is bounded"))
         #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
         #expect(capabilities.contains("requested HTTPS\n  host/path/query"))
@@ -334,6 +364,8 @@ struct ArxivPlan3Tests {
         #expect(client.contains("ArxivSearchDiagnostics"))
         #expect(client.contains("String(message.prefix(maxFailureReasonCharacters + 32))"))
         #expect(client.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(client.contains("normalizedDisplayText(bounded)"))
+        #expect(client.contains("CharacterSet.controlCharacters"))
         #expect(client.contains("maxFailureReasonCharacters - 3"))
         #expect(client.contains("externalErrorDescription(error, fallback: \"request failed\")"))
         #expect(!client.contains("requestFailed(error.localizedDescription)"))
@@ -341,6 +373,7 @@ struct ArxivPlan3Tests {
         #expect(searchView.contains("ArxivSearchPresentation"))
         #expect(searchView.contains("maxStatusMessageCharacters"))
         #expect(searchView.contains("String(value.prefix(limit + 32))"))
+        #expect(searchView.contains("ArxivSearchDiagnostics.normalizedDisplayText(bounded)"))
         #expect(searchView.contains("String(trimmed.prefix(limit - 3))"))
         #expect(searchView.contains("ArxivSearchDiagnostics.statusMessage(for: error)"))
         #expect(searchView.contains("ToolbarCapsuleButton("))
@@ -364,6 +397,7 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("maxAbstractCharacters"))
         #expect(ingest.contains("private var summaryLabel"))
+        #expect(ingest.contains("ArxivSearchDiagnostics.normalizedDisplayText(bounded)"))
         #expect(ingest.contains("sourcePDFRelativePath: materializedFiles.sourcePDFRelativePath"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
@@ -859,9 +893,22 @@ struct ArxivPlan3Tests {
         #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(ArxivIngestService.importDirectory).path))
     }
 
-    private static func paper() throws -> ArxivPaper {
-        let papers = try ArxivClient.parseSearchResponse(Data(atomFixture.utf8))
-        return try #require(papers.first)
+    private static func paper(
+        id: String = "https://arxiv.org/abs/2401.12345v2",
+        title: String = "A Useful Paper",
+        summary: String = "Line one. Line two.",
+        authors: [String] = ["Ada Lovelace", "Grace Hopper"],
+        categories: [String] = ["cs.AI", "cs.CL"]
+    ) throws -> ArxivPaper {
+        ArxivPaper(
+            id: id,
+            title: title,
+            authors: authors,
+            summary: summary,
+            published: try #require(ISO8601DateFormatter.arxivIngest.date(from: "2024-01-03T12:34:56Z")),
+            pdfURL: try #require(URL(string: "https://arxiv.org/pdf/2401.12345v2")),
+            categories: categories
+        )
     }
 
     private nonisolated static let atomFixture = """

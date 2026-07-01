@@ -127,12 +127,14 @@ nonisolated enum ArxivIngestDiagnostics {
 
     static func failureReason(_ message: String, fallback: String) -> String {
         let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = ArxivSearchDiagnostics.normalizedDisplayText(bounded)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > maxFailureReasonCharacters else {
             return description
         }
-        return String(description.prefix(maxFailureReasonCharacters - 3)) + "..."
+        return (String(description.prefix(maxFailureReasonCharacters - 3)) + "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func externalErrorDescription(_ error: Error, fallback: String) -> String {
@@ -466,10 +468,12 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
     private static func bounded(_ value: String, limit: Int, fallback: String) -> String {
         let bounded = String(value.prefix(limit + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = ArxivSearchDiagnostics.normalizedDisplayText(bounded)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > limit else { return description }
-        return String(description.prefix(limit - 3)) + "..."
+        return (String(description.prefix(limit - 3)) + "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
