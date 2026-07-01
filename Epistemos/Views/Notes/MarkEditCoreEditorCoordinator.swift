@@ -95,8 +95,40 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             return
         }
 
+        // #7: apply a theme flip IN-PLACE (no reload) so keystrokes typed while
+        // toggling appearance aren't lost. `requiresReload` no longer treats
+        // themeName as a reload trigger; instead push the new palette through
+        // the live CoreEditor config bridge and advance lastAppliedState's
+        // themeName so the equality guard below doesn't also fire a redundant
+        // resetEditor for a theme-only delta.
+        if let last = lastAppliedState, state.themeName != last.themeName {
+            applyTheme(themeName: state.themeName, to: webView)
+            lastAppliedState = last.replacingThemeName(state.themeName)
+        }
+
         guard state != lastAppliedState else { return }
         resetEditor(to: state, in: webView, documentChanged: false)
+    }
+
+    private func applyTheme(themeName: String, to webView: WKWebView) {
+        guard !isDetached, hasLoadedEditor, !webView.isLoading else { return }
+        let encodedName = (try? JSONEncoder().encode(themeName))
+            .flatMap { String(data: $0, encoding: .utf8) }
+            ?? "\"\(themeName)\""
+        let script = """
+        (() => {
+          if (typeof window.webModules !== 'object' || !window.webModules?.config?.setTheme) {
+            return false;
+          }
+          try {
+            window.webModules.config.setTheme({ name: \(encodedName) });
+            return true;
+          } catch (error) {
+            return false;
+          }
+        })();
+        """
+        webView.evaluateJavaScript(script)
     }
 
     private func resetEditor(

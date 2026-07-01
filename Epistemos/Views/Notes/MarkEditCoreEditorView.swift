@@ -355,6 +355,25 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
 
 private extension AppTheme {
     static func epistemosSourceTheme(for theme: EpistemosTheme) -> AppTheme {
+        // #14: When a user-defined CUSTOM palette is active the `EpistemosTheme`
+        // enum value no longer describes the on-screen colors, so the static
+        // case→palette map below would pin a fixed CodeMirror syntax palette
+        // (e.g. XcodeDark) while the markdown chrome overrides
+        // `webBackgroundColor` to the custom background — the fixed syntax
+        // colors then clash with the custom canvas. Until the CoreEditor JS
+        // bundle grows a real "generate a CodeMirror theme from tokens" entry
+        // point, synthesize the *closest* built-in palette: match dark/light and
+        // then minimize the distance between the custom background and each
+        // candidate palette's own background, so the (fixed) syntax colors were
+        // at least authored for a similar canvas. Additive — only the
+        // custom-palette branch changes; every preset keeps its exact mapping.
+        if AppCustomTheme.isActive {
+            return closestSourceTheme(for: theme)
+        }
+        return presetSourceTheme(for: theme)
+    }
+
+    static func presetSourceTheme(for theme: EpistemosTheme) -> AppTheme {
         switch theme {
         case .tan, .sunset:
             return .SolarizedLight
@@ -367,6 +386,29 @@ private extension AppTheme {
         case .systemLight, .light, .sunny, .platinumViolet:
             return .GitHubLight
         }
+    }
+
+    static func closestSourceTheme(for theme: EpistemosTheme) -> AppTheme {
+        let resolved = theme.resolved
+        let target = resolved.background.nsColor
+        let wantDark = resolved.isDark
+        let matching = AppTheme.allCases.filter { $0.isDark == wantDark }
+        let pool = matching.isEmpty ? AppTheme.allCases : matching
+        return pool.min {
+            backgroundDistance($0.windowBackground, target)
+                < backgroundDistance($1.windowBackground, target)
+        } ?? presetSourceTheme(for: theme)
+    }
+
+    static func backgroundDistance(_ lhs: NSColor, _ rhs: NSColor) -> CGFloat {
+        guard let a = lhs.usingColorSpace(.sRGB),
+              let b = rhs.usingColorSpace(.sRGB) else {
+            return .greatestFiniteMagnitude
+        }
+        let dr = a.redComponent - b.redComponent
+        let dg = a.greenComponent - b.greenComponent
+        let db = a.blueComponent - b.blueComponent
+        return dr * dr + dg * dg + db * db
     }
 }
 #endif

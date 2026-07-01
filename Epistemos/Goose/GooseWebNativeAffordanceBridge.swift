@@ -211,27 +211,47 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         case "selectImportSessionFile":
             return runSelectImportSessionFile()
         case "openExternal":
+            // App Review 2.5.2 (MAS self-containment): no external app-launch / openURL
+            // seam is reachable from the Goose WebUI on the App Store build.
+            #if EPISTEMOS_APP_STORE
+            throw GooseWebNativeAffordanceBridgeError.proOnlyInAppStore(name)
+            #else
             guard let rawURL = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             try openExternal(rawURL)
             return nil
+            #endif
         case "openInChrome":
+            #if EPISTEMOS_APP_STORE
+            throw GooseWebNativeAffordanceBridgeError.proOnlyInAppStore(name)
+            #else
             guard let rawURL = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             try openBrowserURL(rawURL)
             return nil
+            #endif
         case "openDirectoryInExplorer":
+            #if EPISTEMOS_APP_STORE
+            return false
+            #else
             guard let path = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return openDirectory(path)
+            #endif
         case "getBinaryPath":
+            // Binary discovery only serves the (Pro-only) subprocess seams; on the
+            // App Store build return the "not found" sentinel so nothing is locatable.
+            #if EPISTEMOS_APP_STORE
+            return ""
+            #else
             guard let binaryName = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return resolveBinaryPath(binaryName)
+            #endif
         case "readFile":
             guard let path = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -259,32 +279,61 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             }
             return listFiles(path, extensionFilter: stringArgument(args, at: 1))
         case "listGitWorktreeDirs":
+            // App Review 2.5.2: the `git` subprocess seam is Pro-only; return an
+            // empty roster on the App Store build so no Process() is ever spawned.
+            #if EPISTEMOS_APP_STORE
+            return [[String: Any]]()
+            #else
             guard let path = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return listGitWorktreeDirs(path)
+            #endif
         case "readGitDiff":
+            #if EPISTEMOS_APP_STORE
+            return [
+                "ok": false,
+                "error": "Git diff is Pro-only and is not available in the App Store build.",
+            ] as [String: Any]
+            #else
             guard let path = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return readGitDiff(path)
+            #endif
         case "readGitHubCompareURL":
+            #if EPISTEMOS_APP_STORE
+            return [
+                "ok": false,
+                "error": "GitHub compare is Pro-only and is not available in the App Store build.",
+            ] as [String: Any]
+            #else
             guard let path = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return readGitHubCompareURL(path)
+            #endif
         case "launchApp":
+            // App Review 2.5.2: gate the MCP-app launch seam on the App Store build.
+            #if EPISTEMOS_APP_STORE
+            throw GooseWebNativeAffordanceBridgeError.proOnlyInAppStore(name)
+            #else
             guard let app = dictionaryArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             try launchApp(app)
             return nil
+            #endif
         case "refreshApp":
+            #if EPISTEMOS_APP_STORE
+            throw GooseWebNativeAffordanceBridgeError.proOnlyInAppStore(name)
+            #else
             guard let app = dictionaryArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             try refreshApp(app)
             return nil
+            #endif
         case "closeApp":
             guard let appName = stringArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -292,11 +341,22 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             closeApp(name: appName)
             return nil
         case "openNotificationsSettings":
+            // App Review 2.5.2: opens System Settings via NSWorkspace — gate on MAS.
+            #if EPISTEMOS_APP_STORE
+            return false
+            #else
             return openNotificationsSettings()
+            #endif
         case "showNotification":
             return showNotification(dictionaryArgument(args, at: 0) ?? [:])
         case "checkForOllama":
+            // App Review 2.5.2: local Ollama detection is a subprocess-lane probe with
+            // no honest MAS meaning — report absent on the App Store build.
+            #if EPISTEMOS_APP_STORE
+            return false
+            #else
             return checkForOllama()
+            #endif
         case "getAllowedExtensions":
             return []
         case "setWindowTitle":
@@ -2631,6 +2691,7 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
     case openFailed(String)
     case disallowed(String)
     case unsupported(String)
+    case proOnlyInAppStore(String)
 
     var errorDescription: String? {
         switch self {
@@ -2650,6 +2711,8 @@ private enum GooseWebNativeAffordanceBridgeError: LocalizedError {
             "Epistemos blocked a disallowed Goose native URL scheme: \(rawURL)."
         case .unsupported(let name):
             "Unsupported Epistemos Goose native affordance: \(name)."
+        case .proOnlyInAppStore(let name):
+            "The Goose native affordance \"\(name)\" is Pro-only and is not available in the App Store build."
         }
     }
 }

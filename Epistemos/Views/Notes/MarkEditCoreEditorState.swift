@@ -70,9 +70,30 @@ struct MarkEditCoreEditorState: Equatable {
         )
     }
 
+    func replacingThemeName(_ nextThemeName: String) -> MarkEditCoreEditorState {
+        MarkEditCoreEditorState(
+            text: text,
+            mode: mode,
+            themeName: nextThemeName,
+            fontFace: fontFace,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            wrapLines: wrapLines,
+            showLineNumbers: showLineNumbers,
+            showInvisibles: showInvisibles,
+            useSpaces: useSpaces,
+            tabWidth: tabWidth
+        )
+    }
+
+    // #7: `themeName` is intentionally EXCLUDED here. A theme flip used to
+    // force a full `loadEditor` reload, which re-embeds the last-synced text
+    // and drops any keystroke typed inside the ~250ms reload window (plus a
+    // blank flash). The CoreEditor coordinator now pushes a theme change
+    // in-place through the live `webModules.config.setTheme` bridge, so a
+    // theme-only delta must NOT trip a reload. Every other field still does.
     func requiresReload(comparedTo other: MarkEditCoreEditorState) -> Bool {
         mode != other.mode ||
-            themeName != other.themeName ||
             fontFace != other.fontFace ||
             fontSize != other.fontSize ||
             lineHeight != other.lineHeight ||

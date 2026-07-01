@@ -32,6 +32,17 @@ const MAX_PDF_MIB: u64 = MAX_PDF_BYTES / 1024 / 1024;
 const MAX_ENGINE_ERROR_CHARS: usize = 1024;
 const PDF_MAGIC: &[u8] = b"%PDF-";
 
+/// Honest message for an encrypted / password-protected PDF. Decryption needs a password
+/// (or removing the encryption dictionary), which is out of scope on the MAS parser path —
+/// so it fails clearly here rather than crashing the parser or emitting a cryptic error.
+const ENCRYPTED_PDF_MESSAGE: &str =
+    "encrypted or password-protected PDF — decryption is out of scope on the MAS path";
+/// Size of the tail window scanned for the `/Encrypt` trailer reference. The trailer (or
+/// xref stream) that carries the encryption dictionary reference sits at the end of
+/// essentially every real PDF, so a bounded tail scan catches the common case cheaply; the
+/// `redacted_engine_error` keyword remap is the backstop for anything a scan misses.
+const ENCRYPTION_SCAN_TAIL_BYTES: u64 = 4 * 1024 * 1024;
+
 /// Honest errors for a PDF→Markdown conversion. The caller surfaces these; the seam
 /// NEVER returns fake markdown and NEVER shells out for an unsupported format.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -220,6 +231,13 @@ fn redacted_engine_error(
         }
     }
     let message = message.trim();
+    // Backstop for encrypted/password-protected PDFs: if the underlying engine failed
+    // because the document is encrypted, surface the clear ENCRYPTED_PDF_MESSAGE instead of
+    // a cryptic parser detail. Fires only on genuine encryption failures (keyword-gated),
+    // so ordinary parser errors keep their redacted detail.
+    if message_indicates_encryption(message) {
+        return encrypted_pdf_error();
+    }
     let message = if message.is_empty() {
         "parser error".to_string()
     } else if message.len() > MAX_ENGINE_ERROR_CHARS {
@@ -229,6 +247,119 @@ fn redacted_engine_error(
         message.to_string()
     };
     LiteParseError::Failed(format!("{prefix}: {message}"))
+}
+
+fn encrypted_pdf_error() -> LiteParseError {
+    LiteParseError::Failed(ENCRYPTED_PDF_MESSAGE.to_string())
+}
+
+/// Whether an engine error string reports an encryption / password failure. Kept narrow
+/// (encrypt / password / decrypt) so only genuine encryption failures are remapped.
+fn message_indicates_encryption(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("encrypt") || lower.contains("password") || lower.contains("decrypt")
+}
+
+fn is_pdf_whitespace(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\t' | b'\r' | b'\n' | 0x0c | 0x00)
+}
+
+/// Whether the bytes immediately after a `/Encrypt` marker look like a PDF indirect object
+/// reference (`<obj> <gen> R`, e.g. `9 0 R`). The encryption dictionary is referenced this
+/// way in the trailer, so requiring the reference shape avoids false positives on a stray
+/// `/Encrypt` literal that appears inside page content.
+fn bytes_look_like_indirect_ref(bytes: &[u8]) -> bool {
+    let n = bytes.len();
+    let mut i = 0usize;
+    // A whitespace separator always follows the `/Encrypt` key before its value.
+    let ws_start = i;
+    while i < n && is_pdf_whitespace(bytes[i]) {
+        i += 1;
+    }
+    if i == ws_start {
+        return false;
+    }
+    // Object number.
+    let obj_start = i;
+    while i < n && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == obj_start {
+        return false;
+    }
+    let ws2 = i;
+    while i < n && is_pdf_whitespace(bytes[i]) {
+        i += 1;
+    }
+    if i == ws2 {
+        return false;
+    }
+    // Generation number.
+    let gen_start = i;
+    while i < n && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == gen_start {
+        return false;
+    }
+    let ws3 = i;
+    while i < n && is_pdf_whitespace(bytes[i]) {
+        i += 1;
+    }
+    if i == ws3 {
+        return false;
+    }
+    i < n && bytes[i] == b'R'
+}
+
+/// Whether `buffer` contains a `/Encrypt <obj> <gen> R` trailer reference.
+fn buffer_has_encrypt_reference(buffer: &[u8]) -> bool {
+    const MARKER: &[u8] = b"/Encrypt";
+    if buffer.len() < MARKER.len() {
+        return false;
+    }
+    let mut start = 0usize;
+    while start + MARKER.len() <= buffer.len() {
+        match buffer[start..].windows(MARKER.len()).position(|w| w == MARKER) {
+            Some(rel) => {
+                let idx = start + rel;
+                if bytes_look_like_indirect_ref(&buffer[idx + MARKER.len()..]) {
+                    return true;
+                }
+                start = idx + 1;
+            }
+            None => return false,
+        }
+    }
+    false
+}
+
+/// Cheap, crash-free heuristic: does the PDF carry an encryption dictionary reference in
+/// its tail (trailer / xref stream)? Any I/O problem returns `false` (the parser path and
+/// its error remap remain the backstop) — this never panics and never fabricates output.
+fn pdf_appears_encrypted(pdf_path: &str) -> bool {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = match open_pdf_for_preflight(pdf_path) {
+        Ok(file) => file,
+        Err(_) => return false,
+    };
+    let len = match file.metadata() {
+        Ok(metadata) => metadata.len(),
+        Err(_) => return false,
+    };
+    if len == 0 {
+        return false;
+    }
+    let window = len.min(ENCRYPTION_SCAN_TAIL_BYTES);
+    let start = len - window;
+    if start > 0 && file.seek(SeekFrom::Start(start)).is_err() {
+        return false;
+    }
+    let mut buffer = Vec::new();
+    if Read::take(file, window).read_to_end(&mut buffer).is_err() {
+        return false;
+    }
+    buffer_has_encrypt_reference(&buffer)
 }
 
 /// The honest seam: a local PDF → Markdown. A non-PDF input is rejected with
@@ -257,6 +388,11 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
 #[cfg(feature = "edgeparse-pdf")]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     preflight_pdf_path(pdf_path)?;
+    // Encrypted/password-protected PDFs are refused with a clear message before the parser
+    // runs, so an unreadable encrypted document never crashes or garbles the engine.
+    if pdf_appears_encrypted(pdf_path) {
+        return Err(encrypted_pdf_error());
+    }
     match edgeparse_to_markdown(pdf_path) {
         Ok(markdown) if markdown_is_substantive(&markdown) => Ok(markdown),
         Ok(markdown) => fallback_or_primary_empty(pdf_path, markdown),
@@ -275,6 +411,10 @@ fn edgeparse_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
         formats: vec![OutputFormat::Markdown],
         quiet: true,
         table_method: TableMethod::Cluster,
+        // XY-cut recursively segments the page along whitespace gutters, so multi-column
+        // layouts are emitted in true reading order (full column, then the next) instead of
+        // interleaving lines across columns. Any layout the engine still can't order is a
+        // real parser error mapped to an honest Failed — never a crash.
         reading_order: ReadingOrder::XyCut,
         image_output: ImageOutput::Off,
         raster_table_ocr: false,
@@ -351,6 +491,11 @@ fn fallback_or_primary_error(
 #[cfg(all(feature = "liteparse-pdf", not(feature = "edgeparse-pdf")))]
 pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     preflight_pdf_path(pdf_path)?;
+    // Encrypted/password-protected PDFs are refused with a clear message before the parser
+    // runs, so an unreadable encrypted document never crashes or garbles the engine.
+    if pdf_appears_encrypted(pdf_path) {
+        return Err(encrypted_pdf_error());
+    }
     use liteparse::config::{LiteParseConfig, OutputFormat};
     use liteparse::parser::LiteParse;
     let config = LiteParseConfig {
@@ -501,6 +646,69 @@ mod tests {
                 );
             }
             other => panic!("expected failed parser error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn detects_encrypt_reference_in_trailer_bytes() {
+        let trailer =
+            b"trailer\n<< /Size 10 /Root 1 0 R /Encrypt 9 0 R >>\nstartxref\n123\n%%EOF";
+        assert!(buffer_has_encrypt_reference(trailer));
+    }
+
+    #[test]
+    fn stray_encrypt_literal_without_reference_is_not_flagged() {
+        // A bare "/Encrypt" not followed by an indirect object reference (e.g. inside page
+        // content) is NOT treated as the encryption dictionary — avoids false positives.
+        let content = b"text mentioning /Encrypt inline but not as a << N G R >> reference";
+        assert!(!buffer_has_encrypt_reference(content));
+    }
+
+    #[test]
+    fn engine_error_mentioning_password_maps_to_encrypted_message() {
+        // An engine failure that reports encryption/password is remapped to the clear,
+        // honest ENCRYPTED_PDF_MESSAGE instead of a cryptic redacted parser detail.
+        let mapped = redacted_engine_error(
+            "EdgeParse",
+            "document is encrypted and requires a password to open",
+            "",
+        );
+        assert_eq!(mapped, encrypted_pdf_error());
+    }
+
+    #[test]
+    fn ordinary_engine_error_is_not_misread_as_encrypted() {
+        let mapped = redacted_engine_error("EdgeParse", "malformed xref table", "");
+        assert_ne!(mapped, encrypted_pdf_error());
+    }
+
+    #[cfg(any(feature = "edgeparse-pdf", feature = "liteparse-pdf"))]
+    #[test]
+    fn live_engine_refuses_encrypted_pdf_with_clear_message() {
+        // A PDF whose trailer references an encryption dictionary is refused honestly BEFORE
+        // the parser runs — a clear "encrypted" Failed, never a crash, never fake markdown.
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the Unix epoch")
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("epistemos-liteparse-encrypted-{unique}.pdf"));
+        std::fs::write(
+            &path,
+            b"%PDF-1.7\n1 0 obj\n<< >>\nendobj\ntrailer\n<< /Root 1 0 R /Encrypt 9 0 R >>\nstartxref\n0\n%%EOF\n",
+        )
+        .expect("write encrypted-marker pdf probe");
+
+        let outcome = pdf_to_markdown(path.to_str().expect("temp path should be UTF-8"));
+        let _ = std::fs::remove_file(&path);
+        match outcome {
+            Err(LiteParseError::Failed(message)) => {
+                assert!(
+                    message.contains("encrypted"),
+                    "expected clear encrypted-PDF message, got: {message}"
+                );
+            }
+            other => panic!("expected honest encrypted-PDF failure, got {other:?}"),
         }
     }
 

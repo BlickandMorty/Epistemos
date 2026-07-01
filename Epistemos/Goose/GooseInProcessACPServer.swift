@@ -1404,6 +1404,16 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
 
     private func providerNameForAgentCore() -> String {
         let providerID = defaultProviderID ?? providerConfigValues.keys.sorted().first ?? ""
+        // Honor the user's saved model selection first. When the WebUI selected a
+        // SPECIFIC model (via the model picker / GOOSE_MODEL) rather than the bare
+        // provider family, map it onto the closest agent_core provider slug so the
+        // run does not silently drop the chosen model (e.g. Sonnet vs Opus, Flash
+        // vs Pro, Kimi-Thinking vs Kimi). Returns nil when the selection is empty
+        // or is just the provider family id, in which case we fall back to the
+        // provider-default mapping below (behavior-preserving for the default flow).
+        if let slug = Self.agentCoreSlug(forSelectedModel: defaultModelID, providerID: providerID) {
+            return slug
+        }
         switch providerID {
         case "anthropic":
             return "claude_opus"
@@ -1416,6 +1426,61 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         default:
             return providerID.isEmpty ? "claude_opus" : providerID
         }
+    }
+
+    /// Maps the user's saved model id onto an agent_core provider slug understood by
+    /// `instantiate_provider` (bridge.rs). Returns nil when the selection carries no
+    /// model-specific signal (empty, or equal to the bare provider family id), so the
+    /// caller keeps the provider-default mapping.
+    ///
+    /// NOTE: agent_core's `run_agent_session` FFI accepts only a `provider_name`, and
+    /// each slug binds a FIXED model inside the provider (e.g. `claude_opus` →
+    /// `ClaudeProvider::opus()`). This mapping therefore reaches the discrete set of
+    /// slugs agent_core exposes; a fully arbitrary model_id would require a new
+    /// optional `model_id` FFI parameter threaded into the provider constructors.
+    nonisolated static func agentCoreSlug(forSelectedModel selectedModel: String?, providerID: String) -> String? {
+        guard let raw = selectedModel?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            return nil
+        }
+        // Bare provider family (e.g. "anthropic") carries no model-specific signal.
+        if raw.caseInsensitiveCompare(providerID) == .orderedSame {
+            return nil
+        }
+        let lower = raw.lowercased()
+        // Dynamic "provider/model" slugs (OpenRouter / HuggingFace) pass through — the
+        // Rust bridge resolves these directly.
+        if lower.contains("/") {
+            return raw
+        }
+        // Anthropic Claude family.
+        if lower.contains("opus") { return "claude_opus" }
+        if lower.contains("sonnet") { return "claude_sonnet" }
+        if lower.contains("haiku") { return "claude_haiku" }
+        // Google Gemini family.
+        if lower.contains("gemini") || lower.contains("google") {
+            return lower.contains("flash") ? "gemini_flash" : "gemini_pro"
+        }
+        // OpenAI family.
+        if lower.contains("gpt") || lower.contains("openai") || lower.hasPrefix("o1") || lower.hasPrefix("o3") {
+            return "openai"
+        }
+        // Kimi variants.
+        if lower.contains("kimi") {
+            if lower.contains("thinking") { return "kimi_thinking" }
+            if lower.contains("k2") { return "kimi_k2" }
+            return "kimi"
+        }
+        // Other named cloud families understood by instantiate_provider.
+        if lower.contains("deepseek") { return "deepseek" }
+        if lower.contains("minimax") { return "minimax" }
+        if lower.contains("glm") || lower.contains("zai") { return "zai" }
+        if lower.contains("perplexity") || lower.contains("sonar") { return "perplexity" }
+        if lower.contains("mistral") { return "mistral" }
+        if lower.contains("grok") || lower == "xai" { return "grok" }
+        // Unrecognized model id: defer to the provider-default mapping rather than
+        // guessing (no silent misroute).
+        return nil
     }
 
     private func vaultPathForAgentCore() -> String {

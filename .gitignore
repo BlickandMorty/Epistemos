@@ -85,3 +85,4 @@ Epistemos/Resources/opencode-runtime/
 # generated caches (do not commit)
 .epcache/
 .epistemos/
+*.htmlworkspace/
