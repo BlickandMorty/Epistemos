@@ -152,6 +152,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("unsupported computer-use tool names"))
         #expect(codepack.contains("can report `browser-use Pro: signed packaged payload ready` only after"))
         #expect(codepack.contains("`SIGNATURE_MANIFEST.json`"))
+        #expect(codepack.contains("`PACKAGE_RESULT.json`"))
+        #expect(codepack.contains("package-result checkpoint evidence"))
         #expect(codepack.contains("enclosing `BrowserUsePro.bundle` signature verify"))
         #expect(codepack.contains("nested-code and all-architecture checks"))
         #expect(codepack.contains("signed payload root to be exactly `Contents/Resources/BrowserUsePro`"))
@@ -843,24 +845,37 @@ struct BrowserUseCodepackPlan3Tests {
 
         for required in [
             "signature_manifest_has_required_browser_use_pro_evidence",
+            "package_result_has_required_browser_use_pro_evidence",
+            "BROWSER_USE_PRO_PACKAGE_RESULT_DEST",
             "path_has_symlink_component",
             "current.is_symlink()",
             "path_has_symlink_component(manifest_path) or manifest_path.is_symlink() or not manifest_path.is_file()",
+            "path_has_symlink_component(package_result_path) or package_result_path.is_symlink() or not package_result_path.is_file()",
             "read_manifest_no_follow",
+            "read_result_no_follow",
             "os.open(path, flags)",
             "os.fstat(fd)",
             "O_NOFOLLOW",
             "json.loads(read_manifest_no_follow(manifest_path))",
+            "json.loads(read_result_no_follow(package_result_path))",
             "required_string(manifest, \"package_name\") != \"BrowserUsePro\"",
             "required_string(manifest, \"runtime_lane\") != \"pro-developer-id-only\"",
             "required_string(manifest, \"payload_root\") != \"Contents/Resources/BrowserUsePro\"",
+            "required_string(result, \"signature_manifest\") != \"BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json\"",
+            "result.get(\"codesign_verified\") is not True",
+            "result.get(\"smoke_suite_args\") != [\"--signed-bundle\", \"BrowserUsePro.bundle\"]",
             "type(file_count) is not int or file_count <= 0 or file_count > 250000",
             "required_string(manifest, \"python\").startswith(\"Python 3.11.\")",
             "required_string(manifest, \"browser_use_version\") != \"0.13.2\"",
+            "required_string(result, \"python\").startswith(\"Python 3.11.\")",
+            "required_string(result, \"smoke_suite_entrypoint\") != \"scripts/browser-use-pro-smoke-suite.sh\"",
             "not isinstance(manifest, dict)",
+            "not isinstance(result, dict)",
             "set(manifest.keys()) != expected_manifest_keys",
+            "set(result.keys()) != expected_result_keys",
             "is_second_precision_utc_timestamp",
             "required_string(manifest, \"created_utc\")",
+            "required_string(result, \"created_utc\")",
             "not is_second_precision_utc_timestamp(created_utc)",
             "required_string(manifest, \"codesign_contract\") != expected_codesign_contract",
             "manifest.get(\"component_repos\") != expected_repos",
@@ -868,6 +883,8 @@ struct BrowserUseCodepackPlan3Tests {
             "manifest.get(\"component_versions\") != expected_versions",
             "manifest.get(\"playwright_revisions\") != expected_playwright",
             "[ ! -L \"$signature_manifest\" ]",
+            "[ ! -L \"$package_result\" ]",
+            "rsync -a \"$package_result_source\" \"$BROWSER_USE_PRO_PACKAGE_RESULT_DEST\"",
             "/usr/bin/codesign --verify --deep --strict --verbose=2 \"$candidate\"",
         ] {
             #expect(script.contains(required), "Missing browser-use app resource bundler guard: \(required)")
@@ -937,6 +954,7 @@ struct BrowserUseCodepackPlan3Tests {
     @Test("browser-use Pro smoke suite composes signed gate and loopback smokes only")
     func browserUseProSmokeSuiteComposesGateAndLoopbackSmokesOnly() throws {
         let script = try Self.loadSource("scripts/browser-use-pro-smoke-suite.sh")
+        let gateSmoke = try Self.loadSource("scripts/browser-use-pro-gate-smoke.swift")
 
         for required in [
             "Plan 3 browser-use Pro smoke suite",
@@ -964,6 +982,14 @@ struct BrowserUseCodepackPlan3Tests {
             "browser-use Pro smoke suite OK",
         ] {
             #expect(script.contains(required), "Missing browser-use Pro suite string: \(required)")
+        }
+
+        for required in [
+            "Package result verified",
+            "browser-use-pro-smoke-suite.sh",
+            "expected package-result evidence in signed packaged gate detail",
+        ] {
+            #expect(gateSmoke.contains(required), "Missing browser-use gate smoke string: \(required)")
         }
 
         for forbidden in [

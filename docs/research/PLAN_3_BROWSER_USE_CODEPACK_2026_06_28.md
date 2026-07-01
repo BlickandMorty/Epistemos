@@ -119,7 +119,8 @@ no-follow descriptor, reads `VENDOR_MANIFEST.json` and `BUILD_MANIFEST.json` thr
 `fstat`, and writes `SIGNATURE_MANIFEST.json` through a no-follow regular-file descriptor before `codesign`. After the
 final deep `codesign` verification, it writes non-secret `PACKAGE_RESULT.json` checkpoint evidence beside the bundle
 with relative package paths and the exact `scripts/browser-use-pro-smoke-suite.sh --signed-bundle BrowserUsePro.bundle`
-command for periodic Pro checkpoint execution.
+command for periodic Pro checkpoint execution. The runtime gate now reads that package-result checkpoint evidence
+through a bounded no-follow regular-file descriptor before reporting the signed package ready.
 
 Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
 `build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>
@@ -141,17 +142,21 @@ ops. Swift gate validation requires the signed payload root to be exactly `Conte
 enclosing bundle. The app resource bundler parses `SIGNATURE_MANIFEST.json` as JSON and exact-matches the signed package
 name, runtime lane, payload root, component pins, component versions, Python 3.11 runtime, Playwright revisions,
 top-level key set, second-precision UTC creation stamp shape, and deep-codesign contract before
-copying `BrowserUsePro.bundle` into app resources; it rejects symlinked signature manifests and symlink components before parsing so build-time
-copy policy matches the runtime no-follow manifest reader, and it reads the signature manifest through a no-follow descriptor
+copying `BrowserUsePro.bundle` into app resources; it also validates and copies the companion `PACKAGE_RESULT.json`
+beside the bundle with exact non-secret package-result fields for the smoke suite, codesign result, Python version,
+notarization note, and second-precision UTC stamp. It rejects symlinked signature manifests, package results, and symlink components before parsing so build-time
+copy policy matches the runtime no-follow evidence readers, and it reads both evidence files through no-follow descriptors
 with `fstat` before JSON decoding. The manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
 wheelhouse, and Playwright payload as staged inputs to the signed Pro package.
 
 `Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` is now the always-compiled honest gate and manifest reader:
 MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the signed bundle manifest it
 can report `browser-use Pro: signed packaged payload ready` only after the declared `requirements.lock`, wheelhouse,
-Chromium payload, web-ui compatibility shims, dry-run submit hook, `BUILD_MANIFEST.json`, `SIGNATURE_MANIFEST.json`, and enclosing `BrowserUsePro.bundle` signature
-verify; signature type and signing identity are validated before the ready gate; the manifest file itself is regular-file checked,
-symlink-path rejected, read through a no-follow descriptor, and capped at 1 MiB before JSON decode; manifest-declared
+Chromium payload, web-ui compatibility shims, dry-run submit hook, `BUILD_MANIFEST.json`, `SIGNATURE_MANIFEST.json`,
+package-result checkpoint evidence, and enclosing `BrowserUsePro.bundle` signature
+verify; signature type, signing identity, package-result `codesign_verified`, Python version, and smoke-suite command are validated before the ready gate; the manifest and package-result files are regular-file checked,
+symlink-path rejected, read through no-follow descriptors, and capped before JSON decode (1 MiB for the signature
+manifest, 64 KiB for the package result); manifest-declared
 artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
 and never surface full user-local paths; unexpected external manifest read failures are mapped to bounded domain/code
 diagnostics before gate or Settings status text, with raw status/domain/path strings bounded before trimming and

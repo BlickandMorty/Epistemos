@@ -30,6 +30,10 @@ enum BrowserUseProGateSmoke {
         guard on.isActive, on.headline == "browser-use Pro: signed packaged payload ready" else {
             throw SmokeError.failed("expected signed packaged gate, got active=\(on.isActive) headline=\(on.headline) detail=\(on.detail)")
         }
+        guard on.detail.contains("Package result verified"),
+              on.detail.contains("browser-use-pro-smoke-suite.sh") else {
+            throw SmokeError.failed("expected package-result evidence in signed packaged gate detail, got detail=\(on.detail)")
+        }
 
         print("browser-use Pro gate smoke OK: \(on.headline)")
     }

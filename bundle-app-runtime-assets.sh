@@ -22,6 +22,7 @@ GOOSE_BINARY_DEST="$RESOURCES_DIR/goose"
 GOOSED_BINARY_DEST="$RESOURCES_DIR/goosed"
 GOOSE_WEB_UI_DEST="$RESOURCES_DIR/goose-desktop"
 BROWSER_USE_PRO_BUNDLE_DEST="$RESOURCES_DIR/BrowserUsePro.bundle"
+BROWSER_USE_PRO_PACKAGE_RESULT_DEST="$RESOURCES_DIR/PACKAGE_RESULT.json"
 GOOSE_WEB_UI_STAGE_SCRIPT="${EPISTEMOS_GOOSE_UI_STAGE_SCRIPT:-$SRCROOT/stage-goose-web-ui.sh}"
 STAGED_GOOSE_WEB_UI_SOURCE=""
 
@@ -557,9 +558,141 @@ if manifest.get("playwright_revisions") != expected_playwright:
 PY
 }
 
+package_result_has_required_browser_use_pro_evidence() {
+    local package_result="$1"
+python3 - "$package_result" <<'PY'
+import json
+import os
+import stat
+import sys
+from pathlib import Path
+
+expected_result_keys = {
+    "schema_version",
+    "package_name",
+    "bundle",
+    "signature_manifest",
+    "signature_type",
+    "python",
+    "codesign_verified",
+    "smoke_suite_entrypoint",
+    "smoke_suite_args",
+    "notarization",
+    "secrets",
+    "created_utc",
+}
+
+
+def reject():
+    sys.exit(1)
+
+
+def path_has_symlink_component(path):
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+
+    current = Path(candidate.anchor)
+    for part in candidate.parts[1:]:
+        current = current / part
+        if str(current) in {"/etc", "/tmp", "/var"}:
+            continue
+        if current.is_symlink():
+            return True
+    return False
+
+
+def is_second_precision_utc_timestamp(value):
+    if len(value) != 20:
+        return False
+    punctuation = {
+        4: "-",
+        7: "-",
+        10: "T",
+        13: ":",
+        16: ":",
+        19: "Z",
+    }
+    for index, character in enumerate(value):
+        expected = punctuation.get(index)
+        if expected is not None:
+            if character != expected:
+                return False
+        elif not character.isdigit():
+            return False
+    return True
+
+
+def required_string(result, key):
+    value = result.get(key)
+    if not isinstance(value, str) or not value.strip():
+        reject()
+    return value
+
+
+def read_result_no_follow(path):
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size <= 0 or metadata.st_size > 64 * 1024:
+            reject()
+        with os.fdopen(fd, "rb") as handle:
+            fd = None
+            data = handle.read(64 * 1024 + 1)
+    finally:
+        if fd is not None:
+            os.close(fd)
+    if len(data) > 64 * 1024:
+        reject()
+    return data.decode("utf-8")
+
+
+try:
+    package_result_path = Path(sys.argv[1])
+    if path_has_symlink_component(package_result_path) or package_result_path.is_symlink() or not package_result_path.is_file():
+        reject()
+    result = json.loads(read_result_no_follow(package_result_path))
+except Exception:
+    reject()
+
+if not isinstance(result, dict):
+    reject()
+if set(result.keys()) != expected_result_keys:
+    reject()
+if result.get("schema_version") != 1:
+    reject()
+if required_string(result, "package_name") != "BrowserUsePro":
+    reject()
+if required_string(result, "bundle") != "BrowserUsePro.bundle":
+    reject()
+if required_string(result, "signature_manifest") != "BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json":
+    reject()
+if required_string(result, "signature_type") not in {"ad-hoc", "apple-development", "developer-id"}:
+    reject()
+if not required_string(result, "python").startswith("Python 3.11."):
+    reject()
+if result.get("codesign_verified") is not True:
+    reject()
+if required_string(result, "smoke_suite_entrypoint") != "scripts/browser-use-pro-smoke-suite.sh":
+    reject()
+if result.get("smoke_suite_args") != ["--signed-bundle", "BrowserUsePro.bundle"]:
+    reject()
+if required_string(result, "notarization") != "not recorded; release notarization remains distribution ops":
+    reject()
+if required_string(result, "secrets") != "not recorded":
+    reject()
+created_utc = required_string(result, "created_utc")
+if not is_second_precision_utc_timestamp(created_utc):
+    reject()
+PY
+}
+
 is_signed_browser_use_pro_bundle() {
     local candidate="$1"
     local signature_manifest="$candidate/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json"
+    local package_result
+    package_result="$(dirname "$candidate")/PACKAGE_RESULT.json"
     [ -d "$candidate" ] &&
         [ -f "$candidate/Contents/Info.plist" ] &&
         [ -f "$candidate/Contents/Resources/BrowserUsePro/VENDOR_MANIFEST.json" ] &&
@@ -567,6 +700,9 @@ is_signed_browser_use_pro_bundle() {
         [ -f "$signature_manifest" ] &&
         [ ! -L "$signature_manifest" ] &&
         signature_manifest_has_required_browser_use_pro_evidence "$signature_manifest" &&
+        [ -f "$package_result" ] &&
+        [ ! -L "$package_result" ] &&
+        package_result_has_required_browser_use_pro_evidence "$package_result" &&
         [ -x "$candidate/Contents/Resources/BrowserUsePro/epistemos_agent_browser.py" ] &&
         /usr/bin/codesign --verify --deep --strict --verbose=2 "$candidate" >/dev/null 2>&1
 }
@@ -574,6 +710,7 @@ is_signed_browser_use_pro_bundle() {
 bundle_browser_use_pro() {
     if is_app_store_build; then
         rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+        rm -f "$BROWSER_USE_PRO_PACKAGE_RESULT_DEST"
         return
     fi
 
@@ -591,14 +728,19 @@ bundle_browser_use_pro() {
 
     if [ -z "$source" ]; then
         rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+        rm -f "$BROWSER_USE_PRO_PACKAGE_RESULT_DEST"
         return
     fi
 
+    local package_result_source
+    package_result_source="$(dirname "$source")/PACKAGE_RESULT.json"
     mkdir -p "$(dirname "$BROWSER_USE_PRO_BUNDLE_DEST")"
     rsync -a --delete "$source/" "$BROWSER_USE_PRO_BUNDLE_DEST/"
+    rsync -a "$package_result_source" "$BROWSER_USE_PRO_PACKAGE_RESULT_DEST"
     if ! is_signed_browser_use_pro_bundle "$BROWSER_USE_PRO_BUNDLE_DEST"; then
         echo "Bundled browser-use Pro bundle failed post-copy signature verification." >&2
         rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+        rm -f "$BROWSER_USE_PRO_PACKAGE_RESULT_DEST"
         exit 66
     fi
 }
@@ -613,6 +755,7 @@ if is_app_store_build; then
     rm -f "$GOOSE_BINARY_DEST"
     rm -f "$GOOSED_BINARY_DEST"
     rm -rf "$BROWSER_USE_PRO_BUNDLE_DEST"
+    rm -f "$BROWSER_USE_PRO_PACKAGE_RESULT_DEST"
 else
     bundle_goose_runtime_binary
     bundle_browser_use_pro

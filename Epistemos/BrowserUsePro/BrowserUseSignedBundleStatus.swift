@@ -4,8 +4,10 @@ import Security
 
 nonisolated enum BrowserUseSignedBundleStatus {
     static let signatureManifestName = "SIGNATURE_MANIFEST.json"
+    static let packageResultName = "PACKAGE_RESULT.json"
     static let bundleName = "BrowserUsePro.bundle"
     private static let maxSignatureManifestBytes = 1 * 1024 * 1024
+    private static let maxPackageResultBytes = 64 * 1024
     private static let maxStatusMessageCharacters = 360
     private static let maxPayloadFileCount = 250_000
     private static let maxPayloadEnumerationEntries = maxPayloadFileCount + 25_000
@@ -104,6 +106,79 @@ nonisolated enum BrowserUseSignedBundleStatus {
         }
     }
 
+    private struct PackageResult: Decodable {
+        let schemaVersion: Int
+        let packageName: String
+        let bundle: String
+        let signatureManifest: String
+        let signatureType: String
+        let pythonVersion: String
+        let codesignVerified: Bool
+        let smokeSuiteEntrypoint: String
+        let smokeSuiteArgs: [String]
+        let notarization: String
+        let secrets: String
+        let createdUTC: String
+
+        enum CodingKeys: String, CodingKey, CaseIterable {
+            case schemaVersion = "schema_version"
+            case packageName = "package_name"
+            case bundle
+            case signatureManifest = "signature_manifest"
+            case signatureType = "signature_type"
+            case pythonVersion = "python"
+            case codesignVerified = "codesign_verified"
+            case smokeSuiteEntrypoint = "smoke_suite_entrypoint"
+            case smokeSuiteArgs = "smoke_suite_args"
+            case notarization
+            case secrets
+            case createdUTC = "created_utc"
+        }
+
+        private struct DynamicCodingKey: CodingKey {
+            let stringValue: String
+            let intValue: Int?
+
+            init?(stringValue: String) {
+                self.stringValue = stringValue
+                intValue = nil
+            }
+
+            init?(intValue: Int) {
+                stringValue = "\(intValue)"
+                self.intValue = intValue
+            }
+        }
+
+        init(from decoder: Decoder) throws {
+            let rawContainer = try decoder.container(keyedBy: DynamicCodingKey.self)
+            let actualKeys = Set(rawContainer.allKeys.map(\.stringValue))
+            let expectedKeys = Set(CodingKeys.allCases.map(\.stringValue))
+            guard actualKeys == expectedKeys else {
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(
+                        codingPath: decoder.codingPath,
+                        debugDescription: "package result top-level keys mismatch"
+                    )
+                )
+            }
+
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+            packageName = try container.decode(String.self, forKey: .packageName)
+            bundle = try container.decode(String.self, forKey: .bundle)
+            signatureManifest = try container.decode(String.self, forKey: .signatureManifest)
+            signatureType = try container.decode(String.self, forKey: .signatureType)
+            pythonVersion = try container.decode(String.self, forKey: .pythonVersion)
+            codesignVerified = try container.decode(Bool.self, forKey: .codesignVerified)
+            smokeSuiteEntrypoint = try container.decode(String.self, forKey: .smokeSuiteEntrypoint)
+            smokeSuiteArgs = try container.decode([String].self, forKey: .smokeSuiteArgs)
+            notarization = try container.decode(String.self, forKey: .notarization)
+            secrets = try container.decode(String.self, forKey: .secrets)
+            createdUTC = try container.decode(String.self, forKey: .createdUTC)
+        }
+    }
+
     static func bundleURL(containingManifest manifestURL: URL) -> URL? {
         var cursor = manifestURL.standardizedFileURL.deletingLastPathComponent()
         while true {
@@ -123,11 +198,15 @@ nonisolated enum BrowserUseSignedBundleStatus {
         fileManager: FileManager = .default
     ) -> Status {
         let signatureManifestURL = payloadRootURL.appendingPathComponent(signatureManifestName, isDirectory: false)
+        let packageResultURL = bundleURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(packageResultName, isDirectory: false)
         do {
             guard payloadRootMatchesExpectedBundleLayout(bundleURL: bundleURL, payloadRootURL: payloadRootURL) else {
                 return invalid("signature payload root path mismatch")
             }
             let manifest = try loadSignatureManifest(from: signatureManifestURL, fileManager: fileManager)
+            let packageResult = try loadPackageResult(from: packageResultURL, fileManager: fileManager)
             guard manifest.schemaVersion == 1 else {
                 return invalid("signature manifest schema \(manifest.schemaVersion) is unsupported")
             }
@@ -154,6 +233,9 @@ nonisolated enum BrowserUseSignedBundleStatus {
             }
             guard manifest.browserUseVersion == BrowserUseVendorManifest.browserUsePackageVersion else {
                 return invalid("signature manifest browser-use version mismatch")
+            }
+            if let packageProblem = packageResultProblem(packageResult, signatureManifest: manifest) {
+                return invalid(packageProblem)
             }
             guard isSecondPrecisionUTCTimestamp(manifest.createdUTC) else {
                 return invalid("signature manifest created_utc mismatch")
@@ -195,12 +277,12 @@ nonisolated enum BrowserUseSignedBundleStatus {
             guard let signatureProblem = codeSignatureProblem(for: bundleURL) else {
                 return Status(
                     isValid: true,
-                    detail: "Signed \(bundleName) verified (\(manifest.signatureType), identity \(bounded(manifest.signingIdentity)))."
+                    detail: "Signed \(bundleName) verified (\(manifest.signatureType), identity \(bounded(manifest.signingIdentity))). \(packageResultSummary(packageResult))"
                 )
             }
             return invalid(signatureProblem)
         } catch {
-            return invalid("signature manifest unreadable: \(BrowserUseDiagnostics.statusMessage(for: error, fallback: "signature manifest read failed"))")
+            return invalid("signed package evidence unreadable: \(BrowserUseDiagnostics.statusMessage(for: error, fallback: "signed package evidence read failed"))")
         }
     }
 
@@ -260,6 +342,54 @@ nonisolated enum BrowserUseSignedBundleStatus {
             )
         }
         return try JSONDecoder().decode(SignatureManifest.self, from: data)
+    }
+
+    private static func loadPackageResult(
+        from url: URL,
+        fileManager: FileManager
+    ) throws -> PackageResult {
+        if let component = BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: url, fileManager: fileManager) {
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use package result path must not include symlink component \(pathDiagnostic(component))"
+            )
+        }
+        if (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil {
+            throw BrowserUseVendorManifestError.invalid("browser-use package result must not be a symlink")
+        }
+
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw BrowserUseVendorManifestError.invalid("browser-use package result could not be opened safely")
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use package result attributes unavailable")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use package result must be a regular file")
+        }
+        guard fileStatus.st_size > 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxPackageResultBytes) else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use package result exceeds \(maxPackageResultBytes) bytes"
+            )
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        let data = try handle.readToEnd() ?? Data()
+        guard !data.isEmpty, data.count <= maxPackageResultBytes else {
+            throw BrowserUseVendorManifestError.invalid(
+                "browser-use package result exceeds \(maxPackageResultBytes) bytes"
+            )
+        }
+        return try JSONDecoder().decode(PackageResult.self, from: data)
     }
 
     private static func payloadFileCountProblem(
@@ -441,6 +571,55 @@ nonisolated enum BrowserUseSignedBundleStatus {
             problems.append("unexpected \(name)")
         }
         return problems
+    }
+
+    private static func packageResultProblem(
+        _ packageResult: PackageResult,
+        signatureManifest: SignatureManifest
+    ) -> String? {
+        guard packageResult.schemaVersion == 1 else {
+            return "package result schema \(packageResult.schemaVersion) is unsupported"
+        }
+        guard packageResult.packageName == "BrowserUsePro" else {
+            return "package result package mismatch"
+        }
+        guard packageResult.bundle == bundleName else {
+            return "package result bundle mismatch"
+        }
+        guard packageResult.signatureManifest == "\(bundleName)/Contents/Resources/BrowserUsePro/\(signatureManifestName)" else {
+            return "package result signature manifest mismatch"
+        }
+        guard packageResult.signatureType == signatureManifest.signatureType else {
+            return "package result signature type mismatch"
+        }
+        guard let signaturePythonVersion = signatureManifest.pythonVersion,
+              packageResult.pythonVersion == signaturePythonVersion else {
+            return "package result Python version mismatch"
+        }
+        guard packageResult.codesignVerified else {
+            return "package result is missing final codesign verification"
+        }
+        guard packageResult.smokeSuiteEntrypoint == "scripts/browser-use-pro-smoke-suite.sh" else {
+            return "package result smoke suite entrypoint mismatch"
+        }
+        guard packageResult.smokeSuiteArgs == ["--signed-bundle", bundleName] else {
+            return "package result smoke suite args mismatch"
+        }
+        guard packageResult.notarization == "not recorded; release notarization remains distribution ops" else {
+            return "package result notarization field mismatch"
+        }
+        guard packageResult.secrets == "not recorded" else {
+            return "package result secrets field mismatch"
+        }
+        guard isSecondPrecisionUTCTimestamp(packageResult.createdUTC) else {
+            return "package result created_utc mismatch"
+        }
+        return nil
+    }
+
+    private static func packageResultSummary(_ packageResult: PackageResult) -> String {
+        let smokeArgs = packageResult.smokeSuiteArgs.joined(separator: " ")
+        return "Package result verified (\(packageResultName), smoke \(packageResult.smokeSuiteEntrypoint) \(smokeArgs))."
     }
 
     private static func codeSignatureProblem(for bundleURL: URL) -> String? {

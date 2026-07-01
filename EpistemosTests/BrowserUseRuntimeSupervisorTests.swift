@@ -770,6 +770,9 @@ struct BrowserUseRuntimeSupervisorTests {
             try Data(signatureManifestJSON(fileCount: fileCount).utf8).write(
                 to: vendorRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
             )
+            try Data(packageResultJSON.utf8).write(
+                to: root.appendingPathComponent("PACKAGE_RESULT.json", isDirectory: false)
+            )
             try runProcess("/usr/bin/codesign", arguments: [
                 "--force",
                 "--sign",
@@ -1037,6 +1040,14 @@ struct BrowserUseRuntimeSupervisorTests {
         try? FileManager.default.removeItem(at: signatureURL)
         let fileCount = try payloadFixtureFileCount(in: paths.vendorRoot)
         try Data(signatureManifestJSON(fileCount: fileCount).utf8).write(to: signatureURL)
+        if let signedBundleURL = paths.signedBundleURL {
+            let packageResultURL = signedBundleURL
+                .deletingLastPathComponent()
+                .appendingPathComponent("PACKAGE_RESULT.json", isDirectory: false)
+            if !FileManager.default.fileExists(atPath: packageResultURL.path) {
+                try Data(packageResultJSON.utf8).write(to: packageResultURL)
+            }
+        }
         try runProcess("/usr/bin/codesign", arguments: [
             "--force",
             "--sign",
@@ -1079,6 +1090,25 @@ struct BrowserUseRuntimeSupervisorTests {
           },
           "created_utc": "2026-06-30T00:00:00Z",
           "codesign_contract": "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime."
+        }
+        """
+    }
+
+    private var packageResultJSON: String {
+        """
+        {
+          "schema_version": 1,
+          "package_name": "BrowserUsePro",
+          "bundle": "BrowserUsePro.bundle",
+          "signature_manifest": "BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json",
+          "signature_type": "ad-hoc",
+          "python": "Python 3.11.15",
+          "codesign_verified": true,
+          "smoke_suite_entrypoint": "scripts/browser-use-pro-smoke-suite.sh",
+          "smoke_suite_args": ["--signed-bundle", "BrowserUsePro.bundle"],
+          "notarization": "not recorded; release notarization remains distribution ops",
+          "secrets": "not recorded",
+          "created_utc": "2026-06-30T00:00:01Z"
         }
         """
     }

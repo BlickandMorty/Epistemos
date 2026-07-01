@@ -423,6 +423,9 @@ struct BrowserUseProGateStatusTests {
         try Data(Self.signatureManifestJSON.utf8).write(
             to: payloadRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
         )
+        try Data(Self.packageResultJSON.utf8).write(
+            to: root.appendingPathComponent("PACKAGE_RESULT.json", isDirectory: false)
+        )
 
         try runProcess("/usr/bin/codesign", arguments: [
             "--force",
@@ -439,6 +442,8 @@ struct BrowserUseProGateStatusTests {
         #expect(status.isActive)
         #expect(status.headline == "browser-use Pro: signed packaged payload ready")
         #expect(status.detail.contains("Signed BrowserUsePro.bundle verified"))
+        #expect(status.detail.contains("Package result verified"))
+        #expect(status.detail.contains("browser-use-pro-smoke-suite.sh"))
         #expect(status.detail.contains("native WKWebView Browser"))
         #endif
     }
@@ -506,6 +511,13 @@ struct BrowserUseProGateStatusTests {
         }
 
         for required in [
+            "static let packageResultName = \"PACKAGE_RESULT.json\"",
+            "private struct PackageResult",
+            "package result top-level keys mismatch",
+            "loadPackageResult(",
+            "packageResultProblem(",
+            "Package result verified",
+            "smokeSuiteEntrypoint",
             "maxPayloadEnumerationEntries",
             "visitedEntryCount",
             "signature payload contains too many entries",
@@ -737,6 +749,23 @@ struct BrowserUseProGateStatusTests {
       },
       "created_utc": "2026-06-30T00:00:00Z",
       "codesign_contract": "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime."
+    }
+    """
+
+    private static let packageResultJSON = """
+    {
+      "schema_version": 1,
+      "package_name": "BrowserUsePro",
+      "bundle": "BrowserUsePro.bundle",
+      "signature_manifest": "BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json",
+      "signature_type": "ad-hoc",
+      "python": "Python 3.11.15",
+      "codesign_verified": true,
+      "smoke_suite_entrypoint": "scripts/browser-use-pro-smoke-suite.sh",
+      "smoke_suite_args": ["--signed-bundle", "BrowserUsePro.bundle"],
+      "notarization": "not recorded; release notarization remains distribution ops",
+      "secrets": "not recorded",
+      "created_utc": "2026-06-30T00:00:01Z"
     }
     """
 
