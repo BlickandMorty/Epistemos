@@ -112,32 +112,42 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         requiredContextKind: String? = nil,
         requiredContextAvailable: Bool? = nil
     ) {
-        self.source = source
-        self.query = query
+        self.source = Self.normalizedNonEmpty(source, default: HTMLWorkspaceDataFeed.Source.vaultSearch.rawValue)
+        self.query = Self.normalizedTrimmed(query)
         self.limit = limit
         self.resultCount = resultCount
         self.contextKinds = Self.normalizedContextKinds(contextKinds)
         self.refreshedAtMS = refreshedAtMS
-        self.provenance = provenance
+        self.provenance = Self.normalizedNonEmpty(provenance, default: HTMLWorkspaceDataFeedJSONEnvelope.provenance)
         self.stale = stale
-        self.status = status
-        self.error = error
+        self.status = Self.normalizedNonEmpty(status, default: stale ? "stale" : "fresh")
+        self.error = Self.normalizedOptional(error)
         self.requiredContextKind = Self.normalizedOptional(requiredContextKind)
         self.requiredContextAvailable = requiredContextAvailable
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        source = try container.decode(String.self, forKey: .source)
-        query = try container.decode(String.self, forKey: .query)
+        let decodedStale = try container.decode(Bool.self, forKey: .stale)
+        source = Self.normalizedNonEmpty(
+            try container.decodeIfPresent(String.self, forKey: .source),
+            default: HTMLWorkspaceDataFeed.Source.vaultSearch.rawValue
+        )
+        query = Self.normalizedTrimmed(try container.decodeIfPresent(String.self, forKey: .query) ?? "")
         limit = try container.decode(Int.self, forKey: .limit)
         resultCount = try container.decode(Int.self, forKey: .resultCount)
         contextKinds = Self.normalizedContextKinds(try container.decodeIfPresent([String].self, forKey: .contextKinds) ?? [])
         refreshedAtMS = try container.decode(Int64.self, forKey: .refreshedAtMS)
-        provenance = try container.decode(String.self, forKey: .provenance)
-        stale = try container.decode(Bool.self, forKey: .stale)
-        status = try container.decode(String.self, forKey: .status)
-        error = try container.decodeIfPresent(String.self, forKey: .error)
+        provenance = Self.normalizedNonEmpty(
+            try container.decodeIfPresent(String.self, forKey: .provenance),
+            default: HTMLWorkspaceDataFeedJSONEnvelope.provenance
+        )
+        stale = decodedStale
+        status = Self.normalizedNonEmpty(
+            try container.decodeIfPresent(String.self, forKey: .status),
+            default: decodedStale ? "stale" : "fresh"
+        )
+        error = Self.normalizedOptional(try container.decodeIfPresent(String.self, forKey: .error))
         requiredContextKind = Self.normalizedOptional(try container.decodeIfPresent(String.self, forKey: .requiredContextKind))
         requiredContextAvailable = try container.decodeIfPresent(Bool.self, forKey: .requiredContextAvailable)
     }
@@ -150,6 +160,14 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
     private static func normalizedOptional(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func normalizedTrimmed(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedNonEmpty(_ value: String?, default defaultValue: String) -> String {
+        normalizedOptional(value) ?? defaultValue
     }
 }
 

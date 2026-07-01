@@ -277,15 +277,16 @@ nonisolated struct HTMLWorkspacePackageTests {
         {
           "results": [],
           "_epistemos": {
-            "source": "vault_search",
-            "query": "decode context",
+            "source": " vault_search ",
+            "query": " decode context ",
             "limit": 2,
             "result_count": 0,
             "context_kinds": [" graph_related_note ", "", "recent_capture", "graph_related_note"],
             "refreshed_at_ms": 0,
-            "provenance": "VaultSyncService.searchFullAsync",
+            "provenance": " ",
             "stale": false,
-            "status": "fresh",
+            "status": " ",
+            "error": " ",
             "required_context_kind": " recent_capture ",
             "required_context_available": true
           }
@@ -293,7 +294,12 @@ nonisolated struct HTMLWorkspacePackageTests {
         """
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: json))
+        #expect(metadata.source == "vault_search")
+        #expect(metadata.query == "decode context")
         #expect(metadata.contextKinds == ["graph_related_note", "recent_capture"])
+        #expect(metadata.provenance == HTMLWorkspaceDataFeedJSONEnvelope.provenance)
+        #expect(metadata.status == "fresh")
+        #expect(metadata.error == nil)
         #expect(metadata.requiredContextKind == "recent_capture")
         #expect(metadata.requiredContextAvailable == true)
     }
