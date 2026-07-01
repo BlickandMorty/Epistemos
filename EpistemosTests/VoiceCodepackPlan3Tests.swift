@@ -508,6 +508,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(project.contains("- package: KokoroPipeline\n        product: KokoroPipeline"))
         #expect(upstream.contains("052bdcd8333d4ac38d77485a5067d9a1e3397cac"))
         #expect(upstream.contains("no model weights"))
+        #expect(synthesizer.contains("private func stopKokoroPlayback()"))
+        #expect(synthesizer.contains("if kokoroEngine.isRunning {\n            kokoroEngine.pause()\n        }"))
         #expect(!loader.contains("URLSession"))
         #expect(!loader.contains("Process("))
         #expect(!loader.contains("NSTask"))

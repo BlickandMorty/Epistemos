@@ -403,6 +403,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         if activeKokoroUtteranceID != nil || kokoroPlayer.isPlaying {
             kokoroPlayer.stop()
         }
+        if kokoroEngine.isRunning {
+            kokoroEngine.pause()
+        }
         activeKokoroUtteranceID = nil
         activeKokoroCharactersTotal = 0
     }
