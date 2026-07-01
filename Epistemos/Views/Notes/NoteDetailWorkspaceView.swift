@@ -1938,7 +1938,7 @@ struct NoteDetailWorkspaceView: View {
         // Find the active NSTextView and scroll to the character offset.
         guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
 
-        let safeOffset = min(charOffset, tv.string.count)
+        let safeOffset = max(0, min(charOffset, (tv.string as NSString).length))
         let range = NSRange(location: safeOffset, length: 0)
         tv.setSelectedRange(range)
         tv.scrollRangeToVisible(range)
@@ -1951,7 +1951,7 @@ struct NoteDetailWorkspaceView: View {
 
     private func applyEditorRestore(cursor: Int, scrollFraction: Double) {
         guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
-        let safeCursor = min(cursor, tv.string.count)
+        let safeCursor = max(0, min(cursor, (tv.string as NSString).length))
         tv.setSelectedRange(NSRange(location: safeCursor, length: 0))
         if let scrollView = tv.enclosingScrollView,
            let docHeight = scrollView.documentView?.bounds.height, docHeight > 0 {
@@ -2006,7 +2006,12 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func availableNoteModes(for page: SDPage) -> [NoteWorkspaceMode] {
-        if isMarkdownDocument(page) {
+        // A note-backed note (no on-disk filePath) is a markdown/prose note, same as a resolved
+        // .md file: offer the full Edit/Preview/Source set when a Source route is available.
+        // Only a NON-markdown code file (a real non-.md filePath) is Source-only. This restores
+        // the MarkEdit Source toggle that regressed away for note-backed notes. (source-toggle 2026-07-01)
+        let isMarkdownBodied = isMarkdownDocument(page) || (page.filePath?.isEmpty ?? true)
+        if isMarkdownBodied {
             return sourceFileRoute(for: page) == nil
                 ? [.edit, .preview]
                 : [.edit, .preview, .source]
@@ -2037,6 +2042,15 @@ struct NoteDetailWorkspaceView: View {
     private func sourceFileRoute(for page: SDPage) -> SourceEditorRoute? {
         guard let path = page.filePath,
               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            // Note-backed markdown with no resolved on-disk filePath yet (commit 0fda59df6 made
+            // the Source editor mount from the note body). Offer Source against the note's OWN
+            // canonical vault-relative markdown path if it has one — saveMarkdownSourceContent
+            // is note-backed (writes the body) and sets page.filePath to this REAL canonical
+            // path. We never synthesize a fake path here (that would corrupt the note's vault-
+            // sync identity); without a canonical path there is simply no Source lens. (source-toggle 2026-07-01)
+            if let canonical = activeVaultMarkdownSourcePath(for: page) {
+                return SourceEditorRoute(filePath: canonical, language: "markdown")
+            }
             return nil
         }
         if CodeLanguage.isMarkdownDocument(path: path) {
