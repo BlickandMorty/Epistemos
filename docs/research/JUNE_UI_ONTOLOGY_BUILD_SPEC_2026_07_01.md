@@ -5,6 +5,9 @@
 > radius/padding, the frosted layering, the internal composition) — **ported from June's actual source (MIT).**
 > This is NOT a token recolor of Goose's existing components, and it is NOT wiring June's UI to a backend.
 > **The ONLY things that change from June's originals: fonts + the Epistemos theme palette.** Nothing else.
+> **⛔ PURE JUNE — NO OPENCHAMBER (owner 2026-07-01).** EVERY component, style, and pattern comes from June. Do NOT pull
+> anything from OpenChamber (or any other app) — not the diff view, not a command palette, nothing. It is 100% June-ness.
+> (Ignore the OpenChamber sections of the referenced study docs — they are historical only.)
 
 ## WHY "reskin" is not enough — the ontological diff (the owner's own example)
 Goose's message bar looks wrong not because of its *color* but because it's a **structurally different component**: a hard

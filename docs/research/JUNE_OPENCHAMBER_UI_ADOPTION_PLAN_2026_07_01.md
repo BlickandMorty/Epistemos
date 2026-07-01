@@ -1,5 +1,11 @@
 # June + OpenChamber → Epistemos UI adoption plan (2026-07-01)
 
+> ⛔ **SUPERSEDED (owner 2026-07-01): PURE JUNE, NO OPENCHAMBER — and UI-ONTOLOGY ONLY, no backend.** The owner dropped
+> OpenChamber entirely (no gap-fillers, no diff view — 100% June) and scoped the work to porting June's component
+> *ontology* only (NOT wiring June to a backend). **The operative doc is now `JUNE_UI_ONTOLOGY_BUILD_SPEC_2026_07_01.md`.**
+> Keep this file for the raw component inventory + the feasibility notes only; ignore its two-stack / OpenChamber /
+> backend-adapter sections.
+
 > Built on the token study: `JUNE_OPENCHAMBER_DESIGN_STUDY_2026_07_01.md` (raw palettes/fonts/scales). This is the
 > **actionable plan** after a 5-round component study of both cloned repos (both MIT).
 > **Owner directive (REVISED 2026-07-01):** **June is THE absolute base UI ontology, app-wide.** Vendor June's whole UI as
