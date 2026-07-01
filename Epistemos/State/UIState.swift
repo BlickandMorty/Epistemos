@@ -360,6 +360,7 @@ final class UIState {
     enum HomeContent: Equatable, Sendable {
         case greeting
         case graph
+        case meeting
     }
 
     var homeContent: HomeContent = .greeting

@@ -147,6 +147,22 @@ struct LandingView: View {
                         )
                     )
                     .zIndex(1)
+            case .meeting:
+                // Meeting is an embedded home PAGE (owner: animate to a page in
+                // the home window, like the old chat) — not a utility window.
+                HomeEmbeddedPage(title: "Meeting") {
+                    MeetingNoteView()
+                }
+                .transition(
+                    .asymmetric(
+                        insertion: .modifier(
+                            active: BlurFade(blur: 14, opacity: 0),
+                            identity: BlurFade(blur: 0, opacity: 1)
+                        ),
+                        removal: .opacity
+                    )
+                )
+                .zIndex(1)
             }
 
             // Companion dock — hidden when the embedded graph is up so it
@@ -660,7 +676,9 @@ struct LandingView: View {
         case .browserUsePro:
             UtilityWindowManager.shared.show(.browserUsePro)
         case .meetingNote:
-            UtilityWindowManager.shared.show(.meetingNote)
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                ui.homeContent = .meeting
+            }
         }
     }
 
