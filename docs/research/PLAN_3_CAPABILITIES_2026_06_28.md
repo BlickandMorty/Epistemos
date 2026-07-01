@@ -107,9 +107,10 @@ test-linking condition, not the shipped MAS parser state.
   parsed `.md` SDPage sibling, linked through existing `frontMatterData` keys `source_pdf: "Imported PDFs/<name>.pdf"`
   and `source_kind: "pdf"`. The `.md` remains edit/search truth; the `.pdf` remains view/provenance truth.
 - **Default (pdf→md ON):** import → parse → parsed note opens; the Plan 3 affordance exposes a "View original PDF"
-  action only when `source_pdf` resolves inside the current vault. The source-PDF sheet uses flat theme-token Find
-  input chrome, not rounded bordered fields, and caps file names, search text, outline labels, annotation traversal, and
-  annotation labels before sidebar display with filename ellipsis inside configured caps.
+  action only when `source_pdf` resolves inside the current vault. The source-PDF sheet revalidates no-follow `%PDF-`
+  magic before PDFKit opens the URL, uses flat theme-token Find input chrome instead of rounded bordered fields, and caps
+  file names, search text, outline labels, annotation traversal, and annotation labels before sidebar display with
+  filename ellipsis inside configured caps.
 - **2 settings:** `parsePDFOnImport` defaults ON; `defaultOpenForImportedPDF` defaults to `parsedNote`.
 - **★ Plan boundary (no clash):** **Plan 2 (editor canonical) owns the PDF *VIEWER***. **Plan 3 owns the parse engine
   plus `source_pdf` storage/link contract.** Plan 2 should only consume the resolved `source_pdf` URL.

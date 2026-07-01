@@ -37,10 +37,10 @@
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Frontmatter
   `source_pdf` is length-bounded before trimming, and absolute paths, `..`, `.`, empty path components, missing files,
-  symlink escapes, and traversal attempts are rejected. The source-PDF sheet caps outline traversal depth/node/item
-  count, outline labels, file names, annotation page/item/title traversal, and find-query/result state so malformed PDFs
-  cannot force unbounded UI work; filename ellipsis stays inside the configured cap, and original-PDF help text is
-  capped too. The sheet chrome uses a flat theme-token Find input, theme-derived separators/text colors, `ToolbarCapsuleButton`, and
+  symlink escapes, and traversal attempts are rejected. The source-PDF sheet revalidates `%PDF-` magic through the same
+  no-follow signature helper before PDFKit opens the URL, then caps outline traversal depth/node/item count, outline
+  labels, file names, annotation page/item/title traversal, and find-query/result state so malformed PDFs cannot force
+  unbounded UI work; filename ellipsis stays inside the configured cap, and original-PDF help text is capped too. The sheet chrome uses a flat theme-token Find input, theme-derived separators/text colors, `ToolbarCapsuleButton`, and
   `NativeCardButtonStyle` instead of generic dividers, rounded bordered fields, or plain buttons. Plan 2 still owns any
   full PDF viewer; Plan 3 only owns the parse engine and storage/link contract.
 - **DONE:** Settings keys `parsePDFOnImport`/`defaultOpenForImportedPDF` and frontmatter `source_pdf`/`source_kind`

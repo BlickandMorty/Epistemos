@@ -264,6 +264,10 @@ struct SourcePDFViewerSheet: View {
 
     private func loadDocument() {
         guard document == nil else { return }
+        guard case .match = LiteParsePDFSignature.fileStartsWithPDFMagic(url.path) else {
+            loadError = "Could not open \(Self.displayFileName(url.lastPathComponent))"
+            return
+        }
         guard let loaded = PDFDocument(url: url) else {
             loadError = "Could not open \(Self.displayFileName(url.lastPathComponent))"
             return

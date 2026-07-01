@@ -538,6 +538,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     let pinnedContextKeys = [];
     const pinnedContextLimit = 16;
     const contextDragType = 'application/x-epistemos-context-key';
+    const nativeContextDragType = 'com.epistemos.workspace-context';
     const selectedDetailViews = ['summary', 'metadata'];
     const selectedDetailLabels = { summary: 'Summary', metadata: 'Metadata' };
     let selectedDetailView = 'summary';
@@ -838,12 +839,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     function hasContextDrag(event) {
       const types = Array.from(event.dataTransfer?.types || []);
-      return types.includes(contextDragType) || types.includes('text/plain');
+      return types.includes(contextDragType) || types.includes(nativeContextDragType) || types.includes('text/plain');
     }
 
     function droppedContextPayload(event) {
       return String(
         event.dataTransfer?.getData(contextDragType) ||
+        event.dataTransfer?.getData(nativeContextDragType) ||
         event.dataTransfer?.getData('text/plain') ||
         ''
       ).trim();
