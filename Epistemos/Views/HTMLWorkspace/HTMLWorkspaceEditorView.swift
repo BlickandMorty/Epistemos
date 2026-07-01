@@ -1900,10 +1900,12 @@ struct HTMLWorkspaceEditorView: View {
         do {
             clearPendingRegeneratePreview()
             package = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: name), to: package)
+            previewRouteName = nil
             previewPackage = package
             liveDOMSnapshot = nil
             selectedPane = .html
             layoutMode = .split
+            regenerateErrorText = nil
             statusText = "Previous surface restored"
         } catch {
             statusText = failedStatus("Restore", error: error)

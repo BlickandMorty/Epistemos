@@ -660,6 +660,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         for body in [attachContext, clearContext, configureFeed, clearFeed, restore] {
             #expect(body.contains("clearPendingRegeneratePreview()"))
         }
+        #expect(restore.contains("previewRouteName = nil"))
+        #expect(restore.contains("regenerateErrorText = nil"))
         #expect(editor.contains("if let expected = pendingRegenerateExpectedContentHash,\n               expected != newValue.currentContentHash {\n                clearPendingRegeneratePreview()\n            }"))
     }
 
