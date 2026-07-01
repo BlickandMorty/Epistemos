@@ -2593,13 +2593,13 @@ function applyExtensionSettingsSurfaces() {
     source,
     'extension modal dividers softened',
     'className="border-t border-border-primary"',
-    'className="border-t border-border-secondary/70"'
+    'className="pt-4"'
   );
   source = replaceRequired(
     source,
     'extension remove button native danger',
     'className="text-red-500 hover:text-red-600"',
-    'className="border-border-danger bg-background-danger/35 text-text-danger hover:bg-background-danger/65 hover:text-text-danger"'
+    'className="bg-background-danger/35 text-text-danger hover:bg-background-danger/65 hover:text-text-danger"'
   );
   write('src/components/settings/extensions/modal/ExtensionModal.tsx', source);
 
@@ -2608,13 +2608,13 @@ function applyExtensionSettingsSurfaces() {
     source,
     'env vars input native focus',
     "'w-full text-text-primary border-border-primary hover:border-border-primary'",
-    "'w-full border-border-primary bg-background-primary/70 text-text-primary hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20'"
+    "'w-full bg-background-primary/70 text-text-primary transition-colors hover:bg-background-secondary/72 focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0'"
   );
   source = replaceAllRequired(
     source,
     'env vars invalid token',
     "'border-red-500 focus:border-red-500'",
-    "'border-border-danger focus:border-border-danger focus-visible:ring-text-danger/20'"
+    "'bg-background-danger/35 focus:bg-background-danger/45'"
   );
   source = replaceAllRequired(
     source,
@@ -2638,7 +2638,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'env vars add button native',
     'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-text-primary bg-background-primary border border-border-primary hover:border-border-primary transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
-    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-border-secondary bg-background-primary/70 px-2 pr-4 text-sm text-text-primary transition-all hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
+    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] bg-background-primary/70 px-2 pr-4 text-sm text-text-primary transition-colors hover:bg-background-secondary/75 [&>svg]:!size-4"'
   );
   source = replaceRequired(
     source,
@@ -2653,13 +2653,13 @@ function applyExtensionSettingsSurfaces() {
     source,
     'headers input native focus',
     "'w-full text-text-primary border-border-primary hover:border-border-primary'",
-    "'w-full border-border-primary bg-background-primary/70 text-text-primary hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20'"
+    "'w-full bg-background-primary/70 text-text-primary transition-colors hover:bg-background-secondary/72 focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0'"
   );
   source = replaceAllRequired(
     source,
     'headers invalid token',
     "'border-red-500 focus:border-red-500'",
-    "'border-border-danger focus:border-border-danger focus-visible:ring-text-danger/20'"
+    "'bg-background-danger/35 focus:bg-background-danger/45'"
   );
   source = replaceRequired(
     source,
@@ -2677,7 +2677,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'headers add button native',
     'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-text-primary bg-background-primary border border-border-primary hover:border-border-primary transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
-    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-border-secondary bg-background-primary/70 px-2 pr-4 text-sm text-text-primary transition-all hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
+    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] bg-background-primary/70 px-2 pr-4 text-sm text-text-primary transition-colors hover:bg-background-secondary/75 [&>svg]:!size-4"'
   );
   source = replaceRequired(
     source,
@@ -2692,7 +2692,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'extension config input native',
     "className={`w-full ${!submitAttempted || isValid ? 'border-border-primary' : 'border-red-500'} text-text-primary`}",
-    "className={`w-full bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 ${!submitAttempted || isValid ? 'border-border-primary' : 'border-border-danger focus:border-border-danger'}`}"
+    "className={`w-full bg-background-primary/70 text-text-primary transition-colors focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0 ${!submitAttempted || isValid ? '' : 'bg-background-danger/35 focus:bg-background-danger/45'}`}"
   );
   source = replaceRequired(
     source,
@@ -2713,7 +2713,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'extension name input native',
     "className={`${!submitAttempted || isNameValid() ? 'border-border-primary' : 'border-red-500'} text-text-primary focus:border-border-primary`}",
-    "className={`bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 ${!submitAttempted || isNameValid() ? 'border-border-primary' : 'border-border-danger focus:border-border-danger'}`}"
+    "className={`bg-background-primary/70 text-text-primary transition-colors focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0 ${!submitAttempted || isNameValid() ? '' : 'bg-background-danger/35 focus:bg-background-danger/45'}`}"
   );
   source = replaceRequired(
     source,
@@ -2725,7 +2725,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'extension description input native',
     'className={`text-text-primary focus:border-border-primary`}',
-    'className={`bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20`}'
+    'className={`bg-background-primary/70 text-text-primary transition-colors focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0`}'
   );
   write('src/components/settings/extensions/modal/ExtensionInfoFields.tsx', source);
 
@@ -2734,7 +2734,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'extension timeout input native',
     "className={`${!submitAttempted || isTimeoutValid() ? 'border-border-primary' : 'border-red-500'} text-text-primary focus:border-border-primary`}",
-    "className={`bg-background-primary/70 text-text-primary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 ${!submitAttempted || isTimeoutValid() ? 'border-border-primary' : 'border-border-danger focus:border-border-danger'}`}"
+    "className={`bg-background-primary/70 text-text-primary transition-colors focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0 ${!submitAttempted || isTimeoutValid() ? '' : 'bg-background-danger/35 focus:bg-background-danger/45'}`}"
   );
   source = replaceRequired(
     source,
@@ -2802,7 +2802,7 @@ function applyExtensionListSurfaces() {
     source,
     'empty extensions native panel',
     'className="text-center text-text-secondary py-8"',
-    'className="rounded-[12px] border border-border-secondary bg-background-secondary/55 py-8 text-center text-text-secondary backdrop-blur-xl"'
+    'className="rounded-[12px] bg-background-secondary/55 py-8 text-center text-text-secondary"'
   );
   write('src/components/settings/extensions/subcomponents/ExtensionList.tsx', source);
 
@@ -2811,7 +2811,7 @@ function applyExtensionListSurfaces() {
     source,
     'extension item card native glass',
     'className="transition-all duration-200 min-h-[120px] overflow-hidden"',
-    'className="min-h-[128px] overflow-hidden border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-[var(--epistemos-accent)]/45 hover:bg-background-secondary/62"'
+    'className="min-h-[128px] overflow-hidden bg-background-primary/54 transition-colors duration-200 ease-[var(--epistemos-control-ease)] hover:bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
@@ -5333,7 +5333,7 @@ function applyFormValidationSurfaces() {
     source,
     'parameter modal native glass',
     'className="bg-background-primary border border-border-primary rounded-[6px] shadow-none w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"',
-    'className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 shadow-2xl backdrop-blur-xl"'
+    'className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-[14px] bg-background-primary/92"'
   );
   source = replaceRequired(
     source,
@@ -5351,19 +5351,19 @@ function applyFormValidationSurfaces() {
     source,
     'parameter modal control native base',
     'w-full p-3 border rounded-[6px] bg-background-secondary text-text-primary focus:outline-none focus:ring-1',
-    'w-full rounded-[10px] border bg-background-primary/70 p-3 text-text-primary transition-all focus:outline-none focus:ring-[3px]'
+    'w-full rounded-[10px] bg-background-primary/70 p-3 text-text-primary transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0'
   );
   source = replaceAllRequired(
     source,
     'parameter modal invalid ring token',
     "? 'border-red-500 focus:ring-red-500'",
-    "? 'border-border-danger focus:ring-text-danger/20'"
+    "? 'bg-background-danger/35 focus:bg-background-danger/45'"
   );
   source = replaceAllRequired(
     source,
     'parameter modal normal focus token',
     ": 'border-border-primary focus:ring-border-secondary'",
-    ": 'border-border-secondary focus:border-[var(--epistemos-accent)] focus:ring-[var(--epistemos-accent)]/20'"
+    ": ''"
   );
   write('src/components/ParameterInputModal.tsx', source);
 
@@ -5381,19 +5381,19 @@ function applyFormValidationSurfaces() {
     source,
     'json schema select native',
     'className="flex h-9 w-full rounded-md border focus:border-border-secondary hover:border-border-secondary bg-background-primary px-3 py-1 text-base transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"',
-    'className="flex h-9 w-full rounded-[8px] border border-border-secondary bg-background-primary/70 px-3 py-1 text-base text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"'
+    'className="flex h-9 w-full rounded-[8px] bg-background-primary/70 px-3 py-1 text-base text-text-primary transition-colors duration-200 ease-[var(--epistemos-control-ease)] hover:bg-background-secondary/72 focus:bg-background-secondary/72 focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"'
   );
   source = replaceRequired(
     source,
     'json schema checkbox native',
     'className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"',
-    'className="h-4 w-4 rounded-[5px] border-border-primary accent-[var(--epistemos-accent)] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="h-4 w-4 rounded-[5px] accent-[var(--epistemos-accent)] focus:ring-0"'
   );
   source = replaceAllRequired(
     source,
     'json schema invalid input token',
     "className={error ? 'border-red-500' : ''}",
-    "className={error ? 'border-border-danger focus-visible:ring-text-danger/20' : ''}"
+    "className={error ? 'bg-background-danger/35' : ''}"
   );
   source = replaceAllRequired(
     source,
@@ -5423,13 +5423,13 @@ function applyFormValidationSurfaces() {
     source,
     'inline edit active border token',
     'border-blue-500 ring-2 ring-blue-500/20',
-    'border-[var(--epistemos-accent)] ring-[3px] ring-[var(--epistemos-accent)]/20'
+    'bg-[var(--epistemos-accent)]/10'
   );
   source = replaceRequired(
     source,
     'inline edit focus ring token',
     'focus:outline-none focus:ring-2 focus:ring-blue-500/40',
-    'focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/25'
+    'focus:outline-none focus:ring-0'
   );
   write('src/components/common/InlineEditText.tsx', source);
 
@@ -5447,7 +5447,7 @@ function applyFormValidationSurfaces() {
     source,
     'session action long text link token',
     'className="min-w-0 rounded-sm text-left text-blue-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-active dark:text-blue-300 break-all"',
-    'className="min-w-0 break-all rounded-[6px] text-left text-[var(--epistemos-accent)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20"'
+    'className="min-w-0 break-all rounded-[6px] text-left text-[var(--epistemos-accent)] underline-offset-2 hover:underline focus-visible:bg-[var(--epistemos-accent)]/10 focus-visible:outline-none focus-visible:ring-0"'
   );
   write('src/components/SessionActionsHeader.tsx', source);
 }
