@@ -840,6 +840,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("const sectionLabel = sectionContextLabels[sectionID] || sectionID;"))
         #expect(package.scriptJS.contains("Dropped context for ${sectionLabel} is no longer in the current data.json feed."))
         #expect(package.scriptJS.contains("function recordContextEvent(eventName, result, extra = {})"))
+        #expect(package.scriptJS.contains("provenance: resultProvenance(result),"))
+        #expect(package.scriptJS.contains("rank: Number.isFinite(Number(result.rank)) ? String(Number(result.rank)) : ''"))
         #expect(package.scriptJS.contains("window.HTMLWorkspaceApp || (window.HTMLWorkspace && window.HTMLWorkspace.app)"))
         #expect(package.scriptJS.contains("app.record(eventName, contextRecordAttributes(result, extra));"))
         #expect(package.scriptJS.contains("workspace.context.pick"))

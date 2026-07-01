@@ -815,7 +815,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         page_id: result.page_id || '',
         title: result.title || '',
         context_kind: resultContextKind(result),
-        source_label: result.source_label || 'Vault search result'
+        source_label: result.source_label || 'Vault search result',
+        provenance: resultProvenance(result),
+        rank: Number.isFinite(Number(result.rank)) ? String(Number(result.rank)) : ''
       };
       Object.keys(extra).forEach((key) => {
         if (extra[key]) { attributes[key] = extra[key]; }
