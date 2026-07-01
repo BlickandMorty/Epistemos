@@ -1804,6 +1804,18 @@ function applyMotionSurfaces() {
   );
   source = replaceRequired(
     source,
+    'navigation panel claude sidebar root',
+    "className={cn('bg-background-secondary outline-none flex flex-col h-full', className)}",
+    "className={cn('flex h-full flex-col bg-background-secondary/72 outline-none', className)}"
+  );
+  source = replaceRequired(
+    source,
+    'navigation primary group calm spacing',
+    '<div className="px-2 pt-2 flex flex-col gap-0.5">',
+    '<div className="flex flex-col gap-1 px-2 pt-2">'
+  );
+  source = replaceRequired(
+    source,
     'navigation row native transition',
     "'border-l-2 px-2.5 py-1.5 text-xs font-medium transition-colors'",
     "'rounded-[8px] px-2.5 py-1.5 text-[13px] font-medium tracking-normal transition-all duration-200 ease-[var(--epistemos-control-ease)]'"
@@ -1872,7 +1884,13 @@ function applyMotionSurfaces() {
     source,
     'navigation settings footer no divider',
     '<div className="px-2 pt-2 pb-2 border-t border-border-secondary bg-background-secondary">',
-    '<div className="px-2 pt-2 pb-2 bg-background-secondary">'
+    '<div className="px-2 pb-2 pt-2 bg-transparent">'
+  );
+  source = replaceRequired(
+    source,
+    'navigation empty chats sf density',
+    '<div className="px-3 py-2 text-xs text-text-secondary">',
+    '<div className="px-3 py-2 text-[13px] text-text-secondary">'
   );
   write('src/components/Layout/NavigationPanel.tsx', source);
 }
