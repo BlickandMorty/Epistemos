@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 struct MeetingNoteView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(UIState.self) private var ui
     @State private var voiceInput: LiveVoiceInputService
     @State private var service: MeetingNoteCaptureService
     @State private var isSaving = false
@@ -18,24 +19,27 @@ struct MeetingNoteView: View {
         VStack(spacing: 0) {
             toolbar
 
-            Divider()
-
             ScrollView {
                 Text(transcriptDisplayText)
                     .font(.system(size: 14, design: .rounded))
-                    .foregroundStyle(service.transcriptText.isEmpty ? .secondary : .primary)
+                    .foregroundStyle(
+                        service.transcriptText.isEmpty
+                            ? ui.theme.resolved.mutedForeground.color
+                            : ui.theme.resolved.foreground.color
+                    )
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .textSelection(.enabled)
                     .padding(18)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.72))
-
-            Divider()
+            .background(transcriptSurfaceBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(.horizontal, 14)
 
             footer
         }
         .frame(minWidth: 520, minHeight: 420)
+        .background(ui.theme.resolved.background.color.opacity(ui.theme.isDark ? 0.92 : 0.96))
         .onChange(of: voiceInput.partialTranscript) { _, _ in
             service.refreshFromVoiceInput()
         }
@@ -62,26 +66,36 @@ struct MeetingNoteView: View {
     private var toolbar: some View {
         HStack(spacing: 10) {
             IntegrationBrandMarkView(brand: .meetingNote, size: 20)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
             Text("Meeting Note")
                 .font(.system(size: 14, weight: .semibold))
             Spacer()
             Text(stateLabel)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-            Button {
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: 220, alignment: .trailing)
+                .help(stateLabel)
+            ToolbarCapsuleButton(
+                title: recordingButtonTitle,
+                systemImage: isRecording ? "stop.circle.fill" : "mic.circle",
+                role: isRecording ? .toolbarUtility : .primaryAction,
+                chromePolicy: .alwaysSurface
+            ) {
                 toggleRecording()
-            } label: {
-                Label(recordingButtonTitle, systemImage: isRecording ? "stop.circle.fill" : "mic.circle")
             }
             .disabled(isSaving || isFinalizing)
-            Button {
+            ToolbarCapsuleButton(
+                title: "Save",
+                systemImage: "square.and.arrow.down",
+                role: .primaryAction,
+                chromePolicy: .alwaysSurface
+            ) {
                 save()
-            } label: {
-                Label("Save", systemImage: "square.and.arrow.down")
             }
             .keyboardShortcut("s", modifiers: [.command])
-            .disabled(isSaving || service.transcriptText.isEmpty)
+            .disabled(!canSave)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -95,14 +109,17 @@ struct MeetingNoteView: View {
             }
             Text(durationLabel)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
             Spacer()
-            Button {
+            ToolbarCapsuleButton(
+                title: "Discard",
+                systemImage: "trash",
+                role: .secondaryGhost,
+                chromePolicy: .bareUntilPressed
+            ) {
                 showingDiscardConfirmation = true
-            } label: {
-                Label("Discard", systemImage: "trash")
             }
-            .disabled(isSaving || service.transcriptText.isEmpty)
+            .disabled(!canDiscard)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -110,6 +127,10 @@ struct MeetingNoteView: View {
 
     private var transcriptDisplayText: String {
         service.transcriptText.isEmpty ? "Transcript will appear here." : service.transcriptText
+    }
+
+    private var transcriptSurfaceBackground: some ShapeStyle {
+        ui.theme.resolved.foreground.color.opacity(ui.theme.isDark ? 0.055 : 0.035)
     }
 
     private var isRecording: Bool {
@@ -124,6 +145,21 @@ struct MeetingNoteView: View {
             return true
         }
         return false
+    }
+
+    private var isSaved: Bool {
+        if case .saved = service.state {
+            return true
+        }
+        return false
+    }
+
+    private var canSave: Bool {
+        !isSaving && !isFinalizing && !isSaved && !service.transcriptText.isEmpty
+    }
+
+    private var canDiscard: Bool {
+        !isSaving && !isFinalizing && !isSaved && !service.transcriptText.isEmpty
     }
 
     private var recordingButtonTitle: String {
@@ -163,6 +199,7 @@ struct MeetingNoteView: View {
     }
 
     private func save() {
+        guard canSave else { return }
         isSaving = true
         Task {
             defer { isSaving = false }
@@ -179,6 +216,7 @@ struct MeetingNoteView: View {
 #Preview("MeetingNoteView") {
     MeetingNoteView()
         .modelContainer(for: [SDPage.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self], inMemory: true)
+        .environment(UIState())
         .frame(width: 700, height: 560)
 }
 #endif

@@ -27,7 +27,11 @@
   capped before they reach UI state. Finalize failures use bounded categorical diagnostics instead of raw localized
   filesystem descriptions.
 - **Meeting surface now exists:** `MeetingNoteView` is hosted by `UtilityWindowManager` as `.meetingNote`, and
-  `LandingFeatureButton.meetingNote` opens it from the landing page. A Settings row is not required for the first pass.
+  `LandingFeatureButton.meetingNote` opens it from the landing page. It reads the shared `UIState` theme, uses
+  native capsule controls, and renders labels plus the live transcript in flat theme-token surfaces without hard
+  dividers. The toolbar status label truncates long bounded diagnostics instead of expanding the row, and Save is
+  disabled after a successful `.saved` state until the user starts a new capture so the same transcript cannot be saved
+  repeatedly. A Settings row is not required for the first pass.
 
 ## Product promise
 Meeting note is a user-driven Apple-native capture surface:
@@ -113,6 +117,8 @@ Optional frontmatter keys:
 - Unit test proves unexpected finalize errors do not expose local filesystem paths in UI-facing state.
 - UI source guard proves the landing button opens the meeting note surface and does not touch Goose or Plan 2 editor
   surfaces.
+- UI source guard proves saved meeting transcripts cannot be saved again via the button or keyboard shortcut, and long
+  status labels cannot expand the toolbar.
 - MAS boundary guard proves no cloud STT, Whisper, Python, subprocess, Chromium, or Kokoro path enters meeting capture.
 
 ## Delivery order
