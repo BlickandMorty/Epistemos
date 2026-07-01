@@ -229,6 +229,7 @@ struct LiteParseImportTests {
         #expect(sharedIO.contains("destinationOfSymbolicLink"))
         #expect(sharedIO.contains("fileStatus.st_size > 0"))
         #expect(sharedIO.contains("UInt64(fileStatus.st_size) <= UInt64(maxPDFBytes)"))
+        #expect(sharedIO.contains("fileStatus.st_nlink == 1"))
         #expect(sharedIO.contains("[nonRegularPDFMessage, emptyPDFMessage, tooLargePDFMessage].contains(message)"))
         #expect(sharedIO.contains("maxReservationAttempts"))
         #expect(sharedIO.contains("String(baseName.prefix(maxBaseNameLength + 64))"))
@@ -423,6 +424,27 @@ struct LiteParseImportTests {
 
         let outsideText = try String(contentsOf: outside, encoding: .utf8)
         #expect(outsideText == "outside original")
+    }
+
+    @Test("reserved import writes reject hard-linked reservations")
+    func reservedImportWritesRejectHardLinkedReservations() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-hardlink-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let reserved = root.appendingPathComponent("reserved.md")
+        let alias = root.appendingPathComponent("alias.md")
+        try Data().write(to: reserved)
+        try FileManager.default.linkItem(at: reserved, to: alias)
+
+        do {
+            try Plan3ImportFileIO.writeData(Data("new markdown".utf8), toReservedFile: reserved)
+            Issue.record("Expected markdown write to reject a hard-linked reservation")
+        } catch {}
+
+        #expect((try? Data(contentsOf: reserved)) == Data())
+        #expect((try? Data(contentsOf: alias)) == Data())
     }
 
     @Test("reserved import copy revalidates source PDF on the copied file descriptor")

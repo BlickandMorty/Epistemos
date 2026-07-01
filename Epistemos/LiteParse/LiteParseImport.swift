@@ -420,6 +420,10 @@ nonisolated enum Plan3ImportFileIO {
             close(fd)
             throw fileIOError("reserved \(url.lastPathComponent) is not a regular file", errnoCode: EFTYPE)
         }
+        guard fileStatus.st_nlink == 1 else {
+            close(fd)
+            throw fileIOError("reserved \(url.lastPathComponent) is linked from another path", errnoCode: EMLINK)
+        }
         return FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
 
