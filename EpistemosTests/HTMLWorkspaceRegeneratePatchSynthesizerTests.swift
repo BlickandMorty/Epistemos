@@ -530,6 +530,28 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.components(separatedBy: "previewRouteName = nil").count >= 5)
     }
 
+    @Test("context and feed mutations invalidate pending regenerate previews")
+    func contextAndFeedMutationsInvalidatePendingRegeneratePreviews() throws {
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let refreshStart = try #require(editor.range(of: "private func refreshRegenerateVaultContext()"))
+        let clearStart = try #require(editor.range(of: "private func clearRegenerateVaultContext()"))
+        let focusStart = try #require(editor.range(of: "private func focusRegenerateContextItem"))
+        let presetStart = try #require(editor.range(of: "private func runVaultDataRegeneratePreset"))
+        let attachStart = try #require(editor.range(of: "private func attachStandaloneRegenerateContext"))
+        let configureStart = try #require(editor.range(of: "private func configureVaultSearchFeed()"))
+        let clearFeedStart = try #require(editor.range(of: "private func clearVaultSearchFeed()"))
+        let clearConsoleStart = try #require(editor.range(of: "private func clearConsole()"))
+        let refresh = String(editor[refreshStart.lowerBound..<clearStart.lowerBound])
+        let clearContext = String(editor[clearStart.lowerBound..<focusStart.lowerBound])
+        let preset = String(editor[presetStart.lowerBound..<attachStart.lowerBound])
+        let configureFeed = String(editor[configureStart.lowerBound..<clearFeedStart.lowerBound])
+        let clearFeed = String(editor[clearFeedStart.lowerBound..<clearConsoleStart.lowerBound])
+
+        for body in [refresh, clearContext, preset, configureFeed, clearFeed] {
+            #expect(body.contains("clearPendingRegeneratePreview()"))
+        }
+    }
+
     @Test("copyable regenerate prompt includes system prompt and target hash")
     func copyableRegeneratePromptIncludesSystemPromptAndTargetHash() {
         let package = HTMLWorkspacePackage.defaultPackage(title: "Prompt Proof")

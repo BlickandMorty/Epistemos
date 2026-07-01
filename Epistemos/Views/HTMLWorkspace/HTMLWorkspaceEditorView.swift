@@ -888,6 +888,7 @@ struct HTMLWorkspaceEditorView: View {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
         let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)
         regenerateContextTask?.cancel()
+        clearPendingRegeneratePreview()
         regenerateContextRefreshNonce &+= 1
         let refreshNonce = regenerateContextRefreshNonce
         isRefreshingRegenerateContext = true
@@ -955,6 +956,7 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextTask = nil
         regenerateContextRefreshNonce &+= 1
         isRefreshingRegenerateContext = false
+        clearPendingRegeneratePreview()
         package.manifest.dataFeed = nil
         package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
         regenerateContextStatusText = "Workspace context cleared"
@@ -1113,6 +1115,7 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextQuery = query
         regenerateInstruction = contextualInstruction
         regenerateContextTask?.cancel()
+        clearPendingRegeneratePreview()
         regenerateContextRefreshNonce &+= 1
         let refreshNonce = regenerateContextRefreshNonce
         isRefreshingRegenerateContext = true
@@ -1521,6 +1524,7 @@ struct HTMLWorkspaceEditorView: View {
         let requestedLimit = Int(limitField.stringValue) ?? existingFeed?.limit ?? HTMLWorkspaceDataFeed.defaultLimit
         let limit = HTMLWorkspaceDataFeed.clampedLimit(requestedLimit)
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: limit)
+        clearPendingRegeneratePreview()
         if package.isStarterTemplateContent {
             var updatedPackage = package
             updatedPackage.applyVaultSearchDashboardTemplate(query: query, limit: limit)
@@ -1537,6 +1541,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func clearVaultSearchFeed() {
+        clearPendingRegeneratePreview()
         package.manifest.dataFeed = nil
         package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
         statusText = "Vault feed cleared"
