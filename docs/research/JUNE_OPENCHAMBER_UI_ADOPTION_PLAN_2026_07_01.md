@@ -76,6 +76,44 @@ Everything else June already does better or equally — do NOT borrow it.
   keeps ONE design language — which is the point.
 - Both repos MIT → vendor June with attribution; treat OpenChamber as reference (patterns/ideas, not vendored code).
 
+## FEASIBILITY VERDICT — "go absolutely June" (2026-07-01, two-sided study)
+**GO — feasible + bounded, because the expensive half is already built.** Two feasibility agents mapped both sides:
+
+**Epistemos backend readiness = 8.5/10.** The seam that hosts Goose is directly reusable for June: `WorkSPAServer`
+(loopback SPA) + a bootstrap script + `WKScriptMessageHandlerWithReply` bridges + `callAsyncJavaScript` streaming +
+trusted-origin gating. The engine (`agent_core` `run_agent_session()` + the `AgentEventDelegate` streaming callbacks) is
+mature. **Every local service June needs already ships in-process + MAS-ready:** STT (`EpistemosSpeechAnalyzer`, macOS 26),
+TTS (Kokoro CoreML), vault CRUD, system-audio/meeting capture (ScreenCaptureKit).
+
+**June frontend rewire = a NARROW, clean seam.** All backend calls funnel through ONE file — ~90 typed Tauri `invoke()`
+commands in `src/lib/tauri.ts` + one Hermes-gateway **WebSocket** for agent streaming (`src/lib/hermes-gateway.ts`). **No
+scattered HTTP/fetch.** State is already **local-first** (SQLite/Rust) — no remote-sync to unwind. Crucially, June's
+streaming event schema (`message.delta` / `tool.*` / `approval.request` / `thinking.delta`) maps **almost 1:1** onto
+`agent_core`'s `AgentEventDelegate` (`on_text_delta` / `on_tool_*` / `on_permission_required` / `on_thinking_delta`).
+
+**Reconciling the two effort reads:** the June-side agent estimated "2–3 months" — but that assumed you'd have to BUILD
+the backend (local agent runtime + STT/TTS). **You don't — Epistemos already has all of it (8.5/10).** So the real work is
+an **adapter/shim layer**, not a rebuild:
+1. **Vendor June's SPA** into the repo; host via the existing WorkSPA + WKWebView pattern (reuse Goose's).
+2. **Command adapter:** implement June's ~90 `invoke()` commands as native handlers → route to `vault` / `agent_core` /
+   `EpistemosSpeechAnalyzer` / Kokoro (via `WKScriptMessageHandlerWithReply`). Many map cleanly.
+3. **Streaming shim:** replace June's Hermes **WebSocket** with the MAS **Path A** transport — `agent_core`
+   `AgentEventDelegate` callbacks → `callAsyncJavaScript` push in June's event shape (~1:1 mapping).
+4. **Reskin:** swap fonts (drop the 3 commercial faces → pixel greeting + free sans/mono) + remap `--brand` + the
+   `tokens.css` per-theme blocks → Epistemos tokens.
+5. **MAS-gate (same playbook as Goose):** DROP June's cloud-locked + forbidden bits — `os_accounts_*` (auth/billing/
+   referral), June API gateway/Venice catalog/image-gen/issue-report, the **Hermes subprocess + CLI access + skill-taps +
+   MCP add-server** (all 2.5.2-forbidden). You wire June's UI to YOUR in-process `agent_core`, not June's Hermes runtime.
+6. **Gap-fillers:** rebuild the OpenChamber diff view (± command palette) in June's look for the Work surface.
+
+**Honest cost:** a focused **multi-week integration** (the adapter is the bulk), NOT a months-long rebuild — because the
+backend exists. Plus: you inherit a large fork to maintain (June's `App.tsx` is ~139KB — track upstream like Goose), and
+June's "dictation-into-any-app" (global hotkey + insert via Accessibility) stays **Pro-only, not MAS** (as before).
+
+**Plan-1 impact:** this **replaces the Goose reskin workstream**. Recommend PAUSING the Goose reskin (it's polishing a UI
+you'll replace) and repointing Plan 1 to the June-frontend swap. The MAS bridge work Plan 1 is doing is **reused** (June
+rides the same transport). Engine/MAS/services all unchanged.
+
 ## RECOMMENDATION (my best combo, per the revised directive)
 **June is the absolute — its whole UI is the single Epistemos stack for every surface, reskinned to your tokens + pixel
 font.** OpenChamber is demoted to a **pattern reference for subtle gap-fillers only** — realistically just the **diff view**
