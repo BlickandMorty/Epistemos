@@ -43,6 +43,9 @@ struct BrowserUseRuntimeSupervisorTests {
                 "OPENAI_API_KEY": "ambient-should-not-leak",
                 "DYLD_INSERT_LIBRARIES": "/tmp/injected.dylib",
                 "PYTHONPATH": "/tmp/python-inject",
+                "PLAYWRIGHT_BROWSERS_PATH": "/tmp/ambient-playwright",
+                "GRADIO_ANALYTICS_ENABLED": "True",
+                "EPISTEMOS_BROWSER_USE_ENV_FILE": "/tmp/ambient.env",
             ],
             host: "127.0.0.1",
             port: 7878,
@@ -73,6 +76,10 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(plan.environment["PATH"] == "/usr/bin")
         #expect(plan.environment["PYTHON_DOTENV_DISABLED"] == "true")
         #expect(plan.environment["PYTHONDONTWRITEBYTECODE"] == "1")
+        #expect(plan.environment["PLAYWRIGHT_BROWSERS_PATH"] == paths.playwrightURL.path)
+        #expect(plan.environment["GRADIO_ANALYTICS_ENABLED"] == "False")
+        #expect(plan.environment["BROWSER_USE_SETUP_LOGGING"] == "false")
+        #expect(plan.environment["EPISTEMOS_BROWSER_USE_ENV_FILE"] == paths.environmentFileURL.path)
         #expect(plan.environment[BrowserUseProGateStatus.flagName] == nil)
         #expect(plan.environment["DYLD_INSERT_LIBRARIES"] == nil)
         #expect(plan.environment["PYTHONPATH"] == nil)
@@ -675,6 +682,10 @@ struct BrowserUseRuntimeSupervisorTests {
             "resolves outside browser-use runtime root",
             "PYTHON_DOTENV_DISABLED",
             "PYTHONDONTWRITEBYTECODE",
+            "PLAYWRIGHT_BROWSERS_PATH",
+            "GRADIO_ANALYTICS_ENABLED",
+            "BROWSER_USE_SETUP_LOGGING",
+            "proEnvironmentFilePathEnvironmentName",
             "inheritedEnvironmentAllowlist",
             "inheritedRuntimeEnvironment(from:",
             "sanitizedInheritedEnvironmentValue",

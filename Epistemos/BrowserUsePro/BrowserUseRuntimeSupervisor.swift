@@ -426,6 +426,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let maxURLDiagnosticLength = 120
     private static let maxPathDiagnosticLength = 160
     private static let maxInheritedEnvironmentValueLength = 4096
+    private static let proEnvironmentFilePathEnvironmentName = "EPISTEMOS_BROWSER_USE_ENV_FILE"
 
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
@@ -772,6 +773,10 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         var environment = inheritedEnvironment.merging(browserUseEnvironment) { _, new in new }
         environment["PYTHON_DOTENV_DISABLED"] = "true"
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        environment["PLAYWRIGHT_BROWSERS_PATH"] = paths.playwrightURL.path
+        environment["GRADIO_ANALYTICS_ENABLED"] = "False"
+        environment["BROWSER_USE_SETUP_LOGGING"] = "false"
+        environment[proEnvironmentFilePathEnvironmentName] = paths.environmentFileURL.path
         let environmentFileContents = BrowserUseEnvironmentRenderer.render(browserUsePairs)
 
         return .ready(BrowserUseRuntimeLaunchPlan(
