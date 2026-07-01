@@ -270,7 +270,13 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
     }
 
     static func requiredContextKind(for package: HTMLWorkspacePackage) -> String? {
-        let kind = metadata(from: package.dataJSON)?.requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard let feed = package.manifest.dataFeed,
+              let metadata = metadata(from: package.dataJSON),
+              metadata.source == feed.source.rawValue,
+              metadata.query == feed.normalizedQuery else {
+            return nil
+        }
+        let kind = metadata.requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return kind.isEmpty ? nil : kind
     }
 

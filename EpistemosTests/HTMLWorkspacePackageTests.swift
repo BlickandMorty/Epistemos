@@ -251,6 +251,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         )
 
         #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package) == "recent_capture")
+        package.manifest.dataFeed = .vaultSearch(query: "different query", limit: 2)
+        #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package) == nil)
         #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: Self.samplePackage()) == nil)
     }
 
