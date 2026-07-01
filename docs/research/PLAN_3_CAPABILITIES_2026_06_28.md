@@ -279,8 +279,8 @@ trimming and ellipsis inside configured caps. Stdio MCP spawns remain hardened a
 **5b — Best-of preset.** Shipped: `Epistemos/Resources/best_of_preset.json`, `BestOfPreset.swift`, and
 `BestOfPresetCard`. Apply is idempotent and reversible for owned remote-MCP rows; built-ins report `.alreadyEnabled`;
 Pro-only skill rows show `.proLocked` instead of silently enabling. The bundled manifest and receipt files are bounded
-regular-file JSON reads and reject final symlinks. Apply/revert row failure text is capped, with external caught
-failures mapped to bounded domain/code diagnostics before display.
+regular-file JSON reads and reject final symlinks. Apply/revert row failure text is capped and
+control/whitespace-normalized, with external caught failures mapped to bounded domain/code diagnostics before display.
 
 **5c — Vault-as-MCP-server (the moat, outward-facing).** Shipped: `VaultMCPCore` (read-only tools/resources allowlist),
 `VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent

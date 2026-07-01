@@ -42,7 +42,7 @@ struct BestOfPresetPlan3Tests {
             "off the SwiftUI path",
             "Registry fields are raw-capped, control-stripped",
             "raw failure/domain strings and success-message display names bounded and control/whitespace-normalized",
-            "raw-bounded MCP URL diagnostic helper",
+            "bounded, control/whitespace-normalized MCP URL diagnostic helper",
         ] {
             #expect(extensibility.contains(required), "Extensibility codepack missing shipped marker: \(required)")
         }
@@ -300,6 +300,10 @@ struct BestOfPresetPlan3Tests {
         let capped = BestOfPresetDiagnostics.message(longMessage, fallback: "Skill install failed.")
         #expect(capped.count == BestOfPresetDiagnostics.maxStatusMessageCharacters)
         #expect(capped.hasSuffix("..."))
+        #expect(
+            BestOfPresetDiagnostics.message("Skill\ninstall\tfailed\u{0007}", fallback: "Skill install failed.")
+                == "Skill install failed"
+        )
     }
 
     @Test("manifest loader accepts bounded regular bundled manifests")
