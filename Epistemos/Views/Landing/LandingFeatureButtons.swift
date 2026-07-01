@@ -20,8 +20,28 @@ nonisolated enum LandingFeatureButtonTextPolicy {
         } else {
             clipped = bounded
         }
-        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(clipped).trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
+    }
+
+    static func normalizedDisplayText(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 }
 

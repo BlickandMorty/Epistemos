@@ -28,7 +28,7 @@
 - **`LandingFeatureButtonTile`** — wraps the existing `PixelLandingCommandTile` (unchanged) + overlays a "PRO" pill when
   `isProOnly && !isAvailableInThisBuild`; `.help` text honest. Pro-only feature tiles do not also reuse the shortcut
   slot for "PRO", so MAS shows one lock/pro indicator instead of a duplicated badge. Feature unavailable/help text is
-  raw-bounded before trim and then shown in tooltips and alerts with ellipsis kept inside configured caps.
+  bounded and control/whitespace-normalized, then shown in tooltips and alerts with ellipsis kept inside configured caps.
 - **`landingFeatureShortcuts`** computed view in `LandingView` — same `LazyVGrid` column spec, `ForEach(LandingFeatureButton.allCases)`,
   placed in `greetingContent` above `landingPixelCommands` (`:425`).
 - **`performFeatureButton(_:)`** single dispatch — honest gate first (`guard isAvailableInThisBuild else {
@@ -39,7 +39,7 @@
   `.voice`→`UtilityWindowManager.shared.showSettings(section: .voice)`, `.arxiv`→`showingArxivSearch = true`,
   `.pdfImport`→`runLandingPDFImport()` (lift `LiteParsePDFImportButton.runImport()` body — env already present in `LandingView`).
   Landing feature alerts cap PDF import result row count, per-row text, and final alert text before display, so bulk imports cannot flood the home surface.
-  Feature unavailable/help text is raw-bounded before trim and then shown in tooltips and alerts with ellipsis kept inside configured caps.
+  Feature unavailable/help text is bounded and control/whitespace-normalized, then shown in tooltips and alerts with ellipsis kept inside configured caps.
 
 ## Notes
 - **Deep-link refinement `[VERIFIED-CODE]`:** `SettingsView.init(initialSelection:)` +

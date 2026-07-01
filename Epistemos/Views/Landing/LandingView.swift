@@ -756,7 +756,8 @@ struct LandingView: View {
         } else {
             clipped = bounded
         }
-        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = LandingFeatureButtonTextPolicy.normalizedDisplayText(clipped)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
     }
 
