@@ -89,6 +89,7 @@ enum PixelGlyphKind {
     case code
     case html
     case graph
+    case agent
 
     var systemImageName: String {
         switch self {
@@ -103,6 +104,7 @@ enum PixelGlyphKind {
         case .code: "chevron.left.forwardslash.chevron.right"
         case .html: "curlybraces.square"
         case .graph: "network"
+        case .agent: "person.crop.circle.badge.checkmark"
         }
     }
 }
