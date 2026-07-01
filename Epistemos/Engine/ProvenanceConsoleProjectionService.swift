@@ -196,9 +196,9 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     }
 
     private static func shortRoot(_ root: String) -> String {
-        let bounded = String(root.prefix(44))
-        let prefix = bounded.trimmingCharacters(in: .whitespacesAndNewlines).prefix(12)
-        return prefix.isEmpty ? "none" : String(prefix)
+        let trimmed = sanitizedDisplayValue(root, prefixLimit: 44)
+        let prefix = String(trimmed.prefix(12)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return prefix.isEmpty ? "none" : prefix
     }
 
     private static func outboxPayload(
@@ -347,18 +347,40 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     }
 
     private static func displayValue(_ value: String) -> String {
-        let bounded = String(value.prefix(displayValueMaximum + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = sanitizedDisplayValue(value, prefixLimit: displayValueMaximum + 32)
         guard !trimmed.isEmpty else { return "unknown" }
         guard trimmed.count > displayValueMaximum else { return trimmed }
-        return String(trimmed.prefix(displayValueMaximum))
+        return String(trimmed.prefix(displayValueMaximum)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func short(_ value: String) -> String {
-        let bounded = String(value.prefix(44))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = sanitizedDisplayValue(value, prefixLimit: 44)
         guard trimmed.count > 12 else { return trimmed.isEmpty ? "unknown" : trimmed }
-        return String(trimmed.prefix(12))
+        let shortened = String(trimmed.prefix(12)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return shortened.isEmpty ? "unknown" : shortened
+    }
+
+    private static func sanitizedDisplayValue(_ value: String, prefixLimit: Int) -> String {
+        let bounded = String(value.prefix(prefixLimit))
+        var sanitized = ""
+        sanitized.reserveCapacity(bounded.count)
+        var previousWasSeparator = false
+
+        for scalar in bounded.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    sanitized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                sanitized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+
+        return sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func acsVerdictUnlinked() -> String {

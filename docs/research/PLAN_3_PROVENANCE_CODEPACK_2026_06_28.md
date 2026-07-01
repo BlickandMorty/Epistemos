@@ -93,8 +93,8 @@ ClaimLedger cascade remain flagged-pending owner sign-off.
 The Settings provenance console is also shipped as a read-only GenUI projection: it initializes to
 `ProvenanceConsoleSnapshot.empty`, refreshes `ProvenanceConsoleProjectionService.snapshot(limit:)` in a cancellable
 utility task, clamps projection reads at the service boundary, caps untrusted model/tool/relation display strings before
-they reach GenUI rows, includes the EventStore-derived `AgentEditSuperseded` trace, and never performs EventStore/Rust
-projection reads in the SwiftUI init/body path.
+they reach GenUI rows, normalizes control/whitespace characters before GenUI render, includes the EventStore-derived
+`AgentEditSuperseded` trace, and never performs EventStore/Rust projection reads in the SwiftUI init/body path.
 Durable `AnswerPacketStore` persistence is append-only JSONL under Application Support, but the store treats the log as
 a bounded provenance artifact: appends reject encoded packets or projected post-append logs over 8 MiB after opening
 the final file with `O_NOFOLLOW` plus `fstat`, while compaction reads/writes and load/restore reads use the same

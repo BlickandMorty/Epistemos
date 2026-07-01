@@ -221,7 +221,8 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
   not raw SwiftUI colors.
 - `AgentNoteEditProvenance`→EventStore remains the real, buildable per-edit lineage; shipped Provenance Console
   (`ProvenanceConsoleView`) is read-only, its `retractionEventProvider` defaults to empty, and
-  `ProvenanceConsoleProjectionService` bounds both projection counts and untrusted display values before GenUI render.
+  `ProvenanceConsoleProjectionService` bounds projection counts, caps untrusted display values, and normalizes
+  control/whitespace characters before GenUI render.
 
 **The fake-chip vector is closed for shipped Swift per-answer chips `[VERIFIED-CODE]`:**
 1. `VRMLabelView` exists again, but it binds only to `VRMLabel.honestLabel(for:)`; empty packets render no chip, and

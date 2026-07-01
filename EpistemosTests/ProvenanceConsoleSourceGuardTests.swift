@@ -69,15 +69,18 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(source.contains("pairs.append((\"tool\", displayValue(tool.toolName)))"))
         #expect(source.contains("pairs.append((\"label\", displayValue(relation.label)))"))
         #expect(source.contains("agent:\\(short(id)) (\\(displayValue(modelID)))"))
-        #expect(source.contains("String(value.prefix(displayValueMaximum + 32))"))
-        #expect(source.contains("String(value.prefix(44))"))
-        #expect(source.contains("String(root.prefix(44))"))
+        #expect(source.contains("sanitizedDisplayValue(value, prefixLimit: displayValueMaximum + 32)"))
+        #expect(source.contains("sanitizedDisplayValue(value, prefixLimit: 44)"))
+        #expect(source.contains("sanitizedDisplayValue(root, prefixLimit: 44)"))
+        #expect(source.contains("CharacterSet.controlCharacters"))
+        #expect(source.contains("sanitized.unicodeScalars.append(scalar)"))
         #expect(source.contains("func subscribeRetractionEvents("))
         #expect(source.contains("RetractionPropagatedProjection"))
         #expect(source.contains("GenUIPayload.provenanceTrace("))
         #expect(source.contains("(\"ACS verdict\""))
         #expect(source.contains("ACS verdict column"))
         #expect(codepack.contains("refreshes `ProvenanceConsoleProjectionService.snapshot(limit:)` in a cancellable"))
+        #expect(codepack.contains("normalizes control/whitespace characters before GenUI render"))
         assertForbiddenTokensAbsent(
             [
                 "saveAgentEvent(",
@@ -224,6 +227,82 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(graphRows["label"] == String(longRelationLabel.prefix(256)))
         #expect(retractionRows["trigger kind"] == String(longTriggerKind.prefix(256)))
         #expect(agentRows["actor"] == "agent:\(String("agent-long-display".prefix(12))) (\(String(longModelID.prefix(256))))")
+    }
+
+    @Test("Provenance Console normalizes control characters before GenUI render")
+    func projectionNormalizesControlCharactersBeforeGenUIRender() throws {
+        let store = try makeStore()
+        let event = AgentProvenanceEvent(
+            eventID: "evt\nid\t7\u{0007}",
+            runID: "run\nid\t7\u{0007}",
+            traceID: "trace\nid\t7\u{0007}",
+            sequence: 1,
+            kind: .toolCallCompleted,
+            actor: .agent(id: "agent\nid\t7", modelID: "model\nid\t7"),
+            occurredAtMs: 1_000,
+            tool: AgentToolProvenance(
+                toolCallID: "tool-call-control",
+                toolName: "tool\nname\t7\u{0007}",
+                argumentsJSON: "{}",
+                resultJSON: "{}",
+                durationMs: 1,
+                approvalID: nil,
+                status: .completed
+            )
+        )
+        let graphEvent = DurableGraphEvent(
+            eventID: "graph\nid\t7\u{0007}",
+            mutationID: "mut\nid\t7\u{0007}",
+            runID: "graph\nrun\t7\u{0007}",
+            traceID: "graph\ntrace\t7\u{0007}",
+            sequence: 1,
+            kind: .edgeCreated,
+            entityID: "entity\n7\u{0007}",
+            occurredAtMs: 1_000,
+            relation: DurableGraphEventRelation(
+                fromID: "from\n7\u{0007}",
+                toID: "to\t7\u{0007}",
+                label: "edge\nlabel\t7\u{0007}"
+            )
+        )
+
+        #expect(store.saveAgentEvent(event))
+        #expect(store.saveGraphEvent(graphEvent))
+
+        let snapshot = ProvenanceConsoleProjectionService(
+            eventStoreProvider: { store },
+            retractionEventProvider: { _, _ in
+                [
+                    RetractionPropagatedProjection(
+                        sequence: 1,
+                        triggerKind: "claim\ntrigger\t7\u{0007}",
+                        triggeredBy: "trigger\nid\t7\u{0007}",
+                        claimsMarkedAtRisk: 1,
+                        maxDepthReached: 1,
+                        depthCapped: false
+                    )
+                ]
+            }
+        ).snapshot(limit: 10)
+
+        let agentRows = try keyValueRows(in: firstTraceEvent(in: snapshot.agentPayload))
+        let graphRows = try keyValueRows(in: firstTraceEvent(in: snapshot.graphPayload))
+        let retractionRows = try keyValueRows(in: firstTraceEvent(in: snapshot.retractionPayload))
+
+        #expect(agentRows["event"] == "evt id 7")
+        #expect(agentRows["run"] == "run id 7")
+        #expect(agentRows["trace"] == "trace id 7")
+        #expect(agentRows["actor"] == "agent:agent id 7 (model id 7)")
+        #expect(agentRows["tool"] == "tool name 7")
+        #expect(graphRows["event"] == "graph id 7")
+        #expect(graphRows["mutation"] == "mut id 7")
+        #expect(graphRows["run"] == "graph run 7")
+        #expect(graphRows["trace"] == "graph trace")
+        #expect(graphRows["entity"] == "entity 7")
+        #expect(graphRows["relation"] == "from 7 -> to 7")
+        #expect(graphRows["label"] == "edge label 7")
+        #expect(retractionRows["trigger kind"] == "claim trigger 7")
+        #expect(retractionRows["trigger"] == "trigger id 7")
     }
 
     @Test("Settings mounts a read-only Provenance Console routed through GenUIDispatcher")
