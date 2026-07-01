@@ -943,7 +943,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
             let pullRequestURLValue: Any = pullRequestURL.map { $0 as Any } ?? NSNull()
             let pullRequestSearchURLValue: Any = pullRequestSearchURL.map { $0 as Any } ?? NSNull()
-            [
+            return [
                 "ok": ok,
                 "status": statusValue,
                 "branch": branchValue,
