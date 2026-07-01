@@ -2878,6 +2878,79 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+node - "$WORK_ROOT/ui/desktop/src/components/recipes/RecipesView.tsx" \
+  "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx" \
+  "$WORK_ROOT/ui/desktop/src/i18n/messages/en.json" \
+  "$WORK_ROOT/ui/desktop/src/i18n/compiled/en.json" <<'NODE'
+const fs = require('fs');
+const [recipesPath, sessionsPath, messagesPath, compiledPath] = process.argv.slice(2);
+
+function replaceRequired(path, label, pattern, replacement) {
+  const source = fs.readFileSync(path, 'utf8');
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`${label} copy replacement not applied`);
+  }
+  fs.writeFileSync(path, next);
+}
+
+replaceRequired(
+  recipesPath,
+  'RecipesView single-window action',
+  `  openInNewWindow: {
+    id: 'recipesView.openInNewWindow',
+    defaultMessage: 'Open in new window',
+  },`,
+  `  openInNewWindow: {
+    id: 'recipesView.openInNewWindow',
+    defaultMessage: 'Open recipe',
+  },`
+);
+
+replaceRequired(
+  sessionsPath,
+  'SessionListView single-window action',
+  `  openInNewWindow: { id: 'sessions.action.openNewWindow', defaultMessage: 'Open in new window' },`,
+  `  openInNewWindow: { id: 'sessions.action.openNewWindow', defaultMessage: 'Open session' },`
+);
+
+replaceRequired(
+  messagesPath,
+  'English recipe single-window message',
+  `"recipesView.openInNewWindow": {
+    "defaultMessage": "Open in new window"
+  },`,
+  `"recipesView.openInNewWindow": {
+    "defaultMessage": "Open recipe"
+  },`
+);
+
+replaceRequired(
+  messagesPath,
+  'English session single-window message',
+  `"sessions.action.openNewWindow": {
+    "defaultMessage": "Open in new window"
+  },`,
+  `"sessions.action.openNewWindow": {
+    "defaultMessage": "Open session"
+  },`
+);
+
+replaceRequired(
+  compiledPath,
+  'compiled English recipe single-window message',
+  `"recipesView.openInNewWindow": "Open in new window",`,
+  `"recipesView.openInNewWindow": "Open recipe",`
+);
+
+replaceRequired(
+  compiledPath,
+  'compiled English session single-window message',
+  `"sessions.action.openNewWindow": "Open in new window",`,
+  `"sessions.action.openNewWindow": "Open session",`
+);
+NODE
+
 APP_LAYOUT="$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
 node - "$APP_LAYOUT" <<'NODE'
 const fs = require('fs');
@@ -7187,6 +7260,10 @@ JS
     grep -q "addExtensionFromDeepLink(link, addExtension" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "window.electron.on('add-extension', handleAddExtension)" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "action: 'add_extension_deeplink'" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "defaultMessage: 'Open recipe'" "$WORK_ROOT/ui/desktop/src/components/recipes/RecipesView.tsx"
+    grep -q "defaultMessage: 'Open session'" "$WORK_ROOT/ui/desktop/src/components/sessions/SessionListView.tsx"
+    grep -q '"recipesView.openInNewWindow": "Open recipe"' "$WORK_ROOT/ui/desktop/src/i18n/compiled/en.json"
+    grep -q '"sessions.action.openNewWindow": "Open session"' "$WORK_ROOT/ui/desktop/src/i18n/compiled/en.json"
     grep -q "data-epistemos-session-tabs" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-tabs-command-switch" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const closeSessionTab =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
