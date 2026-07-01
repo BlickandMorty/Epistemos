@@ -92,6 +92,22 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         public var id: String { identifier }
     }
 
+    public enum PersonalVoiceAuthorization: String, Sendable, Hashable {
+        case notDetermined
+        case denied
+        case unsupported
+        case authorized
+
+        public var label: String {
+            switch self {
+            case .notDetermined: return "Personal Voice access not requested"
+            case .denied: return "Personal Voice access denied"
+            case .unsupported: return "Personal Voice unsupported"
+            case .authorized: return "Personal Voice allowed"
+            }
+        }
+    }
+
     public struct SpeechProsody: Sendable, Hashable {
         public let rate: Float
         public let pitch: Float
@@ -337,6 +353,27 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         )
     }
 
+    @MainActor
+    public static func personalVoiceAuthorization() -> PersonalVoiceAuthorization {
+        if #available(macOS 14.0, *) {
+            return personalVoiceAuthorization(from: AVSpeechSynthesizer.personalVoiceAuthorizationStatus)
+        }
+        return .unsupported
+    }
+
+    @MainActor
+    public static func requestPersonalVoiceAuthorization() async -> PersonalVoiceAuthorization {
+        guard #available(macOS 14.0, *) else {
+            return .unsupported
+        }
+
+        return await withCheckedContinuation { continuation in
+            AVSpeechSynthesizer.requestPersonalVoiceAuthorization { status in
+                continuation.resume(returning: personalVoiceAuthorization(from: status))
+            }
+        }
+    }
+
     // MARK: - Quality tier helpers
 
     private static func tier(for voice: AVSpeechSynthesisVoice) -> VoiceQualityTier {
@@ -345,6 +382,19 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         case .enhanced: return .enhanced
         case .default:  return .default
         @unknown default: return .default
+        }
+    }
+
+    @available(macOS 14.0, *)
+    private nonisolated static func personalVoiceAuthorization(
+        from status: AVSpeechSynthesizer.PersonalVoiceAuthorizationStatus
+    ) -> PersonalVoiceAuthorization {
+        switch status {
+        case .notDetermined: return .notDetermined
+        case .denied: return .denied
+        case .unsupported: return .unsupported
+        case .authorized: return .authorized
+        @unknown default: return .unsupported
         }
     }
 

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 nonisolated enum KokoroVoiceProSettingsModel {
@@ -57,17 +58,35 @@ nonisolated enum KokoroVoiceProSettingsModel {
 
 @MainActor
 struct KokoroVoiceProSettingsSection: View {
+    @Environment(UIState.self) private var ui
     @State private var status = KokoroVoiceGateStatus.status()
+    @State private var installMessage: String?
+    @State private var isInstalling = false
+
+    private var theme: EpistemosTheme {
+        ui.theme
+    }
+
+    private var mutedTint: Color {
+        theme.resolved.mutedForeground.color
+    }
+
+    private func badgeTint(for presentation: KokoroVoiceProSettingsModel.Presentation) -> Color {
+        presentation.proRuntimeEnabled
+            ? theme.resolved.accent.color
+            : theme.resolved.headingAccent.color
+    }
 
     var body: some View {
         let presentation = KokoroVoiceProSettingsModel.presentation(for: status)
+        let badgeTint = badgeTint(for: presentation)
 
         Section("Voice Pro") {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "waveform.badge.sparkles")
                     .symbolRenderingMode(.hierarchical)
                     .frame(width: 18, height: 18)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline) {
@@ -80,9 +99,9 @@ struct KokoroVoiceProSettingsSection: View {
                             .padding(.vertical, 3)
                             .background(
                                 Capsule()
-                                    .fill((presentation.proRuntimeEnabled ? Color.green : Color.orange).opacity(0.16))
+                                    .fill(badgeTint.opacity(theme.isDark ? 0.18 : 0.12))
                             )
-                            .foregroundStyle(presentation.proRuntimeEnabled ? .green : .orange)
+                            .foregroundStyle(badgeTint)
                     }
 
                     Picker("Runtime", selection: .constant(presentation.selectedRuntime)) {
@@ -97,17 +116,94 @@ struct KokoroVoiceProSettingsSection: View {
                         .font(.caption.weight(.semibold))
                     Text(presentation.detail)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if let installMessage {
+                        Text(installMessage)
+                            .font(.caption)
+                            .foregroundStyle(mutedTint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 
-            Button {
-                status = KokoroVoiceGateStatus.status()
-            } label: {
-                Label("Refresh Pro voice status", systemImage: "arrow.clockwise")
+            HStack(spacing: 10) {
+                ToolbarCapsuleButton(
+                    title: isInstalling ? "Installing" : "Install Package",
+                    systemImage: "square.and.arrow.down",
+                    role: .primaryAction,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Install a checked local Kokoro package",
+                    accessibilityLabel: "Install a checked local Kokoro package"
+                ) {
+                    choosePackageForInstall()
+                }
+                .disabled(isInstalling)
+
+                ToolbarCapsuleButton(
+                    title: "Refresh",
+                    systemImage: "arrow.clockwise",
+                    role: .toolbarUtility,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Refresh Pro voice status",
+                    accessibilityLabel: "Refresh Pro voice status"
+                ) {
+                    status = KokoroVoiceGateStatus.status()
+                }
+                .disabled(isInstalling)
+
+                if isInstalling {
+                    ProgressView()
+                        .controlSize(.small)
+                }
             }
-            .buttonStyle(.borderless)
+        }
+    }
+
+    private func choosePackageForInstall() {
+        guard !isInstalling else { return }
+
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = "Install"
+        panel.message = "Choose \(KokoroVoiceGateStatus.modelDirectoryName) or its parent folder."
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+        installPackage(from: url)
+    }
+
+    private func installPackage(from url: URL) {
+        isInstalling = true
+        installMessage = "Checking local Kokoro package..."
+        let gainedSecurityScope = url.startAccessingSecurityScopedResource()
+
+        Task { @MainActor in
+            defer {
+                if gainedSecurityScope {
+                    url.stopAccessingSecurityScopedResource()
+                }
+                isInstalling = false
+            }
+
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    try KokoroVoicePackageInstaller.installCheckedPackage(from: url)
+                }.value
+                status = result.status
+                installMessage = VoiceCapturePresentationBounds.statusMessage(
+                    "Installed checked Kokoro package. \(result.status.headline)",
+                    fallback: "Kokoro package installed."
+                )
+            } catch {
+                installMessage = KokoroVoicePackageInstaller.statusMessage(for: error)
+                status = KokoroVoiceGateStatus.status()
+            }
         }
     }
 }
@@ -117,6 +213,7 @@ struct KokoroVoiceProSettingsSection: View {
     Form {
         KokoroVoiceProSettingsSection()
     }
+    .environment(UIState())
     .frame(width: 540, height: 260)
 }
 #endif

@@ -23,6 +23,7 @@ struct VoiceCodepackPlan3Tests {
             "SSML/prosody fallback exists",
             "Personal Voice authorization is live",
             "Pro Kokoro gate is honest",
+            "Local Kokoro package install is real but runtime-disabled",
             "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
             "Pro-only Voice settings section",
             "Pro neural voice",
@@ -34,7 +35,8 @@ struct VoiceCodepackPlan3Tests {
             "[DONE] Add SSML/prosody fallback",
             "[DONE] Add Personal Voice authorization",
             "[DONE] Add the Kokoro Pro gate",
-            "[DONE] Add the Pro-only Kokoro settings status/runtime affordance"
+            "[DONE] Add the Pro-only Kokoro settings status/runtime affordance",
+            "[DONE] Add a local checked-package installer"
         ] {
             #expect(plan.contains(required), "Missing voice codepack state: \(required)")
         }
@@ -78,7 +80,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("bounded-before-trim model-relative status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
         #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
-        #expect(capabilities.contains("no model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row"))
+        #expect(capabilities.contains("local checked-package installer"))
+        #expect(capabilities.contains("no committed model asset, network downloader, neural inference"))
+        #expect(capabilities.contains("runtime, Python, subprocess, or MAS-visible Kokoro row"))
 
         for stale in [
             "Research/code in a later pass",
@@ -369,6 +373,7 @@ struct VoiceCodepackPlan3Tests {
     func kokoroProSettingsRowIsProOnlyAndGateBacked() throws {
         let wrapper = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
         let section = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift")
+        let installer = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoicePackageInstaller.swift")
         let appleSection = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
 
         #expect(wrapper.contains("VoicePreferencesSection()"))
@@ -386,12 +391,28 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("@Environment(UIState.self)"))
         #expect(section.contains("ToolbarCapsuleButton("))
         #expect(section.contains("theme.resolved.headingAccent.color"))
+        #expect(section.contains("Install Package"))
+        #expect(section.contains("NSOpenPanel()"))
+        #expect(section.contains("startAccessingSecurityScopedResource()"))
+        #expect(section.contains("KokoroVoicePackageInstaller.installCheckedPackage"))
+        #expect(installer.contains("nonisolated enum KokoroVoicePackageInstaller"))
+        #expect(installer.contains("installCheckedPackage("))
+        #expect(installer.contains("rejectSymlinkDescendants"))
+        #expect(installer.contains("sourceModelDirectory("))
+        #expect(installer.contains("KokoroVoiceGateStatus.status("))
+        #expect(installer.contains("package could not be finalized"))
+        #expect(installer.contains("VoiceCapturePresentationBounds.statusMessage"))
+        #expect(installer.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(!section.contains("Color.green"))
         #expect(!section.contains("Color.orange"))
         #expect(!section.contains(".buttonStyle(.borderless)"))
         #expect(!section.contains("Process("))
         #expect(!section.contains("NSTask"))
         #expect(!section.contains("Python"))
+        #expect(!installer.contains("URLSession"))
+        #expect(!installer.contains("Process("))
+        #expect(!installer.contains("NSTask"))
+        #expect(!installer.contains("Python"))
     }
 
     @Test("Kokoro Pro settings presentation falls back to Apple voice while gate is missing")
@@ -419,6 +440,39 @@ struct VoiceCodepackPlan3Tests {
         #expect(!packageReadyPresentation.proRuntimeEnabled)
         #expect(packageReadyPresentation.badgeTitle == "Package ready")
         #expect(packageReadyPresentation.detail.contains("neural inference is not wired yet"))
+    }
+
+    @Test("Kokoro package installer stages checked local package without enabling runtime")
+    func kokoroPackageInstallerStagesCheckedLocalPackageWithoutEnablingRuntime() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-install-\(UUID().uuidString)", isDirectory: true)
+        let sourceRoot = root.appendingPathComponent("source", isDirectory: true)
+        let targetRoot = root.appendingPathComponent("target", isDirectory: true)
+        let sourceModelDirectory = sourceRoot.appendingPathComponent(
+            KokoroVoiceGateStatus.modelDirectoryName,
+            isDirectory: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeValidKokoroPackage(at: sourceModelDirectory)
+
+        let result = try KokoroVoicePackageInstaller.installCheckedPackage(
+            from: sourceModelDirectory,
+            modelRoot: targetRoot
+        )
+
+        #expect(!result.status.isReady)
+        #expect(result.status.state == .packageReady)
+        #expect(FileManager.default.fileExists(
+            atPath: targetRoot
+                .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+                .appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: false)
+                .path
+        ))
+        #else
+        #expect(true)
+        #endif
     }
 
     @Test("Kokoro Pro gate rejects malformed package shapes")

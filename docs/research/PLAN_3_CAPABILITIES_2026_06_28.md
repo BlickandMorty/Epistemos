@@ -442,9 +442,9 @@ Folded in as clean Plan-3 capabilities:
   model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
   with ellipsis inside configured caps. A checked package reports `packageReady` while keeping
   runtime `isReady=false` until real synthesis is wired. Developer ID builds now show a Pro-only Voice settings
-  status/runtime affordance labelled "Pro neural voice" while keeping AVSpeech selected until real neural inference is
-  proven; no model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row enters the App Store
-  path.
+  status/runtime affordance labelled "Pro neural voice" plus a local checked-package installer, while keeping AVSpeech
+  selected until real neural inference is proven; no committed model asset, network downloader, neural inference
+  runtime, Python, subprocess, or MAS-visible Kokoro row enters the App Store path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
   Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo downloads or official-logo claims. Classifier input for arbitrary MCP/skill/connector names is bounded before

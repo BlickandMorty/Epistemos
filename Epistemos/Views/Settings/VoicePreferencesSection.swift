@@ -18,6 +18,7 @@ import SwiftUI
 @MainActor
 public struct VoicePreferencesSection: View {
 
+    @Environment(UIState.self) private var ui
     @State private var prefs = VoicePreferences.shared
     @State private var expanded: Set<String> = []
     // SS-QC (owner 2026-06-20): the global default voice (persisted via EpistemosSpeechSynthesizer)
@@ -27,6 +28,10 @@ public struct VoicePreferencesSection: View {
     @State private var voicePreviewPitch: Double = 1.0
 
     public init() {}
+
+    private var mutedTint: Color {
+        ui.theme.resolved.mutedForeground.color
+    }
 
     public var body: some View {
         Section("Voice — Auto / Manual mode") {
@@ -92,41 +97,41 @@ public struct VoicePreferencesSection: View {
                 .frame(width: 160)
             }
             HStack(spacing: 12) {
-                Button(action: { toggleExpanded(key) }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: expanded.contains(key)
-                              ? "chevron.down.circle.fill"
-                              : "chevron.right.circle")
-                            .font(.system(size: 11))
-                        Text("Why?").font(.system(size: 11))
-                    }
+                ToolbarCapsuleButton(
+                    title: "Why",
+                    systemImage: expanded.contains(key)
+                        ? "chevron.down.circle.fill"
+                        : "chevron.right.circle",
+                    role: .disclosure,
+                    isActive: expanded.contains(key),
+                    helpText: "Show voice rationale",
+                    accessibilityLabel: "Show voice rationale"
+                ) {
+                    toggleExpanded(key)
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
 
                 if let preview {
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: "Preview",
+                        systemImage: "play.circle",
+                        role: .toolbarUtility,
+                        helpText: "Preview voice behavior",
+                        accessibilityLabel: "Preview voice behavior"
+                    ) {
                         EpistemosSpeechSynthesizer.shared.speak(preview)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "play.circle").font(.system(size: 11))
-                            Text("Preview").font(.system(size: 11))
-                        }
                     }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
                 }
                 Spacer()
             }
             if expanded.contains(key) {
                 Text(prefs.rationale(for: key))
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 6)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.secondary.opacity(0.08))
+                            .fill(rationaleBackground)
                     )
                     .transition(.opacity)
             }
@@ -141,6 +146,10 @@ public struct VoicePreferencesSection: View {
             expanded.insert(key)
         }
     }
+
+    private var rationaleBackground: Color {
+        ui.theme.resolved.foreground.color.opacity(ui.theme.isDark ? 0.055 : 0.035)
+    }
 }
 
 #if DEBUG
@@ -149,5 +158,6 @@ public struct VoicePreferencesSection: View {
         VoicePreferencesSection()
     }
     .frame(width: 540, height: 480)
+    .environment(UIState())
 }
 #endif
