@@ -532,6 +532,9 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(source.contains("scheduleStandaloneRefresh(feed: feed, requiredContextKind: requiredContextKind, reason: reason)"))
         #expect(source.contains("query: feed.normalizedQuery"))
         #expect(source.contains("contextResults: contextResults"))
+        #expect(source.contains("private func stampPackageContentRevision()"))
+        #expect(source.contains("package.manifest.contentHash = package.currentContentHash"))
+        #expect(source.contains("stampPackageContentRevision()"))
     }
 
     @Test("freeform regenerate context refresh uses explicit context providers")

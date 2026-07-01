@@ -900,6 +900,7 @@ struct HTMLWorkspaceEditorView: View {
             error: "Feed pending",
             requiredContextKind: requiredContextKind
         )
+        stampPackageContentRevision()
         regenerateContextStatusText = "Workspace context pending"
         statusText = "Refreshing workspace context"
 
@@ -916,6 +917,7 @@ struct HTMLWorkspaceEditorView: View {
                 error: "Vault feed unavailable",
                 requiredContextKind: requiredContextKind
             )
+            stampPackageContentRevision()
             isRefreshingRegenerateContext = false
             regenerateContextTask = nil
             regenerateContextStatusText = "Vault feed unavailable"
@@ -948,6 +950,7 @@ struct HTMLWorkspaceEditorView: View {
                 contextResults: contextResults,
                 requiredContextKind: requiredContextKind
             )
+            stampPackageContentRevision()
             regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
             statusText = regenerateContextStatusText
         }
@@ -961,6 +964,7 @@ struct HTMLWorkspaceEditorView: View {
         clearPendingRegeneratePreview()
         package.manifest.dataFeed = nil
         package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
+        stampPackageContentRevision()
         regenerateContextStatusText = "Workspace context cleared"
         statusText = "Workspace context cleared"
     }
@@ -1136,6 +1140,7 @@ struct HTMLWorkspaceEditorView: View {
             error: "Feed pending",
             requiredContextKind: preset.requiredContextKind
         )
+        stampPackageContentRevision()
         regenerateContextStatusText = "Workspace context pending"
         statusText = "Refreshing workspace context"
 
@@ -1155,6 +1160,7 @@ struct HTMLWorkspaceEditorView: View {
                 error: "Vault feed unavailable",
                 requiredContextKind: preset.requiredContextKind
             )
+            stampPackageContentRevision()
             isRefreshingRegenerateContext = false
             regenerateContextTask = nil
             regenerateContextStatusText = "Vault feed unavailable"
@@ -1187,6 +1193,7 @@ struct HTMLWorkspaceEditorView: View {
                 contextResults: contextResults,
                 requiredContextKind: preset.requiredContextKind
             )
+            stampPackageContentRevision()
             regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
             statusText = "Workspace context ready"
             beginRegenerateSurface(instructionOverride: contextualInstruction)
@@ -1209,6 +1216,7 @@ struct HTMLWorkspaceEditorView: View {
             contextResults: contextResults,
             requiredContextKind: requiredContextKind
         )
+        stampPackageContentRevision()
         isRefreshingRegenerateContext = false
         regenerateContextTask = nil
         return "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
@@ -1546,6 +1554,7 @@ struct HTMLWorkspaceEditorView: View {
                 feed: feed,
                 error: "Feed pending"
             )
+            stampPackageContentRevision()
         }
         statusText = "Vault feed configured"
         selectedPane = .data
@@ -1555,8 +1564,14 @@ struct HTMLWorkspaceEditorView: View {
         clearPendingRegeneratePreview()
         package.manifest.dataFeed = nil
         package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
+        stampPackageContentRevision()
         statusText = "Vault feed cleared"
         selectedPane = .data
+    }
+
+    private func stampPackageContentRevision() {
+        package.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
+        package.manifest.contentHash = package.currentContentHash
     }
 
     private func clearConsole() {

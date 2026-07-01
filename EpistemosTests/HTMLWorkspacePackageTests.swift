@@ -713,6 +713,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.manifest.dataFeed?.source == .vaultSearch)
         #expect(package.manifest.dataFeed?.normalizedQuery == "substrate provenance")
         #expect(package.manifest.dataFeed?.limit == HTMLWorkspaceDataFeed.maxLimit)
+        #expect(package.manifest.contentHash == package.currentContentHash)
         #expect(package.indexHTML.contains("data-vault-results"))
         #expect(package.indexHTML.contains("data-result-filter"))
         #expect(package.indexHTML.contains("data-context-picker"))

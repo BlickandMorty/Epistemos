@@ -33,6 +33,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
             feed: feed,
             error: "Feed pending"
         )
+        package.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
+        package.manifest.contentHash = package.currentContentHash
     }
 
     private static let html = """

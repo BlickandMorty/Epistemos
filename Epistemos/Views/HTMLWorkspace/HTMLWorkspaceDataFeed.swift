@@ -630,6 +630,7 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             )
             if package.dataJSON != nextJSON {
                 package.dataJSON = nextJSON
+                stampPackageContentRevision()
             }
             statusText = "Data feed refreshed"
         }
@@ -660,6 +661,7 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             )
             if package.dataJSON != nextJSON {
                 package.dataJSON = nextJSON
+                stampPackageContentRevision()
             }
             statusText = "Data feed refreshed"
         }
@@ -673,8 +675,14 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
         )
         if package.dataJSON != nextJSON {
             package.dataJSON = nextJSON
+            stampPackageContentRevision()
         }
         statusText = error
+    }
+
+    private func stampPackageContentRevision() {
+        package.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
+        package.manifest.contentHash = package.currentContentHash
     }
 }
 
