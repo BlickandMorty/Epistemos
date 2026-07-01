@@ -81,6 +81,8 @@ final class MeetingNoteCaptureService {
     @ObservationIgnored
     private var autoStopSilenceTask: Task<Void, Never>?
     private var captureGeneration = UUID()
+    @ObservationIgnored
+    private var savedResult: CaptureResult?
 
     private(set) var state: State = .idle
     private(set) var partialTranscript = ""
@@ -120,6 +122,7 @@ final class MeetingNoteCaptureService {
         cancelAutoStopSilence()
         let generation = UUID()
         captureGeneration = generation
+        savedResult = nil
         resetTranscript()
         startedAt = now()
         stoppedAt = nil
@@ -154,6 +157,7 @@ final class MeetingNoteCaptureService {
         cancelAutoStopSilence()
         voiceInput.tearDown()
         resetTranscript()
+        savedResult = nil
         startedAt = nil
         stoppedAt = nil
         state = .idle
@@ -208,6 +212,13 @@ final class MeetingNoteCaptureService {
 
     @discardableResult
     func finalize(modelContext: ModelContext) async throws -> CaptureResult {
+        if let savedResult {
+            return savedResult
+        }
+        if case .finalizing = state {
+            throw TextCaptureError.persistenceFailed("meeting note is already saving")
+        }
+
         captureGeneration = UUID()
         refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
         cancelAutoStopSilence()
@@ -233,6 +244,7 @@ final class MeetingNoteCaptureService {
                 modelContext: modelContext,
                 sourceMetadata: metadata
             )
+            savedResult = result
             state = .saved(
                 pageID: result.createdNoteID ?? "",
                 title: result.title

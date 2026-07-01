@@ -251,6 +251,34 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.transcriptText == "Finalize the meeting note.")
     }
 
+    @Test("finalize returns the saved result instead of duplicating the meeting note")
+    func finalizeIsIdempotentAfterSave() async throws {
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let voice = FakeMeetingVoiceInput()
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        await service.start()
+        service.recordFinal("Do not save this meeting twice.")
+
+        let first = try await service.finalize(modelContext: context)
+        let second = try await service.finalize(modelContext: context)
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+
+        #expect(pages.count == 1)
+        #expect(second.createdNoteID == first.createdNoteID)
+        #expect(second.title == first.title)
+        #expect(second.traceID == first.traceID)
+        #expect(voice.stopCallCount == 1)
+
+        guard case .saved(let pageID, let title) = service.state else {
+            Issue.record("Expected saved state, got \(service.state)")
+            return
+        }
+        #expect(pageID == first.createdNoteID)
+        #expect(title == first.title)
+    }
+
     @Test("auto dictation preference stops meeting capture after final silence")
     func autoStopPreferenceStopsAfterFinalSilence() async {
         let voice = FakeMeetingVoiceInput()
