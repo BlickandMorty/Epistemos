@@ -2852,12 +2852,50 @@ if (!source.includes('const SessionTabsStrip')) {
   const { recentSessions, fetchSessions } = useNavigationSessions();
   const activeSessionId = searchParams.get('resumeSessionId') ?? undefined;
   const isSplitMode = searchParams.get('epistemosSplit') === '1';
+  const splitPeerId = searchParams.get('epistemosSplitPeer') ?? undefined;
 
   const pairPathForSession = useCallback((sessionId: string): string => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('resumeSessionId', sessionId);
+    if (nextParams.get('epistemosSplitPeer') === sessionId) {
+      nextParams.delete('epistemosSplitPeer');
+    }
     return \`/pair?\${nextParams.toString()}\`;
   }, [searchParams]);
+
+  const splitPeerPathForSession = useCallback((peerSessionId: string): string => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('epistemosSplit', '1');
+    nextParams.set('epistemosSplitPeer', peerSessionId);
+    return \`/pair?\${nextParams.toString()}\`;
+  }, [searchParams]);
+
+  const cycleSplitPeer = useCallback(() => {
+    const candidates = activeSessions.filter((session) => session.sessionId !== activeSessionId);
+    if (candidates.length === 0) return;
+
+    const currentPeerIndex = candidates.findIndex((session) => session.sessionId === splitPeerId);
+    const nextPeer = candidates[(currentPeerIndex + 1) % candidates.length];
+    if (!nextPeer) return;
+    navigate(splitPeerPathForSession(nextPeer.sessionId));
+  }, [activeSessionId, activeSessions, navigate, splitPeerId, splitPeerPathForSession]);
+
+  const toggleSplitView = useCallback(() => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (isSplitMode) {
+      nextParams.delete('epistemosSplit');
+      nextParams.delete('epistemosSplitPeer');
+    } else {
+      nextParams.set('epistemosSplit', '1');
+      const fallbackPeer = activeSessions.find((session) => session.sessionId !== activeSessionId);
+      if (fallbackPeer) {
+        nextParams.set('epistemosSplitPeer', fallbackPeer.sessionId);
+      } else {
+        nextParams.delete('epistemosSplitPeer');
+      }
+    }
+    navigate(\`/pair?\${nextParams.toString()}\`);
+  }, [activeSessionId, activeSessions, isSplitMode, navigate, searchParams]);
 
   useEffect(() => {
     if (activeSessions.length > 1) {
@@ -2870,13 +2908,11 @@ if (!source.includes('const SessionTabsStrip')) {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       if (event.key.toLowerCase() === 'd') {
         event.preventDefault();
-        const nextParams = new URLSearchParams(searchParams);
-        if (isSplitMode) {
-          nextParams.delete('epistemosSplit');
-        } else {
-          nextParams.set('epistemosSplit', '1');
+        if (event.shiftKey) {
+          cycleSplitPeer();
+          return;
         }
-        navigate(\`/pair?\${nextParams.toString()}\`);
+        toggleSplitView();
         return;
       }
       if (event.shiftKey) return;
@@ -2892,7 +2928,7 @@ if (!source.includes('const SessionTabsStrip')) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSessions, isSplitMode, navigate, pairPathForSession, searchParams]);
+  }, [activeSessions, cycleSplitPeer, navigate, pairPathForSession, toggleSplitView]);
 
   const sessionNameById = useMemo(
     () => new Map(recentSessions.map((session) => [session.id, session.name])),
@@ -2912,16 +2948,6 @@ if (!source.includes('const SessionTabsStrip')) {
     if (sessionId === activeSessionId) {
       navigate(fallbackSession ? pairPathForSession(fallbackSession.sessionId) : '/');
     }
-  };
-
-  const toggleSplitView = () => {
-    const nextParams = new URLSearchParams(searchParams);
-    if (isSplitMode) {
-      nextParams.delete('epistemosSplit');
-    } else {
-      nextParams.set('epistemosSplit', '1');
-    }
-    navigate(\`/pair?\${nextParams.toString()}\`);
   };
 
   if (activeSessions.length <= 1) return null;
@@ -3015,9 +3041,13 @@ for (const snippet of [
   'const SessionTabsStrip',
   'REMOVE_ACTIVE_SESSION',
   'const pairPathForSession =',
+  'const splitPeerPathForSession =',
+  "searchParams.get('epistemosSplitPeer')",
+  'const cycleSplitPeer =',
   'const closeSessionTab =',
   'const toggleSplitView =',
   "event.key.toLowerCase() === 'd'",
+  'event.shiftKey',
   'data-epistemos-session-split-toggle',
   '<Columns2 className="h-3.5 w-3.5" />',
   '<X className="h-3 w-3" />',
@@ -3072,9 +3102,13 @@ replaceRequired(
   }
 
   const currentIndex = sessionsToRender.findIndex((session) => session.sessionId === currentSessionId);
-  const splitPartner = currentIndex >= 0
+  const requestedSplitPeerId = searchParams.get('epistemosSplitPeer') ?? undefined;
+  const requestedSplitPartner = sessionsToRender.find(
+    (session) => session.sessionId === requestedSplitPeerId && session.sessionId !== currentSessionId
+  );
+  const splitPartner = requestedSplitPartner || (currentIndex >= 0
     ? sessionsToRender[currentIndex - 1] || sessionsToRender[currentIndex + 1]
-    : undefined;
+    : undefined);
   const isSplitMode =
     searchParams.get('epistemosSplit') === '1' && Boolean(currentSessionId && splitPartner);
   const splitSessionIds = new Set(
@@ -3112,6 +3146,8 @@ replaceRequired(
 
 for (const snippet of [
   "searchParams.get('epistemosSplit') === '1'",
+  "searchParams.get('epistemosSplitPeer')",
+  'requestedSplitPartner',
   'data-epistemos-session-split',
   'grid h-full w-full grid-cols-2 gap-2',
   'splitSessionIds.has(session.sessionId)',
@@ -7020,11 +7056,17 @@ JS
     grep -q "data-epistemos-session-tabs-command-switch" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const closeSessionTab =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const pairPathForSession = useCallback" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "const splitPeerPathForSession = useCallback" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "searchParams.get('epistemosSplitPeer')" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "const cycleSplitPeer = useCallback" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q 'Close \${label}' "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-split-toggle" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const toggleSplitView =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "event.key.toLowerCase() === 'd'" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "event.shiftKey" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-split" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
+    grep -q "requestedSplitPartner" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
+    grep -q "searchParams.get('epistemosSplitPeer')" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
     grep -q "grid h-full w-full grid-cols-2 gap-2" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
     grep -q "isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "goose-chat-input-card overflow-hidden rounded-\\[16px\\] bg-background-primary/40" "$WORK_ROOT/ui/desktop/src/components/ChatInputCard.tsx"

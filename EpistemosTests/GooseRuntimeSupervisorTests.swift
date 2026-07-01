@@ -1295,9 +1295,14 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("const handleRemoveActiveSession ="))
         #expect(script.contains("const closeSessionTab ="))
         #expect(script.contains("const pairPathForSession = useCallback"))
+        #expect(script.contains("const splitPeerPathForSession = useCallback"))
+        #expect(script.contains("searchParams.get('epistemosSplitPeer')"))
+        #expect(script.contains("const cycleSplitPeer = useCallback"))
         #expect(script.contains("data-epistemos-session-split-toggle"))
         #expect(script.contains("event.key.toLowerCase() === 'd'"))
+        #expect(script.contains("event.shiftKey"))
         #expect(script.contains("data-epistemos-session-split"))
+        #expect(script.contains("requestedSplitPartner"))
         #expect(script.contains("grid h-full w-full grid-cols-2 gap-2"))
         // Anti-silent-drift: the five formerly-silent ACP grafts (which would revert
         // to dead-in-ACP REST endpoints if upstream reformats their anchors) must
