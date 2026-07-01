@@ -19,6 +19,7 @@ const flatPolishMarker = 'epistemos-native-high-quality-flat-polish';
 const claudePixelPolishMarker = 'epistemos-native-claude-pixel-polish';
 const claudePixelContractMarker = 'epistemos-native-claude-pixel-contract';
 const claudeDesktopLockMarker = 'epistemos-native-claude-desktop-lock';
+const flatSourceSurfacesMarker = 'epistemos-native-flat-source-surfaces';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -2210,7 +2211,7 @@ function applyCatalogSurfaces() {
       source,
       `${file} native header glass`,
       'className="bg-background-primary px-6 pb-5 pt-14 border-b border-border-secondary"',
-      'className="bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl"'
+      'className="bg-background-primary/58 px-6 pb-5 pt-14"'
     );
     source = replaceAllRequired(
       source,
@@ -2338,7 +2339,7 @@ function applyProviderModalSurfaces() {
     source,
     'provider external setup close native button',
     'className="w-full h-[60px] rounded-none border-t border-border-primary text-md hover:bg-background-secondary text-text-primary font-medium"',
-    'className="h-11 w-full rounded-[8px] border border-border-secondary bg-background-primary/55 text-md font-medium text-text-primary hover:bg-background-secondary/75"'
+    'className="h-11 w-full rounded-[8px] bg-background-primary/55 text-md font-medium text-text-primary hover:bg-background-secondary/75"'
   );
   write('src/components/settings/providers/modal/ProviderConfigurationModal.tsx', source);
 
@@ -2347,7 +2348,7 @@ function applyProviderModalSurfaces() {
     source,
     'provider modal logo native well',
     'className="w-12 h-12 bg-background-secondary border border-border-primary rounded-[6px] overflow-hidden flex items-center justify-center"',
-    'className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] border border-border-primary bg-background-secondary/70 shadow-sm backdrop-blur-xl"'
+    'className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] bg-background-secondary/70"'
   );
   write('src/components/settings/providers/modal/subcomponents/ProviderLogo.tsx', source);
 
@@ -2356,7 +2357,7 @@ function applyProviderModalSurfaces() {
     source,
     'provider active delete warning panel native',
     'className="w-full px-6 py-4 bg-yellow-600/20 border-t border-yellow-500/30"',
-    'className="w-full rounded-[12px] border border-border-warning bg-background-warning/72 px-6 py-4 backdrop-blur-xl"'
+    'className="w-full rounded-[12px] bg-background-warning/55 px-6 py-4"'
   );
   source = replaceRequired(
     source,
@@ -2368,7 +2369,7 @@ function applyProviderModalSurfaces() {
     source,
     'provider delete warning panel native',
     'className="w-full px-6 py-4 bg-red-900/20 border-t border-red-500/30"',
-    'className="w-full rounded-[12px] border border-border-danger bg-background-danger/72 px-6 py-4 backdrop-blur-xl"'
+    'className="w-full rounded-[12px] bg-background-danger/55 px-6 py-4"'
   );
   source = replaceRequired(
     source,
@@ -2386,25 +2387,25 @@ function applyProviderModalSurfaces() {
     source,
     'provider modal confirm delete action native',
     'className="w-full h-[60px] rounded-none border-b border-border-primary bg-transparent hover:bg-red-900/20 text-red-500 font-medium text-md"',
-    'className="h-11 w-full rounded-[8px] border border-border-danger bg-background-danger/45 text-md font-medium text-text-danger hover:bg-background-danger/72"'
+    'className="h-11 w-full rounded-[8px] bg-background-danger/45 text-md font-medium text-text-danger hover:bg-background-danger/72"'
   );
   source = replaceRequired(
     source,
     'provider modal delete action native',
     'className="w-full h-[60px] rounded-none border-t border-border-primary bg-transparent hover:bg-background-secondary text-red-500 font-medium text-md"',
-    'className="h-11 w-full rounded-[8px] border border-border-danger bg-transparent text-md font-medium text-text-danger hover:bg-background-danger/45"'
+    'className="h-11 w-full rounded-[8px] bg-transparent text-md font-medium text-text-danger hover:bg-background-danger/45"'
   );
   source = replaceAllRequired(
     source,
     'provider modal submit action native',
     'className="w-full h-[60px] rounded-none border-t border-border-primary text-md hover:bg-background-secondary text-text-primary font-medium"',
-    'className="h-11 w-full rounded-[8px] border border-border-secondary bg-background-primary/55 text-md font-medium text-text-primary hover:bg-background-secondary/75"'
+    'className="h-11 w-full rounded-[8px] bg-background-primary/55 text-md font-medium text-text-primary hover:bg-background-secondary/75"'
   );
   source = replaceAllRequired(
     source,
     'provider modal cancel action native',
     'className="w-full h-[60px] rounded-none border-t border-border-primary hover:text-text-primary text-text-secondary hover:bg-background-secondary text-md font-regular"',
-    'className="h-11 w-full rounded-[8px] border border-border-secondary text-md font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
+    'className="h-11 w-full rounded-[8px] text-md font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
   );
   write('src/components/settings/providers/modal/subcomponents/ProviderSetupActions.tsx', source);
 
@@ -2419,7 +2420,7 @@ function applyProviderModalSurfaces() {
     source,
     'default provider setup input native',
     '} bg-background-primary text-lg placeholder:text-text-secondary font-regular text-text-primary`}',
-    '} bg-background-primary/70 text-lg placeholder:text-text-secondary font-regular text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20`}'
+    '} bg-background-primary/70 text-lg placeholder:text-text-secondary font-regular text-text-primary transition-all focus:bg-background-secondary/72 focus:border-transparent`}'
   );
   source = replaceRequired(
     source,
@@ -2431,13 +2432,13 @@ function applyProviderModalSurfaces() {
     source,
     'default provider setup invalid border native',
     "? 'border-2 border-red-500'",
-    "? 'border-2 border-border-danger ring-[3px] ring-text-danger/15'"
+    "? 'bg-background-danger/30 text-text-danger'"
   );
   source = replaceRequired(
     source,
     'default provider setup normal border native',
     ": 'border border-border-primary hover:border-border-primary'",
-    ": 'border border-border-secondary hover:border-[var(--epistemos-accent)]'"
+    ": 'hover:bg-background-secondary/62'"
   );
   source = replaceAllRequired(
     source,
@@ -2455,7 +2456,7 @@ function applyProviderModalSurfaces() {
     source,
     'default provider setup optional native',
     'className="my-4 border-2 border-dashed border-secondary rounded-lg bg-secondary/10"',
-    'className="my-4 rounded-[10px] border border-dashed border-border-secondary bg-background-primary/55 shadow-sm backdrop-blur-xl"'
+    'className="my-4 rounded-[10px] bg-background-primary/55"'
   );
   write('src/components/settings/providers/modal/subcomponents/forms/DefaultProviderSetupForm.tsx', source);
 
@@ -2464,13 +2465,13 @@ function applyProviderModalSurfaces() {
     source,
     'custom provider choice cards native',
     'className="w-full p-4 text-left border border-border rounded-lg hover:bg-surfaceHover hover:border-primary transition-colors group"',
-    'className="w-full rounded-[10px] border border-border-secondary bg-background-primary/68 p-4 text-left shadow-sm backdrop-blur-xl transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62 group"'
+    'className="w-full rounded-[10px] bg-background-primary/54 p-4 text-left transition-colors hover:bg-background-secondary/62 group"'
   );
   source = replaceRequired(
     source,
     'custom provider template banner native',
     'className="p-3 bg-surfaceHover border border-border rounded-lg"',
-    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl"'
+    'className="rounded-[10px] bg-background-primary/54 p-3"'
   );
   source = replaceAllRequired(
     source,
@@ -2488,7 +2489,7 @@ function applyProviderModalSurfaces() {
     source,
     'custom provider add header button native',
     'className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-[6px] text-textStandard bg-background-primary border border-borderSubtle hover:border-borderStandard transition-colors min-w-[60px] h-9 [&>svg]:!size-4"',
-    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] border border-borderSubtle bg-background-primary/70 px-2 pr-4 text-sm text-textStandard transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75 [&>svg]:!size-4"'
+    'className="flex h-9 min-w-[60px] items-center justify-start gap-1 rounded-[8px] bg-background-primary/70 px-2 pr-4 text-sm text-textStandard transition-colors hover:bg-background-secondary/75 [&>svg]:!size-4"'
   );
   source = replaceAllRequired(
     source,
@@ -2500,7 +2501,7 @@ function applyProviderModalSurfaces() {
     source,
     'custom provider active delete warning native',
     'className="px-4 py-3 bg-yellow-600/20 border border-yellow-500/30 rounded"',
-    'className="rounded-[10px] border border-border-warning bg-background-warning/55 px-4 py-3"'
+    'className="rounded-[10px] bg-background-warning/55 px-4 py-3"'
   );
   source = replaceRequired(
     source,
@@ -2512,7 +2513,7 @@ function applyProviderModalSurfaces() {
     source,
     'custom provider delete confirmation native',
     'className="px-4 py-3 bg-red-900/20 border border-red-500/30 rounded"',
-    'className="rounded-[10px] border border-border-danger bg-background-danger/55 px-4 py-3"'
+    'className="rounded-[10px] bg-background-danger/55 px-4 py-3"'
   );
   source = replaceRequired(
     source,
@@ -2533,7 +2534,7 @@ function applyProviderModalSurfaces() {
     source,
     'provider catalog picker row native',
     'className="w-full p-4 text-left border border-border rounded-lg hover:bg-surfaceHover hover:border-primary transition-colors group"',
-    'className="w-full rounded-[10px] border border-border-secondary bg-background-primary/68 p-4 text-left shadow-sm backdrop-blur-xl transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62 group"'
+    'className="w-full rounded-[10px] bg-background-primary/54 p-4 text-left transition-colors hover:bg-background-secondary/62 group"'
   );
   source = replaceRequired(
     source,
@@ -2580,7 +2581,7 @@ function applyExtensionSettingsSurfaces() {
     source,
     'extension installation note panel native glass',
     'className="bg-background-secondary border border-border-primary rounded-lg p-4"',
-    'className="rounded-[12px] border border-border-primary bg-background-secondary/72 p-4 shadow-sm backdrop-blur-xl"'
+    'className="rounded-[12px] bg-background-secondary/62 p-4"'
   );
   source = replaceRequired(
     source,
@@ -3134,12 +3135,6 @@ function applyPermissionSurfaces() {
 
 function applySettingsPanelSurfaces() {
   let source = read('src/components/settings/SettingsView.tsx');
-  source = replaceRequired(
-    source,
-    'settings header native glass',
-    'className="bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl"',
-    'className="border-b border-border-secondary bg-background-primary/58 px-6 pb-5 pt-14 backdrop-blur-xl"'
-  );
   source = replaceRequired(
     source,
     'settings title native font',
@@ -4400,7 +4395,7 @@ function applyUtilityListSurfaces() {
     source,
     'skill skeleton native card',
     'className="p-2 mb-2 bg-background-primary"',
-    'className="ep-native-list-card mb-2 border p-2"'
+    'className="ep-native-list-card mb-2 p-2"'
   );
   source = replaceRequired(
     source,
@@ -4415,7 +4410,7 @@ function applyUtilityListSurfaces() {
     source,
     'recipe item native card',
     'className="py-2 px-3 mb-2 bg-background-primary border border-border-secondary rounded-[6px] hover:bg-background-secondary transition-all duration-150"',
-    'className="ep-native-list-card mb-2 border px-3 py-2 hover:bg-background-secondary/72"'
+    'className="ep-native-list-card mb-2 px-3 py-2 hover:bg-background-secondary/72"'
   );
   source = replaceRequired(
     source,
@@ -4433,7 +4428,7 @@ function applyUtilityListSurfaces() {
     source,
     'recipe skeleton native card',
     'className="p-2 mb-2 bg-background-primary border border-border-secondary rounded-[6px]"',
-    'className="ep-native-list-card mb-2 border p-2"'
+    'className="ep-native-list-card mb-2 p-2"'
   );
   source = replaceRequired(
     source,
@@ -4454,7 +4449,7 @@ function applyUtilityListSurfaces() {
     source,
     'schedule item native card',
     'className="py-2 px-3 mb-2 bg-background-primary border border-border-secondary rounded-[6px] hover:bg-background-secondary cursor-pointer transition-all duration-150"',
-    'className="ep-native-list-card mb-2 cursor-pointer border px-3 py-2 hover:bg-background-secondary/72"'
+    'className="ep-native-list-card mb-2 cursor-pointer px-3 py-2 hover:bg-background-secondary/72"'
   );
   source = replaceRequired(
     source,
@@ -4484,7 +4479,7 @@ function applyUtilityListSurfaces() {
     source,
     'schedule error native panel',
     'className="mb-4 p-4 bg-background-danger border border-border-danger rounded-md"',
-    'className="mb-4 rounded-[12px] border border-border-danger bg-background-danger/72 p-4 backdrop-blur-xl"'
+    'className="mb-4 rounded-[12px] bg-background-danger/55 p-4"'
   );
   source = replaceRequired(
     source,
@@ -4499,7 +4494,7 @@ function applyUtilityListSurfaces() {
     source,
     'app item native card',
     'className="flex flex-col p-3 border border-border-secondary rounded-[6px] hover:border-border-primary transition-colors bg-background-primary"',
-    'className="ep-native-list-card flex flex-col border p-3 hover:border-[var(--epistemos-accent)]"'
+    'className="ep-native-list-card flex flex-col p-3 hover:bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
@@ -4528,7 +4523,7 @@ function applySessionListSurfaces() {
     source,
     'session edit modal native card',
     'className="bg-background-primary border border-border-primary rounded-[6px] p-4 w-[500px] max-w-[90vw]"',
-    'className="ep-native-screen-card w-[500px] max-w-[90vw] border p-4"'
+    'className="ep-native-screen-card w-[500px] max-w-[90vw] p-4"'
   );
   source = replaceRequired(
     source,
@@ -4540,13 +4535,13 @@ function applySessionListSurfaces() {
     source,
     'session edit modal input native',
     'className="w-full p-3 border border-border-primary rounded-[5px] bg-background-primary text-text-primary text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"',
-    'className="w-full rounded-[8px] border border-border-primary bg-background-primary/70 p-3 text-sm font-sans text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="w-full rounded-[8px] bg-background-primary/70 p-3 text-sm font-sans text-text-primary outline-none transition-all focus:bg-background-secondary/72 focus:border-transparent"'
   );
   source = replaceRequired(
     source,
     'session item native card',
     'className="h-full py-3 px-3 border border-border-secondary rounded-[6px] bg-background-primary hover:bg-background-secondary cursor-pointer transition-all duration-150 flex flex-col justify-between relative group"',
-    'className="ep-native-list-card group relative flex h-full cursor-pointer flex-col justify-between border px-3 py-3 hover:bg-background-secondary/72"'
+    'className="ep-native-list-card group relative flex h-full cursor-pointer flex-col justify-between px-3 py-3 hover:bg-background-secondary/72"'
   );
   source = replaceRequired(
     source,
@@ -4588,7 +4583,7 @@ function applySessionListSurfaces() {
     source,
     'session group sticky native glass',
     'className="sticky top-0 z-10 bg-background-primary/95"',
-    'className="ep-native-header-band sticky top-0 z-10 rounded-[10px] border border-border-secondary px-2 py-1 shadow-sm"'
+    'className="ep-native-header-band sticky top-0 z-10 rounded-[10px] bg-background-primary/50 px-2 py-1"'
   );
   source = replaceAllRequired(
     source,
@@ -4600,13 +4595,13 @@ function applySessionListSurfaces() {
     source,
     'session import textarea native',
     'className="min-h-28 w-full resize-none rounded-[5px] border border-border-primary bg-background-primary p-3 text-sm font-mono text-text-primary outline-none focus:ring-1 focus:ring-border-active"',
-    'className="min-h-28 w-full resize-none rounded-[9px] border border-border-primary bg-background-primary/70 p-3 text-sm font-sans text-text-primary outline-none focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="min-h-28 w-full resize-none rounded-[9px] bg-background-primary/70 p-3 text-sm font-sans text-text-primary outline-none transition-colors focus:bg-background-secondary/72 focus:border-transparent"'
   );
   source = replaceRequired(
     source,
     'session share code native panel',
     'className="relative rounded-[5px] border border-border-primary bg-background-secondary p-3 pr-12"',
-    'className="relative rounded-[10px] border border-border-primary bg-background-secondary/70 p-3 pr-12 backdrop-blur-xl"'
+    'className="relative rounded-[10px] bg-background-secondary/62 p-3 pr-12"'
   );
   write('src/components/sessions/SessionListView.tsx', source);
 }
@@ -4617,7 +4612,7 @@ function applySessionDetailSurfaces() {
     source,
     'shared session header native glass',
     'className="flex flex-col pb-5 border-b border-border-secondary"',
-    'className="ep-native-header-band flex flex-col rounded-[16px] border border-border-secondary p-4 shadow-sm"'
+    'className="ep-native-header-band flex flex-col rounded-[16px] bg-background-primary/42 p-4"'
   );
   source = replaceRequired(
     source,
@@ -4629,7 +4624,7 @@ function applySessionDetailSurfaces() {
     source,
     'shared session banner native glass',
     'className="flex items-center py-3 border-b border-border-secondary mb-5"',
-    'className="ep-native-header-band mb-5 flex items-center rounded-[12px] border border-border-secondary px-3 py-2 shadow-sm"'
+    'className="ep-native-header-band mb-5 flex items-center rounded-[12px] bg-background-primary/42 px-3 py-2"'
   );
   source = replaceRequired(
     source,
@@ -4656,7 +4651,7 @@ function applySessionDetailSurfaces() {
     source,
     'session history header native glass',
     'className="flex flex-col pb-5 border-b border-border-secondary pt-14"',
-    'className="ep-native-header-band flex flex-col rounded-[16px] border border-border-secondary p-4 pt-5 shadow-sm"'
+    'className="ep-native-header-band flex flex-col rounded-[16px] bg-background-primary/42 p-4 pt-5"'
   );
   source = replaceRequired(
     source,
@@ -4692,7 +4687,7 @@ function applySessionDetailSurfaces() {
     source,
     'session history share link native panel',
     'className="relative rounded-[5px] border border-border-primary px-3 py-2 flex items-center bg-background-secondary"',
-    'className="relative flex items-center rounded-[10px] border border-border-primary bg-background-secondary/70 px-3 py-2 shadow-sm backdrop-blur-xl"'
+    'className="relative flex items-center rounded-[10px] bg-background-secondary/62 px-3 py-2"'
   );
   source = replaceRequired(
     source,
@@ -4724,7 +4719,7 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule detail native header',
     'className="px-8 pt-6 pb-4 border-b border-border-primary flex-shrink-0"',
-    'className="ep-native-header-band mx-6 mt-6 flex-shrink-0 rounded-[16px] border border-border-secondary px-5 pb-4 pt-4 shadow-sm"'
+    'className="ep-native-header-band mx-6 mt-6 flex-shrink-0 rounded-[16px] bg-background-primary/42 px-5 pb-4 pt-4"'
   );
   source = replaceRequired(
     source,
@@ -4736,13 +4731,13 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule detail native error panels',
     'className="text-text-danger text-sm p-3 bg-background-danger border border-border-danger rounded-md"',
-    'className="rounded-[12px] border border-border-danger bg-background-danger/72 p-3 text-sm text-text-danger backdrop-blur-xl"'
+    'className="rounded-[12px] bg-background-danger/55 p-3 text-sm text-text-danger"'
   );
   source = replaceRequired(
     source,
     'schedule detail native info card',
     'className="p-4 bg-background-primary shadow-none mb-6 border border-border-primary rounded-[6px]"',
-    'className="ep-native-screen-card mb-6 border p-4"'
+    'className="ep-native-screen-card mb-6 p-4"'
   );
   source = replaceRequired(
     source,
@@ -4772,25 +4767,25 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule detail unpause button token',
     "'text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'",
-    "'border-border-success bg-background-success/35 text-text-success hover:bg-background-success/55'"
+    "'bg-background-success/35 text-text-success hover:bg-background-success/55'"
   );
   source = replaceRequired(
     source,
     'schedule detail pause button token',
     "'text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'",
-    "'border-border-warning bg-background-warning/35 text-text-warning hover:bg-background-warning/55'"
+    "'bg-background-warning/35 text-text-warning hover:bg-background-warning/55'"
   );
   source = replaceRequired(
     source,
     'schedule detail kill button token',
     'className="w-full md:w-auto flex items-center gap-2 text-red-600 dark:text-red-400 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"',
-    'className="flex w-full items-center gap-2 border-border-danger bg-background-danger/35 text-text-danger hover:bg-background-danger/55 md:w-auto"'
+    'className="flex w-full items-center gap-2 bg-background-danger/35 text-text-danger hover:bg-background-danger/55 md:w-auto"'
   );
   source = replaceRequired(
     source,
     'schedule detail recent session card',
     'className="p-4 bg-background-primary shadow-none cursor-pointer hover:bg-background-secondary transition-colors duration-150 border border-border-primary rounded-[6px]"',
-    'className="ep-native-list-card cursor-pointer border p-4 hover:bg-background-secondary/72"'
+    'className="ep-native-list-card cursor-pointer p-4 hover:bg-background-secondary/72"'
   );
   source = replaceRequired(
     source,
@@ -4811,19 +4806,19 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule modal native card',
     'className="w-full max-w-md bg-background-primary shadow-none rounded-[6px] z-50 flex flex-col max-h-[90vh] overflow-hidden border border-border-primary"',
-    'className="ep-native-screen-card z-50 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden border"'
+    'className="ep-native-screen-card z-50 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden"'
   );
   source = replaceRequired(
     source,
     'schedule modal native header border',
     'className="px-5 pt-5 pb-3 flex-shrink-0 border-b border-border-primary"',
-    'className="flex-shrink-0 border-b border-border-secondary px-5 pb-3 pt-5"'
+    'className="flex-shrink-0 px-5 pb-3 pt-5"'
   );
   source = replaceAllRequired(
     source,
     'schedule modal native error panels',
     'className="text-text-danger text-sm mb-3 p-2 border border-border-danger rounded-[6px]"',
-    'className="mb-3 rounded-[12px] border border-border-danger bg-background-danger/72 p-2 text-sm text-text-danger backdrop-blur-xl"'
+    'className="mb-3 rounded-[12px] bg-background-danger/55 p-2 text-sm text-text-danger"'
   );
   source = replaceAllRequired(
     source,
@@ -4835,7 +4830,7 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule modal segmented native container',
     'className="grid grid-cols-2 border border-border-primary rounded-[6px] overflow-hidden"',
-    'className="grid grid-cols-2 rounded-[10px] border border-border-secondary bg-background-secondary/70 p-1 backdrop-blur-xl"'
+    'className="grid grid-cols-2 rounded-[10px] bg-background-secondary/56 p-1"'
   );
   source = replaceAllRequired(
     source,
@@ -4847,7 +4842,7 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule modal segmented selected native style',
     'bg-background-inverse text-background-primary',
-    'bg-background-primary text-text-primary shadow-sm'
+    'bg-background-primary/78 text-text-primary'
   );
   source = replaceAllRequired(
     source,
@@ -4859,7 +4854,7 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule modal segmented divider native',
     'transition-all border-l border-border-primary',
-    'transition-all border-l border-border-secondary'
+    'transition-all'
   );
   source = replaceRequired(
     source,
@@ -4877,13 +4872,13 @@ function applySchedulerDetailSurfaces() {
     source,
     'schedule modal parsed recipe panel',
     'className="mt-2 p-2 bg-background-secondary rounded-[6px] border border-border-primary"',
-    'className="mt-2 rounded-[10px] border border-border-primary bg-background-secondary/70 p-2 shadow-sm backdrop-blur-xl"'
+    'className="mt-2 rounded-[10px] bg-background-secondary/62 p-2"'
   );
   source = replaceRequired(
     source,
     'schedule modal native footer border',
     'className="flex gap-2 px-8 py-4 border-t border-border-primary"',
-    'className="flex gap-2 border-t border-border-secondary px-8 py-4"'
+    'className="flex gap-2 px-8 py-4"'
   );
   source = replaceRequired(
     source,
@@ -4906,19 +4901,19 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe edit modal native card',
     'className="bg-background-primary border border-border-primary rounded-lg w-[90vw] max-w-4xl h-[90vh] flex flex-col"',
-    'className="ep-native-screen-card flex h-[90vh] w-[90vw] max-w-4xl flex-col border"'
+    'className="ep-native-screen-card flex h-[90vh] w-[90vw] max-w-4xl flex-col"'
   );
   source = replaceRequired(
     source,
     'recipe edit modal native header',
     'className="flex items-center justify-between p-6 border-b border-border-primary"',
-    'className="flex items-center justify-between border-b border-border-secondary p-6"'
+    'className="flex items-center justify-between p-6"'
   );
   source = replaceRequired(
     source,
     'recipe edit modal native icon',
     'className="w-8 h-8 bg-background-primary border border-border-primary rounded-[6px] flex items-center justify-center"',
-    'className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-border-primary bg-background-secondary/70 shadow-sm backdrop-blur-xl"'
+    'className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
@@ -4936,7 +4931,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe edit modal native deeplink card',
     'className="w-full p-4 bg-background-secondary rounded-lg mt-6"',
-    'className="ep-native-screen-card mt-6 w-full border p-4"'
+    'className="ep-native-screen-card mt-6 w-full p-4"'
   );
   source = replaceRequired(
     source,
@@ -4948,7 +4943,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe edit modal native footer',
     'className="flex items-center justify-between p-6 border-t border-border-primary"',
-    'className="flex items-center justify-between border-t border-border-secondary p-6"'
+    'className="flex items-center justify-between p-6"'
   );
   source = replaceRequired(
     source,
@@ -4975,19 +4970,19 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe import native modal card',
     'className="bg-background-primary border border-border-primary rounded-lg p-6 w-[500px] max-w-[90vw]"',
-    'className="ep-native-screen-card w-[500px] max-w-[90vw] border p-6"'
+    'className="ep-native-screen-card w-[500px] max-w-[90vw] p-6"'
   );
   source = replaceRequired(
     source,
     'recipe import native textarea',
     'className={`w-full p-3 border rounded-lg bg-background-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${',
-    'className={`w-full resize-none rounded-[10px] border bg-background-primary/70 p-3 text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+    'className={`w-full resize-none rounded-[10px] bg-background-primary/70 p-3 text-text-primary outline-none transition-colors focus:bg-background-secondary/72 focus:border-transparent ${'
   );
   source = replaceRequired(
     source,
     'recipe import divider native',
     'className="w-full border-t border-border-primary"',
-    'className="w-full border-t border-border-secondary"'
+    'className="h-px w-full bg-background-secondary/70"'
   );
   source = replaceRequired(
     source,
@@ -5011,7 +5006,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe import schema modal native',
     'className="bg-background-primary border border-border-primary rounded-lg p-6 w-[800px] max-w-[90vw] max-h-[80vh] flex flex-col"',
-    'className="ep-native-screen-card flex max-h-[80vh] w-[800px] max-w-[90vw] flex-col border p-6"'
+    'className="ep-native-screen-card flex max-h-[80vh] w-[800px] max-w-[90vw] flex-col p-6"'
   );
   source = replaceRequired(
     source,
@@ -5023,7 +5018,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe import schema pre native',
     'className="text-xs bg-whitedark:bg-gray-800 p-4 rounded overflow-auto whitespace-pre font-mono"',
-    'className="overflow-auto whitespace-pre rounded-[10px] border border-border-secondary bg-background-secondary/72 p-4 text-xs font-mono backdrop-blur-xl"'
+    'className="overflow-auto whitespace-pre rounded-[10px] bg-background-secondary/62 p-4 text-xs font-mono"'
   );
   source = replaceAllRequired(
     source,
@@ -5053,7 +5048,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe activities native status mark container',
     'className="flex h-6 w-6 items-center justify-center border border-border-primary bg-background-secondary"',
-    'className="flex h-6 w-6 items-center justify-center rounded-full border border-border-primary bg-background-secondary/70 shadow-sm backdrop-blur-xl"'
+    'className="flex h-6 w-6 items-center justify-center rounded-full bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
@@ -5065,13 +5060,13 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe activities native message panel',
     'className="mb-4 p-3 rounded-[6px] border border-border-primary animate-[fadein_500ms_ease-in_forwards]"',
-    'className="ep-native-screen-card mb-4 border p-3 animate-[fadein_500ms_ease-in_forwards]"'
+    'className="ep-native-screen-card mb-4 p-3 animate-[fadein_500ms_ease-in_forwards]"'
   );
   source = replaceRequired(
     source,
     'recipe activities native pill',
     'className="cursor-pointer px-3 py-1.5 text-xs font-mono border border-border-secondary rounded-[5px] hover:bg-background-secondary transition-colors"',
-    'className="ep-native-badge cursor-pointer border px-3 py-1.5 text-xs transition-colors hover:bg-background-secondary/80"'
+    'className="ep-native-badge cursor-pointer px-3 py-1.5 text-xs transition-colors hover:bg-background-secondary/80"'
   );
   write('src/components/recipes/RecipeActivities.tsx', source);
 
@@ -5080,19 +5075,19 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe activity editor textarea native',
     'className="w-full px-4 py-3 border rounded-lg bg-background-primary text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-border-secondary resize-vertical"',
-    'className="w-full resize-vertical rounded-[10px] border border-border-primary bg-background-primary/70 px-4 py-3 text-text-primary placeholder:text-text-secondary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="w-full resize-vertical rounded-[10px] bg-background-primary/70 px-4 py-3 text-text-primary placeholder:text-text-secondary outline-none transition-colors focus:bg-background-secondary/72 focus:border-transparent"'
   );
   source = replaceRequired(
     source,
     'recipe activity editor chip native',
     'className="inline-flex items-center bg-background-primary border border-border-primary rounded-[6px] px-3 py-2 text-sm text-text-primary"',
-    'className="ep-native-badge inline-flex items-center border px-3 py-2 text-sm text-text-primary"'
+    'className="ep-native-badge inline-flex items-center px-3 py-2 text-sm text-text-primary"'
   );
   source = replaceRequired(
     source,
     'recipe activity editor input native',
     'className="flex-1 px-3 py-2 border border-border-primary rounded-lg bg-background-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"',
-    'className="flex-1 rounded-[10px] border border-border-primary bg-background-primary/70 px-3 py-2 text-sm text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="flex-1 rounded-[10px] bg-background-primary/70 px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:bg-background-secondary/72 focus:border-transparent"'
   );
   source = replaceRequired(
     source,
@@ -5133,7 +5128,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'sub recipe editor card native',
     'className="border border-border-subtle rounded-lg p-4 bg-background-default hover:bg-background-muted transition-colors"',
-    'className="rounded-[12px] border border-border-secondary bg-background-primary/68 p-4 shadow-sm backdrop-blur-xl transition-colors hover:bg-background-secondary/62"'
+    'className="rounded-[12px] bg-background-primary/54 p-4 transition-colors hover:bg-background-secondary/62"'
   );
   write('src/components/recipes/shared/SubRecipeEditor.tsx', source);
 
@@ -5142,7 +5137,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe model selector error panel native',
     'className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"',
-    'className="rounded-[12px] border border-border-danger bg-background-danger/55 p-3 text-sm text-text-danger"'
+    'className="rounded-[12px] bg-background-danger/55 p-3 text-sm text-text-danger"'
   );
   write('src/components/recipes/shared/RecipeModelSelector.tsx', source);
 
@@ -5151,7 +5146,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe warning modal panel native',
     'className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4"',
-    'className="rounded-[12px] border border-border-warning bg-background-warning/55 p-4"'
+    'className="rounded-[12px] bg-background-warning/55 p-4"'
   );
   source = replaceRequired(
     source,
@@ -5168,7 +5163,7 @@ function applySearchSurfaces() {
     source,
     'search bar native glass',
     'className={`sticky top-0 bg-background-inverse text-text-inverse z-30 mb-4 ${',
-    'className={`sticky top-0 z-30 mb-4 rounded-[12px] border border-border-secondary bg-background-primary/82 text-text-primary shadow-sm backdrop-blur-xl ${'
+    'className={`sticky top-0 z-30 mb-4 rounded-[12px] bg-background-primary/72 text-text-primary ${'
   );
   source = replaceRequired(
     source,
@@ -5202,7 +5197,7 @@ function applySearchSurfaces() {
     source,
     'search case selected native color',
     "? 'bg-white/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] text-text-inverse hover:bg-white/25'",
-    "? 'bg-[var(--epistemos-accent)]/14 text-text-primary shadow-sm hover:bg-[var(--epistemos-accent)]/18'"
+    "? 'bg-[var(--epistemos-accent)]/14 text-text-primary hover:bg-[var(--epistemos-accent)]/18'"
   );
   write('src/components/conversation/SearchBar.tsx', source);
 }
@@ -5642,7 +5637,7 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'session tool native glass',
     'className="goose-message-tool bg-background-primary border border-border-primary dark:border-gray-700 rounded-[6px] px-3 pt-3 pb-2 mt-1"',
-    'className="goose-message-tool mt-1 rounded-[12px] border border-border-secondary bg-background-primary/68 px-3 pb-2 pt-3 shadow-sm backdrop-blur-xl"'
+    'className="goose-message-tool mt-1 rounded-[12px] bg-background-primary/54 px-3 pb-2 pt-3"'
   );
   write('src/components/sessions/SessionViewComponents.tsx', source);
 
@@ -5684,7 +5679,7 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'cron picker native select token',
     "const selectClassName = 'px-2 py-1 border rounded bg-white dark:bg-gray-800 dark:border-gray-600';",
-    "const selectClassName = 'min-h-8 rounded-[8px] border border-border-secondary bg-background-primary/70 px-2 py-1 text-sm text-text-primary outline-none transition-all focus:border-[var(--epistemos-accent)] focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20';"
+    "const selectClassName = 'min-h-8 rounded-[8px] bg-background-primary/70 px-2 py-1 text-sm text-text-primary outline-none transition-colors focus:bg-background-secondary/72 focus:border-transparent';"
   );
   source = replaceRequired(
     source,
@@ -5705,7 +5700,7 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'mcp app loading dot frame native',
     'className="relative z-10 flex h-8 w-8 items-center justify-center border border-border-primary bg-background-primary/80"',
-    'className="relative z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-border-secondary bg-background-primary/78 shadow-sm backdrop-blur-xl"'
+    'className="relative z-10 flex h-8 w-8 items-center justify-center rounded-[10px] bg-background-primary/70"'
   );
   source = replaceAllRequired(
     source,
@@ -5717,19 +5712,19 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'mcp app pip native container',
     "'fixed z-[900] overflow-y-auto overflow-x-hidden rounded-[6px] border border-border-primary shadow-none'",
-    "'fixed z-[900] overflow-y-auto overflow-x-hidden rounded-[12px] border border-border-secondary shadow-lg backdrop-blur-xl'"
+    "'fixed z-[900] overflow-y-auto overflow-x-hidden rounded-[12px] bg-background-primary/88'"
   );
   source = replaceRequired(
     source,
     'mcp app inline bordered container native',
     "isInline && !isError && meta.prefersBorder && 'border border-border-primary rounded-lg'",
-    "isInline && !isError && meta.prefersBorder && 'rounded-[12px] border border-border-secondary'"
+    "isInline && !isError && meta.prefersBorder && 'rounded-[12px] bg-background-primary/50'"
   );
   source = replaceRequired(
     source,
     'mcp app pip placeholder native',
     'className="mt-6 mb-2 flex items-center justify-center rounded-lg border border-dashed border-border-primary bg-black/[0.02] dark:bg-white/[0.02]"',
-    'className="mt-6 mb-2 flex items-center justify-center rounded-[12px] border border-dashed border-border-secondary bg-background-secondary/45"'
+    'className="mt-6 mb-2 flex items-center justify-center rounded-[12px] bg-background-secondary/45"'
   );
   source = replaceRequired(
     source,
@@ -5746,7 +5741,7 @@ function applyNeutralTokenDriftSurfaces() {
     `className="absolute right-2 bottom-2 p-1.5 rounded-lg bg-gray-700/50 text-gray-300 font-sans text-sm
                  opacity-0 group-hover:opacity-100 transition-opacity duration-200
                  hover:bg-gray-600/50 hover:text-gray-100 z-10"`,
-    `className="absolute bottom-2 right-2 z-10 rounded-[8px] border border-border-secondary bg-background-primary/78 p-1.5 font-sans text-sm text-text-secondary opacity-0 shadow-sm backdrop-blur-xl transition-opacity duration-200 hover:bg-background-secondary/72 hover:text-text-primary group-hover:opacity-100"`
+    `className="absolute bottom-2 right-2 z-10 rounded-[8px] bg-background-primary/70 p-1.5 font-sans text-sm text-text-secondary opacity-0 transition-opacity duration-200 hover:bg-background-secondary/72 hover:text-text-primary group-hover:opacity-100"`
   );
   write('src/components/MarkdownContent.tsx', source);
 
@@ -5755,13 +5750,13 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'base modal overlay native',
     'className="fixed inset-0 bg-black/20 z-[9999]"',
-    'className="fixed inset-0 z-[9999] bg-black/24 backdrop-blur-sm"'
+    'className="fixed inset-0 z-[9999] bg-black/20"'
   );
   source = replaceRequired(
     source,
     'base modal native card',
     'className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] bg-background-primary rounded-[6px] shadow-none overflow-hidden p-[16px] pt-[20px] pb-0"',
-    'className="fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 p-[16px] pb-0 pt-[20px] shadow-2xl backdrop-blur-xl"'
+    'className="fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] bg-background-primary/92 p-[16px] pb-0 pt-[20px]"'
   );
   source = replaceRequired(
     source,
@@ -5776,13 +5771,13 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'diagnostics overlay native',
     'className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"',
-    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"'
   );
   source = replaceRequired(
     source,
     'diagnostics modal native card',
     'className="bg-background-primary border border-border-primary rounded-lg p-6 max-w-md mx-4"',
-    'className="mx-4 max-w-md rounded-[14px] border border-border-primary bg-background-primary/88 p-6 shadow-2xl backdrop-blur-xl"'
+    'className="mx-4 max-w-md rounded-[14px] bg-background-primary/92 p-6"'
   );
   source = replaceRequired(
     source,
@@ -5803,25 +5798,25 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'alert error native token',
     "[AlertType.Error]: 'bg-[#d7040e] text-white',",
-    "[AlertType.Error]: 'border border-border-danger bg-background-danger/75 text-text-danger',"
+    "[AlertType.Error]: 'bg-background-danger/55 text-text-danger',"
   );
   source = replaceRequired(
     source,
     'alert warning native token',
     "[AlertType.Warning]: 'bg-[#cc4b03] text-white',",
-    "[AlertType.Warning]: 'border border-border-warning bg-background-warning/75 text-text-warning',"
+    "[AlertType.Warning]: 'bg-background-warning/55 text-text-warning',"
   );
   source = replaceRequired(
     source,
     'alert info native token',
     "[AlertType.Info]: 'dark:bg-white dark:text-black bg-black text-white',",
-    "[AlertType.Info]: 'border border-border-secondary bg-background-primary/78 text-text-primary',"
+    "[AlertType.Info]: 'bg-background-primary/70 text-text-primary',"
   );
   source = replaceRequired(
     source,
     'alert threshold input native token',
     'className="w-12 px-1 text-[10px] bg-white/10 border border-current/30 rounded outline-none text-center focus:bg-white/20 focus:border-current/50 transition-colors"',
-    'className="w-12 rounded-[6px] border border-current/30 bg-background-primary/15 px-1 text-center text-[10px] outline-none transition-colors focus:bg-background-primary/25 focus:border-current/50"'
+    'className="w-12 rounded-[6px] bg-background-primary/15 px-1 text-center text-[10px] outline-none transition-colors focus:bg-background-primary/25 focus:border-transparent"'
   );
   write('src/components/alerts/AlertBox.tsx', source);
 
@@ -5850,13 +5845,13 @@ function applyModalScrimAndElicitationSurfaces() {
     source,
     'parameter cancel scrim native',
     'className="fixed inset-0 bg-black/25 z-50 flex justify-center items-center animate-[fadein_200ms_ease-in]"',
-    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/24 backdrop-blur-sm animate-[fadein_200ms_ease-in]"'
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 animate-[fadein_200ms_ease-in]"'
   );
   source = replaceRequired(
     source,
     'parameter cancel modal native card',
     'className="bg-background-primary border border-border-primary rounded-[6px] p-6 shadow-none w-full max-w-md"',
-    'className="w-full max-w-md rounded-[14px] border border-border-primary bg-background-primary/88 p-6 shadow-2xl backdrop-blur-xl"'
+    'className="w-full max-w-md rounded-[14px] bg-background-primary/92 p-6"'
   );
   source = replaceRequired(
     source,
@@ -5871,13 +5866,13 @@ function applyModalScrimAndElicitationSurfaces() {
     source,
     'elicitation prompt header native',
     'className="goose-message-content bg-background-secondary rounded-[6px] rounded-b-none px-3 py-2 text-xs font-mono text-text-primary"',
-    'className="goose-message-content rounded-t-[12px] border border-border-secondary bg-background-secondary/70 px-3 py-2 text-xs font-sans text-text-primary"'
+    'className="goose-message-content rounded-t-[12px] bg-background-secondary/62 px-3 py-2 text-xs font-sans text-text-primary"'
   );
   source = replaceRequired(
     source,
     'elicitation prompt body native',
     'className="goose-message-content bg-background-primary border border-border-primary dark:border-gray-700 rounded-b-[6px] px-3 py-3"',
-    'className="goose-message-content rounded-b-[12px] border border-border-secondary bg-background-primary/68 px-3 py-3 shadow-sm backdrop-blur-xl"'
+    'className="goose-message-content rounded-b-[12px] bg-background-primary/54 px-3 py-3"'
   );
   write('src/components/ElicitationRequest.tsx', source);
 
@@ -5890,13 +5885,13 @@ function applyModalScrimAndElicitationSurfaces() {
       source,
       `${file} native scrim`,
       'className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50"',
-      'className="fixed inset-0 z-[500] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+      'className="fixed inset-0 z-[500] flex items-center justify-center bg-black/20"'
     );
     source = replaceRequired(
       source,
       `${file} native card`,
       'className="bg-background-primary border border-borderSubtle rounded-lg w-[90vw] max-w-2xl max-h-[90vh] flex flex-col"',
-      'className="flex max-h-[90vh] w-[90vw] max-w-2xl flex-col overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 shadow-2xl backdrop-blur-xl"'
+      'className="flex max-h-[90vh] w-[90vw] max-w-2xl flex-col overflow-hidden rounded-[14px] bg-background-primary/92"'
     );
     write(file, source);
   }
@@ -5910,7 +5905,7 @@ function applyModalScrimAndElicitationSurfaces() {
       source,
       `${file} native scrim`,
       'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50"',
-      'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+      'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/20"'
     );
     write(file, source);
   }
@@ -5920,19 +5915,19 @@ function applyModalScrimAndElicitationSurfaces() {
     source,
     'sheet overlay native scrim',
     "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50'",
-    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/24 backdrop-blur-sm'"
+    "'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/20'"
   );
   source = replaceRequired(
     source,
     'sheet content native glass',
     "'bg-background-primary data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 shadow-none'",
-    "'bg-background-primary/88 data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 border-border-primary shadow-2xl backdrop-blur-xl transition ease-[var(--epistemos-control-ease)] data-[state=closed]:duration-200 data-[state=open]:duration-200'"
+    "'bg-background-primary/92 data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 transition ease-[var(--epistemos-control-ease)] data-[state=closed]:duration-200 data-[state=open]:duration-200'"
   );
   source = replaceRequired(
     source,
     'sheet close button native',
     'className="ring-offset-background focus:ring-ring data-[state=open]:bg-background-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"',
-    'className="ring-offset-background absolute top-4 right-4 rounded-[8px] p-1 opacity-70 transition-all duration-150 hover:bg-background-secondary/75 hover:opacity-100 focus:ring-2 focus:ring-[var(--epistemos-accent)] focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-background-secondary/75"'
+    'className="ring-offset-background absolute top-4 right-4 rounded-[8px] p-1 opacity-70 transition-all duration-150 hover:bg-background-secondary/75 hover:opacity-100 focus:bg-background-secondary/75 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-background-secondary/75"'
   );
   source = replaceRequired(
     source,
@@ -5947,7 +5942,7 @@ function applyModalScrimAndElicitationSurfaces() {
     source,
     'bottom alert divider token',
     "className={cn(index > 0 && 'border-t border-white/20')}",
-    "className={cn(index > 0 && 'border-t border-border-secondary')}"
+    "className={cn(index > 0 && 'pt-3')}"
   );
   write('src/components/bottom_menu/BottomMenuAlertPopover.tsx', source);
 
@@ -5956,7 +5951,7 @@ function applyModalScrimAndElicitationSurfaces() {
     source,
     'extension loading toast divider token',
     'className="mt-3 pt-3 border-t border-white/20"',
-    'className="mt-3 border-t border-border-secondary pt-3"'
+    'className="mt-3 pt-3"'
   );
   write('src/components/GroupedExtensionLoadingToast.tsx', source);
 }
@@ -5973,7 +5968,7 @@ function applyLoadingAndErrorSurfaces() {
     source,
     'suspense loader native card',
     'className="flex gap-2 items-center justify-end"',
-    'className="ep-native-screen-card flex items-center justify-end gap-2 border px-3 py-2"'
+    'className="ep-native-screen-card flex items-center justify-end gap-2 px-3 py-2"'
   );
   source = replaceRequired(
     source,
@@ -6015,13 +6010,13 @@ function applyLoadingAndErrorSurfaces() {
     source,
     'error boundary native card',
     'className="flex flex-col items-center gap-4 max-w-[600px] text-center px-6"',
-    'className="ep-native-error-card flex max-w-[620px] flex-col items-center gap-4 border px-6 py-7 text-center"'
+    'className="ep-native-error-card flex max-w-[620px] flex-col items-center gap-4 px-6 py-7 text-center"'
   );
   source = replaceRequired(
     source,
     'error boundary native icon',
     'className="w-12 h-12 bg-destructive/10 border border-border-primary flex items-center justify-center mb-2"',
-    'className="ep-native-error-icon mb-2 flex h-12 w-12 items-center justify-center border"'
+    'className="ep-native-error-icon mb-2 flex h-12 w-12 items-center justify-center"'
   );
   source = replaceRequired(
     source,
@@ -6033,7 +6028,7 @@ function applyLoadingAndErrorSurfaces() {
     source,
     'error boundary native pre',
     'className="text-destructive text-sm dark:text-white p-4 bg-muted rounded-[6px] w-full overflow-auto border border-border whitespace-pre-wrap"',
-    'className="w-full overflow-auto whitespace-pre-wrap rounded-[12px] border border-border bg-background-secondary/72 p-4 text-left text-sm text-text-danger backdrop-blur-xl"'
+    'className="w-full overflow-auto whitespace-pre-wrap rounded-[12px] bg-background-secondary/62 p-4 text-left text-sm text-text-danger"'
   );
   source = replaceRequired(
     source,
@@ -6117,6 +6112,7 @@ function applyFinalFlatPixelAudit() {
    blue focus ring, and only a small pixel accent on display/section labels. */
 .goose-epistemos {
   --epistemos-native-claude-desktop-lock: 1;
+  --${flatSourceSurfacesMarker}: 1;
   --epistemos-claude-bg: var(--color-background-primary);
   --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 70%, var(--color-background-primary));
   --epistemos-claude-sidebar-hover: color-mix(in srgb, var(--color-background-secondary) 88%, var(--color-background-primary));
