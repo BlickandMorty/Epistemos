@@ -1995,6 +1995,12 @@ function applyOnboardingSurfaces() {
     'className="text-text-muted mb-6"',
     'className="mb-6 text-text-secondary"'
   );
+  source = replaceRequired(
+    source,
+    'onboarding guard icon well borderless',
+    'className={`flex h-8 w-8 items-center justify-center border border-border-primary bg-background-secondary ${className}`}',
+    'className={`flex h-8 w-8 items-center justify-center rounded-[10px] bg-background-secondary/60 ${className}`}'
+  );
   write('src/components/onboarding/OnboardingGuard.tsx', source);
 
   source = read('src/components/onboarding/OnboardingSuccess.tsx');
@@ -2057,6 +2063,24 @@ function applyOnboardingSurfaces() {
   source = read('src/components/onboarding/LocalModelPicker.tsx');
   source = replaceRequired(
     source,
+    'local model picker shell borderless',
+    'className="p-3 border border-border-primary rounded-[6px] bg-background-primary"',
+    'className="rounded-[12px] bg-background-primary/54 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker error borderless',
+    'className="border border-border-danger bg-background-danger rounded-[6px] p-3"',
+    'className="rounded-[10px] bg-background-danger/35 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker retry button borderless',
+    'className="w-full px-3 py-2 bg-transparent border border-border-primary rounded-[6px] text-text-default text-sm font-medium hover:bg-background-secondary transition-colors"',
+    'className="w-full rounded-[8px] bg-background-primary/60 px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
     'local model picker back button native',
     'className="w-full px-3 py-2.5 text-text-primary text-sm font-medium border border-border-primary rounded-[6px] hover:bg-background-secondary transition-colors cursor-pointer"',
     'className="w-full cursor-pointer rounded-[8px] bg-background-primary/60 px-3 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-background-secondary/72"'
@@ -2066,6 +2090,36 @@ function applyOnboardingSurfaces() {
     'local model picker download card native',
     'className="border border-border-primary rounded-[6px] p-3 bg-background-default"',
     'className="rounded-[10px] bg-background-primary/54 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker cancel download button borderless',
+    'className="w-full px-3 py-2.5 bg-transparent text-text-muted border border-border-primary rounded-[6px] text-sm hover:bg-background-secondary transition-colors"',
+    'className="w-full rounded-[8px] bg-background-primary/60 px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-background-secondary/72 hover:text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'local model picker note borderless',
+    'className="rounded-[6px] border border-border-primary bg-background-secondary p-3 mt-3"',
+    'className="mt-3 rounded-[12px] bg-background-secondary/44 p-3"'
+  );
+  source = replaceAllRequired(
+    source,
+    'local model picker option base borderless',
+    'w-full p-3 border rounded-[6px] cursor-pointer transition-colors duration-150',
+    'w-full cursor-pointer rounded-[10px] p-3 transition-colors duration-150'
+  );
+  source = replaceAllRequired(
+    source,
+    'local model picker selected option token',
+    "'border-primary bg-background-secondary'",
+    "'bg-[var(--epistemos-accent)]/12'"
+  );
+  source = replaceAllRequired(
+    source,
+    'local model picker idle option token',
+    "'border-border-primary hover:border-primary'",
+    "'bg-background-primary/54 hover:bg-background-secondary/56'"
   );
   source = replaceRequired(
     source,
@@ -2086,6 +2140,57 @@ function applyOnboardingSurfaces() {
     'className="h-2 rounded-full bg-[var(--epistemos-accent)] transition-all duration-500 ease-[var(--epistemos-control-ease)]"'
   );
   write('src/components/onboarding/LocalModelPicker.tsx', source);
+
+  source = read('src/components/onboarding/FreeOptionCards.tsx');
+  source = replaceRequired(
+    source,
+    'free option card class borderless',
+    "`w-full p-3 bg-transparent border rounded-[6px] transition-colors duration-150 cursor-pointer group ${\n    isSelected ? 'border-primary bg-background-secondary' : 'border-border-primary hover:border-primary hover:bg-background-secondary'\n  }`",
+    "`w-full cursor-pointer rounded-[10px] p-3 transition-colors duration-150 group ${\n    isSelected ? 'bg-[var(--epistemos-accent)]/12' : 'bg-background-primary/54 hover:bg-background-secondary/56'\n  }`"
+  );
+  source = replaceRequired(
+    source,
+    'free option shell borderless',
+    'className="p-3 border border-border-primary rounded-[6px] bg-background-primary"',
+    'className="rounded-[12px] bg-background-primary/54 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'free option error borderless',
+    'className="mt-3 p-3 border border-border-danger bg-background-danger rounded-[6px] flex items-center justify-between gap-3"',
+    'className="mt-3 flex items-center justify-between gap-3 rounded-[10px] bg-background-danger/35 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'free option retry button borderless',
+    'className="px-3 py-1 text-xs font-mono uppercase text-text-danger bg-background-primary border border-border-danger rounded-[4px] hover:bg-background-secondary shrink-0"',
+    'className="shrink-0 rounded-[8px] bg-background-primary/60 px-3 py-1 text-xs font-sans uppercase text-text-danger transition-colors hover:bg-background-secondary/72"'
+  );
+  write('src/components/onboarding/FreeOptionCards.tsx', source);
+
+  source = read('src/components/onboarding/ProviderSelector.tsx');
+  source = replaceAllRequired(
+    source,
+    'provider selector branch inset borderless',
+    'className="border-l border-border-primary pl-3"',
+    'className="rounded-[12px] bg-background-primary/34 px-3 py-2"'
+  );
+  write('src/components/onboarding/ProviderSelector.tsx', source);
+
+  source = read('src/components/onboarding/ProviderConfigForm.tsx');
+  source = replaceRequired(
+    source,
+    'provider config shell borderless',
+    'className="p-3 border border-border-primary rounded-[6px] bg-background-primary"',
+    'className="rounded-[12px] bg-background-primary/54 p-3"'
+  );
+  source = replaceRequired(
+    source,
+    'provider config error borderless',
+    'className="mt-3 p-3 rounded-[6px] bg-background-danger text-text-danger border border-border-danger text-sm"',
+    'className="mt-3 rounded-[10px] bg-background-danger/35 p-3 text-sm text-text-danger"'
+  );
+  write('src/components/onboarding/ProviderConfigForm.tsx', source);
 }
 
 function applyChatSurfaces() {
