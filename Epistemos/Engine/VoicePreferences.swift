@@ -166,11 +166,11 @@ public final class VoicePreferences {
             """
         case VoicePreferenceKeys.perModelVoicePersona:
             return """
-            This legacy preference is kept for migration only. Shipped text-to-speech is Kokoro-only and remains unavailable until the native Kokoro synthesis engine is wired.
+            This legacy preference is kept for migration only. Shipped text-to-speech is Kokoro-only and remains unavailable until native Kokoro playback is wired.
             """
         case VoicePreferenceKeys.quickCaptureReadBack:
             return """
-            Auto mode will read each completed sentence aloud as you pause typing in Quick Capture once native Kokoro synthesis is wired. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Apple AVSpeech is not used as a fallback.
+            Auto mode will read each completed sentence aloud as you pause typing in Quick Capture once native Kokoro playback is wired. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Apple AVSpeech is not used as a fallback.
             """
         default:
             return ""

@@ -1,0 +1,313 @@
+import Darwin
+import Foundation
+
+#if canImport(KokoroPipeline)
+import KokoroPipeline
+#endif
+
+nonisolated enum KokoroCoreMLRuntimeLoader {
+    static let maxRuntimeAssetBytes = 2 * 1024 * 1024
+
+    struct HNSFWeights: Equatable, Sendable {
+        let linearWeights: [Float]
+        let linearBias: Float
+    }
+
+    struct RuntimeResources: Equatable, Sendable {
+        let modelDirectoryURL: URL
+        let coreMLDirectoryURL: URL
+        let manifestURL: URL
+        let vocabularyURL: URL
+        let hnsfWeightsURL: URL
+        let starterVoiceURL: URL
+        let hnsfWeights: HNSFWeights
+        let buckets: [Int]
+        let durationTokenSizes: [Int]
+        let sampleRateHz: Int
+    }
+
+    private struct RuntimeManifestShape {
+        let buckets: [Int]
+        let durationTokenSizes: [Int]
+    }
+
+    enum LoadError: Equatable, Error, LocalizedError, Sendable {
+        case packageNotReady(String)
+        case runtimeNotLinked
+        case runtimeAssetUnreadable(String)
+        case invalidHNSFWeights(String)
+        case invalidStarterVoice(String)
+        case pipelineLoadFailed(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .packageNotReady(let detail):
+                return "Kokoro package is not ready: \(detail)"
+            case .runtimeNotLinked:
+                return "KokoroPipeline is not linked in this build."
+            case .runtimeAssetUnreadable(let detail):
+                return "Kokoro runtime asset could not be read: \(detail)"
+            case .invalidHNSFWeights(let detail):
+                return "Kokoro HNSF weights are invalid: \(detail)"
+            case .invalidStarterVoice(let detail):
+                return "Kokoro starter voice is invalid: \(detail)"
+            case .pipelineLoadFailed(let detail):
+                return "Kokoro CoreML pipeline could not be loaded: \(detail)"
+            }
+        }
+    }
+
+    static var isLinked: Bool {
+        #if canImport(KokoroPipeline)
+        true
+        #else
+        false
+        #endif
+    }
+
+    static func resources(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) throws -> RuntimeResources {
+        let status = KokoroVoiceGateStatus.status(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
+        guard status.state == .packageReady, let modelRoot else {
+            throw LoadError.packageNotReady(status.detail)
+        }
+
+        let modelDirectory = modelRoot.appendingPathComponent(
+            KokoroVoiceGateStatus.modelDirectoryName,
+            isDirectory: true
+        )
+        let coreMLDirectory = modelDirectory.appendingPathComponent("coreml", isDirectory: true)
+        let manifestURL = modelDirectory.appendingPathComponent(
+            KokoroVoiceGateStatus.manifestFileName,
+            isDirectory: false
+        )
+        let vocabularyURL = modelDirectory.appendingPathComponent(
+            KokoroVoiceGateStatus.runtimeVocabPath,
+            isDirectory: false
+        )
+        let hnsfURL = modelDirectory.appendingPathComponent(
+            KokoroVoiceGateStatus.runtimeHNSFWeightsPath,
+            isDirectory: false
+        )
+        let voiceURL = modelDirectory.appendingPathComponent(
+            KokoroVoiceGateStatus.starterVoicePath,
+            isDirectory: false
+        )
+
+        let manifestShape = try readRuntimeManifestShape(at: manifestURL)
+        let hnsfWeights = try readHNSFWeights(at: hnsfURL)
+        try validateStarterVoice(at: voiceURL)
+
+        return RuntimeResources(
+            modelDirectoryURL: modelDirectory,
+            coreMLDirectoryURL: coreMLDirectory,
+            manifestURL: manifestURL,
+            vocabularyURL: vocabularyURL,
+            hnsfWeightsURL: hnsfURL,
+            starterVoiceURL: voiceURL,
+            hnsfWeights: hnsfWeights,
+            buckets: manifestShape.buckets,
+            durationTokenSizes: manifestShape.durationTokenSizes,
+            sampleRateHz: KokoroVoiceGateStatus.sampleRateHz
+        )
+    }
+
+    #if canImport(KokoroPipeline)
+    static func loadPipeline(resources: RuntimeResources) throws -> KokoroPipeline {
+        do {
+            return try KokoroPipeline(
+                modelsDirectory: resources.coreMLDirectoryURL,
+                buckets: resources.buckets,
+                linearWeights: resources.hnsfWeights.linearWeights,
+                linearBias: resources.hnsfWeights.linearBias
+            )
+        } catch {
+            throw LoadError.pipelineLoadFailed(runtimeDiagnostic(error))
+        }
+    }
+    #else
+    static func loadPipeline(resources _: RuntimeResources) throws -> Never {
+        throw LoadError.runtimeNotLinked
+    }
+    #endif
+
+    private static func readHNSFWeights(at url: URL) throws -> HNSFWeights {
+        let data = try readRuntimeAssetDataNoFollow(at: url, name: KokoroVoiceGateStatus.runtimeHNSFWeightsPath)
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw LoadError.invalidHNSFWeights("JSON decode failed")
+        }
+        guard let dictionary = object as? [String: Any] else {
+            throw LoadError.invalidHNSFWeights("expected JSON object")
+        }
+        guard let rawWeights = dictionary["linear_weights"] as? [Any],
+              rawWeights.count == 9 else {
+            throw LoadError.invalidHNSFWeights("linear_weights must contain 9 values")
+        }
+        var weights = [Float]()
+        weights.reserveCapacity(rawWeights.count)
+        for value in rawWeights {
+            guard let double = finiteDouble(value) else {
+                throw LoadError.invalidHNSFWeights("linear_weights must be finite numbers")
+            }
+            weights.append(Float(double))
+        }
+        guard let linearBias = finiteDouble(dictionary["linear_bias"]) else {
+            throw LoadError.invalidHNSFWeights("linear_bias must be a finite number")
+        }
+        return HNSFWeights(linearWeights: weights, linearBias: Float(linearBias))
+    }
+
+    private static func readRuntimeManifestShape(at url: URL) throws -> RuntimeManifestShape {
+        let data = try readRuntimeAssetDataNoFollow(at: url, name: KokoroVoiceGateStatus.manifestFileName)
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw LoadError.runtimeAssetUnreadable(KokoroVoiceGateStatus.manifestFileName)
+        }
+        guard let dictionary = object as? [String: Any],
+              let buckets = integerArray(dictionary["buckets"]),
+              !buckets.isEmpty,
+              let durationTokenSizes = integerArray(dictionary["duration_token_sizes"]),
+              !durationTokenSizes.isEmpty else {
+            throw LoadError.runtimeAssetUnreadable(KokoroVoiceGateStatus.manifestFileName)
+        }
+        return RuntimeManifestShape(
+            buckets: buckets.sorted(),
+            durationTokenSizes: durationTokenSizes.sorted()
+        )
+    }
+
+    private static func validateStarterVoice(at url: URL) throws {
+        let byteCount = try regularFileByteCountNoFollow(
+            at: url,
+            name: KokoroVoiceGateStatus.starterVoicePath
+        )
+        guard byteCount % UInt64(MemoryLayout<Float>.size) == 0 else {
+            throw LoadError.invalidStarterVoice("voice embedding bytes must align to Float32")
+        }
+        let floatCount = byteCount / UInt64(MemoryLayout<Float>.size)
+        guard floatCount >= UInt64(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions) else {
+            throw LoadError.invalidStarterVoice("voice embedding is shorter than 256 Float32 values")
+        }
+    }
+
+    private static func readRuntimeAssetDataNoFollow(at url: URL, name: String) throws -> Data {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw LoadError.runtimeAssetUnreadable(name)
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw LoadError.runtimeAssetUnreadable(name)
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_size > 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxRuntimeAssetBytes) else {
+            close(fd)
+            throw LoadError.runtimeAssetUnreadable(name)
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              !data.isEmpty,
+              data.count <= maxRuntimeAssetBytes else {
+            throw LoadError.runtimeAssetUnreadable(name)
+        }
+        return data
+    }
+
+    private static func regularFileByteCountNoFollow(at url: URL, name: String) throws -> UInt64 {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw LoadError.runtimeAssetUnreadable(name)
+        }
+        defer { close(fd) }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0,
+              (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_size > 0,
+              UInt64(fileStatus.st_size) <= UInt64(KokoroVoiceGateStatus.maxPackageFileBytes) else {
+            throw LoadError.runtimeAssetUnreadable(name)
+        }
+        return UInt64(fileStatus.st_size)
+    }
+
+    private static func finiteDouble(_ value: Any?) -> Double? {
+        if let value = value as? Double, value.isFinite {
+            return value
+        }
+        if let value = value as? Float, value.isFinite {
+            return Double(value)
+        }
+        if let value = value as? Int {
+            return Double(value)
+        }
+        if let value = value as? NSNumber {
+            guard CFGetTypeID(value as CFTypeRef) != CFBooleanGetTypeID() else {
+                return nil
+            }
+            let doubleValue = value.doubleValue
+            return doubleValue.isFinite ? doubleValue : nil
+        }
+        return nil
+    }
+
+    private static func integerArray(_ value: Any?) -> [Int]? {
+        guard let array = value as? [Any] else {
+            return nil
+        }
+        var integers = [Int]()
+        integers.reserveCapacity(array.count)
+        for item in array {
+            guard let integer = integerValue(item) else {
+                return nil
+            }
+            integers.append(integer)
+        }
+        return integers
+    }
+
+    private static func integerValue(_ value: Any?) -> Int? {
+        if let value = value as? Int, value > 0 {
+            return value
+        }
+        if let value = value as? NSNumber {
+            guard CFGetTypeID(value as CFTypeRef) != CFBooleanGetTypeID() else {
+                return nil
+            }
+            let doubleValue = value.doubleValue
+            guard doubleValue.isFinite,
+                  doubleValue > 0,
+                  doubleValue.rounded(.towardZero) == doubleValue,
+                  doubleValue <= Double(Int.max) else {
+                return nil
+            }
+            return Int(doubleValue)
+        }
+        return nil
+    }
+
+    private static func runtimeDiagnostic(_ error: Error) -> String {
+        let nsError = error as NSError
+        return "domain=\(VoiceCaptureDiagnostics.safeDomain(nsError.domain)) code=\(nsError.code)"
+    }
+}

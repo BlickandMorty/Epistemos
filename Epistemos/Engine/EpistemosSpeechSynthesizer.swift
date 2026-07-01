@@ -6,9 +6,9 @@ import OSLog
 //
 // Wave 9.1 - AVSpeech catalogue and preference compatibility.
 // Wave 9.1.b - premium-voice catalogue + interactive playback controls.
-// Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. Until a
-// native Kokoro synthesis engine is wired, speak() honestly refuses playback
-// instead of falling back to Apple's basic AVSpeech voice.
+// Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. Until the
+// native Kokoro loader is proven through playback, speak() honestly refuses
+// playback instead of falling back to Apple's basic AVSpeech voice.
 //
 // Earlier W9 builds used AVSpeechSynthesizer for read-aloud. The helpers below
 // remain so existing voice preferences and Personal Voice authorization state
@@ -128,9 +128,11 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     public static let shared = EpistemosSpeechSynthesizer()
 
     nonisolated static let kokoroOnlyUnavailableMessage =
-        "Kokoro text-to-speech is unavailable until the native synthesis engine is wired. Apple AVSpeech is not used as a fallback."
+        "Kokoro text-to-speech is unavailable until native Kokoro playback is wired. Apple AVSpeech is not used as a fallback."
 
-    private nonisolated static let nativeKokoroSynthesisEngineLinked = false
+    private nonisolated static var nativeKokoroSynthesisEngineLinked: Bool {
+        KokoroCoreMLRuntimeLoader.isLinked
+    }
 
     nonisolated static func isTextToSpeechAvailable(
         environment: [String: String] = ProcessInfo.processInfo.environment,

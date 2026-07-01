@@ -19,13 +19,16 @@ struct VoiceCodepackPlan3Tests {
             "Live macOS 26 STT is surfaced",
             "bounded domain/code diagnostics",
             "raw status/domain strings bounded before trimming or punctuation validation",
-            "Kokoro-only TTS is honestly unavailable until the native engine is wired",
+            "Kokoro-only TTS is honestly unavailable until synthesis/playback is wired",
             "Legacy Apple voice code is unwired from the shipped TTS path",
             "Personal Voice authorization is live",
             "Pro Kokoro gate is honest",
-            "Local Kokoro package install/removal is real but runtime-disabled",
+            "Native Kokoro Swift/CoreML runtime source is staged but playback-disabled",
+            "Local Kokoro package install/removal is real but playback-disabled",
             "manifest-derived package evidence",
             "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
+            "KokoroCoreMLRuntimeLoader",
+            "LocalPackages/KokoroPipeline",
             "Voice settings section now shows",
             "TTS unavailable",
             "Kokoro neural voice",
@@ -40,7 +43,8 @@ struct VoiceCodepackPlan3Tests {
             "[DONE] Add Personal Voice authorization",
             "[DONE] Add the Kokoro Pro gate",
             "[DONE] Add the Pro-only Kokoro settings status/runtime affordance",
-            "[DONE] Add a local checked-package installer/remover"
+            "[DONE] Add a local checked-package installer/remover",
+            "[DONE] Vendor native `KokoroPipeline` source"
         ] {
             #expect(plan.contains(required), "Missing voice codepack state: \(required)")
         }
@@ -72,7 +76,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("shipped code"))
         #expect(plan.contains("## Shipped state"))
         #expect(plan.contains("## Delivered MAS-safe fixes"))
-        #expect(plan.contains("## Pro Kokoro lane `[STATUS GATE DELIVERED; RUNTIME DEFERRED]`"))
+        #expect(plan.contains("## Pro Kokoro lane `[NATIVE RUNTIME SOURCE STAGED; PLAYBACK DEFERRED]`"))
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — STT SHIPPED; TTS KOKORO-ONLY GATED (Pass 8)"))
         #expect(capabilities.contains("Kokoro-only read-aloud availability"))
@@ -88,14 +92,17 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("no Apple AVSpeech fallback"))
         #expect(capabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("manifest-derived package evidence"))
-        #expect(capabilities.contains("no committed model asset, network downloader, neural inference"))
-        #expect(capabilities.contains("runtime, Python, subprocess, or MAS-visible Kokoro row"))
+        #expect(capabilities.contains("KokoroPipeline` source and checked-bundle loader are now staged"))
+        #expect(capabilities.contains("requires the complete manifest-declared duration/bucket CoreML package"))
+        #expect(capabilities.contains("no Apple AVSpeech fallback, committed model asset, network downloader, live TTS playback path"))
+        #expect(capabilities.contains("Python, subprocess, or MAS-visible Kokoro row"))
 
         for stale in [
             "Research/code in a later pass",
             "Kokoro-82M Pro voice + SSML",
             "Apple AVSpeech TTS wrapper",
             "AVSpeech selected until real neural inference is proven",
+            "without enabling the neural runtime",
         ] where capabilities.contains(stale) {
             Issue.record("Plan 3 capabilities still contains stale Voice phrase: \(stale)")
         }
@@ -318,8 +325,8 @@ struct VoiceCodepackPlan3Tests {
         }
     }
 
-    @Test("Kokoro Pro gate is honest and does not add a runtime")
-    func kokoroProGateIsHonestAndRuntimeFree() throws {
+    @Test("Kokoro Pro gate is honest and status-only")
+    func kokoroProGateIsHonestAndStatusOnly() throws {
         let gate = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceGateStatus.swift")
 
         for required in [
@@ -410,6 +417,45 @@ struct VoiceCodepackPlan3Tests {
         ] {
             #expect(!gate.contains(forbidden), "Kokoro gate added forbidden runtime path: \(forbidden)")
         }
+    }
+
+    @Test("Kokoro native runtime loader is source-only and playback-disabled")
+    func kokoroNativeRuntimeLoaderIsSourceOnlyAndPlaybackDisabled() throws {
+        let loader = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroCoreMLRuntimeLoader.swift")
+        let synthesizer = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
+        let project = try loadMirroredSourceTextFile("project.yml")
+        let upstream = try loadMirroredSourceTextFile("LocalPackages/KokoroPipeline/UPSTREAM.md")
+
+        for required in [
+            "nonisolated enum KokoroCoreMLRuntimeLoader",
+            "#if canImport(KokoroPipeline)",
+            "import KokoroPipeline",
+            "KokoroPipeline(",
+            "loadPipeline(resources: RuntimeResources)",
+            "readRuntimeManifestShape(at:",
+            "readHNSFWeights(at:",
+            "linear_weights",
+            "linear_bias",
+            "validateStarterVoice(at:",
+            "starterVoiceEmbeddingDimensions",
+            "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "fstat(fd",
+            "CFBooleanGetTypeID",
+            "runtimeNotLinked",
+            "KokoroCoreMLRuntimeLoader.isLinked"
+        ] {
+            let source = required == "KokoroCoreMLRuntimeLoader.isLinked" ? synthesizer : loader
+            #expect(source.contains(required), "Kokoro runtime loader missing source guard: \(required)")
+        }
+
+        #expect(project.contains("KokoroPipeline:\n    path: LocalPackages/KokoroPipeline"))
+        #expect(project.contains("- package: KokoroPipeline\n        product: KokoroPipeline"))
+        #expect(upstream.contains("052bdcd8333d4ac38d77485a5067d9a1e3397cac"))
+        #expect(upstream.contains("no model weights"))
+        #expect(!loader.contains("URLSession"))
+        #expect(!loader.contains("Process("))
+        #expect(!loader.contains("NSTask"))
+        #expect(!loader.contains("Python"))
     }
 
     @Test("Kokoro Pro settings row is Pro-only and gate-backed")

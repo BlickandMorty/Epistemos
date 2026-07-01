@@ -145,6 +145,8 @@ targets:
         product: SwiftTerm
       - package: GGUFRuntimeBridge
         product: GGUFRuntimeBridge
+      - package: KokoroPipeline
+        product: KokoroPipeline
       - package: MarkEditCore
       - package: MarkEditKit
       - package: MarkEditModules
@@ -285,6 +287,8 @@ targets:
         product: VMLXHuggingFace
       - package: vmlx-swift
         product: VMLXTokenizers
+      - package: KokoroPipeline
+        product: KokoroPipeline
       - package: MarkEditCore
       - package: MarkEditKit
       - package: MarkEditModules
@@ -565,6 +569,8 @@ packages:
     path: LocalPackages/SwiftTerm
   GGUFRuntimeBridge:
     path: LocalPackages/GGUFRuntimeBridge
+  KokoroPipeline:
+    path: LocalPackages/KokoroPipeline
   MarkEditCore:
     path: LocalPackages/MarkEdit/MarkEditCore
   MarkEditKit:

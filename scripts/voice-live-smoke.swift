@@ -108,15 +108,15 @@ enum VoiceLiveSmoke {
               packageEvidence.voiceCount == 1,
               packageEvidence.runtimeAssetCount == 2,
               packageEvidence.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier,
-              packageEvidence.settingsSummary.contains("Kokoro synthesis remains unavailable") else {
-            fail("Kokoro gate did not expose checked package evidence without enabling runtime")
+              packageEvidence.settingsSummary.contains("Kokoro playback remains unavailable") else {
+            fail("Kokoro gate did not expose checked package evidence without enabling playback")
         }
         let packageReadyPresentation = KokoroVoiceProSettingsModel.presentation(for: packageReady)
         guard packageReadyPresentation.selectedRuntime == .textToSpeechUnavailable,
               !packageReadyPresentation.proRuntimeEnabled,
               packageReadyPresentation.badgeTitle == "Package ready",
               packageReadyPresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.manifestFileName) == true else {
-            fail("Kokoro Pro presentation did not keep TTS unavailable while neural inference is deferred")
+            fail("Kokoro Pro presentation did not keep TTS unavailable while playback is deferred")
         }
 
         let installerTargetRoot = root.appendingPathComponent("InstallerTarget", isDirectory: true)
