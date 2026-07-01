@@ -37,6 +37,7 @@ struct MeetingSTTCodepackPlan3Tests {
             "private var canSave: Bool",
             "Saved note: \\(title)",
             "VoiceCapturePresentationBounds.statusMessage(\"Saved note:",
+            "service.tearDownCapture()",
             ".disabled(!canSave)",
             ".environment(UIState())",
         ] {

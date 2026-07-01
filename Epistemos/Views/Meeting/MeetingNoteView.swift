@@ -47,7 +47,7 @@ struct MeetingNoteView: View {
             service.refreshFromVoiceInput()
         }
         .onDisappear {
-            service.stop()
+            service.tearDownCapture()
         }
         .confirmationDialog(
             "Discard meeting transcript?",

@@ -162,6 +162,20 @@ final class MeetingNoteCaptureService {
         }
     }
 
+    func tearDownCapture() {
+        captureGeneration = UUID()
+        cancelAutoStopSilence()
+        refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+        voiceInput.tearDown()
+        freezeCaptureClock()
+        modelDownloadProgress = nil
+        if case .recording = state {
+            state = .idle
+        } else if case .preparing = state {
+            state = .idle
+        }
+    }
+
     func discard() {
         captureGeneration = UUID()
         cancelAutoStopSilence()

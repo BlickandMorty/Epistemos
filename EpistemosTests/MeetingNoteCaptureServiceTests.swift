@@ -494,6 +494,25 @@ struct MeetingNoteCaptureServiceTests {
         #expect(voice.stopCallCount >= 1)
     }
 
+    @Test("teardown drains pending transcript and clears shared voice state")
+    func tearDownCaptureDrainsPendingTranscriptAndClearsVoiceState() {
+        let voice = FakeMeetingVoiceInput()
+        voice.state = .recording
+        voice.partialTranscript = "Live partial"
+        voice.finalTranscripts = ["Final decision"]
+        voice.modelDownloadProgress = 0.5
+        let service = MeetingNoteCaptureService(voiceInput: voice)
+
+        service.tearDownCapture()
+
+        #expect(service.transcriptText == "Final decision\n\nLive partial")
+        #expect(service.modelDownloadProgress == nil)
+        #expect(service.state == .idle)
+        #expect(voice.tearDownCallCount == 1)
+        #expect(voice.partialTranscript.isEmpty)
+        #expect(voice.finalTranscripts.isEmpty)
+    }
+
     @Test("service source stays off direct SpeechAnalyzer and hidden runtime paths")
     func sourceBoundaries() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/MeetingNoteCaptureService.swift")
@@ -515,6 +534,8 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("VoiceCapturePresentationBounds.statusMessage"))
         #expect(source.contains("MeetingCaptureDiagnostics"))
         #expect(source.contains("statusMessage(for error: Error)"))
+        #expect(source.contains("func tearDownCapture()"))
+        #expect(source.contains("voiceInput.tearDown()"))
         #expect(source.contains("let finalizeGeneration = UUID()"))
         #expect(source.contains("guard isCurrentCapture(finalizeGeneration) else"))
         #expect(source.contains("if isCurrentCapture(finalizeGeneration)"))
@@ -542,6 +563,7 @@ struct MeetingNoteCaptureServiceTests {
         #expect(view.contains("private var isSaved: Bool"))
         #expect(view.contains("case .saved(_, let title):"))
         #expect(view.contains("VoiceCapturePresentationBounds.statusMessage(\"Saved note:"))
+        #expect(view.contains(".onDisappear {\n            service.tearDownCapture()\n        }"))
         #expect(view.contains("showingDiscardConfirmation = true"))
         #expect(view.contains(".confirmationDialog("))
         #expect(view.contains("Button(\"Discard Transcript\", role: .destructive)"))
@@ -566,6 +588,7 @@ private final class FakeMeetingVoiceInput: MeetingVoiceInputProviding {
     var modelDownloadProgress: Double?
     var finalTranscripts: [String] = []
     var stopCallCount = 0
+    var tearDownCallCount = 0
     var onStart: (@MainActor () async -> Void)?
 
     func start() async {
@@ -582,6 +605,7 @@ private final class FakeMeetingVoiceInput: MeetingVoiceInputProviding {
     }
 
     func tearDown() {
+        tearDownCallCount += 1
         state = .idle
         partialTranscript = ""
         finalTranscripts.removeAll()

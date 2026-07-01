@@ -364,7 +364,7 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   display values are bounded before UI state; finalize failures use bounded categorical diagnostics instead of raw
   localized filesystem descriptions; toolbar status text truncates before it can expand the row; auto-stop follows the
   dictation preference with capture-generation and silence-window token guards, manual stop/save stays available, and
-  repeat Save is disabled after `.saved` so the same
+  window teardown drains pending final/partial text before clearing the shared voice facade; repeat Save is disabled after `.saved` so the same
   transcript cannot create duplicate notes.
   No hidden audio retention, no cloud STT, no Whisper/Kokoro/Python/subprocess on the MAS path.
 - **Eidos / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): Eidos-origin `VaultRecallTrace` records now
