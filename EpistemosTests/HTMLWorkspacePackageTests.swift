@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 
 @testable import Epistemos
@@ -302,6 +303,57 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.error == nil)
         #expect(metadata.requiredContextKind == "recent_capture")
         #expect(metadata.requiredContextAvailable == true)
+    }
+
+    @MainActor
+    @Test("HTMLWorkspace recent capture context source uses explicit capture front matter")
+    func dataFeedRecentCaptureContextSourceUsesExplicitCaptureFrontMatter() throws {
+        let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+        let capture = SDPage(title: "Meeting Alpha")
+        capture.body = "alpha transcript body"
+        capture.frontMatter = [
+            "source": "meeting_stt",
+            "source_kind": "audio_transcript",
+            "captured_at": "2026-07-01T12:00:00Z",
+        ]
+        let generic = SDPage(title: "Generic Note")
+        generic.body = "generic note body"
+        context.insert(generic)
+        context.insert(capture)
+        try context.save()
+
+        let captureResults = HTMLWorkspaceDataFeedContextSources.recentCaptureResults(
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(captureResults.map(\.pageID) == [capture.id])
+        #expect(captureResults.first?.contextKind == "recent_capture")
+        #expect(captureResults.first?.sourceLabel == "Recent capture transcript")
+        #expect(captureResults.first?.provenance.contains("TextCapturePipeline") == true)
+        #expect(captureResults.first?.snippet == "alpha transcript body")
+
+        let genericResult = SearchResult(pageId: "note-a", title: "Generic", snippet: "generic", rank: 0.7)
+        let requiredCaptureResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "recent_capture",
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(requiredCaptureResults.map(\.pageID) == [capture.id])
+
+        let defaultResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(defaultResults.map(\.pageID) == ["note-a"])
+        #expect(defaultResults.first?.contextKind == "vault_record")
     }
 
     @Test("HTMLWorkspace data feed status exposes existing required context kind for refreshes")

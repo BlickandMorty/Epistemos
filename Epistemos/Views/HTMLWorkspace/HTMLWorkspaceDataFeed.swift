@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import SwiftData
 import SwiftUI
 
 nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
@@ -27,6 +28,15 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
         self.contextKind = Self.normalizedContextKind(contextKind)
         self.sourceLabel = Self.normalizedNonEmpty(sourceLabel, default: "Vault search result")
         self.provenance = Self.normalizedNonEmpty(provenance, default: HTMLWorkspaceDataFeedJSONEnvelope.provenance)
+    }
+
+    init(searchResult: SearchResult) {
+        self.init(
+            pageID: searchResult.pageId,
+            title: searchResult.title,
+            snippet: searchResult.snippet,
+            rank: searchResult.rank
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -181,6 +191,85 @@ nonisolated struct HTMLWorkspaceDataFeedEnvelope: Codable, Equatable, Sendable {
     }
 }
 
+@MainActor
+enum HTMLWorkspaceDataFeedContextSources {
+    static func results(
+        for requiredContextKind: String?,
+        searchResults: [SearchResult],
+        modelContainer: ModelContainer?,
+        limit: Int
+    ) -> [HTMLWorkspaceDataFeedResult] {
+        if normalized(requiredContextKind) == "recent_capture" {
+            return recentCaptureResults(modelContainer: modelContainer, limit: limit)
+        }
+        return searchResults.map(HTMLWorkspaceDataFeedResult.init(searchResult:))
+    }
+
+    static func recentCaptureResults(
+        modelContainer: ModelContainer?,
+        limit: Int
+    ) -> [HTMLWorkspaceDataFeedResult] {
+        guard let modelContainer else { return [] }
+        let context = ModelContext(modelContainer)
+        let effectiveLimit = HTMLWorkspaceDataFeed.clampedLimit(limit)
+        let fetchLimit = min(effectiveLimit * 4, HTMLWorkspaceDataFeed.maxLimit * 4)
+        let pages = (try? context.fetch(SDPage.recentDescriptor(limit: fetchLimit))) ?? []
+        return pages
+            .compactMap(recentCaptureCandidate(from:))
+            .prefix(effectiveLimit)
+            .enumerated()
+            .map { index, candidate in
+                HTMLWorkspaceDataFeedResult(
+                    pageID: candidate.pageID,
+                    title: candidate.title,
+                    snippet: candidate.snippet,
+                    rank: max(0.01, 1.0 - (Double(index) * 0.01)),
+                    contextKind: "recent_capture",
+                    sourceLabel: candidate.sourceLabel,
+                    provenance: candidate.provenance
+                )
+            }
+    }
+
+    private struct CaptureCandidate {
+        var pageID: String
+        var title: String
+        var snippet: String
+        var sourceLabel: String
+        var provenance: String
+    }
+
+    private static func recentCaptureCandidate(from page: SDPage) -> CaptureCandidate? {
+        let frontMatter = page.frontMatter
+        let source = normalized(frontMatter["source"])
+        let sourceKind = normalized(frontMatter["source_kind"])
+        let capturedAt = normalized(frontMatter["captured_at"])
+        guard source == "meeting_stt" || sourceKind == "audio_transcript" || !capturedAt.isEmpty else {
+            return nil
+        }
+
+        let title = normalized(page.title).isEmpty ? "Untitled capture" : page.title
+        let bodySnippet = page.normalizedBodySnippet(limit: 360)
+        let snippet = normalized(page.summary).isEmpty ? bodySnippet : page.summary
+        let label = sourceKind == "audio_transcript" ? "Recent capture transcript" : "Recent capture"
+        let provenance = ["TextCapturePipeline", source, sourceKind, capturedAt]
+            .map(normalized)
+            .filter { !$0.isEmpty }
+            .joined(separator: " / ")
+        return CaptureCandidate(
+            pageID: page.id,
+            title: title,
+            snippet: normalized(snippet).isEmpty ? "No capture excerpt available." : snippet,
+            sourceLabel: label,
+            provenance: provenance
+        )
+    }
+
+    private static func normalized(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+}
+
 nonisolated enum HTMLWorkspaceDataFeedRenderer {
     static let provenance = HTMLWorkspaceDataFeedJSONEnvelope.provenance
 
@@ -192,14 +281,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     ) -> String {
         render(
             feed: feed,
-            results: results.map {
-                HTMLWorkspaceDataFeedResult(
-                    pageID: $0.pageId,
-                    title: $0.title,
-                    snippet: $0.snippet,
-                    rank: $0.rank
-                )
-            },
+            results: results.map(HTMLWorkspaceDataFeedResult.init(searchResult:)),
             refreshedAt: refreshedAt,
             stale: false,
             status: "fresh",

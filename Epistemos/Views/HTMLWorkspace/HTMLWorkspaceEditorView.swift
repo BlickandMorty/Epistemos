@@ -1130,12 +1130,18 @@ struct HTMLWorkspaceEditorView: View {
                 limit: feed.effectiveLimit
             )
             guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
+            let contextResults = HTMLWorkspaceDataFeedContextSources.results(
+                for: preset.requiredContextKind,
+                searchResults: results,
+                modelContainer: AppBootstrap.shared?.modelContainer,
+                limit: feed.effectiveLimit
+            )
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
                 feed: feed,
-                results: results,
+                contextResults: contextResults,
                 requiredContextKind: preset.requiredContextKind
             )
-            regenerateContextStatusText = "Workspace context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
+            regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
             statusText = "Workspace context ready"
             beginRegenerateSurface(instructionOverride: contextualInstruction)
         }
