@@ -101,6 +101,9 @@ struct GooseWebSurfaceView: View {
             let normalizedRoute = Self.normalizedGooseRoute(newRoute)
             setWebRoute(normalizedRoute)
         }
+        .onChange(of: theme) { _, newTheme in
+            applyNativeTheme(newTheme)
+        }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
         }
@@ -494,6 +497,12 @@ struct GooseWebSurfaceView: View {
         trustedOrigins.register(connection.baseURL)
         trustedOrigins.register(connection.acpWebSocketURL)
         _ = page.load(URLRequest(url: Self.loopbackURL(baseURL: baseURL, route: route)))
+    }
+
+    private func applyNativeTheme(_ theme: EpistemosTheme) {
+        Task { @MainActor in
+            _ = try? await page.callJavaScript(Self.nativeThemeUpdateScript(theme: theme))
+        }
     }
 
     private func loadPlaceholder(status: String? = nil, acpURL: String = "") {

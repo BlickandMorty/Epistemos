@@ -271,6 +271,34 @@ extension GooseWebSurfaceView {
         """
     }
 
+    static func nativeThemeUpdateScript(theme: EpistemosTheme) -> String {
+        let css = nativeFeelCSS(theme: theme)
+        let webTheme = theme.isDark ? "dark" : "light"
+        return """
+        return (() => {
+          let style = document.getElementById('epistemos-goose-native-theme');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'epistemos-goose-native-theme';
+            document.documentElement.appendChild(style);
+          }
+          style.textContent = \(jsStringLiteral(css));
+          document.documentElement.dataset.epistemosTheme = \(jsStringLiteral(theme.rawValue));
+          document.documentElement.classList.toggle('dark', \(theme.isDark ? "true" : "false"));
+          document.documentElement.classList.toggle('light', \(theme.isDark ? "false" : "true"));
+          document.documentElement.style.colorScheme = \(jsStringLiteral(webTheme));
+          try {
+            window.electron?.broadcastThemeChange?.({
+              useSystemTheme: false,
+              theme: \(jsStringLiteral(webTheme)),
+              epistemosTheme: \(jsStringLiteral(theme.rawValue))
+            });
+          } catch {}
+          return document.documentElement.dataset.epistemosTheme;
+        })();
+        """
+    }
+
     static func nativeFeelCSS(theme: EpistemosTheme) -> String {
         let resolved = theme.resolved
         let background = cssColor(resolved.chatSurface)
