@@ -2360,7 +2360,7 @@ struct NoteDetailWorkspaceView: View {
         } else if let navState {
             navState.push(pageId: pageId, title: document.title)
         } else {
-            NoteWindowManager.shared.open(pageId)
+            NoteWindowManager.shared.open(pageId: pageId)
         }
     }
 
