@@ -259,6 +259,7 @@ extension GooseWebSurfaceView {
 
     static func nativeFeelScript(theme: EpistemosTheme) -> String {
         let css = nativeFeelCSS(theme: theme)
+        let webTheme = theme.isDark ? "dark" : "light"
         return """
         (() => {
           const style = document.createElement('style');
@@ -267,6 +268,8 @@ extension GooseWebSurfaceView {
           document.documentElement.appendChild(style);
           document.documentElement.dataset.epistemosTheme = \(jsStringLiteral(theme.rawValue));
           document.documentElement.classList.toggle('dark', \(theme.isDark ? "true" : "false"));
+          document.documentElement.classList.toggle('light', \(theme.isDark ? "false" : "true"));
+          document.documentElement.style.colorScheme = \(jsStringLiteral(webTheme));
         })();
         """
     }

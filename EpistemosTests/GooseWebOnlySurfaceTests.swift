@@ -528,6 +528,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(support.contains("--color-ring-primary: \\(accent) !important;"))
         #expect(support.contains("--epistemos-accent: \\(accent) !important;"))
         #expect(support.contains("document.documentElement.dataset.epistemosTheme"))
+        #expect(support.contains("document.documentElement.classList.toggle('light'"))
         #expect(support.contains("document.documentElement.style.colorScheme"))
         #expect(support.contains("window.electron?.broadcastThemeChange?.({"))
         #expect(support.contains("epistemosTheme:"))
