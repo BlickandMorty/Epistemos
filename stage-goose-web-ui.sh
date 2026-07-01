@@ -5304,29 +5304,22 @@ for (const snippet of [
 fs.writeFileSync(chatPath, chatSource);
 
 let appSource = fs.readFileSync(appPath, 'utf8');
-const appAcpImport = "import { USE_ACP_CHAT } from '../../../acpChatFeatureFlag';";
-if (!appSource.includes(appAcpImport)) {
-  const importAnchor = "import TelemetrySettings from './TelemetrySettings';";
-  if (!appSource.includes(importAnchor)) {
-    throw new Error('AppSettingsSection TelemetrySettings import anchor not found');
-  }
-  appSource = appSource.replace(importAnchor, `${importAnchor}\n${appAcpImport}`);
-}
-// epistemos-acp-hide-telemetry-settings: GOOSE_TELEMETRY_ENABLED is not a live
-// Goose ACP preference/config key in this build. Hide the toggle instead of
-// writing a local-only value that looks persistent.
+// epistemos-acp-telemetry-native-settings: GOOSE_TELEMETRY_ENABLED is
+// Epistemos-owned in ACP mode. Keep the setting visible because ConfigContext
+// now persists local ACP config through the native settings bridge and the
+// renderer reads it through readAcpProviderConfigValue.
 const telemetryAnchor = `      <TelemetrySettings />`;
-const telemetryReplacement = `      {!USE_ACP_CHAT && <TelemetrySettings /> /* epistemos-acp-hide-telemetry-settings */}`;
-if (!appSource.includes('epistemos-acp-hide-telemetry-settings')) {
+const telemetryReplacement = `      {/* epistemos-acp-telemetry-native-settings */}
+      <TelemetrySettings />`;
+if (!appSource.includes('epistemos-acp-telemetry-native-settings')) {
   if (!appSource.includes(telemetryAnchor)) {
     throw new Error('AppSettingsSection telemetry anchor not found');
   }
   appSource = appSource.replace(telemetryAnchor, telemetryReplacement);
 }
 for (const snippet of [
-  appAcpImport,
-  'epistemos-acp-hide-telemetry-settings',
-  '!USE_ACP_CHAT && <TelemetrySettings />',
+  'epistemos-acp-telemetry-native-settings',
+  '<TelemetrySettings />',
 ]) {
   if (!appSource.includes(snippet)) {
     throw new Error(`AppSettingsSection staged source missing required ACP snippet: ${snippet}`);
@@ -5981,7 +5974,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "h-1.5 w-full overflow-hidden rounded-full bg-background-secondary/72" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "mt-2 text-xs text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/dictation/LocalModelManager.tsx"
     grep -q "data-epistemos-acp-hide-security-settings" "$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
-    grep -q "epistemos-acp-hide-telemetry-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
+    grep -q "epistemos-acp-telemetry-native-settings" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
+    grep -q "<TelemetrySettings />" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "epistemos-acp-hide-local-inference-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "epistemos-acp-hide-local-model-settings" "$ROOT_DIR/stage-goose-web-ui.sh"
     grep -q "import { USE_ACP_CHAT } from '../../../../acpChatFeatureFlag';" "$WORK_ROOT/ui/desktop/src/components/settings/models/bottom_bar/ModelsBottomBar.tsx"
