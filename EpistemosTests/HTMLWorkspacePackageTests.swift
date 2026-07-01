@@ -919,6 +919,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.styleCSS.contains("border: 0"))
         #expect(package.scriptJS.contains("resultSearchText(result)"))
         #expect(package.scriptJS.contains("No results match this filter."))
+        #expect(package.scriptJS.contains("No matching context records yet."))
         #expect(package.scriptJS.contains("result.source_label || 'Vault search result'"))
         #expect(package.scriptJS.contains("result.context_kind || 'vault_record'"))
         #expect(package.scriptJS.contains("result.provenance"))

@@ -925,7 +925,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       if (!host) { return; }
       host.replaceChildren();
       if (results.length === 0) {
-        host.append(HTMLWorkspace.el('p', { class: 'empty' }, filter ? 'No results match this filter.' : (meta.error || 'No matching notes yet.')));
+        host.append(HTMLWorkspace.el('p', { class: 'empty' }, filter ? 'No results match this filter.' : (meta.error || 'No matching context records yet.')));
         return;
       }
 
