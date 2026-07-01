@@ -77,6 +77,7 @@ struct FileThumbnailView: View {
             }
         }
         .frame(width: displaySize.width, height: displaySize.height)
+        .accessibilityLabel(accessibilityLabel)
         .task(id: thumbnailIdentity) {
             await loadThumbnail()
         }
@@ -88,6 +89,11 @@ struct FileThumbnailView: View {
 
     private var thumbnailIdentity: String {
         "\(url.path)|\(Int(displaySize.width))x\(Int(displaySize.height))"
+    }
+
+    private var accessibilityLabel: String {
+        let title = FilePreviewDisplayBounds.title(url.lastPathComponent)
+        return title.isEmpty ? "File thumbnail" : "\(title) thumbnail"
     }
 
     @MainActor

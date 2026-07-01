@@ -76,6 +76,8 @@ struct AppleNativeSharedViewsPlan3Tests {
             "maxThumbnailScale",
             "validatedSize",
             "displaySize",
+            ".accessibilityLabel(accessibilityLabel)",
+            "FilePreviewDisplayBounds.title(url.lastPathComponent)",
             "@Environment(UIState.self)",
             "ui.theme.surfaceVariant(.other).resolved.mutedForeground.color"
         ] {

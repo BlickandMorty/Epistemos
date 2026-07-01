@@ -35,7 +35,8 @@ usage strings.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
   the same readable bounded regular-file URL policy, including no-follow non-regular and oversized file rejection, plus
   finite/max dimension and scale rejection before QuickLookThumbnailing generation. Thumbnail fallback icons also use
-  `UIState` theme tokens instead of raw system secondary styling.
+  `UIState` theme tokens instead of raw system secondary styling, and thumbnail accessibility labels reuse the bounded
+  preview-title helper.
 - **Still Plan 2:** mounting these components in editor/sidebar/PDF viewer surfaces.
 
 ## 1. DELIVERED `Epistemos/Views/Shared/FilePreview.swift`
@@ -77,6 +78,7 @@ Build a reusable QuickLookThumbnailing thumbnail layer:
 - `FileThumbnailView` SwiftUI wrapper with an SF Symbol fallback and `.task(id: url)`
 - same bounded no-follow regular-file URL validation as Quick Look preview
 - finite/max thumbnail dimension and scale validation, with a stable fallback frame for invalid view inputs
+- bounded thumbnail accessibility labels derived from the file name
 
 Keep all thumbnail policy in the shared component. Consumers decide placement later.
 
