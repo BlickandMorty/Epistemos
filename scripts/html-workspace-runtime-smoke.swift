@@ -14,11 +14,11 @@ struct HTMLWorkspaceRuntimeSmoke {
             ),
             "console capture env opt-out should work"
         )
-        require(capabilities["JS console / error capture"] == true, "console capture gate should be live")
-        require(capabilities["DOM picker / style inspector"] == true, "DOM picker gate should be live")
-        require(capabilities["Full-surface regenerate"] == true, "regenerate gate should be live")
-        require(capabilities["App message-bridge"] == true, "app bridge gate should be live")
-        require(capabilities["Python (Pyodide / WASM)"] == true, "Python runtime gate should be live")
+        require(capabilities["JS console / error capture"] == false, "console capture gate should stay proof-gated")
+        require(capabilities["DOM picker / style inspector"] == false, "DOM picker gate should stay proof-gated")
+        require(capabilities["Full-surface regenerate"] == false, "regenerate gate should stay proof-gated")
+        require(capabilities["App message-bridge"] == false, "app bridge gate should stay proof-gated")
+        require(capabilities["Python (Pyodide / WASM)"] == false, "Python runtime gate should stay proof-gated")
 
         let longText = String(repeating: "x", count: 400)
         let body: [String: Any] = [
@@ -52,11 +52,12 @@ struct HTMLWorkspaceRuntimeSmoke {
         require(inspectorScript.contains("getComputedStyle"), "inspector script should read computed styles")
         require(inspectorScript.contains("border-radius"), "inspector script should include expected style keys")
         require(HTMLWorkspaceInspectorBridge.disableScript.contains("__epistemosInspectorEnabled = false"), "disable script missing")
-        require(HTMLWorkspaceCapabilityStatus.summary.contains("click-to-inspect"), "summary should disclose inspector live")
-        require(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"), "summary should disclose Python live")
+        require(HTMLWorkspaceCapabilityStatus.summary.contains("current in-app proof"), "summary should disclose proof gate")
+        require(HTMLWorkspaceCapabilityStatus.summary.contains("DOM picker"), "summary should disclose inspector wiring")
+        require(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"), "summary should disclose Python wiring")
 
         print(
-            "html workspace smoke OK: console_default_on=true dom_picker_live=true regenerate_live=true bridge_live=true python_live=true"
+            "html workspace smoke OK: console_default_on=true advanced_caps_proof_gated=true runtime_wiring_present=true"
         )
     }
 
