@@ -1006,7 +1006,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             "status",
             "--short",
             "--branch",
-            "--untracked-files=no",
+            "--untracked-files=normal",
         ]
         process.environment = gitProcessEnvironment(git: git)
         let stdout = Pipe()

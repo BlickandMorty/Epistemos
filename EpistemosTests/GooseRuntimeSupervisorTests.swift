@@ -578,6 +578,7 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("nonisolated static func gitHubRepositoryPath(from remote: String) -> String?"))
         #expect(bridge.contains("nonisolated static func gitHubCompareURL(repositoryPath: String, branch: String) -> String?"))
         #expect(bridge.contains("\"--branch\""))
+        #expect(bridge.contains("\"--untracked-files=normal\""))
         #expect(bridge.contains("Git diff timed out."))
         #expect(bridge.contains("let outputData = drainBox.load()"))
         #expect(bridge.contains("String(data: outputData, encoding: .utf8)"))
