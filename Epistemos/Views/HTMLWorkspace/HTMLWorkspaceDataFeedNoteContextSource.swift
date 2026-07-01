@@ -46,9 +46,10 @@ extension HTMLWorkspaceDataFeedContextSources {
         let effectiveLimit = HTMLWorkspaceDataFeed.clampedLimit(limit)
         let fetchLimit = min(effectiveLimit * 4, HTMLWorkspaceDataFeed.maxLimit * 4)
         let context = ModelContext(modelContainer)
+        let terms = noteSearchTerms(from: query)
         let pages = (try? context.fetch(SDPage.recentDescriptor(limit: fetchLimit))) ?? []
         return pages
-            .filter(isPlainNotePage)
+            .filter { isPlainNotePage($0, terms: terms) }
             .prefix(effectiveLimit)
             .enumerated()
             .map { index, page in
@@ -113,7 +114,7 @@ extension HTMLWorkspaceDataFeedContextSources {
         return page
     }
 
-    private static func isPlainNotePage(_ page: SDPage) -> Bool {
+    private static func isPlainNotePage(_ page: SDPage, terms: [String]) -> Bool {
         guard !page.isArchived, page.templateId == nil else { return false }
         let frontMatter = page.frontMatter
         let source = normalizedNoteText(frontMatter["source"]).lowercased()
@@ -124,6 +125,16 @@ extension HTMLWorkspaceDataFeedContextSources {
         if !normalizedNoteText(frontMatter["source_pdf"]).isEmpty { return false }
         if !normalizedNoteText(frontMatter["arxiv_id"]).isEmpty { return false }
         if !normalizedNoteText(frontMatter["source-url"]).isEmpty { return false }
+        if !terms.isEmpty {
+            let haystack = [
+                page.title,
+                page.summary,
+                page.normalizedBodySnippet(limit: 640),
+            ]
+                .map { normalizedNoteText($0).lowercased() }
+                .joined(separator: " ")
+            guard terms.allSatisfy({ haystack.contains($0) }) else { return false }
+        }
         return true
     }
 
@@ -160,6 +171,19 @@ extension HTMLWorkspaceDataFeedContextSources {
 
     private static func normalizedNoteQuery(_ value: String?) -> String {
         normalizedNoteText(value).lowercased()
+    }
+
+    private static func noteSearchTerms(from query: String?) -> [String] {
+        var value = normalizedNoteQuery(query)
+        for prefix in ["note:", "notes:"] where value.hasPrefix(prefix) {
+            value.removeFirst(prefix.count)
+            break
+        }
+        let stopWords: Set<String> = ["note", "notes"]
+        return value
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+            .filter { !stopWords.contains($0) }
     }
 
     private static func normalizedNoteText(_ value: String?) -> String {

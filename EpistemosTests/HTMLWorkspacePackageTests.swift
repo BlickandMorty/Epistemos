@@ -404,6 +404,23 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(noteFallbackResults.first?.sourceLabel == "Note")
         #expect(noteFallbackResults.first?.provenance.contains("recent-note fallback") == true)
 
+        let filteredNoteFallbackResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "note",
+            searchResults: [],
+            modelContainer: container,
+            limit: 5,
+            query: "notes generic"
+        )
+        #expect(filteredNoteFallbackResults.map(\.pageID) == [generic.id])
+        #expect(HTMLWorkspaceDataFeedContextSources.results(
+            for: "note",
+            searchResults: [],
+            modelContainer: container,
+            limit: 5,
+            query: "notes missing"
+        ).isEmpty)
+        #expect(HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("note"))
+
         let genericResult = SearchResult(pageId: "note-a", title: "Generic", snippet: "generic", rank: 0.7)
         let requiredCaptureResults = HTMLWorkspaceDataFeedContextSources.results(
             for: "recent_capture",

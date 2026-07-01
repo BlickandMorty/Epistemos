@@ -251,6 +251,7 @@ enum HTMLWorkspaceDataFeedContextSources {
     static func usesStandaloneContextSource(_ requiredContextKind: String?) -> Bool {
         [
             "recent_capture",
+            "note",
             "pdf_note",
             "folder_note",
             "meeting_note",
