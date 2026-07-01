@@ -58,7 +58,7 @@ final class MeetingNoteCaptureService {
     }
 
     private typealias PipelineFactory = @MainActor () -> TextCapturePipeline
-    private typealias PipelineRunner = @MainActor (
+    typealias PipelineRunner = @MainActor (
         _ transcription: String,
         _ modelContext: ModelContext,
         _ sourceMetadata: CaptureSourceMetadata
