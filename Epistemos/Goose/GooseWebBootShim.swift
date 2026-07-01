@@ -193,6 +193,22 @@ enum GooseWebBootShim {
           const maxImportedAppHtmlBytes = 16 * 1024 * 1024;
           const maxImportedAppNameCharacters = 128;
           const appBridgeError = (message) => new Error(`Epistemos Apps bridge: ${message}`);
+          const gooseAPIURL = (path) => new URL(path, epistemosGoose.baseURL).toString();
+          const gooseFetch = async (path, options = {}) => {
+            const response = await fetch(gooseAPIURL(path), {
+              ...options,
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Secret-Key': epistemosGoose.secretKey,
+                ...(options.headers || {})
+              }
+            });
+            if (!response.ok) {
+              throw appBridgeError(`Goose HTTP ${path} failed with ${response.status}`);
+            }
+            const contentType = response.headers.get('content-type') || '';
+            return contentType.includes('application/json') ? response.json() : response.text();
+          };
           const utf8ByteLength = (value) => {
             const text = String(value ?? '');
             if (typeof TextEncoder === 'function') {
@@ -294,9 +310,33 @@ enum GooseWebBootShim {
               }
             };
           };
+          const listLiveApps = async (sessionId = null) => {
+            const path = sessionId
+              ? `/agent/list_apps?session_id=${encodeURIComponent(sessionId)}`
+              : '/agent/list_apps';
+            const response = await gooseFetch(path);
+            return Array.isArray(response?.apps) ? response.apps : [];
+          };
+          const importLiveApp = async (html) => gooseFetch('/agent/import_app', {
+            method: 'POST',
+            body: JSON.stringify({ html })
+          });
+          const exportLiveApp = async (name) => gooseFetch(`/agent/export_app/${encodeURIComponent(name)}`);
           const epistemosGooseApps = Object.freeze({
-            listApps: async () => ({ apps: await loadImportedApps() }),
+            listApps: async (sessionId = null) => {
+              try {
+                return { apps: await listLiveApps(sessionId) };
+              } catch (error) {
+                console.warn('Epistemos Apps bridge falling back to native imported apps:', error);
+                return { apps: await loadImportedApps() };
+              }
+            },
             importApp: async (html) => {
+              try {
+                return await importLiveApp(html);
+              } catch (error) {
+                console.warn('Epistemos Apps bridge import falling back to native store:', error);
+              }
               const nextApp = buildImportedApp(html);
               const apps = (await loadImportedApps()).filter((app) => app.name !== nextApp.name);
               apps.push(nextApp);
@@ -304,6 +344,11 @@ enum GooseWebBootShim {
               return { name: nextApp.name, message: `Imported ${nextApp.name}` };
             },
             exportApp: async (name) => {
+              try {
+                return await exportLiveApp(name);
+              } catch (error) {
+                console.warn('Epistemos Apps bridge export falling back to native store:', error);
+              }
               const app = (await loadImportedApps()).find((entry) => entry.name === name);
               if (!app?.text) {
                 throw appBridgeError(`no imported app named ${name}`);
