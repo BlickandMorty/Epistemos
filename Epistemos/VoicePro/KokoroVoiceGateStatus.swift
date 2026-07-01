@@ -11,6 +11,7 @@ nonisolated enum KokoroVoiceGateStatus {
     static let manifestSchemaVersion = 1
     static let modelIdentifier = "kokoro-82m"
     static let runtimeIdentifier = "coreml"
+    static let coreMLDataPathPrefix = "Data/com.apple.CoreML/"
     static let maxManifestBytes = 64 * 1024
     static let maxManifestFileCount = 128
     static let maxPackageEntryCount = 250_000
@@ -259,12 +260,17 @@ nonisolated enum KokoroVoiceGateStatus {
                   isValidSHA256Hex(sha256) else {
                 return "files[\(index)].sha256 must be a SHA-256 hex digest"
             }
-            hasPackageManifest = hasPackageManifest || path == packageManifestFileName
-            hasModelPayload = hasModelPayload || path != packageManifestFileName
+            let isPackageManifest = path == packageManifestFileName
+            let isCoreMLPayload = path.hasPrefix(coreMLDataPathPrefix)
+            guard isPackageManifest || isCoreMLPayload else {
+                return "files[\(index)].path must be \(packageManifestFileName) or a Core ML data file"
+            }
+            hasPackageManifest = hasPackageManifest || isPackageManifest
+            hasModelPayload = hasModelPayload || isCoreMLPayload
         }
 
         guard hasPackageManifest, hasModelPayload else {
-            return "files must include \(packageManifestFileName) and at least one model payload file"
+            return "files must include \(packageManifestFileName) and at least one Core ML data file"
         }
         return nil
     }
