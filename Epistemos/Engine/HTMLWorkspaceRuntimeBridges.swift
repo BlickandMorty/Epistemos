@@ -394,6 +394,12 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
       function bounded(value, limit) {
         return String(value || '').slice(0, limit);
       }
+      function elementFor(value) {
+        if (!value) { return null; }
+        if (value.nodeType === 1) { return value; }
+        if (value.parentElement && value.parentElement.nodeType === 1) { return value.parentElement; }
+        return null;
+      }
       function classesFor(node, limit) {
         return Array.prototype.slice.call(node.classList || []).slice(0, limit).map(function(name) {
           return bounded(name, 96);
@@ -441,6 +447,8 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
         return String((node && node.textContent) || '').replace(/\\s+/g, ' ').trim().slice(0, 240);
       }
       function markSelected(node) {
+        node = elementFor(node);
+        if (!node) { return; }
         if (window.__epistemosInspectorSelected && window.__epistemosInspectorSelected !== node) {
           window.__epistemosInspectorSelected.removeAttribute('data-epistemos-inspected');
         }
@@ -454,6 +462,8 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
         }
       }
       function markHovered(node) {
+        node = elementFor(node);
+        if (!node) { return; }
         if (window.__epistemosInspectorHover && window.__epistemosInspectorHover !== node) {
           window.__epistemosInspectorHover.removeAttribute('data-epistemos-inspector-hover');
         }
@@ -463,12 +473,15 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
         }
       }
       function clearHovered(node) {
+        node = elementFor(node);
         if (node && node === window.__epistemosInspectorHover) {
           node.removeAttribute('data-epistemos-inspector-hover');
           window.__epistemosInspectorHover = null;
         }
       }
       function post(node) {
+        node = elementFor(node);
+        if (!node) { return false; }
         markSelected(node);
         var style = window.getComputedStyle(node);
         var keys = ['display','position','width','height','margin','padding','color','background-color','font-family','font-size','font-weight','line-height','border-radius','border-color'];
@@ -483,7 +496,9 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
             text: textFor(node),
             styles: styles
           });
+          return true;
         } catch (e) {}
+        return false;
       }
       window.__epistemosInspectElement = post;
       document.addEventListener('mouseover', function(event) {
@@ -510,8 +525,7 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
       }
       var target = document.querySelector('[data-epistemos-inspect], main, article, section, button, a, body') || document.body || document.documentElement;
       if (!target) { return 'missing-target'; }
-      window.__epistemosInspectElement(target);
-      return 'posted';
+      return window.__epistemosInspectElement(target) ? 'posted' : 'post-failed';
     })();
     """
 }
