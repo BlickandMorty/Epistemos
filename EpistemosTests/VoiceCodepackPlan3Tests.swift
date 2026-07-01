@@ -14,12 +14,16 @@ struct VoiceCodepackPlan3Tests {
             "Visible auto toggles are consumer-backed",
             "No-op Settings toggles are hidden",
             "Shared mic control is now backed by live Apple STT",
+            "Shared mic control uses native toolbar chrome",
             "Shared mic callbacks are capture-owner gated",
             "Live macOS 26 STT is surfaced",
             "bounded domain/code diagnostics",
+            "raw status/domain strings bounded before trimming or punctuation validation",
             "Preferred voice floor is quality-first",
             "SSML/prosody fallback exists",
+            "Personal Voice authorization is live",
             "Pro Kokoro gate is honest",
+            "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
             "Pro-only Voice settings section",
             "Pro neural voice",
             "Readiness rejects symlink-routed or non-regular model artifacts",
@@ -28,6 +32,7 @@ struct VoiceCodepackPlan3Tests {
             "[DONE] Add `LiveVoiceInputService`",
             "[DONE] Rewire `VoiceInputButton`",
             "[DONE] Add SSML/prosody fallback",
+            "[DONE] Add Personal Voice authorization",
             "[DONE] Add the Kokoro Pro gate",
             "[DONE] Add the Pro-only Kokoro settings status/runtime affordance"
         ] {
@@ -65,8 +70,13 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
         #expect(capabilities.contains("domain/code-redacted status/error text"))
+        #expect(capabilities.contains("raw status/domain strings bounded before trimming"))
+        #expect(capabilities.contains("status ellipsis kept inside the configured cap"))
         #expect(capabilities.contains("Kokoro-82M is Pro-only"))
-        #expect(capabilities.contains("rejects symlink-routed, non-regular, oversized, or"))
+        #expect(capabilities.contains("rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched"))
+        #expect(capabilities.contains("declared package byte caps"))
+        #expect(capabilities.contains("bounded-before-trim model-relative status diagnostics"))
+        #expect(capabilities.contains("ellipsis inside configured caps"))
         #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
         #expect(capabilities.contains("no model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row"))
 
@@ -96,14 +106,32 @@ struct VoiceCodepackPlan3Tests {
     @Test("voice button routes through the live SpeechAnalyzer facade")
     func voiceButtonRoutesThroughLiveSpeechAnalyzerFacade() throws {
         let button = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
+        let readAloud = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ReadAloudButton.swift")
         let facade = try loadMirroredSourceTextFile("Epistemos/Engine/LiveVoiceInputService.swift")
         let analyzer = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechAnalyzer.swift")
 
         #expect(button.contains("LiveVoiceInputService.shared"))
+        #expect(button.contains("@Environment(UIState.self)"))
+        #expect(button.contains("ToolbarCapsuleButton("))
+        #expect(button.contains("NativeControlRole"))
+        #expect(button.contains("NativeControlChromePolicy"))
+        #expect(button.contains("ui.theme.resolved.accent.color"))
         #expect(button.contains(".onChange(of: service.partialTranscript)"))
         #expect(button.contains(".onChange(of: service.finalTranscript)"))
         #expect(!button.contains("ComposerVoiceInputService.shared"))
         #expect(!button.contains("service.latestTranscript"))
+        #expect(!button.contains(".buttonStyle(.borderless)"))
+        #expect(!button.contains("Color.accentColor"))
+        #expect(!button.contains("Color.primary"))
+        #expect(!button.contains("system accent color"))
+        #expect(readAloud.contains("@Environment(UIState.self)"))
+        #expect(readAloud.contains("ToolbarCapsuleButton("))
+        #expect(readAloud.contains("NativeControlChromePolicy"))
+        #expect(readAloud.contains("ui.theme.resolved.accent.color"))
+        #expect(readAloud.contains("ui.theme.resolved.foreground.color.opacity"))
+        #expect(!readAloud.contains(".buttonStyle(.borderless)"))
+        #expect(!readAloud.contains("Color.accentColor"))
+        #expect(!readAloud.contains("Color.secondary.opacity"))
 
         #expect(facade.contains("EpistemosSpeechAnalyzer.shared.startLive"))
         #expect(facade.contains("EpistemosSpeechAnalyzer.shared.stop()"))
@@ -119,6 +147,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("Self.boundedTranscript(pending.joined(separator: \"\\n\\n\"))"))
         #expect(facade.contains("VoiceCapturePresentationBounds.modelDownloadProgress(progress)"))
         #expect(facade.contains("VoiceCapturePresentationBounds.statusMessage"))
+        #expect(facade.contains("rawBoundedDiagnostic(message, maxCharacters: maxStatusMessageCharacters"))
+        #expect(facade.contains("String(domain.prefix(maxDomainCharacters))"))
+        #expect(facade.contains("limit - 3"))
         #expect(facade.contains("VoiceCaptureDiagnostics.externalStatusMessage"))
         #expect(!facade.contains("String(describing: error)"))
         #expect(analyzer.contains("VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: \"asset inventory check failed\")"))
@@ -160,10 +191,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(-0.25) == 0)
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(0.5) == 0.5)
         #expect(VoiceCapturePresentationBounds.modelDownloadProgress(2.0) == 1)
-        #expect(
-            VoiceCapturePresentationBounds.statusMessage(" \n\(oversizedMessage)\n ")
-                .count == VoiceCapturePresentationBounds.maxStatusMessageCharacters
-        )
+        let boundedStatus = VoiceCapturePresentationBounds.statusMessage(" \n\(oversizedMessage)\n ")
+        #expect(boundedStatus.count <= VoiceCapturePresentationBounds.maxStatusMessageCharacters)
+        #expect(boundedStatus.hasSuffix("..."))
         #expect(VoiceCapturePresentationBounds.statusMessage(" \n\t ") == "Voice input failed.")
     }
 
@@ -199,6 +229,49 @@ struct VoiceCodepackPlan3Tests {
         #expect(button.contains("ownsCapture = true\n        phase = .requesting"))
         #expect(button.contains("if ownsCapture {\n            service.tearDown()"))
         #expect(button.contains("ownsCapture = false"))
+    }
+
+    @Test("voice settings surface uses native controls and theme tint")
+    func voiceSettingsSurfaceUsesNativeControlsAndThemeTint() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
+
+        #expect(settings.contains("@Environment(UIState.self)"))
+        #expect(settings.contains("ToolbarCapsuleButton("))
+        #expect(settings.contains("role: .disclosure"))
+        #expect(settings.contains("role: .toolbarUtility"))
+        #expect(settings.contains("private var rationaleBackground: Color"))
+        #expect(settings.contains("ui.theme.resolved.mutedForeground.color"))
+        #expect(settings.contains("ui.theme.resolved.foreground.color.opacity"))
+        #expect(settings.contains(".environment(UIState())"))
+        #expect(!settings.contains(".foregroundStyle(.secondary)"))
+        #expect(!settings.contains(".buttonStyle(.borderless)"))
+        #expect(!settings.contains("Color.secondary.opacity"))
+    }
+
+    @Test("model voice picker exposes Personal Voice access on native theme chrome")
+    func modelVoicePickerExposesPersonalVoiceAccessOnNativeThemeChrome() throws {
+        let picker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
+        let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
+
+        #expect(synth.contains("PersonalVoiceAuthorization"))
+        #expect(synth.contains("AVSpeechSynthesizer.personalVoiceAuthorizationStatus"))
+        #expect(synth.contains("AVSpeechSynthesizer.requestPersonalVoiceAuthorization"))
+        #expect(synth.contains("withCheckedContinuation"))
+        #expect(synth.contains("if #available(macOS 14.0, *)"))
+        #expect(picker.contains("@Environment(UIState.self)"))
+        #expect(picker.contains("personalVoiceAccessView"))
+        #expect(picker.contains("personalVoiceAuthorization = EpistemosSpeechSynthesizer.personalVoiceAuthorization()"))
+        #expect(picker.contains("await EpistemosSpeechSynthesizer.requestPersonalVoiceAuthorization()"))
+        #expect(picker.contains("refreshVoicesAndHints()"))
+        #expect(picker.contains("ToolbarCapsuleButton("))
+        #expect(picker.contains("ui.theme.resolved.headingAccent.color"))
+        #expect(picker.contains("ui.theme.resolved.mutedForeground.color"))
+        #expect(!picker.contains(".buttonStyle(.bordered)"))
+        #expect(!picker.contains(".buttonStyle(.link)"))
+        #expect(!picker.contains(".foregroundStyle(.secondary)"))
+        #expect(!picker.contains("return .green"))
+        #expect(!picker.contains("return .yellow"))
+        #expect(!picker.contains("return .secondary"))
     }
 
     @Test("voice MAS path has no Pro neural or hidden runtime dependency")
@@ -239,12 +312,22 @@ struct VoiceCodepackPlan3Tests {
             "runtimeIdentifier = \"coreml\"",
             "maxManifestBytes",
             "maxManifestFileCount",
+            "maxPackageFileBytes",
+            "maxPackageTotalBytes",
             "manifestProblem(",
             "manifestContractProblem(",
             "readManifestDataNoFollow",
             "artifactProblem(",
             "packageContentsProblem(",
             "fileDigestNoFollow",
+            "regularFileSizeNoFollow",
+            "totalManifestBytes",
+            "files[\\(index)].bytes exceeds package file limit",
+            "files[\\(index)].bytes must be a positive integer",
+            "files total exceeds package size limit",
+            "CFBooleanGetTypeID",
+            "rounded(.towardZero)",
+            "fileDigestNoFollow(at: fileURL, expectedBytes: file.bytes)",
             "SHA256()",
             "firstSymlinkComponent(",
             "destinationOfSymbolicLink",
@@ -256,6 +339,8 @@ struct VoiceCodepackPlan3Tests {
             "path must not include symlink component",
             "pathDiagnostic(",
             "maxPathDiagnosticLength",
+            "rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength",
+            "limit - 3",
             "resolvesInsideModelDirectory",
             "files must list",
             "size mismatch",
@@ -298,6 +383,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("selectedRuntime: .appleAVSpeech"))
         #expect(section.contains("detail: status.detail"))
         #expect(section.contains(".disabled(!presentation.proRuntimeEnabled)"))
+        #expect(section.contains("@Environment(UIState.self)"))
+        #expect(section.contains("ToolbarCapsuleButton("))
+        #expect(section.contains("theme.resolved.headingAccent.color"))
+        #expect(!section.contains("Color.green"))
+        #expect(!section.contains("Color.orange"))
+        #expect(!section.contains(".buttonStyle(.borderless)"))
         #expect(!section.contains("Process("))
         #expect(!section.contains("NSTask"))
         #expect(!section.contains("Python"))
@@ -467,6 +558,96 @@ struct VoiceCodepackPlan3Tests {
         #expect(!oversized.isReady)
         #expect(oversized.state == .missingModel)
         #expect(oversized.detail.contains("manifest.json could not be read safely"))
+
+        let oversizedPackageManifest: [String: Any] = [
+            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
+            "modelId": KokoroVoiceGateStatus.modelIdentifier,
+            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
+            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
+            "files": [
+                [
+                    "path": KokoroVoiceGateStatus.packageManifestFileName,
+                    "bytes": 1,
+                    "sha256": String(repeating: "a", count: 64),
+                ],
+                [
+                    "path": "Data/com.apple.CoreML/oversized.mlmodel",
+                    "bytes": Int(KokoroVoiceGateStatus.maxPackageFileBytes + 1),
+                    "sha256": String(repeating: "b", count: 64),
+                ],
+            ],
+        ]
+        try JSONSerialization.data(withJSONObject: oversizedPackageManifest, options: [.sortedKeys])
+            .write(to: manifestURL)
+
+        let oversizedPackage = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!oversizedPackage.isReady)
+        #expect(oversizedPackage.state == .missingModel)
+        #expect(oversizedPackage.detail.contains("files[1].bytes exceeds package file limit"))
+
+        let fractionalSchemaManifest: [String: Any] = [
+            "schemaVersion": Double(KokoroVoiceGateStatus.manifestSchemaVersion) + 0.5,
+            "modelId": KokoroVoiceGateStatus.modelIdentifier,
+            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
+            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
+            "files": [
+                [
+                    "path": KokoroVoiceGateStatus.packageManifestFileName,
+                    "bytes": 1,
+                    "sha256": String(repeating: "a", count: 64),
+                ],
+                [
+                    "path": "Data/com.apple.CoreML/model.mlmodel",
+                    "bytes": 1,
+                    "sha256": String(repeating: "b", count: 64),
+                ],
+            ],
+        ]
+        try JSONSerialization.data(withJSONObject: fractionalSchemaManifest, options: [.sortedKeys])
+            .write(to: manifestURL)
+
+        let fractionalSchema = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!fractionalSchema.isReady)
+        #expect(fractionalSchema.state == .missingModel)
+        #expect(fractionalSchema.detail.contains("manifest.json schemaVersion must be 1"))
+
+        let fractionalBytesManifest: [String: Any] = [
+            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
+            "modelId": KokoroVoiceGateStatus.modelIdentifier,
+            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
+            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
+            "files": [
+                [
+                    "path": KokoroVoiceGateStatus.packageManifestFileName,
+                    "bytes": 1.5,
+                    "sha256": String(repeating: "a", count: 64),
+                ],
+                [
+                    "path": "Data/com.apple.CoreML/model.mlmodel",
+                    "bytes": 1,
+                    "sha256": String(repeating: "b", count: 64),
+                ],
+            ],
+        ]
+        try JSONSerialization.data(withJSONObject: fractionalBytesManifest, options: [.sortedKeys])
+            .write(to: manifestURL)
+
+        let fractionalBytes = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!fractionalBytes.isReady)
+        #expect(fractionalBytes.state == .missingModel)
+        #expect(fractionalBytes.detail.contains("files[0].bytes must be a positive integer"))
         #else
         #expect(true)
         #endif

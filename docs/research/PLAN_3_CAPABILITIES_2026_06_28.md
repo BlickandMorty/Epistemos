@@ -88,22 +88,27 @@ test-linking condition, not the shipped MAS parser state.
 2. **unpdf vendored** at `agent_core/vendor/unpdf/` and compiled through `parser-unpdf` as the fallback for failed or
    non-substantive EdgeParse output.
 3. **Same FFI envelope preserved:** Swift decodes `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}` from
-   `liteparse_pdf_to_markdown`, rejecting oversized response/Markdown payloads and capping engine error strings, so the
-   import button, Settings row, and controller did not need a new UI contract.
+   `liteparse_pdf_to_markdown`, rejecting oversized response/Markdown payloads and capping engine error strings before
+   untrusted parsing/trimming work, so the import button, Settings row, and controller did not need a new UI contract.
 4. **PDF-only scope enforced:** Office/image inputs are rejected before FFI on Swift and as `UnsupportedFormat` in Rust;
    no subprocess/sidecar fallback is introduced.
 5. **Parser input envelope hardened:** Swift and Rust both reject symlink/non-regular PDF paths, empty files, bodies over
-   the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path. Import materialization also
-   revalidates the copied source PDF with a no-follow descriptor before streaming it into the vault. Swift-side
+   the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path. Rust preflight also reopens the
+   header read with `O_NOFOLLOW|O_CLOEXEC` and revalidates the opened handle before magic sniffing. Import materialization also
+   revalidates the copied source PDF with a no-follow descriptor before streaming it into the vault; Swift magic reads
+   revalidate empty/oversized files after the final no-follow open and import filename reservation has a hard attempt cap. Swift-side
    Foundation/file failures are mapped to bounded domain/code diagnostics before import status text, avoiding raw
-   localized filesystem descriptions in the PDF import UI.
+   localized filesystem descriptions in the PDF import UI, with raw messages bounded before trimming and ellipsis kept
+   inside the configured cap.
 
 **★ PDF viewer + md COEXISTENCE (keep BOTH the original PDF and a parsed `.md`) `[VERIFIED-CODE]`:**
 - **Data model, ZERO migration:** on import, Plan 3 writes the **original `.pdf`** into `<vault>/Imported PDFs/` and a
   parsed `.md` SDPage sibling, linked through existing `frontMatterData` keys `source_pdf: "Imported PDFs/<name>.pdf"`
   and `source_kind: "pdf"`. The `.md` remains edit/search truth; the `.pdf` remains view/provenance truth.
 - **Default (pdf→md ON):** import → parse → parsed note opens; the Plan 3 affordance exposes a "View original PDF"
-  action only when `source_pdf` resolves inside the current vault.
+  action only when `source_pdf` resolves inside the current vault. The source-PDF sheet uses flat theme-token Find
+  input chrome, not rounded bordered fields, and caps file names, search text, outline labels, annotation traversal, and
+  annotation labels before sidebar display with filename ellipsis inside configured caps.
 - **2 settings:** `parsePDFOnImport` defaults ON; `defaultOpenForImportedPDF` defaults to `parsedNote`.
 - **★ Plan boundary (no clash):** **Plan 2 (editor canonical) owns the PDF *VIEWER***. **Plan 3 owns the parse engine
   plus `source_pdf` storage/link contract.** Plan 2 should only consume the resolved `source_pdf` URL.
@@ -144,8 +149,10 @@ lives ONLY at T3. (Rest of the original heavy build = T3, below.)
 
 **Current state `[VERIFIED-CODE]`:** the user-driven Browser tab is live; the agent browser engines remain parked.
 - `Epistemos/Views/Browser/BrowserView.swift` ships `BrowserURLGuard`, `BrowserTab`, SwiftUI browser chrome, and a
-  non-persistent `WKWebView` wrapper with strict http/https navigation action/response policy, bounded page-controlled
-  title/address/error display state, and teardown.
+  non-persistent `WKWebView` wrapper with strict http/https navigation action/response policy, bounded-before-trim
+  address input and bounded page-controlled title/address/error display state with ellipsis inside configured caps,
+  flat theme-token address-field chrome
+  without a stroke outline, and teardown.
 - `UtilityPanel.browser`, the Browser command (`⌘⇧B`), and `LandingFeatureButton.browser` all summon the same
   human-driven Browser surface.
 - `BrowserEngine` async trait + `PageSnapshot`/`AxNode` still exist for the parked native robot seam. `WebKitBrowserEngine`
@@ -167,7 +174,11 @@ O-5 privacy stack · O-6 agentic scraper. All superseded by browser-use (§9).
 **MAS/Pro:** lite Browser tab = shipped and MAS-safe (human-driven, no robot). browser-use automation = **Pro only**
 (Chromium, honest `.unavailable` on MAS). browser-use vendor codepack, staged payload, signed `BrowserUsePro.bundle`
 packaging, loopback shell/control, task-submit dry-run UI, and gate smokes have landed. Release notarization remains
-distribution ops, not a fake runtime gate.
+distribution ops, not a fake runtime gate. The loopback Web UI shell and runtime readiness/status text share
+origin-only URL redaction rather than raw `absoluteString`; loopback host normalization and redacted URL diagnostics
+are bounded before trim/compare, and signature payload enumeration is capped with symlink descendants skipped before
+target resolution. Browser-use Pro gate/settings/runtime diagnostics bound raw status/domain/path strings before
+trimming and keep ellipsis inside configured caps.
 
 ---
 
@@ -184,11 +195,13 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
 - Rust: `ClaimLedger` with full retraction (`ledger.rs:699` `retract_claim`, `:753` depth-capped `bfs_mark_at_risk`),
   `ReplayBundle`+BLAKE3 (`replay.rs`), Cognitive DAG (live writes route here via `dispatch::on_claim_committed`).
 - FFI is **read-only** (`bridge.rs:3465/3497/3526` summary/recent/snapshot). **No claim-write / no retract FFI.**
-- Substrate health FFI/JSON fallback status maps external failures to bounded domain/code diagnostics before UI display.
+- Substrate health FFI/JSON fallback status maps external failures to bounded domain/code diagnostics before UI display,
+  with raw message/domain strings bounded before trimming and ellipsis inside configured caps.
 - Swift: `VRMLabel.honestLabel(for:)` gates every per-answer label; `AnswerPacketEmitter` derives stored labels through
   the honest gate for Rust-produced packets; `VRMLabelView` renders only `honestLabel(for:)` and never reads raw
   `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`; the hover-lineage card
-  bounds runtime-fed metadata, claim text, and displayed claim count before SwiftUI render; `VRMLineageExport`
+  bounds runtime-fed metadata, claim text, and displayed claim count before SwiftUI render, before trimming and keeps
+  ellipsis inside configured caps; `VRMLineageExport`
   copies deterministic full-fidelity verifiable lineage JSON from the hover card without Rust writes. Durable `AnswerPacketStore`
   JSONL uses regular-file/no-follow reads and writes, rejects append lines or projected post-append logs over 8 MiB,
   and caps read/restore decoding at 8 MiB.
@@ -197,7 +210,8 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
   declared artifact backing requires a readable regular non-symlink file. `AnswerPacketHealthRow` opts into ledger
   backing. `FalsifierArtifactsHealthRow` shallow-enumerates a capped set of falsifier artifact candidates, requires a
   readable bounded regular `result.json`, reads it through a no-follow regular-file envelope, and skips symlinked artifact
-  directories.
+  directories. Verified-floor pill tints are sourced from `UIState.theme` semantic success/warning/error/muted tokens,
+  not raw SwiftUI colors.
 - `AgentNoteEditProvenance`→EventStore remains the real, buildable per-edit lineage; shipped Provenance Console
   (`ProvenanceConsoleView`) is read-only, its `retractionEventProvider` defaults to empty, and
   `ProvenanceConsoleProjectionService` bounds both projection counts and untrusted display values before GenUI render.
@@ -231,17 +245,23 @@ Effort remaining: none for the EventStore demo; the full ClaimLedger cascade rem
 **5a — Skill/tool/MCP install + management.** Skill install works end-to-end today (`SkillsSettingsView.swift` →
 `skill_manage` create/edit/delete/install_from_{github,url,local}, `agent_core/src/tools/skills.rs:741`, with the
 MAS/Pro gate already enforced at `:753`). Skills settings status text caps skill-manager messages and maps external
-caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display. External HTTPS URL MCP now
+caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display, with raw message/domain
+strings bounded before trim/validation. External HTTPS URL MCP now
 has the shipped Swift trio:
 `MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse, network-read only, bounded fields/limits, secret-bearing remote
 or GitHub repo URLs filtered, redirected responses must stay on the requested HTTPS host/path),
 `MCPUrlServerDirectory.write/install/uninstall` (bare-array HTTPS config writer, no token values,
-final-symlink/non-regular config reads rejected, 256 KiB config cap), and `ExtensionsDetailView` (Skills · MCP Servers ·
+final-symlink/non-regular config reads plus symlinked config-directory components rejected, 256 KiB config cap). Rust URL
+server discovery mirrors that no-userinfo/query/fragment URL policy, strict env-key shape, inline-token rejection, and
+256 KiB no-follow read envelope before forwarding config to the provider, and
+`ExtensionsDetailView` (Skills · MCP Servers ·
 Connectors · browser-use). MCP server settings status text caps success/failure messages and maps external config-write
-failures to bounded domain/code diagnostics before SwiftUI display. `MCPBridge.dispatch` rejects oversized JSON-RPC
+failures to bounded domain/code diagnostics before SwiftUI display, with raw failure/domain strings bounded before
+trimming or punctuation validation. `MCPBridge.dispatch` rejects oversized JSON-RPC
 requests before policy parsing or Rust
 dispatch. `ToolTierBridge` list/execution failures remain visible but external caught errors are bounded to domain/code
-diagnostics and tool JSON error payloads are capped before surfacing. Stdio MCP spawns remain hardened and Pro-only
+diagnostics and tool JSON error payloads are capped before surfacing, with raw message/domain strings bounded before
+trimming and ellipsis inside configured caps. Stdio MCP spawns remain hardened and Pro-only
 (`mcp/client.rs:221`).
 
 **5b — Best-of preset.** Shipped: `Epistemos/Resources/best_of_preset.json`, `BestOfPreset.swift`, and
@@ -258,13 +278,15 @@ copy client config), and the Rust resource-dispatch parity adapter. The host use
 JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch; the core
 also requires a JSON-RPC 2.0 object envelope, caps echoed string request IDs and protocol error diagnostics, and rejects
 overlong relative vault paths before containment/file work. Listener failure status is bounded to domain/code
-diagnostics. Host registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched
+diagnostics, with raw listener/domain and protocol diagnostic strings bounded before trim/validation. Host registration scope canonicalizes vault roots so symlink aliases do not create stale or mismatched
 read-only servers.
 `resources/list` and `resources/read` delegate to `MCPDispatcher.dispatch()` after `set_vault_root`; `tools/list` and
 `tools/call` stay on the Swift read-only surface so write verbs are never advertised by the app-hosted server. Rust
 resource reads use a dedicated Markdown-only path with the same 8 MiB cap, hidden/symlink refusal, regular-file check, and
 UTF-8 rejection as the Swift fallback, instead of delegating to the broader `vault.read` file tool.
 Settings start/rotate completions re-check the active canonical vault path before mutating UI state.
+Vault MCP host retries discard both terminal `.failed` listeners and synchronous `start()` throws before the next start
+attempt, so Settings retry creates a fresh loopback listener.
 
 **MAS/Pro split:**
 | Capability | MAS | Pro |
@@ -290,7 +312,7 @@ overlay (`LiveTextImageView.swift`), and QuickLookThumbnailing (`FileThumbnail.s
 source guards proving no Plan 1, Plan 2, or Pro-only runtime drift. QuickLook and thumbnail URLs go through a shared
 `O_NOFOLLOW` + `fstat` bounded regular-file envelope with a 512 MiB cap, while Live Text analysis rejects invalid or
 oversized in-memory images before invoking VisionKit, and thumbnail requests reject non-finite/oversized dimensions and
-scale before generation. **Still not Plan 3-owned:** PDFKit `PDFView` viewer and PencilKit annotations; the PDF viewer
+scale before generation. QuickLook preview titles keep ellipsis inside configured caps. **Still not Plan 3-owned:** PDFKit `PDFView` viewer and PencilKit annotations; the PDF viewer
 remains Plan 2.
 
 **Top-6 to prioritize (all MAS-safe, on-device, no new entitlement):**
@@ -314,12 +336,12 @@ Deferred (still MAS-safe): PencilKit/`PDFAnnotation` markup, FileProvider. Needs
 The re-scan found concrete items you explicitly asked for that got flattened/omitted in the curation. These fit Plan 3
 (standalone capabilities, MAS-safe, don't conflict with Goose-only AI):
 - **arXiv pull — SHIPPED (Pass 6):** search arXiv, parse Atom metadata, download the PDF, convert through the local
-  PDF→md importer, and write a file-first vault note with abstract, parsed full text, metadata frontmatter, and
+  PDF→md importer, and write a file-first vault note with abstract, parsed full text, bounded metadata frontmatter, and
   `source_pdf` pointing at the copied PDF under `<vault>/arXiv/`. The landing button opens `ArxivSearchView` as a sheet.
   MAS-safe (arxiv.org API + the §1 PDF pipeline); Atom parsing disables external entity resolution and caps parsed
   papers/field growth inside the 5 MiB response envelope; search query length and network-fed SwiftUI display strings
-  are bounded; request/parser/status failures are mapped to bounded domain/code diagnostics; downloaded temp PDFs are
-  opened with `O_NOFOLLOW`,
+  are bounded before trimming; the search field uses flat theme-token input chrome; request/parser/status failures are mapped to bounded
+  domain/code diagnostics; downloaded temp PDFs are opened with `O_NOFOLLOW`,
   regular-file checked, symlink rejected, capped at 128 MiB, magic-sniffed, and renamed to `.pdf` before parsing;
   failures create no note and unexpected external errors are reported with bounded domain/code diagnostics instead of
   raw localized filesystem strings.
@@ -329,7 +351,9 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   `stt_engine=apple_speechanalyzer` frontmatter. The landing button opens `MeetingNoteView` in the Plan 3 utility
   window; the live transcript buffer is capped to the capture pipeline envelope before save; progress/status/error
   display values are bounded before UI state; finalize failures use bounded categorical diagnostics instead of raw
-  localized filesystem descriptions; auto-stop follows the dictation preference, and manual stop/save stays available.
+  localized filesystem descriptions; toolbar status text truncates before it can expand the row; auto-stop follows the
+  dictation preference, manual stop/save stays available, and repeat Save is disabled after `.saved` so the same
+  transcript cannot create duplicate notes.
   No hidden audio retention, no cloud STT, no Whisper/Kokoro/Python/subprocess on the MAS path.
 - **Eidos→chat / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): the closed-citation retrieval panel is
   the *visible payoff* of the moat; substrate is ~done, only the surfacing remains.
@@ -352,12 +376,14 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
 
 ## 8. Landing-page feature buttons (owner requirement, shipped Pass 6) — code: `PLAN_3_LANDING_BUTTONS_CODEPACK`
 Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `:37`, the existing `landingPixelCommands`
-grid `:492`). `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/meetingNote/voice)
-reuses the existing `PixelLandingCommandTile` and summons Plan 3-owned surfaces only:
+grid `:492`). `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/browserUsePro/
+meetingNote/voice) reuses the existing `PixelLandingCommandTile` and summons Plan 3-owned surfaces only:
 `UtilityWindowManager.showSettings(section: .provenance)`, `UtilityWindowManager.showSettings(section: .skills)`,
 `UtilityWindowManager.showSettings(section: .voice)`, `UtilityWindowManager.show(.browser)`,
 `UtilityWindowManager.show(.meetingNote)`, the arXiv sheet, and `LiteParsePDFImportController.importPage`.
-Honest compile-time Pro pills. Adding a feature = 1 enum case + 1 switch line.
+Honest compile-time Pro pills; unavailable/help/status text is bounded before tooltips and alerts with ellipsis inside
+configured caps.
+Adding a feature = 1 enum case + 1 switch line.
 Pure additive UI, MAS-safe.
 
 ## 9. Browser automation + browser-use + Goose (Pass 5 honest verdict)
@@ -406,12 +432,15 @@ Scope recovery is complete; do not re-open Plan 2 editor work inside Plan 3.
 ## 11. Recovered additions (owner-confirmed 2026-06-28)
 Folded in as clean Plan-3 capabilities:
 - **Voice — SHIPPED (Pass 8):** Apple AVSpeech TTS wrapper, quality-first preferred voice resolution, global voice
-  picker, premium-download hint, SSML/prosody fallback, consumer-backed Auto/Manual toggles, and live Apple STT facade
-  through `LiveVoiceInputService` are wired with partial/final transcript output capped to the capture pipeline envelope
-  and finite/clamped download progress plus capped, domain/code-redacted status/error text for UI display.
+  picker, premium-download hint, macOS 14+ Personal Voice authorization affordance, SSML/prosody fallback,
+  consumer-backed Auto/Manual toggles, and live Apple STT facade through `LiveVoiceInputService` are wired with
+  partial/final transcript output capped to the capture pipeline envelope and finite/clamped download progress plus
+  capped, domain/code-redacted status/error text for UI display, with raw status/domain strings bounded before trimming
+  and status ellipsis kept inside the configured cap.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
-  model artifacts with bounded model-relative status diagnostics. A checked package reports `packageReady` while keeping
+  model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
+  with ellipsis inside configured caps. A checked package reports `packageReady` while keeping
   runtime `isReady=false` until real synthesis is wired. Developer ID builds now show a Pro-only Voice settings
   status/runtime affordance labelled "Pro neural voice" while keeping AVSpeech selected until real neural inference is
   proven; no model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row enters the App Store

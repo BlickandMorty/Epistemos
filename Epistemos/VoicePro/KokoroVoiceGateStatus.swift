@@ -13,6 +13,8 @@ nonisolated enum KokoroVoiceGateStatus {
     static let runtimeIdentifier = "coreml"
     static let maxManifestBytes = 64 * 1024
     static let maxManifestFileCount = 128
+    static let maxPackageFileBytes = UInt64(2) * 1024 * 1024 * 1024
+    static let maxPackageTotalBytes = UInt64(4) * 1024 * 1024 * 1024
     private static let maxPathDiagnosticLength = 160
     private static let maxPackageFilePathLength = 240
     private static let hashReadChunkBytes = 1024 * 1024
@@ -205,6 +207,7 @@ nonisolated enum KokoroVoiceGateStatus {
         var seenPaths = Set<String>()
         var hasPackageManifest = false
         var hasModelPayload = false
+        var totalManifestBytes: UInt64 = 0
         for (index, file) in files.enumerated() {
             guard let path = file["path"] as? String,
                   isSafePackageRelativePath(path) else {
@@ -214,8 +217,15 @@ nonisolated enum KokoroVoiceGateStatus {
                 return "files[\(index)].path duplicates \(pathDiagnostic(path))"
             }
             guard let bytes = unsignedIntegerValue(file["bytes"]), bytes > 0 else {
-                return "files[\(index)].bytes must be positive"
+                return "files[\(index)].bytes must be a positive integer"
             }
+            guard bytes <= maxPackageFileBytes else {
+                return "files[\(index)].bytes exceeds package file limit"
+            }
+            guard totalManifestBytes <= maxPackageTotalBytes - bytes else {
+                return "files total exceeds package size limit"
+            }
+            totalManifestBytes += bytes
             guard let sha256 = file["sha256"] as? String,
                   isValidSHA256Hex(sha256) else {
                 return "files[\(index)].sha256 must be a SHA-256 hex digest"
@@ -263,11 +273,17 @@ nonisolated enum KokoroVoiceGateStatus {
             ) {
                 return shapeProblem
             }
-            guard let digest = fileDigestNoFollow(at: fileURL) else {
+            guard let fileSize = regularFileSizeNoFollow(at: fileURL) else {
                 return "\(displayName) could not be read safely"
             }
-            guard digest.bytes == file.bytes else {
+            guard fileSize == file.bytes else {
                 return "\(displayName) size mismatch"
+            }
+            guard fileSize <= maxPackageFileBytes else {
+                return "\(displayName) exceeds package file limit"
+            }
+            guard let digest = fileDigestNoFollow(at: fileURL, expectedBytes: file.bytes) else {
+                return "\(displayName) could not be read safely"
             }
             guard digest.sha256 == file.sha256 else {
                 return "\(displayName) digest mismatch"
@@ -309,7 +325,7 @@ nonisolated enum KokoroVoiceGateStatus {
         return data
     }
 
-    private static func fileDigestNoFollow(at url: URL) -> FileDigest? {
+    private static func regularFileSizeNoFollow(at url: URL) -> UInt64? {
         let fd = url.path.withCString { path in
             open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         }
@@ -324,6 +340,34 @@ nonisolated enum KokoroVoiceGateStatus {
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
               fileStatus.st_size > 0 else {
+            close(fd)
+            return nil
+        }
+        close(fd)
+        return UInt64(fileStatus.st_size)
+    }
+
+    private static func fileDigestNoFollow(at url: URL, expectedBytes: UInt64) -> FileDigest? {
+        guard expectedBytes > 0,
+              expectedBytes <= maxPackageFileBytes else {
+            return nil
+        }
+
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            return nil
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            return nil
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_size > 0,
+              UInt64(fileStatus.st_size) == expectedBytes else {
             close(fd)
             return nil
         }
@@ -347,9 +391,12 @@ nonisolated enum KokoroVoiceGateStatus {
                 break
             }
             bytesRead += UInt64(chunk.count)
+            guard bytesRead <= expectedBytes else {
+                return nil
+            }
             hasher.update(data: chunk)
         }
-        guard bytesRead == UInt64(fileStatus.st_size) else {
+        guard bytesRead == expectedBytes else {
             return nil
         }
 
@@ -407,8 +454,18 @@ nonisolated enum KokoroVoiceGateStatus {
         if let value = value as? Int, value >= 0 {
             return UInt64(value)
         }
-        if let value = value as? NSNumber, value.int64Value >= 0 {
-            return UInt64(value.uint64Value)
+        if let value = value as? NSNumber {
+            guard CFGetTypeID(value as CFTypeRef) != CFBooleanGetTypeID() else {
+                return nil
+            }
+            let doubleValue = value.doubleValue
+            guard doubleValue.isFinite,
+                  doubleValue >= 0,
+                  doubleValue.rounded(.towardZero) == doubleValue,
+                  doubleValue <= Double(UInt64.max) else {
+                return nil
+            }
+            return UInt64(doubleValue)
         }
         return nil
     }
@@ -488,11 +545,23 @@ nonisolated enum KokoroVoiceGateStatus {
     }
 
     private static func pathDiagnostic(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let description = trimmed.isEmpty ? "[path]" : trimmed
-        guard description.count > maxPathDiagnosticLength else {
-            return description
+        rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength, fallback: "[path]")
+    }
+
+    private static func rawBoundedDiagnostic(
+        _ value: String,
+        maxCharacters: Int,
+        fallback: String
+    ) -> String {
+        let limit = max(0, maxCharacters)
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
         }
-        return String(description.prefix(maxPathDiagnosticLength)) + "..."
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
     }
 }

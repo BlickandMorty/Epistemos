@@ -9,10 +9,24 @@ nonisolated enum VoiceCapturePresentationBounds {
     }
 
     static func statusMessage(_ message: String, fallback: String = "Voice input failed.") -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = trimmed.isEmpty ? fallback : trimmed
-        guard value.count > maxStatusMessageCharacters else { return value }
-        return String(value.prefix(maxStatusMessageCharacters))
+        rawBoundedDiagnostic(message, maxCharacters: maxStatusMessageCharacters, fallback: fallback)
+    }
+
+    private static func rawBoundedDiagnostic(
+        _ value: String,
+        maxCharacters: Int,
+        fallback: String
+    ) -> String {
+        let limit = max(0, maxCharacters)
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
+        }
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
     }
 }
 
@@ -37,7 +51,8 @@ nonisolated enum VoiceCaptureDiagnostics {
     }
 
     static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"

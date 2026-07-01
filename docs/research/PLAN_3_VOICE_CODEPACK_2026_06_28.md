@@ -7,9 +7,12 @@
 ## Shipped state `[VERIFIED-CODE]`
 - **TTS is real and MAS-safe:** `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` wraps `AVSpeechSynthesizer` as
   `@MainActor @Observable`, supports speak/pause/resume/stop, per-range progress, voice catalogue, global default voice
-  identifier, and honest `voiceQualityHint()`.
+  identifier, and honest `voiceQualityHint()`. `ReadAloudButton` renders the shared TTS control through native capsule
+  chrome and theme-derived progress colors.
 - **Voice picker is real:** `VoicePreferencesSection` mounts `ModelVoicePickerSection`, persists the global default via
-  `EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier`, and surfaces the premium-download hint.
+  `EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier`, and surfaces the premium-download hint. Its Why/Preview
+  actions render through shared `ToolbarCapsuleButton` chrome, and rationale text uses theme-derived muted foreground
+  plus surface tint instead of local borderless/raw secondary styling.
 - **Visible auto toggles are consumer-backed:** `VoicePreferences.shared.noteReadAloud == .auto` is consumed by
   `ProseEditorView`; `quickCaptureReadBack == .auto` is consumed by `QuickCaptureView`; `dictationAutoStop == .auto`
   is consumed by `MeetingNoteCaptureService` as a 2-second auto-stop after final silence.
@@ -17,6 +20,9 @@
   `brainDumpHotkeyDictate`, or `perModelVoicePersona` rows until those keys have real behavior consumers.
 - **Shared mic control is now backed by live Apple STT:** `VoiceInputButton` consumes `LiveVoiceInputService.shared`,
   forwards partial/final transcript text, and no longer routes through the removed `ComposerVoiceInputService` stub.
+- **Shared mic control uses native toolbar chrome:** `VoiceInputButton` renders through `ToolbarCapsuleButton`, derives
+  recording pulse color from `UIState.theme`, and avoids local borderless/raw accent styling so composer/toolbar hosts get
+  the same native control contract as Meeting/STT.
 - **Shared mic callbacks are capture-owner gated:** because `LiveVoiceInputService.shared` is global, only the
   `VoiceInputButton` instance that starts capture forwards partial/final transcript text or tears down the service on
   disappearance. Other mounted buttons can reflect/stop global recording state without consuming transcript into the
@@ -26,19 +32,27 @@
   facade. Final SpeechAnalyzer segments are buffered and drained in order so fast final events cannot overwrite one
   another before the UI consumes them; partial, final, buffered, and consumed transcript strings are capped to the
   `TextCapturePipeline.maxCleanedTextCharacters` envelope before host callbacks receive them. External SpeechAnalyzer
-  failures are mapped to bounded domain/code diagnostics before they reach voice UI status text or public analyzer logs.
+  failures are mapped to bounded domain/code diagnostics before they reach voice UI status text or public analyzer logs,
+  with raw status/domain strings bounded before trimming or punctuation validation and status ellipsis kept inside the
+  configured cap.
 - **Reusable mic API has no inert auto-stop flag:** `VoiceInputButton` is manual by design; surfaces that support
   automatic silence-stop own the policy at their capture-service boundary.
 - **Preferred voice floor is quality-first:** `preferredVoice()` now resolves installed voices by Premium > Enhanced >
   Default and uses locale only as a tie-breaker; the language constructor is not the normal floor.
 - **SSML/prosody fallback exists:** `speak(..., prosody:)` builds an SSML utterance when possible and falls back to a
   plain utterance while preserving rate/pitch clamping.
+- **Personal Voice authorization is live:** `EpistemosSpeechSynthesizer` wraps
+  `AVSpeechSynthesizer.personalVoiceAuthorizationStatus` and `requestPersonalVoiceAuthorization` behind a macOS 14+
+  availability gate. `ModelVoicePickerSection` exposes a native capsule affordance to request access, refreshes the voice
+  catalogue after authorization, and keeps the picker on theme-derived tints instead of hardcoded system colors.
 - **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as a status-only gate. MAS returns unavailable, Pro
   requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps AVSpeech as the
   runtime. Package verification rejects symlink-routed or non-regular model artifacts, requires a bounded no-follow install
-  manifest with the expected schema/model/runtime/package fields, and verifies the listed `.mlpackage` file sizes plus
-  SHA-256 digests before reporting `packageReady`. `isReady` remains false until real neural synthesis is wired and
-  selectable. Status details use bounded model-relative diagnostics instead of local absolute model paths. A Pro-only
+  manifest with the expected schema/model/runtime/package fields, requires JSON numeric fields to be finite integers,
+  caps declared per-file and total package bytes before digesting any listed artifact, and verifies the listed `.mlpackage` file sizes plus SHA-256 digests before reporting
+  `packageReady`. `isReady` remains false until real neural synthesis is wired and
+  selectable. Status details use bounded-before-trim model-relative diagnostics with ellipsis inside configured caps
+  instead of local absolute model paths. A Pro-only
   Voice settings section now shows the `Apple AVSpeech` / `Pro neural voice` runtime affordance and keeps AVSpeech
   selected until both the checked package and real neural inference runtime are proven.
   There is still no Kokoro model asset, neural inference runtime, Python, subprocess, or MAS-visible Kokoro row.
@@ -49,11 +63,13 @@
 2. **Add SSML/prosody fallback path.** `[DONE]` `speak(..., prosody:)` tries
    `AVSpeechUtterance(ssmlRepresentation:)`, falls back to `AVSpeechUtterance(string:)`, and preserves clamped
    rate/pitch.
-3. **Make `agentResponseTTS` honest.** `[DONE]` The Settings row is hidden until an assistant-stream completion
+3. **Add Personal Voice authorization.** `[DONE]` The shared voice picker can request Personal Voice access on macOS 14+,
+   then refresh the AVSpeech voice catalogue so user-created voices can appear when Apple grants access.
+4. **Make `agentResponseTTS` honest.** `[DONE]` The Settings row is hidden until an assistant-stream completion
    consumer exists.
-4. **Make the mic honest while STT is disabled.** `[DONE]` `VoiceInputButton` no longer points at the removed composer
+5. **Make the mic honest while STT is disabled.** `[DONE]` `VoiceInputButton` no longer points at the removed composer
    stub; it consumes `LiveVoiceInputService` and reports unavailable/error states from that facade.
-5. **Route macOS 26 dictation through `EpistemosSpeechAnalyzer`.** `[DONE]` `LiveVoiceInputService` wraps
+6. **Route macOS 26 dictation through `EpistemosSpeechAnalyzer`.** `[DONE]` `LiveVoiceInputService` wraps
    `EpistemosSpeechAnalyzer.startLive()` so UI surfaces consume partial/final text without owning AVAudioEngine details.
 
 ## Meeting/STT split
@@ -77,16 +93,23 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 
 ## Shipped files / source guards
 - `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — preferred voice floor + utterance builder/SSML fallback.
+- `Epistemos/Views/Shared/ReadAloudButton.swift` — shared AVSpeech control on native capsule chrome with theme-derived
+  progress drawing.
+- `Epistemos/Views/Shared/ModelVoicePickerSection.swift` — global voice picker, Premium/Enhanced install hint, and
+  macOS 14+ Personal Voice authorization affordance on shared native capsule chrome.
 - `Epistemos/Engine/VoicePreferences.swift` — keep keys, but only expose keys with consumers.
-- `Epistemos/Views/Settings/VoicePreferencesSection.swift` — remove or honestly gate `agentResponseTTS` until wired.
+- `Epistemos/Views/Settings/VoicePreferencesSection.swift` — remove or honestly gate `agentResponseTTS` until wired, and
+  keep visible rationale/preview controls on shared native chrome.
 - `Epistemos/Engine/LiveVoiceInputService.swift` — facade over `EpistemosSpeechAnalyzer` with bounded transcript output,
   finite/clamped model download progress, and capped user-facing status/error text.
-- `Epistemos/Views/Shared/VoiceInputButton.swift` — consume the live facade or present disabled honesty.
+- `Epistemos/Views/Shared/VoiceInputButton.swift` — consume the live facade, present disabled honesty, and use shared
+  native toolbar chrome.
 - `Epistemos/Views/Settings/VoiceSettingsDetailView.swift` — composes Apple voice controls with the Pro-only Kokoro
   status/runtime affordance outside the MAS-safe Apple picker.
-- `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only "Pro neural voice" row backed by the gate status.
-- `EpistemosTests/Plan3VoiceTests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade, Pro
-  Kokoro status UI, and no Kokoro/MAS subprocess leakage.
+- `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only "Pro neural voice" row backed by the gate status,
+  with theme-derived badge tints and shared native capsule refresh chrome.
+- `EpistemosTests/VoiceCodepackPlan3Tests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade,
+  Pro Kokoro status UI, and no Kokoro/MAS subprocess leakage.
 
 ## Plan boundaries
 - Do not edit `Epistemos/Goose/*` or `Epistemos/Agent/*`.
@@ -97,8 +120,11 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 
 ## Verification gates
 - Unit/source tests prove `preferredVoice` no longer depends on `AVSpeechSynthesisVoice(language:)` as the normal floor.
+- Source guards prove Personal Voice access uses Apple's macOS 14+ AVSpeech authorization API and refreshes the shared
+  voice picker without hardcoded system colors or ad hoc bordered/link buttons.
 - Settings source guard proves every visible Auto/Manual row has a behavior consumer or an honest unavailable state.
-- STT source guard proves `VoiceInputButton` no longer routes only to the removed `ComposerVoiceInputService` stub.
+- STT source guard proves `VoiceInputButton` no longer routes only to the removed `ComposerVoiceInputService` stub and
+  does not regress to ad hoc borderless/raw accent chrome.
 - STT facade tests prove partial/final transcript helpers stay inside the capture pipeline text envelope before callbacks.
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
 - Kokoro gate tests prove malformed, symlink-routed, non-regular, placeholder, digest-mismatched, or
@@ -112,6 +138,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 3. [DONE] Add `LiveVoiceInputService` over `EpistemosSpeechAnalyzer`.
 4. [DONE] Rewire `VoiceInputButton` to live STT or hide/disable it honestly where unsupported.
 5. [DONE] Add SSML/prosody fallback.
-6. [DONE] Add the Kokoro Pro gate as status-only.
-7. [DONE] Add the Pro-only Kokoro settings status/runtime affordance. Model packaging/download and neural inference
+6. [DONE] Add Personal Voice authorization.
+7. [DONE] Add the Kokoro Pro gate as status-only.
+8. [DONE] Add the Pro-only Kokoro settings status/runtime affordance. Model packaging/download and neural inference
    integration remain deferred until model download health and real audio synthesis are proven.
