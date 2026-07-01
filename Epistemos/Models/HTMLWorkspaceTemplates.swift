@@ -60,6 +60,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <span data-refresh>Waiting for refresh</span>
         <span data-provenance>VaultSyncService.searchFullAsync</span>
       </section>
+      <nav class="workspace-nav" aria-label="Workspace sections">
+        <a href="#context-feed">Context</a>
+        <a href="#rank-signal">Ranks</a>
+        <a href="#selected-source">Detail</a>
+        <a href="#vault-results">Results</a>
+      </nav>
       <section class="feed-controls" aria-label="Result controls">
         <label>
           <span>Filter</span>
@@ -67,14 +73,14 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         </label>
         <span data-filter-count>0 visible</span>
       </section>
-      <section class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
-      <section class="feed-chart" data-result-chart aria-label="Result rank chart">
+      <section id="context-feed" class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
+      <section id="rank-signal" class="feed-chart" data-result-chart aria-label="Result rank chart">
         <p class="empty">Waiting for ranked results.</p>
       </section>
-      <section class="result-detail" data-result-detail aria-label="Selected result detail">
+      <section id="selected-source" class="result-detail" data-result-detail aria-label="Selected result detail">
         <p class="empty">Select a result to inspect its source.</p>
       </section>
-      <section class="results" data-vault-results aria-live="polite"></section>
+      <section id="vault-results" class="results" data-vault-results aria-live="polite"></section>
     </main>
     """
 
@@ -82,6 +88,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     :root {
       color-scheme: light dark;
       font-family: var(--epistemos-workspace-body-font);
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
@@ -175,6 +185,28 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       font-size: 12px;
     }
 
+    .workspace-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+      font-size: 12px;
+    }
+
+    .workspace-nav a {
+      padding: 6px 9px;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--epistemos-workspace-card) 78%, transparent);
+      color: var(--epistemos-workspace-fg);
+      text-decoration: none;
+      box-shadow: 0 8px 18px color-mix(in srgb, var(--epistemos-workspace-fg) 7%, transparent);
+    }
+
+    .workspace-nav a:focus {
+      outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
+      outline-offset: 2px;
+    }
+
     .feed-controls {
       display: flex;
       flex-wrap: wrap;
@@ -219,6 +251,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       flex-wrap: wrap;
       gap: 8px;
       margin-top: 12px;
+    }
+
+    .context-tabs,
+    .feed-chart,
+    .result-detail,
+    .results {
+      scroll-margin-top: 18px;
     }
 
     .context-tab {
