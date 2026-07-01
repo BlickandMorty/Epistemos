@@ -958,7 +958,6 @@ struct EpistemosApp: App {
                 "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
                 "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
             ])
-            VaultCrashRecorder.install(vaultURL: bootstrap.vaultSync.vaultURL)
             RuntimeIssueMonitor.shared.start()
             HomeWindowInputDiagnostics.shared.startIfNeeded()
             HomeWindowFallbackPresenter.shared.schedule(bootstrap: bootstrap)

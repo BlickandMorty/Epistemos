@@ -38,9 +38,11 @@ nonisolated struct VaultCrashRecorderTests {
     @Test("launch and vault switch wiring stay installed")
     func launchAndVaultSwitchWiringStayInstalled() throws {
         let appSource = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let bootstrapSource = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
         let vaultSource = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
 
-        #expect(appSource.contains("VaultCrashRecorder.install(vaultURL: bootstrap.vaultSync.vaultURL)"))
+        #expect(bootstrapSource.contains("VaultCrashRecorder.install(vaultURL: vaultSync.vaultURL)"))
+        #expect(!appSource.contains("VaultCrashRecorder.install(vaultURL: bootstrap.vaultSync.vaultURL)"))
         #expect(appSource.contains("VaultCrashRecorder.recordUncaughtException("))
         #expect(vaultSource.contains("VaultCrashRecorder.updateVaultURL(vaultURL)"))
         #expect(vaultSource.contains("VaultCrashRecorder.updateVaultURL(nil)"))

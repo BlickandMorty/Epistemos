@@ -1690,6 +1690,9 @@ final class AppBootstrap {
 
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
+        if !Self.isRunningTests {
+            VaultCrashRecorder.install(vaultURL: vaultSync.vaultURL)
+        }
         chatApprovalQueue.sessionFolderPathResolver = { sessionId in
             sessionFolderPathLocal(sessionId: sessionId)
         }
