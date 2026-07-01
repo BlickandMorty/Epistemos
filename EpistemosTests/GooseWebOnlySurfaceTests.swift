@@ -29,6 +29,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(root.contains("GooseWebSurfaceView(theme: theme)"))
         #expect(root.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"))
         #expect(root.contains(".ignoresSafeArea()"))
+        #expect(!root.contains("ZStack"))
+        #expect(!root.contains("GooseSurfaceStyle.background(for: theme)"))
         #expect(!root.contains("AgentRailDestination"))
         #expect(!root.contains("AgentNavigationRailView("))
         #expect(!root.contains("AgentLauncherPanelView("))

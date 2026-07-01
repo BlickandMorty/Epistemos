@@ -12,14 +12,8 @@ struct AgentSurfaceRootView: View {
     let theme: EpistemosTheme
 
     var body: some View {
-        ZStack {
-            GooseSurfaceStyle.background(for: theme)
-                .ignoresSafeArea()
-
-            GooseWebSurfaceView(theme: theme)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GooseWebSurfaceView(theme: theme)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
     }
 }
