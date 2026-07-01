@@ -323,8 +323,8 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(readiness.message.contains("Python 3.11 executable is not executable"))
     }
 
-    @Test("readiness rejects signed payload symlinks outside package before launch planning")
-    func readinessRejectsSignedPayloadSymlinksOutsidePackageBeforeLaunchPlanning() throws {
+    @Test("readiness rejects signed payload symlinks before launch planning")
+    func readinessRejectsSignedPayloadSymlinksBeforeLaunchPlanning() throws {
         let paths = try runtimeFixture(packaged: true)
         let outsidePython = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-outside-python-\(UUID().uuidString)", isDirectory: false)
@@ -347,7 +347,7 @@ struct BrowserUseRuntimeSupervisorTests {
 
         #expect(!readiness.isReady)
         #expect(readiness.message.contains("signed package invalid"))
-        #expect(readiness.message.contains("signature payload symlink resolves outside package"))
+        #expect(readiness.message.contains("signature payload symlink entries are not allowed"))
         #expect(readiness.message.contains(".venv/bin/python"))
         #expect(!readiness.message.contains(outsidePython.path))
         #expect(!readiness.message.contains(paths.buildRoot.path))
