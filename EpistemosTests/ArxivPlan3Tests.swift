@@ -404,6 +404,8 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)"))
         #expect(ingest.contains("fstat(fd"))
         #expect(ingest.contains("S_IFREG"))
+        #expect(ingest.contains("try validateDownloadedPDF(fileURL)"))
+        #expect(ingest.contains("try validateDownloadedPDF(pdfURL)"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(ingest.contains("Plan3ImportFileIO.writeData"))

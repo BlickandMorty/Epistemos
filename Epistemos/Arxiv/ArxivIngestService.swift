@@ -41,17 +41,7 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
     }
 
     static func prepareDownloadedPDF(from fileURL: URL) throws -> URL {
-        try validateDownloadedFileEnvelope(fileURL)
-        switch LiteParsePDFSignature.fileStartsWithPDFMagic(fileURL.path) {
-        case .match:
-            break
-        case .mismatch:
-            try? FileManager.default.removeItem(at: fileURL)
-            throw ArxivIngestError.downloadFailed("downloaded file is not a PDF (%PDF- header missing)")
-        case .unreadable(let message):
-            try? FileManager.default.removeItem(at: fileURL)
-            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(message)")
-        }
+        try validateDownloadedPDF(fileURL)
 
         let pdfURL = preparedPDFURL(for: fileURL)
         guard pdfURL.standardizedFileURL != fileURL.standardizedFileURL else {
@@ -66,6 +56,27 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             throw ArxivIngestError.downloadFailed(
                 "could not prepare downloaded PDF: \(ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "filesystem error"))"
             )
+        }
+        do {
+            try validateDownloadedPDF(pdfURL)
+            return pdfURL
+        } catch {
+            try? FileManager.default.removeItem(at: pdfURL)
+            throw error
+        }
+    }
+
+    private static func validateDownloadedPDF(_ fileURL: URL) throws {
+        try validateDownloadedFileEnvelope(fileURL)
+        switch LiteParsePDFSignature.fileStartsWithPDFMagic(fileURL.path) {
+        case .match:
+            return
+        case .mismatch:
+            try? FileManager.default.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("downloaded file is not a PDF (%PDF- header missing)")
+        case .unreadable(let message):
+            try? FileManager.default.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF: \(message)")
         }
     }
 
