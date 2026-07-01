@@ -197,6 +197,17 @@ struct HTMLWorkspaceEditorView: View {
             .disabled(isRegenerating)
             .help("Regenerate surface")
 
+            if package.manifest.generationProvenance?.reversibleSnapshotName != nil {
+                Button {
+                    restorePreviousSurface()
+                } label: {
+                    Label("Revert Surface", systemImage: "clock.arrow.circlepath")
+                }
+                .labelStyle(.iconOnly)
+                .disabled(isRegenerating)
+                .help("Revert to previous surface")
+            }
+
             Button {
                 self.setAppBridgeEnabled(!package.manifest.sandboxPolicy.allowAppBridge)
             } label: {

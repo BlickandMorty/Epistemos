@@ -105,6 +105,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("onApplyStream: applyRegenerateStreamText"))
         #expect(editor.contains("onRestorePreview: restorePreviewAfterRegenerate"))
         #expect(editor.contains("onRestorePreviousSurface: restorePreviousSurface"))
+        #expect(editor.contains("Label(\"Revert Surface\", systemImage: \"clock.arrow.circlepath\")"))
+        #expect(editor.contains(".help(\"Revert to previous surface\")"))
         #expect(editor.contains("@State private var regenerateContextQuery = \"\""))
         #expect(editor.contains("@State private var regenerateContextTask: Task<Void, Never>?"))
         #expect(editor.contains("@State private var regenerateContextRefreshNonce = 0"))
