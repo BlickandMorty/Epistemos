@@ -6633,6 +6633,40 @@ function applyFinalBorderlessDriftSurfaces() {
 }
 
 function applyFinalFlatPixelAudit() {
+  const paletteClassReplacements = [
+    ['text-red-500', 'text-text-danger'],
+    ['hover:text-red-600', 'hover:text-text-danger'],
+    ['hover:text-red-700', 'hover:text-text-danger'],
+    ['text-orange-500', 'text-text-warning'],
+    ['text-orange-600', 'text-text-warning'],
+    ['dark:text-orange-400', 'dark:text-text-warning'],
+    ['text-amber-600', 'text-text-warning'],
+    ['text-amber-700', 'text-text-warning'],
+    ['dark:text-amber-300', 'dark:text-text-warning'],
+    ['dark:text-amber-400', 'dark:text-text-warning'],
+    ['text-yellow-500', 'text-text-warning'],
+    ['text-emerald-700', 'text-text-success'],
+    ['dark:text-emerald-300', 'dark:text-text-success'],
+    ['text-purple-700', 'text-[var(--epistemos-accent)]'],
+    ['dark:text-purple-300', 'dark:text-[var(--epistemos-accent)]'],
+    ['text-gray-500', 'text-text-secondary'],
+    ['dark:text-gray-400', 'dark:text-text-secondary'],
+    ['bg-amber-500', 'bg-background-warning'],
+    ['bg-amber-50/10', 'bg-background-warning/35'],
+    ['bg-orange-400', 'bg-background-warning'],
+    ['bg-red-50', 'bg-background-danger/35'],
+    ['fill-orange-400', 'fill-[var(--color-background-warning)]'],
+    ['dark:hover:bg-red-900/20', 'dark:hover:bg-background-danger/55'],
+    ['hover:bg-red-50', 'hover:bg-background-danger/55'],
+    ['hover:bg-red-900/20', 'hover:bg-background-danger/55'],
+    ['border-amber-500/30', ''],
+    ['border-amber-500/60', ''],
+    ['border-orange-300', ''],
+    ['dark:border-orange-600', ''],
+    ['hover:bg-orange-50', 'hover:bg-background-warning/55'],
+    ['dark:hover:bg-orange-900/20', 'dark:hover:bg-background-warning/55'],
+  ];
+
   const sourceRoot = path.join(desktopRoot, 'src');
   const files = walkFiles(
     sourceRoot,
@@ -6682,6 +6716,10 @@ function applyFinalFlatPixelAudit() {
         .replace(/\bborder-blue-[^\s"'`}$]+/g, 'border-[var(--epistemos-accent)]')
         .replace(/\btext-blue-[^\s"'`}$]+/g, 'text-[var(--epistemos-accent)]')
         .replace(/\bbg-blue-[^\s"'`}$]+/g, 'bg-[var(--epistemos-accent)]/10');
+
+      for (const [from, to] of paletteClassReplacements) {
+        next = next.replaceAll(from, to);
+      }
     }
 
     if (relativePath === 'src/styles/main.css' && !next.includes('epistemos-native-final-flat-pixel-audit')) {

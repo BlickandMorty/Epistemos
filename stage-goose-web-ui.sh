@@ -6193,6 +6193,34 @@ JS
         echo "Goose Web UI staging still contains hard border visual leftovers." >&2
         exit 1
     fi
+    node - "$WORK_ROOT/ui/desktop/src" <<'JS'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.argv[2];
+const palettePattern = /\b(?:text|bg|border|fill|stroke|hover:bg|hover:text|hover:fill|hover:stroke|dark:text|dark:bg|dark:border|dark:fill|dark:stroke|dark:hover:bg|focus:ring|ring|accent)-(?:red|blue|green|yellow|orange|amber|purple|pink|cyan|sky|teal|indigo|violet|emerald|gray)-[^\s"'`}$]+/g;
+const ignored = new Set(['node_modules', 'dist', '__tests__']);
+const hits = [];
+function walk(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ignored.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walk(full);
+      continue;
+    }
+    if (!/\.(tsx?|jsx?)$/.test(entry.name) || /\.test\.(tsx?|jsx?)$/.test(entry.name)) continue;
+    const source = fs.readFileSync(full, 'utf8');
+    const matches = [...new Set(source.match(palettePattern) || [])];
+    if (matches.length > 0) hits.push(`${path.relative(root, full)}: ${matches.join(', ')}`);
+  }
+}
+walk(root);
+if (hits.length > 0) {
+  console.error('Goose Web UI staging still contains hardcoded Tailwind palette leftovers.');
+  console.error(hits.join('\n'));
+  process.exit(1);
+}
+JS
     grep -q "bg-\\[var(--epistemos-accent)\\] text-text-inverse hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/button.tsx"
     grep -q "rounded-\\[8px\\] bg-background-primary/60" "$WORK_ROOT/ui/desktop/src/components/ui/input.tsx"
     grep -q "rounded-\\[11px\\] py-3 shadow-none" "$WORK_ROOT/ui/desktop/src/components/ui/card.tsx"
@@ -6383,6 +6411,35 @@ STAGED_OUTPUT="$(mktemp -d "$OUTPUT_PARENT/.GooseWebUI.XXXXXX")"
     cd "$WORK_ROOT/ui/desktop"
     "$VITE_BIN" build --config vite.renderer.config.mts --outDir "$STAGED_OUTPUT" --emptyOutDir
 )
+
+node - "$STAGED_OUTPUT/assets" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.argv[2];
+const replacements = new Map([
+  ['text-red-500', 'text-text-danger'],
+  ['text-orange-500', 'text-text-warning'],
+  ['text-gray-500', 'text-text-secondary'],
+]);
+const palettePattern = /\b(?:text|bg|border|fill|stroke|hover:bg|hover:text|hover:fill|hover:stroke|dark:text|dark:bg|dark:border|dark:fill|dark:stroke|dark:hover:bg|focus:ring|ring|accent)-(?:red|blue|green|yellow|orange|amber|purple|pink|cyan|sky|teal|indigo|violet|emerald|gray)-[^\s"'`}$,.)]+/g;
+const hits = [];
+for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+  if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+  const full = path.join(root, entry.name);
+  let source = fs.readFileSync(full, 'utf8');
+  for (const [from, to] of replacements) {
+    source = source.replaceAll(from, to);
+  }
+  fs.writeFileSync(full, source);
+  const matches = [...new Set(source.match(palettePattern) || [])].sort();
+  if (matches.length > 0) hits.push(`${entry.name}: ${matches.join(', ')}`);
+}
+if (hits.length > 0) {
+  console.error('Goose Web UI artifact still contains hardcoded Tailwind palette leftovers after bundle postprocess.');
+  console.error(hits.join('\n'));
+  process.exit(1);
+}
+NODE
 
 if grep -qE '(src|href)="/assets/' "$STAGED_OUTPUT/index.html"; then
     echo "Goose Web UI artifact is not file-loadable: absolute /assets paths found." >&2
