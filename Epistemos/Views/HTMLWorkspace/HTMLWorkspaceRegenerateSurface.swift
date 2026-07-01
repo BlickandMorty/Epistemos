@@ -339,6 +339,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
     var title: String
     var systemImage: String
     var instruction: String
+    var requiredContextKind: String? = nil
 
     static let all: [HTMLWorkspaceRegeneratePreset] = [
         .init(
@@ -409,14 +410,16 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
             family: .vaultData,
             title: "Recent captures",
             systemImage: "tray.full",
-            instruction: "Regenerate this workspace around available recent captures with working local filter/tabs over data.json records. Use real capture metadata only and clearly show when no captures are available."
+            instruction: "Regenerate this workspace around available recent captures with working local filter/tabs over data.json records. Use real capture metadata only and clearly show when no captures are available.",
+            requiredContextKind: "recent_capture"
         ),
         .init(
             id: "vault-related-notes",
             family: .vaultData,
             title: "Related notes",
             systemImage: "link",
-            instruction: "Regenerate this workspace around related notes from available context with working local filter/tabs over data.json records. Do not invent relationships; show an honest empty state when context is missing."
+            instruction: "Regenerate this workspace around related notes from available context with working local filter/tabs over data.json records. Do not invent relationships; show an honest empty state when context is missing.",
+            requiredContextKind: "graph_related_note"
         ),
     ]
 
@@ -450,7 +453,13 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         return """
         \(instruction)
         Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, captures, chats, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
+        \(requiredContextKindInstruction)
         """
+    }
+
+    private var requiredContextKindInstruction: String {
+        guard let requiredContextKind else { return "" }
+        return "This preset requires explicit data.json records with context_kind \"\(requiredContextKind)\"; if none are present, show that source as unavailable instead of relabeling generic vault results."
     }
 
     private func bounded(_ value: String, limit: Int) -> String {

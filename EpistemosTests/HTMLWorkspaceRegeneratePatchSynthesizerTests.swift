@@ -269,6 +269,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(captures.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "recent captures Project Atlas")
         #expect(related.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "related notes Project Atlas")
         #expect(captures.contextQuery(typedQuery: " custom captures ", packageTitle: "Project Atlas") == "custom captures")
+        #expect(notes.requiredContextKind == nil)
+        #expect(captures.requiredContextKind == "recent_capture")
+        #expect(related.requiredContextKind == "graph_related_note")
 
         let instruction = captures.instruction(contextQuery: "recent captures Project Atlas")
         #expect(instruction.contains("VaultSyncService.searchFullAsync"))
@@ -277,6 +280,11 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(instruction.contains("working local search/filter"))
         #expect(instruction.contains("context-kind tabs"))
         #expect(instruction.contains("bind them to data.json only"))
+        #expect(instruction.contains(#"context_kind "recent_capture""#))
+        #expect(instruction.contains("instead of relabeling generic vault results"))
+
+        let relatedInstruction = related.instruction(contextQuery: "related notes Project Atlas")
+        #expect(relatedInstruction.contains(#"context_kind "graph_related_note""#))
     }
 
     @Test("regenerate prompt includes verified data feed context and honest degradation")
