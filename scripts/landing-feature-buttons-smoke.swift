@@ -8,6 +8,18 @@ struct LandingFeatureButtonsSmoke {
         let landing = read("Epistemos/Views/Landing/LandingView.swift", root: root)
         let brands = read("Epistemos/Views/Shared/IntegrationBrandMark.swift", root: root)
 
+        let featureBrands = [
+            "pdfImport": "pdfImport",
+            "arxiv": "arxiv",
+            "provenance": "provenance",
+            "extensions": "extensions",
+            "vaultMCP": "vaultMCP",
+            "browser": "browser",
+            "browserUsePro": "browserUse",
+            "meetingNote": "meetingNote",
+            "voice": "voice",
+        ]
+
         for feature in [
             "pdfImport",
             "arxiv",
@@ -15,17 +27,22 @@ struct LandingFeatureButtonsSmoke {
             "extensions",
             "vaultMCP",
             "browser",
+            "browserUsePro",
             "meetingNote",
             "voice",
         ] {
             require(buttons.contains("case \(feature)"), "missing LandingFeatureButton.\(feature)")
-            require(brands.contains("case \(feature)"), "missing IntegrationBrand.\(feature)")
+            let brand = featureBrands[feature] ?? feature
+            require(brands.contains("case \(brand)"), "missing IntegrationBrand.\(brand)")
         }
 
         require(buttons.contains("LiteParseImportGateStatus.status().isActive"), "PDF import must be gated by LiteParse status")
         require(buttons.contains("ArxivPullGateStatus.status().isActive"), "arXiv must be gated by arXiv status")
         require(buttons.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"), "vault MCP must stay Pro/MAS gated")
-        require(buttons.contains("case .vaultMCP:\n            return true"), "vault MCP should be marked Pro-only")
+        require(
+            buttons.contains("case .vaultMCP, .browserUsePro:\n            return true"),
+            "vault MCP and browser-use Pro should be marked Pro-only"
+        )
 
         require(landing.contains("ForEach(LandingFeatureButton.allCases)"), "landing must render all feature buttons")
         require(landing.contains("LandingFeatureButtonTile(feature: feature"), "landing must render feature tiles")
@@ -39,6 +56,7 @@ struct LandingFeatureButtonsSmoke {
             "case .extensions, .vaultMCP:\n            UtilityWindowManager.shared.showSettings(section: .skills)",
             "case .voice:\n            UtilityWindowManager.shared.showSettings(section: .voice)",
             "case .browser:\n            UtilityWindowManager.shared.show(.browser)",
+            "case .browserUsePro:\n            UtilityWindowManager.shared.show(.browserUsePro)",
             "case .meetingNote:\n            UtilityWindowManager.shared.show(.meetingNote)",
         ]
         for route in routeChecks {
@@ -46,7 +64,7 @@ struct LandingFeatureButtonsSmoke {
         }
 
         require(landing.contains("LiteParsePDFImportController.importPage"), "PDF landing route must call LiteParse import")
-        print("landing feature buttons smoke OK: buttons=8 arxiv_sheet=true gates_honest=true routes_live=true")
+        print("landing feature buttons smoke OK: buttons=9 arxiv_sheet=true gates_honest=true routes_live=true")
     }
 
     private static func read(_ relativePath: String, root: URL) -> String {
