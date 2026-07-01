@@ -27,13 +27,7 @@ nonisolated public struct AnswerPacketStore: Sendable {
         guard line.count <= Self.maxLogBytes else {
             throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
         }
-        if let byteCount = try readableStoreFileByteCount() {
-            guard byteCount <= Self.maxLogBytes,
-                  line.count <= Self.maxLogBytes - byteCount else {
-                throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
-            }
-        }
-        let handle = try openStoreFileForWriting(truncate: false)
+        let handle = try openStoreFileForWriting(truncate: false, appendingBytes: line.count)
         defer { try? handle.close() }
         try handle.write(contentsOf: line)
     }
@@ -59,25 +53,12 @@ nonisolated public struct AnswerPacketStore: Sendable {
         let lines = raw.split(separator: "\n", omittingEmptySubsequences: true)
         guard lines.count > maxEntries else { return }
         let kept = lines.suffix(maxEntries).joined(separator: "\n") + "\n"
+        guard kept.utf8.count <= Self.maxLogBytes else {
+            throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+        }
         let handle = try openStoreFileForWriting(truncate: true)
         defer { try? handle.close() }
         try handle.write(contentsOf: Data(kept.utf8))
-    }
-
-    private func readableStoreFileByteCount() throws -> Int? {
-        let fileManager = FileManager.default
-        if (try? fileManager.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
-            throw storeError("answer packet log is a symbolic link", errnoCode: ELOOP)
-        }
-        guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
-        let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        guard values.isRegularFile == true else {
-            throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
-        }
-        guard let byteCount = values.fileSize else {
-            throw storeError("could not inspect answer packet log size", errnoCode: EINVAL)
-        }
-        return byteCount
     }
 
     private func readStoreFileText() throws -> String? {
@@ -126,7 +107,10 @@ nonisolated public struct AnswerPacketStore: Sendable {
         return raw
     }
 
-    private func openStoreFileForWriting(truncate: Bool) throws -> FileHandle {
+    private func openStoreFileForWriting(
+        truncate: Bool,
+        appendingBytes: Int? = nil
+    ) throws -> FileHandle {
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true)
@@ -147,6 +131,18 @@ nonisolated public struct AnswerPacketStore: Sendable {
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             close(fd)
             throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
+        }
+        if !truncate, let appendingBytes {
+            guard fileStatus.st_size >= 0 else {
+                close(fd)
+                throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+            }
+            let byteCount = UInt64(fileStatus.st_size)
+            guard byteCount <= UInt64(Self.maxLogBytes),
+                  UInt64(appendingBytes) <= UInt64(Self.maxLogBytes) - byteCount else {
+                close(fd)
+                throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+            }
         }
         return FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }

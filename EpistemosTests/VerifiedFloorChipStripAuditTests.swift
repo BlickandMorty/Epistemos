@@ -209,6 +209,19 @@ struct VerifiedFloorChipStripAuditTests {
         #expect(src.contains("FileAttributeType"))
         #expect(src.contains(".typeRegular"))
         #expect(src.contains("requiresLiveBacking: VerifiedFloorLiveBacking = .none"))
+        #expect(src.contains("@Environment(UIState.self) private var ui"))
+        #expect(src.contains("private var theme: EpistemosTheme"))
+        #expect(src.contains("theme.success"))
+        #expect(src.contains("theme.warning"))
+        #expect(src.contains("theme.error"))
+        #expect(src.contains("theme.resolved.mutedForeground.color"))
+
+        let componentStart = try #require(src.range(of: "struct VerifiedFloorChipStrip: View")?.lowerBound)
+        let component = String(src[componentStart...])
+        #expect(!component.contains("return .green"))
+        #expect(!component.contains("return .orange"))
+        #expect(!component.contains("return .red"))
+        #expect(!component.contains("return .secondary"))
     }
 
     @Test("artifact backing policy requires readable regular non-symlink files")

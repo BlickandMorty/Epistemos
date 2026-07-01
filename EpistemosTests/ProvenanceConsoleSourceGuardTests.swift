@@ -69,6 +69,9 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(source.contains("pairs.append((\"tool\", displayValue(tool.toolName)))"))
         #expect(source.contains("pairs.append((\"label\", displayValue(relation.label)))"))
         #expect(source.contains("agent:\\(short(id)) (\\(displayValue(modelID)))"))
+        #expect(source.contains("String(value.prefix(displayValueMaximum + 32))"))
+        #expect(source.contains("String(value.prefix(44))"))
+        #expect(source.contains("String(root.prefix(44))"))
         #expect(source.contains("func subscribeRetractionEvents("))
         #expect(source.contains("RetractionPropagatedProjection"))
         #expect(source.contains("GenUIPayload.provenanceTrace("))
@@ -163,6 +166,7 @@ struct ProvenanceConsoleSourceGuardTests {
         let longModelID = String(repeating: "m", count: 400)
         let longToolName = String(repeating: "t", count: 400)
         let longRelationLabel = String(repeating: "r", count: 400)
+        let longTriggerKind = String(repeating: "k", count: 400)
 
         let event = AgentProvenanceEvent(
             eventID: "provenance-console-long-agent-\(UUID().uuidString)",
@@ -197,12 +201,28 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(store.saveAgentEvent(event))
         #expect(store.saveGraphEvent(graphEvent))
 
-        let snapshot = ProvenanceConsoleProjectionService(eventStoreProvider: { store }).snapshot(limit: 10)
+        let snapshot = ProvenanceConsoleProjectionService(
+            eventStoreProvider: { store },
+            retractionEventProvider: { _, _ in
+                [
+                    RetractionPropagatedProjection(
+                        sequence: 1,
+                        triggerKind: longTriggerKind,
+                        triggeredBy: "trigger-id",
+                        claimsMarkedAtRisk: 1,
+                        maxDepthReached: 1,
+                        depthCapped: false
+                    )
+                ]
+            }
+        ).snapshot(limit: 10)
         let agentRows = try keyValueRows(in: firstTraceEvent(in: snapshot.agentPayload))
         let graphRows = try keyValueRows(in: firstTraceEvent(in: snapshot.graphPayload))
+        let retractionRows = try keyValueRows(in: firstTraceEvent(in: snapshot.retractionPayload))
 
         #expect(agentRows["tool"] == String(longToolName.prefix(256)))
         #expect(graphRows["label"] == String(longRelationLabel.prefix(256)))
+        #expect(retractionRows["trigger kind"] == String(longTriggerKind.prefix(256)))
         #expect(agentRows["actor"] == "agent:\(String("agent-long-display".prefix(12))) (\(String(longModelID.prefix(256))))")
     }
 

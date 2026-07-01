@@ -196,7 +196,8 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     }
 
     private static func shortRoot(_ root: String) -> String {
-        let prefix = root.prefix(12)
+        let bounded = String(root.prefix(44))
+        let prefix = bounded.trimmingCharacters(in: .whitespacesAndNewlines).prefix(12)
         return prefix.isEmpty ? "none" : String(prefix)
     }
 
@@ -265,7 +266,7 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     private static func retractionEventPayload(_ event: RetractionPropagatedProjection) -> GenUIPayload {
         .keyValueTable(title: "RetractionPropagated #\(event.sequence)", [
             ("sequence", "\(event.sequence)"),
-            ("trigger kind", event.triggerKind),
+            ("trigger kind", displayValue(event.triggerKind)),
             ("trigger", short(event.triggeredBy)),
             ("ACS verdict", acsVerdictUnlinked()),
             ("claims at risk", "\(event.claimsMarkedAtRisk)"),
@@ -346,14 +347,16 @@ nonisolated struct ProvenanceConsoleProjectionService: Sendable {
     }
 
     private static func displayValue(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(displayValueMaximum + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "unknown" }
         guard trimmed.count > displayValueMaximum else { return trimmed }
         return String(trimmed.prefix(displayValueMaximum))
     }
 
     private static func short(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(44))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 12 else { return trimmed.isEmpty ? "unknown" : trimmed }
         return String(trimmed.prefix(12))
     }

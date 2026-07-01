@@ -40,14 +40,18 @@ The existing init remains source-compatible, with opt-in real gates that AND int
 artifactSatisfied && liveBackingSatisfied`. Witness label shows "no artifact"/"empty" instead of "PASS" when a declared
 backing is missing, so a literal-true cannot force green on rows that declare backing. `AnswerPacketHealthRow` opts into
 ledger backing with `requiresLiveBacking: .ledger`; `FalsifierArtifactsHealthRow` caps artifact candidate scanning and
-bounds/no-follows each `result.json` artifact before parsing; other rows stay deliberate row-by-row adoption.
+bounds/no-follows each `result.json` artifact before parsing; verified-floor pill tints come from `UIState.theme`
+semantic success/warning/error/muted tokens instead of raw SwiftUI colors; other rows stay deliberate row-by-row adoption.
 
 ## Moat-1 — `VRMLabelView` hover-lineage card [DELIVERED]
-Chip text/color from `honestLabel(for:)` ONLY; renders **nothing** when nil. Hover popover surfaces: model + tier +
+Chip text/state from `honestLabel(for:)` ONLY; renders **nothing** when nil. The visible chip and copy-lineage action
+use shared `ToolbarCapsuleButton` chrome, claim status dots and muted metadata derive from `UIState.theme`, and the
+lineage card uses spacing rather than hard `Divider()` rules. Hover popover surfaces: model + tier +
 verification score (`packet.residencySignals.map(\.verificationScore).max()`, `:204`) + generatedAt (newest claim
 `createdAtMs`) vs acceptedAt + the **claim list** (kind/status dot + a `link` glyph for ACS verification anchors and a
 `number` glyph for UAS-addressed claims). The hover-lineage card bounds runtime-fed metadata, claim text, and displayed
-claim count before SwiftUI render; the copyable lineage JSON remains full-fidelity. Lineage fields the
+claim count before SwiftUI render, bounds strings before trimming, and keeps ellipsis inside configured caps; the
+copyable lineage JSON remains full-fidelity. Lineage fields the
 packet doesn't carry (model/tier/acceptedAt) are **explicit view inputs from `ChatMessage`** — never fabricated inside
 the packet. Call site (the binding that keeps it honest):
 ```swift
@@ -92,6 +96,7 @@ utility task, clamps projection reads at the service boundary, caps untrusted mo
 they reach GenUI rows, includes the EventStore-derived `AgentEditSuperseded` trace, and never performs EventStore/Rust
 projection reads in the SwiftUI init/body path.
 Durable `AnswerPacketStore` persistence is append-only JSONL under Application Support, but the store treats the log as
-a bounded provenance artifact: appends reject encoded packets or projected post-append logs over 8 MiB, while compaction
-reads/writes and load/restore reads open the final file with `O_NOFOLLOW` plus `fstat` regular-file validation; loads
-reject symlink/non-regular logs, and read/restore work is capped at 8 MiB before JSON decoding.
+a bounded provenance artifact: appends reject encoded packets or projected post-append logs over 8 MiB after opening
+the final file with `O_NOFOLLOW` plus `fstat`, while compaction reads/writes and load/restore reads use the same
+regular-file validation; loads reject symlink/non-regular logs, and read/restore work is capped at 8 MiB before JSON
+decoding.

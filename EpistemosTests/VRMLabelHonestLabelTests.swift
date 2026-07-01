@@ -142,6 +142,8 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains("VRMLineageDisplayBounds"))
         #expect(source.contains("maxDisplayedClaims"))
         #expect(source.contains("displayedClaims"))
+        #expect(source.contains("String(value.prefix(limit + 32))"))
+        #expect(source.contains("String(trimmed.prefix(limit - 3)) + \"...\""))
         #expect(source.contains("ClaimLineageRow(claim: claim, packetID: packet.id)"))
         #expect(source.contains("omitted from display"))
         #expect(source.contains("claimText(claim.text)"))
@@ -149,7 +151,21 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains("NSPasteboard.general.setString(export.encodedJSONString(), forType: .string)"))
         #expect(source.contains("encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]"))
         #expect(source.contains("Copy lineage JSON"))
+        #expect(source.contains("ToolbarCapsuleButton("))
+        #expect(source.contains("NativeControlRole"))
+        #expect(source.contains("@Environment(UIState.self)"))
+        #expect(source.contains("ui.theme.resolved.accent.color"))
+        #expect(source.contains("ui.theme.resolved.headingAccent.color"))
+        #expect(source.contains("ui.theme.resolved.mutedForeground.color"))
         #expect(!source.contains("packet.uiLabel"))
+        #expect(!source.contains(".buttonStyle(.plain)"))
+        #expect(!source.contains(".buttonStyle(.borderless)"))
+        #expect(!source.contains(".foregroundStyle(.secondary)"))
+        #expect(!source.contains("Divider()"))
+        #expect(!source.contains("return .green"))
+        #expect(!source.contains("return .orange"))
+        #expect(!source.contains("return .purple"))
+        #expect(!source.contains("return .red"))
     }
 
     @Test("VRM lineage popover bounds runtime-fed display values")
@@ -165,8 +181,8 @@ struct VRMLabelHonestLabelTests {
             )
         }
 
-        #expect(VRMLineageDisplayBounds.metadata(longMetadata).count == VRMLineageDisplayBounds.maxMetadataCharacters + 3)
-        #expect(VRMLineageDisplayBounds.claimText(longClaim).count == VRMLineageDisplayBounds.maxClaimTextCharacters + 3)
+        #expect(VRMLineageDisplayBounds.metadata(longMetadata).count == VRMLineageDisplayBounds.maxMetadataCharacters)
+        #expect(VRMLineageDisplayBounds.claimText(longClaim).count == VRMLineageDisplayBounds.maxClaimTextCharacters)
         #expect(VRMLineageDisplayBounds.displayedClaims(claims).count == VRMLineageDisplayBounds.maxDisplayedClaims)
         #expect(
             VRMLineageDisplayBounds.displayedClaims(claims).last?.text ==
@@ -243,6 +259,7 @@ struct VRMLabelHonestLabelTests {
             "message.mode?.rawValue",
             "message.createdAt",
             "hover-lineage card bounds runtime-fed metadata",
+            "before trimming and keeps ellipsis inside configured caps",
             "copyable lineage JSON remains full-fidelity",
             "O_NOFOLLOW",
             "8 MiB",
@@ -256,6 +273,7 @@ struct VRMLabelHonestLabelTests {
             "`requiresLiveBacking: .ledger/.dag`",
             "`VRMLineageExport`",
             "hover-lineage card",
+            "before trimming and keeps ellipsis inside configured caps",
             "full-fidelity verifiable lineage JSON",
             "regular-file/no-follow writes",
             "8 MiB",

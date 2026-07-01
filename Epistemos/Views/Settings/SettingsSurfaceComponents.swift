@@ -117,6 +117,35 @@ struct SettingsAppleCardChrome: ViewModifier {
     }
 }
 
+struct SettingsFlatInputChrome: ViewModifier {
+    let theme: EpistemosTheme
+    let maxWidth: CGFloat?
+    let minHeight: CGFloat?
+
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .foregroundStyle(theme.resolved.foreground.color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: maxWidth, minHeight: minHeight, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(theme.resolved.card.color.opacity(theme.isDark ? 0.34 : 0.58))
+            }
+    }
+}
+
+extension View {
+    func settingsFlatInputChrome(
+        theme: EpistemosTheme,
+        maxWidth: CGFloat? = nil,
+        minHeight: CGFloat? = nil
+    ) -> some View {
+        modifier(SettingsFlatInputChrome(theme: theme, maxWidth: maxWidth, minHeight: minHeight))
+    }
+}
+
 struct SettingsFeaturedPixelPanel<Content: View>: View {
     let theme: EpistemosTheme
     private let content: Content
@@ -178,7 +207,7 @@ struct SettingsDisclosureSection<Content: View>: View {
                         .font(.caption.weight(.semibold))
                     Text(subtitle)
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.resolved.mutedForeground.color)
                         .lineLimit(2)
                 }
             }
@@ -378,6 +407,7 @@ nonisolated struct VerifiedFloorChipEligibility: Equatable, Sendable {
 }
 
 struct VerifiedFloorChipStrip: View {
+    @Environment(UIState.self) private var ui
     let flag: String
     let substrate: String
     let productionWired: Bool
@@ -387,6 +417,10 @@ struct VerifiedFloorChipStrip: View {
     let stillStub: String
     let requiresArtifactAtPath: String?
     let requiresLiveBacking: VerifiedFloorLiveBacking
+
+    private var theme: EpistemosTheme {
+        ui.theme.surfaceVariant(.other)
+    }
 
     init(
         flag: String,
@@ -413,11 +447,11 @@ struct VerifiedFloorChipStrip: View {
     private var flagTint: Color {
         switch flag {
         case "on":
-            .green
+            theme.success
         case "off":
-            .red
+            theme.error
         default:
-            .secondary
+            theme.resolved.mutedForeground.color
         }
     }
 
@@ -451,13 +485,13 @@ struct VerifiedFloorChipStrip: View {
     }
 
     private var substrateTint: Color {
-        if greenEligible { return .green }
-        return productionWired ? .orange : .secondary
+        if greenEligible { return theme.success }
+        return productionWired ? theme.warning : theme.resolved.mutedForeground.color
     }
 
     private var witnessTint: Color {
-        if greenEligible { return .green }
-        return falsifierPassed ? .orange : .secondary
+        if greenEligible { return theme.success }
+        return falsifierPassed ? theme.warning : theme.resolved.mutedForeground.color
     }
 
     private var witnessLabel: String {

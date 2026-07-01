@@ -57,20 +57,16 @@ struct VRMLabelView: View {
 
     var body: some View {
         if let label {
-            Button {
+            ToolbarCapsuleButton(
+                title: label.shortLabel,
+                systemImage: symbol(for: label),
+                role: controlRole(for: label),
+                isActive: true,
+                chromePolicy: .alwaysSurface,
+                helpText: "Show provenance lineage",
+                accessibilityLabel: label.accessibilityLabel
+            ) {
                 isLineagePinned.toggle()
-            } label: {
-                Label(label.shortLabel, systemImage: symbol(for: label))
-                    .font(.caption2.weight(.semibold))
-                    .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(tint(for: label))
-            .background(tint(for: label).opacity(0.12), in: Capsule())
-            .overlay {
-                Capsule().stroke(tint(for: label).opacity(0.28), lineWidth: 0.75)
             }
             .accessibilityLabel(label.accessibilityLabel)
             .onHover { hovering in
@@ -88,12 +84,16 @@ struct VRMLabelView: View {
         }
     }
 
-    private func tint(for label: VRMLabel) -> Color {
+    private func controlRole(for label: VRMLabel) -> NativeControlRole {
         switch label {
-        case .verified: return .green
-        case .plausibleButUnverified: return .orange
-        case .speculative: return .purple
-        case .blocked: return .red
+        case .verified:
+            return .primaryAction
+        case .plausibleButUnverified:
+            return .toolbarUtility
+        case .speculative:
+            return .mode
+        case .blocked:
+            return .secondaryGhost
         }
     }
 
@@ -125,11 +125,15 @@ nonisolated enum VRMLineageDisplayBounds {
     }
 
     private static func capped(_ value: String, limit: Int) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(limit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > limit else {
             return trimmed
         }
-        return String(trimmed.prefix(limit)) + "..."
+        guard limit > 3 else {
+            return String(trimmed.prefix(limit))
+        }
+        return String(trimmed.prefix(limit - 3)) + "..."
     }
 }
 
@@ -216,7 +220,12 @@ private struct VRMLineageCard: View {
     let tierLabel: String?
     let acceptedAt: Date?
 
+    @Environment(UIState.self) private var ui
     @State private var didCopyLineage = false
+
+    private var mutedTint: Color {
+        ui.theme.resolved.mutedForeground.color
+    }
 
     private var generatedAt: Date? {
         packet.activeClaims
@@ -241,36 +250,34 @@ private struct VRMLineageCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "shield.checkered")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                 Text(label.shortLabel)
                     .font(.headline)
                 Spacer(minLength: 0)
-                Button {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: didCopyLineage ? "checkmark" : "doc.on.doc",
+                    role: .toolbarUtility,
+                    isActive: didCopyLineage,
+                    helpText: "Copy lineage JSON",
+                    accessibilityLabel: didCopyLineage ? "Copied lineage JSON" : "Copy lineage JSON"
+                ) {
                     copyLineageExport()
-                } label: {
-                    Label(
-                        didCopyLineage ? "Copied" : "Copy lineage",
-                        systemImage: didCopyLineage ? "checkmark" : "doc.on.doc"
-                    )
-                        .labelStyle(.iconOnly)
                 }
-                .buttonStyle(.borderless)
-                .help("Copy lineage JSON")
-                .accessibilityLabel(didCopyLineage ? "Copied lineage JSON" : "Copy lineage JSON")
             }
 
             metadataGrid
 
-            Divider()
+            Color.clear.frame(height: 2)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Claims")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                 if packet.activeClaims.isEmpty {
                     Text("No active provenance claims.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                 } else {
                     ForEach(displayedClaims, id: \.id) { claim in
                         ClaimLineageRow(claim: claim, packetID: packet.id)
@@ -278,7 +285,7 @@ private struct VRMLineageCard: View {
                     if omittedClaimCount > 0 {
                         Text("\(omittedClaimCount) additional claims omitted from display.")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
                     }
                 }
             }
@@ -306,7 +313,7 @@ private struct VRMLineageCard: View {
     private func metadataRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(mutedTint)
                 .frame(width: 72, alignment: .leading)
             Text(VRMLineageDisplayBounds.metadata(value))
                 .lineLimit(2)
@@ -338,6 +345,12 @@ private struct ClaimLineageRow: View {
     let claim: Claim
     let packetID: String
 
+    @Environment(UIState.self) private var ui
+
+    private var mutedTint: Color {
+        ui.theme.resolved.mutedForeground.color
+    }
+
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Circle()
@@ -349,22 +362,22 @@ private struct ClaimLineageRow: View {
                         .font(.caption.weight(.semibold))
                     Text(claim.status.rawValue)
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                     if claim.isVerifiedByAnchor(forPacketID: packetID) {
                         Image(systemName: "link")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
                             .accessibilityLabel("Packet-bound verification anchor")
                     } else if claim.hasUasAddress {
                         Image(systemName: "number")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
                             .accessibilityLabel("UAS address")
                     }
                 }
                 Text(VRMLineageDisplayBounds.claimText(claim.text))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                     .lineLimit(3)
             }
         }
@@ -372,9 +385,12 @@ private struct ClaimLineageRow: View {
 
     private var statusTint: Color {
         switch claim.status {
-        case .active: return .green
-        case .atRisk, .needsRevalidation: return .orange
-        case .retracted: return .red
+        case .active:
+            return ui.theme.resolved.accent.color
+        case .atRisk, .needsRevalidation:
+            return ui.theme.resolved.headingAccent.color
+        case .retracted:
+            return ui.theme.resolved.mutedForeground.color
         }
     }
 }
