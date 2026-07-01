@@ -5801,6 +5801,24 @@ function applyFormValidationSurfaces() {
   );
   source = replaceRequired(
     source,
+    'session action json string token',
+    'className="min-w-0 text-emerald-700 dark:text-emerald-300 break-all"',
+    'className="min-w-0 break-all text-text-primary"'
+  );
+  source = replaceRequired(
+    source,
+    'session action json number token',
+    'className="text-purple-700 dark:text-purple-300"',
+    'className="text-[var(--epistemos-accent)]"'
+  );
+  source = replaceRequired(
+    source,
+    'session action json boolean token',
+    'className="text-amber-700 dark:text-amber-300"',
+    'className="text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
     'session action json tree indent surface',
     'className="ml-3 border-l border-border-primary/70 pl-3"',
     'className="ml-3 rounded-[8px] bg-background-secondary/40 px-3 py-1"'
