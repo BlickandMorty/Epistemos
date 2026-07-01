@@ -101,7 +101,7 @@ test-linking condition, not the shipped MAS parser state.
    reservation has a hard attempt cap. Swift-side
    Foundation/file failures are mapped to bounded domain/code diagnostics before import status text, avoiding raw
    localized filesystem descriptions in the PDF import UI, with raw messages bounded before trimming and ellipsis kept
-   inside the configured cap.
+   inside the configured cap; sidebar status display values are control/whitespace-normalized before alert rendering.
 
 **★ PDF viewer + md COEXISTENCE (keep BOTH the original PDF and a parsed `.md`) `[VERIFIED-CODE]`:**
 - **Data model, ZERO migration:** on import, Plan 3 writes the **original `.pdf`** into `<vault>/Imported PDFs/` and a

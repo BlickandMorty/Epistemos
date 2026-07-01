@@ -24,7 +24,8 @@
   `.notWired`. Swift-side Foundation/file failures are mapped to bounded domain/code diagnostics before reaching import
   status text, so raw localized filesystem descriptions are not displayed; raw messages are bounded before trimming and
   ellipsis stays inside the configured cap. The sidebar status alert caps each file line, caps the total status string,
-  and reports an overflow marker instead of rendering unbounded bulk-import output.
+  control/whitespace-normalizes sidebar status display values before alert rendering, and reports an overflow marker
+  instead of rendering unbounded bulk-import output.
 - **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs source validation and file materialization off
   the main actor, copies the original `.pdf` into `<vault>/Imported PDFs/` with the paired basename, runs the parser
   against that copied vault PDF path, then writes the parsed `.md` beside it and records `source_kind=pdf` plus

@@ -118,7 +118,7 @@ struct LiteParsePDFImportButton: View {
 
     private static func displayName(_ raw: String, fallback: String = "PDF") -> String {
         let bounded = String(raw.prefix(maxFileNameDisplayCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? fallback : trimmed
         guard value.count > maxFileNameDisplayCharacters else { return value }
         return String(value.prefix(maxFileNameDisplayCharacters - 3)) + "..."
@@ -129,15 +129,61 @@ struct LiteParsePDFImportButton: View {
     }
 
     private static func boundedStatusMessage(_ message: String) -> String {
-        bounded(message, limit: maxStatusMessageCharacters, fallback: "PDF import status unavailable.")
+        boundedStatusMessageText(message, limit: maxStatusMessageCharacters, fallback: "PDF import status unavailable.")
     }
 
     private static func bounded(_ raw: String, limit: Int, fallback: String) -> String {
         let bounded = String(raw.prefix(limit + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? fallback : trimmed
         guard value.count > limit else { return value }
         guard limit > 3 else { return String(value.prefix(limit)) }
         return String(value.prefix(limit - 3)) + "..."
+    }
+
+    private static func boundedStatusMessageText(_ raw: String, limit: Int, fallback: String) -> String {
+        let bounded = String(raw.prefix(limit + 32))
+        let trimmed = normalizedStatusMessageText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > limit else { return value }
+        guard limit > 3 else { return String(value.prefix(limit)) }
+        return String(value.prefix(limit - 3)) + "..."
+    }
+
+    private static func normalizedDisplayText(_ value: String) -> String {
+        normalizedDisplayText(value, preservesLineBreaks: false)
+    }
+
+    private static func normalizedStatusMessageText(_ value: String) -> String {
+        normalizedDisplayText(value, preservesLineBreaks: true)
+    }
+
+    private static func normalizedDisplayText(_ value: String, preservesLineBreaks: Bool) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasInlineSeparator = false
+        var previousWasLineBreak = false
+        for scalar in value.unicodeScalars {
+            if preservesLineBreaks, CharacterSet.newlines.contains(scalar) {
+                if !previousWasLineBreak {
+                    normalized.append("\n")
+                }
+                previousWasLineBreak = true
+                previousWasInlineSeparator = false
+            } else if CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            {
+                if !previousWasInlineSeparator {
+                    normalized.append(" ")
+                    previousWasInlineSeparator = true
+                }
+                previousWasLineBreak = false
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasInlineSeparator = false
+                previousWasLineBreak = false
+            }
+        }
+        return normalized
     }
 }
