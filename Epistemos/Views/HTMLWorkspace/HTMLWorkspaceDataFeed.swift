@@ -24,7 +24,7 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
         self.pageID = pageID
         self.title = title
         self.snippet = snippet
-        self.rank = rank
+        self.rank = rank.isFinite ? rank : 0
         self.contextKind = Self.normalizedContextKind(contextKind)
         self.sourceLabel = Self.normalizedNonEmpty(sourceLabel, default: "Vault search result")
         self.provenance = Self.normalizedNonEmpty(provenance, default: HTMLWorkspaceDataFeedJSONEnvelope.provenance)

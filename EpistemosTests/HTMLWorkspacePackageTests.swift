@@ -279,6 +279,33 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(envelope.results.map(\.provenance) == ["CaptureStore", HTMLWorkspaceDataFeedJSONEnvelope.provenance])
     }
 
+    @Test("HTMLWorkspace data feed normalizes non-finite ranks before JSON encoding")
+    func dataFeedNormalizesNonFiniteRanksBeforeJSONEncoding() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "rank context", limit: 1)
+        let rendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            contextResults: [
+                HTMLWorkspaceDataFeedResult(
+                    pageID: "note-rank",
+                    title: "Rank Note",
+                    snippet: "rank snippet",
+                    rank: .nan,
+                    contextKind: "note",
+                    sourceLabel: "Note",
+                    provenance: "SDPage"
+                ),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_008),
+            requiredContextKind: "note"
+        )
+
+        #expect(!rendered.contains("data feed encoding failed"))
+        let envelope = try JSONDecoder().decode(HTMLWorkspaceDataFeedEnvelope.self, from: Data(rendered.utf8))
+        #expect(envelope.results.first?.rank == 0)
+        #expect(envelope.epistemos.provenance == "HTMLWorkspaceDataFeedContextSources.note")
+        #expect(envelope.epistemos.status == "fresh")
+    }
+
     @Test("HTMLWorkspace data feed records unavailable required context without relabeling results")
     func dataFeedRecordsUnavailableRequiredContextWithoutRelabelingResults() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "recent captures project", limit: 2)
