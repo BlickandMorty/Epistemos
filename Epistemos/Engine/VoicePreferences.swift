@@ -17,7 +17,7 @@ import SwiftUI
 //      speaking" pause vs require explicit Stop tap)
 //   4. Brain-dump dictation auto-launch on hotkey
 //   5. Retired per-model voice routing preference kept for defaults
-//      migration only; live TTS uses the system default voice.
+//      migration only; shipped TTS is Kokoro-only and honestly gated.
 //
 // Persistence: UserDefaults under the
 // `com.epistemos.voice.*` namespace so other parts of the app can
@@ -70,8 +70,7 @@ public enum VoicePreferenceKeys {
     public static let brainDumpHotkeyDictate =
         "com.epistemos.voice.brainDumpHotkeyDictate"
 
-    /// Retired per-model voice persona preference. Live TTS uses the user's
-    /// chosen system default voice.
+    /// Retired per-model voice persona preference. Shipped TTS is Kokoro-only.
     public static let perModelVoicePersona =
         "com.epistemos.voice.perModelVoicePersona"
 
@@ -167,11 +166,11 @@ public final class VoicePreferences {
             """
         case VoicePreferenceKeys.perModelVoicePersona:
             return """
-            Auto mode uses each model's bound voice persona (set per-model in Model Profile → Voice). Manual mode forces all TTS to use the system default voice regardless of which model produced the response.
+            This legacy preference is kept for migration only. Shipped text-to-speech is Kokoro-only and remains unavailable until the native Kokoro synthesis engine is wired.
             """
         case VoicePreferenceKeys.quickCaptureReadBack:
             return """
-            Auto mode reads each completed sentence aloud as you pause typing in Quick Capture — a hands-free 'hear it back' loop. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Note: this uses the Apple system voice (no neural TTS yet).
+            Auto mode will read each completed sentence aloud as you pause typing in Quick Capture once native Kokoro synthesis is wired. Manual mode keeps read-back opt-in via the speaker button. Manual is the conservative default. Apple AVSpeech is not used as a fallback.
             """
         default:
             return ""

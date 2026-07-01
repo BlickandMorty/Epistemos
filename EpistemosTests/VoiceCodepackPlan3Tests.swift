@@ -251,6 +251,7 @@ struct VoiceCodepackPlan3Tests {
     @Test("voice settings surface uses native controls and theme tint")
     func voiceSettingsSurfaceUsesNativeControlsAndThemeTint() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
+        let preferences = try loadMirroredSourceTextFile("Epistemos/Engine/VoicePreferences.swift")
 
         #expect(settings.contains("@Environment(UIState.self)"))
         #expect(settings.contains("ToolbarCapsuleButton("))
@@ -263,6 +264,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(!settings.contains(".foregroundStyle(.secondary)"))
         #expect(!settings.contains(".buttonStyle(.borderless)"))
         #expect(!settings.contains("Color.secondary.opacity"))
+        #expect(preferences.contains("shipped TTS is Kokoro-only"))
+        #expect(preferences.contains("Apple AVSpeech is not used as a fallback"))
+        #expect(!preferences.contains("Apple " + "system voice"))
+        #expect(!preferences.contains("system " + "default voice"))
     }
 
     @Test("model voice picker exposes Personal Voice access on native theme chrome")
