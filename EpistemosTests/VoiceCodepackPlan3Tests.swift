@@ -28,6 +28,7 @@ struct VoiceCodepackPlan3Tests {
             "Pro-only Voice settings section",
             "Pro neural voice",
             "Readiness rejects symlink-routed or non-regular model artifacts",
+            "Pro Kokoro gate, settings presentation, and checked package install/removal",
             "[DONE] Patch the AVSpeech preferred voice floor",
             "[DONE] Wire or remove `agentResponseTTS`",
             "[DONE] Add `LiveVoiceInputService`",
@@ -420,6 +421,27 @@ struct VoiceCodepackPlan3Tests {
         #expect(!installer.contains("Process("))
         #expect(!installer.contains("NSTask"))
         #expect(!installer.contains("Python"))
+    }
+
+    @Test("voice live smoke exercises Kokoro checked package install removal")
+    func voiceLiveSmokeExercisesKokoroCheckedPackageInstallRemoval() throws {
+        let smoke = try loadMirroredSourceTextFile("scripts/voice-live-smoke.swift")
+
+        for required in [
+            "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
+            "InstallerTarget",
+            "KokoroVoicePackageInstaller.installCheckedPackage",
+            "from: modelDirectory",
+            "modelRoot: installerTargetRoot",
+            "installed.status.state == .packageReady",
+            "KokoroVoicePackageInstaller.removeInstalledPackage",
+            "removed.status.state == .missingModel",
+            "!FileManager.default.fileExists(atPath: installedModelPath)",
+            "KokoroVoicePackageInstaller.statusMessage(for: error)",
+            "kokoro_installer=true"
+        ] {
+            #expect(smoke.contains(required), "voice live smoke missing Kokoro installer guard: \(required)")
+        }
     }
 
     @Test("Kokoro Pro settings presentation falls back to Apple voice while gate is missing")

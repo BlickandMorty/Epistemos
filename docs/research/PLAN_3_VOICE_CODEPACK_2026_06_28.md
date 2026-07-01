@@ -61,6 +61,9 @@
   settings row reports `packageReady`; the same Pro settings row can remove the installed local package and return the
   gate to missing-model status without enabling the neural runtime. There is still no committed Kokoro model asset,
   neural inference runtime, Python, subprocess, network downloader, or MAS-visible Kokoro row.
+- **Voice live smoke covers Pro Kokoro gate, settings presentation, and checked package install/removal:** the bounded
+  operator smoke now exercises the checked installer stage, gate-backed removal, and runtime-disabled `packageReady`
+  presentation without enabling neural inference.
 
 ## Delivered MAS-safe fixes
 1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
@@ -117,6 +120,8 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
   with theme-derived badge tints and shared native capsule install/remove/refresh chrome.
 - `Epistemos/VoicePro/KokoroVoicePackageInstaller.swift` — Pro-only local checked-package installer/remover with symlink
   descendant rejection, staged copy, backup/restore finalization, gate-backed removal, and bounded status diagnostics.
+- `scripts/voice-live-smoke.swift` — bounded operator smoke for transcript/status helpers plus the Pro Kokoro gate,
+  settings presentation, and checked package install/removal without enabling the neural runtime.
 - `EpistemosTests/VoiceCodepackPlan3Tests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade,
   Pro Kokoro status/install/remove UI, and no Kokoro/MAS subprocess leakage.
 

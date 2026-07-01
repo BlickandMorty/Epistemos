@@ -126,13 +126,36 @@ enum VoiceLiveSmoke {
               packageReadyPresentation.badgeTitle == "Package ready" else {
             fail("Kokoro Pro presentation did not keep AVSpeech selected while neural inference is deferred")
         }
+
+        let installerTargetRoot = root.appendingPathComponent("InstallerTarget", isDirectory: true)
+        do {
+            let installed = try KokoroVoicePackageInstaller.installCheckedPackage(
+                from: modelDirectory,
+                modelRoot: installerTargetRoot
+            )
+            guard installed.status.state == .packageReady, !installed.status.isReady else {
+                fail("Kokoro installer did not stage a checked package without enabling runtime: \(installed.status.detail)")
+            }
+            let removed = try KokoroVoicePackageInstaller.removeInstalledPackage(modelRoot: installerTargetRoot)
+            guard removed.status.state == .missingModel, !removed.status.isReady else {
+                fail("Kokoro installer removal did not return to missing-model gate status: \(removed.status.detail)")
+            }
+            let installedModelPath = installerTargetRoot
+                .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+                .path
+            guard !FileManager.default.fileExists(atPath: installedModelPath) else {
+                fail("Kokoro installer removal left the local model package behind")
+            }
+        } catch {
+            fail("Kokoro installer install/remove smoke failed: \(KokoroVoicePackageInstaller.statusMessage(for: error))")
+        }
         #endif
 
         if #available(macOS 26.0, *) {
             let readiness = await EpistemosSpeechAnalyzer.shared.readiness()
-            print("voice live smoke OK: helper_bounds=true kokoro_gate=true kokoro_pro_settings=true speech_readiness=\(readiness)")
+            print("voice live smoke OK: helper_bounds=true kokoro_gate=true kokoro_pro_settings=true kokoro_installer=true speech_readiness=\(readiness)")
         } else {
-            print("voice live smoke OK: helper_bounds=true kokoro_gate=true kokoro_pro_settings=true speech_readiness=macos_26_required")
+            print("voice live smoke OK: helper_bounds=true kokoro_gate=true kokoro_pro_settings=true kokoro_installer=true speech_readiness=macos_26_required")
         }
     }
 
