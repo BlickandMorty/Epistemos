@@ -69,4 +69,16 @@ nonisolated struct MarkEditCoreEditorBuildTests {
             .filter { $0.hasPrefix("/chunk-loader/chunks/") }
             .map { String($0.dropFirst("/chunk-loader/".count)) }
     }
+
+    private var repoRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func repoFileExists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(
+            atPath: repoRootURL.appendingPathComponent(relativePath).path
+        )
+    }
 }
