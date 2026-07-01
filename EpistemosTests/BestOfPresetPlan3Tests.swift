@@ -26,7 +26,7 @@ struct BestOfPresetPlan3Tests {
             "cap request bodies at 8 MiB",
             "registry display fields raw-capped and control-stripped",
             "raw failure/domain strings and success-message display names\nbounded and control/whitespace-normalized",
-            "raw listener/domain strings bounded and control/whitespace-normalized before trim/validation",
+            "raw listener/domain strings and protocol diagnostic strings bounded and control/whitespace-normalized before trim/validation",
         ] {
             #expect(capability.contains(required), "Capability doc missing shipped extensibility state: \(required)")
         }
@@ -127,7 +127,7 @@ struct BestOfPresetPlan3Tests {
             "ChatToolTier.readOnly",
             "Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap",
             "requires a JSON-RPC 2.0 object envelope",
-            "Swift method/tool protocol diagnostics bound raw strings before trimming",
+            "Swift method/tool protocol diagnostics bound and control/whitespace-normalize raw strings before trimming",
             "bounds and control/whitespace-normalizes raw listener/domain strings before",
         ] {
             #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")

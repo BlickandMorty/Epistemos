@@ -39,7 +39,7 @@ When the host supplies `VaultMCPRustResourceDispatcher`, `resources/list` and `r
 `MCPDispatcher.dispatch()` path after `set_vault_root`, giving the app-hosted HTTP server byte-parity with the stdio MCP
 resource server while preserving the Swift read-only tool allowlist for `tools/call`. Swift still bounds the JSON-RPC
 request id before resource delegation, so delegated responses cannot be forced to echo an oversized client id through the
-Rust parity path. Swift method/tool protocol diagnostics bound raw strings before trimming and cap ellipsis output inside
+Rust parity path. Swift method/tool protocol diagnostics bound and control/whitespace-normalize raw strings before trimming and cap ellipsis output inside
 the advertised diagnostic budget. Rust resource reads now match the Swift fallback contract: Markdown-only, regular-file context, 8 MiB
 cap, invalid UTF-8 rejection, and hidden/symlinked resource refusal.
 

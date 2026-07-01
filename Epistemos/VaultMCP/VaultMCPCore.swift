@@ -674,7 +674,7 @@ nonisolated struct VaultMCPCore {
 
     private static func protocolDiagnostic(_ value: String) -> String {
         let bounded = String(value.prefix(maxProtocolDiagnosticCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedProtocolText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let fallback = trimmed.isEmpty ? "[empty]" : trimmed
         guard fallback.count > maxProtocolDiagnosticCharacters else {
             return fallback
@@ -684,7 +684,7 @@ nonisolated struct VaultMCPCore {
 
     private static func boundedProtocolInput(_ value: String) -> String {
         let bounded = String(value.prefix(maxProtocolDiagnosticCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedProtocolText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > maxProtocolDiagnosticCharacters else {
             return trimmed
         }
@@ -693,12 +693,32 @@ nonisolated struct VaultMCPCore {
 
     private static func protocolErrorMessage(_ value: String) -> String {
         let bounded = String(value.prefix(maxProtocolErrorMessageCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedProtocolText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         let message = trimmed.isEmpty ? "request failed" : trimmed
         guard message.count > maxProtocolErrorMessageCharacters else {
             return message
         }
         return String(message.prefix(maxProtocolErrorMessageCharacters - 3)) + "..."
+    }
+
+    private static func normalizedProtocolText(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 
     private static func jsonRPC(_ object: [String: Any]) -> String {

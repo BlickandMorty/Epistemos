@@ -337,12 +337,21 @@ struct VaultMCPCoreTests {
         let pathError = try #require(try Self.jsonObject(pathResponse)["error"] as? [String: Any])
         let pathMessage = try #require(pathError["message"] as? String)
 
+        let controlToolResponse = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"vault.read\nbad\ttool\u0007","arguments":{}}}"#)
+        let controlToolError = try #require(try Self.jsonObject(controlToolResponse)["error"] as? [String: Any])
+        let controlToolMessage = try #require(controlToolError["message"] as? String)
+
         #expect(methodMessage.count <= VaultMCPCore.maxProtocolErrorMessageCharacters)
         #expect(methodMessage.contains(longMethod) == false)
         #expect(toolMessage.count <= VaultMCPCore.maxProtocolErrorMessageCharacters)
         #expect(toolMessage.contains("read-only vault server"))
         #expect(toolMessage.contains(longTool) == false)
         #expect(pathMessage == "vault resource path is too long")
+        #expect(controlToolMessage.contains("vault.read bad tool"))
+        #expect(!controlToolMessage.contains("\n"))
+        #expect(!controlToolMessage.contains("\t"))
+        #expect(!controlToolMessage.contains("\u{0007}"))
         #expect(await recorder.snapshot().isEmpty)
     }
 
@@ -596,6 +605,7 @@ struct VaultMCPCoreTests {
         #expect(source.contains("maxJSONRPCIDStringLength"))
         #expect(source.contains("String(value.prefix(maxProtocolDiagnosticCharacters + 32))"))
         #expect(source.contains("String(value.prefix(maxProtocolErrorMessageCharacters + 32))"))
+        #expect(source.contains("normalizedProtocolText(bounded)"))
         #expect(source.contains("maxProtocolDiagnosticCharacters - 3"))
         #expect(source.contains("maxProtocolErrorMessageCharacters - 3"))
         #expect(source.contains("request[\"jsonrpc\"] as? String == \"2.0\""))
