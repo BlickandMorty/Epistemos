@@ -179,6 +179,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
 
         switch name {
+        case "reactReady":
+            return true
         case "showOpenDialog":
             return runOpenDialog(options: dictionaryArgument(args, at: 0) ?? [:])
         case "showSaveDialog":

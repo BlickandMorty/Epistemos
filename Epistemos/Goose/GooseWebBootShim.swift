@@ -90,7 +90,7 @@ enum GooseWebBootShim {
         "setSetting": .implementedNative,
         "platform": .implementedNative,
         "window.open": .implementedNative,
-        "reactReady": .compatibilityPreserved,
+        "reactReady": .implementedNative,
         "on": .compatibilityPreserved,
         "off": .compatibilityPreserved,
         "emit": .compatibilityPreserved,
@@ -596,7 +596,7 @@ enum GooseWebBootShim {
           Object.defineProperties(electron, {
             platform: { configurable: true, value: epistemosGoose.platform },
             arch: { configurable: true, value: epistemosGoose.arch },
-            reactReady: { configurable: true, value: noop },
+            reactReady: { configurable: true, value: () => postNativeAffordance('reactReady') },
             getGoosedHostPort: { configurable: true, value: async () => epistemosGoose.baseURL },
             getSecretKey: { configurable: true, value: async () => epistemosGoose.secretKey },
             getAcpUrl: { configurable: true, value: async () => epistemosGoose.acpUrl },

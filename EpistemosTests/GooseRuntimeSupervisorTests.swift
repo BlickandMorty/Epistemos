@@ -1746,6 +1746,7 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["getGoosedHostPort"] == .implementedRuntime)
         #expect(ledger["getSecretKey"] == .implementedRuntime)
         #expect(ledger["getAcpUrl"] == .implementedRuntime)
+        #expect(ledger["reactReady"] == .implementedNative)
         #expect(ledger["getConfig"] == .implementedNative)
         #expect(ledger["getSetting"] == .implementedNative)
         #expect(ledger["setSetting"] == .implementedNative)
@@ -1805,6 +1806,7 @@ struct GooseWebViewBootShimTests {
 
         #expect(script.contains("postNativeAffordance"))
         #expect(script.contains("requestNativeAffordance"))
+        #expect(script.contains("postNativeAffordance('reactReady')"))
         #expect(script.contains("postNativeAffordance('showOpenDialog', [options])"))
         #expect(script.contains("postNativeAffordance('showSaveDialog', [options])"))
         #expect(script.contains("postNativeAffordance('directoryChooser')"))
@@ -2515,6 +2517,7 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(try bridge.handleAffordance(name: "getDockIconState", args: []) as? Bool == true)
         #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
         #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == true)
+        #expect(try bridge.handleAffordance(name: "reactReady", args: []) as? Bool == true)
         #expect((try bridge.handleAffordance(name: "checkForOllama", args: []) as? Bool) != nil)
         #expect(try bridge.handleAffordance(name: "getAllowedExtensions", args: []) as? [String] == [])
         #expect((try bridge.handleAffordance(name: "setWindowTitle", args: ["Epistemos Goose"]) as? Bool) != nil)
