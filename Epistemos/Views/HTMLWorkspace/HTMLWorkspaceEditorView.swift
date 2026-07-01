@@ -1844,6 +1844,7 @@ struct HTMLWorkspaceEditorView: View {
             return
         }
         do {
+            clearPendingRegeneratePreview()
             package = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: name), to: package)
             previewPackage = package
             liveDOMSnapshot = nil

@@ -541,13 +541,16 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         let configureStart = try #require(editor.range(of: "private func configureVaultSearchFeed()"))
         let clearFeedStart = try #require(editor.range(of: "private func clearVaultSearchFeed()"))
         let clearConsoleStart = try #require(editor.range(of: "private func clearConsole()"))
+        let restoreStart = try #require(editor.range(of: "private func restorePreviousSurface()"))
+        let bridgeStart = try #require(editor.range(of: "private func testAppBridge()"))
         let refresh = String(editor[refreshStart.lowerBound..<clearStart.lowerBound])
         let clearContext = String(editor[clearStart.lowerBound..<focusStart.lowerBound])
         let preset = String(editor[presetStart.lowerBound..<attachStart.lowerBound])
         let configureFeed = String(editor[configureStart.lowerBound..<clearFeedStart.lowerBound])
         let clearFeed = String(editor[clearFeedStart.lowerBound..<clearConsoleStart.lowerBound])
+        let restore = String(editor[restoreStart.lowerBound..<bridgeStart.lowerBound])
 
-        for body in [refresh, clearContext, preset, configureFeed, clearFeed] {
+        for body in [refresh, clearContext, preset, configureFeed, clearFeed, restore] {
             #expect(body.contains("clearPendingRegeneratePreview()"))
         }
     }
