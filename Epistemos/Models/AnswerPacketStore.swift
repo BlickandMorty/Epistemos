@@ -52,7 +52,7 @@ nonisolated public struct AnswerPacketStore: Sendable {
         guard limit > 0,
               let raw = try readStoreFileText() else { return [] }
         let decoder = JSONDecoder()
-        let chronological = raw.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
+        let chronological = raw.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line -> AnswerPacket? in
             guard let packet = try? decoder.decode(AnswerPacket.self, from: Data(line.utf8)) else {
                 return nil
             }
