@@ -189,7 +189,6 @@ enum GooseWebBootShim {
           const maxNativeBridgePayloadBytes = 16 * 1024 * 1024;
           const maxNativePromptPayloadBytes = 1024 * 1024;
           const maxNativeAffordanceNameCharacters = 96;
-          const appsStorageKey = 'epistemos.goose.importedApps';
           const maxImportedApps = 32;
           const maxImportedAppHtmlBytes = 16 * 1024 * 1024;
           const maxImportedAppNameCharacters = 128;
@@ -227,9 +226,9 @@ enum GooseWebBootShim {
               .slice(0, maxImportedAppNameCharacters);
             return normalized || 'Imported app';
           };
-          const loadImportedApps = () => {
+          const loadImportedApps = async () => {
             try {
-              const parsed = JSON.parse(localStorage.getItem(appsStorageKey) || '[]');
+              const parsed = await postNativeAffordance('listImportedApps');
               if (!Array.isArray(parsed)) return [];
               return parsed.filter((app) =>
                 app &&
@@ -243,9 +242,10 @@ enum GooseWebBootShim {
               return [];
             }
           };
-          const saveImportedApps = (apps) => {
+          const saveImportedApps = async (apps) => {
             try {
-              localStorage.setItem(appsStorageKey, JSON.stringify(apps.slice(-maxImportedApps)));
+              const saved = await postNativeAffordance('saveImportedApps', [apps.slice(-maxImportedApps)]);
+              if (!saved) throw new Error('native store rejected imported apps');
             } catch (error) {
               throw appBridgeError(`could not persist imported app: ${consoleString(error)}`);
             }
@@ -295,16 +295,16 @@ enum GooseWebBootShim {
             };
           };
           const epistemosGooseApps = Object.freeze({
-            listApps: async () => ({ apps: loadImportedApps() }),
+            listApps: async () => ({ apps: await loadImportedApps() }),
             importApp: async (html) => {
               const nextApp = buildImportedApp(html);
-              const apps = loadImportedApps().filter((app) => app.name !== nextApp.name);
+              const apps = (await loadImportedApps()).filter((app) => app.name !== nextApp.name);
               apps.push(nextApp);
-              saveImportedApps(apps);
+              await saveImportedApps(apps);
               return { name: nextApp.name, message: `Imported ${nextApp.name}` };
             },
             exportApp: async (name) => {
-              const app = loadImportedApps().find((entry) => entry.name === name);
+              const app = (await loadImportedApps()).find((entry) => entry.name === name);
               if (!app?.text) {
                 throw appBridgeError(`no imported app named ${name}`);
               }

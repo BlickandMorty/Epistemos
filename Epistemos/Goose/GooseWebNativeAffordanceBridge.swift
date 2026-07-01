@@ -40,6 +40,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeSettingsEntries = 512
     nonisolated static let maxNativeSettingDepth = 32
     nonisolated static let maxNativeSettingCollectionEntries = 4_096
+    nonisolated static let maxImportedApps = 32
+    nonisolated static let maxImportedAppsStoreBytes = 64 * 1024 * 1024
+    nonisolated static let maxImportedAppHTMLBytes = 16 * 1024 * 1024
+    nonisolated static let maxImportedAppNameCharacters = 128
+    nonisolated static let maxImportedAppsCollectionEntries = 4_096
     nonisolated static let maxRecipeHashInputBytes = 1 * 1024 * 1024
     nonisolated static let maxRecipeHashDepth = 32
     nonisolated static let maxRecipeHashCollectionEntries = 4_096
@@ -72,6 +77,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private let fileManager: FileManager
     private let applicationSupportRoot: URL
     private let recentDirsURL: URL
+    private let importedAppsURL: URL
     private let recipeHashesRoot: URL
     private let preferences: UserDefaults
     private let maxAppWindowCount: Int
@@ -105,6 +111,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         self.recentDirsURL = root
             .appendingPathComponent("recent-dirs", isDirectory: true)
             .appendingPathComponent("recent-dirs.json", isDirectory: false)
+        self.importedAppsURL = root
+            .appendingPathComponent("imported-apps", isDirectory: true)
+            .appendingPathComponent("apps.json", isDirectory: false)
         self.recipeHashesRoot = root.appendingPathComponent("recipe-hashes", isDirectory: true)
         let configuredFileRoots = initialScopedFileRoots ?? [fileManager.homeDirectoryForCurrentUser]
         let rootPaths = [
@@ -293,6 +302,13 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return setNativeSetting(args[1], forKey: key)
+        case "listImportedApps":
+            return listImportedApps()
+        case "saveImportedApps":
+            guard let apps = args.first as? [[String: Any]] else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return try saveImportedApps(apps)
         case "setMenuBarIcon":
             guard let show = boolArgument(args.first) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -1432,6 +1448,141 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return nil
         }
         return String(data: data, encoding: .utf8)
+    }
+
+    private func listImportedApps() -> [[String: Any]] {
+        guard let data = try? Self.readImportedAppsFile(importedAppsURL),
+              let rawApps = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+        return Self.sanitizedImportedApps(rawApps)
+    }
+
+    private func saveImportedApps(_ rawApps: [[String: Any]]) throws -> Bool {
+        let apps = Self.sanitizedImportedApps(rawApps)
+        guard GooseNativeJSONSizeBudget.permits(
+            apps,
+            maxBytes: Self.maxImportedAppsStoreBytes,
+            maxDepth: Self.maxNativeSettingDepth,
+            maxCollectionEntries: Self.maxImportedAppsCollectionEntries
+        ) else {
+            throw GooseWebNativeAffordanceBridgeError.disallowed("imported apps store over size limit")
+        }
+        let data = try JSONSerialization.data(withJSONObject: apps, options: [.sortedKeys])
+        guard data.count <= Self.maxImportedAppsStoreBytes else {
+            throw GooseWebNativeAffordanceBridgeError.disallowed("imported apps store over size limit")
+        }
+        try fileManager.createDirectory(
+            at: importedAppsURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: importedAppsURL, options: [.atomic])
+        return true
+    }
+
+    nonisolated private static func readImportedAppsFile(_ url: URL) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer {
+            try? handle.close()
+        }
+        let data = try handle.read(upToCount: maxImportedAppsStoreBytes + 1) ?? Data()
+        guard data.count <= maxImportedAppsStoreBytes else {
+            throw GooseWebNativeAffordanceBridgeError.disallowed("imported apps store over size limit")
+        }
+        return data
+    }
+
+    nonisolated static func sanitizedImportedApps(_ rawApps: [[String: Any]]) -> [[String: Any]] {
+        Array(rawApps.compactMap(sanitizedImportedApp).suffix(maxImportedApps))
+    }
+
+    nonisolated private static func sanitizedImportedApp(_ rawApp: [String: Any]) -> [String: Any]? {
+        guard let uri = boundedImportedAppString(rawApp["uri"], maxCharacters: maxAllowedExtensionsURLCharacters),
+              let name = boundedImportedAppString(rawApp["name"], maxCharacters: maxImportedAppNameCharacters),
+              let text = boundedImportedAppString(rawApp["text"], maxBytes: maxImportedAppHTMLBytes),
+              importedAppMCPServers(rawApp["mcpServers"]).contains("apps") else {
+            return nil
+        }
+
+        var app: [String: Any] = [
+            "uri": uri,
+            "name": name,
+            "text": text,
+            "mcpServers": ["apps"],
+        ]
+        if let description = boundedImportedAppString(rawApp["description"], maxCharacters: 512) {
+            app["description"] = description
+        }
+        if let mimeType = boundedImportedAppString(rawApp["mimeType"], maxCharacters: 128) {
+            app["mimeType"] = mimeType
+        }
+        if let width = importedAppPositiveInt(rawApp["width"]) {
+            app["width"] = width
+        }
+        if let height = importedAppPositiveInt(rawApp["height"]) {
+            app["height"] = height
+        }
+        if let resizable = rawApp["resizable"] as? Bool {
+            app["resizable"] = resizable
+        } else if let resizable = rawApp["resizable"] as? NSNumber {
+            app["resizable"] = resizable.boolValue
+        }
+        if let meta = rawApp["_meta"] as? [String: Any],
+           GooseNativeJSONSizeBudget.permits(
+               meta,
+               maxBytes: 16 * 1024,
+               maxDepth: 8,
+               maxCollectionEntries: 256
+           ) {
+            app["_meta"] = meta
+        }
+        return app
+    }
+
+    nonisolated private static func boundedImportedAppString(
+        _ value: Any?,
+        maxCharacters: Int
+    ) -> String? {
+        guard let text = value as? String else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated private static func boundedImportedAppString(
+        _ value: Any?,
+        maxBytes: Int
+    ) -> String? {
+        guard let text = value as? String,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              text.utf8.count <= maxBytes,
+              !text.utf8.contains(0) else {
+            return nil
+        }
+        return text
+    }
+
+    nonisolated private static func importedAppMCPServers(_ value: Any?) -> [String] {
+        guard let values = value as? [Any] else { return [] }
+        return values.compactMap { $0 as? String }
+    }
+
+    nonisolated private static func importedAppPositiveInt(_ value: Any?) -> Int? {
+        let intValue: Int?
+        switch value {
+        case let value as Int:
+            intValue = value
+        case let value as NSNumber:
+            intValue = value.intValue
+        default:
+            intValue = nil
+        }
+        guard let intValue, intValue > 0, intValue <= 4_096 else { return nil }
+        return intValue
     }
 
     private func applyOpenOptions(_ options: [String: Any], to panel: NSOpenPanel) {

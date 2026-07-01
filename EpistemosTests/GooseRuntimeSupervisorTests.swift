@@ -1825,10 +1825,14 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("emitEvent('set-initial-message', initialMessage"))
         #expect(script.contains("postNativeAffordance('launchApp', [app])"))
         #expect(script.contains("const epistemosGooseApps = Object.freeze"))
-        #expect(script.contains("listApps: async () => ({ apps: loadImportedApps() })"))
+        #expect(script.contains("postNativeAffordance('listImportedApps')"))
+        #expect(script.contains("postNativeAffordance('saveImportedApps', [apps.slice(-maxImportedApps)])"))
+        #expect(script.contains("listApps: async () => ({ apps: await loadImportedApps() })"))
         #expect(script.contains("importApp: async (html) =>"))
         #expect(script.contains("exportApp: async (name) =>"))
         #expect(script.contains("apps: epistemosGooseApps"))
+        #expect(!script.contains("localStorage.getItem(appsStorageKey)"))
+        #expect(!script.contains("localStorage.setItem(appsStorageKey"))
         #expect(script.contains("postNativeAffordance('refreshApp', [app])"))
         #expect(script.contains("postNativeAffordance('closeApp', [appName])"))
         #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
@@ -2003,6 +2007,31 @@ struct GooseWebNativeAffordanceBridgeTests {
         var isDirectory: ObjCBool = false
         #expect(FileManager.default.fileExists(atPath: nested.path, isDirectory: &isDirectory))
         #expect(isDirectory.boolValue)
+
+        let importedApp: [String: Any] = [
+            "uri": "ui://epistemos/apps/tool-app",
+            "name": "Tool app",
+            "description": "Imported HTML app",
+            "mimeType": "text/html;profile=mcp-app",
+            "text": "<html><title>Tool app</title><body>OK</body></html>",
+            "width": 960,
+            "height": 720,
+            "resizable": true,
+            "mcpServers": ["apps"],
+            "_meta": ["epistemos/imported": true],
+        ]
+        #expect(try bridge.handleAffordance(name: "saveImportedApps", args: [[importedApp]]) as? Bool == true)
+        let importedApps = try #require(
+            bridge.handleAffordance(name: "listImportedApps", args: []) as? [[String: Any]]
+        )
+        #expect(importedApps.count == 1)
+        #expect(importedApps.first?["name"] as? String == "Tool app")
+        #expect(importedApps.first?["text"] as? String == importedApp["text"] as? String)
+        let reloadedBridge = GooseWebNativeAffordanceBridge(applicationSupportRoot: root)
+        let reloadedApps = try #require(
+            reloadedBridge.handleAffordance(name: "listImportedApps", args: []) as? [[String: Any]]
+        )
+        #expect(reloadedApps.first?["uri"] as? String == "ui://epistemos/apps/tool-app")
 
         let recipe: [String: Any] = ["id": "recipe.phase0", "version": 1]
         #expect(try bridge.handleAffordance(name: "hasAcceptedRecipeBefore", args: [recipe]) as? Bool == false)
