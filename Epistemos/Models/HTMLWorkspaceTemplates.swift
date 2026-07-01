@@ -533,33 +533,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return String(value || '').toLowerCase();
     }
 
-    function pinnedContextStorageKey() {
-      const meta = (HTMLWorkspace.data || {})._epistemos || {};
-      return ['epistemos:vault-dashboard:pinned', location.pathname, meta.query || document.title || 'workspace']
-        .map((part) => String(part || '').trim())
-        .join(':');
-    }
-
-    function loadPinnedContextKeys() {
-      try {
-        const parsed = JSON.parse(localStorage.getItem(pinnedContextStorageKey()) || '[]');
-        return Array.isArray(parsed)
-          ? parsed.map((key) => String(key || '').trim()).filter(Boolean).slice(0, 16)
-          : [];
-      } catch (_) {
-        return [];
-      }
-    }
-
-    function savePinnedContextKeys() {
-      try {
-        localStorage.setItem(pinnedContextStorageKey(), JSON.stringify(pinnedContextKeys.slice(0, 16)));
-      } catch (_) {}
-    }
-
     let selectedContextKind = 'all';
     let selectedResultKey = null;
-    let pinnedContextKeys = loadPinnedContextKeys();
+    let pinnedContextKeys = [];
+    const pinnedContextLimit = 16;
     const contextDragType = 'application/x-epistemos-context-key';
     const selectedDetailViews = ['summary', 'metadata'];
     const selectedDetailLabels = { summary: 'Summary', metadata: 'Metadata' };
@@ -786,14 +763,11 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       host.replaceChildren();
 
       const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
-      let didPrunePinnedContext = false;
       for (let index = pinnedContextKeys.length - 1; index >= 0; index -= 1) {
         if (!byKey.has(pinnedContextKeys[index])) {
           pinnedContextKeys.splice(index, 1);
-          didPrunePinnedContext = true;
         }
       }
-      if (didPrunePinnedContext) { savePinnedContextKeys(); }
 
       if (pinnedContextKeys.length === 0) {
         host.append(HTMLWorkspace.el('p', { class: 'empty' }, 'No pinned sources yet.'));
@@ -828,7 +802,6 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           const removeIndex = pinnedContextKeys.indexOf(key);
           if (removeIndex >= 0) {
             pinnedContextKeys.splice(removeIndex, 1);
-            savePinnedContextKeys();
           }
           renderVaultResults();
         });
@@ -847,7 +820,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     function pinContextKey(key) {
       if (key && !pinnedContextKeys.includes(key)) {
         pinnedContextKeys.push(key);
-        savePinnedContextKeys();
+        if (pinnedContextKeys.length > pinnedContextLimit) {
+          pinnedContextKeys.splice(0, pinnedContextKeys.length - pinnedContextLimit);
+        }
       }
     }
 
