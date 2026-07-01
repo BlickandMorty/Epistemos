@@ -1283,7 +1283,7 @@ struct HTMLWorkspaceEditorView: View {
             clearPendingRegeneratePreview()
             regenerateErrorText = nil
             regenerateSheetPresented = false
-            statusText = "Regenerate preview applied"
+            statusText = "Regenerate preview applied; Revert available"
         } catch {
             regenerateErrorText = error.localizedDescription
             statusText = failedStatus("Regenerate apply", error: error)
@@ -1319,7 +1319,7 @@ struct HTMLWorkspaceEditorView: View {
             clearPendingRegeneratePreview()
             regenerateErrorText = nil
             regenerateSheetPresented = false
-            statusText = "Regenerate stream applied"
+            statusText = "Regenerate stream applied; Revert available"
         } catch {
             regenerateErrorText = error.localizedDescription
             statusText = failedStatus("Regenerate apply", error: error)
