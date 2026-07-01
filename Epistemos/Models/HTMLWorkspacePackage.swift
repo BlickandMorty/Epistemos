@@ -1317,7 +1317,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: updated).utf8)
             updated.snapshots = boundedSnapshots(
                 updated.snapshots,
-                preserving: activeReversibleSnapshotNames(in: updated)
+                preserving: activeReversibleSnapshotNames(in: updated).union([name])
             )
             try HTMLWorkspacePackage.validateSnapshots(updated.snapshots)
         case .restoreSnapshot(let name):
