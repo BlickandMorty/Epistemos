@@ -866,12 +866,48 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return types.includes(contextDragType) || types.includes('text/plain');
     }
 
-    function droppedContextKey(event) {
+    function droppedContextPayload(event) {
       return String(
         event.dataTransfer?.getData(contextDragType) ||
         event.dataTransfer?.getData('text/plain') ||
         ''
       ).trim();
+    }
+
+    function droppedPayloadField(payload, fieldName) {
+      const prefix = `${fieldName}:`;
+      const line = String(payload || '')
+        .split(/\\r?\\n/)
+        .map((part) => part.trim())
+        .find((part) => part.toLowerCase().startsWith(prefix.toLowerCase()));
+      return line ? line.slice(prefix.length).trim() : '';
+    }
+
+    function contextKeyFromDroppedPayload(payload, allResults) {
+      const raw = String(payload || '').trim();
+      if (!raw) { return ''; }
+      const exact = allResults.find((result) => resultKey(result) === raw);
+      if (exact) { return resultKey(exact); }
+
+      const pageID = droppedPayloadField(raw, 'page_id');
+      const title = droppedPayloadField(raw, 'title');
+      const contextKind = droppedPayloadField(raw, 'context_kind');
+      const sourceLabel = droppedPayloadField(raw, 'source_label');
+      const provenance = droppedPayloadField(raw, 'Provenance');
+      const matches = (actual, expected) => {
+        if (!expected) { return true; }
+        const actualText = String(actual || '').trim();
+        if (actualText === expected) { return true; }
+        return expected.endsWith('...') && actualText.startsWith(expected.slice(0, -3));
+      };
+      const matched = allResults.find((result) => {
+        return matches(result.page_id, pageID)
+          && matches(result.title, title)
+          && matches(resultContextKind(result), contextKind)
+          && matches(result.source_label || 'Vault search result', sourceLabel)
+          && matches(result.provenance || 'VaultSyncService.searchFullAsync', provenance);
+      });
+      return matched ? resultKey(matched) : '';
     }
 
     function pinDroppedContextKey(key) {
@@ -883,6 +919,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       selectedResultKey = key;
       pinContextKey(key);
       renderVaultResults();
+    }
+
+    function pinDroppedContextPayload(payload) {
+      const data = HTMLWorkspace.data || {};
+      const allResults = Array.isArray(data.results) ? data.results : [];
+      const key = contextKeyFromDroppedPayload(payload, allResults);
+      pinDroppedContextKey(key);
     }
 
     function clearPinnedDropTarget() {
@@ -1020,9 +1063,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('drop', (event) => {
       if (!hasContextDrag(event)) { return; }
       event.preventDefault();
-      const key = droppedContextKey(event);
+      const payload = droppedContextPayload(event);
       clearPinnedDropTarget();
-      pinDroppedContextKey(key);
+      pinDroppedContextPayload(payload);
     });
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
