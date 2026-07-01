@@ -538,7 +538,9 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     Route names must be package-local filenames such as about.html; do not create a route named assets because site-folder export reserves routes/assets/ for mirrored package assets.
     Route pages may reference package assets with routes/assets/<name> in exported site folders and assets/<name> from the index route.
     When data.json contains an Epistemos vault_search envelope, treat it as read-only real context: build local search/filter/cards/charts/nav from those records only.
+    Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance. Keep source_label/provenance visible in generated cards, tables, charts, and detail panes.
     Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; show an honest empty or stale state when records are absent.
+    Do not infer captures, chats, graph links, folders, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
     data.json must be valid JSON.
     """
@@ -718,6 +720,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
         }
 
         lines.append("graph/captures/chats: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
+        lines.append("record_display_rule: show each attached record's source_label, context_kind, and provenance when rendering context-derived UI.")
         lines.append("grounding_rule: preserve real data provenance and avoid fabricated counts, titles, links, or relationships.")
         return lines.joined(separator: "\n")
     }

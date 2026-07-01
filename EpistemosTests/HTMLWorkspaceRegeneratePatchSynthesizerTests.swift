@@ -268,6 +268,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("vault_search.context_kinds: vault_record"))
         #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
         #expect(prompt.contains("- Research Note [page-1] Vault search result / vault_record rank 0.87: substrate provenance witness"))
+        #expect(prompt.contains("record_display_rule: show each attached record's source_label, context_kind, and provenance"))
         #expect(prompt.contains("grounding_rule: preserve real data provenance"))
 
         let emptyPrompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
@@ -363,6 +364,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("routes/assets/<name>"))
         #expect(prompt.contains("Turn this into a live explainer"))
         #expect(prompt.contains("in-surface add-context picker/filter"))
+        #expect(prompt.contains("Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance."))
+        #expect(prompt.contains("Do not infer captures, chats, graph links, folders, or record types from a title or query string."))
     }
 
     @Test("complete streamed regenerate response can preview before final apply")
