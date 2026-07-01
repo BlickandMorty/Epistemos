@@ -566,6 +566,10 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
     }
 
     func save(_ settings: BrowserUseSettings) throws {
+        if let problem = BrowserUseSettingsValidation.problem(in: settings) {
+            throw BrowserUseSettingsStoreError.invalidFile("browser-use settings invalid: \(problem)")
+        }
+
         let directory = settingsURL.deletingLastPathComponent()
         try Self.rejectSettingsSymlinkPath(at: directory, label: "directory")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

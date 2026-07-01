@@ -210,6 +210,29 @@ struct BrowserUseSettingsStoreTests {
         #expect(!json.contains("VNC_PASSWORD"))
     }
 
+    @Test("settings store rejects invalid settings before writing JSON")
+    func settingsStoreRejectsInvalidSettingsBeforeWritingJSON() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-invalid-\(UUID().uuidString)", isDirectory: true)
+        let url = directory.appendingPathComponent("settings.json", isDirectory: false)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        var settings = BrowserUseSettings.default
+        settings.browser.browserCDP = "ws://user:pass@127.0.0.1:9222/devtools/browser/session"
+
+        do {
+            try BrowserUseSettingsStore(settingsURL: url).save(settings)
+            Issue.record("Expected invalid browser-use settings to be rejected before writing JSON")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("browser-use settings invalid") == true)
+            #expect(error.errorDescription?.contains("browser CDP URL must not include username or password credentials") == true)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
     @Test("settings store rejects oversized JSON before loading")
     func settingsStoreRejectsOversizedJSONBeforeLoading() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -397,6 +420,7 @@ struct BrowserUseSettingsStoreTests {
             "data.count <= Self.maxSettingsBytes",
             "maxSecretValueBytes",
             "sanitizedSecretValue",
+            "BrowserUseSettingsValidation.problem(in: settings)",
         ] {
             #expect(source.contains(required), "Missing browser-use settings read marker: \(required)")
         }
