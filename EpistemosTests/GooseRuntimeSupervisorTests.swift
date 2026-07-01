@@ -1408,6 +1408,7 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("getSecretKey"))
         #expect(script.contains("getAcpUrl"))
         #expect(script.contains("getConfig"))
+        #expect(script.contains("postNativeAffordance('getAllowedExtensions')"))
         #expect(script.contains("appConfig"))
         #expect(script.contains("requestPermission"))
         #expect(script.contains("requestElicitation"))
@@ -1433,8 +1434,20 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("ws:\\/\\/127.0.0.1:3284\\/acp?token=secret-123"))
         #expect(script.contains("USE_ACP_CHAT"))
         #expect(script.contains("GOOSE_API_HOST"))
+        #expect(script.contains("GOOSE_ALLOWLIST_WARNING"))
         #expect(script.contains("getConfig: { configurable: true, value: () => Object.assign({}, runtimeConfig) }"))
         #expect(!script.contains("getConfig: { configurable: true, value: async"))
+    }
+
+    @Test("allowlist warning follows host environment")
+    func allowlistWarningFollowsHostEnvironment() {
+        #expect(GooseWebConfig.allowlistWarning(from: ["GOOSE_ALLOWLIST_WARNING": "true"]))
+        #expect(GooseWebConfig.allowlistWarning(from: ["GOOSE_ALLOWLIST_WARNING": " TRUE "]))
+        #expect(!GooseWebConfig.allowlistWarning(from: ["GOOSE_ALLOWLIST_WARNING": "false"]))
+        #expect(!GooseWebConfig.allowlistWarning(from: [:]))
+
+        let config = GooseWebConfig(allowlistWarning: true)
+        #expect(config.dictionary["GOOSE_ALLOWLIST_WARNING"] as? Bool == true)
     }
 
     @Test("bootstrap script bounds imported MCP app storage")
@@ -1761,6 +1774,7 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["openNotificationsSettings"] == .implementedNative)
         #expect(ledger["showNotification"] == .implementedNative)
         #expect(ledger["checkForOllama"] == .implementedNative)
+        #expect(ledger["getAllowedExtensions"] == .implementedNative)
         #expect(ledger["setWindowTitle"] == .implementedNative)
         #expect(ledger["setMenuBarIcon"] == .implementedNative)
         #expect(ledger["getMenuBarIconState"] == .implementedNative)
@@ -1817,6 +1831,7 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
         #expect(script.contains("postNativeAffordance('showNotification', [data || {}])"))
         #expect(script.contains("postNativeAffordance('checkForOllama')"))
+        #expect(script.contains("postNativeAffordance('getAllowedExtensions')"))
         #expect(script.contains("postNativeAffordance('setWindowTitle', [title])"))
         #expect(script.contains("postNativeAffordance('getSetting', [key])"))
         #expect(script.contains("postNativeAffordance('setSetting', [key, value])"))
@@ -1852,6 +1867,7 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("visibleError('openNotificationsSettings')"))
         #expect(!script.contains("visibleError('showNotification')"))
         #expect(!script.contains("visibleError('checkForOllama')"))
+        #expect(!script.contains("visibleError('getAllowedExtensions')"))
         #expect(!script.contains("visibleError('setWindowTitle')"))
         #expect(!script.contains("visibleError('getSetting')"))
         #expect(!script.contains("visibleError('setSetting')"))
@@ -2138,6 +2154,34 @@ struct GooseWebNativeAffordanceBridgeTests {
                 ),
             ]
         ))
+    }
+
+    @Test("extension allowlist URL and YAML parsing are bounded")
+    func extensionAllowlistURLAndYAMLParsingAreBounded() {
+        #expect(GooseWebNativeAffordanceBridge.allowedExtensionsURL(environment: [:]) == nil)
+        #expect(GooseWebNativeAffordanceBridge.allowedExtensionsURL(
+            environment: ["GOOSE_ALLOWLIST": "https://example.com/allowlist.yaml"]
+        )?.scheme == "https")
+        #expect(GooseWebNativeAffordanceBridge.allowedExtensionsURL(
+            environment: ["GOOSE_ALLOWLIST": "/tmp/goose-allowlist.yaml"]
+        )?.isFileURL == true)
+        #expect(GooseWebNativeAffordanceBridge.allowedExtensionsURL(
+            environment: ["GOOSE_ALLOWLIST": "ftp://example.com/allowlist.yaml"]
+        ) == nil)
+
+        let yaml = """
+        extensions:
+          - id: slack
+            command: uvx mcp_slack
+          - id: github
+            command: "npx @modelcontextprotocol/server-github"
+          - id: bad
+            command: "\u{0007}"
+        """
+        #expect(GooseWebNativeAffordanceBridge.allowedExtensionCommands(fromYAML: yaml) == [
+            "uvx mcp_slack",
+            "npx @modelcontextprotocol/server-github",
+        ])
     }
 
     @Test("git worktree native affordance paths are bounded")
@@ -2472,6 +2516,7 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
         #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == true)
         #expect((try bridge.handleAffordance(name: "checkForOllama", args: []) as? Bool) != nil)
+        #expect(try bridge.handleAffordance(name: "getAllowedExtensions", args: []) as? [String] == [])
         #expect((try bridge.handleAffordance(name: "setWindowTitle", args: ["Epistemos Goose"]) as? Bool) != nil)
         #expect((try bridge.handleAffordance(name: "isAnyWindowFocused", args: []) as? Bool) != nil)
         #expect((try bridge.handleAffordance(name: "getIsFullScreen", args: []) as? Bool) != nil)

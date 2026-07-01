@@ -52,6 +52,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeErrorDomainCharacters = 96
     nonisolated static let maxNativeNotificationTitleCharacters = 160
     nonisolated static let maxNativeNotificationBodyCharacters = 2_048
+    nonisolated static let maxAllowedExtensionsURLCharacters = 4_096
+    nonisolated static let maxAllowedExtensionsBytes = 256 * 1024
+    nonisolated static let maxAllowedExtensions = 1_024
+    nonisolated static let maxAllowedExtensionCommandCharacters = 512
     nonisolated static let maxNativeFileDialogFilters = 16
     nonisolated static let maxNativeFileDialogExtensions = 64
     nonisolated static let maxNativeFileDialogExtensionCharacters = 32
@@ -147,6 +151,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
               let args = body["args"] as? [Any],
               let name = Self.boundedNativeAffordanceName(rawName) else {
             replyHandler(nil, "Malformed Epistemos Goose native affordance request.")
+            return
+        }
+
+        if name == "getAllowedExtensions" {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    replyHandler(try await getAllowedExtensions(), nil)
+                } catch {
+                    replyHandler(nil, Self.nativeErrorMessage(for: error))
+                }
+            }
             return
         }
 
@@ -255,6 +271,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return showNotification(dictionaryArgument(args, at: 0) ?? [:])
         case "checkForOllama":
             return checkForOllama()
+        case "getAllowedExtensions":
+            return []
         case "setWindowTitle":
             guard let title = Self.boundedNativeWindowTitle(stringArgument(args, at: 0)) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -1133,6 +1151,100 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         Self.checkForOllamaHostConfigured(environment: ProcessInfo.processInfo.environment) ||
             !resolveBinaryPath("ollama").isEmpty ||
             Self.checkForOllamaRunningApp()
+    }
+
+    private func getAllowedExtensions() async throws -> [String] {
+        guard let url = Self.allowedExtensionsURL(environment: ProcessInfo.processInfo.environment) else {
+            return []
+        }
+
+        let data: Data
+        if url.isFileURL {
+            data = try Self.readAllowedExtensionsFile(url)
+        } else {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (responseData, response) = try await URLSession.shared.data(for: request)
+            guard responseData.count <= Self.maxAllowedExtensionsBytes else {
+                throw GooseWebNativeAffordanceBridgeError.disallowed("GOOSE_ALLOWLIST over size limit")
+            }
+            if let http = response as? HTTPURLResponse,
+               !(200..<300).contains(http.statusCode) {
+                throw GooseWebNativeAffordanceBridgeError.openFailed(
+                    "GOOSE_ALLOWLIST fetch failed with HTTP \(http.statusCode)"
+                )
+            }
+            data = responseData
+        }
+
+        guard let yaml = String(data: data, encoding: .utf8) else {
+            throw GooseWebNativeAffordanceBridgeError.disallowed("GOOSE_ALLOWLIST is not UTF-8")
+        }
+        return Self.allowedExtensionCommands(fromYAML: yaml)
+    }
+
+    nonisolated static func allowedExtensionsURL(environment: [String: String]) -> URL? {
+        guard let rawValue = environment["GOOSE_ALLOWLIST"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawValue.isEmpty,
+              rawValue.utf8.count <= maxAllowedExtensionsURLCharacters,
+              !rawValue.utf8.contains(0) else {
+            return nil
+        }
+        if rawValue.hasPrefix("/") {
+            return URL(fileURLWithPath: rawValue)
+        }
+        guard let url = URL(string: rawValue),
+              let scheme = url.scheme?.lowercased(),
+              ["https", "http", "file"].contains(scheme) else {
+            return nil
+        }
+        return url
+    }
+
+    nonisolated static func allowedExtensionCommands(fromYAML yaml: String) -> [String] {
+        var commands: [String] = []
+        for line in yaml.split(separator: "\n", omittingEmptySubsequences: false) {
+            guard commands.count < maxAllowedExtensions else { break }
+            let withoutComment = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
+            var trimmed = withoutComment.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("- ") {
+                trimmed = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard trimmed.hasPrefix("command:") else { continue }
+            let rawCommand = String(trimmed.dropFirst("command:".count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let command = boundedAllowedExtensionCommand(rawCommand) else { continue }
+            commands.append(command)
+        }
+        return commands
+    }
+
+    nonisolated private static func boundedAllowedExtensionCommand(_ rawCommand: String) -> String? {
+        var command = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        if command.count >= 2,
+           let first = command.first,
+           let last = command.last,
+           (first == "\"" && last == "\"" || first == "'" && last == "'") {
+            command = String(command.dropFirst().dropLast())
+        }
+        guard !command.isEmpty,
+              command.count <= maxAllowedExtensionCommandCharacters,
+              !command.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+            return nil
+        }
+        return command
+    }
+
+    nonisolated private static func readAllowedExtensionsFile(_ url: URL) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer {
+            try? handle.close()
+        }
+        let data = try handle.read(upToCount: maxAllowedExtensionsBytes + 1) ?? Data()
+        guard data.count <= maxAllowedExtensionsBytes else {
+            throw GooseWebNativeAffordanceBridgeError.disallowed("GOOSE_ALLOWLIST over size limit")
+        }
+        return data
     }
 
     nonisolated static func checkForOllamaHostConfigured(environment: [String: String]) -> Bool {

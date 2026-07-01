@@ -13,10 +13,13 @@ struct GooseWebConfig: Equatable, Sendable {
     var bundleName: String = "Epistemos"
     var useACPChat: Bool = true
     var workingDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path
+    var allowlistWarning: Bool = allowlistWarning(
+        from: ProcessInfo.processInfo.environment
+    )
 
     nonisolated var dictionary: [String: Any] {
         var value: [String: Any] = [
-            "GOOSE_ALLOWLIST_WARNING": false,
+            "GOOSE_ALLOWLIST_WARNING": allowlistWarning,
             "GOOSE_BUNDLE_NAME": bundleName,
             "GOOSE_WORKING_DIR": workingDirectory,
             "USE_ACP_CHAT": useACPChat,
@@ -25,6 +28,11 @@ struct GooseWebConfig: Equatable, Sendable {
             value["GOOSE_VERSION"] = version
         }
         return value
+    }
+
+    nonisolated static func allowlistWarning(from environment: [String: String]) -> Bool {
+        environment["GOOSE_ALLOWLIST_WARNING"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() == "true"
     }
 }
 
@@ -112,7 +120,7 @@ enum GooseWebBootShim {
         "setWindowTitle": .implementedNative,
         "reloadApp": .implementedRuntime,
         "checkForOllama": .implementedNative,
-        "getAllowedExtensions": .compatibilityPreserved,
+        "getAllowedExtensions": .implementedNative,
         "getPathForFile": .compatibilityPreserved,
         "listFiles": .implementedNative,
         "listRecentDirs": .implementedNative,
@@ -625,7 +633,7 @@ enum GooseWebBootShim {
             setWindowTitle: { configurable: true, value: (title) => postNativeAffordance('setWindowTitle', [title]) },
             reloadApp: { configurable: true, value: () => window.location.reload() },
             checkForOllama: { configurable: true, value: () => postNativeAffordance('checkForOllama') },
-            getAllowedExtensions: { configurable: true, value: async () => [] },
+            getAllowedExtensions: { configurable: true, value: () => postNativeAffordance('getAllowedExtensions') },
             getPathForFile: { configurable: true, value: (file) => {
               const path = file?.path || file?.epistemosNativePath || '';
               if (typeof path === 'string' && path.startsWith('/')) return path;
