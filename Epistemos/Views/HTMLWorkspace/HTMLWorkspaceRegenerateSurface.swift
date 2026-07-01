@@ -682,7 +682,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     }
 
     var rankDescriptor: String {
-        rank.isFinite ? "rank \(String(format: "%.4f", rank))" : "rank unavailable"
+        "rank \(formattedRank)"
     }
 
     var systemImage: String {
@@ -701,14 +701,13 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         let safeSource = Self.bounded(sourceLabel, limit: 120)
         let safeProvenance = Self.bounded(provenance, limit: 160)
         let safeSnippet = Self.bounded(snippet, limit: 560)
-        let safeRank = String(format: "%.4f", rank)
         return """
         Workspace context: \(safeTitle) [\(safePageID)]
         page_id: \(safePageID)
         title: \(safeTitle)
         context_kind: \(safeKind)
         source_label: \(safeSource)
-        rank: \(safeRank)
+        rank: \(formattedRank)
         Source: \(safeSource) / \(safeKind)
         Provenance: \(safeProvenance)
         snippet: \(safeSnippet)
@@ -719,17 +718,45 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         guard let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON) else {
             return []
         }
-        return envelope.results.prefix(limit).map {
-            HTMLWorkspaceRegenerateContextItem(
-                pageID: bounded($0.pageID, limit: 120),
-                title: bounded($0.title, limit: 160),
-                snippet: bounded($0.snippet, limit: 360),
-                rank: $0.rank,
-                contextKind: bounded($0.contextKind, limit: 80),
-                sourceLabel: bounded($0.sourceLabel, limit: 120),
-                provenance: bounded($0.provenance, limit: 160)
-            )
+        return envelope.results.prefix(limit).map { dataFeedItem(from: $0) }
+    }
+
+    static func dataFeedItem(from result: HTMLWorkspaceDataFeedResult) -> HTMLWorkspaceRegenerateContextItem {
+        HTMLWorkspaceRegenerateContextItem(
+            pageID: bounded(result.pageID, limit: 120),
+            title: bounded(result.title, limit: 160),
+            snippet: bounded(result.snippet, limit: 360),
+            rank: result.rank,
+            contextKind: bounded(result.contextKind, limit: 80),
+            sourceLabel: bounded(result.sourceLabel, limit: 120),
+            provenance: bounded(result.provenance, limit: 160)
+        )
+    }
+
+    var promptRecordLines: [String] {
+        let safeTitle = Self.bounded(title, limit: 160)
+        let safePageID = Self.bounded(pageID, limit: 120)
+        let safeKind = Self.bounded(contextKind, limit: 80)
+        let safeSource = Self.bounded(sourceLabel, limit: 120)
+        let safeProvenance = Self.bounded(provenance, limit: 160)
+        let safeSnippet = Self.bounded(snippet, limit: 240)
+        return [
+            "- record:",
+            "  page_id: \(safePageID)",
+            "  title: \(safeTitle)",
+            "  context_kind: \(safeKind)",
+            "  source_label: \(safeSource)",
+            "  provenance: \(safeProvenance)",
+            "  rank: \(formattedRank)",
+            "  snippet: \(safeSnippet)",
+        ]
+    }
+
+    private var formattedRank: String {
+        if rank.isFinite {
+            return String(format: "%.4f", rank)
         }
+        return "unavailable"
     }
 
     private static func bounded(_ value: String, limit: Int) -> String {
@@ -786,7 +813,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
         }
         var lines = ["vault_search.results:"]
         for result in results.prefix(12) {
-            lines.append("- \(bounded(result.title, limit: 120)) [\(bounded(result.pageID, limit: 80))] \(bounded(result.sourceLabel, limit: 80)) / \(bounded(result.contextKind, limit: 60)) via \(bounded(result.provenance, limit: 100)) rank \(result.rank): \(bounded(result.snippet, limit: 240))")
+            lines.append(contentsOf: HTMLWorkspaceRegenerateContextItem.dataFeedItem(from: result).promptRecordLines)
         }
         if results.count > 12 {
             lines.append("- omitted \(results.count - 12) additional result(s)")
