@@ -58,8 +58,8 @@ listener/domain strings before trimming or validating punctuation.
 base64) via `Keychain.save(_, for: "vault_mcp_bearer")` — **never UserDefaults** (CLAUDE.md). Stored/generated bearer
 values must match the native MCP generated-token alphabet (`A-Z`, `a-z`, `0-9`, `-._~+/=`) and be at least 24
 characters; weak, control-character, or unsafe-punctuation values are discarded and replaced with a fresh fallback token.
-`rotateToken()` re-mints (invalidates old client configs). `masked(_)` → `abcd…wxyz` for
-display.
+`rotateToken()` re-mints (invalidates old client configs). `isUsableBearerToken(_)` is the reusable strength check for
+stored/generated tokens and copied client configs. `masked(_)` → `abcd…wxyz` for display.
 
 ## 4. `VaultMCPHost.swift` [DELIVERED]
 `@MainActor`, idempotent-per-vault `ensureServer`, async `start(vaultRoot:)` polling `.ready`, `stop()`,
@@ -75,7 +75,8 @@ so retrying from Settings creates a fresh loopback listener rather than reusing 
 Toggle start/stop; shows `http://127.0.0.1:<port>/mcp` + masked token + **Rotate** + **"Copy MCP client config"** →
 `{"type":"http","url":…,"headers":{"Authorization":"Bearer …"}}` (the shape Claude Desktop/Cursor expect, same as the
 in-repo OpenCode config writer). The copy helper validates the registration is a trusted loopback MCP endpoint and uses
-structured JSON serialization only, returning no config rather than hand-interpolating URL/token fallback JSON. Surfaces
+structured JSON serialization only, and additionally requires the active-vault registration plus a token that passes the
+Vault token-store strength rules, returning no config rather than hand-interpolating URL/token fallback JSON. Surfaces
 "Running (vault empty)" honestly. Async start/rotate completions are gated by the active canonical vault path so a stale
 task cannot present a registration after the connected vault changes.
 Settings actions use `ToolbarCapsuleButton`, and status text/dots use `UIState` theme tokens rather than hard-coded

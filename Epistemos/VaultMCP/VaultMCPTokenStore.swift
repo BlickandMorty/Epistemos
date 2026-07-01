@@ -38,6 +38,12 @@ nonisolated struct VaultMCPTokenStore {
         return token
     }
 
+    static func isUsableBearerToken(_ token: String) -> Bool {
+        token.count >= minimumTokenLength
+            && token.count <= maximumTokenLength
+            && WorkNativeMCPRegistration.isSafeBearerToken(token)
+    }
+
     static func masked(_ token: String) -> String {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 8 else { return trimmed.isEmpty ? "" : "****" }
@@ -50,9 +56,7 @@ nonisolated struct VaultMCPTokenStore {
 
     private static func usableToken(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
-              trimmed.count >= minimumTokenLength,
-              trimmed.count <= maximumTokenLength,
-              WorkNativeMCPRegistration.isSafeBearerToken(trimmed) else {
+              isUsableBearerToken(trimmed) else {
             return nil
         }
         return trimmed

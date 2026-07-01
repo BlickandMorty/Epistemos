@@ -229,6 +229,7 @@ struct VaultMCPServerSettingsRow: View {
 
     private func copyClientConfig() {
         guard let registration,
+              VaultMCPHost.shared.currentRegistration(for: vaultRoot) == registration,
               let clientConfigJSON = Self.clientConfigJSON(for: registration) else {
             statusMessage = "The MCP client config is not ready."
             return
@@ -239,7 +240,8 @@ struct VaultMCPServerSettingsRow: View {
     }
 
     static func clientConfigJSON(for registration: WorkNativeMCPRegistration) -> String? {
-        guard registration.isTrustedLoopbackMCP else { return nil }
+        guard registration.isTrustedLoopbackMCP,
+              VaultMCPTokenStore.isUsableBearerToken(registration.token) else { return nil }
         let object: [String: Any] = [
             "type": "http",
             "url": registration.url,

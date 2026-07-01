@@ -122,6 +122,11 @@ struct VaultMCPServerLifecycleTests {
             #expect(fallback.count >= 24)
             #expect(invalidPunctuationKeychain.load(VaultMCPTokenStore.keychainKey) == fallback)
         }
+
+        #expect(VaultMCPTokenStore.isUsableBearerToken(storedToken))
+        #expect(!VaultMCPTokenStore.isUsableBearerToken("short"))
+        #expect(!VaultMCPTokenStore.isUsableBearerToken(" \(storedToken) "))
+        #expect(!VaultMCPTokenStore.isUsableBearerToken("abcdefghijklmnopqrstuvwxyz:123456"))
     }
 
     @Test("authorized POST dispatches to the read-only vault core over loopback HTTP")
@@ -187,14 +192,19 @@ struct VaultMCPServerLifecycleTests {
     func clientConfigJSONValidatesTrustedLoopbackRegistration() throws {
         let validRegistration = WorkNativeMCPRegistration(
             url: "http://127.0.0.1:5511/mcp",
-            token: "safe-token_123")
+            token: "safe-token_abcdefghijklmnopqrstuvwxyz_123")
         let configJSON = try #require(VaultMCPServerSettingsRow.clientConfigJSON(for: validRegistration))
         let config = try Self.jsonObject(Data(configJSON.utf8))
         let headers = try #require(config["headers"] as? [String: String])
 
         #expect(config["type"] as? String == "http")
         #expect(config["url"] as? String == validRegistration.url)
-        #expect(headers["Authorization"] == "Bearer safe-token_123")
+        #expect(headers["Authorization"] == "Bearer safe-token_abcdefghijklmnopqrstuvwxyz_123")
+
+        let shortTokenRegistration = WorkNativeMCPRegistration(
+            url: "http://127.0.0.1:5511/mcp",
+            token: "safe-token_123")
+        #expect(VaultMCPServerSettingsRow.clientConfigJSON(for: shortTokenRegistration) == nil)
 
         let secretBearingRegistration = WorkNativeMCPRegistration(
             url: "http://127.0.0.1:5511/mcp?token=secret",
@@ -319,6 +329,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(tokenStore.contains("vault_mcp_bearer"))
         #expect(tokenStore.contains("minimumTokenLength"))
         #expect(tokenStore.contains("usableToken"))
+        #expect(tokenStore.contains("isUsableBearerToken"))
         #expect(tokenStore.contains("WorkNativeMCPRegistration.isSafeBearerToken"))
         #expect(tokenStore.contains("uuidFallbackToken"))
         #expect(!tokenStore.contains("isTokenScalar"))
@@ -351,7 +362,9 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("isPendingOperationCurrent(for: vaultPath)"))
         #expect(row.contains("completePendingOperation(for: vaultPath)"))
         #expect(row.contains("failureStatusMessage()"))
-        #expect(row.contains("guard registration.isTrustedLoopbackMCP else { return nil }"))
+        #expect(row.contains("guard registration.isTrustedLoopbackMCP,"))
+        #expect(row.contains("VaultMCPHost.shared.currentRegistration(for: vaultRoot) == registration"))
+        #expect(row.contains("VaultMCPTokenStore.isUsableBearerToken(registration.token)"))
         #expect(row.contains("let clientConfigJSON = Self.clientConfigJSON(for: registration)"))
         #expect(row.contains(#"return nil"#))
         #expect(row.contains("case .failed(let message)"))
