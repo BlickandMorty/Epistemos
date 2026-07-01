@@ -121,6 +121,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(nativePrompts.contains("controlShape.fill(dangerControlFill)"))
         #expect(nativePrompts.contains("controlShape.fill(neutralControlFill)"))
         #expect(nativePrompts.contains("panelShape.fill(panelFill)"))
+        #expect(nativePrompts.contains("gooseNativePromptPanelShadow(for: theme)"))
+        #expect(!nativePrompts.contains(".black.opacity(theme.isDark"))
         #expect(!nativePrompts.contains(".ultraThinMaterial"))
         #expect(!nativePrompts.contains(".regularMaterial"))
         #expect(!nativePrompts.contains("radius: 7, y: 3"))

@@ -15,6 +15,11 @@ private enum GooseNativePromptPanelBounds {
     }
 }
 
+private func gooseNativePromptPanelShadow(for theme: EpistemosTheme) -> Color {
+    let shadowBase = theme.isDark ? theme.resolved.background.color : theme.resolved.foreground.color
+    return shadowBase.opacity(theme.isDark ? 0.20 : 0.08)
+}
+
 struct GooseACPPermissionPanel: View {
     let promptID: String
     let request: GooseACPRequestPermissionRequest
@@ -82,7 +87,7 @@ struct GooseACPPermissionPanel: View {
             panelShape.fill(panelFill)
         }
         .clipShape(panelShape)
-        .shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 18, y: 8)
+        .shadow(color: gooseNativePromptPanelShadow(for: theme), radius: 18, y: 8)
     }
 
     private var boundedOptions: [GooseACPPermissionOption] {
@@ -265,7 +270,7 @@ struct GooseACPElicitationPanel: View {
             panelShape.fill(panelFill)
         }
         .clipShape(panelShape)
-        .shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 18, y: 8)
+        .shadow(color: gooseNativePromptPanelShadow(for: theme), radius: 18, y: 8)
     }
 
     private var messageText: String {
