@@ -70,8 +70,31 @@ struct GooseAppContextSnapshotTests {
         #expect(snapshot.attachments.isEmpty)
     }
 
+    @Test("snapshot cleaner keeps content after large leading padding")
+    func snapshotCleanerKeepsContentAfterLargeLeadingPadding() {
+        let paddedTitle = String(repeating: " ", count: GooseAppContextSnapshot.maxTitleCharacters + 100)
+            + "Real note title"
+        let snapshot = GooseAppContextSnapshot(
+            activeNote: GooseAppContextSnapshot.Note(
+                id: "note-1",
+                title: paddedTitle,
+                path: nil,
+                vaultRelativePath: nil,
+                preview: nil,
+                wordCount: 0
+            )
+        )
+
+        #expect(snapshot.activeNote?.title == "Real note title")
+    }
+
     @Test("Goose WebView exposes context snapshot through the narrow native bridge")
     func bridgeSourceGuards() throws {
+        let snapshotSource = try loadMirroredSourceTextFile("Epistemos/Goose/GooseAppContextSnapshot.swift")
+        #expect(snapshotSource.contains("let leadingTrimmed = (value ?? \"\").drop { character in"))
+        #expect(snapshotSource.contains("let bounded = String(leadingTrimmed.prefix(limit + 32))"))
+        #expect(snapshotSource.contains("String(trimmed.prefix(limit - 3)) + \"...\""))
+
         let bootShim = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebBootShim.swift")
         #expect(bootShim.contains(#""epistemos.context.snapshot": .implementedNative"#))
         #expect(bootShim.contains("const epistemosContextSnapshot = () => postNativeAffordance('epistemos.context.snapshot');"))

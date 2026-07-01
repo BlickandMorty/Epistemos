@@ -263,7 +263,11 @@ struct GooseAppContextSnapshot: Codable, Equatable, Sendable {
     }
 
     private static func clean(_ value: String?, limit: Int) -> String? {
-        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let leadingTrimmed = (value ?? "").drop { character in
+            character.unicodeScalars.allSatisfy { CharacterSet.whitespacesAndNewlines.contains($0) }
+        }
+        let bounded = String(leadingTrimmed.prefix(limit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         guard limit > 3, trimmed.count > limit else { return trimmed }
         return String(trimmed.prefix(limit - 3)) + "..."
