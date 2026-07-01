@@ -374,6 +374,41 @@ function acpErrorMessage(error: unknown): string {
   }
 }
 
+function providerEngineSearchText(provider: Pick<ProviderDetails, 'name' | 'metadata'> | string): string {
+  if (typeof provider === 'string') {
+    return provider.toLowerCase();
+  }
+  return [
+    provider.name,
+    provider.metadata?.name,
+    provider.metadata?.display_name,
+    provider.metadata?.description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+export function epistemosProviderEngineLabel(
+  provider: Pick<ProviderDetails, 'name' | 'metadata'> | string
+): string {
+  // epistemos-provider-engine-picker-acp-family: surface Goose's existing ACP/CLI engines.
+  const text = providerEngineSearchText(provider);
+  const normalized = text.replace(/[\s-]+/g, '_');
+  if (normalized.includes('claude_acp') || normalized.includes('claude_code')) return 'Claude ACP';
+  if (normalized.includes('codex_acp')) return 'Codex ACP';
+  if (normalized.includes('copilot_acp')) return 'Copilot ACP';
+  if (normalized.includes('pi_acp')) return 'Pi ACP';
+  if (normalized.includes('amp_acp')) return 'Amp ACP';
+  if (normalized.includes('cursor_agent')) return 'Cursor agent';
+  if (normalized.includes('gemini_cli')) return 'Gemini CLI';
+  if (normalized.includes('opencode') || normalized.includes('open_code')) return 'OpenCode';
+  if (normalized.includes('codex_cli') || normalized.match(/(^|_)codex($|_)/)) return 'Codex CLI';
+  if (normalized.includes('_acp') || normalized.includes('acp_')) return 'ACP engine';
+  if (normalized.includes('_cli') || normalized.includes('cli_')) return 'CLI engine';
+  return 'Model provider';
+}
+
 function recordProviderInventoryEvent(name: string, detail?: string): void {
   const target = window as Window & {
     __epistemosGooseProviderInventoryEvents?: Array<{ name: string; detail?: string }>;
@@ -2348,6 +2383,258 @@ for (const snippet of [
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`ProviderGrid staged source is missing required ACP snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+PROVIDER_CARD="$WORK_ROOT/ui/desktop/src/components/settings/providers/subcomponents/ProviderCard.tsx"
+node - "$PROVIDER_CARD" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`ProviderCard ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+const importAnchor = "import { ProviderDetails, ProviderMetadata } from '../../../../api';";
+const imports = `${importAnchor}
+import { epistemosProviderEngineLabel } from '../../../../acp/providers';`;
+if (!source.includes('epistemosProviderEngineLabel')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('ProviderCard engine label import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+if (!source.includes('const engineLabel = epistemosProviderEngineLabel(provider);')) {
+  replaceRequired(
+    'engine label value',
+    `  const handleCardClick = () => {
+    if (!isOnboarding) {
+      onConfigure();
+    }
+  };`,
+    `  const engineLabel = epistemosProviderEngineLabel(provider);
+
+  const handleCardClick = () => {
+    if (!isOnboarding) {
+      onConfigure();
+    }
+  };`
+  );
+}
+
+replaceRequired(
+  'header engine label prop',
+  `          isConfigured={provider?.is_configured || false}
+        />`,
+  `          isConfigured={provider?.is_configured || false}
+          engineLabel={engineLabel}
+        />`
+);
+
+for (const snippet of [
+  'epistemosProviderEngineLabel(provider)',
+  'engineLabel={engineLabel}',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ProviderCard staged source is missing provider engine snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+PROVIDER_CARD_HEADER="$WORK_ROOT/ui/desktop/src/components/settings/providers/subcomponents/CardHeader.tsx"
+node - "$PROVIDER_CARD_HEADER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`Provider CardHeader ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+replaceRequired(
+  'props engine label',
+  `interface CardHeaderProps {
+  name: string;
+  description: string;
+  isConfigured: boolean;
+}`,
+  `interface CardHeaderProps {
+  name: string;
+  description: string;
+  isConfigured: boolean;
+  engineLabel: string;
+}`
+);
+
+replaceRequired(
+  'name status props engine label',
+  `interface ProviderNameAndStatusProps {
+  name: string;
+  isConfigured: boolean;
+}`,
+  `interface ProviderNameAndStatusProps {
+  name: string;
+  isConfigured: boolean;
+  engineLabel: string;
+}`
+);
+
+replaceRequired(
+  'name status function engine label',
+  `const ProviderNameAndStatus = memo(({ name, isConfigured }: ProviderNameAndStatusProps) => {`,
+  `const ProviderNameAndStatus = memo(({ name, isConfigured, engineLabel }: ProviderNameAndStatusProps) => {`
+);
+
+replaceRequired(
+  'provider title engine badge',
+  `      <CardTitle name={name} />`,
+  `      <div className="flex min-w-0 items-center gap-2">
+        <CardTitle name={name} />
+        <span
+          data-testid="epistemos-provider-engine-label"
+          className="ep-native-badge shrink-0 px-1.5 py-0.5 text-[10px] text-text-secondary"
+        >
+          {engineLabel}
+        </span>
+      </div>`
+);
+
+replaceRequired(
+  'card header function engine label',
+  `const CardHeader = memo(function CardHeader({ name, description, isConfigured }: CardHeaderProps) {`,
+  `const CardHeader = memo(function CardHeader({ name, description, isConfigured, engineLabel }: CardHeaderProps) {`
+);
+
+replaceRequired(
+  'provider name status engine prop',
+  `<ProviderNameAndStatus name={name} isConfigured={isConfigured} />`,
+  `<ProviderNameAndStatus name={name} isConfigured={isConfigured} engineLabel={engineLabel} />`
+);
+
+for (const snippet of [
+  'data-testid="epistemos-provider-engine-label"',
+  'engineLabel={engineLabel}',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`Provider CardHeader staged source is missing provider engine snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+SWITCH_MODEL_MODAL="$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
+node - "$SWITCH_MODEL_MODAL" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`SwitchModelModal ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+const importAnchor = "import { trackModelChanged } from '../../../../utils/analytics';";
+const imports = `${importAnchor}
+import { epistemosProviderEngineLabel } from '../../../../acp/providers';`;
+if (!source.includes('epistemosProviderEngineLabel')) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('SwitchModelModal engine label import anchor not found');
+  }
+  source = source.replace(importAnchor, imports);
+}
+
+if (!source.includes('type ProviderOption =')) {
+  replaceRequired(
+    'provider option type',
+    `type SwitchModelModalProps = {`,
+    `type ProviderOption = {
+  value: string;
+  label: string;
+  engineLabel?: string;
+};
+
+type SwitchModelModalProps = {`
+  );
+}
+
+replaceRequired(
+  'provider option state type',
+  `  const [providerOptions, setProviderOptions] = useState<{ value: string; label: string }[]>([]);`,
+  `  const [providerOptions, setProviderOptions] = useState<ProviderOption[]>([]);`
+);
+
+replaceRequired(
+  'provider options engine label',
+  `          ...activeProviders.map(({ metadata, name }) => ({
+            value: name,
+            label: metadata.display_name,
+          })),`,
+  `          ...activeProviders.map((activeProvider) => ({
+            value: activeProvider.name,
+            label: activeProvider.metadata.display_name,
+            engineLabel: epistemosProviderEngineLabel(activeProvider),
+          })),`
+);
+
+replaceRequired(
+  'provider select onchange type',
+  `                    const option = newValue as { value: string; label: string } | null;`,
+  `                    const option = newValue as ProviderOption | null;`
+);
+
+replaceRequired(
+  'provider select format option',
+  `                  placeholder={intl.formatMessage(i18n.providerPlaceholder)}
+                  isClearable`,
+  `                  placeholder={intl.formatMessage(i18n.providerPlaceholder)}
+                  formatOptionLabel={(option: unknown) => {
+                    const providerOption = option as ProviderOption;
+                    if (providerOption.value === 'configure_providers') {
+                      return <span>{providerOption.label}</span>;
+                    }
+                    return (
+                      <span
+                        className="flex min-w-0 items-center justify-between gap-3"
+                        data-epistemos-provider-engine-option
+                      >
+                        <span className="truncate">{providerOption.label}</span>
+                        {providerOption.engineLabel && (
+                          <span className="ep-native-badge shrink-0 px-1.5 py-0.5 text-[10px] text-text-secondary">
+                            {providerOption.engineLabel}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  }}
+                  isClearable`
+);
+
+for (const snippet of [
+  'type ProviderOption =',
+  'engineLabel: epistemosProviderEngineLabel(activeProvider)',
+  'data-epistemos-provider-engine-option',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`SwitchModelModal staged source is missing provider engine snippet: ${snippet}`);
   }
 }
 
@@ -5907,6 +6194,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "telemetryValue === 'true'" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
     grep -q "__epistemosGooseProviderInventoryEvents" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "Goose ACP provider inventory failed:" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-provider-engine-picker-acp-family" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemosProviderEngineLabel(provider)" "$WORK_ROOT/ui/desktop/src/components/settings/providers/subcomponents/ProviderCard.tsx"
+    grep -q "data-testid=\"epistemos-provider-engine-label\"" "$WORK_ROOT/ui/desktop/src/components/settings/providers/subcomponents/CardHeader.tsx"
+    ! grep -q "borderStyle === 'dashed' ? 'border-2 border-dashed' : 'border'" "$WORK_ROOT/ui/desktop/src/components/settings/providers/subcomponents/CardContainer.tsx"
     grep -q "__epistemosGooseACPRequestSerialization" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
     grep -q "return serializeACPRequests(client);" "$WORK_ROOT/ui/desktop/src/acp/acpConnection.ts"
     grep -q "name: model.id || model.name" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
@@ -6384,6 +6675,7 @@ JS
     grep -q "rounded-\\[12px\\] bg-background-warning/55" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "mt-1 text-sm text-text-warning" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "className=\"text-sm text-text-warning\"" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
+    grep -q "data-epistemos-provider-engine-option" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "min-h-9 rounded-\\[8px\\] px-3 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/ShortcutRecorder.tsx"
     grep -q "focus:outline-none" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/ShortcutRecorder.tsx"
     grep -q "bg-background-warning/55" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/KeyboardShortcutsSection.tsx"

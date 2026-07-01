@@ -149,6 +149,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(reskin.contains("mt-3 rounded-[12px] bg-background-secondary/44 p-3"))
         #expect(reskin.contains("rounded-[12px] bg-background-primary/34 px-3 py-2"))
         #expect(reskin.contains("rounded-[10px] bg-background-danger/35 p-3 text-sm text-text-danger"))
+        #expect(reskin.contains("provider card inner borderless"))
+        #expect(reskin.contains("borderStyle === 'dashed' ? 'bg-background-secondary/24' : ''"))
         #expect(reskin.contains("w-screen h-screen bg-transparent"))
         #expect(reskin.contains("relative flex h-full w-full flex-col overflow-hidden bg-transparent"))
         #expect(reskin.contains("bg-background-primary/58 px-6 pb-5 pt-14"))

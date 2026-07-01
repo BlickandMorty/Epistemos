@@ -2490,6 +2490,18 @@ function applyProviderCatalogSurfaces() {
     'relative bg-background-primary rounded-[6px] p-3 transition-colors duration-150 h-[160px] flex flex-col',
     'relative rounded-[14px] bg-transparent p-4 transition-all duration-200 ease-[var(--epistemos-control-ease)] min-h-[178px] flex flex-col'
   );
+  source = replaceRequired(
+    source,
+    'provider card inner borderless',
+    `                   \${borderStyle === 'dashed' ? 'border-2 border-dashed' : 'border'}
+                   \${
+                     grayedOut
+                       ? 'border-border-primary'
+                       : 'border-border-primary hover:border-border-primary'
+                   }`,
+    `                   \${borderStyle === 'dashed' ? 'bg-background-secondary/24' : ''}
+                   \${grayedOut ? 'opacity-75' : ''}`
+  );
   write('src/components/settings/providers/subcomponents/CardContainer.tsx', source);
 
   source = read('src/components/settings/providers/subcomponents/CardHeader.tsx');

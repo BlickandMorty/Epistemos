@@ -1276,6 +1276,12 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("await deleteAcpCustomProvider(editingProvider.id)"))
         #expect(script.contains("providerId = await createAcpCustomProvider(data)"))
         #expect(script.contains("ProviderGrid import anchor not found"))
+        // Paseo phase-5 provider picker: surface the already-live ACP/CLI engine
+        // family in Goose's own provider/model UI instead of rebuilding a native rail.
+        #expect(script.contains("epistemos-provider-engine-picker-acp-family"))
+        #expect(script.contains("epistemosProviderEngineLabel(provider)"))
+        #expect(script.contains("data-testid=\"epistemos-provider-engine-label\""))
+        #expect(script.contains("data-epistemos-provider-engine-option"))
         // Anti-silent-drift: the five formerly-silent ACP grafts (which would revert
         // to dead-in-ACP REST endpoints if upstream reformats their anchors) must
         // hard-FAIL the build on anchor drift, like the rest of the file. Lock each
