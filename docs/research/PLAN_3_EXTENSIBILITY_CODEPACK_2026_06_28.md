@@ -27,7 +27,8 @@ oversized JSON → empty, never crash), caps per-source record processing, and f
 userinfo/query/fragment secret channels. Registry responses must stay on the requested HTTPS host/path after redirects.
 Registry fields are trimmed and capped, nested schema probing is depth-bounded, `searchAll(limit:)` clamps
 non-positive/oversized limits, and GitHub repo URLs are parsed with `URLComponents` so
-userinfo/query/fragment channels are rejected there too. `isMASInstallable = installKind == .remoteURL`. **GitHub search
+userinfo/query/fragment channels are rejected there too. Registry homepage URLs are HTTPS-only with userinfo/query/fragment
+channels rejected before entries carry them. `isMASInstallable = installKind == .remoteURL`. **GitHub search
 is the one documented/stable endpoint; the other three registry endpoints are `[INFERRED]` — confirm at build time.** No
 exec, no write → MAS-safe.
 

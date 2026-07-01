@@ -201,9 +201,9 @@ nonisolated struct MCPRegistryClient: Sendable {
         let description = string(record, keys: [
             "description", "summary", "shortDescription", "short_description",
         ]) ?? ""
-        let homepage = string(record, keys: [
+        let homepage = homepageURL(string(record, keys: [
             "homepage", "homepageUrl", "homepage_url", "htmlUrl", "html_url", "url",
-        ])
+        ]))
 
         if let target = string(record, keys: [
             "remoteUrl", "remote_url", "mcpUrl", "mcp_url", "serverUrl", "server_url",
@@ -334,6 +334,21 @@ nonisolated struct MCPRegistryClient: Sendable {
               components.percentEncodedQuery == nil,
               components.percentEncodedFragment == nil,
               components.path.split(separator: "/").count >= 2 else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private static func homepageURL(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              components.scheme?.lowercased() == "https",
+              components.host?.isEmpty == false,
+              components.user == nil,
+              components.password == nil,
+              components.percentEncodedQuery == nil,
+              components.percentEncodedFragment == nil else {
             return nil
         }
         return trimmed

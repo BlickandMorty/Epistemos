@@ -85,6 +85,7 @@ struct BestOfPresetPlan3Tests {
             "response.host?.lowercased() == request.host?.lowercased()",
             "response.percentEncodedPath == request.percentEncodedPath",
             "String(trimmed.prefix(maxRegistryFieldLength))",
+            "homepageURL",
             "components.host?.lowercased() == \"github.com\"",
             "components.percentEncodedQuery == nil",
             "components.percentEncodedFragment == nil",

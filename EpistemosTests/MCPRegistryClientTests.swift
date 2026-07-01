@@ -212,6 +212,46 @@ struct MCPRegistryClientTests {
         #expect(entries.first?.installTarget == "https://github.com/owner/plain")
     }
 
+    @Test("registry homepage URLs reject unsafe channels")
+    func searchFiltersSecretBearingHomepageURLs() async throws {
+        let client = MCPRegistryClient { request in
+            let url = try #require(request.url)
+            let body = """
+            {
+              "servers": [
+                {
+                  "name": "Plain",
+                  "remoteUrl": "https://plain.example.com/mcp",
+                  "homepage": "https://plain.example.com/docs"
+                },
+                {
+                  "name": "Query",
+                  "remoteUrl": "https://query.example.com/mcp",
+                  "homepage": "https://query.example.com/docs?token=abc123"
+                },
+                {
+                  "name": "Userinfo",
+                  "remoteUrl": "https://userinfo.example.com/mcp",
+                  "homepage": "https://abc123@userinfo.example.com/docs"
+                }
+              ]
+            }
+            """
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            return (Data(body.utf8), try #require(response))
+        }
+
+        let entries = await client.searchSmithery(query: "docs")
+        #expect(entries.first { $0.name == "Plain" }?.homepage == "https://plain.example.com/docs")
+        #expect(entries.first { $0.name == "Query" }?.homepage == nil)
+        #expect(entries.first { $0.name == "Userinfo" }?.homepage == nil)
+    }
+
     @Test("registry string fields are bounded")
     func searchBoundsRegistryStringFields() async throws {
         let longText = String(repeating: "A", count: MCPRegistryClient.maxRegistryFieldLength + 128)
