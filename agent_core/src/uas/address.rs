@@ -122,6 +122,9 @@ impl FromStr for UasAddress {
         let created_at_ms = ms_part
             .parse::<u64>()
             .map_err(|_| UasAddressParseError::BadCreatedAt(ms_part.to_string()))?;
+        if ms_part != "0" && ms_part.starts_with('0') {
+            return Err(UasAddressParseError::BadCreatedAt(ms_part.to_string()));
+        }
 
         Ok(UasAddress {
             kind,
@@ -274,5 +277,13 @@ mod tests {
         let s = format!("vault_note:{}@not-a-number", fake_hex);
         let err = UasAddress::from_str(&s).unwrap_err();
         assert!(matches!(err, UasAddressParseError::BadCreatedAt(_)));
+    }
+
+    #[test]
+    fn noncanonical_created_at_alias_surfaces_typed_error() {
+        let fake_hex: String = std::iter::repeat('a').take(64).collect();
+        let s = format!("vault_note:{}@0001", fake_hex);
+        let err = UasAddress::from_str(&s).unwrap_err();
+        assert_eq!(err, UasAddressParseError::BadCreatedAt("0001".to_string()));
     }
 }

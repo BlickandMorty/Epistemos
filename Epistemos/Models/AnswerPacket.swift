@@ -418,6 +418,7 @@ nonisolated public extension UasAddress {
             && value.unicodeScalars.allSatisfy { scalar in
                 scalar.value >= 48 && scalar.value <= 57
             }
+            && (value == "0" || !value.hasPrefix("0"))
             && UInt64(value) != nil
     }
 }

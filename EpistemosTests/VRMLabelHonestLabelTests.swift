@@ -68,6 +68,12 @@ struct VRMLabelHonestLabelTests {
             sourceHash: "not@uas",
             activePacketId: "pkt-test",
             compatibilityEdge: "edge-1")
+        let noncanonicalTimestamp = "vault_note:\(String(repeating: "b", count: 64))@0001"
+        let noncanonicalTimestampSource = Self.anchoredClaim(
+            id: "claim-bad-created-at",
+            sourceHash: noncanonicalTimestamp,
+            activePacketId: "pkt-test",
+            compatibilityEdge: nil)
         let malformedCompatibilityEdge = Self.anchoredClaim(
             id: "claim-bad-edge",
             sourceHash: "blake3:abc",
@@ -81,8 +87,12 @@ struct VRMLabelHonestLabelTests {
             compatibilityEdge: validUASWireAddress)
 
         #expect(malformedSource.hasVerificationAnchor == false)
+        #expect(noncanonicalTimestampSource.hasVerificationAnchor == false)
         #expect(malformedCompatibilityEdge.hasVerificationAnchor == false)
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [malformedSource])) == .plausibleButUnverified)
+        #expect(
+            VRMLabel.honestLabel(for: Self.packet(claims: [noncanonicalTimestampSource])) == .plausibleButUnverified
+        )
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [malformedCompatibilityEdge])) == .plausibleButUnverified)
         #expect(validProjectedAnchor.hasVerificationAnchor)
         #expect(VRMLabel.honestLabel(for: Self.packet(claims: [validProjectedAnchor])) == .verified)
