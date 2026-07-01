@@ -204,6 +204,9 @@ enum HTMLWorkspaceDataFeedContextSources {
         if requiredKind == "recent_capture" {
             return recentCaptureResults(modelContainer: modelContainer, limit: limit)
         }
+        if requiredKind == "folder_note" || (requiredKind.isEmpty && shouldUseFolderNoteResults(for: query)) {
+            return folderNoteResults(query: query, modelContainer: modelContainer, limit: limit)
+        }
         if requiredKind == "recent_chat" || (requiredKind.isEmpty && shouldUseRecentChatResults(for: query)) {
             return recentChatResults(query: query, modelContainer: modelContainer, limit: limit)
         }

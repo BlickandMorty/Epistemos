@@ -123,6 +123,64 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(explicitGraphResults.isEmpty)
     }
 
+    @MainActor
+    @Test("folder note context source emits real notes from matched folders")
+    func folderNoteContextSourceEmitsRealNotesFromMatchedFolders() throws {
+        let schema = Schema([SDPage.self, SDFolder.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+
+        let research = SDFolder(name: "Research")
+        let physics = SDFolder(name: "Physics")
+        physics.parent = research
+        research.children = [physics]
+        let folderNote = SDPage(title: "Quantum Folder Note")
+        folderNote.body = "real folder note body"
+        folderNote.folder = physics
+        folderNote.subfolder = "Research/Physics"
+        let unrelated = SDPage(title: "Loose Note")
+        unrelated.body = "not in folder"
+        context.insert(research)
+        context.insert(physics)
+        context.insert(folderNote)
+        context.insert(unrelated)
+        try context.save()
+
+        let folderResults = HTMLWorkspaceDataFeedContextSources.folderNoteResults(
+            query: "folder: physics",
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(folderResults.map(\.pageID) == [folderNote.id])
+        #expect(folderResults.first?.contextKind == "folder_note")
+        #expect(folderResults.first?.sourceLabel == "Folder: Research/Physics")
+        #expect(folderResults.first?.provenance.contains("SDFolder/SDPage / folder:Research/Physics") == true)
+        #expect(folderResults.first?.snippet == "real folder note body")
+
+        let genericResult = SearchResult(pageId: unrelated.id, title: "Loose", snippet: "loose", rank: 0.7)
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "folder physics"
+        )
+        #expect(triggeredResults.map(\.pageID) == [folderNote.id])
+        #expect(triggeredResults.first?.contextKind == "folder_note")
+
+        let explicitGraphResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "graph_related_note",
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "folder physics"
+        )
+        #expect(explicitGraphResults.isEmpty)
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
