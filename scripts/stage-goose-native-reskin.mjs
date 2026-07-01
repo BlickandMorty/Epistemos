@@ -469,15 +469,11 @@ body {
       color-mix(in srgb, var(--color-background-primary) 88%, transparent),
       color-mix(in srgb, var(--color-background-secondary) 62%, transparent)
     ) !important;
-  box-shadow:
-    0 1px 0 color-mix(in srgb, white 55%, transparent) inset,
-    0 18px 46px rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.10) !important;
 }
 
 .dark .goose-epistemos .goose-chat-input-card {
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 20px 54px rgba(0, 0, 0, 0.34) !important;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.34) !important;
 }
 
 .goose-epistemos .goose-message {
@@ -487,15 +483,11 @@ body {
 .goose-epistemos :is(.goose-tool-call, .goose-message-content, .goose-message-tool) {
   border-radius: 14px !important;
   background-color: var(--epistemos-glass-fill-muted) !important;
-  box-shadow:
-    0 1px 0 color-mix(in srgb, white 46%, transparent) inset,
-    0 10px 28px rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.07) !important;
 }
 
 .dark .goose-epistemos :is(.goose-tool-call, .goose-message-content, .goose-message-tool) {
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.07) inset,
-    0 12px 30px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24) !important;
 }
 
 .goose-epistemos .goose-tool-call > :first-child,
@@ -513,13 +505,13 @@ body {
 }
 
 .goose-epistemos .prose :is(pre, table) {
-  border: 1px solid var(--epistemos-glass-border);
+  border: 0 !important;
   border-radius: 12px;
   background-color: color-mix(in srgb, var(--color-background-secondary) 74%, transparent) !important;
 }
 
 .goose-epistemos .prose code:not(pre code) {
-  border: 1px solid color-mix(in srgb, var(--color-border-primary) 70%, transparent);
+  border: 0 !important;
   border-radius: 5px;
   padding: 1px 4px;
   background-color: color-mix(in srgb, var(--color-background-secondary) 72%, transparent);
@@ -537,7 +529,7 @@ body {
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   backdrop-filter: blur(24px) saturate(1.5);
   background-color: var(--epistemos-glass-fill-strong) !important;
-  border: 1px solid var(--epistemos-glass-border);
+  border: 0 !important;
   border-radius: 12px !important;
   box-shadow: var(--epistemos-popover-shadow) !important;
 }
@@ -562,15 +554,11 @@ body {
   background-color: var(--epistemos-glass-fill) !important;
   border-color: var(--epistemos-glass-border) !important;
   border-radius: 14px !important;
-  box-shadow:
-    0 1px 0 color-mix(in srgb, white 42%, transparent) inset,
-    0 10px 30px rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07) !important;
 }
 
 .dark .goose-epistemos :is(.ep-native-screen-card, .ep-native-list-card) {
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.07) inset,
-    0 12px 34px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24) !important;
 }
 
 .goose-epistemos .ep-native-list-card {
