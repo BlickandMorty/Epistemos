@@ -413,6 +413,35 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
 
+    @Test("regenerate context items require a manifest feed matching data json")
+    func regenerateContextItemsRequireMatchingFeedEnvelope() {
+        let attachedFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "attached context", limit: 2)
+        let staleFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "stale context", limit: 2)
+        var package = HTMLWorkspacePackage.defaultPackage(title: "Mismatched Context")
+        package.manifest.dataFeed = attachedFeed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: staleFeed,
+            results: [
+                SearchResult(pageId: "note-a", title: "Alpha Note", snippet: "alpha snippet", rank: 0.9),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_003)
+        )
+
+        #expect(HTMLWorkspaceRegenerateContextItem.items(from: package).isEmpty)
+
+        let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
+            instruction: "Use attached context",
+            package: package,
+            expectedContentHash: "hash"
+        )
+        #expect(prompt.contains("vault_search.query: attached context"))
+        #expect(prompt.contains("vault_search.status: missing or mismatched data.json envelope"))
+        #expect(!prompt.contains("title: Alpha Note"))
+
+        package.manifest.dataFeed = nil
+        #expect(HTMLWorkspaceRegenerateContextItem.items(from: package).isEmpty)
+    }
+
     @Test("regenerate context items bound oversized UI and drag payload text")
     func regenerateContextItemsBoundOversizedUIAndDragPayloadText() throws {
         var package = HTMLWorkspacePackage.defaultPackage(title: "Bound Context")

@@ -754,7 +754,8 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     }
 
     static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {
-        guard let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON) else {
+        guard let feed = package.manifest.dataFeed,
+              let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON, matching: feed) else {
             return []
         }
         return envelope.results.prefix(limit).map { dataFeedItem(from: $0) }
@@ -825,7 +826,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
         if let feed = package.manifest.dataFeed {
             lines.append("vault_search.query: \(feed.normalizedQuery)")
             lines.append("vault_search.limit: \(feed.effectiveLimit)")
-            if let envelope = dataFeedEnvelope(from: package.dataJSON) {
+            if let envelope = dataFeedEnvelope(from: package.dataJSON, matching: feed) {
                 let metadata = envelope.epistemos
                 lines.append("vault_search.status: \(metadata.status)")
                 lines.append("vault_search.stale: \(metadata.stale)")
@@ -841,7 +842,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
                 }
                 lines.append(contentsOf: resultLines(from: envelope.results))
             } else {
-                lines.append("vault_search.status: unreadable data.json envelope")
+                lines.append("vault_search.status: missing or mismatched data.json envelope")
                 lines.append("vault_search.results: unavailable; render an honest empty state instead of inventing notes.")
             }
         } else {
@@ -858,6 +859,18 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
     static func dataFeedEnvelope(from dataJSON: String) -> HTMLWorkspaceDataFeedEnvelope? {
         guard let data = dataJSON.data(using: .utf8) else { return nil }
         return try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceDataFeedEnvelope.self, from: data)
+    }
+
+    static func dataFeedEnvelope(
+        from dataJSON: String,
+        matching feed: HTMLWorkspaceDataFeed
+    ) -> HTMLWorkspaceDataFeedEnvelope? {
+        guard let envelope = dataFeedEnvelope(from: dataJSON),
+              envelope.epistemos.source == feed.source.rawValue,
+              envelope.epistemos.query == feed.normalizedQuery else {
+            return nil
+        }
+        return envelope
     }
 
     private static func resultLines(from results: [HTMLWorkspaceDataFeedResult]) -> [String] {
