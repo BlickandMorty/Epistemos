@@ -427,6 +427,18 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     private static let maxPathDiagnosticLength = 160
     private static let maxInheritedEnvironmentValueLength = 4096
     private static let proEnvironmentFilePathEnvironmentName = "EPISTEMOS_BROWSER_USE_ENV_FILE"
+    private static let webUICompatibilityShimPaths = [
+        "browser-use/browser_use/browser/browser.py",
+        "browser-use/browser_use/browser/context.py",
+        "browser-use/browser_use/browser/chrome.py",
+        "browser-use/browser_use/browser/utils/__init__.py",
+        "browser-use/browser_use/browser/utils/screen_resolution.py",
+        "browser-use/browser_use/controller/service.py",
+        "browser-use/browser_use/controller/registry/__init__.py",
+        "browser-use/browser_use/controller/registry/service.py",
+        "browser-use/browser_use/controller/registry/views.py",
+        "browser-use/browser_use/controller/views.py",
+    ]
 
     private static let inheritedEnvironmentAllowlist: Set<String> = [
         "PATH",
@@ -910,7 +922,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
     }
 
     private static func requiredArtifacts(paths: BrowserUseRuntimePaths) -> [BrowserUseRuntimeArtifactRequirement] {
-        [
+        var requirements = [
             .init(
                 name: "Python 3.11 executable",
                 url: paths.pythonExecutableURL,
@@ -931,8 +943,32 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 rootURL: paths.vendorRoot
             ),
             .init(
+                name: "agent-browser environment helper",
+                url: paths.vendorRoot.appendingPathComponent("epistemos_browser_env.py", isDirectory: false),
+                kind: .file,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "agent-browser task helper",
+                url: paths.vendorRoot.appendingPathComponent("epistemos_browser_task.py", isDirectory: false),
+                kind: .file,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "build-pro-payload.sh",
+                url: paths.vendorRoot.appendingPathComponent("build-pro-payload.sh", isDirectory: false),
+                kind: .executableFile,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
                 name: "BUILD_MANIFEST.json",
                 url: paths.buildManifestURL,
+                kind: .file,
+                rootURL: paths.vendorRoot
+            ),
+            .init(
+                name: "requirements.lock",
+                url: paths.vendorRoot.appendingPathComponent("requirements.lock", isDirectory: false),
                 kind: .file,
                 rootURL: paths.vendorRoot
             ),
@@ -949,6 +985,24 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 rootURL: paths.vendorRoot
             ),
         ]
+        requirements.append(contentsOf: webUICompatibilityShimPaths.map { relativePath in
+            BrowserUseRuntimeArtifactRequirement(
+                name: "web-ui compatibility shim",
+                url: paths.vendorRoot.appendingPathComponent(relativePath, isDirectory: false),
+                kind: .file,
+                rootURL: paths.vendorRoot
+            )
+        })
+        requirements.append(.init(
+            name: "web-ui dry-run submit hook",
+            url: paths.vendorRoot.appendingPathComponent(
+                "web-ui/src/webui/components/browser_use_agent_tab.py",
+                isDirectory: false
+            ),
+            kind: .file,
+            rootURL: paths.vendorRoot
+        ))
+        return requirements
     }
 
 }

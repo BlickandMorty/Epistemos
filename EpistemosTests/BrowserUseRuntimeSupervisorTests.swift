@@ -372,6 +372,39 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(!readiness.message.contains(paths.vendorRoot.path))
     }
 
+    @Test("readiness rechecks runtime-critical web-ui shims even when manifest narrows its list")
+    func readinessRechecksRuntimeCriticalWebUIShims() throws {
+        let paths = try runtimeFixture(packaged: true)
+        defer { removeFixture(paths) }
+        let missingRelativePath = "browser-use/browser_use/browser/chrome.py"
+        try FileManager.default.removeItem(
+            at: paths.vendorRoot.appendingPathComponent(missingRelativePath, isDirectory: false)
+        )
+        let narrowedManifest = vendorManifestJSON(packaged: true).replacingOccurrences(
+            of: "                \"\(missingRelativePath)\",\n",
+            with: ""
+        )
+        try Data(narrowedManifest.utf8).write(to: paths.vendorManifestURL)
+        try refreshSignedRuntimeFixtureSignature(paths)
+
+        let gate = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: paths.vendorManifestURL
+        )
+        #expect(gate.isActive, "Fixture manifest intentionally omits the missing shim so only runtime readiness catches it")
+
+        let readiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"]
+        )
+
+        #expect(!readiness.isReady)
+        #expect(readiness.message.contains("missing web-ui compatibility shim at \(missingRelativePath)"))
+        #expect(!readiness.message.contains(paths.vendorRoot.path))
+    }
+
     @Test("default paths prefer signed bundled Pro resources before source checkout layout")
     func defaultPathsPreferSignedBundledProResourcesBeforeSourceCheckoutLayout() throws {
         let root = FileManager.default.temporaryDirectory
