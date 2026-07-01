@@ -5623,6 +5623,41 @@ function epistemosDirParent(dir: string): string {
   );
   source = replaceRequired(
     source,
+    'directory switcher worktree new session handler',
+    `  const handleSelectDirectory = async (newDir: string) => {
+    if (newDir === workingDir) {
+      setIsMenuOpen(false);
+      return;
+    }
+
+    setIsMenuOpen(false);
+    await applyDirectoryChange(newDir);
+  };
+`,
+    `  const handleSelectDirectory = async (newDir: string) => {
+    if (newDir === workingDir) {
+      setIsMenuOpen(false);
+      return;
+    }
+
+    setIsMenuOpen(false);
+    await applyDirectoryChange(newDir);
+  };
+
+  const handleStartWorktreeSession = (newDir: string) => {
+    if (newDir === workingDir) {
+      setIsMenuOpen(false);
+      return;
+    }
+
+    setIsMenuOpen(false);
+    window.electron.addRecentDir(newDir);
+    window.electron.createChatWindow({ dir: newDir });
+  };
+`
+  );
+  source = replaceRequired(
+    source,
     'directory switcher current readable row',
     `<span className="truncate">{workingDir}</span>
               <Check className="ml-auto h-4 w-4" />`,
@@ -5639,6 +5674,19 @@ function epistemosDirParent(dir: string): string {
   source = replaceRequired(
     source,
     'directory switcher worktree readable rows',
+    `<DropdownMenuItem
+                  key={\`worktree-\${dir}\`}
+                  onSelect={() => void handleSelectDirectory(dir)}
+                >`,
+    `<DropdownMenuItem
+                  key={\`worktree-\${dir}\`}
+                  onSelect={() => void handleStartWorktreeSession(dir)}
+                  data-epistemos-worktree-new-session
+                >`
+  );
+  source = replaceRequired(
+    source,
+    'directory switcher worktree readable row content',
     `<GitBranch className="mr-2 h-4 w-4" />
                   <span className="truncate">{dir}</span>`,
     `<GitBranch className="mr-2 h-4 w-4 shrink-0" />
@@ -5646,7 +5694,9 @@ function epistemosDirParent(dir: string): string {
                     <span className="block truncate font-medium text-text-primary">
                       {epistemosDirBaseName(dir)}
                     </span>
-                    <span className="block truncate text-[11px] text-text-secondary">{dir}</span>
+                    <span className="block truncate text-[11px] text-text-secondary">
+                      New isolated chat in {epistemosDirParent(dir)}
+                    </span>
                   </span>`
   );
   source = replaceRequired(

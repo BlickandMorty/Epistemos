@@ -307,7 +307,10 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!reskin.contains("goose-message-tool mt-1 rounded-[12px] border border-border-secondary bg-background-primary/68"))
         #expect(!reskin.contains("bg-background-primary/58 px-6 pb-5 pt-14 border-b border-border-secondary backdrop-blur-xl"))
         #expect(reskin.contains("function epistemosDirBaseName"))
+        #expect(reskin.contains("handleStartWorktreeSession"))
         #expect(reskin.contains("data-epistemos-worktree-menu-item"))
+        #expect(reskin.contains("data-epistemos-worktree-new-session"))
+        #expect(reskin.contains("New isolated chat in"))
         #expect(reskin.contains("data-epistemos-recent-dir-menu-item"))
 
         let visualHarness = try loadMirroredSourceTextFile("scripts/goose-ab-visual-harness.swift")
@@ -329,6 +332,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("Goose Web UI artifact still contains hardcoded Tailwind palette leftovers after bundle postprocess."))
         #expect(stageScript.contains("['text-orange-500', 'text-text-warning']"))
         #expect(stageScript.contains("data-epistemos-worktree-menu-item"))
+        #expect(stageScript.contains("data-epistemos-worktree-new-session"))
         #expect(stageScript.contains("data-epistemos-session-tabs"))
         #expect(stageScript.contains("data-epistemos-session-split"))
         #expect(stageScript.contains("grid h-full w-full grid-cols-2 gap-2"))
