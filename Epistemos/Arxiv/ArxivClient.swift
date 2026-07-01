@@ -83,12 +83,21 @@ nonisolated enum ArxivSearchDiagnostics {
         }
         let value = trimmed.isEmpty ? "Error" : trimmed
         guard value.unicodeScalars.allSatisfy({ scalar in
-            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+            isAllowedDomainScalar(scalar)
         }) else {
             return "Error"
         }
         let safeDomain = String(value.prefix(maxDomainCharacters))
         return safeDomain.isEmpty ? "Error" : safeDomain
+    }
+
+    private static func isAllowedDomainScalar(_ scalar: UnicodeScalar) -> Bool {
+        switch scalar.value {
+        case 48...57, 65...90, 97...122:
+            return true
+        default:
+            return domainAllowedPunctuation.contains(scalar)
+        }
     }
 
     static func normalizedDisplayText(_ value: String) -> String {
