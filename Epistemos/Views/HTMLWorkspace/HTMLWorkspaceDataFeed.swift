@@ -207,6 +207,9 @@ enum HTMLWorkspaceDataFeedContextSources {
         if requiredKind == "folder_note" || (requiredKind.isEmpty && shouldUseFolderNoteResults(for: query)) {
             return folderNoteResults(query: query, modelContainer: modelContainer, limit: limit)
         }
+        if requiredKind == "meeting_note" || (requiredKind.isEmpty && shouldUseMeetingNoteResults(for: query)) {
+            return meetingNoteResults(query: query, modelContainer: modelContainer, limit: limit)
+        }
         if requiredKind == "recent_chat" || (requiredKind.isEmpty && shouldUseRecentChatResults(for: query)) {
             return recentChatResults(query: query, modelContainer: modelContainer, limit: limit)
         }

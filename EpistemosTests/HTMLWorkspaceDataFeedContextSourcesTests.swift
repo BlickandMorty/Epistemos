@@ -181,6 +181,65 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(explicitGraphResults.isEmpty)
     }
 
+    @MainActor
+    @Test("meeting note context source emits real saved meeting transcripts")
+    func meetingNoteContextSourceEmitsRealSavedMeetingTranscripts() throws {
+        let schema = Schema([SDPage.self, SDBlock.self, SDChat.self, SDMessage.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+
+        let meeting = SDPage(title: "Launch Review Meeting")
+        meeting.body = "Launch review transcript with beta rollout decisions."
+        meeting.frontMatter = [
+            "source": "meeting_stt",
+            "source_kind": "audio_transcript",
+            "captured_at": "2026-07-01T12:00:00Z",
+            "duration_seconds": "61",
+            "stt_engine": "apple_speechanalyzer",
+        ]
+        let genericCapture = SDPage(title: "Web capture")
+        genericCapture.body = "captured article"
+        genericCapture.frontMatter = ["captured_at": "2026-07-01T13:00:00Z"]
+        context.insert(meeting)
+        context.insert(genericCapture)
+        try context.save()
+
+        let meetingResults = HTMLWorkspaceDataFeedContextSources.meetingNoteResults(
+            query: "meeting: launch",
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(meetingResults.map(\.pageID) == [meeting.id])
+        #expect(meetingResults.first?.contextKind == "meeting_note")
+        #expect(meetingResults.first?.sourceLabel == "Meeting note")
+        #expect(meetingResults.first?.snippet == "Launch review transcript with beta rollout decisions.")
+        #expect(meetingResults.first?.provenance.contains("TextCapturePipeline / meeting_stt / audio_transcript") == true)
+        #expect(meetingResults.first?.provenance.contains("duration_seconds:61") == true)
+
+        let genericResult = SearchResult(pageId: genericCapture.id, title: "Generic", snippet: "generic", rank: 0.7)
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "meeting notes launch"
+        )
+        #expect(triggeredResults.map(\.pageID) == [meeting.id])
+        #expect(triggeredResults.first?.contextKind == "meeting_note")
+
+        let explicitChatResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "recent_chat",
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "meeting notes launch"
+        )
+        #expect(explicitChatResults.isEmpty)
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
