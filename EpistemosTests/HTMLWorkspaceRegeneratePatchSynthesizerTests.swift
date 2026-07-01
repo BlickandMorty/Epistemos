@@ -5,6 +5,184 @@ import Testing
 
 @Suite("HTML Workspace full-surface regenerate synthesis")
 nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
+    @Test("regenerate loading preview is transient, escaped, and not persisted as the package")
+    func regenerateLoadingPreviewIsTransientEscapedAndNotPersisted() {
+        let package = HTMLWorkspacePackage.defaultPackage(title: "Proof")
+        let loading = HTMLWorkspaceRegeneratePreview.loadingPackage(
+            from: package,
+            instruction: "Explain <script>alert(1)</script> as an animated dashboard"
+        )
+
+        #expect(loading.manifest.id == package.manifest.id)
+        #expect(loading.manifest.title == "Regenerating Proof")
+        #expect(loading.manifest.contentHash != package.manifest.contentHash)
+        #expect(loading.indexHTML.contains("data-regenerate-preview"))
+        #expect(loading.indexHTML.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
+        #expect(!loading.indexHTML.contains("<script>alert(1)</script>"))
+        #expect(loading.styleCSS.contains("regenerate-preview-pulse"))
+        #expect(loading.styleCSS.contains("var(--epistemos-workspace-bg"))
+        #expect(loading.styleCSS.contains("var(--epistemos-workspace-card"))
+        #expect(loading.styleCSS.contains("var(--epistemos-workspace-accent"))
+        #expect(!loading.styleCSS.contains("linear-gradient"))
+        #expect(!loading.styleCSS.contains("border: 1px"))
+        #expect(loading.scriptJS.isEmpty)
+        #expect(loading.dataJSON.contains(#""status":"regenerating""#))
+        #expect(loading.routes.isEmpty)
+        #expect(loading.assets.isEmpty)
+        #expect(package.indexHTML != loading.indexHTML)
+    }
+
+    @Test("regenerate sheet exposes target workspace and hash before replace")
+    func regenerateSheetExposesTargetWorkspaceAndHashBeforeReplace() throws {
+        let sheet = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceRegenerateSurface.swift")
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+
+        #expect(sheet.contains("let workspaceID: String"))
+        #expect(sheet.contains("let expectedContentHash: String"))
+        #expect(sheet.contains("@Binding var streamedText: String"))
+        #expect(sheet.contains("@Environment(UIState.self) private var ui"))
+        #expect(sheet.contains("Label(\"Copy Prompt\", systemImage: \"doc.on.doc\")"))
+        #expect(sheet.contains("Label(\"Preview Stream\", systemImage: \"eye\")"))
+        #expect(sheet.contains("Label(\"Show Current\", systemImage: \"arrow.uturn.backward.circle\")"))
+        #expect(sheet.contains("Label(\"Apply Stream\", systemImage: \"checkmark.circle\")"))
+        #expect(sheet.contains("Label(isRegenerating ? \"Regenerating\" : \"Regenerate\", systemImage: \"wand.and.sparkles\")"))
+        #expect(sheet.contains("let onCopyPrompt: () -> Void"))
+        #expect(sheet.contains("let onRestorePreview: () -> Void"))
+        #expect(sheet.contains("TextEditor(text: $streamedText)"))
+        #expect(sheet.contains(#"Label("Target", systemImage: "scope")"#))
+        #expect(sheet.contains("Text(\"\\(workspaceID.prefix(10)) / \\(expectedContentHash.prefix(10))\")"))
+        #expect(sheet.contains("MarkdownPreviewSurfaceStyle.flatBackground(for: theme.surfaceVariant(.other))"))
+        #expect(sheet.contains(".textFieldStyle(.plain)"))
+        #expect(sheet.contains(".foregroundStyle(theme.error)"))
+        #expect(!sheet.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(!sheet.contains("GroupBox"))
+        #expect(!sheet.contains(".foregroundStyle(.red)"))
+        #expect(editor.contains("workspaceID: package.manifest.id"))
+        #expect(editor.contains("expectedContentHash: package.currentContentHash"))
+        #expect(editor.contains("streamedText: $regenerateStreamText"))
+        #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
+        #expect(editor.contains("onPreviewStream: previewRegenerateStreamText"))
+        #expect(editor.contains("onApplyStream: applyRegenerateStreamText"))
+        #expect(editor.contains("onRestorePreview: restorePreviewAfterRegenerate"))
+        #expect(editor.contains("private func copyRegeneratePrompt()"))
+        #expect(editor.contains("HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt("))
+        #expect(editor.contains(#"statusText = "Regenerate prompt copied""#))
+        #expect(editor.contains("private func previewRegenerateStreamText()"))
+        #expect(editor.contains("private func applyRegenerateStreamText()"))
+        #expect(editor.contains("HTMLWorkspaceRegenerateApplication.apply("))
+        #expect(editor.contains("HTMLWorkspaceRegeneratePreview.candidatePackage("))
+    }
+
+    @Test("regenerate preview package swaps reset stale route selection")
+    func regeneratePreviewPackageSwapsResetStaleRouteSelection() throws {
+        let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+
+        #expect(editor.contains("previewRouteName = nil\n        previewPackage = HTMLWorkspaceRegeneratePreview.loadingPackage("))
+        #expect(editor.contains("previewRouteName = nil\n        previewPackage = candidate"))
+        #expect(editor.contains("previewRouteName = nil\n        liveDOMSnapshot = nil\n        previewPackage = package"))
+        #expect(editor.contains("previewRouteName = nil\n            previewPackage = result.package"))
+        #expect(editor.components(separatedBy: "previewRouteName = nil").count >= 5)
+    }
+
+    @Test("copyable regenerate prompt includes system prompt and target hash")
+    func copyableRegeneratePromptIncludesSystemPromptAndTargetHash() {
+        let package = HTMLWorkspacePackage.defaultPackage(title: "Prompt Proof")
+        let expectedHash = contentHash(for: package)
+        let prompt = HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt(
+            instruction: "Turn this into a live explainer",
+            package: package,
+            expectedContentHash: expectedHash
+        )
+
+        #expect(prompt.contains("System:"))
+        #expect(prompt.contains(HTMLWorkspaceRegeneratePromptBuilder.systemPrompt))
+        #expect(prompt.contains("User:"))
+        #expect(prompt.contains("Regenerate this HTML Workspace as one complete live site."))
+        #expect(prompt.contains("id: \(package.manifest.id)"))
+        #expect(prompt.contains("expected_content_hash: \(expectedHash)"))
+        #expect(prompt.contains("do not create a route named assets"))
+        #expect(prompt.contains("routes/assets/<name>"))
+        #expect(prompt.contains("Turn this into a live explainer"))
+    }
+
+    @Test("complete streamed regenerate response can preview before final apply")
+    func completeStreamedRegenerateResponseCanPreviewBeforeFinalApply() throws {
+        let package = HTMLWorkspacePackage.defaultPackage(title: "Preview Source")
+        let expectedHash = contentHash(for: package)
+        let streamedResponse = """
+        ```html
+        <main id="stream-preview-proof"><h1>Streaming Preview Proof</h1></main>
+        ```
+        ```css
+        #stream-preview-proof { display: grid; }
+        ```
+        ```javascript
+        document.body.dataset.streamPreview = 'true';
+        ```
+        ```json
+        {"preview":true}
+        ```
+        """
+
+        let preview = try #require(HTMLWorkspaceRegeneratePreview.candidatePackage(
+            from: streamedResponse,
+            basePackage: package,
+            expectedContentHash: expectedHash
+        ))
+
+        #expect(preview.indexHTML.contains("Streaming Preview Proof"))
+        #expect(preview.styleCSS.contains("display: grid"))
+        #expect(preview.scriptJS.contains("streamPreview"))
+        #expect(preview.dataJSON == #"{"preview":true}"#)
+        #expect(preview.manifest.id == package.manifest.id)
+        #expect(preview.manifest.generationProvenance?.operation == .regenerate)
+        #expect(preview.manifest.generationProvenance?.reversibleSnapshotName == nil)
+        #expect(package.indexHTML != preview.indexHTML)
+    }
+
+    @Test("incomplete or wrong-target stream does not update the preview candidate")
+    func incompleteOrWrongTargetStreamDoesNotUpdatePreviewCandidate() throws {
+        let package = HTMLWorkspacePackage.defaultPackage()
+        let expectedHash = contentHash(for: package)
+        let incompleteResponse = """
+        ```html
+        <main><h1>Only HTML So Far</h1></main>
+        ```
+        """
+
+        #expect(HTMLWorkspaceRegeneratePreview.candidatePackage(
+            from: incompleteResponse,
+            basePackage: package,
+            expectedContentHash: expectedHash
+        ) == nil)
+
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            title: "Wrong Workspace",
+            html: "<main><h1>Wrong Workspace</h1></main>",
+            css: "main { display: grid; }",
+            js: "",
+            dataJSON: "{}",
+            provenanceOperation: .regenerate
+        )
+        let batch = HTMLWorkspacePatchCommandBatch(
+            workspaceID: "not-\(package.manifest.id)",
+            expectedContentHash: expectedHash,
+            operations: [.replaceDocument(replacement)]
+        )
+        let data = try JSONEncoder.epdocCanonical.encode(batch)
+        let wrongWorkspaceResponse = """
+        ```epistemos-html-workspace-patch
+        \(String(decoding: data, as: UTF8.self))
+        ```
+        """
+
+        #expect(HTMLWorkspaceRegeneratePreview.candidatePackage(
+            from: wrongWorkspaceResponse,
+            basePackage: package,
+            expectedContentHash: expectedHash
+        ) == nil)
+    }
+
     @Test("streamed Goose fenced blocks synthesize and apply a regenerate replacement")
     func streamedGooseFencedBlocksSynthesizeAndApplyRegenerateReplacement() throws {
         let package = HTMLWorkspacePackage.defaultPackage()
@@ -134,12 +312,16 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
     func returnedReplaceDocumentPatchBlockIsNormalizedToRegenerateProvenance() throws {
         let package = HTMLWorkspacePackage.defaultPackage()
         let expectedHash = contentHash(for: package)
+        let routeReplacement = ["about.html": "<main><h1>About Regenerate</h1></main>"]
+        let assetReplacement = ["hero.txt": Data("asset regenerate proof".utf8)]
         let sourceReplacement = HTMLWorkspaceDocumentReplacement(
             title: "Patch Block Proof",
             html: "<main><h1>Patch Block Proof</h1></main>",
             css: "main { color: rebeccapurple; }",
             js: "document.body.dataset.patchBlock = 'true';",
             dataJSON: #"{"patchBlock":true}"#,
+            routes: routeReplacement,
+            assets: assetReplacement,
             provenanceOperation: .replaceDocument
         )
         let batch = HTMLWorkspacePatchCommandBatch(
@@ -165,6 +347,87 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
 
         #expect(synthesizedReplacement.title == "Patch Block Proof")
         #expect(synthesizedReplacement.provenanceOperation == .regenerate)
+        #expect(synthesizedReplacement.routes == routeReplacement)
+        #expect(synthesizedReplacement.assets == assetReplacement)
+    }
+
+    @Test("returned patch block workspace and hash metadata survive synthesis")
+    func returnedPatchBlockWorkspaceAndHashMetadataSurviveSynthesis() throws {
+        let package = HTMLWorkspacePackage.defaultPackage()
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            html: "<main><h1>Wrong Target Proof</h1></main>",
+            css: "main { display: grid; }",
+            js: "",
+            dataJSON: "{}",
+            provenanceOperation: .regenerate
+        )
+        let batch = HTMLWorkspacePatchCommandBatch(
+            workspaceID: "wrong-workspace",
+            expectedContentHash: "wrong-hash",
+            operations: [.replaceDocument(replacement)]
+        )
+        let data = try JSONEncoder.epdocCanonical.encode(batch)
+        let response = """
+        ```epistemos-html-workspace-patch
+        \(String(decoding: data, as: UTF8.self))
+        ```
+        """
+
+        let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
+            from: response,
+            package: package,
+            expectedContentHash: contentHash(for: package)
+        )
+        let parsed = try HTMLWorkspacePatchCommandParser.parse(patchResponse)
+
+        #expect(parsed.batches.first?.workspaceID == "wrong-workspace")
+        #expect(parsed.batches.first?.expectedContentHash == "wrong-hash")
+        #expect(throws: HTMLWorkspaceRegenerateApplicationError.self) {
+            _ = try HTMLWorkspaceRegenerateApplication.apply(
+                patchResponse,
+                to: package,
+                expectedContentHash: contentHash(for: package)
+            )
+        }
+    }
+
+    @Test("returned patch block may use tolerant fence labels")
+    func returnedPatchBlockMayUseTolerantFenceLabels() throws {
+        let package = HTMLWorkspacePackage.defaultPackage()
+        let expectedHash = contentHash(for: package)
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            title: "Tolerant Fence",
+            html: "<main><h1>Tolerant Fence Proof</h1></main>",
+            css: "main { display: grid; }",
+            js: "",
+            dataJSON: "{}",
+            provenanceOperation: .replaceDocument
+        )
+        let batch = HTMLWorkspacePatchCommandBatch(
+            workspaceID: package.manifest.id,
+            expectedContentHash: expectedHash,
+            operations: [.replaceDocument(replacement)]
+        )
+        let data = try JSONEncoder.epdocCanonical.encode(batch)
+        let response = """
+        ```EPISTEMOS-HTML-WORKSPACE-PATCH json
+        \(String(decoding: data, as: UTF8.self))
+        ```
+        """
+
+        let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
+            from: response,
+            package: package,
+            expectedContentHash: expectedHash
+        )
+        let preview = try #require(HTMLWorkspaceRegeneratePreview.candidatePackage(
+            from: patchResponse,
+            basePackage: package,
+            expectedContentHash: expectedHash
+        ))
+
+        #expect(preview.manifest.title == "Tolerant Fence")
+        #expect(preview.indexHTML.contains("Tolerant Fence Proof"))
     }
 
     @Test("returned patch block must be exactly one full-surface replacement")
@@ -210,13 +473,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
     }
 
     private func contentHash(for package: HTMLWorkspacePackage) -> String {
-        HTMLWorkspaceDocument.contentHash(
-            indexHTML: package.indexHTML,
-            styleCSS: package.styleCSS,
-            scriptJS: package.scriptJS,
-            dataJSON: package.dataJSON,
-            routes: package.routes
-        )
+        package.currentContentHash
     }
 }
 

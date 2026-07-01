@@ -25,7 +25,8 @@ nonisolated enum HTMLWorkspacePackageContentHasher {
         styleCSS: String,
         scriptJS: String,
         dataJSON: String = "{}",
-        routes: [String: String] = [:]
+        routes: [String: String] = [:],
+        assets: [String: Data] = [:]
     ) -> String {
         var data = Data()
         data.append(Data(indexHTML.utf8))
@@ -40,6 +41,12 @@ nonisolated enum HTMLWorkspacePackageContentHasher {
             data.append(Data(name.utf8))
             data.append(0)
             data.append(Data(routes[name, default: ""].utf8))
+            data.append(0)
+        }
+        for name in assets.keys.sorted() {
+            data.append(Data(name.utf8))
+            data.append(0)
+            data.append(assets[name] ?? Data())
             data.append(0)
         }
         let digest = SHA256.hash(data: data)
@@ -188,81 +195,6 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
           border-color: var(--epistemos-workspace-border);
         }
         """
-    }
-}
-
-nonisolated private enum HTMLWorkspacePreviewFonts {
-    private final class BundleProbe {}
-
-    static let fontFaceCSS: String = {
-        [
-            fontFace(
-                family: "MatrixTypeDisplay-Regular",
-                fileName: "MatrixtypeDisplay-9MyE5",
-                ext: "ttf",
-                mimeType: "font/ttf",
-                aliases: ["MatrixTypeDisplay"]
-            ),
-            fontFace(
-                family: "ChonkyPixels",
-                fileName: "ChonkyPixels",
-                ext: "ttf",
-                mimeType: "font/ttf"
-            ),
-        ].compactMap { $0 }.joined(separator: "\n\n")
-    }()
-
-    private static func fontFace(
-        family: String,
-        fileName: String,
-        ext: String,
-        mimeType: String,
-        aliases: [String] = []
-    ) -> String? {
-        guard let dataURL = fontDataURL(fileName: fileName, ext: ext, mimeType: mimeType) else {
-            return nil
-        }
-        let allFamilies = [family] + aliases
-        return allFamilies.map { familyName in
-            """
-        @font-face {
-          font-family: "\(familyName)";
-          src: local("\(familyName)"), local("\(family)"), url("\(dataURL)") format("truetype");
-          font-style: normal;
-          font-weight: 400;
-          font-synthesis: none;
-          font-display: swap;
-        }
-        """
-        }.joined(separator: "\n\n")
-    }
-
-    private static func fontDataURL(fileName: String, ext: String, mimeType: String) -> String? {
-        guard let url = bundleFontURL(fileName: fileName, ext: ext),
-              let data = try? Data(contentsOf: url) else {
-            return nil
-        }
-        return "data:\(mimeType);base64,\(data.base64EncodedString())"
-    }
-
-    private static func bundleFontURL(fileName: String, ext: String) -> URL? {
-        let bundles = [Bundle.main, Bundle(for: BundleProbe.self)] + Bundle.allBundles + Bundle.allFrameworks
-        var visited = Set<String>()
-        for bundle in bundles {
-            let path = bundle.bundleURL.path
-            guard visited.insert(path).inserted else { continue }
-            if let url = bundle.url(forResource: fileName, withExtension: ext) {
-                return url
-            }
-            if let url = bundle.url(
-                forResource: fileName,
-                withExtension: ext,
-                subdirectory: "Fonts"
-            ) {
-                return url
-            }
-        }
-        return nil
     }
 }
 
@@ -495,6 +427,17 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
         self.consoleErrors = consoleErrors
     }
 
+    public var currentContentHash: String {
+        HTMLWorkspacePackageContentHasher.hash(
+            indexHTML: indexHTML,
+            styleCSS: styleCSS,
+            scriptJS: scriptJS,
+            dataJSON: dataJSON,
+            routes: routes,
+            assets: assets
+        )
+    }
+
     public var isStarterTemplateContent: Bool {
         let starter = Self.defaultPackage()
         return indexHTML == starter.indexHTML
@@ -649,6 +592,8 @@ nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertibl
     case malformedConsoleErrors(underlying: Error)
     case invalidPackagePath(name: String)
     case invalidStyleRule(reason: String)
+    case missingSnapshot(name: String)
+    case malformedSnapshot(name: String)
     case packageLimitExceeded(reason: String)
 
     public var description: String {
@@ -671,6 +616,10 @@ nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertibl
             return "HTMLWorkspacePackage: invalid package path \(name)"
         case .invalidStyleRule(let reason):
             return "HTMLWorkspacePackage: invalid style rule - \(reason)"
+        case .missingSnapshot(let name):
+            return "HTMLWorkspacePackage: missing snapshot \(name)"
+        case .malformedSnapshot(let name):
+            return "HTMLWorkspacePackage: malformed snapshot \(name)"
         case .packageLimitExceeded(let reason):
             return "HTMLWorkspacePackage: package limit exceeded - \(reason)"
         }
@@ -972,6 +921,11 @@ extension HTMLWorkspacePackage {
     }
 
     nonisolated private static func validateRouteFiles(_ files: [String: Data]) throws {
+        if files.keys.contains(HTMLWorkspacePackageEntry.assets) {
+            throw HTMLWorkspacePackageError.invalidPackagePath(
+                name: "\(HTMLWorkspacePackageEntry.routes)/\(HTMLWorkspacePackageEntry.assets)"
+            )
+        }
         try validateFileCollection(
             files,
             folderName: HTMLWorkspacePackageEntry.routes,
@@ -1055,223 +1009,16 @@ extension HTMLWorkspacePackage {
     }
 }
 
-nonisolated public enum HTMLWorkspacePreviewDocument {
-    public static func render(
-        package: HTMLWorkspacePackage,
-        routeName: String? = nil,
-        theme: HTMLWorkspacePreviewTheme? = nil,
-        themeGuardCSSOverride: String? = nil,
-        resourceMode: HTMLWorkspacePreviewResourceMode = .packageLocal
-    ) -> String {
-        let package = switch resourceMode {
-        case .packageLocal:
-            package
-        case .inlinePackageAssets:
-            HTMLWorkspacePackageResources.packageWithInlineAssets(package)
-        }
-        let csp = package.manifest.sandboxPolicy.contentSecurityPolicy
-        let themeAttribute = theme.map { #" data-epistemos-theme="\#($0.rawValue)""# } ?? ""
-        let themeCSS = themeGuardCSSOverride ?? theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
-        let routeHTML = routeName.flatMap { package.routes[$0] }
-        let bodyHTML = routeHTML ?? package.indexHTML
-        return """
-        <!doctype html>
-        <html\(themeAttribute)>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <meta http-equiv="Content-Security-Policy" content="\(escapeAttribute(csp))">
-          <style id="epistemos-font-face">
-        \(HTMLWorkspacePreviewFonts.fontFaceCSS)
-          </style>
-          <style id="epistemos-theme-guard">
-        \(themeCSS)
-          </style>
-          <style>\(package.styleCSS)</style>
-          <style id="epistemos-theme-host">
-        \(HTMLWorkspacePreviewTheme.hostCSS)
-          </style>
-        </head>
-        <body>
-        \(bodyHTML)
-          <script type="application/json" id="workspace-data">\(escapeScriptData(package.dataJSON))</script>
-          <script id="epistemos-workspace-runtime">
-        \(localDOMHelperJavaScript(pythonPolicyEnabled: package.manifest.sandboxPolicy.allowPythonRuntime))
-          </script>
-          <script>\(package.scriptJS)</script>
-        </body>
-        </html>
-        """
-    }
-
-    private static func escapeAttribute(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-    }
-
-    private static func escapeScriptData(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
-    }
-
-    private static func localDOMHelperJavaScript(pythonPolicyEnabled: Bool) -> String {
-        let pythonAvailable = pythonPolicyEnabled && HTMLWorkspacePythonRuntime.isAvailable
-        let pythonStatus: String = if !pythonPolicyEnabled {
-            "disabled"
-        } else if pythonAvailable {
-            "available"
-        } else {
-            "missing-vendored-assets"
-        }
-        let pythonBaseURL = HTMLWorkspacePythonRuntime.baseURLString
-        return """
-    (() => {
-      const dataNode = document.getElementById('workspace-data');
-      const parseWorkspaceData = (raw) => {
-        try {
-          return JSON.parse(raw || '{}');
-        } catch (error) {
-          console.error('HTMLWorkspace data.json parse failed', error);
-          return { error: 'Invalid data.json' };
-        }
-      };
-      const state = {
-        data: parseWorkspaceData(dataNode?.textContent || '{}')
-      };
-      const replaceWorkspaceData = (nextData, rawJSON = null, emitEvent = true) => {
-        state.data = nextData;
-        if (dataNode) {
-          dataNode.textContent = rawJSON === null ? JSON.stringify(nextData) : String(rawJSON);
-        }
-        if (emitEvent) {
-          try {
-            window.dispatchEvent(new CustomEvent('htmlworkspace:datachange', { detail: nextData }));
-          } catch (error) {
-            console.warn('HTMLWorkspace datachange event failed', error);
-          }
-        }
-        return true;
-      };
-
-      Object.defineProperty(window, '__epistemosReplaceWorkspaceData', {
-        value(nextData, rawJSON = null) {
-          return replaceWorkspaceData(nextData, rawJSON);
-        },
-        writable: false,
-        configurable: false,
-        enumerable: false
-      });
-
-      replaceWorkspaceData(state.data, dataNode?.textContent || '{}', false);
-
-      const pythonRuntime = (() => {
-        const enabled = \(pythonPolicyEnabled ? "true" : "false");
-        const available = \(pythonAvailable ? "true" : "false");
-        const status = "\(pythonStatus)";
-        const baseURL = "\(pythonBaseURL)";
-        let loadPromise = null;
-        function loadScript(src) {
-          return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load Pyodide script: ' + src));
-            document.head.appendChild(script);
-          });
-        }
-        async function load() {
-          if (!enabled) {
-            throw new Error('HTML Workspace Python runtime is disabled by sandbox policy');
-          }
-          if (!available) {
-            throw new Error('HTML Workspace Python runtime is not bundled in this build');
-          }
-          if (!loadPromise) {
-            loadPromise = (async () => {
-              if (typeof window.loadPyodide !== 'function') {
-                await loadScript(baseURL + '\(HTMLWorkspacePythonRuntime.entryScriptName)');
-              }
-              if (typeof window.loadPyodide !== 'function') {
-                throw new Error('Pyodide loader did not register loadPyodide');
-              }
-              return window.loadPyodide({ indexURL: baseURL });
-            })();
-          }
-          return loadPromise;
-        }
-        async function run(code) {
-          const pyodide = await load();
-          return pyodide.runPythonAsync(String(code ?? ''));
-        }
-        return Object.freeze({
-          enabled,
-          available,
-          status,
-          baseURL: available ? baseURL : null,
-          load,
-          run
-        });
-      })();
-
-      const toArray = (children) => Array.isArray(children) ? children : [children];
-      const api = {
-        get data() {
-          return state.data;
-        },
-        python: pythonRuntime,
-        q(selector, scope = document) {
-          return scope.querySelector(selector);
-        },
-        qa(selector, scope = document) {
-          return Array.from(scope.querySelectorAll(selector));
-        },
-        el(tagName, attributes = {}, children = []) {
-          const node = document.createElement(tagName);
-          Object.entries(attributes || {}).forEach(([key, value]) => {
-            if (value === false || value === null || value === undefined) { return; }
-            if (key === 'class') {
-              node.className = String(value);
-            } else if (key === 'text') {
-              node.textContent = String(value);
-            } else {
-              node.setAttribute(key, value === true ? '' : String(value));
-            }
-          });
-          toArray(children).forEach((child) => {
-            if (child === null || child === undefined) { return; }
-            node.append(child instanceof Node ? child : document.createTextNode(String(child)));
-          });
-          return node;
-        },
-        mount(target, node) {
-          const host = typeof target === 'string' ? document.querySelector(target) : target;
-          if (!host || !node) { return null; }
-          host.replaceChildren(node);
-          return host;
-        }
-      };
-
-      Object.defineProperty(window, 'HTMLWorkspace', {
-        value: Object.freeze(api),
-        writable: false,
-        configurable: false,
-        enumerable: false
-      });
-    })();
-    """
-    }
-}
-
 nonisolated public struct HTMLWorkspaceDocumentReplacement: Sendable, Hashable {
     public var title: String?
     public var html: String
     public var css: String
     public var js: String
     public var dataJSON: String
+    /// nil preserves the current route map; an explicit value replaces it atomically.
+    public var routes: [String: String]?
+    /// nil preserves current package assets; an explicit value replaces them atomically.
+    public var assets: [String: Data]?
     public var provenanceOperation: HTMLWorkspaceGenerationProvenance.Operation
 
     public init(
@@ -1280,6 +1027,8 @@ nonisolated public struct HTMLWorkspaceDocumentReplacement: Sendable, Hashable {
         css: String,
         js: String,
         dataJSON: String,
+        routes: [String: String]? = nil,
+        assets: [String: Data]? = nil,
         provenanceOperation: HTMLWorkspaceGenerationProvenance.Operation = .replaceDocument
     ) {
         self.title = title
@@ -1287,6 +1036,8 @@ nonisolated public struct HTMLWorkspaceDocumentReplacement: Sendable, Hashable {
         self.css = css
         self.js = js
         self.dataJSON = dataJSON
+        self.routes = routes
+        self.assets = assets
         self.provenanceOperation = provenanceOperation
     }
 }
@@ -1306,7 +1057,9 @@ nonisolated public enum HTMLWorkspacePatchOperation: Sendable, Hashable {
     case addAsset(HTMLWorkspaceAsset)
     case removeAsset(name: String)
     case captureSnapshot(name: String)
+    case restoreSnapshot(name: String)
     case recordConsoleError(HTMLWorkspaceConsoleError)
+    case clearConsole
 }
 
 nonisolated public struct HTMLWorkspaceBlockInsertion: Sendable, Hashable {
@@ -1366,25 +1119,66 @@ nonisolated public struct HTMLWorkspaceAsset: Sendable, Hashable {
     }
 }
 
+nonisolated public enum HTMLWorkspaceConsoleSeverity: String, Codable, Sendable, Hashable {
+    case diagnostic
+    case warning
+    case error
+
+    static func fromBridgeLevel(_ value: String?) -> HTMLWorkspaceConsoleSeverity {
+        switch value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "diagnostic", "info", "log":
+            .diagnostic
+        case "warn", "warning":
+            .warning
+        default:
+            .error
+        }
+    }
+}
+
 nonisolated public struct HTMLWorkspaceConsoleError: Codable, Sendable, Hashable {
     public var message: String
     public var source: String?
     public var line: UInt32
     public var column: UInt32
     public var timestamp: Int64
+    public var severity: HTMLWorkspaceConsoleSeverity
 
     public init(
         message: String,
         source: String?,
         line: UInt32,
         column: UInt32,
-        timestamp: Int64
+        timestamp: Int64,
+        severity: HTMLWorkspaceConsoleSeverity = .error
     ) {
         self.message = message
         self.source = source
         self.line = line
         self.column = column
         self.timestamp = timestamp
+        self.severity = severity
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case message
+        case source
+        case line
+        case column
+        case timestamp
+        case severity
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.message = try container.decode(String.self, forKey: .message)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source)
+        self.line = try container.decodeIfPresent(UInt32.self, forKey: .line) ?? 0
+        self.column = try container.decodeIfPresent(UInt32.self, forKey: .column) ?? 0
+        self.timestamp = try container.decodeIfPresent(Int64.self, forKey: .timestamp) ?? 0
+        self.severity = HTMLWorkspaceConsoleSeverity(
+            rawValue: try container.decodeIfPresent(String.self, forKey: .severity) ?? ""
+        ) ?? .error
     }
 
     func boundedForPackage() -> HTMLWorkspaceConsoleError {
@@ -1393,7 +1187,8 @@ nonisolated public struct HTMLWorkspaceConsoleError: Codable, Sendable, Hashable
             source: source.map { Self.bounded($0, limit: HTMLWorkspacePackageLimits.maxConsoleErrorSourceCharacters) },
             line: line,
             column: column,
-            timestamp: timestamp
+            timestamp: timestamp,
+            severity: severity
         )
     }
 
@@ -1424,6 +1219,14 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.styleCSS = replacement.css
             updated.scriptJS = replacement.js
             updated.dataJSON = replacement.dataJSON
+            if let routes = replacement.routes {
+                updated.routes = routes
+                try HTMLWorkspacePackage.validateRoutes(updated.routes)
+            }
+            if let assets = replacement.assets {
+                updated.assets = assets
+                try HTMLWorkspacePackage.validateAssets(updated.assets)
+            }
             updated.manifest.generationProvenance = HTMLWorkspaceGenerationProvenance(
                 producer: .agent,
                 operation: replacement.provenanceOperation,
@@ -1482,9 +1285,40 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             updated.snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: updated).utf8)
             updated.snapshots = boundedSnapshots(updated.snapshots)
             try HTMLWorkspacePackage.validateSnapshots(updated.snapshots)
+        case .restoreSnapshot(let name):
+            let previousContentHash = contentHash(for: updated)
+            let restoration = try restorationPayload(named: name, in: updated)
+            let reversibleSnapshot = try reversibleSnapshots(
+                for: updated,
+                preserving: restoration.preservedSnapshotNames
+            )
+            updated.snapshots = reversibleSnapshot.snapshots
+            updated.manifest.title = restoration.title ?? updated.manifest.title
+            updated.indexHTML = restoration.html
+            updated.styleCSS = restoration.css
+            updated.scriptJS = restoration.js
+            updated.dataJSON = restoration.dataJSON
+            if restoration.restoresPackageMaps {
+                updated.routes = restoration.routes
+                updated.assets = restoration.assets
+                updated.manifest.dataFeed = restoration.dataFeed
+                try HTMLWorkspacePackage.validateRoutes(updated.routes)
+                try HTMLWorkspacePackage.validateAssets(updated.assets)
+            }
+            updated.manifest.generationProvenance = HTMLWorkspaceGenerationProvenance(
+                producer: .human,
+                operation: .restoreSnapshot,
+                generatedAt: mutationTimestamp,
+                previousContentHash: previousContentHash,
+                contentHash: contentHash(for: updated),
+                reversibleSnapshotName: reversibleSnapshot.name,
+                toolId: HTMLWorkspaceGenerationProvenance.patchToolID
+            )
         case .recordConsoleError(let error):
             updated.consoleErrors.append(error.boundedForPackage())
             updated.consoleErrors = Array(updated.consoleErrors.suffix(HTMLWorkspacePackageLimits.maxConsoleErrors))
+        case .clearConsole:
+            updated.consoleErrors.removeAll(keepingCapacity: true)
         }
         stampManifestRevision(&updated, updatedAt: mutationTimestamp)
         return updated
@@ -1546,6 +1380,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         }
         guard !value.contains("{"),
               !value.contains("}"),
+              !value.contains(";"),
               !value.contains("<"),
               value.count <= 512 else {
             throw HTMLWorkspacePackageError.invalidStyleRule(reason: "value")
@@ -1557,29 +1392,127 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         var name: String
     }
 
+    private struct SnapshotRestorationPayload {
+        var title: String?
+        var html: String
+        var css: String
+        var js: String
+        var dataJSON: String
+        var routes: [String: String]
+        var assets: [String: Data]
+        var dataFeed: HTMLWorkspaceDataFeed?
+        var restoresPackageMaps: Bool
+        var preservedSnapshotNames: Set<String>
+    }
+
     private static func boundedSnapshots(
         _ snapshots: [String: Data],
-        preserving preservedName: String? = nil
+        preserving preservedNames: Set<String> = []
     ) -> [String: Data] {
         guard snapshots.count > HTMLWorkspacePackageLimits.maxSnapshots else { return snapshots }
         var keep = Set(snapshots.keys.sorted().suffix(HTMLWorkspacePackageLimits.maxSnapshots))
-        if let preservedName, snapshots[preservedName] != nil, !keep.contains(preservedName) {
+        for preservedName in preservedNames.sorted() where snapshots[preservedName] != nil && !keep.contains(preservedName) {
             keep.insert(preservedName)
-            if let dropped = keep
-                .filter({ $0 != preservedName })
-                .sorted()
-                .first {
+            while keep.count > HTMLWorkspacePackageLimits.maxSnapshots {
+                guard let dropped = keep
+                    .filter({ !preservedNames.contains($0) })
+                    .sorted()
+                    .first else {
+                    break
+                }
                 keep.remove(dropped)
             }
         }
         return snapshots.filter { keep.contains($0.key) }
     }
 
-    private static func reversibleSnapshots(for package: HTMLWorkspacePackage) throws -> ReversibleSnapshotResult {
+    private static func restorationPayload(
+        named name: String,
+        in package: HTMLWorkspacePackage
+    ) throws -> SnapshotRestorationPayload {
+        try HTMLWorkspacePackage.validatePackageFileName(name)
+        let sourceName = HTMLWorkspaceSourceSnapshot.sourceName(forRenderedSnapshotName: name)
+        if let sourceData = package.snapshots[sourceName] {
+            do {
+                let sourceSnapshot = try HTMLWorkspaceSourceSnapshot.decode(from: sourceData)
+                guard sourceSnapshot.schemaVersion <= HTMLWorkspaceSourceSnapshot.currentSchemaVersion,
+                      sourceSnapshot.computedContentHash == sourceSnapshot.contentHash else {
+                    throw HTMLWorkspacePackageError.malformedSnapshot(name: sourceName)
+                }
+                let renderedName = sourceSnapshot.renderedSnapshotName ?? name
+                return SnapshotRestorationPayload(
+                    title: sourceSnapshot.title,
+                    html: sourceSnapshot.indexHTML,
+                    css: sourceSnapshot.styleCSS,
+                    js: sourceSnapshot.scriptJS,
+                    dataJSON: sourceSnapshot.dataJSON,
+                    routes: sourceSnapshot.routes,
+                    assets: sourceSnapshot.assets,
+                    dataFeed: sourceSnapshot.dataFeed,
+                    restoresPackageMaps: true,
+                    preservedSnapshotNames: Set([name, sourceName, renderedName])
+                )
+            } catch {
+                if name == sourceName {
+                    throw HTMLWorkspacePackageError.malformedSnapshot(name: sourceName)
+                }
+            }
+        }
+
+        guard let renderedData = package.snapshots[name] else {
+            throw HTMLWorkspacePackageError.missingSnapshot(name: name)
+        }
+        guard let renderedHTML = String(data: renderedData, encoding: .utf8) else {
+            throw HTMLWorkspacePackageError.malformedTextFile(name: "\(HTMLWorkspacePackageEntry.snapshots)/\(name)")
+        }
+        let imported = HTMLWorkspaceHTMLImporter.importSources(from: renderedHTML)
+        return SnapshotRestorationPayload(
+            title: nil,
+            html: imported.html,
+            css: imported.css.isEmpty ? package.styleCSS : imported.css,
+            js: imported.js.isEmpty ? package.scriptJS : imported.js,
+            dataJSON: imported.dataJSON.isEmpty ? package.dataJSON : imported.dataJSON,
+            routes: package.routes,
+            assets: package.assets,
+            dataFeed: package.manifest.dataFeed,
+            restoresPackageMaps: false,
+            preservedSnapshotNames: Set([name])
+        )
+    }
+
+    private static func sourceSnapshotData(
+        for package: HTMLWorkspacePackage,
+        renderedSnapshotName: String
+    ) -> Data? {
+        guard let data = try? HTMLWorkspaceSourceSnapshot(
+            package: package,
+            renderedSnapshotName: renderedSnapshotName
+        ).encodedData(),
+              data.count <= HTMLWorkspacePackageLimits.maxSnapshotBytes else {
+            return nil
+        }
+        return data
+    }
+
+    private static func reversibleSnapshots(
+        for package: HTMLWorkspacePackage,
+        preserving additionalNames: Set<String> = []
+    ) throws -> ReversibleSnapshotResult {
         var snapshots = package.snapshots
         let name = "pre-replace-\(contentHash(for: package).prefix(12)).html"
-        snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: package).utf8)
-        snapshots = boundedSnapshots(snapshots, preserving: name)
+        let sourceName = HTMLWorkspaceSourceSnapshot.sourceName(forRenderedSnapshotName: name)
+        let renderedData = Data(HTMLWorkspacePreviewDocument.render(package: package).utf8)
+        snapshots[name] = renderedData
+        if let sourceData = sourceSnapshotData(for: package, renderedSnapshotName: name) {
+            snapshots[sourceName] = sourceData
+            let sourcePreservedNames = additionalNames.union([name, sourceName])
+            let sourceSnapshots = boundedSnapshots(snapshots, preserving: sourcePreservedNames)
+            if (try? HTMLWorkspacePackage.validateSnapshots(sourceSnapshots)) != nil {
+                return ReversibleSnapshotResult(snapshots: sourceSnapshots, name: name)
+            }
+            snapshots.removeValue(forKey: sourceName)
+        }
+        snapshots = boundedSnapshots(snapshots, preserving: additionalNames.union([name]))
         try HTMLWorkspacePackage.validateSnapshots(snapshots)
         return ReversibleSnapshotResult(snapshots: snapshots, name: name)
     }
@@ -1590,7 +1523,8 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
             dataJSON: package.dataJSON,
-            routes: package.routes
+            routes: package.routes,
+            assets: package.assets
         )
     }
 

@@ -9,6 +9,8 @@ struct HTMLWorkspaceEditorView: View {
     @State private var gooseRegenerator = HTMLWorkspaceGooseRegenerator()
     @State private var previewPackage: HTMLWorkspacePackage
     @State private var selectedPane: HTMLWorkspaceSourcePane = .html
+    @State private var selectedRouteName: String?
+    @State private var previewRouteName: String?
     @State private var layoutMode: HTMLWorkspaceLayoutMode = .split
     @State private var previewUpdateTask: Task<Void, Never>?
     @State private var consoleExpanded = false
@@ -26,6 +28,9 @@ struct HTMLWorkspaceEditorView: View {
     @State private var sourceCursorLine = 1
     @State private var sourceCursorColumn = 1
     @State private var sourceTotalLines = 1
+    @State private var appBridgeProbeNonce = 0
+    @State private var consoleProbeNonce = 0
+    @State private var pythonProbeNonce = 0
 
     @AppStorage("codeEditor.wrapLines") private var sourceWrapLines = false
     @AppStorage("codeEditor.showInvisibles") private var sourceShowInvisibles = false
@@ -33,7 +38,6 @@ struct HTMLWorkspaceEditorView: View {
     @AppStorage("codeEditor.useSpaces") private var sourceUseSpaces = true
     @AppStorage("codeEditor.tabWidth") private var sourceTabWidth = 4
     @AppStorage("epistemos.codeEditor.showLineGutter") private var sourceShowLineGutter = true
-
     init(
         package: Binding<HTMLWorkspacePackage>,
         theme: EpistemosTheme? = nil,
@@ -48,22 +52,22 @@ struct HTMLWorkspaceEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             toolbar
-            Divider()
             workspaceBody
         }
         .onChange(of: package) { _, newValue in
             liveDOMSnapshot = nil
+            if let selectedRouteName, newValue.routes[selectedRouteName] == nil {
+                self.selectedRouteName = newValue.routes.keys.sorted().first
+            }
+            if let previewRouteName, newValue.routes[previewRouteName] == nil {
+                self.previewRouteName = nil
+            }
             schedulePreviewUpdate(newValue)
         }
         .onChange(of: colorScheme) { _, _ in
             previewPackage = package
         }
         .onChange(of: theme) { _, _ in
-            // SS-THX (owner 2026-06-20): the preview palette tracked only @Environment(\.colorScheme)
-            // (OS appearance), so changing the in-app theme/PAIR — which flows in via the `theme`
-            // prop from HTMLWorkspaceDocumentThemedRoot's ui.theme — never repainted the preview
-            // ("never changes because of the theme process"). Refresh the preview snapshot on the
-            // theme prop too, mirroring the colorScheme refresh.
             previewPackage = package
         }
         .onChange(of: externalRevision) { _, _ in
@@ -85,7 +89,9 @@ struct HTMLWorkspaceEditorView: View {
         .sheet(isPresented: $regenerateSheetPresented) {
             HTMLWorkspaceRegenerateSheet(
                 instruction: $regenerateInstruction,
-                streamedText: regenerateStreamText,
+                streamedText: $regenerateStreamText,
+                workspaceID: package.manifest.id,
+                expectedContentHash: package.currentContentHash,
                 errorText: regenerateErrorText,
                 isRegenerating: isRegenerating,
                 onCancel: {
@@ -95,12 +101,17 @@ struct HTMLWorkspaceEditorView: View {
                         isRegenerating = false
                         statusText = "Regenerate stopped"
                     }
+                    restorePreviewAfterRegenerate()
                     regenerateSheetPresented = false
                 },
-                onSubmit: beginRegenerateSurface
+                onCopyPrompt: copyRegeneratePrompt,
+                onSubmit: beginRegenerateSurface,
+                onPreviewStream: previewRegenerateStreamText,
+                onApplyStream: applyRegenerateStreamText,
+                onRestorePreview: restorePreviewAfterRegenerate
             )
             .frame(width: 620, height: 520)
-            .preferredColorScheme(workspaceColorScheme)
+            .preferredColorScheme(workspaceTheme.isDark ? .dark : .light)
         }
         .background(workspaceTheme.resolved.background.color)
         .htmlWorkspaceDataFeed(package: $package, statusText: $statusText)
@@ -133,7 +144,7 @@ struct HTMLWorkspaceEditorView: View {
                     .truncationMode(.middle)
                 Text("\(contentHash.prefix(10)) / \(domNodeCount) \(domSnapshot.source.label) DOM")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(workspaceTheme.textTertiary)
             }
 
             Spacer(minLength: 12)
@@ -195,6 +206,8 @@ struct HTMLWorkspaceEditorView: View {
                     openRegenerateSheet()
                 }
                 .disabled(isRegenerating)
+                Button("Restore Previous Surface", systemImage: "arrow.uturn.backward.circle", action: restorePreviousSurface)
+                .disabled(package.manifest.generationProvenance?.reversibleSnapshotName == nil || isRegenerating)
                 Divider()
                 Button("Import HTML", systemImage: "tray.and.arrow.down") {
                     importHTML()
@@ -202,9 +215,39 @@ struct HTMLWorkspaceEditorView: View {
                 Button("Export HTML", systemImage: "square.and.arrow.up") {
                     exportHTML()
                 }
+                Button("Export Site Folder", systemImage: "folder") {
+                    exportSiteFolder()
+                }
                 Button("Capture Snapshot", systemImage: "camera.viewfinder") {
                     captureSnapshot()
                 }
+                Button("Add Route", systemImage: "map") {
+                    addRoute()
+                }
+                .disabled(isRegenerating)
+                Button("Remove Route", systemImage: "map.fill") {
+                    removeRoute()
+                }
+                .disabled(package.routes.isEmpty || isRegenerating)
+                Button("Add Asset", systemImage: "plus.square.on.square") {
+                    addAsset()
+                }
+                .disabled(isRegenerating)
+                Button("Remove Asset", systemImage: "shippingbox.fill") {
+                    removeAsset()
+                }
+                .disabled(package.assets.isEmpty || isRegenerating)
+                Button("Test Runtime Bridges", systemImage: "stethoscope", action: testRuntimeBridgeProbes)
+                    .disabled(isRegenerating)
+                Button("Test App Bridge", systemImage: "point.3.connected.trianglepath", action: testAppBridge)
+                .disabled(!package.manifest.sandboxPolicy.allowAppBridge || isRegenerating)
+                Button("Insert App Bridge Demo", systemImage: "point.3.connected.trianglepath", action: insertAppBridgeDemo)
+                .disabled(isRegenerating)
+                Button("Test Console Capture", systemImage: "terminal", action: testConsoleCapture).disabled(isRegenerating)
+                Button("Test Python Runtime", systemImage: "chevron.left.forwardslash.chevron.right", action: testPythonRuntime)
+                .disabled(!package.manifest.sandboxPolicy.allowPythonRuntime || isRegenerating)
+                Button("Insert Python Demo", systemImage: "chevron.left.forwardslash.chevron.right", action: insertPythonDemo)
+                .disabled(isRegenerating)
                 Button("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext") {
                     exportPDF()
                 }
@@ -243,10 +286,8 @@ struct HTMLWorkspaceEditorView: View {
             HStack(spacing: 0) {
                 sourceRail
                     .frame(width: 118)
-                Divider()
                 VStack(spacing: 0) {
                     sourceHeader
-                    Divider()
                     sourceEditor
                     consolePanel
                 }
@@ -269,27 +310,28 @@ struct HTMLWorkspaceEditorView: View {
     private var sourceHeader: some View {
         HStack(spacing: 8) {
             Image(systemName: selectedPane.systemImage)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(workspaceTheme.textTertiary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(selectedPane.fileName)
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
                 Text(selectedPaneSubtitle)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(workspaceTheme.textTertiary)
                     .lineLimit(1)
             }
             Spacer(minLength: 12)
             Text(selectedPaneMetricText)
                 .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(workspaceTheme.textTertiary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(.quaternary, in: Capsule())
+                .background(workspaceMetricFill, in: Capsule())
             Menu {
                 Section("Allowed Ops") {
-                    ForEach(allowedOperations(for: selectedPane), id: \.self) { operation in
+                    ForEach(selectedPane.allowedPatchOperations, id: \.self) { operation in
                         Text(operation)
                     }
                 }
@@ -314,7 +356,7 @@ struct HTMLWorkspaceEditorView: View {
             }
             .labelStyle(.iconOnly)
             .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)  // SS-DD: clean icon-only glyph, no stray chevron
+            .menuIndicator(.hidden)
             .help("Pane actions")
             Button {
                 copyPatchContext(for: selectedPane)
@@ -349,12 +391,16 @@ struct HTMLWorkspaceEditorView: View {
                 emptyText: "No DOM nodes reported yet. Open the preview or edit HTML to populate this outline."
             )
         case .routes:
-            readOnlySourcePane(
-                title: "Routes",
-                systemImage: "map",
-                text: routeManifestText,
-                emptyText: "No package routes. Use setRoute to add routes/<name> HTML pages."
-            )
+            if package.routes.isEmpty {
+                readOnlySourcePane(
+                    title: "Routes",
+                    systemImage: "map",
+                    text: routeManifestText,
+                    emptyText: "No package routes."
+                )
+            } else {
+                routeSourceEditor
+            }
         case .assets:
             readOnlySourcePane(
                 title: "Assets",
@@ -380,7 +426,42 @@ struct HTMLWorkspaceEditorView: View {
         )
     }
 
-    private func workspaceCodeEditor(text: Binding<String>, language: String) -> some View {
+    private var routeSourceEditor: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "map")
+                    .foregroundStyle(workspaceTheme.resolved.accent.color)
+                Text("routes/")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
+                Picker("Route", selection: routeSelectionBinding) {
+                    ForEach(sortedRouteNames, id: \.self) { routeName in
+                        Text(routeName).tag(routeName)
+                    }
+                }
+                .labelsHidden()
+                .frame(maxWidth: 260)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(headerFill)
+
+            if let routeName = activeRouteName {
+                workspaceCodeEditor(
+                    text: routeBodyBinding(for: routeName),
+                    language: "html",
+                    identity: "routes-\(routeName)"
+                )
+            }
+        }
+    }
+
+    private func workspaceCodeEditor(
+        text: Binding<String>,
+        language: String,
+        identity: String? = nil
+    ) -> some View {
         MarkEditCodeEditorRepresentable(
             text: text,
             cursorLine: $sourceCursorLine,
@@ -396,7 +477,7 @@ struct HTMLWorkspaceEditorView: View {
             tabWidth: sourceTabWidth,
             selectionRequest: nil
         )
-        .id("workspace-code-editor-\(selectedPane.rawValue)")
+        .id("workspace-code-editor-\(identity ?? selectedPane.rawValue)")
         .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
@@ -404,17 +485,14 @@ struct HTMLWorkspaceEditorView: View {
         HSplitView {
             VStack(spacing: 0) {
                 previewHeader
-                Divider()
                 HTMLWorkspacePreviewView(
                     package: previewPackage,
+                    routeName: previewRouteName,
                     safeAPIEnabled: true,
                     previewTheme: previewTheme,
                     themeGuardCSSOverride: previewThemeGuardCSS,
                     themeIdentity: workspaceThemeIdentity,
                     onConsoleError: { error in
-                        // SS-HW console capture → record into the document's console pipeline (the
-                        // consolePanel reads package.consoleErrors). Only `package` is updated, never
-                        // `previewPackage`, so a runtime error never re-renders the preview (no loop).
                         package = (try? HTMLWorkspacePatchApplier.apply(.recordConsoleError(error), to: package)) ?? package
                     },
                     onDOMSnapshot: { snapshot in
@@ -423,7 +501,10 @@ struct HTMLWorkspaceEditorView: View {
                     isElementInspectorEnabled: inspectorVisible,
                     onElementInspection: { inspection in
                         selectedElementInspection = inspection
-                    }
+                    },
+                    appBridgeProbeNonce: appBridgeProbeNonce,
+                    consoleProbeNonce: consoleProbeNonce,
+                    pythonProbeNonce: pythonProbeNonce
                 )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
@@ -439,9 +520,12 @@ struct HTMLWorkspaceEditorView: View {
     private var previewHeader: some View {
         HTMLWorkspacePreviewHeader(
             package: package,
+            routeNames: sortedRouteNames,
+            previewRouteName: $previewRouteName,
             bridgeStatusText: bridgeStatusText,
             pythonRuntimeStatusText: pythonRuntimeStatusText,
-            headerFill: headerFill
+            headerFill: headerFill,
+            theme: workspaceTheme
         )
     }
 
@@ -449,7 +533,9 @@ struct HTMLWorkspaceEditorView: View {
         HTMLWorkspaceConsolePanel(
             isExpanded: $consoleExpanded,
             errors: package.consoleErrors,
-            panelFill: panelFill
+            panelFill: panelFill,
+            theme: workspaceTheme,
+            onClear: clearConsole
         )
     }
 
@@ -464,17 +550,23 @@ struct HTMLWorkspaceEditorView: View {
             generationProvenanceText: generationProvenanceText,
             bridgeStatusText: bridgeStatusText,
             pythonRuntimeStatusText: pythonRuntimeStatusText,
-            panelFill: panelFill
+            panelFill: panelFill,
+            theme: workspaceTheme,
+            onCopySelector: copyInspectorSelector,
+            onCreateStyleRule: addInspectorStyleRule,
+            onCopyStyleRulePatch: copyInspectorStyleRulePatch,
+            onUpdateStyleDeclaration: updateInspectorStyleDeclaration,
+            onCopyStyleDeclarationPatch: copyInspectorStyleDeclarationPatch
         )
     }
 
     private var bridgeStatusText: String {
-        package.manifest.sandboxPolicy.allowAppBridge ? "Bridge live" : "No bridge"
+        package.manifest.sandboxPolicy.allowAppBridge ? "Bridge enabled" : "No bridge"
     }
 
     private var pythonRuntimeStatusText: String {
         guard package.manifest.sandboxPolicy.allowPythonRuntime else { return "Python off" }
-        return HTMLWorkspacePythonRuntime.isAvailable ? "Python live" : "Python missing"
+        return HTMLWorkspacePythonRuntime.availabilityStatusText
     }
 
     private var generationProvenanceText: String {
@@ -490,6 +582,36 @@ struct HTMLWorkspaceEditorView: View {
 
     private var selectedPaneMetricText: String {
         selectedPane.metricText(for: package, domSnapshot: domSnapshot)
+    }
+
+    private var sortedRouteNames: [String] {
+        package.routes.keys.sorted()
+    }
+
+    private var activeRouteName: String? {
+        let routeNames = sortedRouteNames
+        guard !routeNames.isEmpty else { return nil }
+        if let selectedRouteName, routeNames.contains(selectedRouteName) {
+            return selectedRouteName
+        }
+        return routeNames.first
+    }
+
+    private var routeSelectionBinding: Binding<String> {
+        Binding(
+            get: { activeRouteName ?? "" },
+            set: {
+                selectedRouteName = $0
+                previewRouteName = $0
+            }
+        )
+    }
+
+    private func routeBodyBinding(for routeName: String) -> Binding<String> {
+        Binding(
+            get: { package.routes[routeName, default: ""] },
+            set: { package.routes[routeName] = $0 }
+        )
     }
 
     private var domOutlineText: String {
@@ -515,10 +637,15 @@ struct HTMLWorkspaceEditorView: View {
         let assetRows = package.assets
             .sorted { $0.key < $1.key }
             .map { "assets/\($0.key)  \($0.value.count) bytes" }
+        let routeAssetRows = package.routes.isEmpty
+            ? []
+            : package.assets
+                .sorted { $0.key < $1.key }
+                .map { "routes/assets/\($0.key)  route-relative mirror" }
         let snapshotRows = package.snapshots
             .sorted { $0.key < $1.key }
             .map { "snapshot/\($0.key)  \($0.value.count) bytes" }
-        return (assetRows + snapshotRows).joined(separator: "\n")
+        return (assetRows + routeAssetRows + snapshotRows).joined(separator: "\n")
     }
 
     private var routeManifestText: String {
@@ -545,13 +672,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var contentHash: String {
-        HTMLWorkspaceDocument.contentHash(
-            indexHTML: package.indexHTML,
-            styleCSS: package.styleCSS,
-            scriptJS: package.scriptJS,
-            dataJSON: package.dataJSON,
-            routes: package.routes
-        )
+        package.currentContentHash
     }
 
     private var previewTheme: HTMLWorkspacePreviewTheme {
@@ -561,10 +682,6 @@ struct HTMLWorkspaceEditorView: View {
     private var workspaceTheme: EpistemosTheme {
         (theme ?? (colorScheme == .dark ? EpistemosTheme.oledSoft : EpistemosTheme.light))
             .surfaceVariant(.other)
-    }
-
-    private var workspaceColorScheme: ColorScheme {
-        workspaceTheme.isDark ? .dark : .light
     }
 
     private var previewThemeGuardCSS: String {
@@ -588,9 +705,11 @@ struct HTMLWorkspaceEditorView: View {
         workspaceTheme.resolved.background.color.opacity(workspaceTheme.isDark ? 0.68 : 0.90)
     }
 
+    private var workspaceMetricFill: Color {
+        workspaceTheme.resolved.card.color.opacity(workspaceTheme.isDark ? 0.30 : 0.54)
+    }
+
     private var previewRenderIdentity: String {
-        // Keep theme out of the SwiftUI identity: appearance flips should update the
-        // live WKWebView, not tear it down while script handlers or loads are active.
         HTMLWorkspacePreviewIdentity.viewIdentity(for: previewPackage)
     }
 
@@ -609,15 +728,12 @@ struct HTMLWorkspaceEditorView: View {
         updated.manifest.sandboxPolicy.allowAppBridge = enabled
         updated.manifest.sandboxPolicy.safeAPIVersion = max(1, updated.manifest.sandboxPolicy.safeAPIVersion)
         updated.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
-        updated.manifest.contentHash = HTMLWorkspaceDocument.contentHash(
-            indexHTML: updated.indexHTML,
-            styleCSS: updated.styleCSS,
-            scriptJS: updated.scriptJS,
-            dataJSON: updated.dataJSON,
-            routes: updated.routes
-        )
+        updated.manifest.contentHash = updated.currentContentHash
         package = updated
-        schedulePreviewUpdate(updated)
+        previewUpdateTask?.cancel()
+        previewUpdateTask = nil
+        liveDOMSnapshot = nil
+        previewPackage = updated
         statusText = enabled ? "App bridge enabled" : "App bridge disabled"
     }
 
@@ -626,17 +742,14 @@ struct HTMLWorkspaceEditorView: View {
         var updated = package
         updated.manifest.sandboxPolicy.allowPythonRuntime = enabled
         updated.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
-        updated.manifest.contentHash = HTMLWorkspaceDocument.contentHash(
-            indexHTML: updated.indexHTML,
-            styleCSS: updated.styleCSS,
-            scriptJS: updated.scriptJS,
-            dataJSON: updated.dataJSON,
-            routes: updated.routes
-        )
+        updated.manifest.contentHash = updated.currentContentHash
         package = updated
-        schedulePreviewUpdate(updated)
+        previewUpdateTask?.cancel()
+        previewUpdateTask = nil
+        liveDOMSnapshot = nil
+        previewPackage = updated
         if enabled, !HTMLWorkspacePythonRuntime.isAvailable {
-            statusText = "Python enabled, but Pyodide assets are missing from this build"
+            statusText = "Python enabled, \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
         } else {
             statusText = enabled ? "Python runtime enabled" : "Python runtime disabled"
         }
@@ -657,13 +770,7 @@ struct HTMLWorkspaceEditorView: View {
         }
 
         let sourcePackage = package
-        let expectedHash = HTMLWorkspaceDocument.contentHash(
-            indexHTML: sourcePackage.indexHTML,
-            styleCSS: sourcePackage.styleCSS,
-            scriptJS: sourcePackage.scriptJS,
-            dataJSON: sourcePackage.dataJSON,
-            routes: sourcePackage.routes
-        )
+        let expectedHash = sourcePackage.currentContentHash
         let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
             instruction: instruction,
             package: sourcePackage,
@@ -671,6 +778,15 @@ struct HTMLWorkspaceEditorView: View {
         )
 
         regenerateTask?.cancel()
+        previewUpdateTask?.cancel()
+        previewUpdateTask = nil
+        previewRouteName = nil
+        previewPackage = HTMLWorkspaceRegeneratePreview.loadingPackage(
+            from: sourcePackage,
+            instruction: instruction
+        )
+        liveDOMSnapshot = nil
+        layoutMode = .split
         regenerateStreamText = ""
         regenerateErrorText = nil
         isRegenerating = true
@@ -683,6 +799,7 @@ struct HTMLWorkspaceEditorView: View {
             }
             do {
                 var response = ""
+                var previewCandidateHash: String?
                 let workspaceURL = currentHTMLWorkspaceDocument()?.fileURL
                 for try await chunk in gooseRegenerator.streamRegeneration(
                     systemPrompt: HTMLWorkspaceRegeneratePromptBuilder.systemPrompt,
@@ -692,6 +809,16 @@ struct HTMLWorkspaceEditorView: View {
                     guard !Task.isCancelled else { throw CancellationError() }
                     response += chunk
                     regenerateStreamText = response
+                    if let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
+                        from: response,
+                        basePackage: sourcePackage,
+                        expectedContentHash: expectedHash
+                    ),
+                       candidate.manifest.contentHash != previewCandidateHash {
+                        previewCandidateHash = candidate.manifest.contentHash
+                        previewPackage = candidate
+                        liveDOMSnapshot = nil
+                    }
                 }
 
                 let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
@@ -705,17 +832,111 @@ struct HTMLWorkspaceEditorView: View {
                     expectedContentHash: expectedHash
                 )
                 package = result.package
+                previewRouteName = nil
                 previewPackage = result.package
                 selectedPane = .html
                 layoutMode = .split
                 regenerateErrorText = nil
                 statusText = "Regenerated surface"
             } catch is CancellationError {
+                restorePreviewAfterRegenerate()
                 statusText = "Regenerate stopped"
             } catch {
+                restorePreviewAfterRegenerate()
                 regenerateErrorText = error.localizedDescription
                 statusText = failedStatus("Regenerate", error: error)
             }
+        }
+    }
+
+    private func copyRegeneratePrompt() {
+        let instruction = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !instruction.isEmpty else {
+            regenerateErrorText = "Enter a regenerate request."
+            return
+        }
+
+        let prompt = HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt(
+            instruction: instruction,
+            package: package,
+            expectedContentHash: package.currentContentHash
+        )
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(prompt, forType: .string)
+        regenerateErrorText = nil
+        statusText = "Regenerate prompt copied"
+    }
+
+    private func restorePreviewAfterRegenerate() {
+        previewUpdateTask?.cancel()
+        previewUpdateTask = nil
+        previewRouteName = nil
+        liveDOMSnapshot = nil
+        previewPackage = package
+    }
+
+    private func previewRegenerateStreamText() {
+        guard !isRegenerating else { return }
+        let response = regenerateStreamText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !response.isEmpty else {
+            regenerateErrorText = "No regenerate response to preview."
+            return
+        }
+
+        let expectedHash = package.currentContentHash
+        guard let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
+            from: response,
+            basePackage: package,
+            expectedContentHash: expectedHash
+        ) else {
+            regenerateErrorText = "Stream must contain a complete regenerate response for the visible workspace and current hash."
+            statusText = "Regenerate preview unavailable"
+            return
+        }
+
+        previewUpdateTask?.cancel()
+        previewUpdateTask = nil
+        previewRouteName = nil
+        previewPackage = candidate
+        liveDOMSnapshot = nil
+        selectedPane = .html
+        layoutMode = .split
+        regenerateErrorText = nil
+        statusText = "Regenerate stream previewing"
+    }
+
+    private func applyRegenerateStreamText() {
+        guard !isRegenerating else { return }
+        let response = regenerateStreamText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !response.isEmpty else {
+            regenerateErrorText = "No regenerate response to apply."
+            return
+        }
+
+        let expectedHash = package.currentContentHash
+        do {
+            let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
+                from: response,
+                package: package,
+                expectedContentHash: expectedHash
+            )
+            let result = try HTMLWorkspaceRegenerateApplication.apply(
+                patchResponse,
+                to: package,
+                expectedContentHash: expectedHash
+            )
+            package = result.package
+            previewRouteName = nil
+            previewPackage = result.package
+            liveDOMSnapshot = nil
+            selectedPane = .html
+            layoutMode = .split
+            regenerateErrorText = nil
+            regenerateSheetPresented = false
+            statusText = "Regenerate stream applied"
+        } catch {
+            regenerateErrorText = error.localizedDescription
+            statusText = failedStatus("Regenerate apply", error: error)
         }
     }
 
@@ -727,7 +948,7 @@ struct HTMLWorkspaceEditorView: View {
         surface_kind: \(surface.kind.rawValue)
         pane: \(pane.documentSurfacePane.rawValue)
         content_hash: \(surface.contentHash)
-        allowed_operations: \(allowedOperations(for: pane).joined(separator: ", "))
+        allowed_operations: \(pane.allowedPatchOperations.joined(separator: ", "))
 
         ```epistemos-html-workspace-patch
         {"workspace_id":"\(package.manifest.id)","expected_content_hash":"\(contentHash)","operations":[\(patchExampleOperation(for: pane))]}
@@ -811,6 +1032,111 @@ struct HTMLWorkspaceEditorView: View {
         selectedPane = .data
     }
 
+    private func clearConsole() {
+        guard !package.consoleErrors.isEmpty else { return }
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.clearConsole, to: package)
+            statusText = "Console cleared"
+        } catch {
+            statusText = failedStatus("Console", error: error)
+        }
+    }
+
+    private func copyInspectorSelector(_ selector: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(selector, forType: .string)
+        statusText = "Selector copied"
+    }
+
+    private func addInspectorStyleRule(_ inspection: HTMLWorkspaceElementInspection) {
+        selectedPane = .css
+        layoutMode = .split
+
+        guard let styleRulePatch = inspection.styleRulePatch else {
+            statusText = "No inspected styles to add"
+            return
+        }
+
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.updateStyleRule(styleRulePatch), to: package)
+            previewPackage = package
+            liveDOMSnapshot = nil
+            statusText = "Inspected styles added"
+        } catch {
+            statusText = failedStatus("Style rule", error: error)
+        }
+    }
+
+    private func copyInspectorStyleRulePatch(_ inspection: HTMLWorkspaceElementInspection) {
+        guard let styleRulePatch = inspection.styleRulePatch else {
+            statusText = "No inspected styles to copy"
+            return
+        }
+        copyInspectorStylePatch(styleRulePatch)
+    }
+
+    private func updateInspectorStyleDeclaration(
+        _ inspection: HTMLWorkspaceElementInspection,
+        property: String,
+        value: String
+    ) {
+        selectedPane = .css
+        layoutMode = .split
+
+        guard let styleRulePatch = inspection.styleRulePatch(property: property, value: value) else {
+            statusText = "Style property and value required"
+            return
+        }
+
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.updateStyleRule(styleRulePatch), to: package)
+            previewPackage = package
+            liveDOMSnapshot = nil
+            statusText = "Style updated"
+        } catch {
+            statusText = failedStatus("Style update", error: error)
+        }
+    }
+
+    private func copyInspectorStyleDeclarationPatch(
+        _ inspection: HTMLWorkspaceElementInspection,
+        property: String,
+        value: String
+    ) {
+        guard let styleRulePatch = inspection.styleRulePatch(property: property, value: value) else {
+            statusText = "Style property and value required"
+            return
+        }
+        copyInspectorStylePatch(styleRulePatch)
+    }
+
+    private func copyInspectorStylePatch(_ styleRulePatch: HTMLWorkspaceStyleRulePatch) {
+        let batch = HTMLWorkspacePatchCommandBatch(
+            workspaceID: package.manifest.id,
+            expectedContentHash: package.currentContentHash,
+            operations: [.updateStyleRule(styleRulePatch)]
+        )
+        do {
+            let data = try JSONEncoder.epdocCanonical.encode(batch)
+            guard let json = String(data: data, encoding: .utf8) else {
+                statusText = "Style patch encoding failed"
+                return
+            }
+            let patch = """
+            ```\(HTMLWorkspacePatchCommandParser.fencedLanguage)
+            \(json)
+            ```
+            """
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(patch, forType: .string)
+            selectedPane = .css
+            layoutMode = .split
+            statusText = "Style patch copied"
+        } catch {
+            statusText = failedStatus("Style patch", error: error)
+        }
+    }
+
     private func captureSnapshot() {
         let name = "snapshot-\(Int(Date().timeIntervalSince1970)).html"
         do {
@@ -818,6 +1144,268 @@ struct HTMLWorkspaceEditorView: View {
             statusText = "Snapshot saved"
         } catch {
             statusText = failedStatus("Snapshot", error: error)
+        }
+    }
+
+    private func addRoute() {
+        let nameField = NSTextField(string: "about.html")
+        nameField.placeholderString = "about.html"
+
+        let htmlTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: 420, height: 160))
+        htmlTextView.isRichText = false
+        htmlTextView.isAutomaticQuoteSubstitutionEnabled = false
+        htmlTextView.isAutomaticDashSubstitutionEnabled = false
+        htmlTextView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        htmlTextView.string = """
+        <main>
+          <h1>New Route</h1>
+        </main>
+        """
+
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 420, height: 160))
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.documentView = htmlTextView
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.addArrangedSubview(NSTextField(labelWithString: "Route name"))
+        stack.addArrangedSubview(nameField)
+        stack.addArrangedSubview(NSTextField(labelWithString: "HTML"))
+        stack.addArrangedSubview(scrollView)
+        stack.setFrameSize(NSSize(width: 420, height: 230))
+        nameField.frame.size.width = 420
+
+        let alert = NSAlert()
+        alert.messageText = "Add Route"
+        alert.informativeText = "Create or replace a package-local routes/<name> HTML page."
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+        alert.accessoryView = stack
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            statusText = "Route unchanged"
+            return
+        }
+
+        let name = normalizedRouteName(nameField.stringValue)
+        let html = htmlTextView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !html.isEmpty else {
+            statusText = "Route name and HTML required"
+            return
+        }
+
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.setRoute(name: name, html: html), to: package)
+            previewPackage = package
+            liveDOMSnapshot = nil
+            selectedRouteName = name
+            previewRouteName = name
+            selectedPane = .routes
+            layoutMode = .split
+            statusText = "Route \(name) saved"
+        } catch {
+            statusText = failedStatus("Route", error: error)
+        }
+    }
+
+    private func removeRoute() {
+        let routeNames = package.routes.keys.sorted()
+        guard !routeNames.isEmpty else {
+            statusText = "No routes to remove"
+            return
+        }
+
+        let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 28), pullsDown: false)
+        popUp.addItems(withTitles: routeNames)
+
+        let alert = NSAlert()
+        alert.messageText = "Remove Route"
+        alert.informativeText = "Remove a package-local route from routes/."
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+        alert.accessoryView = popUp
+
+        guard alert.runModal() == .alertFirstButtonReturn,
+              let name = popUp.selectedItem?.title,
+              !name.isEmpty else {
+            statusText = "Route unchanged"
+            return
+        }
+
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.removeRoute(name: name), to: package)
+            previewPackage = package
+            liveDOMSnapshot = nil
+            selectedRouteName = sortedRouteNames.first
+            if previewRouteName == name {
+                previewRouteName = nil
+            }
+            selectedPane = .routes
+            layoutMode = .split
+            statusText = "Route \(name) removed"
+        } catch {
+            statusText = failedStatus("Route", error: error)
+        }
+    }
+
+    private func normalizedRouteName(_ rawName: String) -> String {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              URL(fileURLWithPath: trimmed).pathExtension.isEmpty else {
+            return trimmed
+        }
+        return trimmed + ".html"
+    }
+
+    private func addAsset() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else {
+            statusText = "Asset unchanged"
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let name = url.lastPathComponent
+            package = try HTMLWorkspacePatchApplier.apply(
+                .addAsset(HTMLWorkspaceAsset(name: name, data: data)),
+                to: package
+            )
+            previewPackage = package
+            liveDOMSnapshot = nil
+            selectedPane = .assets
+            layoutMode = .split
+            statusText = "Asset \(name) added"
+        } catch {
+            statusText = failedStatus("Asset", error: error)
+        }
+    }
+
+    private func removeAsset() {
+        let assetNames = package.assets.keys.sorted()
+        guard !assetNames.isEmpty else {
+            statusText = "No assets to remove"
+            return
+        }
+
+        let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 28), pullsDown: false)
+        popUp.addItems(withTitles: assetNames)
+
+        let alert = NSAlert()
+        alert.messageText = "Remove Asset"
+        alert.informativeText = "Remove a package-local asset from assets/."
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+        alert.accessoryView = popUp
+
+        guard alert.runModal() == .alertFirstButtonReturn,
+              let name = popUp.selectedItem?.title,
+              !name.isEmpty else {
+            statusText = "Asset unchanged"
+            return
+        }
+
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.removeAsset(name: name), to: package)
+            previewPackage = package
+            liveDOMSnapshot = nil
+            selectedPane = .assets
+            layoutMode = .split
+            statusText = "Asset \(name) removed"
+        } catch {
+            statusText = failedStatus("Asset", error: error)
+        }
+    }
+
+    private func restorePreviousSurface() {
+        guard let name = package.manifest.generationProvenance?.reversibleSnapshotName else {
+            statusText = "No restore snapshot"
+            return
+        }
+        do {
+            package = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: name), to: package)
+            previewPackage = package
+            liveDOMSnapshot = nil
+            selectedPane = .html
+            layoutMode = .split
+            statusText = "Previous surface restored"
+        } catch {
+            statusText = failedStatus("Restore", error: error)
+        }
+    }
+
+    private func testAppBridge() {
+        guard package.manifest.sandboxPolicy.allowAppBridge else {
+            statusText = "App bridge disabled"
+            return
+        }
+        consoleExpanded = true
+        layoutMode = .split
+        appBridgeProbeNonce &+= 1
+        statusText = "App bridge probe requested"
+    }
+
+    private func testConsoleCapture() {
+        consoleExpanded = true
+        layoutMode = .split
+        consoleProbeNonce &+= 1
+        statusText = "Console capture probe requested"
+    }
+
+    private func testPythonRuntime() {
+        guard package.manifest.sandboxPolicy.allowPythonRuntime else {
+            statusText = "Python runtime disabled"
+            return
+        }
+        consoleExpanded = true
+        layoutMode = .split
+        pythonProbeNonce &+= 1
+        statusText = HTMLWorkspacePythonRuntime.isAvailable
+            ? "Python runtime probe requested"
+            : "Python runtime probe requested; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
+    }
+
+    private func testRuntimeBridgeProbes() {
+        consoleExpanded = true
+        layoutMode = .split
+        appBridgeProbeNonce &+= 1
+        consoleProbeNonce &+= 1
+        pythonProbeNonce &+= 1
+        statusText = "Runtime bridge probes requested"
+    }
+
+    private func insertAppBridgeDemo() {
+        do {
+            let updated = try HTMLWorkspaceAppBridgeDemoScaffold.apply(to: package)
+            package = updated
+            previewPackage = updated
+            selectedPane = .js
+            layoutMode = .split
+            consoleExpanded = true
+            statusText = "App bridge demo inserted"
+        } catch {
+            statusText = failedStatus("App bridge demo", error: error)
+        }
+    }
+
+    private func insertPythonDemo() {
+        do {
+            let updated = try HTMLWorkspacePythonDemoScaffold.apply(to: package)
+            package = updated
+            previewPackage = updated
+            selectedPane = .js
+            layoutMode = .split
+            consoleExpanded = true
+            statusText = HTMLWorkspacePythonRuntime.isAvailable
+                ? "Python demo inserted"
+                : "Python demo inserted; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
+        } catch {
+            statusText = failedStatus("Python demo", error: error)
         }
     }
 
@@ -868,6 +1456,23 @@ struct HTMLWorkspaceEditorView: View {
             statusText = package.routes.isEmpty ? "HTML saved" : "HTML saved (index route only)"
         } catch {
             statusText = failedStatus("HTML export", error: error)
+        }
+    }
+
+    private func exportSiteFolder() {
+        guard let destination = chooseSiteFolderDestination() else {
+            statusText = "Site export cancelled"
+            return
+        }
+        do {
+            let summary = try HTMLWorkspaceSiteFolderExporter.export(
+                package: package,
+                theme: previewTheme,
+                to: destination
+            )
+            statusText = summary.statusText
+        } catch {
+            statusText = failedStatus("Site export", error: error)
         }
     }
 
@@ -936,25 +1541,6 @@ struct HTMLWorkspaceEditorView: View {
         }
     }
 
-    private func allowedOperations(for pane: HTMLWorkspaceSourcePane) -> [String] {
-        switch pane {
-        case .html:
-            ["replaceDocument", "regenerate", "replaceHTML", "insertBlock", "insertChart", "setRoute", "removeRoute", "captureSnapshot"]
-        case .css:
-            ["replaceDocument", "regenerate", "replaceCSS", "updateStyleRule"]
-        case .js:
-            ["replaceDocument", "regenerate", "replaceJS"]
-        case .data:
-            ["replaceDocument", "regenerate", "replaceDataJSON", "setDataFeed", "insertChart"]
-        case .routes:
-            ["setRoute", "removeRoute", "replaceDocument", "regenerate"]
-        case .dom:
-            ["replaceDocument", "regenerate", "insertBlock", "insertChart", "setRoute", "removeRoute"]
-        case .assets:
-            ["replaceDocument", "regenerate", "addAsset", "removeAsset", "captureSnapshot"]
-        }
-    }
-
     private func choosePDFDestination() -> URL? {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
@@ -970,6 +1556,13 @@ struct HTMLWorkspaceEditorView: View {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = "\(safeFileName(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title)).html"
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    private func chooseSiteFolderDestination() -> URL? {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(safeFileName(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title))-site"
         return panel.runModal() == .OK ? panel.url : nil
     }
 

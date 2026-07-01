@@ -29,32 +29,43 @@ nonisolated enum HTMLWorkspacePythonRuntime {
         requiredResourceNames.allSatisfy { resourceURL(for: $0) != nil }
     }
 
+    static var missingRequiredResourceNames: [String] {
+        requiredResourceNames
+            .sorted()
+            .filter { resourceURL(for: $0) == nil }
+    }
+
+    static var availabilityStatusText: String {
+        guard isAvailable else {
+            let missing = missingRequiredResourceNames.prefix(3).joined(separator: ", ")
+            let suffix = missingRequiredResourceNames.count > 3
+                ? ", +\(missingRequiredResourceNames.count - 3)"
+                : ""
+            return missing.isEmpty ? "Python missing" : "Python missing: \(missing)\(suffix)"
+        }
+        return "Python live: \(assetFingerprint.prefix(8))"
+    }
+
     static var baseURLString: String {
         "\(HTMLWorkspaceLocalResourceScheme.scheme)://workspace/\(urlPathPrefix)/"
     }
 
-    static var assetFingerprint: String {
+    static let assetFingerprint: String = {
         var data = Data()
         for name in allowedResourceNames.sorted() {
             guard let url = resourceURL(for: name),
-                  let attributes = try? FileManager.default.attributesOfItem(atPath: url.path) else {
+                  let bytes = try? Data(contentsOf: url) else {
                 continue
             }
             data.append(Data(name.utf8))
             data.append(0)
-            if let size = attributes[.size] as? NSNumber {
-                data.append(Data(size.stringValue.utf8))
-            }
-            data.append(0)
-            if let modifiedAt = attributes[.modificationDate] as? Date {
-                data.append(Data(String(Int64(modifiedAt.timeIntervalSince1970 * 1_000)).utf8))
-            }
+            data.append(bytes)
             data.append(0)
         }
         guard !data.isEmpty else { return "missing" }
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
-    }
+    }()
 
     static func resource(for fileName: String) -> HTMLWorkspacePackageResource? {
         guard allowedResourceNames.contains(fileName),

@@ -82,6 +82,8 @@ is_complete_pyodide_tree() {
     local candidate="$1"
     [ -d "$candidate" ] &&
         [ -f "$candidate/pyodide.js" ] &&
+        [ -f "$candidate/pyodide.mjs" ] &&
+        [ -f "$candidate/pyodide.asm.mjs" ] &&
         [ -f "$candidate/pyodide.asm.wasm" ] &&
         [ -f "$candidate/python_stdlib.zip" ] &&
         [ -f "$candidate/pyodide-lock.json" ]
@@ -392,13 +394,179 @@ browser_use_pro_bundle_candidates() {
     printf '%s\n' "$SRCROOT/build/browser-use-pro/BrowserUsePro.bundle"
 }
 
+signature_manifest_has_required_browser_use_pro_evidence() {
+    local signature_manifest="$1"
+python3 - "$signature_manifest" <<'PY'
+import json
+import os
+import stat
+import sys
+from pathlib import Path
+
+expected_repos = {
+    "browser-use": "https://github.com/browser-use/browser-use.git",
+    "web-ui": "https://github.com/browser-use/web-ui.git",
+    "cdp-use": "https://github.com/browser-use/cdp-use.git",
+}
+expected_commits = {
+    "browser-use": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+    "web-ui": "61962296c38a0d064e0ba02c827192b7a81d1819",
+    "cdp-use": "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
+}
+expected_versions = {
+    "browser-use": "0.13.2",
+    "web-ui": None,
+    "cdp-use": "1.4.5",
+}
+expected_playwright = {
+    "chromium": "1223",
+    "chromium_headless_shell": "1223",
+    "ffmpeg": "1011",
+}
+expected_manifest_keys = {
+    "schema_version",
+    "package_name",
+    "runtime_lane",
+    "signature_type",
+    "signing_identity",
+    "payload_root",
+    "file_count",
+    "python",
+    "browser_use_version",
+    "component_repos",
+    "component_commits",
+    "component_versions",
+    "playwright_revisions",
+    "created_utc",
+    "codesign_contract",
+}
+expected_codesign_contract = (
+    "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling "
+    "and strict Security.framework validation at runtime."
+)
+
+
+def reject():
+    sys.exit(1)
+
+
+def path_has_symlink_component(path):
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+
+    current = Path(candidate.anchor)
+    for part in candidate.parts[1:]:
+        current = current / part
+        if str(current) in {"/etc", "/tmp", "/var"}:
+            continue
+        if current.is_symlink():
+            return True
+    return False
+
+
+def is_second_precision_utc_timestamp(value):
+    if len(value) != 20:
+        return False
+    punctuation = {
+        4: "-",
+        7: "-",
+        10: "T",
+        13: ":",
+        16: ":",
+        19: "Z",
+    }
+    for index, character in enumerate(value):
+        expected = punctuation.get(index)
+        if expected is not None:
+            if character != expected:
+                return False
+        elif not character.isdigit():
+            return False
+    return True
+
+
+def required_string(manifest, key):
+    value = manifest.get(key)
+    if not isinstance(value, str) or not value.strip():
+        reject()
+    return value
+
+
+def read_manifest_no_follow(path):
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size <= 0 or metadata.st_size > 1024 * 1024:
+            reject()
+        with os.fdopen(fd, "rb") as handle:
+            fd = None
+            data = handle.read(1024 * 1024 + 1)
+    finally:
+        if fd is not None:
+            os.close(fd)
+    if len(data) > 1024 * 1024:
+        reject()
+    return data.decode("utf-8")
+
+
+try:
+    manifest_path = Path(sys.argv[1])
+    if path_has_symlink_component(manifest_path) or manifest_path.is_symlink() or not manifest_path.is_file():
+        reject()
+    manifest = json.loads(read_manifest_no_follow(manifest_path))
+except Exception:
+    reject()
+
+if not isinstance(manifest, dict):
+    reject()
+if set(manifest.keys()) != expected_manifest_keys:
+    reject()
+if manifest.get("schema_version") != 1:
+    reject()
+if required_string(manifest, "package_name") != "BrowserUsePro":
+    reject()
+if required_string(manifest, "runtime_lane") != "pro-developer-id-only":
+    reject()
+if required_string(manifest, "payload_root") != "Contents/Resources/BrowserUsePro":
+    reject()
+if required_string(manifest, "signature_type") not in {"ad-hoc", "apple-development", "developer-id"}:
+    reject()
+required_string(manifest, "signing_identity")
+file_count = manifest.get("file_count")
+if type(file_count) is not int or file_count <= 0 or file_count > 250000:
+    reject()
+if not required_string(manifest, "python").startswith("Python 3.11."):
+    reject()
+if required_string(manifest, "browser_use_version") != "0.13.2":
+    reject()
+created_utc = required_string(manifest, "created_utc")
+if not is_second_precision_utc_timestamp(created_utc):
+    reject()
+if required_string(manifest, "codesign_contract") != expected_codesign_contract:
+    reject()
+if manifest.get("component_repos") != expected_repos:
+    reject()
+if manifest.get("component_commits") != expected_commits:
+    reject()
+if manifest.get("component_versions") != expected_versions:
+    reject()
+if manifest.get("playwright_revisions") != expected_playwright:
+    reject()
+PY
+}
+
 is_signed_browser_use_pro_bundle() {
     local candidate="$1"
+    local signature_manifest="$candidate/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json"
     [ -d "$candidate" ] &&
         [ -f "$candidate/Contents/Info.plist" ] &&
         [ -f "$candidate/Contents/Resources/BrowserUsePro/VENDOR_MANIFEST.json" ] &&
         [ -f "$candidate/Contents/Resources/BrowserUsePro/BUILD_MANIFEST.json" ] &&
-        [ -f "$candidate/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json" ] &&
+        [ -f "$signature_manifest" ] &&
+        [ ! -L "$signature_manifest" ] &&
+        signature_manifest_has_required_browser_use_pro_evidence "$signature_manifest" &&
         [ -x "$candidate/Contents/Resources/BrowserUsePro/epistemos_agent_browser.py" ] &&
         /usr/bin/codesign --verify --deep --strict --verbose=2 "$candidate" >/dev/null 2>&1
 }

@@ -104,154 +104,6 @@ enum HTMLWorkspacePreviewThemeGuard {
     }
 }
 
-nonisolated enum HTMLWorkspaceHTMLImporter {
-    struct ImportedSources {
-        var html: String
-        var css: String
-        var js: String
-        var dataJSON: String
-    }
-
-    private static let generatedStyleIDs: Set<String> = [
-        "epistemos-font-face",
-        "epistemos-theme-guard",
-        "epistemos-theme-host",
-    ]
-    private static let generatedScriptIDs: Set<String> = [
-        "epistemos-workspace-runtime",
-    ]
-
-    static func importSources(from source: String) -> ImportedSources {
-        let dataJSON = firstCapture(
-            pattern: #"(?is)<script[^>]*id\s*=\s*["']workspace-data["'][^>]*>(.*?)</script>"#,
-            in: source
-        ).map(decodeScriptData) ?? ""
-        let css = styleBodies(in: source).joined(separator: "\n\n")
-        let js = scriptBodies(in: source).joined(separator: "\n\n")
-
-        let rawBody = firstCapture(pattern: #"(?is)<body[^>]*>(.*?)</body>"#, in: source) ?? source
-        let cleanedBody = rawBody
-            .replacingOccurrences(
-                of: #"(?is)<script[^>]*>.*?</script>"#,
-                with: "",
-                options: [.regularExpression]
-            )
-            .replacingOccurrences(
-                of: #"(?is)<style[^>]*>.*?</style>"#,
-                with: "",
-                options: [.regularExpression]
-            )
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return ImportedSources(
-            html: cleanedBody.isEmpty ? "<main></main>" : cleanedBody,
-            css: css,
-            js: js,
-            dataJSON: dataJSON
-        )
-    }
-
-    private static func captures(pattern: String, in source: String) -> [String] {
-        guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return expression.matches(in: source, range: range).compactMap { match in
-            guard let captureRange = Range(match.range(at: 1), in: source) else { return nil }
-            return String(source[captureRange]).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-    }
-
-    private static func firstCapture(pattern: String, in source: String) -> String? {
-        captures(pattern: pattern, in: source).first
-    }
-
-    private static func styleBodies(in source: String) -> [String] {
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)<style\b([^>]*)>(.*?)</style>"#) else {
-            return []
-        }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return expression.matches(in: source, range: range).compactMap { match in
-            guard let attributesRange = Range(match.range(at: 1), in: source),
-                  let bodyRange = Range(match.range(at: 2), in: source) else { return nil }
-            let attributes = String(source[attributesRange])
-            if let styleID = capturedID(in: attributes)?.lowercased(), generatedStyleIDs.contains(styleID) {
-                return nil
-            }
-            return String(source[bodyRange])
-        }
-    }
-
-    private static func scriptBodies(in source: String) -> [String] {
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)<script\b([^>]*)>(.*?)</script>"#) else {
-            return []
-        }
-        let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return expression.matches(in: source, range: range).compactMap { match in
-            guard let attributesRange = Range(match.range(at: 1), in: source),
-                  let bodyRange = Range(match.range(at: 2), in: source) else { return nil }
-            let attributes = String(source[attributesRange])
-            if !shouldImportScript(type: capturedAttribute("type", in: attributes)) {
-                return nil
-            }
-            if let scriptID = capturedID(in: attributes)?.lowercased(),
-               generatedScriptIDs.contains(scriptID) || scriptID == "workspace-data" {
-                return nil
-            }
-            let body = String(source[bodyRange])
-            if body.contains("Object.defineProperty(window, 'HTMLWorkspace'") {
-                return nil
-            }
-            return body
-        }
-    }
-
-    private static func shouldImportScript(type rawType: String?) -> Bool {
-        guard let rawType else { return true }
-        let normalized = rawType
-            .split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false)
-            .first
-            .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased() ?? ""
-        guard !normalized.isEmpty else { return true }
-        return normalized == "module"
-            || normalized == "text/javascript"
-            || normalized == "application/javascript"
-            || normalized == "text/ecmascript"
-            || normalized == "application/ecmascript"
-    }
-
-    private static func capturedID(in attributes: String) -> String? {
-        capturedAttribute("id", in: attributes)
-    }
-
-    private static func capturedAttribute(_ name: String, in attributes: String) -> String? {
-        let escapedName = NSRegularExpression.escapedPattern(for: name)
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)\b\#(escapedName)\s*=\s*["']([^"']+)["']"#) else {
-            return nil
-        }
-        let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
-        guard let match = expression.firstMatch(in: attributes, range: range),
-              let idRange = Range(match.range(at: 1), in: attributes) else {
-            return nil
-        }
-        return String(attributes[idRange])
-    }
-
-    private static func decodeBasicHTMLEntities(_ source: String) -> String {
-        source
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&amp;", with: "&")
-    }
-
-    private static func decodeScriptData(_ source: String) -> String {
-        decodeBasicHTMLEntities(source)
-            .replacingOccurrences(of: #"<\/script"#, with: "</script", options: [.caseInsensitive])
-            .replacingOccurrences(of: #"<\!--"#, with: "<!--")
-    }
-}
-
 enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     case html
     case css
@@ -321,6 +173,25 @@ enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
         }
     }
 
+    var allowedPatchOperations: [String] {
+        switch self {
+        case .html:
+            ["replaceDocument", "regenerate", "replaceHTML", "insertBlock", "insertChart", "setRoute", "removeRoute", "captureSnapshot", "restoreSnapshot"]
+        case .css:
+            ["replaceDocument", "regenerate", "replaceCSS", "updateStyleRule"]
+        case .js:
+            ["replaceDocument", "regenerate", "replaceJS"]
+        case .data:
+            ["replaceDocument", "regenerate", "replaceDataJSON", "setDataFeed", "insertChart"]
+        case .routes:
+            ["setRoute", "removeRoute", "replaceDocument", "regenerate", "restoreSnapshot"]
+        case .dom:
+            ["replaceDocument", "regenerate", "insertBlock", "insertChart", "setRoute", "removeRoute"]
+        case .assets:
+            ["replaceDocument", "regenerate", "addAsset", "removeAsset", "captureSnapshot", "restoreSnapshot"]
+        }
+    }
+
     func subtitle(
         for package: HTMLWorkspacePackage,
         domSnapshot: HTMLWorkspaceDOMSnapshot? = nil
@@ -356,6 +227,346 @@ enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     private static func counts(for source: String) -> String {
         let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
         return "\(lines) lines / \(source.count) chars"
+    }
+}
+
+enum HTMLWorkspacePythonDemoScaffold {
+    static let scriptMarker = "epistemos-python-demo"
+
+    static func apply(
+        to package: HTMLWorkspacePackage,
+        updatedAt: Int64 = Int64(Date().timeIntervalSince1970 * 1_000)
+    ) throws -> HTMLWorkspacePackage {
+        var updated = package
+        updated.manifest.sandboxPolicy.allowPythonRuntime = true
+        if !updated.indexHTML.contains("data-python-output") {
+            updated = try HTMLWorkspacePatchApplier.apply(
+                .insertBlock(HTMLWorkspaceBlockInsertion(html: outputBlock, location: .beforeClosingBody)),
+                to: updated
+            )
+        }
+        updated = try addStyleRuleIfMissing(
+            selector: ".python-demo",
+            declarations: [
+                "background": "var(--epistemos-workspace-card)",
+                "border-radius": "14px",
+                "display": "grid",
+                "gap": "10px",
+                "margin": "24px 0 0",
+                "padding": "16px",
+            ],
+            to: updated
+        )
+        updated = try addStyleRuleIfMissing(
+            selector: ".python-demo pre",
+            declarations: [
+                "background": "color-mix(in srgb, var(--epistemos-workspace-bg) 84%, var(--epistemos-workspace-accent) 16%)",
+                "border-radius": "10px",
+                "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+                "margin": "0",
+                "overflow": "auto",
+                "padding": "12px",
+            ],
+            to: updated
+        )
+        if !updated.scriptJS.contains(scriptMarker) {
+            updated = try HTMLWorkspacePatchApplier.apply(
+                .replaceJS(appendingDemoScript(to: updated.scriptJS)),
+                to: updated
+            )
+        }
+        updated.manifest.updatedAt = updatedAt
+        updated.manifest.contentHash = updated.currentContentHash
+        return updated
+    }
+
+    private static let outputBlock = """
+    <section class="python-demo" data-python-demo>
+      <h2>Python Runtime</h2>
+      <pre data-python-output>Python result will appear here.</pre>
+    </section>
+    """
+
+    private static let demoScript = """
+    // epistemos-python-demo
+    (() => {
+      const output = document.querySelector('[data-python-output]');
+      const runtime = window.HTMLWorkspace && window.HTMLWorkspace.python;
+      if (!output || !runtime) { return; }
+      if (runtime.enabled !== true || runtime.available !== true) {
+        const missing = runtime && runtime.missingResources && runtime.missingResources.length
+          ? ' (' + runtime.missingResources.join(', ') + ')'
+          : '';
+        output.textContent = 'Python runtime: ' + (runtime && runtime.status ? runtime.status : 'unavailable') + missing;
+        return;
+      }
+      output.textContent = 'Loading Python runtime...';
+      const code = [
+        'from statistics import mean',
+        'values = [2, 3, 5, 8, 13]',
+        'result = f"mean={mean(values):.2f}, max={max(values)}"',
+        'result'
+      ].join('\\n');
+      runtime.run(code).then((result) => {
+        output.textContent = 'Python ready: ' + String(result);
+        window.HTMLWorkspace && window.HTMLWorkspace.app && window.HTMLWorkspace.app.record('python demo completed');
+      }).catch((error) => {
+        output.textContent = 'Python error: ' + (error && error.message ? error.message : String(error));
+        console.error('HTML Workspace Python demo failed', error);
+      });
+    })();
+    """
+
+    private static func addStyleRuleIfMissing(
+        selector: String,
+        declarations: [String: String],
+        to package: HTMLWorkspacePackage
+    ) throws -> HTMLWorkspacePackage {
+        guard !containsStyleSelector(selector, in: package.styleCSS) else { return package }
+        return try HTMLWorkspacePatchApplier.apply(
+            .updateStyleRule(HTMLWorkspaceStyleRulePatch(selector: selector, declarations: declarations)),
+            to: package
+        )
+    }
+
+    private static func containsStyleSelector(_ selector: String, in css: String) -> Bool {
+        let pattern = #"(?m)^\s*\#(NSRegularExpression.escapedPattern(for: selector))\s*\{"#
+        return css.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private static func appendingDemoScript(to script: String) -> String {
+        let trimmed = script.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return demoScript }
+        return trimmed + "\n\n" + demoScript
+    }
+}
+
+enum HTMLWorkspaceAppBridgeDemoScaffold {
+    static let scriptMarker = "epistemos-app-bridge-demo"
+
+    static func apply(
+        to package: HTMLWorkspacePackage,
+        updatedAt: Int64 = Int64(Date().timeIntervalSince1970 * 1_000)
+    ) throws -> HTMLWorkspacePackage {
+        var updated = package
+        updated.manifest.sandboxPolicy.allowAppBridge = true
+        updated.manifest.sandboxPolicy.safeAPIVersion = max(1, updated.manifest.sandboxPolicy.safeAPIVersion)
+        if !updated.indexHTML.contains("data-app-bridge-output") {
+            updated = try HTMLWorkspacePatchApplier.apply(
+                .insertBlock(HTMLWorkspaceBlockInsertion(html: outputBlock, location: .beforeClosingBody)),
+                to: updated
+            )
+        }
+        updated = try addStyleRuleIfMissing(
+            selector: ".app-bridge-demo",
+            declarations: [
+                "background": "var(--epistemos-workspace-card)",
+                "border-radius": "8px",
+                "display": "grid",
+                "gap": "10px",
+                "margin": "24px 0 0",
+                "padding": "16px",
+            ],
+            to: updated
+        )
+        updated = try addStyleRuleIfMissing(
+            selector: ".app-bridge-demo button",
+            declarations: [
+                "appearance": "none",
+                "background": "var(--epistemos-workspace-accent)",
+                "border": "0",
+                "border-radius": "8px",
+                "color": "white",
+                "cursor": "pointer",
+                "font": "inherit",
+                "justify-self": "start",
+                "padding": "8px 12px",
+            ],
+            to: updated
+        )
+        updated = try addStyleRuleIfMissing(
+            selector: ".app-bridge-demo output",
+            declarations: [
+                "background": "color-mix(in srgb, var(--epistemos-workspace-bg) 84%, var(--epistemos-workspace-accent) 16%)",
+                "border-radius": "8px",
+                "display": "block",
+                "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+                "padding": "12px",
+            ],
+            to: updated
+        )
+        if !updated.scriptJS.contains(scriptMarker) {
+            updated = try HTMLWorkspacePatchApplier.apply(
+                .replaceJS(appendingDemoScript(to: updated.scriptJS)),
+                to: updated
+            )
+        }
+        updated.manifest.updatedAt = updatedAt
+        updated.manifest.contentHash = updated.currentContentHash
+        return updated
+    }
+
+    private static let outputBlock = """
+    <section class="app-bridge-demo" data-app-bridge-demo>
+      <h2>App Bridge</h2>
+      <button type="button" data-app-bridge-action>Ping App</button>
+      <output data-app-bridge-output>Waiting for bridge...</output>
+    </section>
+    """
+
+    private static let demoScript = """
+    // epistemos-app-bridge-demo
+    (() => {
+      const root = document.querySelector('[data-app-bridge-demo]');
+      const output = document.querySelector('[data-app-bridge-output]');
+      const button = document.querySelector('[data-app-bridge-action]');
+      const app = window.HTMLWorkspace && window.HTMLWorkspace.app;
+      if (!root || !output || !app) { return; }
+      const write = (message) => { output.textContent = message; };
+      if (app.enabled !== true) {
+        write('App bridge: disabled');
+        return;
+      }
+      const probe = (label) => {
+        const version = app.safeAPIVersion ? ' v' + app.safeAPIVersion : '';
+        write('App bridge' + version + ': sending...');
+        app.request('ping', label)
+          .then((detail) => {
+            const request = detail.requestId ? ' [' + detail.requestId + ']' : '';
+            write((detail.message || 'App bridge response received') + request);
+          })
+          .catch((error) => {
+            write('App bridge failed: ' + (error && error.message ? error.message : String(error)));
+          });
+        app.status();
+        app.record('app bridge demo event');
+      };
+      button && button.addEventListener('click', () => probe('button probe'));
+      probe('demo loaded');
+    })();
+    """
+
+    private static func addStyleRuleIfMissing(
+        selector: String,
+        declarations: [String: String],
+        to package: HTMLWorkspacePackage
+    ) throws -> HTMLWorkspacePackage {
+        guard !containsStyleSelector(selector, in: package.styleCSS) else { return package }
+        return try HTMLWorkspacePatchApplier.apply(
+            .updateStyleRule(HTMLWorkspaceStyleRulePatch(selector: selector, declarations: declarations)),
+            to: package
+        )
+    }
+
+    private static func containsStyleSelector(_ selector: String, in css: String) -> Bool {
+        let pattern = #"(?m)^\s*\#(NSRegularExpression.escapedPattern(for: selector))\s*\{"#
+        return css.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private static func appendingDemoScript(to script: String) -> String {
+        let trimmed = script.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return demoScript }
+        return trimmed + "\n\n" + demoScript
+    }
+}
+
+struct HTMLWorkspaceSiteFolderExportSummary: Equatable {
+    let routeCount: Int
+    let assetCount: Int
+    let mirroredRouteAssets: Bool
+
+    var statusText: String {
+        var details: [String] = ["index"]
+        if routeCount == 1 {
+            details.append("1 route")
+        } else if routeCount > 1 {
+            details.append("\(routeCount) routes")
+        }
+        if assetCount == 1 {
+            details.append(mirroredRouteAssets ? "1 route-relative asset mirror" : "1 asset")
+        } else if assetCount > 1 {
+            details.append(mirroredRouteAssets ? "\(assetCount) route-relative asset mirrors" : "\(assetCount) assets")
+        }
+        return "Site folder saved (\(details.joined(separator: ", ")))"
+    }
+}
+
+enum HTMLWorkspaceSiteFolderExporter {
+    @discardableResult
+    static func export(
+        package: HTMLWorkspacePackage,
+        theme: HTMLWorkspacePreviewTheme,
+        to folderURL: URL
+    ) throws -> HTMLWorkspaceSiteFolderExportSummary {
+        try HTMLWorkspacePackage.validateRoutes(package.routes)
+        try HTMLWorkspacePackage.validateAssets(package.assets)
+
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(
+            at: folderURL,
+            withIntermediateDirectories: true
+        )
+
+        try writeString(
+            HTMLWorkspacePreviewDocument.render(
+                package: package,
+                theme: theme,
+                resourceMode: .packageLocal
+            ),
+            to: folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.indexHTML)
+        )
+        try writeString(package.styleCSS, to: folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.styleCSS))
+        try writeString(package.scriptJS, to: folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.scriptJS))
+        try writeString(package.dataJSON, to: folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.dataJSON))
+
+        if !package.routes.isEmpty {
+            let routesURL = folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.routes, isDirectory: true)
+            try fileManager.createDirectory(at: routesURL, withIntermediateDirectories: true)
+            for routeName in package.routes.keys.sorted() {
+                try writeString(
+                    HTMLWorkspacePreviewDocument.render(
+                        package: package,
+                        routeName: routeName,
+                        theme: theme,
+                        resourceMode: .packageLocal
+                    ),
+                    to: routesURL.appendingPathComponent(routeName)
+                )
+            }
+        }
+
+        if !package.assets.isEmpty {
+            let assetsURL = folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.assets, isDirectory: true)
+            try writeAssets(package.assets, to: assetsURL)
+            if !package.routes.isEmpty {
+                let routeAssetsURL = folderURL
+                    .appendingPathComponent(HTMLWorkspacePackageEntry.routes, isDirectory: true)
+                    .appendingPathComponent(HTMLWorkspacePackageEntry.assets, isDirectory: true)
+                try writeAssets(package.assets, to: routeAssetsURL)
+            }
+        }
+
+        return HTMLWorkspaceSiteFolderExportSummary(
+            routeCount: package.routes.count,
+            assetCount: package.assets.count,
+            mirroredRouteAssets: !package.routes.isEmpty && !package.assets.isEmpty
+        )
+    }
+
+    private static func writeString(_ value: String, to url: URL) throws {
+        try Data(value.utf8).write(to: url, options: [.atomic])
+    }
+
+    private static func writeAssets(_ assets: [String: Data], to folderURL: URL) throws {
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        for assetName in assets.keys.sorted() {
+            guard let data = assets[assetName] else { continue }
+            try data.write(
+                to: folderURL.appendingPathComponent(assetName),
+                options: [.atomic]
+            )
+        }
     }
 }
 

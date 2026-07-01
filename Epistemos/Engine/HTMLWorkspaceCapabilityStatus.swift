@@ -1,21 +1,15 @@
 import Foundation
 
 // SS-HW (owner 2026-06-20): "the html workspace does not work as well but idk if its marked as such."
-// The HTML Workspace renders, edits, and accepts agent chat patches. Goose full-surface regenerate,
-// the gated app message bridge, JS console/error capture, DOM picker/style inspection, and the
-// vendored Pyodide runtime were proven in-app on 2026-06-30 with visible source+preview/
-// console/inspector updates. The codebase has
-// a GateStatus honesty convention, but the
-// HTML workspace shipped silently as if complete.
+// The HTML Workspace renders, edits, serves package-local resources, and accepts agent chat patches.
+// The app bridge, JS console capture, DOM picker/style inspection, full-surface regenerate UX, and
+// vendored Pyodide path have code-level wiring, but they must stay marked non-live until a current
+// build can prove them in-app. The app target is presently blocked before launch by an unrelated
+// out-of-lane build error, so this ledger must not claim live UI proof for those caps.
 //
 // This is that honest marker: a pure, verified capability ledger the Settings diagnostics row surfaces,
-// so the workspace's real state is scannable instead of reading as "done." Every entry below was
-// confirmed in code and in the running app (HTMLWorkspacePatchRouter is present for the live agent
-// edit path; HTMLWorkspaceGooseRegenerator is Goose-only and the live app replaced source+preview
-// through regenerate; the app bridge is sandbox-gated and records bounded commands into the console
-// panel; the console bridge records runtime console.error/window error diagnostics from a clean
-// package; the DOM inspector receives click-picked selector/style payloads from WKWebView; Pyodide
-// is build-vendored and opt-in, and ran Python in WKWebView).
+// so the workspace's real state is scannable instead of overclaiming. Flip a deferred entry to live
+// only with current in-app evidence.
 enum HTMLWorkspaceCapabilityStatus {
 
     struct Capability: Sendable, Equatable {
@@ -31,13 +25,13 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "Agent chat patch pipeline", isLive: true, note: "HTMLWorkspacePatchRouter applies edits"),
         Capability(name: "Package-local HTML routes", isLive: true, note: "routes/<name> files round-trip in the package, serve through the local scheme, and can be set/removed by structured patches"),
         Capability(name: "Vault data.json feed", isLive: true, note: "Opt-in manifest data_feed renders VaultSyncService.searchFullAsync results and patches data-only preview updates without reload"),
-        Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired; HTML and PDF exports inline package asset references before writing rendered artifacts"),
+        Capability(name: "Export / import / PDF / snapshot", isLive: true, note: "Wired; HTML/PDF exports inline package assets, and site-folder export writes index, routes, shared assets, and route-relative asset mirrors"),
         Capability(name: "Live-DOM outline", isLive: true, note: "Preview WebView reports a runtime DOM snapshot; source regex is only the fallback when preview is not mounted"),
-        Capability(name: "Full-surface regenerate", isLive: true, note: "Goose-only streaming sheet applied a real replaceDocument/regenerate update in-app with source+preview replacement and provenance-backed patch routing"),
-        Capability(name: "App message-bridge", isLive: true, note: "Sandbox-gated safe API receives bounded ping/status/event.record messages from WKWebView and records them into the console panel"),
-        Capability(name: "JS console / error capture", isLive: true, note: "Proven in-app from a clean package: console.error and thrown window Error were captured into the visible console panel and persisted console-errors.json"),
-        Capability(name: "DOM picker / style inspector", isLive: true, note: "Proven in-app: clicking button#dom-proof-target in WKWebView populated the inspector with selector, text preview, and computed styles"),
-        Capability(name: "Python (Pyodide / WASM)", isLive: true, note: "Build-vendored, sandbox-gated Pyodide runtime proved in-app by running Python in WKWebView and rendering Pyodide result: 45"),
+        Capability(name: "Full-surface regenerate", isLive: false, note: "replaceDocument/regenerate patch plumbing exists, with copyable prompts, streaming preview, and manual paste/preview/apply paths; awaits current in-app proof"),
+        Capability(name: "App message-bridge", isLive: false, note: "Sandbox-gated safe API parses bounded ping/status/event.record messages, records diagnostics, dispatches a response event, exposes a promise request helper, and has manual probe + insertable demo scaffold paths; awaits current in-app proof"),
+        Capability(name: "JS console / error capture", isLive: false, note: "Console/window-error capture script, typed severity/source pipeline, clearable panel, and manual probe path are wired; awaits current in-app proof"),
+        Capability(name: "DOM picker / style inspector", isLive: false, note: "Click-pick inspector bridge, escaped selector copy, style payload parser, focused style edits, and open-panel probe path are wired; awaits current in-app proof"),
+        Capability(name: "Python (Pyodide / WASM)", isLive: false, note: "Build-vendored Pyodide assets, sandbox-gated runtime path, insertable demo scaffold, and runtime probe are wired; awaits current in-app proof"),
     ]
 
     static var liveCount: Int { capabilities.filter(\.isLive).count }
@@ -46,6 +40,6 @@ enum HTMLWorkspaceCapabilityStatus {
     /// One honest line for the diagnostics row — the workspace works as a renderer/editor but is not
     /// the full web-app builder yet, and says so.
     static var summary: String {
-        "\(liveCount) live, \(deferredCount) gated/static/deferred — renders, edits, agent-patches/regenerates through Goose, serves package-local assets/data/routes in preview, inlines package assets for HTML/PDF export, shows a live DOM outline, can opt into Vault-backed data.json refresh, has a sandbox-gated app message bridge, captures JS console/window errors, supports click-to-inspect DOM picker/style inspection, and runs build-vendored Pyodide/Python when explicitly enabled."
+        "\(liveCount) live, \(deferredCount) awaiting current in-app proof — renders, edits, agent-patches, serves package-local assets/data/routes in preview, exports HTML/PDF with inlined package assets, exports site folders with routes and route-relative asset mirrors, shows a live DOM outline, and can opt into Vault-backed data.json refresh. Full regenerate copy-prompt/stream preview/apply UX, app bridge demo/runtime with promise requests, JS console/window-error capture, DOM picker/style inspection with focused style edits, and build-vendored Pyodide demo/runtime remain gated until a launchable build proves them."
     }
 }

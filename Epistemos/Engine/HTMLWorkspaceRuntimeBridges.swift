@@ -8,6 +8,71 @@ nonisolated enum HTMLWorkspaceConsoleCapturePolicy {
     }
 }
 
+nonisolated enum HTMLWorkspaceSafeAPI {
+    static let messageHandlerName = "htmlWorkspaceSafeAPI"
+    static let sourceName = "epistemos://html-workspace/app-bridge"
+    static let maxCommandLength = 96
+    static let maxMessageLength = 280
+    static let maxRequestIDLength = 80
+
+    struct Command: Equatable, Sendable {
+        let name: String
+        let message: String?
+        let requestID: String?
+
+        static func fromMessageBody(_ body: Any) -> Command? {
+            if let raw = boundedString(body, limit: maxCommandLength) {
+                return Command(name: raw, message: nil, requestID: nil)
+            }
+            guard let payload = body as? [String: Any],
+                  let name = boundedString(
+                    payload["command"] ?? payload["type"] ?? payload["name"],
+                    limit: maxCommandLength
+                  ) else {
+                return nil
+            }
+            let nestedPayload = payload["payload"] as? [String: Any]
+            let message = boundedString(
+                payload["message"] ?? payload["label"] ?? nestedPayload?["message"] ?? nestedPayload?["label"],
+                limit: maxMessageLength
+            )
+            let requestID = boundedString(
+                payload["requestId"] ?? payload["request_id"] ?? nestedPayload?["requestId"] ?? nestedPayload?["request_id"],
+                limit: maxRequestIDLength
+            )
+            return Command(name: name, message: message, requestID: requestID)
+        }
+
+        private static func boundedString(_ value: Any?, limit: Int) -> String? {
+            guard let raw = value as? String else { return nil }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            guard trimmed.count > limit else { return trimmed }
+            return String(trimmed.prefix(limit))
+        }
+    }
+
+    static func diagnosticMessage(
+        for command: Command,
+        package: HTMLWorkspacePackage
+    ) -> String {
+        switch command.name.lowercased() {
+        case "ping":
+            if let message = command.message, !message.isEmpty {
+                return "App bridge ping: \(message)"
+            }
+            return "App bridge ping: ok"
+        case "workspace.status", "status":
+            let network = package.manifest.sandboxPolicy.allowNetwork ? "network" : "offline"
+            return "App bridge status: \(package.manifest.id) / \(network) / safeAPI v\(package.manifest.sandboxPolicy.safeAPIVersion)"
+        case "event.record", "record":
+            return "App bridge event: \(command.message ?? "received")"
+        default:
+            return "App bridge unsupported command: \(command.name)"
+        }
+    }
+}
+
 nonisolated enum HTMLWorkspaceConsoleBridge {
     static let messageHandlerName = "epistemosWorkspaceConsole"
 
@@ -20,23 +85,27 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
         let source: String?
         let line: UInt32
         let column: UInt32
+        let severity: HTMLWorkspaceConsoleSeverity
 
         static func fromMessageBody(_ body: Any) -> DiagnosticPayload? {
             guard let payload = body as? [String: Any] else { return nil }
             let rawMessage = nonEmptyString(payload["message"]) ?? "Console error"
             let rawSource = nonEmptyString(payload["source"])
+            let rawLevel = nonEmptyString(payload["level"]) ?? nonEmptyString(payload["severity"])
             let bounded = HTMLWorkspaceConsoleError(
                 message: rawMessage,
                 source: rawSource,
                 line: uint32(payload["line"]),
                 column: uint32(payload["column"]),
-                timestamp: 0
+                timestamp: 0,
+                severity: HTMLWorkspaceConsoleSeverity.fromBridgeLevel(rawLevel)
             ).boundedForPackage()
             return DiagnosticPayload(
                 message: bounded.message,
                 source: bounded.source,
                 line: bounded.line,
-                column: bounded.column
+                column: bounded.column,
+                severity: bounded.severity
             )
         }
 
@@ -56,22 +125,41 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
         }
     }
 
-    /// Read-only: forwards errors, never exposes an app API. Posts {message, source, line, column}.
+    /// Read-only: forwards errors, never exposes an app API. Posts {level, message, source, line, column}.
     static let injectionScript = """
     (function(){
-      function post(message, source, line, column){
+      function post(level, message, source, line, column){
         try {
           window.webkit.messageHandlers.epistemosWorkspaceConsole.postMessage({
-            message: String(message), source: source || null, line: line || 0, column: column || 0
+            level: String(level || 'error'), message: String(message), source: source || null, line: line || 0, column: column || 0
           });
         } catch (e) {}
       }
-      window.addEventListener('error', function(e){ post(e.message || 'Error', e.filename, e.lineno, e.colno); });
-      window.addEventListener('unhandledrejection', function(e){ post('Unhandled promise rejection: ' + e.reason, null, 0, 0); });
-      var origError = console.error;
-      console.error = function(){ post(Array.prototype.slice.call(arguments).join(' '), null, 0, 0); origError.apply(console, arguments); };
-      var origWarn = console.warn;
-      console.warn = function(){ post(Array.prototype.slice.call(arguments).join(' '), null, 0, 0); origWarn.apply(console, arguments); };
+      function consoleValueToString(value){
+        try {
+          if (value instanceof Error) { return value.stack || value.message || String(value); }
+          if (value && typeof value === 'object') {
+            try { return JSON.stringify(value); } catch (e) {}
+          }
+          return String(value);
+        } catch (e) {
+          return '[unserializable console value]';
+        }
+      }
+      function consoleArgumentsToString(args){
+        return Array.prototype.slice.call(args).map(consoleValueToString).join(' ');
+      }
+      function wrapConsole(method, level){
+        var original = console[method];
+        console[method] = function(){
+          post(level, consoleArgumentsToString(arguments), null, 0, 0);
+          if (typeof original === 'function') { return original.apply(console, arguments); }
+        };
+      }
+      window.addEventListener('error', function(e){ post('error', e.message || 'Error', e.filename, e.lineno, e.colno); });
+      window.addEventListener('unhandledrejection', function(e){ post('error', 'Unhandled promise rejection: ' + e.reason, null, 0, 0); });
+      wrapConsole('error', 'error');
+      wrapConsole('warn', 'warning');
     })();
     """
 }
@@ -84,6 +172,22 @@ nonisolated struct HTMLWorkspaceElementInspection: Equatable, Sendable {
     let textPreview: String
     let styles: [String: String]
 
+    var styleRulePatch: HTMLWorkspaceStyleRulePatch? {
+        let declarations = Self.styleRuleDeclarations(from: styles)
+        guard !declarations.isEmpty else { return nil }
+        return HTMLWorkspaceStyleRulePatch(selector: selector, declarations: declarations)
+    }
+
+    func styleRulePatch(property: String, value: String) -> HTMLWorkspaceStyleRulePatch? {
+        let trimmedProperty = property.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedProperty.isEmpty, !trimmedValue.isEmpty else { return nil }
+        return HTMLWorkspaceStyleRulePatch(
+            selector: selector,
+            declarations: [trimmedProperty: trimmedValue]
+        )
+    }
+
     static func fromMessageBody(_ body: Any) -> HTMLWorkspaceElementInspection? {
         guard let payload = body as? [String: Any],
               let selector = boundedString(payload["selector"], limit: 512),
@@ -95,7 +199,7 @@ nonisolated struct HTMLWorkspaceElementInspection: Equatable, Sendable {
             .compactMap { boundedString($0, limit: 96) }
             .prefix(12)
         let textPreview = boundedString(payload["text"], limit: 240) ?? ""
-        let rawStyles = payload["styles"] as? [String: String] ?? [:]
+        let rawStyles = payload["styles"] as? [String: Any] ?? [:]
         var styles: [String: String] = [:]
         for (key, value) in rawStyles where styles.count < 24 {
             guard let safeKey = boundedString(key, limit: 64),
@@ -119,6 +223,51 @@ nonisolated struct HTMLWorkspaceElementInspection: Equatable, Sendable {
         guard trimmed.count > limit else { return trimmed }
         return String(trimmed.prefix(limit))
     }
+
+    private static let promotedStyleProperties = [
+        "display",
+        "position",
+        "color",
+        "background-color",
+        "font-family",
+        "font-size",
+        "font-weight",
+        "line-height",
+        "margin",
+        "padding",
+        "border-radius",
+        "border-color",
+    ]
+
+    private static func styleRuleDeclarations(from styles: [String: String]) -> [String: String] {
+        var declarations: [String: String] = [:]
+        for property in promotedStyleProperties {
+            guard let value = normalizedStyleValue(styles[property], for: property) else { continue }
+            declarations[property] = value
+        }
+        return declarations
+    }
+
+    private static func normalizedStyleValue(_ value: String?, for property: String) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        switch property {
+        case "background-color", "border-color":
+            let lowercased = trimmed.lowercased()
+            guard lowercased != "transparent",
+                  lowercased != "rgba(0, 0, 0, 0)" else {
+                return nil
+            }
+        case "display":
+            guard trimmed.lowercased() != "block" else { return nil }
+        case "position":
+            guard trimmed.lowercased() != "static" else { return nil }
+        default:
+            break
+        }
+        return trimmed
+    }
 }
 
 nonisolated enum HTMLWorkspaceInspectorBridge {
@@ -126,6 +275,10 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
 
     static let disableScript = """
     window.__epistemosInspectorEnabled = false;
+    if (window.__epistemosInspectorSelected) {
+      window.__epistemosInspectorSelected.removeAttribute('data-epistemos-inspected');
+      window.__epistemosInspectorSelected = null;
+    }
     """
 
     static let installScript = """
@@ -136,36 +289,82 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
       }
       window.__epistemosInspectorInstalled = true;
       window.__epistemosInspectorEnabled = true;
+      if (!document.getElementById('epistemos-inspector-highlight-style')) {
+        var highlightStyle = document.createElement('style');
+        highlightStyle.id = 'epistemos-inspector-highlight-style';
+        highlightStyle.textContent = '[data-epistemos-inspected="true"] { box-shadow: 0 0 0 2px var(--epistemos-workspace-accent), 0 0 0 6px color-mix(in srgb, var(--epistemos-workspace-accent) 22%, transparent) !important; }';
+        document.head.appendChild(highlightStyle);
+      }
+      function bounded(value, limit) {
+        return String(value || '').slice(0, limit);
+      }
+      function classesFor(node, limit) {
+        return Array.prototype.slice.call(node.classList || []).slice(0, limit).map(function(name) {
+          return bounded(name, 96);
+        });
+      }
+      function escapeIdent(value, limit) {
+        var raw = bounded(value, limit);
+        if (window.CSS && typeof window.CSS.escape === 'function') {
+          return window.CSS.escape(raw);
+        }
+        return raw.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+      }
       function selectorFor(node) {
         if (!node || !node.tagName) { return 'unknown'; }
         var tag = String(node.tagName).toLowerCase();
-        if (node.id) { return tag + '#' + node.id; }
-        var classes = Array.prototype.slice.call(node.classList || []).slice(0, 4);
+        if (node.id) { return tag + '#' + escapeIdent(node.id, 128); }
+        var classes = classesFor(node, 4).map(function(name){ return escapeIdent(name, 96); });
         return tag + classes.map(function(name){ return '.' + name; }).join('');
       }
       function textFor(node) {
         return String((node && node.textContent) || '').replace(/\\s+/g, ' ').trim().slice(0, 240);
       }
+      function markSelected(node) {
+        if (window.__epistemosInspectorSelected && window.__epistemosInspectorSelected !== node) {
+          window.__epistemosInspectorSelected.removeAttribute('data-epistemos-inspected');
+        }
+        window.__epistemosInspectorSelected = node;
+        if (node && node.setAttribute) {
+          node.setAttribute('data-epistemos-inspected', 'true');
+        }
+      }
       function post(node) {
+        markSelected(node);
         var style = window.getComputedStyle(node);
         var keys = ['display','position','width','height','margin','padding','color','background-color','font-family','font-size','font-weight','line-height','border-radius','border-color'];
         var styles = {};
         keys.forEach(function(key){ styles[key] = style.getPropertyValue(key); });
-        window.webkit.messageHandlers.epistemosWorkspaceInspector.postMessage({
-          selector: selectorFor(node),
-          tagName: String(node.tagName || '').toLowerCase(),
-          id: node.id || null,
-          classes: Array.prototype.slice.call(node.classList || []),
-          text: textFor(node),
-          styles: styles
-        });
+        try {
+          window.webkit.messageHandlers.epistemosWorkspaceInspector.postMessage({
+            selector: selectorFor(node),
+            tagName: String(node.tagName || '').toLowerCase(),
+            id: node.id ? bounded(node.id, 128) : null,
+            classes: classesFor(node, 12),
+            text: textFor(node),
+            styles: styles
+          });
+        } catch (e) {}
       }
+      window.__epistemosInspectElement = post;
       document.addEventListener('click', function(event) {
         if (!window.__epistemosInspectorEnabled) { return; }
         event.preventDefault();
         event.stopPropagation();
         post(event.target);
       }, true);
+    })();
+    """
+
+    static let probeScript = """
+    (function(){
+      if (!window.__epistemosInspectorEnabled || typeof window.__epistemosInspectElement !== 'function') {
+        return 'missing';
+      }
+      var target = document.querySelector('[data-epistemos-inspect], main, article, section, button, a, body') || document.body || document.documentElement;
+      if (!target) { return 'missing-target'; }
+      window.__epistemosInspectElement(target);
+      return 'posted';
     })();
     """
 }

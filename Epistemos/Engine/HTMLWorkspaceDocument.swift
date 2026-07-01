@@ -159,7 +159,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
                 styleCSS: snapshot.styleCSS,
                 scriptJS: snapshot.scriptJS,
                 dataJSON: snapshot.dataJSON,
-                routes: snapshot.routes
+                routes: snapshot.routes,
+                assets: snapshot.assets
             ),
             sandboxPolicy: snapshot.manifest.sandboxPolicy,
             dataFeed: snapshot.manifest.dataFeed,
@@ -202,14 +203,16 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
         styleCSS: String,
         scriptJS: String,
         dataJSON: String = "{}",
-        routes: [String: String] = [:]
+        routes: [String: String] = [:],
+        assets: [String: Data] = [:]
     ) -> String {
         HTMLWorkspacePackageContentHasher.hash(
             indexHTML: indexHTML,
             styleCSS: styleCSS,
             scriptJS: scriptJS,
             dataJSON: dataJSON,
-            routes: routes
+            routes: routes,
+            assets: assets
         )
     }
 
@@ -237,7 +240,8 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
             dataJSON: package.dataJSON,
-            routes: package.routes
+            routes: package.routes,
+            assets: package.assets
         )
         return HTMLWorkspaceChatContextSnapshot(
             workspaceID: package.manifest.id,

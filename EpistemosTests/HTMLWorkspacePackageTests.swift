@@ -255,6 +255,51 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(exported.contains("default-src 'none'"))
     }
 
+    @Test("HTMLWorkspace site folder export preserves route-relative package assets")
+    func siteFolderExportPreservesRouteRelativePackageAssets() throws {
+        let package = Self.samplePackage()
+        let folderURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("html-workspace-site-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: folderURL) }
+
+        let summary = try HTMLWorkspaceSiteFolderExporter.export(
+            package: package,
+            theme: .light,
+            to: folderURL
+        )
+
+        let rootAssetURL = folderURL
+            .appendingPathComponent(HTMLWorkspacePackageEntry.assets, isDirectory: true)
+            .appendingPathComponent("texture.png")
+        let routeAssetURL = folderURL
+            .appendingPathComponent(HTMLWorkspacePackageEntry.routes, isDirectory: true)
+            .appendingPathComponent(HTMLWorkspacePackageEntry.assets, isDirectory: true)
+            .appendingPathComponent("texture.png")
+        let routeURL = folderURL
+            .appendingPathComponent(HTMLWorkspacePackageEntry.routes, isDirectory: true)
+            .appendingPathComponent("about.html")
+
+        #expect(FileManager.default.fileExists(atPath: folderURL.appendingPathComponent(HTMLWorkspacePackageEntry.indexHTML).path))
+        #expect(FileManager.default.fileExists(atPath: routeURL.path))
+        #expect(try Data(contentsOf: rootAssetURL) == package.assets["texture.png"])
+        #expect(try Data(contentsOf: routeAssetURL) == package.assets["texture.png"])
+        #expect(summary.routeCount == 1)
+        #expect(summary.assetCount == 1)
+        #expect(summary.mirroredRouteAssets)
+        #expect(summary.statusText.contains("1 route"))
+        #expect(summary.statusText.contains("1 route-relative asset mirror"))
+    }
+
+    @Test("HTMLWorkspace routes reserve the route-relative assets mirror path")
+    func routesReserveRouteRelativeAssetsMirrorPath() {
+        var package = Self.samplePackage()
+        package.routes[HTMLWorkspacePackageEntry.assets] = "<main>reserved</main>"
+
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            try HTMLWorkspacePackage.validateRoutes(package.routes)
+        }
+    }
+
     @Test("HTMLWorkspace setDataFeed patch seeds pending data for the new query")
     func setDataFeedPatchSeedsPendingDataForNewQuery() throws {
         var package = Self.samplePackage()
@@ -356,10 +401,39 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(darkSrcdoc.contains("font-synthesis: none"))
         #expect(srcdoc.contains("window, 'HTMLWorkspace'"))
         #expect(srcdoc.contains("get data()"))
+        #expect(srcdoc.contains("app: appBridge"))
+        #expect(srcdoc.contains("window, 'HTMLWorkspaceApp'"))
+        #expect(srcdoc.contains("enabled: false"))
+        #expect(srcdoc.contains("request() { return Promise.reject(new Error('HTML Workspace app bridge is disabled')); }"))
         #expect(srcdoc.contains("__epistemosReplaceWorkspaceData"))
         #expect(srcdoc.contains("htmlworkspace:datachange"))
         #expect(!srcdoc.contains("window.webkit.messageHandlers"),
                 "Preview HTML must not expose app bridge handlers unless an explicit safe API is enabled.")
+    }
+
+    @Test("app bridge helper is stable but native handler is explicit opt-in")
+    func appBridgeHelperRequiresSandboxOptIn() {
+        var package = Self.samplePackage()
+        package.manifest.sandboxPolicy.allowAppBridge = true
+        package.manifest.sandboxPolicy.safeAPIVersion = 7
+
+        let srcdoc = HTMLWorkspacePreviewDocument.render(package: package)
+
+        #expect(srcdoc.contains("app: appBridge"))
+        #expect(srcdoc.contains("window, 'HTMLWorkspaceApp'"))
+        #expect(srcdoc.contains("enabled: true"))
+        #expect(srcdoc.contains("safeAPIVersion: 7"))
+        #expect(srcdoc.contains(HTMLWorkspaceSafeAPI.messageHandlerName))
+        #expect(srcdoc.contains("HTMLWorkspaceSafeAPI.messageHandlerName") == false)
+        #expect(srcdoc.contains("requestId: 'safeapi-' + (++requestCounter)"))
+        #expect(srcdoc.contains("const pendingRequests = new Map()"))
+        #expect(srcdoc.contains("const request = (command, message = null, options = {}) => new Promise"))
+        #expect(srcdoc.contains("window.addEventListener(responseEventName"))
+        #expect(srcdoc.contains("entry.resolve(Object.freeze({"))
+        #expect(srcdoc.contains("request,"))
+        #expect(srcdoc.contains("ping(message = null) { return post('ping', message); }"))
+        #expect(srcdoc.contains("status() { return post('workspace.status'); }"))
+        #expect(srcdoc.contains("record(message = null) { return post('event.record', message); }"))
     }
 
     @Test("importing exported HTML preserves user sources without host scaffold")
@@ -461,7 +535,8 @@ nonisolated struct HTMLWorkspacePackageTests {
             styleCSS: package.styleCSS,
             scriptJS: package.scriptJS,
             dataJSON: package.dataJSON,
-            routes: package.routes
+            routes: package.routes,
+            assets: package.assets
         ))
     }
 
@@ -485,12 +560,24 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(updated.styleCSS == replacement.css)
         #expect(updated.scriptJS == replacement.js)
         #expect(updated.dataJSON == replacement.dataJSON)
+        #expect(updated.routes == original.routes)
         #expect(updated.assets == original.assets)
         #expect(updated.snapshots["initial.html"] == original.snapshots["initial.html"])
-        let preReplaceSnapshot = try #require(updated.snapshots.first { $0.key.hasPrefix("pre-replace-") })
+        let preReplaceSnapshot = try #require(updated.snapshots.first {
+            $0.key.hasPrefix("pre-replace-") && $0.key.hasSuffix(".html")
+        })
         #expect(preReplaceSnapshot.key.hasSuffix(".html"))
         #expect(String(data: preReplaceSnapshot.value, encoding: .utf8)?.contains("Interactive Doc") == true)
         #expect(String(data: preReplaceSnapshot.value, encoding: .utf8)?.contains("workspace-data") == true)
+        let sourceSnapshotName = HTMLWorkspaceSourceSnapshot.sourceName(forRenderedSnapshotName: preReplaceSnapshot.key)
+        let sourceSnapshotData = try #require(updated.snapshots[sourceSnapshotName])
+        let sourceSnapshot = try HTMLWorkspaceSourceSnapshot.decode(from: sourceSnapshotData)
+        #expect(sourceSnapshot.indexHTML == original.indexHTML)
+        #expect(sourceSnapshot.styleCSS == original.styleCSS)
+        #expect(sourceSnapshot.scriptJS == original.scriptJS)
+        #expect(sourceSnapshot.dataJSON == original.dataJSON)
+        #expect(sourceSnapshot.routes == original.routes)
+        #expect(sourceSnapshot.assets == original.assets)
         let provenance = try #require(updated.manifest.generationProvenance)
         #expect(provenance.producer == .agent)
         #expect(provenance.operation == .replaceDocument)
@@ -499,20 +586,126 @@ nonisolated struct HTMLWorkspacePackageTests {
             styleCSS: original.styleCSS,
             scriptJS: original.scriptJS,
             dataJSON: original.dataJSON,
-            routes: original.routes
+            routes: original.routes,
+            assets: original.assets
         ))
         #expect(provenance.contentHash == HTMLWorkspaceDocument.contentHash(
             indexHTML: replacement.html,
             styleCSS: replacement.css,
             scriptJS: replacement.js,
             dataJSON: replacement.dataJSON,
-            routes: original.routes
+            routes: original.routes,
+            assets: original.assets
         ))
         #expect(provenance.reversibleSnapshotName == preReplaceSnapshot.key)
         #expect(provenance.toolId == HTMLWorkspaceGenerationProvenance.patchToolID)
         #expect(provenance.generatedAt > 0)
         #expect(updated.manifest.updatedAt == provenance.generatedAt)
         #expect(updated.manifest.contentHash == provenance.contentHash)
+    }
+
+    @Test("replaceDocument can swap routes and assets as part of the full package")
+    func replaceDocumentPatchOperationReplacesPackageMapsWhenExplicit() throws {
+        let original = Self.samplePackage()
+        let replacementAssets = ["hero.txt": Data("asset proof".utf8)]
+        let replacementRoutes = ["landing.html": "<main><h1>Landing Route</h1></main>"]
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            title: "Generated App",
+            html: "<main><h1>Generated App</h1></main>",
+            css: "main { min-height: 100vh; }",
+            js: "document.body.dataset.generatedApp = 'true';",
+            dataJSON: #"{"generatedApp":true}"#,
+            routes: replacementRoutes,
+            assets: replacementAssets
+        )
+
+        let updated = try HTMLWorkspacePatchApplier.apply(.replaceDocument(replacement), to: original)
+
+        #expect(updated.routes == replacementRoutes)
+        #expect(updated.assets == replacementAssets)
+        #expect(updated.routes["about.html"] == nil)
+        #expect(updated.assets["texture.png"] == nil)
+        #expect(updated.manifest.generationProvenance?.previousContentHash == HTMLWorkspaceDocument.contentHash(
+            indexHTML: original.indexHTML,
+            styleCSS: original.styleCSS,
+            scriptJS: original.scriptJS,
+            dataJSON: original.dataJSON,
+            routes: original.routes,
+            assets: original.assets
+        ))
+        #expect(updated.manifest.contentHash == HTMLWorkspaceDocument.contentHash(
+            indexHTML: replacement.html,
+            styleCSS: replacement.css,
+            scriptJS: replacement.js,
+            dataJSON: replacement.dataJSON,
+            routes: replacementRoutes,
+            assets: replacementAssets
+        ))
+    }
+
+    @Test("restoreSnapshot restores a source snapshot including routes and assets")
+    func restoreSnapshotPatchOperationRestoresSourceSnapshotPackage() throws {
+        var original = Self.samplePackage()
+        original.manifest.dataFeed = .vaultSearch(query: "restore proof", limit: 3)
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            title: "Generated App",
+            html: "<main><h1>Generated App</h1></main>",
+            css: "main { min-height: 100vh; }",
+            js: "document.body.dataset.generatedApp = 'true';",
+            dataJSON: #"{"generatedApp":true}"#,
+            routes: ["landing.html": "<main><h1>Landing Route</h1></main>"],
+            assets: ["hero.txt": Data("asset proof".utf8)]
+        )
+
+        let replaced = try HTMLWorkspacePatchApplier.apply(.replaceDocument(replacement), to: original)
+        let snapshotName = try #require(replaced.manifest.generationProvenance?.reversibleSnapshotName)
+        let restored = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: snapshotName), to: replaced)
+
+        #expect(restored.manifest.id == original.manifest.id)
+        #expect(restored.manifest.title == original.manifest.title)
+        #expect(restored.indexHTML == original.indexHTML)
+        #expect(restored.styleCSS == original.styleCSS)
+        #expect(restored.scriptJS == original.scriptJS)
+        #expect(restored.dataJSON == original.dataJSON)
+        #expect(restored.routes == original.routes)
+        #expect(restored.assets == original.assets)
+        #expect(restored.manifest.dataFeed == original.manifest.dataFeed)
+        #expect(restored.manifest.generationProvenance?.operation == .restoreSnapshot)
+        #expect(restored.manifest.generationProvenance?.previousContentHash == replaced.currentContentHash)
+        #expect(restored.manifest.generationProvenance?.contentHash == original.currentContentHash)
+        #expect(restored.manifest.generationProvenance?.reversibleSnapshotName?.hasPrefix("pre-replace-") == true)
+    }
+
+    @Test("restoreSnapshot falls back to rendered HTML snapshots from older packages")
+    func restoreSnapshotPatchOperationFallsBackToRenderedHTML() throws {
+        var package = Self.samplePackage()
+        package.indexHTML = "<main><h1>Generated</h1></main>"
+        package.styleCSS = "main { color: red; }"
+        package.scriptJS = "document.body.dataset.generated = 'true';"
+        package.dataJSON = #"{"generated":true}"#
+        package.snapshots["legacy.html"] = Data("""
+        <!doctype html>
+        <html>
+        <head>
+          <style>main { color: green; }</style>
+        </head>
+        <body>
+          <main><h1>Legacy Snapshot</h1></main>
+          <script id="workspace-data" type="application/json">{"legacy":true}</script>
+          <script>document.body.dataset.legacy = 'true';</script>
+        </body>
+        </html>
+        """.utf8)
+
+        let restored = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: "legacy.html"), to: package)
+
+        #expect(restored.indexHTML.contains("Legacy Snapshot"))
+        #expect(restored.styleCSS.contains("color: green"))
+        #expect(restored.scriptJS.contains("dataset.legacy"))
+        #expect(restored.dataJSON == #"{"legacy":true}"#)
+        #expect(restored.routes == package.routes)
+        #expect(restored.assets == package.assets)
+        #expect(restored.manifest.generationProvenance?.operation == .restoreSnapshot)
     }
 
     @Test("advanced structured operations are deterministic and path safe")
@@ -573,6 +766,21 @@ nonisolated struct HTMLWorkspacePackageTests {
         }
     }
 
+    @Test("style rule values cannot inject additional declarations")
+    func styleRuleValuesCannotInjectAdditionalDeclarations() throws {
+        let package = Self.samplePackage()
+
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try HTMLWorkspacePatchApplier.apply(
+                .updateStyleRule(HTMLWorkspaceStyleRulePatch(
+                    selector: ".panel",
+                    declarations: ["color": "blue; display: grid"]
+                )),
+                to: package
+            )
+        }
+    }
+
     @Test("console errors and snapshots remain bounded")
     func consoleErrorsAndSnapshotsRemainBounded() throws {
         var package = Self.samplePackage()
@@ -623,6 +831,44 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(error.source?.hasSuffix("... [truncated]") == true)
         #expect(error.line == 9)
         #expect(error.column == 4)
+    }
+
+    @Test("legacy console errors decode with error severity")
+    func legacyConsoleErrorsDecodeWithDefaultSeverity() throws {
+        let data = Data("""
+        [
+          {
+            "message": "ReferenceError: nope",
+            "source": "main.js",
+            "line": 12,
+            "column": 4,
+            "timestamp": 123
+          }
+        ]
+        """.utf8)
+
+        let errors = try JSONDecoder().decode([HTMLWorkspaceConsoleError].self, from: data)
+
+        #expect(errors.first?.severity == .error)
+    }
+
+    @Test("console errors can be cleared by the local workspace UI operation")
+    func consoleErrorsCanBeClearedByLocalWorkspaceUIOperation() throws {
+        var package = try HTMLWorkspacePatchApplier.apply(
+            .recordConsoleError(HTMLWorkspaceConsoleError(
+                message: "ReferenceError: nope",
+                source: "main.js",
+                line: 12,
+                column: 4,
+                timestamp: Self.createdAt
+            )),
+            to: Self.samplePackage()
+        )
+        #expect(package.consoleErrors.count == 1)
+
+        package = try HTMLWorkspacePatchApplier.apply(.clearConsole, to: package)
+
+        #expect(package.consoleErrors.isEmpty)
     }
 
     @Test("chart helper inserts a visible local chart block")
@@ -706,6 +952,27 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(regenerated.scriptJS.contains("generated"))
         #expect(regenerated.dataJSON.contains("generated"))
         #expect(regenerated.manifest.generationProvenance?.operation == .regenerate)
+    }
+
+    @Test("HTML workspace patch command parser accepts tolerant fence labels")
+    func htmlWorkspacePatchCommandParserAcceptsTolerantFenceLabels() throws {
+        let response = """
+        Done.
+
+        ```EPISTEMOS-HTML-WORKSPACE-PATCH json
+        {"operations":[{"type":"replaceDataJSON","json":"{\\"ok\\":true}"}]}
+        ```
+        """
+
+        #expect(HTMLWorkspacePatchCommandParser.containsPatchBlock(in: response))
+
+        let result = try HTMLWorkspacePatchCommandParser.parse(response)
+        #expect(result.cleanedText == "Done.")
+        #expect(result.batches.count == 1)
+        #expect(result.batches.first?.operations.count == 1)
+
+        let package = try result.batches[0].applyingAtomically(to: Self.samplePackage())
+        #expect(package.dataJSON == #"{"ok":true}"#)
     }
 
     @Test("HTML workspace patch command batches stage atomically")
@@ -811,6 +1078,24 @@ nonisolated struct HTMLWorkspacePackageTests {
             _ = try HTMLWorkspacePatchCommandParser.parse(bracketAppBridgeProbe)
         }
 
+        let concatenatedBracketAppBridgeProbe = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceJS","js":"window['web' + 'kit']['message' + 'Handlers'].epdoc.postMessage({})"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(concatenatedBracketAppBridgeProbe)
+        }
+
+        let templateLiteralAppBridgeProbe = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceJS","js":"globalThis[`webkit`]?.[`messageHandlers`].epdoc.postMessage({})"}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(templateLiteralAppBridgeProbe)
+        }
+
         let globalAppBridgeProbe = """
         ```epistemos-html-workspace-patch
         {"operations":[{"type":"replaceJS","js":"webkit.messageHandlers.epdoc.postMessage({})"}]}
@@ -857,6 +1142,34 @@ nonisolated struct HTMLWorkspacePackageTests {
         }
     }
 
+    @Test("HTML workspace patch command parser accepts restoreSnapshot")
+    func htmlWorkspacePatchCommandParserAcceptsRestoreSnapshot() throws {
+        let response = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"restoreSnapshot","name":"pre-replace-source.html"}]}
+        ```
+        """
+
+        let parsed = try HTMLWorkspacePatchCommandParser.parse(response)
+        let command = try #require(parsed.batches.first?.operations.first)
+
+        #expect(parsed.batches.first?.operations == [.restoreSnapshot(name: "pre-replace-source.html")])
+        #expect(try command.patchOperation() == .restoreSnapshot(name: "pre-replace-source.html"))
+    }
+
+    @Test("HTML workspace patch command parser does not expose local clearConsole")
+    func htmlWorkspacePatchCommandParserRejectsLocalClearConsoleOperation() {
+        let response = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"clearConsole"}]}
+        ```
+        """
+
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(response)
+        }
+    }
+
     @Test("HTML workspace patch command parser bounds operation counts and assets")
     func htmlWorkspacePatchCommandParserBoundsPayloads() {
         let operations = Array(repeating: #"{"type":"captureSnapshot","name":"snap.html"}"#, count: HTMLWorkspacePatchCommandLimits.maxOperations + 1)
@@ -877,6 +1190,19 @@ nonisolated struct HTMLWorkspacePackageTests {
         """
         #expect(throws: HTMLWorkspacePackageError.self) {
             _ = try HTMLWorkspacePatchCommandParser.parse(traversal)
+        }
+
+        let oversizedReplacementAsset = Data(
+            repeating: 0,
+            count: HTMLWorkspacePatchCommandLimits.maxAssetBytes + 1
+        ).base64EncodedString()
+        let oversizedReplacement = """
+        ```epistemos-html-workspace-patch
+        {"operations":[{"type":"replaceDocument","html":"<main></main>","css":"","js":"","json":"{}","assets":{"big.bin":"\(oversizedReplacementAsset)"}}]}
+        ```
+        """
+        #expect(throws: HTMLWorkspacePatchRouterError.self) {
+            _ = try HTMLWorkspacePatchCommandParser.parse(oversizedReplacement)
         }
     }
 

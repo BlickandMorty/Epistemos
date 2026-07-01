@@ -4,11 +4,13 @@ nonisolated public struct HTMLWorkspaceGenerationProvenance: Codable, Sendable, 
     public enum Operation: String, Codable, Sendable, Hashable {
         case replaceDocument = "replace_document"
         case regenerate
+        case restoreSnapshot = "restore_snapshot"
 
         var displayName: String {
             switch self {
             case .replaceDocument: "replaceDocument"
             case .regenerate: "regenerate"
+            case .restoreSnapshot: "restoreSnapshot"
             }
         }
     }

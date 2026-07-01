@@ -93,6 +93,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     case addAsset(name: String, base64: String)
     case removeAsset(name: String)
     case captureSnapshot(name: String)
+    case restoreSnapshot(name: String)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -106,6 +107,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case selector
         case declarations
         case dataFeed = "data_feed"
+        case routes
+        case assets
         case name
         case base64
     }
@@ -126,6 +129,7 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case addAsset
         case removeAsset
         case captureSnapshot
+        case restoreSnapshot
     }
 
     public init(from decoder: Decoder) throws {
@@ -139,6 +143,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
                 css: try container.decode(String.self, forKey: .css),
                 js: try container.decode(String.self, forKey: .js),
                 dataJSON: try container.decode(String.self, forKey: .json),
+                routes: try container.decodeIfPresent([String: String].self, forKey: .routes),
+                assets: try container.decodeIfPresent([String: Data].self, forKey: .assets),
                 provenanceOperation: type == .regenerate ? .regenerate : .replaceDocument
             ))
         case .replaceHTML:
@@ -180,6 +186,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             self = .removeAsset(name: try container.decode(String.self, forKey: .name))
         case .captureSnapshot:
             self = .captureSnapshot(name: try container.decode(String.self, forKey: .name))
+        case .restoreSnapshot:
+            self = .restoreSnapshot(name: try container.decode(String.self, forKey: .name))
         }
     }
 
@@ -196,6 +204,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             try container.encode(replacement.css, forKey: .css)
             try container.encode(replacement.js, forKey: .js)
             try container.encode(replacement.dataJSON, forKey: .json)
+            try container.encodeIfPresent(replacement.routes, forKey: .routes)
+            try container.encodeIfPresent(replacement.assets, forKey: .assets)
         case .replaceHTML(let html):
             try container.encode(OperationType.replaceHTML, forKey: .type)
             try container.encode(html, forKey: .html)
@@ -238,6 +248,9 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             try container.encode(name, forKey: .name)
         case .captureSnapshot(let name):
             try container.encode(OperationType.captureSnapshot, forKey: .type)
+            try container.encode(name, forKey: .name)
+        case .restoreSnapshot(let name):
+            try container.encode(OperationType.restoreSnapshot, forKey: .type)
             try container.encode(name, forKey: .name)
         }
     }
@@ -282,6 +295,9 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             return .removeAsset(name: name)
         case .captureSnapshot(let name):
             return .captureSnapshot(name: name)
+        case .restoreSnapshot(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+            return .restoreSnapshot(name: name)
         }
     }
 
@@ -292,6 +308,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
             try Self.validateSource(replacement.css, kind: "CSS", maxCharacters: HTMLWorkspacePatchCommandLimits.maxCSSCharacters)
             try Self.validateJavaScript(replacement.js)
             try Self.validateDataJSON(replacement.dataJSON)
+            try Self.validateReplacementRoutes(replacement.routes)
+            try Self.validateReplacementAssets(replacement.assets)
         case .replaceHTML(let html), .insertBlock(let html, _):
             try Self.validateHTML(html)
         case .replaceCSS(let css):
@@ -327,6 +345,8 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         case .removeAsset(let name):
             try HTMLWorkspacePackage.validatePackageFileName(name)
         case .captureSnapshot(let name):
+            try HTMLWorkspacePackage.validatePackageFileName(name)
+        case .restoreSnapshot(let name):
             try HTMLWorkspacePackage.validatePackageFileName(name)
         }
     }
@@ -364,12 +384,11 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
     private static func containsAppBridgeReference(in source: String) -> Bool {
         var normalized = source.lowercased().filter { !$0.isWhitespace }
         normalized = normalized.replacingOccurrences(of: "?.[", with: "[")
+        normalized = normalized.filter { $0 != "\"" && $0 != "'" && $0 != "`" && $0 != "+" }
 
         for (token, replacement) in [
-            ("[\"webkit\"]", ".webkit"),
-            ("['webkit']", ".webkit"),
-            ("[\"messagehandlers\"]", ".messagehandlers"),
-            ("['messagehandlers']", ".messagehandlers"),
+            ("[webkit]", ".webkit"),
+            ("[messagehandlers]", ".messagehandlers"),
         ] {
             normalized = normalized.replacingOccurrences(of: token, with: replacement)
         }
@@ -394,6 +413,24 @@ nonisolated public enum HTMLWorkspacePatchCommand: Codable, Sendable, Equatable 
         } catch {
             throw HTMLWorkspacePatchRouterError.malformedPatchJSON
         }
+    }
+
+    private static func validateReplacementRoutes(_ routes: [String: String]?) throws {
+        guard let routes else { return }
+        try HTMLWorkspacePackage.validateRoutes(routes)
+        for html in routes.values {
+            try validateHTML(html)
+        }
+    }
+
+    private static func validateReplacementAssets(_ assets: [String: Data]?) throws {
+        guard let assets else { return }
+        for (name, data) in assets {
+            guard data.count <= HTMLWorkspacePatchCommandLimits.maxAssetBytes else {
+                throw HTMLWorkspacePatchRouterError.oversizedAsset(name: name, count: data.count)
+            }
+        }
+        try HTMLWorkspacePackage.validateAssets(assets)
     }
 
     private static func validateSource(_ source: String, kind: String, maxCharacters: Int) throws {
@@ -449,9 +486,7 @@ nonisolated public enum HTMLWorkspacePatchCommandParser {
     public static let fencedLanguage = "epistemos-html-workspace-patch"
 
     public static func parse(_ response: String) throws -> HTMLWorkspacePatchParseResult {
-        let expression = try NSRegularExpression(
-            pattern: #"(?s)```epistemos-html-workspace-patch\s*(\{.*?\})\s*```"#
-        )
+        let expression = try patchBlockExpression()
         let range = NSRange(response.startIndex..<response.endIndex, in: response)
         let matches = expression.matches(in: response, range: range)
         guard !matches.isEmpty else {
@@ -488,6 +523,12 @@ nonisolated public enum HTMLWorkspacePatchCommandParser {
         return HTMLWorkspacePatchParseResult(batches: batches, cleanedText: cleaned)
     }
 
+    public static func containsPatchBlock(in response: String) -> Bool {
+        guard let expression = try? patchBlockExpression() else { return false }
+        let range = NSRange(response.startIndex..<response.endIndex, in: response)
+        return expression.firstMatch(in: response, range: range) != nil
+    }
+
     public static func validate(_ batch: HTMLWorkspacePatchCommandBatch) throws {
         guard batch.operations.count <= HTMLWorkspacePatchCommandLimits.maxOperations else {
             throw HTMLWorkspacePatchRouterError.tooManyOperations(count: batch.operations.count)
@@ -495,6 +536,12 @@ nonisolated public enum HTMLWorkspacePatchCommandParser {
         for operation in batch.operations {
             _ = try operation.patchOperation()
         }
+    }
+
+    private static func patchBlockExpression() throws -> NSRegularExpression {
+        let language = NSRegularExpression.escapedPattern(for: fencedLanguage)
+        let pattern = #"(?is)```[ \t]*"# + language + #"[^\n`]*\n[ \t\r]*(\{.*?\})\s*```"#
+        return try NSRegularExpression(pattern: pattern)
     }
 }
 
@@ -528,7 +575,7 @@ enum HTMLWorkspacePatchRouter {
             Surface Kind: htmlWorkspace
             Pane: preview
             Selected Range: none
-            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, setRoute, removeRoute, addAsset, removeAsset, captureSnapshot
+            Allowed Operations: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, setRoute, removeRoute, addAsset, removeAsset, captureSnapshot, restoreSnapshot
             """
             let routeSource = snapshot.routes.isEmpty
                 ? "none"
@@ -547,9 +594,10 @@ enum HTMLWorkspacePatchRouter {
             ```epistemos-html-workspace-patch
             {"workspace_id":"\(snapshot.workspaceID)","expected_content_hash":"\(snapshot.contentHash)","operations":[{"type":"insertBlock","html":"<section></section>","location":"append"}]}
             ```
-            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, setRoute, removeRoute, addAsset, removeAsset, captureSnapshot.
+            Allowed operation types: replaceDocument, regenerate, replaceHTML, replaceCSS, replaceJS, replaceDataJSON, setDataFeed, insertBlock, insertChart, updateStyleRule, setRoute, removeRoute, addAsset, removeAsset, captureSnapshot, restoreSnapshot.
             Full-surface replacement: use replaceDocument/regenerate when the user asks to rebuild the whole page; include "html", "css", "js", and "json" in one operation.
             Data operation: replaceDataJSON with a "json" string for local structured data.
+            Full package replacement: replaceDocument/regenerate may include optional "routes":{"about.html":"<main>...</main>"} and "assets":{"hero.png":"<base64>"}; omitted routes/assets are preserved, explicit empty objects clear them.
             Live data operation: setDataFeed with "data_feed":{"source":"vault_search","query":"...","limit":20}; use "data_feed":null to return to static data.
             Route operation: setRoute with "name":"about.html" and route body "html"; removeRoute deletes one route file. Routes are served from routes/<name>.
             Safety: Do not request network or app bridge access. Keep behavior local/offline. Put JavaScript in replaceJS, not inline HTML event handlers.
@@ -604,7 +652,8 @@ enum HTMLWorkspacePatchRouter {
                         styleCSS: document.package.styleCSS,
                         scriptJS: document.package.scriptJS,
                         dataJSON: document.package.dataJSON,
-                        routes: document.package.routes
+                        routes: document.package.routes,
+                        assets: document.package.assets
                     )
                     guard expected == actual else {
                         throw HTMLWorkspacePatchRouterError.contentHashMismatch(expected: expected, actual: actual)

@@ -5,8 +5,8 @@ import Foundation
 
 // SS-HW (owner 2026-06-20: "the html workspace does not work as well but idk if its marked as such").
 // These pin the HONEST capability ledger: live means proven in-app, not merely wired in code.
-// The formerly deferred HTML Workspace seams were proven on 2026-06-30: Goose regenerate,
-// app bridge, console capture, DOM picker/style inspection, and build-vendored Pyodide.
+// The advanced seams have code wiring, but shared out-of-lane compile blockers can stop launch before
+// in-app proof, so they must stay non-live until current in-app proof exists.
 @Suite("SS-HW — honest HTML Workspace capability status")
 struct SSHWCapabilityStatusTests {
 
@@ -19,38 +19,61 @@ struct SSHWCapabilityStatusTests {
         #expect(live.contains { $0.contains("routes") })
         #expect(live.contains { $0.contains("data.json") })
         #expect(live.contains { $0.contains("Live-DOM outline") })
-        #expect(live.contains { $0.contains("Full-surface regenerate") })
-        #expect(live.contains { $0.contains("App message-bridge") })
-        #expect(live.contains { $0.contains("JS console") })
-        #expect(live.contains { $0.contains("DOM picker") })
-        #expect(live.contains { $0.contains("Python") })
+        #expect(!live.contains { $0.contains("Full-surface regenerate") })
+        #expect(!live.contains { $0.contains("App message-bridge") })
+        #expect(!live.contains { $0.contains("JS console") })
+        #expect(!live.contains { $0.contains("DOM picker") })
+        #expect(!live.contains { $0.contains("Python") })
     }
 
-    @Test("formerly deferred seams are only live with proof notes")
-    func formerlyDeferredSeamsCarryProofNotes() {
+    @Test("advanced seams remain non-live until current in-app proof exists")
+    func advancedSeamsRemainNonLiveUntilInAppProofExists() {
         let appBridge = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "App message-bridge" }
-        #expect(appBridge?.isLive == true)
+        #expect(appBridge?.isLive == false)
         #expect(appBridge?.note.contains("Sandbox-gated") == true)
+        #expect(appBridge?.note.contains("response event") == true)
+        #expect(appBridge?.note.contains("promise request helper") == true)
+        #expect(appBridge?.note.contains("insertable demo scaffold") == true)
+        #expect(appBridge?.note.contains("awaits current in-app proof") == true)
         let regenerate = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Full-surface regenerate" }
-        #expect(regenerate?.isLive == true)
-        #expect(regenerate?.note.contains("Goose-only") == true)
+        #expect(regenerate?.isLive == false)
+        #expect(regenerate?.note.contains("copyable prompts") == true)
+        #expect(regenerate?.note.contains("streaming preview") == true)
+        #expect(regenerate?.note.contains("manual paste/preview/apply") == true)
+        #expect(regenerate?.note.contains("awaits current in-app proof") == true)
         let python = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Python (Pyodide / WASM)" }
-        #expect(python?.isLive == true)
-        #expect(python?.note.contains("Pyodide result: 45") == true)
+        #expect(python?.isLive == false)
+        #expect(python?.note.contains("insertable demo scaffold") == true)
+        #expect(python?.note.contains("runtime probe") == true)
+        #expect(python?.note.contains("awaits current in-app proof") == true)
+        let domPicker = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "DOM picker / style inspector" }
+        #expect(domPicker?.isLive == false)
+        #expect(domPicker?.note.contains("escaped selector copy") == true)
+        #expect(domPicker?.note.contains("focused style edits") == true)
+        #expect(domPicker?.note.contains("awaits current in-app proof") == true)
+        #expect(domPicker?.note.contains("open-panel probe path") == true)
     }
 
     @Test("counts + summary are consistent + honest")
-    func countsAndSummaryConsistent() {
+    func countsAndSummaryConsistent() throws {
         let total = HTMLWorkspaceCapabilityStatus.capabilities.count
         #expect(HTMLWorkspaceCapabilityStatus.liveCount + HTMLWorkspaceCapabilityStatus.deferredCount == total)
-        #expect(HTMLWorkspaceCapabilityStatus.liveCount == total)
-        #expect(HTMLWorkspaceCapabilityStatus.deferredCount == 0)
+        #expect(HTMLWorkspaceCapabilityStatus.liveCount < total)
+        #expect(HTMLWorkspaceCapabilityStatus.deferredCount == 5)
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("data.json"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("routes"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("PDF export"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("HTML/PDF"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("site folders"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("route-relative asset mirrors"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("live DOM outline"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Goose"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("click-to-inspect"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("current in-app proof"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Full regenerate copy-prompt/stream preview/apply UX"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("app bridge demo/runtime with promise requests"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("DOM picker"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("focused style edits"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"))
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceCapabilityStatus.swift")
+        #expect(source.contains("out-of-lane build error"))
+        #expect(!source.contains("Landing compile error"))
     }
 }
