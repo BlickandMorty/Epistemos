@@ -406,6 +406,8 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("S_IFREG"))
         #expect(ingest.contains("try validateDownloadedPDF(fileURL)"))
         #expect(ingest.contains("try validateDownloadedPDF(pdfURL)"))
+        #expect(ingest.contains("try validateDownloadedPDF(pdfURL)\n            return pdfURL"))
+        #expect(!ingest.contains("try FileManager.default.moveItem(at: fileURL, to: pdfURL)\n            return pdfURL"))
         #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(ingest.contains("Plan3ImportFileIO.writeData"))

@@ -50,7 +50,6 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
 
         do {
             try FileManager.default.moveItem(at: fileURL, to: pdfURL)
-            return pdfURL
         } catch {
             try? FileManager.default.removeItem(at: fileURL)
             throw ArxivIngestError.downloadFailed(
