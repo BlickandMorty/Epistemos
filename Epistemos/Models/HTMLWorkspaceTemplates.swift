@@ -62,6 +62,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <span data-refresh>Waiting for refresh</span>
         <span data-provenance>VaultSyncService.searchFullAsync</span>
         <span data-context-requirement></span>
+        <span data-context-drop-status></span>
       </section>
       <nav class="workspace-nav" aria-label="Workspace sections">
         <a href="#context-feed">Context</a>
@@ -539,6 +540,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     let selectedContextKind = 'all';
     let selectedResultKey = null;
     let pinnedContextKeys = [];
+    let contextDropStatus = '';
     const pinnedContextLimit = 16;
     const contextDragType = 'application/x-epistemos-context-key';
     const nativeContextDragType = 'com.epistemos.workspace-context';
@@ -894,7 +896,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const data = HTMLWorkspace.data || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
       const exists = key && allResults.some((result) => resultKey(result) === key);
-      if (!exists) { return; }
+      if (!exists) {
+        contextDropStatus = 'Dropped context is not in the current data.json feed.';
+        text('[data-context-drop-status]', contextDropStatus);
+        return;
+      }
+      contextDropStatus = 'Context selected from current data.json feed.';
       selectedContextKind = 'all';
       selectedResultKey = key;
       pinContextKey(key);
@@ -993,6 +1000,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-refresh]', refreshed);
       text('[data-provenance]', meta.provenance || 'No provenance recorded');
       text('[data-context-requirement]', requiredContextLabel(meta));
+      text('[data-context-drop-status]', contextDropStatus);
       text('[data-filter-count]', resultCountLabel(results, allResults, filter));
       const selectedResult = activeResult(results);
       renderContextPicker(results, selectedResult);
