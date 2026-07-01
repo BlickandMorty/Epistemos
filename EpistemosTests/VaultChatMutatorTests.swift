@@ -64,6 +64,43 @@ struct VaultChatMutatorTests {
         #expect(!source.contains("placeholder reference"))
     }
 
+    @Test("stage file mutation rejects symlink escapes outside the vault root")
+    @MainActor
+    func stageFileMutationRejectsSymlinkEscapesOutsideVaultRoot() async throws {
+        let vaultRoot = temporaryRoot()
+        let outside = temporaryRoot()
+        defer {
+            try? FileManager.default.removeItem(at: vaultRoot)
+            try? FileManager.default.removeItem(at: outside)
+        }
+        let link = vaultRoot.appendingPathComponent("linked", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+
+        let mutator = VaultChatMutator(
+            vaultResolver: { _ in vaultRoot },
+            autoCommitInAgentMode: false
+        )
+
+        do {
+            _ = try await mutator.stageFileMutation(
+                targetVault: .personal,
+                repositoryRootURL: vaultRoot,
+                fileURL: link.appendingPathComponent("Escaped.md", isDirectory: false),
+                before: "",
+                after: "escaped",
+                summary: "escape",
+                rationale: "regression",
+                source: "test"
+            )
+            Issue.record("Expected symlink escape to be rejected")
+        } catch let error as VaultChatMutatorError {
+            guard case .fileOutsideRepositoryRoot = error else {
+                Issue.record("Expected fileOutsideRepositoryRoot, got \(error)")
+                return
+            }
+        }
+    }
+
     private func temporaryRoot() -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-vault-chat-mutator-\(UUID().uuidString)", isDirectory: true)

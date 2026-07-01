@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Observation
 import OSLog
@@ -118,6 +119,7 @@ enum VaultChatMutatorError: LocalizedError {
     case vaultUnavailable
     case nothingStaged
     case fileOutsideRepositoryRoot
+    case unsafeFileTarget(path: String)
     case writeVerificationFailed(path: String)
     case gitCommandFailed(String)
 
@@ -131,6 +133,8 @@ enum VaultChatMutatorError: LocalizedError {
             return "There is no staged diff to approve."
         case .fileOutsideRepositoryRoot:
             return "Vault mutations must stay inside the attached vault root."
+        case .unsafeFileTarget(let path):
+            return "Vault mutation target is not a regular single-link file at \(path)."
         case .writeVerificationFailed(let path):
             return "Vault mutation write did not match readback at \(path)."
         case .gitCommandFailed(let output):
@@ -144,8 +148,15 @@ nonisolated enum VaultVerifiedFileWriter {
 
     static func writeUTF8(
         _ content: String,
+        to fileURL: URL
+    ) throws {
+        try writeUTF8(content, to: fileURL, readBack: { try readUTF8(from: $0) })
+    }
+
+    static func writeUTF8(
+        _ content: String,
         to fileURL: URL,
-        readBack: ReadBack = { try String(contentsOf: $0, encoding: .utf8) }
+        readBack: ReadBack
     ) throws {
         // Phase 0/S.5 signpost: covers the verified-write contract used
         // by `VaultMutationIO.commit(diff:)` for every approved staged
@@ -156,11 +167,107 @@ nonisolated enum VaultVerifiedFileWriter {
         let writeInterval = Log.notesPerf.beginInterval("notes.save.vaultVerifiedWrite.ms")
         defer { Log.notesPerf.endInterval("notes.save.vaultVerifiedWrite.ms", writeInterval) }
 
-        try content.write(to: fileURL, atomically: true, encoding: .utf8)
+        try validateWritableTarget(fileURL)
+        try writeAtomically(content, to: fileURL)
         let persistedContent = try readBack(fileURL)
         guard persistedContent == content else {
             throw VaultChatMutatorError.writeVerificationFailed(path: fileURL.path)
         }
+    }
+
+    private static func validateWritableTarget(_ fileURL: URL) throws {
+        guard directoryExistsNoFollow(fileURL.deletingLastPathComponent()) else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+        guard let status = fileStatus(fileURL) else { return }
+        guard (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_nlink == 1 else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+    }
+
+    private static func writeAtomically(_ content: String, to fileURL: URL) throws {
+        let data = Data(content.utf8)
+        let tempURL = fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(fileURL.lastPathComponent).\(UUID().uuidString).tmp", isDirectory: false)
+        var didRename = false
+        defer {
+            if !didRename {
+                try? FileManager.default.removeItem(at: tempURL)
+            }
+        }
+
+        let fd = tempURL.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
+        }
+        guard fd >= 0 else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+        defer { _ = close(fd) }
+
+        try data.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return }
+            var offset = 0
+            while offset < rawBuffer.count {
+                let written = write(fd, baseAddress.advanced(by: offset), rawBuffer.count - offset)
+                guard written > 0 else {
+                    throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+                }
+                offset += written
+            }
+        }
+        guard rename(tempURL.path, fileURL.path) == 0 else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+        didRename = true
+    }
+
+    private static func readUTF8(from fileURL: URL) throws -> String {
+        let fd = fileURL.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+        defer { _ = close(fd) }
+
+        var status = stat()
+        guard fstat(fd, &status) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_nlink == 1 else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let readCount = buffer.withUnsafeMutableBytes { rawBuffer in
+                read(fd, rawBuffer.baseAddress, rawBuffer.count)
+            }
+            guard readCount >= 0 else {
+                throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+            }
+            guard readCount > 0 else { break }
+            data.append(contentsOf: buffer.prefix(readCount))
+        }
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
+        }
+        return text
+    }
+
+    private static func directoryExistsNoFollow(_ url: URL) -> Bool {
+        guard let status = fileStatus(url) else { return false }
+        return (status.st_mode & S_IFMT) == S_IFDIR
+    }
+
+    private static func fileStatus(_ url: URL) -> stat? {
+        var status = stat()
+        let result = url.path.withCString { path in
+            lstat(path, &status)
+        }
+        return result == 0 ? status : nil
     }
 }
 
@@ -354,17 +461,18 @@ private actor VaultMutationIO {
 
         let relativePath = targetVault.relativeMemoryPath
         let fileURL = repositoryRootURL.appendingPathComponent(relativePath, isDirectory: false)
+        let verifiedRelativePath = try relativePath(for: fileURL, in: repositoryRootURL)
         let before = try stagedMemoryBodyIfPresent(at: fileURL, targetVault: targetVault)
         let proposal = proposeMutation(message: message, original: before, targetVault: targetVault)
         let unifiedDiff = makeUnifiedDiff(
             old: before,
             new: proposal.updatedContent,
-            relativePath: relativePath
+            relativePath: verifiedRelativePath
         )
         let commitMessage = makeCommitMessage(
             operation: proposal.operation,
             scope: "MEMORY",
-            relativePath: relativePath,
+            relativePath: verifiedRelativePath,
             summary: proposal.summary,
             source: "vault-chat",
             reasoning: agentReasoning
@@ -374,7 +482,7 @@ private actor VaultMutationIO {
             targetVault: targetVault,
             repositoryRootURL: repositoryRootURL,
             fileURL: fileURL,
-            relativePath: relativePath,
+            relativePath: verifiedRelativePath,
             operation: proposal.operation,
             summary: proposal.summary,
             rationale: proposal.rationale,
@@ -437,6 +545,10 @@ private actor VaultMutationIO {
     }
 
     func commit(diff: DiffResult) async throws -> String {
+        let relativePath = try relativePath(for: diff.fileURL, in: diff.repositoryRootURL)
+        guard relativePath == diff.relativePath else {
+            throw VaultChatMutatorError.fileOutsideRepositoryRoot
+        }
         let parentURL = diff.fileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: parentURL,
@@ -447,7 +559,7 @@ private actor VaultMutationIO {
 
         #if !EPISTEMOS_APP_STORE
         try await ensureGitRepository(at: diff.repositoryRootURL)
-        _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", diff.relativePath], in: diff.repositoryRootURL)
+        _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", relativePath], in: diff.repositoryRootURL)
         _ = try await runGitOffMain(
             arguments: ["-C", diff.repositoryRootURL.path, "commit", "--no-verify", "-m", diff.commitMessage],
             in: diff.repositoryRootURL
@@ -644,15 +756,12 @@ private actor VaultMutationIO {
     }
 
     private func relativePath(for fileURL: URL, in repositoryRootURL: URL) throws -> String {
-        let rootPath = repositoryRootURL.standardizedFileURL.path
-        let filePath = fileURL.standardizedFileURL.path
-        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
-
-        guard filePath.hasPrefix(prefix) else {
+        guard let relativePath = Plan3VaultPath.vaultRelativePath(for: fileURL, in: repositoryRootURL),
+              !relativePath.isEmpty,
+              !relativePath.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }) else {
             throw VaultChatMutatorError.fileOutsideRepositoryRoot
         }
-
-        return String(filePath.dropFirst(prefix.count))
+        return relativePath
     }
 
     private func ensureGitRepository(at rootURL: URL) async throws {
