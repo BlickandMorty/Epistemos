@@ -5396,7 +5396,7 @@ let source = fs.readFileSync(path, 'utf8');
 
 source = source.replace(
   "import { ArrowUp, Bug, ScrollText } from 'lucide-react';",
-  "import { ArrowUp, BookOpen, Bug, ScrollText } from 'lucide-react';"
+  "import { ArrowUp, BookOpen, Bug, ExternalLink, ScrollText } from 'lucide-react';"
 );
 source = source.replace(
   "import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';",
@@ -5404,7 +5404,7 @@ source = source.replace(
 );
 source = source.replace(
   "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);",
-  "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);\n  const [isContextAttachInFlight, setIsContextAttachInFlight] = useState(false);\n  const [isGitDiffAttachInFlight, setIsGitDiffAttachInFlight] = useState(false);"
+  "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);\n  const [isContextAttachInFlight, setIsContextAttachInFlight] = useState(false);\n  const [isGitDiffAttachInFlight, setIsGitDiffAttachInFlight] = useState(false);\n  const [isGitCompareOpenInFlight, setIsGitCompareOpenInFlight] = useState(false);"
 );
 source = source.replace(
   `  const handleFileSelect = () => {
@@ -5496,6 +5496,50 @@ source = source.replace(
       setIsGitDiffAttachInFlight(false);
     }
   };
+
+  const handleOpenGitHubCompare = async () => {
+    if (isGitCompareOpenInFlight) return;
+    setIsGitCompareOpenInFlight(true);
+    try {
+      const nativeElectron = window.electron as typeof window.electron & {
+        readGitHubCompareURL?: (path: string) => Promise<{
+          ok?: boolean;
+          url?: string | null;
+          branch?: string | null;
+          error?: string | null;
+        }>;
+        openExternal?: (url: string) => Promise<unknown> | void;
+      };
+      if (typeof nativeElectron.readGitHubCompareURL !== 'function') {
+        toastError({
+          title: 'Compare unavailable',
+          msg: 'The Epistemos native bridge has not exposed GitHub compare links yet.',
+        });
+        return;
+      }
+      const result = await nativeElectron.readGitHubCompareURL(currentWorkingDir);
+      const compareURL = typeof result?.url === 'string' ? result.url : '';
+      if (!compareURL) {
+        toastError({
+          title: 'No GitHub compare',
+          msg: result?.error || 'This working directory does not have a GitHub compare target.',
+        });
+        return;
+      }
+      if (typeof nativeElectron.openExternal === 'function') {
+        await nativeElectron.openExternal(compareURL);
+      } else {
+        window.open(compareURL, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      toastError({
+        title: 'Compare unavailable',
+        msg: error instanceof Error ? error.message : 'Epistemos GitHub compare bridge failed.',
+      });
+    } finally {
+      setIsGitCompareOpenInFlight(false);
+    }
+  };
 `
 );
 source = source.replace(
@@ -5540,6 +5584,28 @@ source = source.replace(
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Attach git diff</TooltipContent>
+            </Tooltip>
+
+            {/* Right: GitHub compare */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={handleOpenGitHubCompare}
+                  disabled={isGitCompareOpenInFlight}
+                  variant="ghost"
+                  size="sm"
+                  shape="round"
+                  className={cn(
+                    'text-text-primary/70 hover:text-text-primary transition-colors',
+                    isGitCompareOpenInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                  aria-label="Open GitHub compare"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open GitHub compare</TooltipContent>
             </Tooltip>
 
             {/* Right: Epistemos context */}
@@ -5596,7 +5662,11 @@ for (const snippet of [
   'readGitDiff(currentWorkingDir)',
   'Git status:',
   'Attach git diff',
+  'handleOpenGitHubCompare',
+  'readGitHubCompareURL(currentWorkingDir)',
+  'Open GitHub compare',
   'BookOpen',
+  'ExternalLink',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`ChatInput Epistemos context patch missing snippet: ${snippet}`);
@@ -7582,7 +7652,11 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "handleAttachGitDiff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "readGitDiff(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Attach git diff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "handleOpenGitHubCompare" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "readGitHubCompareURL(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "Open GitHub compare" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "BookOpen" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "ExternalLink" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "epistemos-acp-session-mode-setting" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
     grep -q "saveAcpSessionMode(sessionId, newMode)" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
     grep -q "epistemos-acp-next-session-mode-default" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"

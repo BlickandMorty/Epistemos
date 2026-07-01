@@ -35,6 +35,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxGitStatusBytes = 64 * 1024
     nonisolated static let maxGitDiffBytes = 256 * 1024
     nonisolated static let maxGitWorktreePathCharacters = 4_096
+    nonisolated static let maxGitBranchNameCharacters = 256
+    nonisolated static let maxGitRemoteURLCharacters = 2_048
     nonisolated static let maxNativeAffordanceNameCharacters = 96
     nonisolated static let maxLaunchedAppNameCharacters = 128
     nonisolated static let maxRecentDirsFileBytes = 64 * 1024
@@ -266,6 +268,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return readGitDiff(path)
+        case "readGitHubCompareURL":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return readGitHubCompareURL(path)
         case "launchApp":
             guard let app = dictionaryArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -1036,6 +1043,182 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let status = String(data: outputData, encoding: .utf8) ?? ""
         let trimmedStatus = status.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedStatus.isEmpty ? nil : trimmedStatus
+    }
+
+    private func readGitHubCompareURL(_ path: String) -> [String: Any] {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        func result(
+            ok: Bool,
+            url: String? = nil,
+            branch: String? = nil,
+            error: String? = nil
+        ) -> [String: Any] {
+            let urlValue: Any = url.map { $0 as Any } ?? NSNull()
+            let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
+            let errorValue: Any = error.map { $0 as Any } ?? NSNull()
+            return [
+                "ok": ok,
+                "url": urlValue,
+                "branch": branchValue,
+                "path": expandedPath,
+                "error": errorValue,
+            ]
+        }
+
+        var isDirectory: ObjCBool = false
+        guard isPathAllowed(expandedPath),
+              fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              !isSymbolicLink(expandedPath) else {
+            return result(
+                ok: false,
+                error: "Epistemos blocked Goose WebView git compare outside scoped roots."
+            )
+        }
+        let git = resolveBinaryPath("git")
+        guard !git.isEmpty else {
+            return result(ok: false, error: "Git is unavailable.")
+        }
+        guard let branch = readGitSingleLine(
+            expandedPath,
+            git: git,
+            arguments: ["rev-parse", "--abbrev-ref", "HEAD"],
+            maxBytes: Self.maxGitBranchNameCharacters + 1
+        ).flatMap(Self.boundedGitBranchName),
+              branch != "HEAD" else {
+            return result(ok: false, error: "No current git branch is available.")
+        }
+        guard let remote = readGitSingleLine(
+            expandedPath,
+            git: git,
+            arguments: ["remote", "get-url", "origin"],
+            maxBytes: Self.maxGitRemoteURLCharacters + 1
+        ).flatMap(Self.boundedGitRemoteURL) else {
+            return result(ok: false, branch: branch, error: "No origin remote is available.")
+        }
+        guard let repositoryPath = Self.gitHubRepositoryPath(from: remote),
+              let compareURL = Self.gitHubCompareURL(repositoryPath: repositoryPath, branch: branch) else {
+            return result(ok: false, branch: branch, error: "The origin remote is not a GitHub repository.")
+        }
+        return result(ok: true, url: compareURL, branch: branch)
+    }
+
+    private func readGitSingleLine(
+        _ path: String,
+        git: String,
+        arguments: [String],
+        maxBytes: Int
+    ) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
+        process.arguments = [
+            "-c", "core.fsmonitor=false",
+            "-c", "protocol.allow=never",
+            "-C", path,
+        ] + arguments
+        process.environment = gitProcessEnvironment(git: git)
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+
+        let stdoutHandle = stdout.fileHandleForReading
+        let drainBox = GooseAffordanceDataBox()
+        let drainDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            drainBox.store(Self.readBoundedPipeData(stdoutHandle, maxBytes: maxBytes))
+            drainDone.signal()
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in semaphore.signal() }
+
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        if semaphore.wait(timeout: .now() + 2) == .timedOut {
+            process.terminate()
+            return nil
+        }
+        _ = drainDone.wait(timeout: .now() + 1)
+        guard process.terminationStatus == 0 else { return nil }
+
+        let outputData = drainBox.load()
+        guard outputData.count <= maxBytes else { return nil }
+        let line = (String(data: outputData, encoding: .utf8) ?? "")
+            .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return line?.isEmpty == false ? line : nil
+    }
+
+    nonisolated static func boundedGitBranchName(_ branch: String) -> String? {
+        let trimmed = branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxGitBranchNameCharacters,
+              !trimmed.contains(".."),
+              !trimmed.contains("\\"),
+              !trimmed.hasPrefix("-"),
+              !trimmed.hasPrefix("/"),
+              !trimmed.hasSuffix("/") else {
+            return nil
+        }
+        let blocked = CharacterSet.controlCharacters.union(CharacterSet(charactersIn: " ~^:?*["))
+        guard trimmed.unicodeScalars.allSatisfy({ !blocked.contains($0) }) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated static func boundedGitRemoteURL(_ remote: String) -> String? {
+        let trimmed = remote.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxGitRemoteURLCharacters,
+              !trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
+            return nil
+        }
+        return trimmed
+    }
+
+    nonisolated static func gitHubRepositoryPath(from remote: String) -> String? {
+        let trimmed = remote.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawPath: String?
+        if let url = URL(string: trimmed),
+           url.host?.lowercased() == "github.com" {
+            rawPath = url.path
+        } else if trimmed.hasPrefix("git@github.com:") {
+            rawPath = "/" + String(trimmed.dropFirst("git@github.com:".count))
+        } else {
+            rawPath = nil
+        }
+
+        guard let rawPath else { return nil }
+        let cleaned = rawPath
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .replacingOccurrences(of: ".git", with: "", options: [.anchored, .backwards])
+        let parts = cleaned.split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count == 2 else { return nil }
+        let owner = String(parts[0])
+        let repo = String(parts[1])
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard !owner.isEmpty,
+              !repo.isEmpty,
+              owner.unicodeScalars.allSatisfy({ allowed.contains($0) }),
+              repo.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            return nil
+        }
+        return "\(owner)/\(repo)"
+    }
+
+    nonisolated static func gitHubCompareURL(repositoryPath: String, branch: String) -> String? {
+        guard let branch = boundedGitBranchName(branch) else { return nil }
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "?#[]@")
+        guard let encodedBranch = branch.addingPercentEncoding(withAllowedCharacters: allowed) else {
+            return nil
+        }
+        return "https://github.com/\(repositoryPath)/compare/\(encodedBranch)?expand=1"
     }
 
     nonisolated static func boundedGitWorktreePath(_ path: String) -> String? {

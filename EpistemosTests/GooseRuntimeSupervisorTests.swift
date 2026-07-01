@@ -570,8 +570,13 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("maxGitStatusBytes"))
         #expect(bridge.contains("maxGitDiffBytes"))
         #expect(bridge.contains("maxGitWorktreePathCharacters"))
+        #expect(bridge.contains("maxGitBranchNameCharacters"))
+        #expect(bridge.contains("maxGitRemoteURLCharacters"))
         #expect(bridge.contains("private func readGitDiff(_ path: String)"))
         #expect(bridge.contains("private func readGitStatus(_ path: String, git: String)"))
+        #expect(bridge.contains("private func readGitHubCompareURL(_ path: String)"))
+        #expect(bridge.contains("nonisolated static func gitHubRepositoryPath(from remote: String) -> String?"))
+        #expect(bridge.contains("nonisolated static func gitHubCompareURL(repositoryPath: String, branch: String) -> String?"))
         #expect(bridge.contains("\"--branch\""))
         #expect(bridge.contains("Git diff timed out."))
         #expect(bridge.contains("let outputData = drainBox.load()"))
@@ -1799,6 +1804,7 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["listFiles"] == .implementedNative)
         #expect(ledger["listGitWorktreeDirs"] == .implementedNative)
         #expect(ledger["readGitDiff"] == .implementedNative)
+        #expect(ledger["readGitHubCompareURL"] == .implementedNative)
         #expect(ledger["launchApp"] == .implementedNative)
         #expect(ledger["refreshApp"] == .implementedNative)
         #expect(ledger["closeApp"] == .implementedNative)
@@ -1850,6 +1856,7 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('listFiles', extension === undefined ? [dirPath] : [dirPath, extension])"))
         #expect(script.contains("postNativeAffordance('listGitWorktreeDirs', [dir])"))
         #expect(script.contains("postNativeAffordance('readGitDiff', [dirPath])"))
+        #expect(script.contains("postNativeAffordance('readGitHubCompareURL', [dirPath])"))
         #expect(script.contains("const createChatWindow = async (options = {}) =>"))
         #expect(script.contains("window.location.hash = `${appPath}?${searchParams.toString()}`"))
         #expect(script.contains("emitEvent('set-initial-message', initialMessage"))
@@ -1914,6 +1921,7 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("visibleError('listFiles')"))
         #expect(!script.contains("visibleError('listGitWorktreeDirs')"))
         #expect(!script.contains("visibleError('readGitDiff')"))
+        #expect(!script.contains("visibleError('readGitHubCompareURL')"))
         #expect(!script.contains("visibleError('launchApp')"))
         #expect(!script.contains("visibleError('refreshApp')"))
         #expect(!script.contains("visibleError('closeApp')"))
@@ -2273,6 +2281,30 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(" \n/tmp/project\n ") == "/tmp/project")
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(" \n\t ") == nil)
         #expect(GooseWebNativeAffordanceBridge.boundedGitWorktreePath(oversizedPath) == nil)
+    }
+
+    @Test("git compare URL parser accepts only bounded GitHub remotes and branches")
+    func gitCompareURLParserAcceptsOnlyBoundedGitHubRemotesAndBranches() {
+        #expect(
+            GooseWebNativeAffordanceBridge.gitHubRepositoryPath(
+                from: "https://github.com/epistemos/app.git"
+            ) == "epistemos/app"
+        )
+        #expect(
+            GooseWebNativeAffordanceBridge.gitHubRepositoryPath(
+                from: "git@github.com:epistemos/app.git"
+            ) == "epistemos/app"
+        )
+        #expect(GooseWebNativeAffordanceBridge.gitHubRepositoryPath(from: "https://example.com/a/b.git") == nil)
+        #expect(GooseWebNativeAffordanceBridge.boundedGitBranchName(" feature/goose-ui ") == "feature/goose-ui")
+        #expect(GooseWebNativeAffordanceBridge.boundedGitBranchName("-bad") == nil)
+        #expect(GooseWebNativeAffordanceBridge.boundedGitBranchName("bad..branch") == nil)
+        #expect(
+            GooseWebNativeAffordanceBridge.gitHubCompareURL(
+                repositoryPath: "epistemos/app",
+                branch: "feature/goose-ui"
+            ) == "https://github.com/epistemos/app/compare/feature/goose-ui?expand=1"
+        )
     }
 
     @Test("native binary lookup bounds inherited PATH")
