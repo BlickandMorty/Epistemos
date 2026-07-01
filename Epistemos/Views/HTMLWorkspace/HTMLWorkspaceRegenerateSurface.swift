@@ -192,7 +192,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
             }
 
             HStack(spacing: 8) {
-                TextField("Search notes, PDFs, folders, captures, clips, chats, graph", text: $contextQuery)
+                TextField("Search notes, PDFs, folders, captures, clips, chats, graph, claims", text: $contextQuery)
                     .textFieldStyle(.plain)
                     .foregroundStyle(theme.resolved.foreground.color)
                     .padding(.horizontal, 10)
@@ -461,7 +461,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         let query = bounded(contextQuery, limit: 160)
         return """
         \(instruction)
-        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, PDFs/arXiv papers, folders, captures, meeting notes, web clips, chats, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
+        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, PDFs/arXiv papers, folders, captures, meeting notes, web clips, chats, provenance claims, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
         \(requiredContextKindInstruction)
         """
     }
@@ -565,7 +565,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     When _epistemos.required_context_kind is present and _epistemos.required_context_available is false, show that required source as unavailable instead of relabeling generic vault results.
     Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; picking a record should visibly add/pin that real record into the workspace, and absent records must show an honest empty or stale state.
     When selected preview context is present, treat it as the user's intended surface target and preserve its selector relationship when practical.
-    Do not infer captures, chats, graph links, folders, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
+    Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
     data.json must be valid JSON.
     """
@@ -703,12 +703,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     }
 
     var systemImage: String {
-        let kind = contextKind.lowercased()
-        if kind.contains("capture") { return "tray.full" }
-        if kind.contains("chat") { return "bubble.left.and.text.bubble.right" }
-        if kind.contains("graph") || kind.contains("related") { return "point.3.connected.trianglepath.dotted" }
-        if kind.contains("folder") { return "folder" }
-        return "doc.text"
+        HTMLWorkspaceRegenerateContextPresentation.systemImage(for: contextKind)
     }
 
     var dragPayload: String {
@@ -824,10 +819,10 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
             }
         } else {
             lines.append("vault_search: not attached")
-            lines.append("vault_search.results: unavailable; do not invent vault notes, PDFs/arXiv papers, folders, graph links, captures, meeting notes, web clips, or chats.")
+            lines.append("vault_search.results: unavailable; do not invent vault notes, PDFs/arXiv papers, folders, graph links, captures, meeting notes, web clips, chats, or provenance claims.")
         }
 
-        lines.append("notes/PDFs/folders/captures/meeting-notes/web-clips/chats/graph: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
+        lines.append("notes/PDFs/folders/captures/meeting-notes/web-clips/chats/graph/provenance-claims: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
         lines.append("record_display_rule: show each attached record's source_label, context_kind, and provenance when rendering context-derived UI.")
         lines.append("grounding_rule: preserve real data provenance and avoid fabricated counts, titles, links, or relationships.")
         return lines.joined(separator: "\n")

@@ -60,7 +60,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("Label(\"Revert\", systemImage: \"clock.arrow.circlepath\")"))
         #expect(sheet.contains("Label(isRegenerating ? \"Streaming\" : \"Stream Preview\", systemImage: \"wand.and.sparkles\")"))
         #expect(sheet.contains("Label(\"Workspace Context\", systemImage: \"tray.full\")"))
-        #expect(sheet.contains("TextField(\"Search notes, PDFs, folders, captures, clips, chats, graph\", text: $contextQuery)"))
+        #expect(sheet.contains("TextField(\"Search notes, PDFs, folders, captures, clips, chats, graph, claims\", text: $contextQuery)"))
         #expect(sheet.contains("Label(isRefreshingContext ? \"Searching\" : \"Add Context\", systemImage: \"magnifyingglass.circle\")"))
         #expect(sheet.contains("private var pixelCaptionFont: Font"))
         #expect(sheet.contains("private var pixelControlFont: Font"))
@@ -298,7 +298,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         let instruction = captures.instruction(contextQuery: "recent captures Project Atlas")
         #expect(instruction.contains("VaultSyncService.searchFullAsync"))
         #expect(instruction.contains("Use only records present in data.json"))
-        #expect(instruction.contains("notes, PDFs/arXiv papers, folders, captures, meeting notes, web clips, chats, or graph-related records"))
+        #expect(instruction.contains("notes, PDFs/arXiv papers, folders, captures, meeting notes, web clips, chats, provenance claims, or graph-related records"))
         #expect(instruction.contains("working local search/filter"))
         #expect(instruction.contains("context-kind tabs"))
         #expect(instruction.contains("bind them to data.json only"))
@@ -359,7 +359,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
             expectedContentHash: "hash"
         )
         #expect(emptyPrompt.contains("vault_search: not attached"))
-        #expect(emptyPrompt.contains("do not invent vault notes, graph links, captures, or chats"))
+        #expect(emptyPrompt.contains("do not invent vault notes, PDFs/arXiv papers, folders, graph links, captures, meeting notes, web clips, chats, or provenance claims"))
     }
 
     @Test("regenerate context items decode feed results as draggable read-only sources")
@@ -449,9 +449,22 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
             sourceLabel: "Graph related note",
             provenance: "GraphState"
         )
+        let claim = HTMLWorkspaceRegenerateContextItem(
+            pageID: "packet-1",
+            title: "Claim",
+            snippet: "claim text",
+            rank: 1,
+            contextKind: "provenance_claim",
+            sourceLabel: "Provenance claim",
+            provenance: "AnswerPacketStore"
+        )
 
         #expect(capture.systemImage == "tray.full")
         #expect(graph.systemImage == "point.3.connected.trianglepath.dotted")
+        #expect(claim.systemImage == "checkmark.shield")
+        #expect(HTMLWorkspaceRegenerateContextPresentation.systemImage(for: "pdf_note") == "doc.richtext")
+        #expect(HTMLWorkspaceRegenerateContextPresentation.systemImage(for: "meeting_note") == "person.2")
+        #expect(HTMLWorkspaceRegenerateContextPresentation.systemImage(for: "web_clip") == "globe")
         #expect(capture.pageID == graph.pageID)
         #expect(capture.id != graph.id)
         #expect(capture.contextDescriptor == "Recent capture / recent_capture")
@@ -495,7 +508,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance."))
         #expect(prompt.contains("_epistemos.required_context_kind"))
         #expect(prompt.contains("_epistemos.required_context_available is false"))
-        #expect(prompt.contains("Do not infer captures, chats, graph links, folders, or record types from a title or query string."))
+        #expect(prompt.contains("Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string."))
     }
 
     @Test("regenerate prompt includes selected preview surface context when present")
