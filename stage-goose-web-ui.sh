@@ -307,6 +307,38 @@ function catalogTemplateProviderDetails(template: AcpProviderTemplate): Provider
   };
 }
 
+function catalogEntryProviderDetails(entry: AcpProviderCatalogEntry): ProviderDetails {
+  // epistemos-acp-full-catalog-provider-surface: templates are fetched for a
+  // bounded subset for speed, but every ACP catalog provider must still appear.
+  const apiKeyConfig = entry.envVar
+    ? [{
+        name: entry.envVar,
+        required: true,
+        secret: true,
+        default: null,
+        oauth_flow: false,
+        device_code_flow: false,
+        primary: true,
+      }]
+    : [];
+  return {
+    name: entry.providerId,
+    is_configured: false,
+    provider_type: 'Custom',
+    metadata: {
+      name: entry.providerId,
+      display_name: entry.name,
+      description: entry.apiUrl || entry.name,
+      default_model: '',
+      known_models: [],
+      model_doc_link: entry.docUrl,
+      model_selection_hint: entry.modelCount > 0 ? `${entry.modelCount} catalog models` : null,
+      config_keys: apiKeyConfig,
+      setup_steps: entry.docUrl ? [entry.docUrl] : [],
+    },
+  };
+}
+
 function mergeProviderDetails(primary: ProviderDetails[], fallback: ProviderDetails[]): ProviderDetails[] {
   const byName = new Map<string, ProviderDetails>();
   for (const provider of fallback) {
@@ -568,7 +600,9 @@ async function loadProviderCatalogSurface(): Promise<ProviderDetails[]> {
         recordProviderInventoryEvent('catalog-template-skip', `${entry.providerId}:${acpErrorMessage(error)}`);
       }
     }
-    const merged = mergeProviderDetails(templateProviders, setupProviders);
+    const catalogProviders = catalogEntries.map(catalogEntryProviderDetails);
+    const setupAndCatalogProviders = mergeProviderDetails(setupProviders, catalogProviders);
+    const merged = mergeProviderDetails(templateProviders, setupAndCatalogProviders);
     if (merged.length === 0) {
       throw new Error('Goose ACP provider catalogs returned zero providers.');
     }
@@ -6735,6 +6769,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "export const USE_ACP_CHAT = true;" "$WORK_ROOT/ui/desktop/src/acpChatFeatureFlag.ts"
     grep -q "providersList_unstable({ providerIds: \[\] })" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "providersSetupCatalogList_unstable({})" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-full-catalog-provider-surface" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "catalogEntries.map(catalogEntryProviderDetails)" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "getProviderInventoryAcpClient()" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "getProviderCatalogAcpClient()" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "shared-getAcpClient-provider-inventory" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"

@@ -1113,6 +1113,8 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("goose.providersCatalogList_unstable({"))
         #expect(script.contains("goose.providersSetupCatalogList_unstable({})"))
         #expect(script.contains("goose.providersCatalogTemplate_unstable({ providerId })"))
+        #expect(script.contains("epistemos-acp-full-catalog-provider-surface"))
+        #expect(script.contains("catalogEntries.map(catalogEntryProviderDetails)"))
         #expect(script.contains("listAcpProviderCatalog(format)"))
         #expect(script.contains("readAcpProviderCatalogTemplate(providerId)"))
         #expect(script.contains("goose.providersSupportedModelsList_unstable({ providerId })"))
