@@ -1431,7 +1431,7 @@ function applyButton() {
     source,
     'button default variant',
     "default: 'bg-background-inverse text-text-inverse hover:bg-background-inverse/90 shadow-none'",
-    "default: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90 shadow-none'"
+    "default: 'bg-[var(--epistemos-accent)] text-text-inverse hover:bg-[var(--epistemos-accent)]/90 shadow-none'"
   );
   source = replaceRequired(
     source,
@@ -1515,7 +1515,7 @@ function applyDropdownMenu() {
     "'bg-background-primary/92 text-text-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[9px] p-1 space-y-0.5'"
   );
   source = source.replaceAll("rounded-sm px-2 py-1.5 text-sm", "rounded-[6px] px-2 py-1.5 text-sm");
-  source = source.replaceAll("focus:bg-background-secondary focus:text-text-secondary", "focus:bg-[var(--epistemos-accent)] focus:text-white");
+  source = source.replaceAll("focus:bg-background-secondary focus:text-text-secondary", "focus:bg-[var(--epistemos-accent)] focus:text-text-inverse");
   source = replaceRequired(
     source,
     'dropdown sub content',
@@ -1607,7 +1607,7 @@ function applySelect() {
     source,
     'select option selected',
     "classes += ' bg-background-inverse text-text-inverse pointer-events-auto';",
-    "classes += ' bg-[var(--epistemos-accent)] text-white pointer-events-auto';"
+    "classes += ' bg-[var(--epistemos-accent)] text-text-inverse pointer-events-auto';"
   );
   source = replaceRequired(
     source,
@@ -1669,13 +1669,13 @@ function applyPrimitiveCompletionSurfaces() {
     source,
     'pill solid native',
     "solid: 'bg-background-primary border border-border-primary hover:bg-background-secondary',",
-    "solid: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90',"
+    "solid: 'bg-[var(--epistemos-accent)] text-text-inverse hover:bg-[var(--epistemos-accent)]/90',"
   );
   source = replaceRequired(
     source,
     'pill gradient native',
     "gradient: 'bg-background-inverse text-background-primary border border-background-inverse',",
-    "gradient: 'bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90',"
+    "gradient: 'bg-[var(--epistemos-accent)] text-text-inverse hover:bg-[var(--epistemos-accent)]/90',"
   );
   source = replaceRequired(
     source,
@@ -1934,7 +1934,7 @@ function applyAppSurfaces() {
     source,
     'launcher submit button',
     'className="mr-2 inline-grid h-9 w-9 place-items-center border border-border-primary bg-background-inverse text-background-primary transition-opacity disabled:cursor-not-allowed disabled:opacity-35"',
-    'className="mr-2 inline-grid h-9 w-9 place-items-center rounded-[10px] border border-transparent bg-[var(--epistemos-accent)] text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35"'
+    'className="mr-2 inline-grid h-9 w-9 place-items-center rounded-[10px] border border-transparent bg-[var(--epistemos-accent)] text-text-inverse transition-opacity disabled:cursor-not-allowed disabled:opacity-35"'
   );
   source = replaceRequired(
     source,
@@ -5274,7 +5274,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe activity editor add button native',
     'className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"',
-    'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
+    'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
   );
   write('src/components/recipes/RecipeActivityEditor.tsx', source);
 
@@ -5324,7 +5324,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe form activity add button native',
     'className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"',
-    'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
+    'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-text-inverse transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
   );
   write('src/components/recipes/shared/RecipeFormFields.tsx', source);
 
@@ -5825,7 +5825,7 @@ function applyRemainingTokenDriftSurfaces() {
     source,
     'credits exhausted action token',
     'className="mt-3 inline-flex items-center gap-2 rounded-md bg-yellow-600 hover:bg-yellow-500 dark:bg-yellow-700 dark:hover:bg-yellow-600 text-white text-sm font-medium px-4 py-2 transition-colors"',
-    'className="mt-3 inline-flex items-center gap-2 rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--epistemos-accent)]/90"'
+    'className="mt-3 inline-flex items-center gap-2 rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-[var(--epistemos-accent)]/90"'
   );
   write('src/components/context_management/CreditsExhaustedNotification.tsx', source);
 
@@ -6168,7 +6168,7 @@ function applyNeutralTokenDriftSurfaces() {
     source,
     'diagnostics github button token',
     'className="bg-slate-600 text-white hover:bg-slate-700"',
-    'className="bg-[var(--epistemos-accent)] text-white hover:bg-[var(--epistemos-accent)]/90"'
+    'className="bg-[var(--epistemos-accent)] text-text-inverse hover:bg-[var(--epistemos-accent)]/90"'
   );
   write('src/components/ui/Diagnostics.tsx', source);
 
@@ -6649,8 +6649,8 @@ function applyFinalFlatPixelAudit() {
       .replaceAll('text-red-500/bg-blue-50', 'text-red-500/accent-tint')
       .replace(/outline:\s*2px solid var\(--color-border-active,\s*#[0-9a-fA-F]{6}\)\s*!important;/g, 'outline: none !important;')
       .replace(/outline:\s*2px solid var\(--color-border-active,\s*#[0-9a-fA-F]{6}\);/g, 'outline: none !important;')
-      .replaceAll('#0066cc', '#1d1d1f')
-      .replaceAll('#2997ff', '#ffffff')
+      .replaceAll('#0066cc', 'var(--epistemos-pixel-accent)')
+      .replaceAll('#2997ff', 'var(--epistemos-pixel-accent)')
       .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent)) !important;', 'outline: none !important;')
       .replaceAll('outline: 2px solid var(--color-border-active, var(--epistemos-accent));', 'outline: none !important;')
       .replaceAll('outline-offset: 2px !important;', 'outline-offset: 0 !important;')
@@ -6867,11 +6867,12 @@ body,
   background: var(--epistemos-claude-active) !important;
 }
 
-.goose-epistemos [class*='bg-[var(--epistemos-accent)]'] {
+.goose-epistemos [class~='bg-[var(--epistemos-accent)]'] {
   background: var(--epistemos-pixel-accent) !important;
+  color: var(--color-text-inverse) !important;
 }
 
-.goose-epistemos [class*='bg-[var(--epistemos-accent)]']:not(:disabled):hover {
+.goose-epistemos [class~='bg-[var(--epistemos-accent)]']:not(:disabled):hover {
   background: color-mix(in srgb, var(--epistemos-pixel-accent) 88%, var(--epistemos-claude-bg)) !important;
 }
 
