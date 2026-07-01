@@ -192,7 +192,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
             }
 
             HStack(spacing: 8) {
-                TextField("Search notes, captures, chats, graph", text: $contextQuery)
+                TextField("Search notes, folders, captures, clips, chats, graph", text: $contextQuery)
                     .textFieldStyle(.plain)
                     .foregroundStyle(theme.resolved.foreground.color)
                     .padding(.horizontal, 10)
@@ -461,7 +461,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         let query = bounded(contextQuery, limit: 160)
         return """
         \(instruction)
-        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, captures, chats, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
+        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, folders, captures, meeting notes, web clips, chats, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
         \(requiredContextKindInstruction)
         """
     }
@@ -824,10 +824,10 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
             }
         } else {
             lines.append("vault_search: not attached")
-            lines.append("vault_search.results: unavailable; do not invent vault notes, graph links, captures, or chats.")
+            lines.append("vault_search.results: unavailable; do not invent vault notes, folders, graph links, captures, meeting notes, web clips, or chats.")
         }
 
-        lines.append("graph/captures/chats: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
+        lines.append("notes/folders/captures/meeting-notes/web-clips/chats/graph: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
         lines.append("record_display_rule: show each attached record's source_label, context_kind, and provenance when rendering context-derived UI.")
         lines.append("grounding_rule: preserve real data provenance and avoid fabricated counts, titles, links, or relationships.")
         return lines.joined(separator: "\n")
