@@ -29,6 +29,7 @@ pub const LITEPARSE_VENDOR_SOURCE: &str = "run-llama/liteparse";
 
 const MAX_PDF_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_PDF_MIB: u64 = MAX_PDF_BYTES / 1024 / 1024;
+const MAX_ENGINE_ERROR_CHARS: usize = 1024;
 const PDF_MAGIC: &[u8] = b"%PDF-";
 
 /// Honest errors for a PDF→Markdown conversion. The caller surfaces these; the seam
@@ -174,6 +175,32 @@ fn no_substantive_text_error() -> LiteParseError {
     LiteParseError::Failed(NO_SUBSTANTIVE_TEXT_MESSAGE.to_string())
 }
 
+fn redacted_engine_error(
+    prefix: &str,
+    error: impl std::fmt::Display,
+    pdf_path: &str,
+) -> LiteParseError {
+    let mut message = error.to_string();
+    if !pdf_path.is_empty() {
+        message = message.replace(pdf_path, "<pdf>");
+    }
+    if let Ok(canonical) = std::fs::canonicalize(pdf_path) {
+        if let Some(canonical_path) = canonical.to_str() {
+            message = message.replace(canonical_path, "<pdf>");
+        }
+    }
+    let message = message.trim();
+    let message = if message.is_empty() {
+        "parser error".to_string()
+    } else if message.len() > MAX_ENGINE_ERROR_CHARS {
+        let bounded: String = message.chars().take(MAX_ENGINE_ERROR_CHARS - 3).collect();
+        format!("{bounded}...")
+    } else {
+        message.to_string()
+    };
+    LiteParseError::Failed(format!("{prefix}: {message}"))
+}
+
 /// The honest seam: a local PDF → Markdown. A non-PDF input is rejected with
 /// `UnsupportedFormat` (never shelled out).
 ///
@@ -225,12 +252,12 @@ fn edgeparse_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
         ..ProcessingConfig::default()
     };
     let mut doc = edgeparse_core::convert(Path::new(pdf_path), &config)
-        .map_err(|e| LiteParseError::Failed(format!("EdgeParse: {e}")))?;
+        .map_err(|e| redacted_engine_error("EdgeParse", e, pdf_path))?;
     // MAS doctrine: keep the Markdown render path pure in-process. With `source_path`
     // populated, upstream EdgeParse tries optional `pdftotext` layout helpers.
     doc.source_path = None;
     edgeparse_core::output::markdown::to_markdown(&doc)
-        .map_err(|e| LiteParseError::Failed(format!("EdgeParse markdown: {e}")))
+        .map_err(|e| redacted_engine_error("EdgeParse markdown", e, pdf_path))
 }
 
 #[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
@@ -241,7 +268,7 @@ fn unpdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
         .with_cleanup(unpdf::CleanupPreset::Standard)
         .parse(pdf_path)
         .and_then(|parsed| parsed.to_markdown())
-        .map_err(|e| LiteParseError::Failed(format!("unpdf: {e}")))
+        .map_err(|e| redacted_engine_error("unpdf", e, pdf_path))
 }
 
 #[cfg(all(feature = "edgeparse-pdf", feature = "parser-unpdf"))]
@@ -306,10 +333,10 @@ pub fn pdf_to_markdown(pdf_path: &str) -> Result<String, LiteParseError> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .map_err(|e| LiteParseError::Failed(format!("tokio runtime: {e}")))?;
+        .map_err(|e| redacted_engine_error("tokio runtime", e, pdf_path))?;
     let result = runtime
         .block_on(async { LiteParse::new(config).parse(pdf_path).await })
-        .map_err(|e| LiteParseError::Failed(e.to_string()))?;
+        .map_err(|e| redacted_engine_error("liteparse", e, pdf_path))?;
     if markdown_is_substantive(&result.text) {
         Ok(result.text)
     } else {
@@ -403,6 +430,29 @@ mod tests {
         }
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parser_error_redaction_removes_local_pdf_path() {
+        let pdf_path = "/Users/alice/Documents/private/source.pdf";
+        let error = redacted_engine_error(
+            "EdgeParse",
+            format!("Failed to load PDF {pdf_path}: parser detail"),
+            pdf_path,
+        );
+        match error {
+            LiteParseError::Failed(message) => {
+                assert!(
+                    message.contains("<pdf>"),
+                    "redacted marker missing: {message}"
+                );
+                assert!(
+                    !message.contains(pdf_path),
+                    "local PDF path leaked through parser error: {message}"
+                );
+            }
+            other => panic!("expected failed parser error, got {other:?}"),
+        }
     }
 
     #[cfg(unix)]
