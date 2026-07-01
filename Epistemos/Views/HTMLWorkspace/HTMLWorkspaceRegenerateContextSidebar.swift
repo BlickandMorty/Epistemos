@@ -18,13 +18,21 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
         theme.resolved.card.color.opacity(theme.isDark ? 0.34 : 0.56)
     }
 
+    private var pixelCaptionFont: Font {
+        .system(size: 11, weight: .semibold, design: .monospaced)
+    }
+
+    private var pixelMicroFont: Font {
+        .system(size: 10, weight: .medium, design: .monospaced)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 Image(systemName: "tray.full")
                     .foregroundStyle(theme.resolved.accent.color)
                 Text("Workspace Context")
-                    .font(.caption.weight(.semibold))
+                    .font(pixelCaptionFont)
                     .foregroundStyle(theme.resolved.foreground.color)
                 Spacer(minLength: 0)
                 if isRefreshingContext {
@@ -64,7 +72,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("No context attached")
-                .font(.caption.weight(.semibold))
+                .font(pixelCaptionFont)
                 .foregroundStyle(theme.resolved.foreground.color)
         }
         .padding(.horizontal, 8)
@@ -78,7 +86,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.title)
-                    .font(.caption.weight(.semibold))
+                    .font(pixelCaptionFont)
                     .foregroundStyle(theme.resolved.foreground.color)
                     .lineLimit(2)
                 Text(item.snippet)
@@ -86,7 +94,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
                     .foregroundStyle(mutedText)
                     .lineLimit(4)
                 Text(item.pageID)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(pixelMicroFont)
                     .foregroundStyle(mutedText)
                     .lineLimit(1)
                     .truncationMode(.middle)

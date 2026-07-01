@@ -52,6 +52,18 @@ struct HTMLWorkspaceRegenerateSheet: View {
         theme.resolved.mutedForeground.color
     }
 
+    private var pixelCaptionFont: Font {
+        .system(size: 11, weight: .semibold, design: .monospaced)
+    }
+
+    private var pixelControlFont: Font {
+        .system(size: 11, weight: .medium, design: .monospaced)
+    }
+
+    private var pixelMicroFont: Font {
+        .system(size: 10, weight: .semibold, design: .monospaced)
+    }
+
     private var instructionIsEmpty: Bool {
         instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -110,14 +122,14 @@ struct HTMLWorkspaceRegenerateSheet: View {
                         Label(statusLabel, systemImage: statusSymbol)
                             .foregroundStyle(hasPendingPreview ? theme.resolved.accent.color : mutedText)
                     }
-                    .font(.caption)
+                    .font(pixelControlFont)
                     .foregroundStyle(mutedText)
 
                     contextSection
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Presets")
-                            .font(.caption.weight(.semibold))
+                            .font(pixelCaptionFont)
                             .foregroundStyle(mutedText)
                         ForEach(HTMLWorkspaceRegeneratePreset.Family.allCases, id: \.self) { family in
                             presetSection(family)
@@ -128,7 +140,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                         advancedFallback
                     } label: {
                         Label("Advanced response paste fallback", systemImage: "terminal")
-                            .font(.caption.weight(.semibold))
+                            .font(pixelCaptionFont)
                             .foregroundStyle(mutedText)
                     }
 
@@ -169,7 +181,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Label("Workspace Context", systemImage: "tray.full")
-                    .font(.caption.weight(.semibold))
+                    .font(pixelCaptionFont)
                     .foregroundStyle(mutedText)
                 Spacer(minLength: 0)
                 if hasVaultContext {
@@ -214,7 +226,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.title)
-                                        .font(.caption.weight(.semibold))
+                                        .font(pixelControlFont)
                                         .lineLimit(1)
                                     Text(item.snippet)
                                         .font(.caption2)
@@ -244,7 +256,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
     private func presetSection(_ family: HTMLWorkspaceRegeneratePreset.Family) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(family.rawValue)
-                .font(.caption2.weight(.semibold))
+                .font(pixelMicroFont)
                 .foregroundStyle(mutedText)
             FlowLayout(spacing: 6) {
                 ForEach(HTMLWorkspaceRegeneratePreset.presets(in: family)) { preset in
@@ -252,7 +264,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                         onRunPreset(preset)
                     } label: {
                         Label(preset.title, systemImage: preset.systemImage)
-                            .font(.caption)
+                            .font(pixelControlFont)
                             .lineLimit(1)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
@@ -283,7 +295,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                 }
                 .disabled(isRegenerating || streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .font(.caption)
+            .font(pixelControlFont)
 
             ZStack(alignment: .topLeading) {
                 if streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

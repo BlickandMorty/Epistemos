@@ -61,6 +61,12 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("Label(\"Workspace Context\", systemImage: \"tray.full\")"))
         #expect(sheet.contains("TextField(\"Search notes, captures, chats, graph\", text: $contextQuery)"))
         #expect(sheet.contains("Label(isRefreshingContext ? \"Searching\" : \"Add Context\", systemImage: \"magnifyingglass.circle\")"))
+        #expect(sheet.contains("private var pixelCaptionFont: Font"))
+        #expect(sheet.contains("private var pixelControlFont: Font"))
+        #expect(sheet.contains("private var pixelMicroFont: Font"))
+        #expect(sheet.contains(".font(pixelCaptionFont)"))
+        #expect(sheet.contains(".font(pixelControlFont)"))
+        #expect(sheet.contains(".font(pixelMicroFont)"))
         #expect(sheet.contains("ForEach(contextItems)"))
         #expect(sheet.contains(".onDrag"))
         #expect(sheet.contains("NSItemProvider(object: item.dragPayload as NSString)"))
@@ -157,6 +163,10 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains("NSItemProvider(object: item.dragPayload as NSString)"))
         #expect(sidebar.contains("Drag into the preview or click to apply context"))
         #expect(sidebar.contains("Text(\"Workspace Context\")"))
+        #expect(sidebar.contains("private var pixelCaptionFont: Font"))
+        #expect(sidebar.contains("private var pixelMicroFont: Font"))
+        #expect(sidebar.contains(".font(pixelCaptionFont)"))
+        #expect(sidebar.contains(".font(pixelMicroFont)"))
     }
 
     @Test("regenerate presets expose required one-click categories")
