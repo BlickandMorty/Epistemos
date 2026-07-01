@@ -373,12 +373,19 @@ struct MCPUrlServerDirectoryTests {
 
         let displayName = MCPServerSettingsStatus.displayName(" \n\(oversizedName)\n ", fallback: "server")
         let fallback = MCPServerSettingsStatus.displayName(" \n\t ", fallback: "server")
+        let normalizedDisplayName = MCPServerSettingsStatus.displayName("Docs\nserver\tname\u{0007}", fallback: "server")
         let message = MCPServerSettingsStatus.message("Installed \(oversizedName).", fallback: "MCP server updated.")
+        let normalizedMessage = MCPUrlServerDirectory.Diagnostics.failureReason(
+            "Could not\nwrite\tserver\u{0007}",
+            fallback: "MCP server operation failed."
+        )
 
         #expect(displayName.count <= MCPServerSettingsStatus.maxDisplayNameCharacters)
         #expect(displayName.hasSuffix("..."))
         #expect(fallback == "server")
+        #expect(normalizedDisplayName == "Docs server name")
         #expect(message.count <= MCPServerSettingsStatus.maxStatusMessageCharacters)
+        #expect(normalizedMessage == "Could not write server")
     }
 
     @Test("extensions settings status routes MCP server failures through diagnostics")
@@ -395,10 +402,13 @@ struct MCPUrlServerDirectoryTests {
         #expect(source.contains("MCPServerSettingsStatus.displayName(newServerName"))
         #expect(source.contains("MCPServerSettingsStatus.displayName(server.name"))
         #expect(source.contains("MCPServerSettingsStatus.displayName(entry.name"))
+        #expect(source.contains("MCPUrlServerDirectory.Diagnostics.normalizedDisplayText(bounded)"))
         #expect(source.contains("MCPUrlServerDirectory.Diagnostics.externalErrorDescription"))
         #expect(!source.contains("return .failure(error.localizedDescription)"))
         #expect(directory.contains("enum Diagnostics"))
         #expect(directory.contains("MCPUrlServerDirectory.Diagnostics.failureReason("))
+        #expect(directory.contains("normalizedDisplayText(bounded)"))
+        #expect(directory.contains("CharacterSet.controlCharacters"))
         #expect(directory.contains("Could not write MCP server config:"))
         #expect(directory.contains("Cannot rewrite MCP server config while"))
         #expect(directory.contains("Diagnostics.externalErrorDescription(error, fallback: \"filesystem error\")"))
@@ -422,9 +432,9 @@ struct MCPUrlServerDirectoryTests {
         #expect(!rustURLServers.contains(#"!key.contains('=') && !key.contains('\0')"#))
         #expect(!rustURLServers.contains(".or(entry.authorization_token)"))
         #expect(codepack.contains("MCP server settings status text"))
-        #expect(codepack.contains("success-message display names"))
+        #expect(codepack.contains("raw failure/domain strings and success-message display names bounded and control/whitespace-normalized"))
         #expect(capabilities.contains("MCP server settings status text"))
-        #expect(capabilities.contains("success-message display names"))
+        #expect(capabilities.contains("raw failure/domain strings and success-message display names\nbounded and control/whitespace-normalized"))
     }
 
     @Test("uninstall removes only the named server")

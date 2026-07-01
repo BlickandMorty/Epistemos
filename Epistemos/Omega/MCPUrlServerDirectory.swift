@@ -98,7 +98,7 @@ nonisolated enum MCPUrlServerDirectory {
 
         static func failureReason(_ message: String, fallback: String) -> String {
             let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
-            let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
             let description = trimmed.isEmpty ? fallback : trimmed
             guard description.count > maxFailureReasonCharacters else {
                 return description
@@ -121,6 +121,26 @@ nonisolated enum MCPUrlServerDirectory {
             }
             let safeDomain = String(value.prefix(maxDomainCharacters))
             return safeDomain.isEmpty ? "Error" : safeDomain
+        }
+
+        static func normalizedDisplayText(_ value: String) -> String {
+            var normalized = ""
+            normalized.reserveCapacity(value.count)
+            var previousWasSeparator = false
+            for scalar in value.unicodeScalars {
+                let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                    || CharacterSet.controlCharacters.contains(scalar)
+                if isSeparator {
+                    if !previousWasSeparator {
+                        normalized.append(" ")
+                        previousWasSeparator = true
+                    }
+                } else {
+                    normalized.unicodeScalars.append(scalar)
+                    previousWasSeparator = false
+                }
+            }
+            return normalized
         }
     }
 

@@ -484,7 +484,8 @@ nonisolated enum MCPServerSettingsStatus {
 
     static func displayName(_ value: String, fallback: String) -> String {
         let bounded = String(value.prefix(maxDisplayNameCharacters + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = MCPUrlServerDirectory.Diagnostics.normalizedDisplayText(bounded)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let name = trimmed.isEmpty ? fallback : trimmed
         guard name.count > maxDisplayNameCharacters else {
             return name
