@@ -452,13 +452,15 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(srcdoc.contains("HTMLWorkspaceSafeAPI.messageHandlerName") == false)
         #expect(srcdoc.contains("requestId: 'safeapi-' + (++requestCounter)"))
         #expect(srcdoc.contains("const pendingRequests = new Map()"))
+        #expect(srcdoc.contains("const boundedAttributes = (value) =>"))
+        #expect(srcdoc.contains("const record = (eventName = null, attributes = null) =>"))
         #expect(srcdoc.contains("const request = (command, message = null, options = {}) => new Promise"))
         #expect(srcdoc.contains("window.addEventListener(responseEventName"))
         #expect(srcdoc.contains("entry.resolve(Object.freeze({"))
         #expect(srcdoc.contains("request,"))
         #expect(srcdoc.contains("ping(message = null) { return post('ping', message); }"))
         #expect(srcdoc.contains("status() { return post('workspace.status'); }"))
-        #expect(srcdoc.contains("record(message = null) { return post('event.record', message); }"))
+        #expect(srcdoc.contains("status() { return post('workspace.status'); },\n            record"))
     }
 
     @Test("importing exported HTML preserves user sources without host scaffold")

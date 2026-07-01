@@ -14,15 +14,21 @@ nonisolated enum HTMLWorkspaceSafeAPI {
     static let maxCommandLength = 96
     static let maxMessageLength = 280
     static let maxRequestIDLength = 80
+    static let maxEventNameLength = 96
+    static let maxAttributeCount = 12
+    static let maxAttributeKeyLength = 48
+    static let maxAttributeValueLength = 160
 
     struct Command: Equatable, Sendable {
         let name: String
         let message: String?
         let requestID: String?
+        let eventName: String?
+        let attributes: [String: String]
 
         static func fromMessageBody(_ body: Any) -> Command? {
             if let raw = boundedString(body, limit: maxCommandLength) {
-                return Command(name: raw, message: nil, requestID: nil)
+                return Command(name: raw, message: nil, requestID: nil, eventName: nil, attributes: [:])
             }
             guard let payload = body as? [String: Any],
                   let name = boundedString(
@@ -40,7 +46,20 @@ nonisolated enum HTMLWorkspaceSafeAPI {
                 payload["requestId"] ?? payload["request_id"] ?? nestedPayload?["requestId"] ?? nestedPayload?["request_id"],
                 limit: maxRequestIDLength
             )
-            return Command(name: name, message: message, requestID: requestID)
+            let eventName = boundedString(
+                payload["eventName"] ?? payload["event"] ?? nestedPayload?["eventName"] ?? nestedPayload?["event"],
+                limit: maxEventNameLength
+            )
+            let attributes = boundedAttributes(
+                payload["attributes"] ?? payload["properties"] ?? nestedPayload?["attributes"] ?? nestedPayload?["properties"]
+            )
+            return Command(
+                name: name,
+                message: message,
+                requestID: requestID,
+                eventName: eventName,
+                attributes: attributes
+            )
         }
 
         private static func boundedString(_ value: Any?, limit: Int) -> String? {
@@ -49,6 +68,32 @@ nonisolated enum HTMLWorkspaceSafeAPI {
             guard !trimmed.isEmpty else { return nil }
             guard trimmed.count > limit else { return trimmed }
             return String(trimmed.prefix(limit))
+        }
+
+        private static func boundedAttributeValue(_ value: Any?, limit: Int) -> String? {
+            switch value {
+            case let string as String:
+                return boundedString(string, limit: limit)
+            case let bool as Bool:
+                return boundedString(bool ? "true" : "false", limit: limit)
+            case let number as NSNumber:
+                return boundedString(number.stringValue, limit: limit)
+            default:
+                return nil
+            }
+        }
+
+        private static func boundedAttributes(_ value: Any?) -> [String: String] {
+            guard let raw = value as? [String: Any] else { return [:] }
+            var attributes: [String: String] = [:]
+            for (key, value) in raw where attributes.count < maxAttributeCount {
+                guard let boundedKey = boundedString(key, limit: maxAttributeKeyLength),
+                      let boundedValue = boundedAttributeValue(value, limit: maxAttributeValueLength) else {
+                    continue
+                }
+                attributes[boundedKey] = boundedValue
+            }
+            return attributes
         }
     }
 
@@ -66,6 +111,13 @@ nonisolated enum HTMLWorkspaceSafeAPI {
             let network = package.manifest.sandboxPolicy.allowNetwork ? "network" : "offline"
             return "App bridge status: \(package.manifest.id) / \(network) / safeAPI v\(package.manifest.sandboxPolicy.safeAPIVersion)"
         case "event.record", "record":
+            if let eventName = command.eventName {
+                let suffix = command.attributes.isEmpty ? "" : " (\(command.attributes.count) fields)"
+                if let message = command.message, !message.isEmpty {
+                    return "App bridge event: \(eventName) - \(message)\(suffix)"
+                }
+                return "App bridge event: \(eventName)\(suffix)"
+            }
             return "App bridge event: \(command.message ?? "received")"
         default:
             return "App bridge unsupported command: \(command.name)"

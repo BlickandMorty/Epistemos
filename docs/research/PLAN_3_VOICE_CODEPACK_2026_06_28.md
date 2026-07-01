@@ -58,8 +58,8 @@
   selected until both the checked package and real neural inference runtime are proven.
 - **Local Kokoro package install/removal is real but runtime-disabled:** `KokoroVoicePackageInstaller` lets Pro users choose a
   prepared `kokoro-82m-coreml` folder (or its parent), validates it with the existing gate, rejects symlink descendants,
-  rejects symlink-routed install roots before Application Support writes, stages it under Application Support with backup/restore finalization, and revalidates the installed package before the
-  settings row reports `packageReady`; the same Pro settings row now displays the gate's manifest-derived package
+  rejects symlink-routed install roots before Application Support writes, stages it under Application Support with backup/restore finalization, revalidates the installed package before the
+  settings row reports `packageReady`, and a failed replacement install rolls back to the previous package instead of deleting the backup; the same Pro settings row now displays the gate's manifest-derived package
   evidence and can remove the installed local package, returning the gate to missing-model status without enabling the neural runtime. There is still no committed Kokoro model asset,
   neural inference runtime, Python, subprocess, network downloader, or MAS-visible Kokoro row.
 - **Voice live smoke covers Pro Kokoro gate, settings presentation, and checked package install/removal:** the bounded
@@ -120,7 +120,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only "Pro neural voice" row backed by the gate status,
   with theme-derived badge tints, manifest-derived package evidence, and shared native capsule install/remove/refresh chrome.
 - `Epistemos/VoicePro/KokoroVoicePackageInstaller.swift` — Pro-only local checked-package installer/remover with symlink
-  descendant rejection, staged copy, backup/restore finalization, gate-backed removal, and bounded status diagnostics.
+  descendant rejection, staged copy, failed-finalization rollback, gate-backed removal, and bounded status diagnostics.
 - `scripts/voice-live-smoke.swift` — bounded operator smoke for transcript/status helpers plus the Pro Kokoro gate,
   settings presentation, manifest-derived package evidence, and checked package install/removal without enabling the neural runtime.
 - `EpistemosTests/VoiceCodepackPlan3Tests.swift` — source guards for voice floor, inert-toggle removal/wiring, STT facade,

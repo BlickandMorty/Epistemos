@@ -439,7 +439,7 @@ enum HTMLWorkspaceAppBridgeDemoScaffold {
             write('App bridge failed: ' + (error && error.message ? error.message : String(error)));
           });
         app.status();
-        app.record('app bridge demo event');
+        app.record('app.bridge.demo', { source: 'demo scaffold', probe: label });
       };
       button && button.addEventListener('click', () => probe('button probe'));
       probe('demo loaded');

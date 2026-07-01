@@ -331,6 +331,10 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
           const handlerName = "\(HTMLWorkspaceSafeAPI.messageHandlerName)";
           const maxCommandLength = \(HTMLWorkspaceSafeAPI.maxCommandLength);
           const maxMessageLength = \(HTMLWorkspaceSafeAPI.maxMessageLength);
+          const maxEventNameLength = \(HTMLWorkspaceSafeAPI.maxEventNameLength);
+          const maxAttributeCount = \(HTMLWorkspaceSafeAPI.maxAttributeCount);
+          const maxAttributeKeyLength = \(HTMLWorkspaceSafeAPI.maxAttributeKeyLength);
+          const maxAttributeValueLength = \(HTMLWorkspaceSafeAPI.maxAttributeValueLength);
           const responseEventName = 'htmlworkspace:appbridge';
           const defaultTimeoutMs = 5000;
           const maxTimeoutMs = 30000;
@@ -341,6 +345,16 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             if (value === null || value === undefined) { return null; }
             const text = String(value).trim();
             return text.length ? text.slice(0, limit) : null;
+          };
+          const boundedAttributes = (value) => {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) { return null; }
+            const attributes = {};
+            for (const key of Object.keys(value).slice(0, maxAttributeCount)) {
+              const safeKey = bounded(key, maxAttributeKeyLength);
+              const safeValue = bounded(value[key], maxAttributeValueLength);
+              if (safeKey && safeValue) { attributes[safeKey] = safeValue; }
+            }
+            return Object.keys(attributes).length ? attributes : null;
           };
           const bridgeError = (message) => new Error(message);
           const handler = () => {
@@ -355,7 +369,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             if (!Number.isFinite(raw) || raw <= 0) { return defaultTimeoutMs; }
             return Math.max(100, Math.min(maxTimeoutMs, raw));
           };
-          const preparePayload = (command, message = null) => {
+          const preparePayload = (command, message = null, details = null) => {
             const name = bounded(command, maxCommandLength);
             if (!name) { return null; }
             const target = handler();
@@ -367,6 +381,15 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             };
             const text = bounded(message, maxMessageLength);
             if (text) { payload.message = text; }
+            if (details && typeof details === 'object') {
+              const eventName = bounded(details.eventName, maxEventNameLength);
+              const attributes = boundedAttributes(details.attributes);
+              if (eventName || attributes) {
+                payload.payload = {};
+                if (eventName) { payload.payload.eventName = eventName; }
+                if (attributes) { payload.payload.attributes = attributes; }
+              }
+            }
             return { target, payload };
           };
           const postPrepared = (prepared) => {
@@ -379,6 +402,16 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             }
           };
           const post = (command, message = null) => postPrepared(preparePayload(command, message));
+          const record = (eventName = null, attributes = null) => {
+            const name = bounded(eventName, maxEventNameLength);
+            if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+              return post('event.record', name || eventName);
+            }
+            return postPrepared(preparePayload('event.record', name, {
+              eventName: name,
+              attributes
+            }));
+          };
           const trimPendingQueue = () => {
             if (pendingRequests.size < maxPendingRequests) { return; }
             const oldest = pendingRequests.keys().next().value;
@@ -433,7 +466,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             request,
             ping(message = null) { return post('ping', message); },
             status() { return post('workspace.status'); },
-            record(message = null) { return post('event.record', message); }
+            record
           });
         })()
         """

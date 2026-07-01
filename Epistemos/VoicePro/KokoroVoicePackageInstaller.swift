@@ -147,10 +147,11 @@ nonisolated enum KokoroVoicePackageInstaller {
             }
             try fileManager.moveItem(at: tempModelDirectory, to: finalModelDirectory)
         } catch {
-            if fileManager.fileExists(atPath: backupModelDirectory.path),
-               !fileManager.fileExists(atPath: finalModelDirectory.path) {
-                try? fileManager.moveItem(at: backupModelDirectory, to: finalModelDirectory)
-            }
+            rollbackFailedFinalization(
+                finalModelDirectory: finalModelDirectory,
+                backupModelDirectory: backupModelDirectory,
+                fileManager: fileManager
+            )
             throw InstallError.installFailed("package could not be finalized")
         }
 
@@ -160,6 +161,11 @@ nonisolated enum KokoroVoicePackageInstaller {
             fileManager: fileManager
         )
         guard installedStatus.state == .packageReady else {
+            rollbackFailedFinalization(
+                finalModelDirectory: finalModelDirectory,
+                backupModelDirectory: backupModelDirectory,
+                fileManager: fileManager
+            )
             throw InstallError.installFailed(bounded(installedStatus.detail))
         }
         return InstallResult(status: installedStatus)
@@ -276,6 +282,20 @@ nonisolated enum KokoroVoicePackageInstaller {
             return true
         }
         return (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
+    }
+
+    private static func rollbackFailedFinalization(
+        finalModelDirectory: URL,
+        backupModelDirectory: URL,
+        fileManager: FileManager
+    ) {
+        let hasBackup = packagePathExists(backupModelDirectory, fileManager: fileManager)
+        if packagePathExists(finalModelDirectory, fileManager: fileManager) {
+            try? fileManager.removeItem(at: finalModelDirectory)
+        }
+        if hasBackup {
+            try? fileManager.moveItem(at: backupModelDirectory, to: finalModelDirectory)
+        }
     }
 
     private static func rejectSymlinkedInstallRoute(

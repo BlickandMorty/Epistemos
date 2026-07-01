@@ -30,6 +30,7 @@ struct VoiceCodepackPlan3Tests {
             "Pro neural voice",
             "Readiness rejects symlink-routed or non-regular model artifacts",
             "Pro Kokoro gate, settings presentation, and checked package install/removal",
+            "failed replacement install rolls back to the previous package",
             "[DONE] Patch the AVSpeech preferred voice floor",
             "[DONE] Wire or remove `agentResponseTTS`",
             "[DONE] Add `LiveVoiceInputService`",
@@ -420,6 +421,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(installer.contains("sourceModelDirectory("))
         #expect(installer.contains("KokoroVoiceGateStatus.status("))
         #expect(installer.contains("package could not be finalized"))
+        #expect(installer.contains("rollbackFailedFinalization("))
+        #expect(installer.contains("try? fileManager.removeItem(at: finalModelDirectory)"))
+        #expect(installer.contains("try? fileManager.moveItem(at: backupModelDirectory, to: finalModelDirectory)"))
         #expect(installer.contains("rejectSymlinkedInstallRoute(modelRoot"))
         #expect(installer.contains("install path must not include symlink component"))
         #expect(installer.contains("firstExistingSymlinkComponent"))
