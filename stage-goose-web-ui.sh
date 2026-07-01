@@ -5404,7 +5404,7 @@ source = source.replace(
 );
 source = source.replace(
   "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);",
-  "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);\n  const [isContextAttachInFlight, setIsContextAttachInFlight] = useState(false);"
+  "  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);\n  const [isContextAttachInFlight, setIsContextAttachInFlight] = useState(false);\n  const [isGitDiffAttachInFlight, setIsGitDiffAttachInFlight] = useState(false);"
 );
 source = source.replace(
   `  const handleFileSelect = () => {
@@ -5445,6 +5445,54 @@ source = source.replace(
       setIsContextAttachInFlight(false);
     }
   };
+
+  const handleAttachGitDiff = async () => {
+    if (isGitDiffAttachInFlight) return;
+    setIsGitDiffAttachInFlight(true);
+    try {
+      const nativeElectron = window.electron as typeof window.electron & {
+        readGitDiff?: (path: string) => Promise<{
+          ok?: boolean;
+          diff?: string;
+          truncated?: boolean;
+          path?: string | null;
+          error?: string | null;
+        }>;
+      };
+      if (typeof nativeElectron.readGitDiff !== 'function') {
+        toastError({
+          title: 'Git diff unavailable',
+          msg: 'The Epistemos native bridge has not exposed git diff yet.',
+        });
+        return;
+      }
+      const result = await nativeElectron.readGitDiff(currentWorkingDir);
+      const rawDiff = typeof result?.diff === 'string' ? result.diff.trim() : '';
+      if (!rawDiff) {
+        toastError({
+          title: 'No git diff',
+          msg: result?.error || 'No tracked changes are available to attach.',
+        });
+        return;
+      }
+      const diffPath = result?.path || currentWorkingDir;
+      const suffix = result?.truncated ? ' (truncated)' : '';
+      const contextText = 'Git diff for ' + diffPath + suffix + ':\\n\`\`\`diff\\n' + rawDiff + '\\n\`\`\`';
+      const prefix = displayValue.trimEnd();
+      const nextValue = prefix ? prefix + '\\n\\n' + contextText : contextText;
+      setDisplayValue(nextValue);
+      setValue(nextValue);
+      setHasUserTyped(true);
+      setTimeout(() => textAreaRef.current?.focus(), 0);
+    } catch (error) {
+      toastError({
+        title: 'Git diff unavailable',
+        msg: error instanceof Error ? error.message : 'Epistemos git diff bridge failed.',
+      });
+    } finally {
+      setIsGitDiffAttachInFlight(false);
+    }
+  };
 `
 );
 source = source.replace(
@@ -5469,7 +5517,29 @@ source = source.replace(
               <TooltipContent>Attach file</TooltipContent>
             </Tooltip>
 `,
-  `            {/* Right: Epistemos context */}
+  `            {/* Right: git diff */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={handleAttachGitDiff}
+                  disabled={isGitDiffAttachInFlight}
+                  variant="ghost"
+                  size="sm"
+                  shape="round"
+                  className={cn(
+                    'text-text-primary/70 hover:text-text-primary transition-colors',
+                    isGitDiffAttachInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                  aria-label="Attach git diff"
+                >
+                  <ScrollText className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Attach git diff</TooltipContent>
+            </Tooltip>
+
+            {/* Right: Epistemos context */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -5519,6 +5589,9 @@ for (const snippet of [
   'formatEpistemosContextForPrompt',
   'handleAttachEpistemosContext',
   'Attach Epistemos context',
+  'handleAttachGitDiff',
+  'readGitDiff(currentWorkingDir)',
+  'Attach git diff',
   'BookOpen',
 ]) {
   if (!source.includes(snippet)) {
@@ -7502,6 +7575,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "getEpistemosContextSnapshot" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "handleAttachEpistemosContext" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Attach Epistemos context" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "handleAttachGitDiff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "readGitDiff(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "Attach git diff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "BookOpen" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "epistemos-acp-session-mode-setting" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"
     grep -q "saveAcpSessionMode(sessionId, newMode)" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"

@@ -32,6 +32,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeDirectoryListEntries = 5_000
     nonisolated static let maxGitWorktreeEntries = 10
     nonisolated static let maxGitWorktreeListBytes = 4 * 1024 * 1024
+    nonisolated static let maxGitDiffBytes = 256 * 1024
     nonisolated static let maxGitWorktreePathCharacters = 4_096
     nonisolated static let maxNativeAffordanceNameCharacters = 96
     nonisolated static let maxLaunchedAppNameCharacters = 128
@@ -259,6 +260,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return listGitWorktreeDirs(path)
+        case "readGitDiff":
+            guard let path = stringArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return readGitDiff(path)
         case "launchApp":
             guard let app = dictionaryArgument(args, at: 0) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -630,6 +636,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         return ""
     }
 
+    private func gitProcessEnvironment(git: String) -> [String: String] {
+        let gitDir = URL(fileURLWithPath: git, isDirectory: false).deletingLastPathComponent().path
+        return [
+            "PATH": "\(gitDir):/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+            "HOME": fileManager.homeDirectoryForCurrentUser.path,
+            "LANG": "en_US.UTF-8",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_TERMINAL_PROMPT": "0",
+        ]
+    }
+
     nonisolated static func nativeBinarySearchDirectories(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String] {
@@ -820,15 +838,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         // inheriting the full process env (which carries DYLD_*/LD_*/Malloc*/NODE_*/PYTHON* etc.).
         // review LOW-2: also ignore SYSTEM + GLOBAL git config (~/.gitconfig can carry tokens/pagers/
         // hooks); only the repo config git needs for `worktree list` is consulted.
-        let gitDir = URL(fileURLWithPath: git, isDirectory: false).deletingLastPathComponent().path
-        process.environment = [
-            "PATH": "\(gitDir):/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
-            "HOME": fileManager.homeDirectoryForCurrentUser.path,
-            "LANG": "en_US.UTF-8",
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_CONFIG_GLOBAL": "/dev/null",
-            "GIT_TERMINAL_PROMPT": "0",
-        ]
+        process.environment = gitProcessEnvironment(git: git)
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
@@ -880,6 +890,93 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             }
         }
         return worktrees
+    }
+
+    private func readGitDiff(_ path: String) -> [String: Any] {
+        let expandedPath = Self.standardizedPath(expandTilde(path))
+        func result(ok: Bool, diff: String = "", truncated: Bool = false, error: String? = nil) -> [String: Any] {
+            let errorValue: Any = error.map { $0 as Any } ?? NSNull()
+            [
+                "ok": ok,
+                "diff": diff,
+                "truncated": truncated,
+                "path": expandedPath,
+                "base": "HEAD",
+                "error": errorValue,
+            ]
+        }
+
+        var isDirectory: ObjCBool = false
+        guard isPathAllowed(expandedPath),
+              fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              !isSymbolicLink(expandedPath) else {
+            return result(
+                ok: false,
+                error: "Epistemos blocked Goose WebView git diff outside scoped roots."
+            )
+        }
+        let git = resolveBinaryPath("git")
+        guard !git.isEmpty else {
+            return result(ok: false, error: "Git is unavailable.")
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
+        process.arguments = [
+            "-c", "core.fsmonitor=false",
+            "-c", "protocol.allow=never",
+            "-c", "diff.external=",
+            "-c", "core.pager=cat",
+            "-C", expandedPath,
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            "--find-renames",
+            "HEAD",
+            "--",
+        ]
+        process.environment = gitProcessEnvironment(git: git)
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+
+        let stdoutHandle = stdout.fileHandleForReading
+        let drainBox = GooseAffordanceDataBox()
+        let drainDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            drainBox.store(Self.readBoundedPipeData(
+                stdoutHandle,
+                maxBytes: Self.maxGitDiffBytes
+            ))
+            drainDone.signal()
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in semaphore.signal() }
+
+        do {
+            try process.run()
+        } catch {
+            return result(ok: false, error: "Git diff could not start.")
+        }
+        if semaphore.wait(timeout: .now() + 3) == .timedOut {
+            process.terminate()
+            return result(ok: false, error: "Git diff timed out.")
+        }
+        _ = drainDone.wait(timeout: .now() + 1)
+        guard process.terminationStatus == 0 else {
+            return result(ok: false, error: "No git diff is available for this directory.")
+        }
+
+        let outputData = drainBox.load()
+        let truncated = outputData.count > Self.maxGitDiffBytes
+        let boundedData = truncated ? Data(outputData.prefix(Self.maxGitDiffBytes)) : outputData
+        let diff = String(data: boundedData, encoding: .utf8) ?? ""
+        guard !diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return result(ok: false, error: "No tracked changes to attach.")
+        }
+        return result(ok: true, diff: diff, truncated: truncated)
     }
 
     nonisolated static func boundedGitWorktreePath(_ path: String) -> String? {
