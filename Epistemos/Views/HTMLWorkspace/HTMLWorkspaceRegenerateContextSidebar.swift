@@ -8,6 +8,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
     let isRefreshingContext: Bool
     let panelFill: Color
     let theme: EpistemosTheme
+    let targetText: String
     let onRequestContextShortcut: (HTMLWorkspaceRegenerateContextShortcut) -> Void
     let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
 
@@ -48,6 +49,14 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
                     .font(.caption2)
                     .foregroundStyle(mutedText)
                     .lineLimit(3)
+                    .truncationMode(.middle)
+            }
+
+            if !targetText.isEmpty {
+                Text(targetText)
+                    .font(pixelMicroFont)
+                    .foregroundStyle(mutedText)
+                    .lineLimit(2)
                     .truncationMode(.middle)
             }
 

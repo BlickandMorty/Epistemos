@@ -275,6 +275,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains("struct HTMLWorkspaceRegenerateContextSidebar: View"))
         #expect(sidebar.contains("let onRequestContextShortcut: (HTMLWorkspaceRegenerateContextShortcut) -> Void"))
         #expect(sidebar.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
+        #expect(sidebar.contains("let targetText: String"))
+        #expect(sidebar.contains("if !targetText.isEmpty"))
+        #expect(sidebar.contains("Text(targetText)"))
         #expect(sidebar.contains("private var sourceShortcutGrid: some View"))
         #expect(sidebar.contains("ForEach(HTMLWorkspaceRegenerateContextShortcut.all)"))
         #expect(sidebar.contains("onRequestContextShortcut(shortcut)"))
@@ -288,6 +291,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains("private var pixelMicroFont: Font"))
         #expect(sidebar.contains(".font(pixelCaptionFont)"))
         #expect(sidebar.contains(".font(pixelMicroFont)"))
+        #expect(editor.contains("targetText: previewContextDropTargetText"))
         #expect(picker.contains("struct HTMLWorkspacePreviewContextPicker: View"))
         #expect(picker.contains("let targetText: String"))
         #expect(picker.contains("if !targetText.isEmpty"))
@@ -309,7 +313,6 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("Text(item.rankDescriptor)"))
         #expect(picker.contains("item.systemImage"))
         #expect(picker.contains("Pick read-only context for this preview surface"))
-        #expect(editor.contains("targetText: previewContextDropTargetText"))
     }
 
     @Test("context shortcuts expose source families without becoming regenerate presets")
