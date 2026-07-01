@@ -1190,6 +1190,7 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("async function overlayConfiguredStatus"))
         #expect(script.contains("config-status-overlay"))
         #expect(script.contains("async function getAcpProvidersBase"))
+        #expect(script.contains("epistemos-acp-authenticate-status-cache-reset"))
         // Model capabilities (reasoning + context_limit) sourced from the live provider
         // INVENTORY, not the capability-less supported-models list. Unblocks the Thinking
         // Effort selector (gated on reasoning===true) and the context-window denominator.
