@@ -20,6 +20,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
     let onCopyPrompt: () -> Void
     let onRefreshContext: () -> Void
     let onClearContext: () -> Void
+    let onRequestContextShortcut: (HTMLWorkspaceRegenerateContextShortcut) -> Void
     let onFocusContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
     let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void
     let onSubmit: () -> Void
@@ -214,7 +215,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
             FlowLayout(spacing: 6) {
                 ForEach(HTMLWorkspaceRegenerateContextShortcut.all) { shortcut in
                     Button {
-                        contextQuery = shortcut.query
+                        onRequestContextShortcut(shortcut)
                     } label: {
                         Label(shortcut.title, systemImage: shortcut.systemImage)
                             .font(pixelMicroFont)
@@ -370,7 +371,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextShortcut: Identifiable, Sendabl
     ]
 
     var helpText: String {
-        "Seed the context search with \(query)"
+        "Load read-only workspace context for \(query)"
     }
 }
 

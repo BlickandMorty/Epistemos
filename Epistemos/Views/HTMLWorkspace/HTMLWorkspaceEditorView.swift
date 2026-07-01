@@ -128,6 +128,7 @@ struct HTMLWorkspaceEditorView: View {
                 onCopyPrompt: copyRegeneratePrompt,
                 onRefreshContext: refreshRegenerateVaultContext,
                 onClearContext: clearRegenerateVaultContext,
+                onRequestContextShortcut: refreshPreviewContextShortcut,
                 onFocusContextItem: focusRegenerateContextItem,
                 onRunPreset: runRegeneratePreset,
                 onSubmit: beginRegenerateSurface,
