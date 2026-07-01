@@ -355,7 +355,7 @@ scroll defaults, screen capture on bad args, or no-op typing. `[VERIFIED-CODE]`
   cannot re-interpolate ambient `.env` values on this path. For screenshot commands, the adapter receives
   `AGENT_BROWSER_SCREENSHOT_DIR` and rejects requested or returned screenshot paths that resolve outside that private
   directory; if browser-use returns base64 image bytes instead of a saved file for a requested path, the adapter writes only
-  valid PNG bytes into the confined path through a no-follow, nonblocking, regular-file-checked descriptor, and screenshot size metadata is normalized to numeric width/height only. It
+  size-capped valid PNG bytes into the confined path through a no-follow, nonblocking, regular-file-checked descriptor, and screenshot size metadata is normalized to numeric width/height only. It
   also rejects multiple screenshot output paths before runtime import. More generally, command-specific
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Rust bounds refs
