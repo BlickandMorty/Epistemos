@@ -60,6 +60,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("onConsoleError != nil"))
         #expect(previewSource.contains("requestConsoleProbe"))
         #expect(previewSource.contains("consoleProbeScript"))
+        #expect(previewSource.contains("HTML Workspace log probe"))
+        #expect(previewSource.contains("HTML Workspace info probe"))
         #expect(previewSource.contains("HTML Workspace console probe"))
         #expect(previewSource.contains("HTML Workspace error probe"))
         #expect(previewSource.contains("requestPythonProbe"))

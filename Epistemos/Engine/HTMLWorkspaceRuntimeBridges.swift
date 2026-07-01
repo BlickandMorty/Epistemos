@@ -158,8 +158,11 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
       }
       window.addEventListener('error', function(e){ post('error', e.message || 'Error', e.filename, e.lineno, e.colno); });
       window.addEventListener('unhandledrejection', function(e){ post('error', 'Unhandled promise rejection: ' + e.reason, null, 0, 0); });
-      wrapConsole('error', 'error');
+      wrapConsole('debug', 'diagnostic');
+      wrapConsole('log', 'diagnostic');
+      wrapConsole('info', 'info');
       wrapConsole('warn', 'warning');
+      wrapConsole('error', 'error');
     })();
     """
 }

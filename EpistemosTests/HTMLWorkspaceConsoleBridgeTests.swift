@@ -18,14 +18,20 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(!HTMLWorkspaceConsoleCapturePolicy.isEnabled(environment: ["EPISTEMOS_HTML_WORKSPACE_CONSOLE_V0": "0"]))
     }
 
-    @Test("the injection script captures window errors + console.error/warn and posts to the handler")
+    @Test("the injection script captures window errors + console diagnostics and posts to the handler")
     func injectionScriptCapturesErrors() {
         let js = HTMLWorkspaceConsoleBridge.injectionScript
         #expect(js.contains("addEventListener('error'"))
         #expect(js.contains("unhandledrejection"))
+        #expect(js.contains("console.debug"))
+        #expect(js.contains("console.log"))
+        #expect(js.contains("console.info"))
         #expect(js.contains("console.error"))
         #expect(js.contains("console.warn"))
         #expect(js.contains("level: String(level || 'error')"))
+        #expect(js.contains("wrapConsole('debug', 'diagnostic')"))
+        #expect(js.contains("wrapConsole('log', 'diagnostic')"))
+        #expect(js.contains("wrapConsole('info', 'info')"))
         #expect(js.contains("wrapConsole('warn', 'warning')"))
         #expect(js.contains("consoleValueToString"))
         #expect(js.contains("[unserializable console value]"))
@@ -51,6 +57,7 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(diagnostic.line == 0)
         #expect(diagnostic.column == UInt32.max)
         #expect(diagnostic.severity == .warning)
+        #expect(HTMLWorkspaceConsoleSeverity.fromBridgeLevel("debug") == .diagnostic)
     }
 
     @Test("the editor records captured errors through the existing .recordConsoleError pipeline")
@@ -71,6 +78,8 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(preview.contains("removeAllUserScripts()"))
         #expect(preview.contains("requestConsoleProbe"))
         #expect(preview.contains("consoleProbeScript"))
+        #expect(preview.contains("HTML Workspace log probe"))
+        #expect(preview.contains("HTML Workspace info probe"))
         #expect(preview.contains("HTML Workspace console probe"))
         #expect(preview.contains("HTML Workspace error probe"))
         #expect(preview.contains("onConsoleError?(error.boundedForPackage())"))
@@ -92,6 +101,7 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(console != nil)
         #expect(console?.isLive == false)
         #expect(console?.note.contains("wired") == true)
+        #expect(console?.note.contains("log/info/warn/error") == true)
         #expect(console?.note.contains("typed severity/source pipeline") == true)
         #expect(console?.note.contains("clearable panel") == true)
         #expect(console?.note.contains("manual probe path") == true)

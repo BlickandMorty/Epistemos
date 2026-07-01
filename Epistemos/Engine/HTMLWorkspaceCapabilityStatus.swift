@@ -29,7 +29,7 @@ enum HTMLWorkspaceCapabilityStatus {
         Capability(name: "Live-DOM outline", isLive: true, note: "Preview WebView reports a runtime DOM snapshot; source regex is only the fallback when preview is not mounted"),
         Capability(name: "Full-surface regenerate", isLive: false, note: "replaceDocument/regenerate patch plumbing exists, with one-click stream-to-preview/apply, visible revert, presets, advanced manual fallback, and vault-context grounding; awaits current in-app proof"),
         Capability(name: "App message-bridge", isLive: false, note: "Sandbox-gated safe API parses bounded ping/status/event.record messages, records diagnostics, dispatches a response event, exposes a promise request helper, and has manual probe + insertable demo scaffold paths; awaits current in-app proof"),
-        Capability(name: "JS console / error capture", isLive: false, note: "Console/window-error capture script, typed severity/source pipeline, clearable panel, and manual probe path are wired; awaits current in-app proof"),
+        Capability(name: "JS console / error capture", isLive: false, note: "Console log/info/warn/error + window-error capture script, typed severity/source pipeline, clearable panel, and manual probe path are wired; awaits current in-app proof"),
         Capability(name: "DOM picker / style inspector", isLive: false, note: "Click-pick inspector bridge, escaped selector copy, style payload parser, focused style edits, and open-panel probe path are wired; awaits current in-app proof"),
         Capability(name: "Python (Pyodide / WASM)", isLive: false, note: "Build-vendored Pyodide assets, sandbox-gated runtime path, insertable demo scaffold, and runtime probe are wired; awaits current in-app proof"),
     ]

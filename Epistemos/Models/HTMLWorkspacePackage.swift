@@ -1126,7 +1126,7 @@ nonisolated public enum HTMLWorkspaceConsoleSeverity: String, Codable, Sendable,
 
     static func fromBridgeLevel(_ value: String?) -> HTMLWorkspaceConsoleSeverity {
         switch value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "diagnostic", "info", "log":
+        case "diagnostic", "debug", "info", "log":
             .diagnostic
         case "warn", "warning":
             .warning

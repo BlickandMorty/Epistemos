@@ -549,6 +549,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         (() => {
           const handlers = window.webkit && window.webkit.messageHandlers;
           if (!handlers || !handlers.epistemosWorkspaceConsole) { return 'handler-missing'; }
+          console.log('HTML Workspace log probe');
+          console.info('HTML Workspace info probe');
           console.warn('HTML Workspace console probe');
           console.error('HTML Workspace error probe');
           return 'posted';
