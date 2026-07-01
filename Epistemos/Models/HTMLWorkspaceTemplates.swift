@@ -800,6 +800,25 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       button.textContent = alreadyPinned ? 'Pinned' : 'Pin source';
     }
 
+    function contextRecordAttributes(result, extra = {}) {
+      const attributes = {
+        page_id: result.page_id || '',
+        title: result.title || '',
+        context_kind: resultContextKind(result),
+        source_label: result.source_label || 'Vault search result'
+      };
+      Object.keys(extra).forEach((key) => {
+        if (extra[key]) { attributes[key] = extra[key]; }
+      });
+      return attributes;
+    }
+
+    function recordContextEvent(eventName, result, extra = {}) {
+      const app = window.HTMLWorkspaceApp || (window.HTMLWorkspace && window.HTMLWorkspace.app);
+      if (!result || !app || typeof app.record !== 'function') { return; }
+      app.record(eventName, contextRecordAttributes(result, extra));
+    }
+
     function renderPinnedContext(allResults) {
       const host = HTMLWorkspace.q('[data-pinned-context]');
       if (!host) { return; }
@@ -877,6 +896,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       if (!selected) { return; }
       const key = resultKey(selected);
       pinContextKey(key);
+      recordContextEvent('workspace.context.pin', selected, { action: 'button' });
       renderVaultResults();
     }
 
@@ -971,6 +991,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         text('[data-context-drop-status]', contextDropStatus);
         return;
       }
+      const result = allResults.find((candidate) => resultKey(candidate) === key);
       contextDropKey = key;
       contextDropStatus = dropzone
         ? `Context selected for ${dropzoneContextLabel(dropzone)} from current data.json feed.`
@@ -979,6 +1000,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       selectedResultKey = key;
       pinContextKey(key);
       bindDropzoneContext(dropzone, key);
+      recordContextEvent('workspace.context.drop', result, {
+        section: dropzone ? dropzoneContextLabel(dropzone) : 'workspace'
+      });
       renderVaultResults();
     }
 
@@ -1175,6 +1199,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     HTMLWorkspace.q('[data-context-picker]')?.addEventListener('change', (event) => {
       selectedResultKey = event.currentTarget.value || null;
       pinContextKey(selectedResultKey);
+      const data = HTMLWorkspace.data || {};
+      const allResults = Array.isArray(data.results) ? data.results : [];
+      const selected = allResults.find((result) => resultKey(result) === selectedResultKey);
+      recordContextEvent('workspace.context.pick', selected, { action: 'picker' });
       renderVaultResults();
     });
     HTMLWorkspace.q('[data-pin-context]')?.addEventListener('click', pinSelectedContext);
