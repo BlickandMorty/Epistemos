@@ -6061,6 +6061,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "data-\\[state=active\\]:bg-background-primary/78" "$WORK_ROOT/ui/desktop/src/components/ui/tabs.tsx"
     grep -q "rounded-\\[9px\\] border border-border-primary p-1 shadow-lg backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/ui/dropdown-menu.tsx"
     grep -q "className=\"goose-epistemos relative w-screen h-screen overflow-hidden bg-transparent flex flex-col\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
+    grep -q "className=\"w-screen h-screen bg-transparent\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "relative flex h-full w-full flex-col overflow-hidden bg-transparent" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
     grep -q "className=\"h-screen w-full bg-transparent" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingGuard.tsx"
     grep -q "rounded-\\[12px\\] border border-border-success bg-background-success/55" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingSuccess.tsx"

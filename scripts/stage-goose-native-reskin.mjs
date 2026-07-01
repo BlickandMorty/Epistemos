@@ -1874,6 +1874,12 @@ function applyAppSurfaces() {
     'className="goose-epistemos relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col"',
     'className="goose-epistemos relative w-screen h-screen overflow-hidden bg-transparent flex flex-col"'
   );
+  source = replaceRequired(
+    source,
+    'configure providers transparent route',
+    'className="w-screen h-screen bg-background-primary"',
+    'className="w-screen h-screen bg-transparent"'
+  );
   write('src/App.tsx', source);
 
   source = read('src/components/LauncherView.tsx');
