@@ -16,7 +16,8 @@ nonisolated enum BrowserURLGuard {
     ]
 
     static func resolve(raw: String, searchTemplate: String = Self.searchTemplate) -> URL? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(raw.prefix(maxRawInputLength + 1))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
               trimmed.count <= maxRawInputLength else { return nil }
 
@@ -105,22 +106,31 @@ nonisolated enum BrowserDisplayPolicy {
     }
 
     static func title(_ rawTitle: String?) -> String {
-        let title = rawTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = rawTitle.map { trimmedCapped($0, limit: maxTitleLength) } ?? ""
         guard !title.isEmpty else {
             return "Browser"
         }
-        return capped(title, limit: maxTitleLength)
+        return title
     }
 
     static func error(_ message: String) -> String {
-        capped(message.trimmingCharacters(in: .whitespacesAndNewlines), limit: maxErrorLength)
+        trimmedCapped(message, limit: maxErrorLength)
     }
 
     private static func capped(_ value: String, limit: Int) -> String {
-        guard value.count > limit else {
-            return value
+        let bounded = String(value.prefix(limit + 1))
+        guard bounded.count > limit else {
+            return bounded
         }
-        return String(value.prefix(limit)) + "..."
+        guard limit > 3 else {
+            return String(bounded.prefix(limit))
+        }
+        return String(bounded.prefix(limit - 3)) + "..."
+    }
+
+    private static func trimmedCapped(_ value: String, limit: Int) -> String {
+        let bounded = String(value.prefix(limit + 32))
+        return capped(bounded.trimmingCharacters(in: .whitespacesAndNewlines), limit: limit)
     }
 }
 
@@ -137,7 +147,8 @@ nonisolated enum BrowserNavigationErrorPolicy {
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(96))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Error" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
@@ -209,35 +220,48 @@ struct BrowserView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 IntegrationBrandMarkView(brand: .browser, size: 18)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
 
-                Button {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "chevron.left",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Back",
+                    accessibilityLabel: "Back"
+                ) {
                     tab.back()
-                } label: {
-                    Image(systemName: "chevron.left")
                 }
                 .disabled(!tab.canGoBack)
-                .help("Back")
 
-                Button {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "chevron.right",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Forward",
+                    accessibilityLabel: "Forward"
+                ) {
                     tab.forward()
-                } label: {
-                    Image(systemName: "chevron.right")
                 }
                 .disabled(!tab.canGoForward)
-                .help("Forward")
 
-                Button {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: tab.isLoading ? "xmark" : "arrow.clockwise",
+                    role: tab.isLoading ? .secondaryGhost : .toolbarUtility,
+                    isActive: tab.isLoading,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: tab.isLoading ? "Stop" : "Reload",
+                    accessibilityLabel: tab.isLoading ? "Stop" : "Reload"
+                ) {
                     tab.isLoading ? tab.stop() : tab.reload()
-                } label: {
-                    Image(systemName: tab.isLoading ? "xmark" : "arrow.clockwise")
                 }
-                .help(tab.isLoading ? "Stop" : "Reload")
 
                 HStack(spacing: 7) {
                     Image(systemName: addressIcon)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.resolved.mutedForeground.color)
 
                     TextField("Search or enter website", text: $tab.address)
                         .textFieldStyle(.plain)
@@ -245,14 +269,17 @@ struct BrowserView: View {
                         .focused($addressFocused)
                         .onSubmit { tab.submitAddress() }
 
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: nil,
+                        systemImage: "arrow.right.circle.fill",
+                        role: .primaryAction,
+                        isActive: addressFocused,
+                        chromePolicy: .bareUntilPressed,
+                        helpText: "Go",
+                        accessibilityLabel: "Go"
+                    ) {
                         tab.submitAddress()
-                    } label: {
-                        Image(systemName: "arrow.right.circle.fill")
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(theme.resolved.accent.color)
-                    .help("Go")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
@@ -260,24 +287,23 @@ struct BrowserView: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(theme.resolved.card.color.opacity(theme.isDark ? 0.74 : 0.92))
                 }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(theme.border.opacity(theme.isDark ? 0.35 : 0.28), lineWidth: 0.8)
-                }
 
-                Button {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "info.circle",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Browser limits",
+                    accessibilityLabel: "Browser limits"
+                ) {
                     showingLimits.toggle()
-                } label: {
-                    Image(systemName: "info.circle")
                 }
-                .help("Browser limits")
                 .popover(isPresented: $showingLimits, arrowEdge: .bottom) {
                     BrowserLimitsPopover()
                         .padding(14)
                         .frame(width: 300, alignment: .leading)
                 }
             }
-            .buttonStyle(.borderless)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
 

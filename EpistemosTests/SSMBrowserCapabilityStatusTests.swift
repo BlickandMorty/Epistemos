@@ -5,11 +5,12 @@ import Foundation
 
 // SS-M / Obscura (owner 2026-06-19). These pin the HONEST browser/scraper/privacy ledger: the real
 // MAS-safe capabilities (HTTP fetch/extract/crawl, private in-app web views, WKContentRuleList tracker
-// blocking) are marked live, and the
+// blocking) plus browser-use Pro's isolated WK shell state are marked live, and the
 // Obscura stealth engine + anti-fingerprint stay cut/stub/unbuilt and are
 // marked NOT live (no fake-green; the silent NotConfigured stub never reads as a working stealth
 // browser). Verified against code (ObscuraBrowserEngine NotConfigured stub; web.rs scraper schemas;
-// nonPersistent() web views; BrowserTrackerContentBlocker; zero customUserAgent/obscura-deps).
+// nonPersistent() MAS-safe web views; isolated named browser-use Pro WKWebsiteDataStore;
+// BrowserTrackerContentBlocker; zero customUserAgent/obscura-deps).
 @Suite("SS-M — honest browser/scraper capability status")
 struct SSMBrowserCapabilityStatusTests {
 

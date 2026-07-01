@@ -37,6 +37,11 @@ struct BrowserUseWebUIViewTests {
             url: URL(string: "http://localhost:7788/"),
             matchingOriginOf: try #require(URL(string: "http://127.0.0.1:7788/"))
         ))
+        let longHost = String(repeating: "dddddddddd.", count: 12) + "example.com"
+        #expect(BrowserUseLoopbackPolicy.redactedDescription(
+            for: try #require(URL(string: "https://\(longHost)/path")),
+            maxLength: 80
+        ).count <= 80)
 
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "127.0.0.1", port: 7788)?.absoluteString == "http://127.0.0.1:7788/")
         #expect(BrowserUseLoopbackPolicy.loopbackURL(host: "[::1]", port: 7788)?.absoluteString == "http://[::1]:7788/")
@@ -48,6 +53,8 @@ struct BrowserUseWebUIViewTests {
         let secretRedirect = try #require(URL(string: "https://user:pass@example.com/private/path?token=secret#frag"))
         let description = BrowserUseLoopbackGuard.redactedDescription(for: secretRedirect)
         #expect(description == "https://example.com")
+        #expect(BrowserUseLoopbackPolicy.redactedDescription(for: secretRedirect) == "https://example.com")
+        #expect(BrowserUseLoopbackPolicy.redactedDescription(for: secretRedirect, maxLength: 12).count <= 12)
         #expect(!description.contains("user"))
         #expect(!description.contains("pass"))
         #expect(!description.contains("private"))
@@ -85,7 +92,8 @@ struct BrowserUseWebUIViewTests {
         defer { window.close() }
 
         let webView = try await waitForWebView(in: hostingView)
-        #expect(!webView.configuration.websiteDataStore.isPersistent)
+        #expect(webView.configuration.websiteDataStore.isPersistent)
+        #expect(webView.configuration.websiteDataStore.identifier == BrowserUseLoopbackWebView.websiteDataStoreIdentifier)
 
         let bodyText = try await waitForBodyText(
             in: webView,
@@ -139,7 +147,8 @@ struct BrowserUseWebUIViewTests {
         defer { window.close() }
 
         let webView = try await waitForWebView(in: hostingView)
-        #expect(!webView.configuration.websiteDataStore.isPersistent)
+        #expect(webView.configuration.websiteDataStore.isPersistent)
+        #expect(webView.configuration.websiteDataStore.identifier == BrowserUseLoopbackWebView.websiteDataStoreIdentifier)
 
         let bodyText = try await waitForBodyText(
             in: webView,
@@ -193,7 +202,8 @@ struct BrowserUseWebUIViewTests {
         defer { window.close() }
 
         let webView = try await waitForWebView(in: hostingView)
-        #expect(!webView.configuration.websiteDataStore.isPersistent)
+        #expect(webView.configuration.websiteDataStore.isPersistent)
+        #expect(webView.configuration.websiteDataStore.identifier == BrowserUseLoopbackWebView.websiteDataStoreIdentifier)
 
         _ = try await waitForBodyText(
             in: webView,
@@ -236,11 +246,16 @@ struct BrowserUseWebUIViewTests {
             "BrowserUseRuntimeSupervisor",
             "BrowserUseLoopbackWebView",
             "NSViewRepresentable",
-            "WKWebsiteDataStore.nonPersistent()",
+            "WKWebsiteDataStore(forIdentifier:",
+            "websiteDataStoreIdentifier",
             "webView.setValue(false, forKey: \"drawsBackground\")",
             "SettingsThemedBlurBackdrop(theme: theme, role: .page)",
             "BrowserUseLoopbackPolicy.allows",
             "struct BrowserUseLoopbackWebView: NSViewRepresentable",
+            "ToolbarCapsuleButton(",
+            "role: .primaryAction",
+            "role: .secondaryGhost",
+            "chromePolicy: .alwaysSurface",
             "self.settingsStore = settingsStore",
             "Task.detached(priority: .userInitiated)",
             "settingsStore.load()",
@@ -253,6 +268,8 @@ struct BrowserUseWebUIViewTests {
             "shouldCancel: { Task.isCancelled }",
             "supervisor?.stop()",
             "redactedDescription(for:",
+            "BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxNavigationDiagnosticLength)",
+            "return BrowserUseLoopbackGuard.redactedDescription(for: loadedURL)",
             "browser-use Pro returned a non-loopback URL.",
             "startWorker?.cancel()",
             "if !readiness.isReady",
@@ -265,22 +282,35 @@ struct BrowserUseWebUIViewTests {
             #expect(source.contains(required), "Missing browser-use Web UI shell string: \(required)")
         }
         #expect(!source.contains("url.absoluteString)"))
+        #expect(!source.contains("loadedURL.absoluteString"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("Color.orange"))
         #expect(!source.contains("Color.green"))
         #expect(!source.contains("Color.blue"))
         #expect(!source.contains("Color.red"))
+        #expect(!source.contains(".foregroundStyle(.secondary)"))
+        #expect(!source.contains(".foregroundStyle(.tertiary)"))
+        #expect(!source.contains(".buttonStyle(.borderless)"))
+        #expect(!source.contains("Divider()"))
         #expect(settingsSource.contains("statusTint(_ tone: BrowserUseStatusTone)"))
         #expect(!settingsSource.contains("tint: .orange"))
         #expect(!settingsSource.contains("tint: .green"))
         #expect(!settingsSource.contains("tint: .blue"))
         #expect(!settingsSource.contains("tint: .red"))
-        #expect(source.contains("supervisor.stop()\n                    loadedURL = nil"),
-                "The startRuntime non-loopback failure branch already has an unwrapped supervisor; optional chaining there does not compile.")
+        #expect(source.contains("supervisor.stop()\n                    detachLoopbackWebView()"),
+                "The startRuntime non-loopback failure branch must stop the unwrapped supervisor and detach the WKWebView.")
         #expect(!source.contains("loadOrDefault()"))
 
         #expect(policy.contains("normalizedAllowedHost("))
+        #expect(policy.contains("maxDiagnosticSchemeLength"))
+        #expect(policy.contains("maxDiagnosticHostLength"))
+        #expect(policy.contains("let bounded = String(host.prefix(128))"))
+        #expect(policy.contains("let safeHost = String(host.prefix(maxDiagnosticHostLength))"))
+        #expect(policy.contains("let bounded = String(value.prefix(limit + 1))"))
         #expect(policy.contains("trimmed.dropFirst().dropLast().contains(\":\")"))
+        #expect(policy.contains("private static let defaultURLDiagnosticLength"))
+        #expect(policy.contains("static func redactedDescription("))
+        #expect(policy.contains("private static func capped("))
 
         for forbidden in [
             "BrowserView(",

@@ -21,6 +21,11 @@ struct BrowserPlan3Tests {
         #expect(BrowserURLGuard.resolve(raw: "https://user:pass@example.com") == nil)
         #expect(BrowserURLGuard.resolve(raw: "plan 3 browser", searchTemplate: "file:///tmp/%@") == nil)
         #expect(BrowserURLGuard.resolve(raw: String(repeating: "a", count: BrowserURLGuard.maxRawInputLength + 1)) == nil)
+        #expect(
+            BrowserURLGuard.resolve(
+                raw: String(repeating: " ", count: BrowserURLGuard.maxRawInputLength + 64) + "https://example.com"
+            ) == nil
+        )
 
         #expect(BrowserURLGuard.allows(url: URL(string: "http://example.com")))
         #expect(BrowserURLGuard.allows(url: URL(string: "https://example.com")))
@@ -38,10 +43,20 @@ struct BrowserPlan3Tests {
         #expect(source.contains("webView.setValue(false, forKey: \"drawsBackground\")"))
         #expect(source.contains("BrowserURLGuard.allows"))
         #expect(source.contains("BrowserDisplayPolicy"))
+        #expect(source.contains("IntegrationBrandMarkView(brand: .browser"))
+        #expect(source.contains("ToolbarCapsuleButton("))
+        #expect(source.contains(".textFieldStyle(.plain)"))
+        #expect(source.contains("theme.resolved.card.color.opacity"))
         #expect(source.contains("maxRawInputLength"))
+        #expect(source.contains("String(raw.prefix(maxRawInputLength + 1))"))
         #expect(source.contains("maxAddressLength"))
         #expect(source.contains("maxTitleLength"))
         #expect(source.contains("maxErrorLength"))
+        #expect(source.contains("trimmedCapped"))
+        #expect(source.contains("String(value.prefix(limit + 1))"))
+        #expect(source.contains("String(bounded.prefix(limit - 3))"))
+        #expect(source.contains("String(value.prefix(limit + 32))"))
+        #expect(source.contains("String(domain.prefix(96))"))
         #expect(source.contains("decidePolicyFor navigationAction"))
         #expect(source.contains("decidePolicyFor navigationResponse"))
         #expect(source.contains("WKNavigationResponsePolicy"))
@@ -49,6 +64,9 @@ struct BrowserPlan3Tests {
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
         #expect(!source.contains(".foregroundStyle(.orange)"))
+        #expect(!source.contains(".buttonStyle(.plain)"))
+        #expect(!source.contains(".buttonStyle(.borderless)"))
+        #expect(!source.contains(".stroke(theme.border"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewCreated()"))
         #expect(source.contains("EpdocWebViewShared.notifyWebViewDismantled()"))
         #expect(!source.contains("Goose"))
@@ -79,6 +97,12 @@ struct BrowserPlan3Tests {
             userInfo: [NSLocalizedDescriptionKey: String(repeating: "e", count: BrowserDisplayPolicy.maxErrorLength + 32)]
         )
         #expect(BrowserNavigationErrorPolicy.userVisibleMessage(for: longError) == "Navigation failed (domain=BrowserPlan3Tests code=1)")
+        let longDomain = String(repeating: "d", count: 200)
+        #expect(
+            BrowserNavigationErrorPolicy.userVisibleMessage(
+                for: NSError(domain: longDomain, code: 2)
+            ) == "Navigation failed (domain=\(String(longDomain.prefix(80))) code=2)"
+        )
 
         let pathLeakingError = NSError(
             domain: "/Users/jojo/PrivateVault/browser.swift",
@@ -103,11 +127,16 @@ struct BrowserPlan3Tests {
     @Test("browser display policy caps page-controlled UI strings")
     func browserDisplayPolicyCapsPageControlledUIStrings() throws {
         let longTitle = String(repeating: "t", count: BrowserDisplayPolicy.maxTitleLength + 32)
-        #expect(BrowserDisplayPolicy.title(longTitle).count == BrowserDisplayPolicy.maxTitleLength + 3)
+        #expect(BrowserDisplayPolicy.title(longTitle).count == BrowserDisplayPolicy.maxTitleLength)
+        #expect(BrowserDisplayPolicy.title("  \(longTitle)\n").count == BrowserDisplayPolicy.maxTitleLength)
         #expect(BrowserDisplayPolicy.title(" \n ") == "Browser")
+        #expect(
+            BrowserDisplayPolicy.error("  \(String(repeating: "e", count: BrowserDisplayPolicy.maxErrorLength + 32))\n")
+                .count == BrowserDisplayPolicy.maxErrorLength
+        )
 
         let longURL = try #require(URL(string: "https://example.com/\(String(repeating: "p", count: BrowserDisplayPolicy.maxAddressLength + 32))"))
-        #expect(BrowserDisplayPolicy.address(for: longURL).count == BrowserDisplayPolicy.maxAddressLength + 3)
+        #expect(BrowserDisplayPolicy.address(for: longURL).count == BrowserDisplayPolicy.maxAddressLength)
     }
 
     @Test("browser is reachable through utility window, menu, and landing button")
@@ -135,6 +164,7 @@ struct BrowserPlan3Tests {
         #expect(plan.contains("T1 is shipped"))
         #expect(plan.contains("standalone lite Browser tab (`BrowserView`, human-driven"))
         #expect(plan.contains("user-driven Browser tab is live"))
+        #expect(plan.contains("ellipsis inside configured caps"))
         #expect(!plan.contains("`ObscuraBrowserView`"))
 
         for required in [
@@ -146,6 +176,7 @@ struct BrowserPlan3Tests {
             "BrowserView",
             "BrowserWebView",
             "Browser file contract [DELIVERED]",
+            "ellipsis kept inside the configured display caps",
             "Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]",
             "UtilityWindowManager.shared.show(.browser)",
             "WebKitBrowserEngine` Rust stub stays `NotConfigured",

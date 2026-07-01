@@ -10,6 +10,10 @@ nonisolated struct BrowserUseLoopbackOrigin: Equatable, Sendable {
 }
 
 nonisolated enum BrowserUseLoopbackPolicy {
+    private static let defaultURLDiagnosticLength = 120
+    private static let maxDiagnosticSchemeLength = 32
+    private static let maxDiagnosticHostLength = 96
+
     static func allows(url: URL?) -> Bool {
         origin(for: url) != nil
     }
@@ -46,6 +50,39 @@ nonisolated enum BrowserUseLoopbackPolicy {
         normalizedAllowedHost(host) != nil
     }
 
+    static func redactedDescription(
+        for url: URL,
+        maxLength: Int = defaultURLDiagnosticLength
+    ) -> String {
+        let sourceComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if let scheme = sourceComponents?.scheme ?? url.scheme,
+           let host = sourceComponents?.host ?? url.host,
+           !host.isEmpty {
+            let safeScheme = String(scheme.prefix(maxDiagnosticSchemeLength))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let safeHost = String(host.prefix(maxDiagnosticHostLength))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !safeScheme.isEmpty, !safeHost.isEmpty else {
+                return "[blocked URL]"
+            }
+            var displayComponents = URLComponents()
+            displayComponents.scheme = safeScheme
+            displayComponents.host = safeHost
+            displayComponents.port = sourceComponents?.port ?? url.port
+            return capped(displayComponents.string ?? "\(safeScheme)://\(safeHost)", maxLength: maxLength)
+        }
+
+        if let rawScheme = sourceComponents?.scheme ?? url.scheme {
+            let scheme = String(rawScheme.prefix(maxDiagnosticSchemeLength))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !scheme.isEmpty {
+                return capped("\(scheme) URL", maxLength: maxLength)
+            }
+        }
+
+        return "[blocked URL]"
+    }
+
     private static func normalizedAllowedHost(_ host: String) -> String? {
         guard let normalized = normalize(host),
               normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1" else {
@@ -55,7 +92,8 @@ nonisolated enum BrowserUseLoopbackPolicy {
     }
 
     private static func normalize(_ host: String) -> String? {
-        let trimmed = host
+        let bounded = String(host.prefix(128))
+        let trimmed = bounded
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
 
@@ -73,5 +111,17 @@ nonisolated enum BrowserUseLoopbackPolicy {
         }
 
         return trimmed
+    }
+
+    private static func capped(_ value: String, maxLength: Int) -> String {
+        let limit = max(0, maxLength)
+        let bounded = String(value.prefix(limit + 1))
+        guard bounded.count > limit else {
+            return bounded
+        }
+        guard limit > 3 else {
+            return String(bounded.prefix(limit))
+        }
+        return String(bounded.prefix(limit - 3)) + "..."
     }
 }

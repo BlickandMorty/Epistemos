@@ -17,30 +17,7 @@ nonisolated enum BrowserUseLoopbackGuard {
     }
 
     static func redactedDescription(for url: URL) -> String {
-        let sourceComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        if let scheme = sourceComponents?.scheme ?? url.scheme,
-           let host = sourceComponents?.host ?? url.host,
-           !host.isEmpty {
-            var displayComponents = URLComponents()
-            displayComponents.scheme = scheme
-            displayComponents.host = host
-            displayComponents.port = sourceComponents?.port ?? url.port
-            return capped(displayComponents.string ?? "\(scheme)://\(host)")
-        }
-
-        if let scheme = (sourceComponents?.scheme ?? url.scheme)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !scheme.isEmpty {
-            return capped("\(scheme) URL")
-        }
-
-        return "[blocked URL]"
-    }
-
-    private static func capped(_ value: String) -> String {
-        guard value.count > maxNavigationDiagnosticLength else {
-            return value
-        }
-        return String(value.prefix(maxNavigationDiagnosticLength)) + "..."
+        BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxNavigationDiagnosticLength)
     }
 }
 
@@ -86,6 +63,8 @@ struct BrowserUseWebUIView: View {
     @State private var readinessWorker: Task<(BrowserUseSettings, BrowserUseRuntimeReadiness), Never>?
     @State private var blockedNavigationDescription: String?
     @State private var lastError: String?
+    @State private var webViewIdentity = UUID()
+    @State private var isClearingWebState = false
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     init(
@@ -107,7 +86,6 @@ struct BrowserUseWebUIView: View {
     var body: some View {
         VStack(spacing: 0) {
             toolbar
-            Divider()
 
             if let loadedURL {
                 BrowserUseLoopbackWebView(url: loadedURL, theme: theme) { url in
@@ -115,6 +93,7 @@ struct BrowserUseWebUIView: View {
                     blockedNavigationDescription = description
                     lastError = "Blocked non-loopback browser-use navigation: \(description)"
                 }
+                .id(webViewIdentity)
             } else {
                 unavailableView
             }
@@ -134,7 +113,7 @@ struct BrowserUseWebUIView: View {
     private var toolbar: some View {
         HStack(spacing: 10) {
             Image(systemName: "network")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(statusTint(.muted))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("browser-use Pro")
@@ -154,30 +133,50 @@ struct BrowserUseWebUIView: View {
                     .lineLimit(1)
             }
 
-            Button {
+            ToolbarCapsuleButton(
+                title: nil,
+                systemImage: "arrow.clockwise",
+                role: .toolbarUtility,
+                helpText: "Refresh browser-use Pro readiness",
+                accessibilityLabel: "Refresh browser-use Pro readiness"
+            ) {
                 refreshReadiness()
-            } label: {
-                Image(systemName: "arrow.clockwise")
             }
-            .buttonStyle(.borderless)
-            .help("Refresh browser-use Pro readiness")
+            .disabled(isClearingWebState)
 
-            Button {
+            ToolbarCapsuleButton(
+                title: "Open",
+                systemImage: "play.fill",
+                role: .primaryAction,
+                chromePolicy: .alwaysSurface,
+                helpText: readiness.isReady ? "Open browser-use Pro Web UI" : readiness.message,
+                accessibilityLabel: "Open browser-use Pro Web UI"
+            ) {
                 startRuntime()
-            } label: {
-                Label("Open", systemImage: "play.fill")
             }
-            .disabled(!readiness.isReady || isStarting)
-            .help(readiness.isReady ? "Open browser-use Pro Web UI" : readiness.message)
+            .disabled(!readiness.isReady || isStarting || isClearingWebState)
 
-            Button {
+            ToolbarCapsuleButton(
+                title: nil,
+                systemImage: "stop.fill",
+                role: .toolbarUtility,
+                helpText: "Stop browser-use Pro runtime",
+                accessibilityLabel: "Stop browser-use Pro runtime"
+            ) {
                 stopRuntime()
-            } label: {
-                Image(systemName: "stop.fill")
             }
-            .buttonStyle(.borderless)
-            .disabled(loadedURL == nil)
-            .help("Stop browser-use Pro runtime")
+            .disabled(loadedURL == nil || isClearingWebState)
+
+            ToolbarCapsuleButton(
+                title: nil,
+                systemImage: "trash",
+                role: .secondaryGhost,
+                helpText: "Clear browser-use Pro Web UI state",
+                accessibilityLabel: "Clear browser-use Pro Web UI state"
+            ) {
+                clearWebUIState()
+            }
+            .disabled(isClearingWebState)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -195,7 +194,7 @@ struct BrowserUseWebUIView: View {
                 .font(.headline)
             Text(lastError ?? readiness.message)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(statusTint(.muted))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 480)
         }
@@ -204,8 +203,11 @@ struct BrowserUseWebUIView: View {
     }
 
     private var statusText: String {
+        if isClearingWebState {
+            return "Clearing browser-use Pro Web UI state."
+        }
         if let loadedURL {
-            return loadedURL.absoluteString
+            return BrowserUseLoopbackGuard.redactedDescription(for: loadedURL)
         }
         return readiness.message
     }
@@ -263,16 +265,16 @@ struct BrowserUseWebUIView: View {
             if !readiness.isReady {
                 cancelStartAttempt()
                 supervisor?.stop()
-                loadedURL = nil
-                blockedNavigationDescription = nil
+                detachLoopbackWebView()
             }
         }
     }
 
     private func startRuntime() {
+        guard !isClearingWebState else { return }
         guard let supervisor else {
             readiness = .unavailable("browser-use Pro runtime source is not installed.")
-            loadedURL = nil
+            detachLoopbackWebView()
             return
         }
 
@@ -323,7 +325,7 @@ struct BrowserUseWebUIView: View {
                 guard BrowserUseLoopbackGuard.allows(url: plan.loopbackURL) else {
                     let message = "browser-use Pro returned a non-loopback URL."
                     supervisor.stop()
-                    loadedURL = nil
+                    detachLoopbackWebView()
                     lastError = message
                     readiness = .unavailable(message)
                     return
@@ -336,7 +338,7 @@ struct BrowserUseWebUIView: View {
             }
 
             if let message = outcome.1 {
-                loadedURL = nil
+                detachLoopbackWebView()
                 lastError = message
                 readiness = .unavailable(message)
             }
@@ -351,8 +353,7 @@ struct BrowserUseWebUIView: View {
         readinessRequestID = UUID()
         cancelStartAttempt()
         supervisor?.stop()
-        loadedURL = nil
-        blockedNavigationDescription = nil
+        detachLoopbackWebView()
     }
 
     private func cancelStartAttempt() {
@@ -363,9 +364,50 @@ struct BrowserUseWebUIView: View {
         startRequestID = UUID()
         isStarting = false
     }
+
+    private func clearWebUIState() {
+        guard !isClearingWebState else { return }
+        stopRuntime()
+        isClearingWebState = true
+        lastError = nil
+
+        Task { @MainActor in
+            await Task.yield()
+            do {
+                try await BrowserUseLoopbackWebView.removeWebsiteDataStore()
+                lastError = "Cleared browser-use Pro Web UI state."
+            } catch {
+                let message = BrowserUseDiagnostics.statusMessage(
+                    for: error,
+                    fallback: "Web UI state clear failed"
+                )
+                lastError = "Could not clear browser-use Pro Web UI state: \(message)"
+            }
+            isClearingWebState = false
+        }
+    }
+
+    private func detachLoopbackWebView() {
+        loadedURL = nil
+        blockedNavigationDescription = nil
+        webViewIdentity = UUID()
+    }
 }
 
 struct BrowserUseLoopbackWebView: NSViewRepresentable {
+    static let websiteDataStoreIdentifier = UUID(uuidString: "15D644D8-3969-4E13-86F5-BB7BA7E2A2A9")!
+    private static let websiteDataStoreRemovalRetryDelayNanoseconds: UInt64 = 150_000_000
+
+    @MainActor
+    static func removeWebsiteDataStore() async throws {
+        do {
+            try await WKWebsiteDataStore.remove(forIdentifier: websiteDataStoreIdentifier)
+        } catch {
+            try await Task.sleep(nanoseconds: websiteDataStoreRemovalRetryDelayNanoseconds)
+            try await WKWebsiteDataStore.remove(forIdentifier: websiteDataStoreIdentifier)
+        }
+    }
+
     let url: URL
     let theme: EpistemosTheme
     let onBlockedNavigation: (URL) -> Void
@@ -375,7 +417,7 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
         let userContentController = WKUserContentController()
         BrowserUseWebTheme.installStartupScript(for: theme, in: userContentController)
         configuration.userContentController = userContentController
-        configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
+        configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: Self.websiteDataStoreIdentifier)
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -444,7 +486,7 @@ struct BrowserUseLoopbackWebView: NSViewRepresentable {
             webView.appearance = BrowserUseWebTheme.appearance(for: theme)
             webView.layer?.backgroundColor = NSColor.clear.cgColor
             if installedStartupTheme != theme {
-                BrowserUseWebTheme.installStartupScript(for: theme, in: webView.configuration.userContentController)
+                BrowserUseWebTheme.replaceStartupScript(for: theme, in: webView.configuration.userContentController)
                 installedStartupTheme = theme
             }
             guard lastAppliedTheme != theme else { return }
@@ -563,6 +605,11 @@ private enum BrowserUseWebTheme {
         )
     }
 
+    static func replaceStartupScript(for theme: EpistemosTheme, in userContentController: WKUserContentController) {
+        userContentController.removeAllUserScripts()
+        installStartupScript(for: theme, in: userContentController)
+    }
+
     static func applyScript(for theme: EpistemosTheme) -> String {
         let css = stylesheet(for: theme)
         return """
@@ -628,6 +675,7 @@ private enum BrowserUseWebTheme {
         let mutedForeground = cssColor(resolved.mutedForeground.nsColor)
         let accent = cssColor(resolved.accent.nsColor)
         let accentSoft = cssColor(resolved.accent.nsColor.withAlphaComponent(theme.isDark ? 0.28 : 0.18))
+        let accentRing = cssColor(resolved.accent.nsColor.withAlphaComponent(theme.isDark ? 0.36 : 0.24))
         let headingAccent = cssColor(resolved.headingAccent.nsColor)
         let border = cssColor(resolved.border.nsColor)
         let card = cssColor(resolved.card.nsColor)
@@ -635,6 +683,7 @@ private enum BrowserUseWebTheme {
         let controlHover = cssColor(resolved.glassHover.nsColor)
         let code = cssColor(resolved.codeType.nsColor)
         let onAccent = cssColor(resolved.userBubbleText.nsColor)
+        let softShadow = cssColor(resolved.foreground.nsColor.withAlphaComponent(theme.isDark ? 0.18 : 0.10))
         let colorScheme = theme.isDark ? "dark" : "light"
 
         return """
@@ -645,6 +694,7 @@ private enum BrowserUseWebTheme {
           --epistemos-browser-muted: \(mutedForeground);
           --epistemos-browser-accent: \(accent);
           --epistemos-browser-accent-soft: \(accentSoft);
+          --epistemos-browser-accent-ring: \(accentRing);
           --epistemos-browser-heading: \(headingAccent);
           --epistemos-browser-border: \(border);
           --epistemos-browser-card: \(card);
@@ -652,11 +702,12 @@ private enum BrowserUseWebTheme {
           --epistemos-browser-control-hover: \(controlHover);
           --epistemos-browser-code: \(code);
           --epistemos-browser-on-accent: \(onAccent);
+          --epistemos-browser-soft-shadow: \(softShadow);
           --body-background-fill: transparent;
           --background-fill-primary: transparent;
           --background-fill-secondary: var(--epistemos-browser-card);
           --block-background-fill: var(--epistemos-browser-card);
-          --block-border-color: var(--epistemos-browser-border);
+          --block-border-color: transparent;
           --body-text-color: var(--epistemos-browser-text);
           --body-text-color-subdued: var(--epistemos-browser-muted);
           --link-text-color: var(--epistemos-browser-accent);
@@ -664,7 +715,7 @@ private enum BrowserUseWebTheme {
           --button-primary-background-fill: var(--epistemos-browser-accent);
           --button-primary-text-color: var(--epistemos-browser-on-accent);
           --input-background-fill: var(--epistemos-browser-control);
-          --input-border-color: var(--epistemos-browser-border);
+          --input-border-color: transparent;
           --radius-lg: 8px;
           --radius-md: 7px;
           --radius-sm: 6px;
@@ -699,8 +750,9 @@ private enum BrowserUseWebTheme {
         }
 
         button, input, textarea, select, .block, .form, .panel, .tabs, .tab-nav, .input-container {
-          border-color: var(--epistemos-browser-border) !important;
+          border-color: transparent !important;
           border-radius: 8px !important;
+          box-shadow: 0 8px 24px var(--epistemos-browser-soft-shadow) !important;
         }
 
         input, textarea, select, .input-container, .block, .form, .panel, .tabitem {
@@ -720,25 +772,25 @@ private enum BrowserUseWebTheme {
         button.primary, button[class*="primary"], .primary {
           background: var(--epistemos-browser-accent) !important;
           color: var(--epistemos-browser-on-accent) !important;
-          border-color: var(--epistemos-browser-accent) !important;
+          border-color: transparent !important;
         }
 
         .selected, [aria-selected="true"], .tab-nav button.selected {
           background: var(--epistemos-browser-accent-soft) !important;
           color: var(--epistemos-browser-text) !important;
-          border-color: var(--epistemos-browser-accent) !important;
+          border-color: transparent !important;
         }
 
         pre, code, .prose pre, .prose code {
           background: var(--epistemos-browser-card) !important;
           color: var(--epistemos-browser-code) !important;
-          border-color: var(--epistemos-browser-border) !important;
+          border-color: transparent !important;
           border-radius: 8px !important;
         }
 
         *:focus-visible {
-          outline: 2px solid var(--epistemos-browser-accent) !important;
-          outline-offset: 2px !important;
+          outline: none !important;
+          box-shadow: 0 0 0 3px var(--epistemos-browser-accent-ring), 0 8px 24px var(--epistemos-browser-soft-shadow) !important;
         }
         """
     }
