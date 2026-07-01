@@ -390,14 +390,14 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         let captures = try #require(presets["vault-recent-captures"])
         let related = try #require(presets["vault-related-notes"])
 
-        #expect(notes.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "Project Atlas")
+        #expect(notes.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "notes Project Atlas")
         #expect(captures.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "recent captures Project Atlas")
         #expect(related.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "related notes Project Atlas")
         #expect(captures.contextQuery(typedQuery: " custom captures ", packageTitle: "Project Atlas") == "custom captures")
-        #expect(notes.requiredContextKind == nil)
+        #expect(notes.requiredContextKind == "note")
         #expect(captures.requiredContextKind == "recent_capture")
         #expect(related.requiredContextKind == "graph_related_note")
-        #expect(notes.helpText == notes.instruction)
+        #expect(notes.helpText.contains(#"context_kind "note""#))
         #expect(captures.helpText.contains(#"context_kind "recent_capture""#))
         #expect(related.helpText.contains(#"context_kind "graph_related_note""#))
 

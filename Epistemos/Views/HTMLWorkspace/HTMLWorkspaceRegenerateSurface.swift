@@ -451,7 +451,8 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
             family: .vaultData,
             title: "Notes -> cards",
             systemImage: "rectangle.stack",
-            instruction: "Regenerate this workspace by turning available note context into cards with working local filter/tabs over data.json records. Use only real note data and include an honest empty state if no notes are available."
+            instruction: "Regenerate this workspace by turning available note context into cards with working local filter/tabs over data.json records. Use only real note data and include an honest empty state if no notes are available.",
+            requiredContextKind: "note"
         ),
         .init(
             id: "vault-recent-captures",
@@ -494,7 +495,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         case "vault-related-notes":
             return title.isEmpty ? "related notes" : "related notes \(title)"
         case "vault-notes-cards":
-            return title.isEmpty ? "notes" : title
+            return title.isEmpty ? "notes" : "notes \(title)"
         default:
             return title
         }
