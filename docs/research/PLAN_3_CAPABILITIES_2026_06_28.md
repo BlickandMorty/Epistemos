@@ -355,8 +355,10 @@ The re-scan found concrete items you explicitly asked for that got flattened/omi
   dictation preference, manual stop/save stays available, and repeat Save is disabled after `.saved` so the same
   transcript cannot create duplicate notes.
   No hidden audio retention, no cloud STT, no Whisper/Kokoro/Python/subprocess on the MAS path.
-- **Eidos→chat / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): the closed-citation retrieval panel is
-  the *visible payoff* of the moat; substrate is ~done, only the surfacing remains.
+- **Eidos / "Retrieved by Eidos" panel** — fold into §4 (provenance moat): Eidos-origin `VaultRecallTrace` records now
+  retain bounded candidate previews in `VaultRecallMetrics` and the Vault Recall health row renders a visible
+  "Retrieved by Eidos" closed-citation panel. A per-answer chat card still requires an answer-bound trace pointer so a
+  global last trace is never misbound to the wrong response.
 
 ## Owner decisions (2026-06-28)
 - **🔴 CUT — local model-management.** Owner: "no" to HuggingFace/BYOM model marketplace, the Settings model "stack",

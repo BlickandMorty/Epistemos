@@ -295,6 +295,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
     )
 
     public static let bufferCap = 200
+    public static let candidatePreviewLimit = 5
+    public static let candidatePreviewTextLimit = 160
 
     private let lock = NSLock()
     private var samples: [Double] = []
@@ -305,6 +307,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
     private var lastAllChatterFallback: Bool = false
     private var lastBackendValue: VaultRecallBackend = .unknown
     private var lastPageGatherValue: PageGatherEscalationTrace?
+    private var lastCandidatePreviewsValue: [RetrievedCandidatePreview] = []
+    private var lastRetrievedByEidosValue = false
     private var totalQueries: UInt64 = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
@@ -312,6 +316,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
     private init() {}
 
     public func record(latencyMs: Double, trace: VaultRecallTrace, backend: VaultRecallBackend) {
+        let candidatePreviews = Self.candidatePreviews(from: trace)
+        let retrievedByEidos = Self.traceWasRetrievedByEidos(trace)
         lock.lock()
         samples.append(latencyMs)
         if samples.count > Self.bufferCap {
@@ -324,6 +330,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         lastAllChatterFallback = trace.allChatterFallback
         lastBackendValue = backend
         lastPageGatherValue = trace.pageGather
+        lastCandidatePreviewsValue = candidatePreviews
+        lastRetrievedByEidosValue = retrievedByEidos
         totalQueries &+= 1
         lastErrorDescription = nil
         lock.unlock()
@@ -337,6 +345,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             fallback: "Vault recall trace failed"
         )
         lastErrorAt = Date()
+        lastCandidatePreviewsValue = []
+        lastRetrievedByEidosValue = false
         lock.unlock()
         notifyDidChange()
     }
@@ -355,6 +365,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             lastAllChatterFallback:  lastAllChatterFallback,
             lastBackend:             lastBackendValue,
             lastPageGather:          lastPageGatherValue,
+            lastCandidatePreviews:   lastCandidatePreviewsValue,
+            lastRetrievedByEidos:    lastRetrievedByEidosValue,
             lastErrorDescription:    lastErrorDescription,
             lastErrorAt:             lastErrorAt
         )
@@ -370,6 +382,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         lastAllChatterFallback = false
         lastBackendValue = .unknown
         lastPageGatherValue = nil
+        lastCandidatePreviewsValue = []
+        lastRetrievedByEidosValue = false
         totalQueries = 0
         lastErrorDescription = nil
         lastErrorAt = nil
@@ -384,6 +398,20 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         )
     }
 
+    public struct RetrievedCandidatePreview: Sendable, Hashable {
+        public let path: String
+        public let title: String?
+        public let selectionReason: String
+        public let fusedScore: Double
+
+        public init(path: String, title: String?, selectionReason: String, fusedScore: Double) {
+            self.path = path
+            self.title = title
+            self.selectionReason = selectionReason
+            self.fusedScore = fusedScore
+        }
+    }
+
     public struct Snapshot: Sendable {
         public let isFlagEnabled: Bool
         public let lastQueryAt: Date?
@@ -396,6 +424,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         public let lastAllChatterFallback: Bool
         public let lastBackend: VaultRecallBackend
         public let lastPageGather: PageGatherEscalationTrace?
+        public let lastCandidatePreviews: [RetrievedCandidatePreview]
+        public let lastRetrievedByEidos: Bool
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
 
@@ -420,6 +450,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             lastAllChatterFallback: Bool,
             lastBackend: VaultRecallBackend,
             lastPageGather: PageGatherEscalationTrace? = nil,
+            lastCandidatePreviews: [RetrievedCandidatePreview] = [],
+            lastRetrievedByEidos: Bool = false,
             lastErrorDescription: String?,
             lastErrorAt: Date?,
             recallBenchmark: VaultRecallBenchmark = VaultRecallBenchmark()
@@ -435,6 +467,8 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             self.lastAllChatterFallback = lastAllChatterFallback
             self.lastBackend = lastBackend
             self.lastPageGather = lastPageGather
+            self.lastCandidatePreviews = lastCandidatePreviews
+            self.lastRetrievedByEidos = lastRetrievedByEidos
             self.lastErrorDescription = lastErrorDescription
             self.lastErrorAt = lastErrorAt
             self.recallBenchmark = recallBenchmark
@@ -470,6 +504,39 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         let sorted = values.sorted()
         let idx = max(0, min(sorted.count - 1, Int((p * Double(sorted.count)).rounded(.up)) - 1))
         return sorted[idx]
+    }
+
+    nonisolated private static func candidatePreviews(from trace: VaultRecallTrace) -> [RetrievedCandidatePreview] {
+        trace.candidates.prefix(Self.candidatePreviewLimit).map { candidate in
+            RetrievedCandidatePreview(
+                path: Self.boundedCandidateText(candidate.path),
+                title: candidate.title.map(Self.boundedCandidateText),
+                selectionReason: Self.boundedCandidateText(candidate.selectionReason),
+                fusedScore: Self.boundedUnitScore(candidate.fusedScore)
+            )
+        }
+    }
+
+    nonisolated private static func traceWasRetrievedByEidos(_ trace: VaultRecallTrace) -> Bool {
+        trace.pageGather?.source == "QueryRuntime.Eidos"
+            || trace.notes.contains(where: Self.containsEidos)
+            || trace.candidates.contains { Self.containsEidos($0.selectionReason) }
+    }
+
+    nonisolated private static func containsEidos(_ value: String) -> Bool {
+        value.range(of: "Eidos", options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    nonisolated private static func boundedCandidateText(_ value: String) -> String {
+        let bounded = String(value.prefix(Self.candidatePreviewTextLimit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > Self.candidatePreviewTextLimit else { return trimmed }
+        return String(trimmed.prefix(Self.candidatePreviewTextLimit - 3)) + "..."
+    }
+
+    nonisolated private static func boundedUnitScore(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(1, max(0, value))
     }
 }
 

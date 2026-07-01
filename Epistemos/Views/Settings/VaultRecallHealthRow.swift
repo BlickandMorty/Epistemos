@@ -68,6 +68,9 @@ public struct VaultRecallHealthRow: View {
                 state: signalCoverageState,
                 detail: signalCoverageDetail
             )
+            if snapshot.lastRetrievedByEidos {
+                retrievedByEidosPanel
+            }
             if snapshot.lastAllChatterFallback {
                 row(
                     label: "Chatter fallback fired",
@@ -148,6 +151,57 @@ public struct VaultRecallHealthRow: View {
         .padding(.horizontal, 12)
         .help(pageGatherTruthTooltip)
         .accessibilityLabel(pageGatherTruthTooltip)
+    }
+
+    private var retrievedByEidosPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "quote.bubble")
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 18, height: 18)
+                    .foregroundStyle(.secondary)
+                Text("Retrieved by Eidos")
+                    .font(.system(size: 13, weight: .medium))
+                Spacer(minLength: 0)
+                ChannelStatusPill(title: "closed citations", tint: .secondary)
+            }
+
+            if snapshot.lastCandidatePreviews.isEmpty {
+                Text("Eidos trace observed, but no retained candidates were returned.")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(snapshot.lastCandidatePreviews.enumerated()), id: \.offset) { _, candidate in
+                        eidosCandidateRow(candidate)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityLabel("Retrieved by Eidos closed citation candidates")
+    }
+
+    private func eidosCandidateRow(_ candidate: VaultRecallMetrics.RetrievedCandidatePreview) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(candidate.title ?? candidate.path)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Text(candidate.path)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Text("\(candidate.selectionReason) · score \(formatScore(candidate.fusedScore))")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
     }
 
     private var lastQueryDetail: String {
@@ -252,6 +306,10 @@ public struct VaultRecallHealthRow: View {
 
     private func formatRate(_ rate: Double) -> String {
         String(format: "%.0f%%", max(0, min(rate, 1)) * 100)
+    }
+
+    private func formatScore(_ score: Double) -> String {
+        String(format: "%.2f", max(0, min(score, 1)))
     }
 
     private static func relativeTime(_ date: Date) -> String {

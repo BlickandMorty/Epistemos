@@ -86,6 +86,9 @@ struct VaultRecallWiringTests {
         #expect(snap.lastErrorDescription == nil)
         #expect(snap.lastBackend == .real)
         #expect(snap.lastSignalSummary.contains(.lexical))
+        #expect(!snap.lastRetrievedByEidos)
+        #expect(!snap.lastCandidatePreviews.isEmpty)
+        #expect(snap.lastCandidatePreviews.count <= VaultRecallMetrics.candidatePreviewLimit)
     }
 
     @Test("VaultRecallBridge.trace flags all-chatter fallback for chatter-only inputs")
@@ -261,6 +264,90 @@ struct VaultRecallWiringTests {
         #expect(snapshot.lastBackend == .real)
         #expect(snapshot.lastCandidatesRetained == results.count)
         #expect(snapshot.lastSignalSummary == [.lexical])
+        #expect(snapshot.lastCandidatePreviews.first?.path == "page-vault-recall")
+        #expect(snapshot.lastCandidatePreviews.first?.title == "Vault Recall Production")
+        #expect(!snapshot.lastRetrievedByEidos)
+    }
+
+    @Test("VaultRecallMetrics snapshots bounded Eidos candidate previews for the visible panel")
+    func vaultRecallMetricsSnapshotsBoundedEidosCandidatePreviews() throws {
+        resetBridge()
+        defer { resetBridge() }
+        let longText = String(repeating: "e", count: VaultRecallMetrics.candidatePreviewTextLimit + 40)
+        let trace = VaultRecallTrace(
+            query: "closed citation",
+            effectiveQuery: "closed citation",
+            ladderTier: "vault-eidos-v0",
+            candidatePoolSize: 2,
+            candidatesRetained: 2,
+            candidates: [
+                VaultRecallCandidate(
+                    path: longText,
+                    title: longText,
+                    snippet: nil,
+                    fusedScore: 2.5,
+                    signals: [.init(signal: .lexical, raw: 2.5, normalized: 1)],
+                    selectionReason: "Eidos lexical closed-citation hit \(longText)"
+                ),
+                VaultRecallCandidate(
+                    path: "second-note",
+                    title: "Second note",
+                    snippet: nil,
+                    fusedScore: .nan,
+                    signals: [],
+                    selectionReason: "Eidos semantic closed-citation hit second-note"
+                ),
+            ],
+            signalSummary: [.lexical],
+            generatedAtMs: 42,
+            notes: ["T21 unified retrieval contract: Eidos packet projected into VaultRecallTrace"],
+            allChatterFallback: false,
+            pageGather: PageGatherEscalationTrace(
+                source: "QueryRuntime.Eidos",
+                candidatePoolSize: 2,
+                candidatesRetained: 2
+            )
+        )
+
+        VaultRecallBridge.recordProductionTrace(trace, latencyMs: 1.25)
+        let snapshot = VaultRecallMetrics.shared.snapshot()
+
+        #expect(snapshot.lastRetrievedByEidos)
+        #expect(snapshot.lastCandidatePreviews.count == 2)
+        #expect(snapshot.lastCandidatePreviews[0].path.count == VaultRecallMetrics.candidatePreviewTextLimit)
+        #expect(snapshot.lastCandidatePreviews[0].title?.count == VaultRecallMetrics.candidatePreviewTextLimit)
+        #expect(snapshot.lastCandidatePreviews[0].selectionReason.count == VaultRecallMetrics.candidatePreviewTextLimit)
+        #expect(snapshot.lastCandidatePreviews[0].fusedScore == 1)
+        #expect(snapshot.lastCandidatePreviews[1].fusedScore == 0)
+    }
+
+    @Test("VaultRecall Eidos panel source remains bounded and visible")
+    func vaultRecallEidosPanelSourceRemainsBoundedAndVisible() throws {
+        let wiring = try loadMirroredSourceTextFile("Epistemos/VaultRecall/VaultRecallWiring.swift")
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VaultRecallHealthRow.swift")
+
+        for required in [
+            "lastCandidatePreviews",
+            "lastRetrievedByEidos",
+            "candidatePreviewLimit",
+            "candidatePreviewTextLimit",
+            "traceWasRetrievedByEidos",
+            "QueryRuntime.Eidos",
+            "boundedCandidateText"
+        ] {
+            #expect(wiring.contains(required), "VaultRecall metrics missing Eidos preview guard: \(required)")
+        }
+
+        for required in [
+            "Retrieved by Eidos",
+            "retrievedByEidosPanel",
+            "snapshot.lastRetrievedByEidos",
+            "snapshot.lastCandidatePreviews",
+            "formatScore(candidate.fusedScore)",
+            "Retrieved by Eidos closed citation candidates"
+        ] {
+            #expect(row.contains(required), "VaultRecall row missing Eidos preview UI: \(required)")
+        }
     }
 
     @Test("VaultRecallFlags.isEnabled reads UserDefaults + env-var fallback")
