@@ -134,7 +134,7 @@ nonisolated enum VRMLineageDisplayBounds {
 
     private static func capped(_ value: String, limit: Int) -> String {
         let bounded = String(value.prefix(limit + 32))
-        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizedDisplayText(bounded).trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > limit else {
             return trimmed
         }
@@ -142,6 +142,28 @@ nonisolated enum VRMLineageDisplayBounds {
             return String(trimmed.prefix(limit))
         }
         return String(trimmed.prefix(limit - 3)) + "..."
+    }
+
+    private static func normalizedDisplayText(_ value: String) -> String {
+        var result = String()
+        result.reserveCapacity(value.count)
+        var pendingSpace = false
+
+        for scalar in value.unicodeScalars {
+            if CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar) {
+                pendingSpace = true
+                continue
+            }
+
+            if pendingSpace, !result.isEmpty {
+                result.append(" ")
+            }
+            result.unicodeScalars.append(scalar)
+            pendingSpace = false
+        }
+
+        return result
     }
 }
 

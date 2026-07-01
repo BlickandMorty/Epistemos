@@ -50,8 +50,8 @@ lineage card uses spacing rather than hard `Divider()` rules. Hover popover surf
 verification score (`packet.residencySignals.map(\.verificationScore).max()`, `:204`) + generatedAt (newest claim
 `createdAtMs`) vs acceptedAt + the **claim list** (kind/status dot + a `link` glyph for ACS verification anchors and a
 `number` glyph for UAS-addressed claims). The hover-lineage card bounds runtime-fed metadata, claim text, and displayed
-claim count before SwiftUI render, bounds strings before trimming, and keeps ellipsis inside configured caps; the
-copyable lineage JSON remains full-fidelity. Lineage fields the
+claim count before SwiftUI render, bounds and control/whitespace-normalizes strings before trimming, and keeps ellipsis
+inside configured caps; the copyable lineage JSON remains full-fidelity. Lineage fields the
 packet doesn't carry (model/tier/acceptedAt) are **explicit view inputs from `ChatMessage`** — never fabricated inside
 the packet. Call site (the binding that keeps it honest):
 ```swift

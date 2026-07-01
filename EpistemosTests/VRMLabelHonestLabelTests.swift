@@ -183,6 +183,8 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains(".filter(\\.isFinite)"))
         #expect(source.contains("encoder.nonConformingFloatEncodingStrategy"))
         #expect(source.contains("String(value.prefix(limit + 32))"))
+        #expect(source.contains("normalizedDisplayText(bounded)"))
+        #expect(source.contains("CharacterSet.controlCharacters.contains(scalar)"))
         #expect(source.contains("String(trimmed.prefix(limit - 3)) + \"...\""))
         #expect(source.contains("ClaimLineageRow(claim: claim, packetID: packet.id)"))
         #expect(source.contains("omitted from display"))
@@ -223,6 +225,8 @@ struct VRMLabelHonestLabelTests {
 
         #expect(VRMLineageDisplayBounds.metadata(longMetadata).count == VRMLineageDisplayBounds.maxMetadataCharacters)
         #expect(VRMLineageDisplayBounds.claimText(longClaim).count == VRMLineageDisplayBounds.maxClaimTextCharacters)
+        #expect(VRMLineageDisplayBounds.metadata("model\n\t\u{0007}alpha") == "model alpha")
+        #expect(VRMLineageDisplayBounds.claimText("claim\r\n\u{0000}text") == "claim text")
         #expect(VRMLineageDisplayBounds.displayedClaims(claims).count == VRMLineageDisplayBounds.maxDisplayedClaims)
         #expect(VRMLineageDisplayBounds.verificationScore([
             .neutral,
