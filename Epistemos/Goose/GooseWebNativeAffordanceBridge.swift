@@ -30,6 +30,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeFileReadBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeFileWriteBytes = 16 * 1024 * 1024
     nonisolated static let maxNativeDirectoryListEntries = 5_000
+    nonisolated static let maxGitWorktreeEntries = 10
     nonisolated static let maxGitWorktreeListBytes = 4 * 1024 * 1024
     nonisolated static let maxGitWorktreePathCharacters = 4_096
     nonisolated static let maxNativeAffordanceNameCharacters = 96
@@ -874,7 +875,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 return
             }
             worktrees.append(path)
-            if worktrees.count >= Self.maxNativeDirectoryListEntries {
+            if worktrees.count >= Self.maxGitWorktreeEntries {
                 stop = true
             }
         }

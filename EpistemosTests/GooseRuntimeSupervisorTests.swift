@@ -564,6 +564,8 @@ struct GooseRuntimeSupervisorTests {
         // explicitly instead of mutating actor-isolated state from a Sendable closure.
         #expect(bridge.contains("private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable"))
         #expect(bridge.contains("readBoundedPipeData("))
+        #expect(bridge.contains("maxGitWorktreeEntries = 10"))
+        #expect(bridge.contains("worktrees.count >= Self.maxGitWorktreeEntries"))
         #expect(bridge.contains("maxGitWorktreeListBytes"))
         #expect(bridge.contains("maxGitWorktreePathCharacters"))
         #expect(bridge.contains("let outputData = drainBox.load()"))
