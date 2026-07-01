@@ -993,7 +993,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         const key = sectionContextKeys[sectionID];
         const result = key ? byKey.get(key) : null;
         dropzone.toggleAttribute('data-context-bound', !!result);
-        if (!result) { return; }
+        if (!result) {
+          delete dropzone.dataset.contextKey;
+          return;
+        }
         const badge = HTMLWorkspace.el('p', {
           class: 'section-context-badge',
           'data-section-context-badge': ''

@@ -816,6 +816,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("function installContextDropzone(dropzone)"))
         #expect(package.scriptJS.contains("function renderDropzoneContextBadges(allResults)"))
         #expect(package.scriptJS.contains("dropzone.toggleAttribute('data-context-bound', !!result);"))
+        #expect(package.scriptJS.contains("delete dropzone.dataset.contextKey;"))
         #expect(package.scriptJS.contains("data-section-context-badge"))
         #expect(package.scriptJS.contains("Section context: ${result.title || result.page_id || 'Untitled'}"))
         #expect(package.scriptJS.contains("renderDropzoneContextBadges(allResults);"))
