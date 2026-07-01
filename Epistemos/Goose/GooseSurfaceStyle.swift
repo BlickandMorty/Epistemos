@@ -20,7 +20,7 @@ enum GooseSurfaceStyle {
             theme.resolved.card
         }
         let base = token.nsColor.usingColorSpace(.sRGB) ?? token.nsColor
-        let target: NSColor = theme.isDark ? .black : .white
+        let target = theme.resolved.background.nsColor.usingColorSpace(.sRGB) ?? theme.resolved.background.nsColor
         let fraction: CGFloat = switch role {
         case .canvas:
             theme.isDark ? 0.08 : 0.04

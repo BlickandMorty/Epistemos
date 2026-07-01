@@ -114,6 +114,10 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(bootShim.contains("a[target=\"_blank\"][href]"))
         #expect(bootShim.contains("postNativeAffordance('openExternal', [href])"))
 
+        let surfaceStyle = try loadMirroredSourceTextFile("Epistemos/Goose/GooseSurfaceStyle.swift")
+        #expect(surfaceStyle.contains("theme.resolved.background.nsColor"))
+        #expect(!surfaceStyle.contains("theme.isDark ? .black : .white"))
+
         let nativePrompts = try loadMirroredSourceTextFile("Epistemos/Goose/GooseACPNativePromptPanels.swift")
         #expect(nativePrompts.contains("permissionOptionFill(option.kind)"))
         #expect(nativePrompts.contains("permissionOptionForeground(option.kind)"))
