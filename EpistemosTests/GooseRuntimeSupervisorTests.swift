@@ -1757,6 +1757,7 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["closeApp"] == .implementedNative)
         #expect(ledger["openNotificationsSettings"] == .implementedNative)
         #expect(ledger["showNotification"] == .implementedNative)
+        #expect(ledger["checkForOllama"] == .implementedNative)
         #expect(ledger["setWindowTitle"] == .implementedNative)
         #expect(ledger["setMenuBarIcon"] == .implementedNative)
         #expect(ledger["getMenuBarIconState"] == .implementedNative)
@@ -1812,6 +1813,7 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('closeApp', [appName])"))
         #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
         #expect(script.contains("postNativeAffordance('showNotification', [data || {}])"))
+        #expect(script.contains("postNativeAffordance('checkForOllama')"))
         #expect(script.contains("postNativeAffordance('setWindowTitle', [title])"))
         #expect(script.contains("postNativeAffordance('getSetting', [key])"))
         #expect(script.contains("postNativeAffordance('setSetting', [key, value])"))
@@ -1846,6 +1848,7 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("visibleError('closeApp')"))
         #expect(!script.contains("visibleError('openNotificationsSettings')"))
         #expect(!script.contains("visibleError('showNotification')"))
+        #expect(!script.contains("visibleError('checkForOllama')"))
         #expect(!script.contains("visibleError('setWindowTitle')"))
         #expect(!script.contains("visibleError('getSetting')"))
         #expect(!script.contains("visibleError('setSetting')"))
@@ -2111,6 +2114,27 @@ struct GooseWebNativeAffordanceBridgeTests {
                 String(repeating: "n", count: GooseWebNativeAffordanceBridge.maxNativeAffordanceNameCharacters + 1)
             ) == nil
         )
+    }
+
+    @Test("checkForOllama native host detection is bounded")
+    func checkForOllamaNativeHostDetectionIsBounded() {
+        #expect(GooseWebNativeAffordanceBridge.checkForOllamaHostConfigured(
+            environment: ["OLLAMA_HOST": "http://127.0.0.1:11434"]
+        ))
+        #expect(GooseWebNativeAffordanceBridge.checkForOllamaHostConfigured(
+            environment: ["OLLAMA_HOST": "https://localhost:11434"]
+        ))
+        #expect(!GooseWebNativeAffordanceBridge.checkForOllamaHostConfigured(
+            environment: ["OLLAMA_HOST": "ftp://127.0.0.1:11434"]
+        ))
+        #expect(!GooseWebNativeAffordanceBridge.checkForOllamaHostConfigured(
+            environment: [
+                "OLLAMA_HOST": String(
+                    repeating: "x",
+                    count: GooseWebNativeAffordanceBridge.maxNativeOpenURLCharacters + 1
+                ),
+            ]
+        ))
     }
 
     @Test("git worktree native affordance paths are bounded")
@@ -2444,6 +2468,7 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(try bridge.handleAffordance(name: "getDockIconState", args: []) as? Bool == true)
         #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
         #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == true)
+        #expect((try bridge.handleAffordance(name: "checkForOllama", args: []) as? Bool) != nil)
         #expect((try bridge.handleAffordance(name: "setWindowTitle", args: ["Epistemos Goose"]) as? Bool) != nil)
         #expect((try bridge.handleAffordance(name: "isAnyWindowFocused", args: []) as? Bool) != nil)
         #expect((try bridge.handleAffordance(name: "getIsFullScreen", args: []) as? Bool) != nil)

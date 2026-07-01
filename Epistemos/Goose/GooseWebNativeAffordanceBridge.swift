@@ -253,6 +253,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return openNotificationsSettings()
         case "showNotification":
             return showNotification(dictionaryArgument(args, at: 0) ?? [:])
+        case "checkForOllama":
+            return checkForOllama()
         case "setWindowTitle":
             guard let title = Self.boundedNativeWindowTitle(stringArgument(args, at: 0)) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -1125,6 +1127,32 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         )
         UNUserNotificationCenter.current().add(request)
         return true
+    }
+
+    private func checkForOllama() -> Bool {
+        Self.checkForOllamaHostConfigured(environment: ProcessInfo.processInfo.environment) ||
+            !resolveBinaryPath("ollama").isEmpty ||
+            Self.checkForOllamaRunningApp()
+    }
+
+    nonisolated static func checkForOllamaHostConfigured(environment: [String: String]) -> Bool {
+        guard let rawValue = environment["OLLAMA_HOST"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawValue.isEmpty,
+              rawValue.utf8.count <= maxNativeOpenURLCharacters else {
+            return false
+        }
+        guard let url = URL(string: rawValue), let scheme = url.scheme?.lowercased() else {
+            return false
+        }
+        return webProtocols.contains(scheme)
+    }
+
+    private static func checkForOllamaRunningApp() -> Bool {
+        NSWorkspace.shared.runningApplications.contains { application in
+            let bundleID = application.bundleIdentifier?.lowercased()
+            let appName = application.localizedName?.lowercased()
+            return bundleID == "com.ollama.ollama" || appName == "ollama"
+        }
     }
 
     private func setWindowTitle(_ title: String) -> Bool {

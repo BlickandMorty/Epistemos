@@ -111,7 +111,7 @@ enum GooseWebBootShim {
         "showNotification": .implementedNative,
         "setWindowTitle": .implementedNative,
         "reloadApp": .implementedRuntime,
-        "checkForOllama": .compatibilityPreserved,
+        "checkForOllama": .implementedNative,
         "getAllowedExtensions": .compatibilityPreserved,
         "getPathForFile": .compatibilityPreserved,
         "listFiles": .implementedNative,
@@ -624,7 +624,7 @@ enum GooseWebBootShim {
             showNotification: { configurable: true, value: showNotification },
             setWindowTitle: { configurable: true, value: (title) => postNativeAffordance('setWindowTitle', [title]) },
             reloadApp: { configurable: true, value: () => window.location.reload() },
-            checkForOllama: { configurable: true, value: falseAffordance },
+            checkForOllama: { configurable: true, value: () => postNativeAffordance('checkForOllama') },
             getAllowedExtensions: { configurable: true, value: async () => [] },
             getPathForFile: { configurable: true, value: (file) => {
               const path = file?.path || file?.epistemosNativePath || '';
