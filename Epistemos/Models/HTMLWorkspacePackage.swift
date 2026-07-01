@@ -1209,6 +1209,10 @@ nonisolated public struct HTMLWorkspaceConsoleError: Codable, Sendable, Hashable
 }
 
 nonisolated public enum HTMLWorkspacePatchApplier {
+    static func reversibleSnapshotName(for package: HTMLWorkspacePackage) -> String {
+        "pre-replace-\(contentHash(for: package).prefix(12)).html"
+    }
+
     public static func apply(
         _ operation: HTMLWorkspacePatchOperation,
         to package: HTMLWorkspacePackage
@@ -1507,7 +1511,7 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         preserving additionalNames: Set<String> = []
     ) throws -> ReversibleSnapshotResult {
         var snapshots = package.snapshots
-        let name = "pre-replace-\(contentHash(for: package).prefix(12)).html"
+        let name = reversibleSnapshotName(for: package)
         let sourceName = HTMLWorkspaceSourceSnapshot.sourceName(forRenderedSnapshotName: name)
         let renderedData = Data(HTMLWorkspacePreviewDocument.render(package: package).utf8)
         snapshots[name] = renderedData

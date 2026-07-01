@@ -174,7 +174,7 @@ nonisolated enum HTMLWorkspaceRegeneratePreview {
                 assets: basePackage.assets
             ),
             contentHash: manifest.contentHash,
-            reversibleSnapshotName: nil,
+            reversibleSnapshotName: HTMLWorkspacePatchApplier.reversibleSnapshotName(for: basePackage),
             toolId: HTMLWorkspaceGenerationProvenance.patchToolID
         )
         return HTMLWorkspacePackage(
