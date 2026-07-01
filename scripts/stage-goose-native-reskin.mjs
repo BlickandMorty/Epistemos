@@ -3111,9 +3111,9 @@ function applyChatSettingsSurfaces() {
                     peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
                     peer-checked:bg-white dark:peer-checked:bg-black
                     transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
-    `className="h-[18px] w-[18px] rounded-full border border-border-secondary bg-background-primary/70 shadow-inner
-                    transition-all duration-200 ease-[var(--epistemos-control-ease)] group-hover:border-[var(--epistemos-accent)]
-                    peer-checked:border-[5px] peer-checked:border-[var(--epistemos-accent)] peer-checked:bg-background-primary"`
+    `className="h-[18px] w-[18px] rounded-full bg-background-primary/70
+                    transition-colors duration-200 ease-[var(--epistemos-control-ease)] group-hover:bg-background-secondary/80
+                    peer-checked:bg-[var(--epistemos-accent)]"`
   );
   write('src/components/settings/mode/ModeSelectionItem.tsx', source);
 
@@ -3206,9 +3206,9 @@ function applyChatSettingsSurfaces() {
                   peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
                   peer-checked:bg-white dark:peer-checked:bg-black
                   transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
-    `className="h-[18px] w-[18px] rounded-full border border-border-secondary bg-background-primary/70 shadow-inner
-                  transition-all duration-200 ease-[var(--epistemos-control-ease)] group-hover:border-[var(--epistemos-accent)]
-                  peer-checked:border-[5px] peer-checked:border-[var(--epistemos-accent)] peer-checked:bg-background-primary"`
+    `className="h-[18px] w-[18px] rounded-full bg-background-primary/70
+                  transition-colors duration-200 ease-[var(--epistemos-control-ease)] group-hover:bg-background-secondary/80
+                  peer-checked:bg-[var(--epistemos-accent)]"`
   );
   write('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx', source);
 }
@@ -3652,9 +3652,9 @@ function applyModelSettingsSurfaces() {
                                 peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
                                 peer-checked:bg-white dark:peer-checked:bg-black
                                 transition-all duration-200 ease-in-out group-hover:border-border-primary"`,
-    `className="h-[18px] w-[18px] rounded-full border border-border-secondary bg-background-primary/70 shadow-inner
-                                transition-all duration-200 ease-[var(--epistemos-control-ease)] group-hover:border-[var(--epistemos-accent)]
-                                peer-checked:border-[5px] peer-checked:border-[var(--epistemos-accent)] peer-checked:bg-background-primary"`
+    `className="h-[18px] w-[18px] rounded-full bg-background-primary/70
+                                transition-colors duration-200 ease-[var(--epistemos-control-ease)] group-hover:bg-background-secondary/80
+                                peer-checked:bg-[var(--epistemos-accent)]"`
   );
   source = replaceAllRequired(
     source,
@@ -6696,15 +6696,15 @@ function applyFinalBorderlessDriftSurfaces() {
   write('src/components/ui/RecipeWarningModal.tsx', source);
 
   source = read('src/components/settings/mode/ModeSelectionItem.tsx');
-  source = replaceAllRequired(source, 'mode radio hard borderless', ' border border-border-secondary', '');
+  source = replaceAllOptional(source, ' border border-border-secondary', '');
   write('src/components/settings/mode/ModeSelectionItem.tsx', source);
 
   source = read('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx');
-  source = replaceAllRequired(source, 'response style radio hard borderless', ' border border-border-secondary', '');
+  source = replaceAllOptional(source, ' border border-border-secondary', '');
   write('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx', source);
 
   source = read('src/components/settings/models/subcomponents/SwitchModelModal.tsx');
-  source = replaceAllRequired(source, 'switch model radio hard borderless', ' border border-border-secondary', '');
+  source = replaceAllOptional(source, ' border border-border-secondary', '');
   write('src/components/settings/models/subcomponents/SwitchModelModal.tsx', source);
 
   source = read('src/components/settings/app/UpdateSection.tsx');
