@@ -25,7 +25,7 @@
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI
   (off `@MainActor` via `Task.detached` — never block main); (3) create the paired PDF/Markdown files in a detached
   worker so conversion and file materialization run off `@MainActor`; (4) file-first `SDPage` with body = abstract intro
-  + parsed full text, bounded persisted metadata/frontmatter labels `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
+  + parsed full text, where abstract body text is bounded before the note write, plus bounded persisted metadata/frontmatter labels `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. The paired PDF/Markdown writes use the shared reserved-file writer, including final
   symlink rejection after reservation. Downloaded temp PDFs are also opened with `O_NOFOLLOW`, checked with `fstat`,
   and rejected before import if the temp path is a symlink, is not a regular file, exceeds the 128 MiB cap, or lacks

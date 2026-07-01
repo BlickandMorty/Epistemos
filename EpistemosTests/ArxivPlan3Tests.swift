@@ -274,6 +274,7 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("request/XML parser failures are reported as bounded domain/code diagnostics"))
         #expect(codepack.contains("search or ingest status"))
         #expect(codepack.contains("sheet status reports that copied PDF"))
+        #expect(codepack.contains("abstract body text is bounded before the note write"))
         #expect(codepack.contains("imported outcome's\n  vault-relative `source_pdf` matches"))
         #expect(codepack.contains("raw diagnostic and\n  metadata-label strings are bounded before trimming"))
         #expect(codepack.contains("ellipsis stays inside configured caps"))
@@ -282,6 +283,7 @@ struct ArxivPlan3Tests {
         #expect(capabilities.contains("successful ingest status reports the vault-relative `source_pdf` path"))
         #expect(capabilities.contains("capped at 128 MiB"))
         #expect(capabilities.contains("network-fed SwiftUI display strings\n  are bounded before trimming"))
+        #expect(capabilities.contains("abstract text written into the note body is bounded"))
         #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
@@ -323,6 +325,8 @@ struct ArxivPlan3Tests {
         #expect(!searchView.contains(".buttonStyle(.borderless)"))
         #expect(!searchView.contains("Divider()"))
         #expect(ingest.contains("materializeImportedFiles"))
+        #expect(ingest.contains("maxAbstractCharacters"))
+        #expect(ingest.contains("private var summaryLabel"))
         #expect(ingest.contains("sourcePDFRelativePath: materializedFiles.sourcePDFRelativePath"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
@@ -378,7 +382,7 @@ struct ArxivPlan3Tests {
     func noteDraftBoundsPersistedMetadataLabels() throws {
         let paper = try Self.paper(
             title: String(repeating: "T", count: ArxivNoteDraft.maxTitleCharacters + 32),
-            summary: "A bounded summary.",
+            summary: String(repeating: "S", count: ArxivNoteDraft.maxAbstractCharacters + 32),
             authors: [
                 String(repeating: "A", count: ArxivNoteDraft.maxAuthorsLabelCharacters + 32),
                 "Second author",
@@ -388,6 +392,7 @@ struct ArxivPlan3Tests {
         let draft = ArxivNoteDraft(paper: paper, parsedMarkdown: "Parsed text.")
 
         #expect(draft.markdownBody.contains("# \(String(repeating: "T", count: ArxivNoteDraft.maxTitleCharacters - 3))..."))
+        #expect(draft.markdownBody.contains("\(String(repeating: "S", count: ArxivNoteDraft.maxAbstractCharacters - 3))..."))
         #expect(draft.frontMatter["authors"]?.count == ArxivNoteDraft.maxAuthorsLabelCharacters)
         #expect(draft.frontMatter["categories"]?.count == ArxivNoteDraft.maxCategoriesLabelCharacters)
         #expect(draft.safeBaseName.count < ArxivNoteDraft.maxTitleCharacters)

@@ -373,6 +373,7 @@ private struct MaterializedImportFiles: Sendable {
 
 nonisolated struct ArxivNoteDraft: Equatable, Sendable {
     static let maxTitleCharacters = 512
+    static let maxAbstractCharacters = 8 * 1024
     static let maxAuthorsLabelCharacters = 2_048
     static let maxCategoriesLabelCharacters = 512
     static let maxSourceURLCharacters = 512
@@ -406,7 +407,7 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
         ## Abstract
 
-        \(paper.summary)
+        \(summaryLabel)
 
         ## Parsed Full Text
 
@@ -428,6 +429,10 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
     private var titleLabel: String {
         Self.bounded(paper.title, limit: Self.maxTitleCharacters, fallback: "Untitled arXiv paper")
+    }
+
+    private var summaryLabel: String {
+        Self.bounded(paper.summary, limit: Self.maxAbstractCharacters, fallback: "")
     }
 
     private var authorsLabel: String {
