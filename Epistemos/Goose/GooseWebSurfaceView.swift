@@ -91,7 +91,7 @@ struct GooseWebSurfaceView: View {
             }
             nativeACPOverlay
         }
-        .background(background)
+        .background(frameBackground)
         .ignoresSafeArea()
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
@@ -122,20 +122,24 @@ struct GooseWebSurfaceView: View {
         }
     }
 
-    private var background: Color {
+    private var frameBackground: Color {
+        Color.clear
+    }
+
+    private var placeholderBackground: Color {
         GooseSurfaceStyle.background(for: theme)
     }
 
     @ViewBuilder
     private var contentHost: some View {
         WebView(page)
-            .background(background)
+            .background(frameBackground)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func webUIRenderOverlay(status: String) -> some View {
         ZStack {
-            background
+            placeholderBackground
             VStack(alignment: .leading, spacing: 9) {
                 Text("Epistemos Goose")
                     .font(GooseSurfaceStyle.bodyFont(16, weight: .semibold))
