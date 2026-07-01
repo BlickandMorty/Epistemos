@@ -1731,6 +1731,56 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+FEATURES_CONTEXT="$WORK_ROOT/ui/desktop/src/contexts/FeaturesContext.tsx"
+node - "$FEATURES_CONTEXT" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const importAnchor = "import { getFeatures } from '../api';";
+const acpImport = "import { USE_ACP_CHAT } from '../acpChatFeatureFlag';";
+if (!source.includes(acpImport)) {
+  if (!source.includes(importAnchor)) {
+    throw new Error('FeaturesContext API import anchor not found');
+  }
+  source = source.replace(importAnchor, `${importAnchor}\n${acpImport}`);
+}
+
+const effectAnchor = `    (async () => {
+      try {
+        const response = await getFeatures({ throwOnError: false });`;
+const effectReplacement = `    (async () => {
+      if (USE_ACP_CHAT) {
+        setFeatures({
+          'code-mode': true,
+          'local-inference': false,
+        }); // epistemos-acp-local-feature-flags
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const response = await getFeatures({ throwOnError: false });`;
+if (!source.includes('epistemos-acp-local-feature-flags')) {
+  if (!source.includes(effectAnchor)) {
+    throw new Error('FeaturesContext feature load anchor not found');
+  }
+  source = source.replace(effectAnchor, effectReplacement);
+}
+
+for (const snippet of [
+  acpImport,
+  'epistemos-acp-local-feature-flags',
+  "'code-mode': true",
+  "'local-inference': false",
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`FeaturesContext staged source is missing required ACP feature snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 PROVIDER_SETTINGS_PAGE="$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
 node - "$PROVIDER_SETTINGS_PAGE" <<'NODE'
 const fs = require('fs');
@@ -6926,6 +6976,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "saveNativeLocalAcpConfigValue" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "removeNativeLocalAcpConfigValue" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "GOOSE_TELEMETRY_ENABLED" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    grep -q "epistemos-acp-local-feature-flags" "$WORK_ROOT/ui/desktop/src/contexts/FeaturesContext.tsx"
+    grep -q "'code-mode': true" "$WORK_ROOT/ui/desktop/src/contexts/FeaturesContext.tsx"
+    grep -q "'local-inference': false" "$WORK_ROOT/ui/desktop/src/contexts/FeaturesContext.tsx"
     grep -q "epistemos-acp-renderer-telemetry-config" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
     grep -q "readAcpProviderConfigValue(TELEMETRY_CONFIG_KEY)" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
     grep -q "telemetryValue === 'true'" "$WORK_ROOT/ui/desktop/src/renderer.tsx"
