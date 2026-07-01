@@ -57,6 +57,14 @@ data), not a static export.
   provenanced like everything else here. Preset buttons (§3) are shortcuts into this; free-form context is the general case.
 - Everything still flows through the SAME atomic + reversible + `.regenerate`-provenance + streaming pipeline. Vault/graph
   reads use existing services — read-only, opt-in, honest.
+- **DIRECT MANIPULATION — it must FEEL integrated (owner 2026-06-30):** provide a **notes sidebar** in/beside the
+  workspace (loads notes + captures + vault search + graph items). The user can **grab a sidebar item and DRAG it into a
+  section of the workspace** → that section loads that item's real context (note body, capture, search result, linked
+  notes) and the surface re-renders with it wired in. Equally, the user can **pick/pull context from within the workspace
+  itself** (an in-surface "add context" picker over the same sources). Drag-drop and in-workspace pick are first-class,
+  alongside free-text intent and preset buttons — the whole thing should feel like one integrated space, not a prompt box.
+  Dropped/picked context is added to the section as REAL data (honest, read-only), and the resulting change is atomic +
+  reversible + provenanced like every other regenerate.
 
 ## ⛔ HARD GUARDRAIL — DO NOT TOUCH THE CODE EDITOR (owner 2026-06-30, "biggest issue before")
 All of this work stays in the **regenerate / preview / data-feed / preset / interactive-context** layer of the HTML
