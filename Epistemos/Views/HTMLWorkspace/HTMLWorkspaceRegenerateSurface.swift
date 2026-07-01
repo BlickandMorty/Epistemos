@@ -627,7 +627,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     When selected preview context is present, treat it as the user's intended surface target and preserve its selector relationship when practical.
     Never create demo, sample, placeholder, mock, or synthetic data records. If real data is missing, render a clear empty/unavailable state instead.
     Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
-    Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
+    Keep behavior local/offline. Do not use network calls, browser storage APIs, app bridge APIs, inline event handlers, or javascript: URLs. If existing source already uses HTMLWorkspace.contextState, preserve it only as the bounded runtime helper for generated context pins.
     data.json must be valid JSON.
     """
 

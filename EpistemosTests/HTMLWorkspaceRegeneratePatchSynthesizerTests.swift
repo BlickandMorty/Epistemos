@@ -747,6 +747,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("_epistemos.required_context_available is false"))
         #expect(prompt.contains("Never create demo, sample, placeholder, mock, or synthetic data records."))
         #expect(prompt.contains("Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string."))
+        #expect(prompt.contains("Do not use network calls, browser storage APIs, app bridge APIs"))
+        #expect(prompt.contains("If existing source already uses HTMLWorkspace.contextState, preserve it only as the bounded runtime helper"))
     }
 
     @Test("regenerate prompt includes selected preview surface context when present")
