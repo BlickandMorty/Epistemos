@@ -904,7 +904,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     function pinSelectedContext() {
       const data = HTMLWorkspace.data || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
-      const selected = activeResult(visibleResults(allResults));
+      const selected = selectedResultKey
+        ? allResults.find((result) => resultKey(result) === selectedResultKey)
+        : activeResult(sortedResults(visibleResults(allResults)));
       if (!selected) { return; }
       const key = resultKey(selected);
       pinContextKey(key);
