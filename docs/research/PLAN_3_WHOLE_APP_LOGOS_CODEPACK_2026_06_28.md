@@ -48,9 +48,10 @@
   Sidebar row descriptions read the active settings theme muted token.
   Settings disclosure subtitles read the active theme muted token rather than
   hierarchical system secondary styling.
-- [VERIFIED-CODE] `VoiceSettingsDetailView` now has a registry-backed Voice
-  header mark and theme-derived muted subtitle, matching the Plan 3 utility
-  header pattern without introducing runtime logo fetches or official-logo claims.
+- [VERIFIED-CODE] `VoiceSettingsDetailView` and `ProvenanceConsoleView` now
+  have registry-backed header marks and theme-derived muted subtitles, matching
+  the Plan 3 utility header pattern without introducing runtime logo fetches or
+  official-logo claims.
 
 ## Non-Goals And Boundaries
 
@@ -109,7 +110,7 @@ touching Plan 1 or Plan 2.
 7. [DONE] Run parse/source verification while any external Xcode lane is active.
 8. [DONE] Wire Plan 3 landing-feature button tiles to their registry-backed brand marks.
 9. [DONE] Wire settings sidebar marks for clearly branded Plan 3 settings rows.
-10. [DONE] Add the Voice settings detail utility header mark.
+10. [DONE] Add Voice and Provenance settings detail utility header marks.
 11. Later slices: additional utility panel metadata and any licensed official asset import.
 
 ## Acceptance Gates

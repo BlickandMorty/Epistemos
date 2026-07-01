@@ -240,6 +240,9 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(view.contains(".onDisappear { cancelRefresh() }"))
         #expect(view.contains("GenUIDispatcher.shared.render(payload)"))
         #expect(view.contains(".onAppear { refresh() }"))
+        #expect(view.contains("IntegrationBrandMarkView(brand: .provenance"))
+        #expect(view.contains("ui.theme.resolved.mutedForeground.color"))
+        #expect(!view.contains(".foregroundStyle(.secondary)"))
         #expect(dispatcher.contains("ProvenanceTraceGenUIView(payload: payload)"))
         assertForbiddenTokensAbsent(
             [

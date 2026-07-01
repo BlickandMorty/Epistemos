@@ -2,6 +2,8 @@ import SwiftUI
 
 @MainActor
 struct ProvenanceConsoleView: View {
+    @Environment(UIState.self) private var ui
+
     @State private var snapshot: ProvenanceConsoleSnapshot
     @State private var refreshRequestID = UUID()
     @State private var refreshTask: Task<Void, Never>?
@@ -47,13 +49,18 @@ struct ProvenanceConsoleView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Provenance Console")
-                .font(.title3.weight(.semibold))
-            Text("Read-only projection of committed RunEventLog, MutationEnvelope, ClaimLedger retractions, AgentEvent, and GraphEvent planes.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .top, spacing: 10) {
+            IntegrationBrandMarkView(brand: .provenance, size: 28)
+                .foregroundStyle(ui.theme.resolved.accent.color)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Provenance Console")
+                    .font(.title3.weight(.semibold))
+                Text("Read-only projection of committed RunEventLog, MutationEnvelope, ClaimLedger retractions, AgentEvent, and GraphEvent planes.")
+                    .font(.caption)
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 }
