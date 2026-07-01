@@ -1,10 +1,14 @@
 import SwiftUI
 
 struct ExtensionsDetailView: View {
+    @Environment(UIState.self) private var ui
+
     @State private var selectedTab: ExtensionsSettingsTab = .skills
 
     var body: some View {
         VStack(spacing: 0) {
+            extensionsHeader
+
             Picker("Extensions", selection: $selectedTab) {
                 ForEach(ExtensionsSettingsTab.allCases) { tab in
                     Text(tab.title).tag(tab)
@@ -12,7 +16,7 @@ struct ExtensionsDetailView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 24)
-            .padding(.top, 20)
+            .padding(.top, 12)
             .frame(maxWidth: 520)
 
             Group {
@@ -28,6 +32,25 @@ struct ExtensionsDetailView: View {
                 }
             }
         }
+    }
+
+    private var extensionsHeader: some View {
+        HStack(spacing: 10) {
+            IntegrationBrandMarkView(brand: .extensions, size: 28)
+                .foregroundStyle(ui.theme.resolved.accent.color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Extensions")
+                    .font(.title3.weight(.semibold))
+                Text("Skills, MCP servers, connectors, and Pro automation")
+                    .font(.caption)
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+        .frame(maxWidth: 920, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
