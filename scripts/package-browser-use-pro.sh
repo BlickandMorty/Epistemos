@@ -341,11 +341,12 @@ def write_text_no_follow(path, text, label):
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
     )
-    fd = os.open(path, flags, 0o644)
+    fd = os.open(path, flags, 0o600)
     try:
         metadata = os.fstat(fd)
         if not stat.S_ISREG(metadata.st_mode):
             raise SystemExit(f"{label} is not a regular file")
+        os.fchmod(fd, 0o600)
         with os.fdopen(fd, "wb") as handle:
             fd = -1
             handle.write(text.encode("utf-8"))
@@ -497,11 +498,12 @@ def write_text_no_follow(path, text, label):
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
     )
-    fd = os.open(path, flags, 0o644)
+    fd = os.open(path, flags, 0o600)
     try:
         metadata = os.fstat(fd)
         if not stat.S_ISREG(metadata.st_mode):
             raise SystemExit(f"{label} is not a regular file")
+        os.fchmod(fd, 0o600)
         with os.fdopen(fd, "wb") as handle:
             fd = -1
             handle.write(text.encode("utf-8"))
