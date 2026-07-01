@@ -403,8 +403,9 @@ Pure additive UI, MAS-safe.
 - **App Store build = lite native WKWebView "Browser" tab, human-driven, NO robot** (the Obscura Tier-1 codepack).
 - **Pro automation = vendor the REAL `browser-use`** (browser-use + web-ui + cdp-use + Python + Chromium), reskin its
   web UI in a WebView, expose to Goose as MCP tools. browser-use drives **Chromium** (not the WKWebView tab). The
-  vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed; final signed Pro
-  packaging still remains; the loopback shell/control and task-submit dry-run UI smokes have landed; the Pro gate
+  vendor codepack, settings contract, staged payload, signed Pro packaging, runtime shell, and adapter lane have landed;
+  release notarization remains distribution ops; the loopback shell/control and task-submit dry-run UI smokes have
+  landed; the Pro gate
   rejects symlink-routed, non-regular, or >1 MiB vendor manifests before no-follow JSON decode and rejects staged
   artifact symlink aliases before file/directory shape checks.
   Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
