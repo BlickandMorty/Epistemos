@@ -204,10 +204,18 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
       } catch (e) {
         window.__epistemosConsoleBridgeInstalled = true;
       }
+      var maxMessageLength = \(HTMLWorkspacePackageLimits.maxConsoleErrorMessageCharacters);
+      var maxSourceLength = \(HTMLWorkspacePackageLimits.maxConsoleErrorSourceCharacters);
+      function boundedText(value, limit){
+        var text = String(value === null || value === undefined ? '' : value);
+        if (text.length <= limit) { return text; }
+        var suffix = '... [truncated]';
+        return text.slice(0, Math.max(0, limit - suffix.length)) + suffix;
+      }
       function post(level, message, source, line, column){
         try {
           window.webkit.messageHandlers.epistemosWorkspaceConsole.postMessage({
-            level: String(level || 'error'), message: String(message), source: source || null, line: line || 0, column: column || 0
+            level: String(level || 'error'), message: boundedText(message, maxMessageLength), source: source ? boundedText(source, maxSourceLength) : null, line: line || 0, column: column || 0
           });
         } catch (e) {}
       }
