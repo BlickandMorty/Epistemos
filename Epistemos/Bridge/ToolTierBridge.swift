@@ -68,6 +68,7 @@ nonisolated enum AgentToolNameAliases {
             "get_dependencies": "workspace.get_dependencies",
             "get_dependents": "workspace.get_dependents",
             "get_change_impact": "workspace.get_change_impact",
+            "browser_complete_task": "browser.complete_task",
         ]
         #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
         aliases.merge([
@@ -377,16 +378,18 @@ nonisolated enum ToolTierBridgeDiagnostics {
     }
 
     private static func boundedMessage(_ message: String, fallback: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? fallback : trimmed
         guard value.count > maxMessageCharacters else {
             return value
         }
-        return String(value.prefix(maxMessageCharacters)) + "..."
+        return String(value.prefix(maxMessageCharacters - 3)) + "..."
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"
@@ -397,8 +400,8 @@ nonisolated enum ToolTierBridgeDiagnostics {
         }) else {
             return "Error"
         }
-        let bounded = String(value.prefix(maxDomainCharacters))
-        return bounded.isEmpty ? "Error" : bounded
+        let clamped = String(value.prefix(maxDomainCharacters))
+        return clamped.isEmpty ? "Error" : clamped
     }
 }
 
@@ -698,10 +701,14 @@ final class ToolTierBridge {
                 allowedToolNames: allowedToolNames
             )
             if result.success {
+                let isError = ToolOutputErrorClassifier.isError(
+                    toolName: toolName,
+                    outputJson: result.outputJson
+                )
                 return LocalToolResult(
                     toolName: toolName,
                     resultJson: result.outputJson,
-                    isError: false
+                    isError: isError
                 )
             } else {
                 let errJson = errorToJson(result.error ?? "unknown error")
