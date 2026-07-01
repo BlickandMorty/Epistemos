@@ -392,6 +392,18 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(captureResults.first?.provenance.contains("TextCapturePipeline") == true)
         #expect(captureResults.first?.snippet == "alpha transcript body")
 
+        let noteFallbackResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "note",
+            searchResults: [],
+            modelContainer: container,
+            limit: 5,
+            query: "notes"
+        )
+        #expect(noteFallbackResults.map(\.pageID) == [generic.id])
+        #expect(noteFallbackResults.first?.contextKind == "note")
+        #expect(noteFallbackResults.first?.sourceLabel == "Note")
+        #expect(noteFallbackResults.first?.provenance.contains("recent-note fallback") == true)
+
         let genericResult = SearchResult(pageId: "note-a", title: "Generic", snippet: "generic", rank: 0.7)
         let requiredCaptureResults = HTMLWorkspaceDataFeedContextSources.results(
             for: "recent_capture",
