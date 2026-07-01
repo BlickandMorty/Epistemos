@@ -115,7 +115,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             .appendingPathComponent("imported-apps", isDirectory: true)
             .appendingPathComponent("apps.json", isDirectory: false)
         self.recipeHashesRoot = root.appendingPathComponent("recipe-hashes", isDirectory: true)
-        let configuredFileRoots = initialScopedFileRoots ?? [fileManager.homeDirectoryForCurrentUser]
+        let configuredFileRoots = initialScopedFileRoots ?? []
         let rootPaths = [
             Self.standardizedPath(root.path),
             Self.standardizedPath(fileManager.temporaryDirectory.path),
@@ -1672,10 +1672,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
-    // review M2 (defense-in-depth): the default file scope is broad (the home dir), so even a benign
-    // XSS in the Goose UI could otherwise read credentials or write persistence/RCE payloads. Deny —
-    // for BOTH read and write — a small set of sensitive home-relative locations that are never
-    // legitimate project-file targets. This does NOT narrow the legitimate project scope.
+    // Defense-in-depth for explicitly scoped home paths: even after a user grants a broad directory,
+    // a benign XSS in the Goose UI must not read credentials or write persistence/RCE payloads.
+    // Deny, for BOTH read and write, sensitive home-relative locations that are never legitimate
+    // project-file targets.
     nonisolated private static let sensitiveHomeRelativeDirs = [
         ".ssh", ".aws", ".gnupg", ".config/gh", ".config/git",
         ".docker", ".kube",
@@ -1694,8 +1694,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         //    ~/.ZSHRC open the real ~/.ssh / ~/.zshrc on disk; a case-sensitive denylist was trivially
         //    bypassed. Over-matching a sensitive name on a rare case-sensitive volume is harmless
         //    (fail-closed).
-        //  • check the symlink-RESOLVED path too — otherwise a symlink anywhere inside the broad home
-        //    scope pointing at ~/.ssh/id_rsa would slip past a purely lexical check.
+        //  • check the symlink-RESOLVED path too - otherwise a symlink anywhere inside an explicitly
+        //    scoped home path pointing at ~/.ssh/id_rsa would slip past a purely lexical check.
         let home = Self.standardizedPath(fileManager.homeDirectoryForCurrentUser.path)
         let candidates = [Self.standardizedPath(path), Self.resolvedSymlinkPath(path)]
         for candidate in candidates {
@@ -1721,7 +1721,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private func isPathAllowedForWrite(_ path: String) -> Bool {
         if isSymbolicLink(path) { return false }
         // Check the TARGET directly: the parent-dir fallback below would otherwise allow writing a
-        // sensitive dotfile (e.g. ~/.zshrc) because its parent (~) is in the broad default scope.
+        // sensitive dotfile (e.g. ~/.zshrc) because its parent was explicitly scoped.
         if isSensitivePath(path) { return false }
         if isPathAllowed(path) { return true }
         let parent = Self.standardizedPath(URL(fileURLWithPath: path).deletingLastPathComponent().path)

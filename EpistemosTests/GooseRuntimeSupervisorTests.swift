@@ -2657,6 +2657,16 @@ struct GooseWebNativeAffordanceBridgeTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test("file bridge default scope excludes broad home access")
+    func fileBridgeDefaultScopeExcludesBroadHomeAccess() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+
+        #expect(source.contains("let configuredFileRoots = initialScopedFileRoots ?? []"))
+        #expect(!source.contains("initialScopedFileRoots ?? [fileManager.homeDirectoryForCurrentUser]"))
+        #expect(source.contains("rememberScopedAccess(for: panel.urls)"))
+        #expect(source.contains("rememberScopedAccess(for: [url])"))
+    }
+
     @Test("file bridge resolves symlinks before scoped reads and writes")
     func fileBridgeRejectsSymlinkEscapes() throws {
         let root = FileManager.default.temporaryDirectory
