@@ -59,3 +59,22 @@ on navigation). Minimalist where possible; cut broken/messy excess.
 ## Working rule
 Sequential in the main tree (sole worker), build-verify + commit each step, keep green. Update this doc's checkboxes as
 items land.
+
+## Progress log (autonomous, owner away 2026-07-01)
+- DONE: embeds Meeting/arXiv/Browser/Browser-Use + Goose pre-warm.
+- DONE audit fixes (commit e5e3b6565): prose-crash clamp; code-editor blank-body (removed the false
+  renderedText===0 validation that destroyed #editor); Goose prewarm @State (per-frame lag); DOM-outline regex hoist.
+- DONE HTML-Workspace bold-cut (commits d86cf87bb + tray): removed in-preview picker, drop-zones, sidebar, and the
+  cramped context tray (also a "too connected" spot). Kept: editing, preview, inspector, console, chat-regenerate + Add-Context.
+
+## Deferred to the THERMO-NUCLEAR final pass (needs test-run / careful threading / owner in-app verify)
+- Goose double-runtime: Cmd+3 (EpistemosApp:1488) still opens a window -> 2nd runtime. Reroute to embedded + shared
+  app-lifetime GooseRuntimeHost (one supervisor/WebPage/server) — the real "instant, never-reload" fix.
+- Goose affordance bridge: Process()/git worktree list + large readFile block @MainActor ~4s (GooseWebNativeAffordanceBridge
+  :776,:937) -> move off-main via Task.detached + async replyHandler (mirror getAllowedExtensions:171).
+- HTML-Workspace: delete now-dead HTMLWorkspaceRegenerateContextSidebar.swift + HTMLWorkspacePreviewContextPicker.swift +
+  reconcile the source-mirror test EpistemosTests/HTMLWorkspaceRegeneratePatchSynthesizerTests.swift (asserts removed UI;
+  fails on RUN, not build). Remove now-unused editor state/helpers (shouldShowPreviewContextSidebar, handlePreviewContextDrop, etc.).
+- "Too connected" borders: audit + add dividers/separation across remaining context/toolbar UI (needs owner to point at spots).
+- Landing cleanup: conservative trims.
+- Editor perf (low): 250ms snapshot setInterval + Swift poll — gate on document.hidden / no-window.
