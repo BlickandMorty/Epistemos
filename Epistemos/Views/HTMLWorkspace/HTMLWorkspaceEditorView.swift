@@ -915,7 +915,9 @@ struct HTMLWorkspaceEditorView: View {
             return
         }
         let directive = """
-        Use this dropped read-only context as a primary source; keep provenance visible and do not invent missing details:
+        Use this dropped read-only context as a primary source; keep provenance visible and do not invent missing details.
+        \(droppedPreviewTargetDirective())
+        Context:
         \(boundedDroppedContext(context))
         """
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -923,6 +925,25 @@ struct HTMLWorkspaceEditorView: View {
         regenerateSheetPresented = true
         statusText = "Dropped context added"
         beginRegenerateSurface(instructionOverride: regenerateInstruction)
+    }
+
+    private func droppedPreviewTargetDirective() -> String {
+        guard let inspection = selectedElementInspection else {
+            return "Target: update the current preview surface as a whole."
+        }
+
+        let selector = boundedDroppedContextTarget(inspection.selector)
+        let textPreview = inspection.textPreview.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !textPreview.isEmpty else {
+            return "Target: update the selected preview element/section \(selector) first."
+        }
+        return "Target: update the selected preview element/section \(selector) first. Current text: \(boundedDroppedContextTarget(textPreview))"
+    }
+
+    private func boundedDroppedContextTarget(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 240 else { return trimmed }
+        return String(trimmed.prefix(237)) + "..."
     }
 
     private func boundedDroppedContext(_ value: String) -> String {
