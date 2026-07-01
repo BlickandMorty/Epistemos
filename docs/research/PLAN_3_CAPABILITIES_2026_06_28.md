@@ -381,8 +381,8 @@ meetingNote/voice) reuses the existing `PixelLandingCommandTile` and summons Pla
 `UtilityWindowManager.showSettings(section: .provenance)`, `UtilityWindowManager.showSettings(section: .skills)`,
 `UtilityWindowManager.showSettings(section: .voice)`, `UtilityWindowManager.show(.browser)`,
 `UtilityWindowManager.show(.meetingNote)`, the arXiv sheet, and `LiteParsePDFImportController.importPage`.
-Honest compile-time Pro pills; unavailable/help/status text is bounded before tooltips and alerts with ellipsis inside
-configured caps.
+Honest compile-time Pro pills; unavailable/help/status text is raw-bounded before trim and then shown in tooltips and
+alerts with ellipsis inside configured caps.
 Adding a feature = 1 enum case + 1 switch line.
 Pure additive UI, MAS-safe.
 

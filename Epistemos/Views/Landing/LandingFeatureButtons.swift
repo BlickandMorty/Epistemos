@@ -1,5 +1,30 @@
 import SwiftUI
 
+nonisolated enum LandingFeatureButtonTextPolicy {
+    static let maxUnavailableMessageCharacters = 512
+    static let maxHelpTextCharacters = 240
+
+    static func unavailableMessage(_ message: String) -> String {
+        bounded(message, limit: maxUnavailableMessageCharacters, fallback: "Feature status unavailable.")
+    }
+
+    static func helpText(_ message: String) -> String {
+        bounded(message, limit: maxHelpTextCharacters, fallback: "Feature unavailable.")
+    }
+
+    private static func bounded(_ value: String, limit: Int, fallback: String) -> String {
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
+        }
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
+    }
+}
+
 enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case pdfImport
     case arxiv
@@ -7,6 +32,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case extensions
     case vaultMCP
     case browser
+    case browserUsePro
     case meetingNote
     case voice
 
@@ -20,6 +46,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .extensions: "extensions"
         case .vaultMCP: "vault MCP"
         case .browser: "browser"
+        case .browserUsePro: "browser-use"
         case .meetingNote: "meeting"
         case .voice: "voice"
         }
@@ -33,6 +60,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .extensions: .workspace
         case .vaultMCP: .notes
         case .browser: .html
+        case .browserUsePro: .agent
         case .meetingNote: .capture
         case .voice: .chat
         }
@@ -42,16 +70,14 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         .landingFeature(rawValue: rawValue)
     }
 
-    var accent: Color {
+    func accent(in theme: EpistemosTheme) -> Color {
         switch self {
-        case .pdfImport: Color(hex: 0x8ABF5D)
-        case .arxiv: Color(hex: 0x4C8DFF)
-        case .provenance: Color(hex: 0xD96B7E)
-        case .extensions: Color(hex: 0xC985D8)
-        case .vaultMCP: Color(hex: 0x4FB477)
-        case .browser: Color(hex: 0xE0A53C)
-        case .meetingNote: Color(hex: 0x5AA6A6)
-        case .voice: Color(hex: 0xB26BD6)
+        case .pdfImport, .vaultMCP, .voice:
+            theme.resolved.accent.color
+        case .arxiv, .browser, .browserUsePro:
+            theme.resolved.headingAccent.color
+        case .provenance, .extensions, .meetingNote:
+            theme.resolved.foreground.color.opacity(theme.isDark ? 0.88 : 0.76)
         }
     }
 
@@ -60,27 +86,18 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .pdfImport, .arxiv: .document
         case .provenance: .graph
         case .extensions, .vaultMCP: .workspace
-        case .browser: .agent
+        case .browser, .browserUsePro: .agent
         case .meetingNote, .voice: .capture
         }
     }
 
     var shortcut: String? {
-        switch self {
-        case .pdfImport: nil
-        case .arxiv: nil
-        case .provenance: nil
-        case .extensions: nil
-        case .vaultMCP: "PRO"
-        case .browser: nil
-        case .meetingNote: nil
-        case .voice: nil
-        }
+        nil
     }
 
     var isProOnly: Bool {
         switch self {
-        case .vaultMCP:
+        case .vaultMCP, .browserUsePro:
             return true
         case .pdfImport, .arxiv, .provenance, .extensions, .browser, .meetingNote, .voice:
             return false
@@ -89,7 +106,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
 
     var isAvailableInThisBuild: Bool {
         switch self {
-        case .vaultMCP:
+        case .vaultMCP, .browserUsePro:
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             return false
             #else
@@ -106,10 +123,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         }
     }
 
-    var unavailableMessage: String {
-        if isProOnly {
-            return "\(title) is available in Epistemos Pro."
-        }
+    private var rawUnavailableMessage: String {
         switch self {
         case .pdfImport:
             return LiteParseImportGateStatus.status().detail
@@ -117,20 +131,28 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return ArxivPullGateStatus.status().detail
         case .browser:
             return "Browser is unavailable in this build."
+        case .browserUsePro:
+            return "browser-use Pro is available in Developer ID builds only."
+        case .vaultMCP:
+            return "vault MCP is available in Epistemos Pro."
         case .meetingNote:
             return "Meeting notes are unavailable in this build."
         case .voice:
             return "Voice settings are unavailable in this build."
-        case .provenance, .extensions, .vaultMCP:
+        case .provenance, .extensions:
             return "\(title) is unavailable in this build."
         }
+    }
+
+    var unavailableMessage: String {
+        LandingFeatureButtonTextPolicy.unavailableMessage(rawUnavailableMessage)
     }
 
     var helpText: String {
         if isAvailableInThisBuild {
             return "Open \(title)."
         }
-        return unavailableMessage
+        return LandingFeatureButtonTextPolicy.helpText(unavailableMessage)
     }
 }
 
@@ -140,13 +162,15 @@ struct LandingFeatureButtonTile: View {
     let action: () -> Void
 
     var body: some View {
+        let accent = feature.accent(in: theme)
+
         ZStack(alignment: .topTrailing) {
             PixelLandingCommandTile(
                 title: feature.title,
                 shortcut: feature.shortcut,
                 glyph: feature.glyph,
                 theme: theme,
-                accent: feature.accent,
+                accent: accent,
                 haptic: feature.haptic,
                 brand: feature.integrationBrand,
                 action: action
@@ -156,16 +180,16 @@ struct LandingFeatureButtonTile: View {
             if feature.isProOnly && !feature.isAvailableInThisBuild {
                 Text("PRO")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(feature.accent)
+                    .foregroundStyle(accent)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
                     .background {
                         Capsule(style: .continuous)
-                            .fill(feature.accent.opacity(theme.isDark ? 0.20 : 0.12))
+                            .fill(accent.opacity(theme.isDark ? 0.20 : 0.12))
                     }
                     .overlay {
                         Capsule(style: .continuous)
-                            .stroke(feature.accent.opacity(0.45), lineWidth: 0.75)
+                            .stroke(accent.opacity(0.45), lineWidth: 0.75)
                     }
                     .padding(5)
             }

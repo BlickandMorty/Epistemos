@@ -37,6 +37,9 @@ private enum LandingInlineCommand: Equatable {
 
 struct LandingView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
+    private static let maxLandingFeatureStatusCharacters = 1_200
+    private static let maxLandingPDFImportStatusRows = 12
+    private static let maxLandingPDFImportStatusLineCharacters = 160
 
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
@@ -628,8 +631,7 @@ struct LandingView: View {
 
     private func performLandingFeatureButton(_ feature: LandingFeatureButton) {
         guard feature.isAvailableInThisBuild else {
-            landingFeatureStatusMessage = feature.unavailableMessage
-            showingLandingFeatureStatus = true
+            presentLandingFeatureStatus(feature.unavailableMessage)
             return
         }
 
@@ -646,6 +648,8 @@ struct LandingView: View {
             UtilityWindowManager.shared.showSettings(section: .voice)
         case .browser:
             UtilityWindowManager.shared.show(.browser)
+        case .browserUsePro:
+            UtilityWindowManager.shared.show(.browserUsePro)
         case .meetingNote:
             UtilityWindowManager.shared.show(.meetingNote)
         }
@@ -653,8 +657,7 @@ struct LandingView: View {
 
     private func runLandingPDFImport() {
         guard let vaultURL = vaultSync.vaultURL else {
-            landingFeatureStatusMessage = "Connect a vault first, then import."
-            showingLandingFeatureStatus = true
+            presentLandingFeatureStatus("Connect a vault first, then import.")
             return
         }
 
@@ -685,14 +688,67 @@ struct LandingView: View {
                 switch outcome {
                 case .imported(_, let title):
                     imported += 1
-                    lines.append("✓ \(title)")
+                    lines.append(Self.boundedLandingPDFImportStatusLine("✓ \(title)"))
                 case .rejected(let result):
-                    lines.append("✗ \(url.lastPathComponent): \(landingPDFImportReason(for: result))")
+                    lines.append(Self.boundedLandingPDFImportStatusLine(
+                        "✗ \(url.lastPathComponent): \(landingPDFImportReason(for: result))"
+                    ))
                 }
             }
-            landingFeatureStatusMessage = "Imported \(imported)/\(urls.count).\n" + lines.joined(separator: "\n")
-            showingLandingFeatureStatus = true
+            presentLandingFeatureStatus(
+                landingPDFImportSummary(imported: imported, total: urls.count, lines: lines)
+            )
         }
+    }
+
+    private func presentLandingFeatureStatus(_ message: String) {
+        landingFeatureStatusMessage = Self.boundedLandingFeatureStatus(message)
+        showingLandingFeatureStatus = true
+    }
+
+    private func landingPDFImportSummary(imported: Int, total: Int, lines: [String]) -> String {
+        let visibleLines = Array(lines.prefix(Self.maxLandingPDFImportStatusRows))
+        var message = "Imported \(imported)/\(total)."
+        if !visibleLines.isEmpty {
+            message += "\n" + visibleLines.joined(separator: "\n")
+        }
+        let hiddenCount = max(0, lines.count - visibleLines.count)
+        if hiddenCount > 0 {
+            message += "\n+\(hiddenCount) more files"
+        }
+        return Self.boundedLandingFeatureStatus(message)
+    }
+
+    private static func boundedLandingFeatureStatus(_ message: String) -> String {
+        rawBoundedLandingStatus(
+            message,
+            limit: maxLandingFeatureStatusCharacters,
+            fallback: "Feature status unavailable."
+        )
+    }
+
+    private static func boundedLandingPDFImportStatusLine(_ message: String) -> String {
+        rawBoundedLandingStatus(
+            message,
+            limit: maxLandingPDFImportStatusLineCharacters,
+            fallback: "PDF import status unavailable."
+        )
+    }
+
+    private static func rawBoundedLandingStatus(
+        _ value: String,
+        limit: Int,
+        fallback: String
+    ) -> String {
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
+        }
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
     }
 
     private func landingPDFImportReason(for result: LiteParseImportResult) -> String {

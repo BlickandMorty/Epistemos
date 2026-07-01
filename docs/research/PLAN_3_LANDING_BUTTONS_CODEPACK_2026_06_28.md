@@ -22,25 +22,30 @@
 
 ## `Epistemos/Views/Landing/LandingFeatureButtons.swift` [DELIVERED]
 - **`enum LandingFeatureButton: CaseIterable`** — one case per feature (`pdfImport`/`arxiv`/`provenance`/`extensions`/
-  `vaultMCP`/`browser`/`meetingNote`/`voice`, + future ones). Each derives `title`/`glyph`(reuse `PixelGlyphKind`)/`accent`/`haptic`/`isProOnly`/
-  `isAvailableInThisBuild` (compile-time). Adding a feature = **1 enum case + 1 switch line**.
+  `vaultMCP`/`browser`/`browserUsePro`/`meetingNote`/`voice`). Each derives
+  `title`/`glyph`(reuse `PixelGlyphKind`)/theme-token `accent(in:)`/`haptic`/`isProOnly`/`isAvailableInThisBuild` (compile-time).
+  Adding a feature = **1 enum case + 1 switch line**.
 - **`LandingFeatureButtonTile`** — wraps the existing `PixelLandingCommandTile` (unchanged) + overlays a "PRO" pill when
-  `isProOnly && !isAvailableInThisBuild`; `.help` text honest.
+  `isProOnly && !isAvailableInThisBuild`; `.help` text honest. Pro-only feature tiles do not also reuse the shortcut
+  slot for "PRO", so MAS shows one lock/pro indicator instead of a duplicated badge. Feature unavailable/help text is
+  raw-bounded before trim and then shown in tooltips and alerts with ellipsis kept inside configured caps.
 - **`landingFeatureShortcuts`** computed view in `LandingView` — same `LazyVGrid` column spec, `ForEach(LandingFeatureButton.allCases)`,
   placed in `greetingContent` above `landingPixelCommands` (`:425`).
-- **`performFeatureButton(_:)`** single dispatch — honest gate first (`guard isAvailableInThisBuild else { showToast("…
-  available in Epistemos Pro"); return }`), then summon the VERIFIED Plan 3 entry point:
+- **`performFeatureButton(_:)`** single dispatch — honest gate first (`guard isAvailableInThisBuild else {
+  presentLandingFeatureStatus(feature.unavailableMessage); return }`), then summon the VERIFIED Plan 3 entry point:
   `.browser`→`UtilityWindowManager.shared.show(.browser)`, `.meetingNote`→`UtilityWindowManager.shared.show(.meetingNote)`,
   `.provenance`→`UtilityWindowManager.shared.showSettings(section: .provenance)`,
   `.extensions/.vaultMCP`→`UtilityWindowManager.shared.showSettings(section: .skills)`,
   `.voice`→`UtilityWindowManager.shared.showSettings(section: .voice)`, `.arxiv`→`showingArxivSearch = true`,
   `.pdfImport`→`runLandingPDFImport()` (lift `LiteParsePDFImportButton.runImport()` body — env already present in `LandingView`).
+  Landing feature alerts cap PDF import result row count, per-row text, and final alert text before display, so bulk imports cannot flood the home surface.
+  Feature unavailable/help text is raw-bounded before trim and then shown in tooltips and alerts with ellipsis kept inside configured caps.
 
 ## Notes
 - **Deep-link refinement `[VERIFIED-CODE]`:** `SettingsView.init(initialSelection:)` +
   `UtilityWindowManager.shared.showSettings(section:)` now land `.provenance`, `.extensions/.vaultMCP`, and `.voice`
   directly on their panes.
-- **MAS-safe + no clash:** pure UI; every action summons an already-shipping surface; only `.extensions` is Pro-gated
-  (lock pill + toast in MAS). Reusing the pixel tile inherits theme treatments + hover motion automatically.
+- **MAS-safe + no clash:** pure UI; every action summons an already-shipping surface; `.vaultMCP` and `.browserUsePro`
+  are Pro-gated (lock pill + bounded status alert in MAS). Reusing the pixel tile inherits theme-token accents + hover motion automatically.
 - **Browser button → Browser:** points at the in-app WKWebView Browser utility panel. The browser-use Chromium robot
   remains Pro-only and separate from this human-driven WebKit tab.
