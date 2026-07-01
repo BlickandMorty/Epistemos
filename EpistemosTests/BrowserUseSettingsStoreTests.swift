@@ -451,7 +451,8 @@ struct BrowserUseSettingsStoreTests {
         }
         #expect(source.contains("maxPathDiagnosticLength"))
         #expect(source.contains("settingsPathDescription"))
-        #expect(source.contains("maxPathDiagnosticLength - 3"))
+        #expect(source.contains("normalizedDiagnostic(filename)"))
+        #expect(source.contains("CharacterSet.controlCharacters"))
         #expect(!source.contains("Data(contentsOf: settingsURL)"))
     }
 

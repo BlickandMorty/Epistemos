@@ -690,10 +690,33 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
 
     private static func settingsPathDescription(_ url: URL) -> String {
         let filename = url.lastPathComponent.isEmpty ? "settings.json" : url.lastPathComponent
-        guard filename.count > maxPathDiagnosticLength else {
-            return filename
+        let normalized = normalizedDiagnostic(filename).trimmingCharacters(in: .whitespacesAndNewlines)
+        let diagnostic = normalized.isEmpty ? "settings.json" : normalized
+        guard diagnostic.count > maxPathDiagnosticLength else {
+            return diagnostic
         }
-        return String(filename.prefix(maxPathDiagnosticLength - 3)) + "..."
+        return (String(diagnostic.prefix(maxPathDiagnosticLength - 3)) + "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedDiagnostic(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 }
 

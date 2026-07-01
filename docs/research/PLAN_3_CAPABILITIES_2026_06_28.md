@@ -182,9 +182,10 @@ origin-only URL redaction rather than raw `absoluteString`; loopback host normal
 are bounded before trim/compare, invalid loopback address failures use a bounded secret-aware host diagnostic instead
 of echoing raw `host:port`, and signature payload enumeration is capped with symlink descendants skipped before target
 resolution. The Developer ID resource bundler and runtime gate both validate the signed manifest plus package-result
-checkpoint through no-follow regular-file evidence before a signed package can report ready. Browser-use Pro gate/settings/runtime diagnostics bound raw status/domain/path strings before
-trimming and keep ellipsis inside configured caps. Decoded browser-use settings JSON is validated before returning
-UI/runtime state, not only before saves or launch planning.
+checkpoint through no-follow regular-file evidence before a signed package can report ready. Browser-use Pro
+gate/settings/runtime diagnostics bound raw status/domain/path strings, normalize control/whitespace characters, and keep
+ellipsis inside configured caps before display. Decoded browser-use settings JSON is validated before returning UI/runtime
+state, not only before saves or launch planning.
 
 ---
 
@@ -422,7 +423,8 @@ Pure additive UI, MAS-safe.
   release notarization remains distribution ops; the loopback shell/control and task-submit dry-run UI smokes have
   landed; the Pro gate
   rejects symlink-routed, non-regular, or >1 MiB vendor manifests before no-follow JSON decode and rejects staged
-  artifact symlink aliases before file/directory shape checks.
+  artifact symlink aliases before file/directory shape checks; runtime status/domain/path diagnostics are bounded,
+  path-redacted, and control/whitespace-normalized before Settings display.
   Full-clone requirement: the COMPLETE browser-use app, settings and all, no capability lost.
 - ~~Option B (native `WebKitBrowserEngine`-driven robot)~~ = **PARKED/superseded** by browser-use — do NOT build it
   (the owner cut the heavy native automation engine). The `WebKitBrowserEngine` stub stays `NotConfigured`.

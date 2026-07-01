@@ -160,8 +160,8 @@ symlink-path rejected, read through no-follow descriptors, and capped before JSO
 manifest, 64 KiB for the package result); manifest-declared
 artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
 and never surface full user-local paths; unexpected external manifest read failures are mapped to bounded domain/code
-diagnostics before gate or Settings status text, with raw status/domain/path strings bounded before trimming and
-ellipsis kept inside configured caps; artifact symlink aliases are rejected before shape checks; file artifacts must
+diagnostics before gate or Settings status text, with raw status/domain/path strings bounded, control/whitespace-normalized,
+and kept with ellipsis inside configured caps before display; artifact symlink aliases are rejected before shape checks; file artifacts must
 be files and directory artifacts must be directories; Playwright payload readiness requires the exact `chromium-*`,
 `chromium_headless_shell-*`, and `ffmpeg-*` regular-file revision markers declared by the manifest. The gate exact-matches
 the vendor manifest schema, name, runtime lane, and two-browser boundary before artifact/signature checks. Signature

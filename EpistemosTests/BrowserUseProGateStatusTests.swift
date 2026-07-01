@@ -118,6 +118,27 @@ struct BrowserUseProGateStatusTests {
         #expect(message.hasSuffix("..."))
     }
 
+    @Test("diagnostics normalize embedded control characters before display")
+    func diagnosticsNormalizeEmbeddedControlCharacters() {
+        let message = BrowserUseDiagnostics.statusMessage(
+            "browser-use\nstatus\tready\u{0007}",
+            fallback: "browser-use status"
+        )
+        let settingsError = BrowserUseSettingsStoreError.invalidFile(
+            "settings\nfile\tis\u{0007}invalid"
+        )
+        let settingsMessage = BrowserUseDiagnostics.statusMessage(
+            for: settingsError,
+            fallback: "settings load failed"
+        )
+
+        #expect(message == "browser-use status ready")
+        #expect(settingsMessage == "settings file is invalid")
+        #expect(!message.contains("\n"))
+        #expect(!settingsMessage.contains("\t"))
+        #expect(BrowserUseDiagnostics.safeDomain("NS\nCocoa\tError") == "Error")
+    }
+
     @Test("manifest file envelope rejects symlinks and oversized JSON before decode")
     func manifestFileEnvelopeRejectsSymlinksAndOversizedJSONBeforeDecode() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
@@ -492,7 +513,9 @@ struct BrowserUseProGateStatusTests {
             "BrowserUseDiagnostics",
             "BrowserUseDiagnostics.statusMessage(for: error",
             "rawBoundedDiagnostic(message, maxCharacters: maxStatusMessageCharacters",
+            "normalizedDiagnostic(clipped)",
             "String(domain.prefix(maxDomainCharacters))",
+            "normalizedDiagnostic(bounded)",
             "BrowserUseSignedBundleStatus",
             "SecStaticCodeCheckValidity",
             "kSecCSCheckNestedCode",
@@ -539,6 +562,7 @@ struct BrowserUseProGateStatusTests {
             "String(value.prefix(32))",
             "rawBoundedDiagnostic(",
             "maxCharacters: maxStatusMessageCharacters",
+            "normalizedDiagnostic(clipped)",
             "limit - 3",
         ] {
             #expect(signedSource.contains(required), "Missing browser-use signed bundle string: \(required)")

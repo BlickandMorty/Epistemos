@@ -348,10 +348,43 @@ nonisolated enum BrowserUseEnvironmentFileWriter {
 
     private static func pathDiagnostic(_ url: URL) -> String {
         let filename = url.lastPathComponent.isEmpty ? "[path]" : url.lastPathComponent
-        guard filename.count > maxPathDiagnosticLength else {
-            return filename
+        let diagnostic = cappedDiagnostic(filename, limit: maxPathDiagnosticLength)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return diagnostic.isEmpty ? "[path]" : diagnostic
+    }
+
+    private static func cappedDiagnostic(_ value: String, limit: Int) -> String {
+        let limit = max(0, limit)
+        let normalized = normalizedDiagnostic(value).trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(normalized.prefix(limit + 1))
+        guard bounded.count > limit else {
+            return bounded
         }
-        return String(filename.prefix(maxPathDiagnosticLength - 3)) + "..."
+        guard limit > 3 else {
+            return String(bounded.prefix(limit))
+        }
+        return (String(bounded.prefix(limit - 3)) + "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedDiagnostic(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 }
 
@@ -884,14 +917,36 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
     private static func cappedDiagnostic(_ value: String, limit: Int) -> String {
         let limit = max(0, limit)
-        let bounded = String(value.prefix(limit + 1))
+        let normalized = normalizedDiagnostic(value).trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(normalized.prefix(limit + 1))
         guard bounded.count > limit else {
             return bounded
         }
         guard limit > 3 else {
             return String(bounded.prefix(limit))
         }
-        return String(bounded.prefix(limit - 3)) + "..."
+        return (String(bounded.prefix(limit - 3)) + "...")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedDiagnostic(_ value: String) -> String {
+        var normalized = ""
+        normalized.reserveCapacity(value.count)
+        var previousWasSeparator = false
+        for scalar in value.unicodeScalars {
+            let isSeparator = CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar)
+            if isSeparator {
+                if !previousWasSeparator {
+                    normalized.append(" ")
+                    previousWasSeparator = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSeparator = false
+            }
+        }
+        return normalized
     }
 
     private static func artifactProblem(
@@ -961,10 +1016,8 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             description = "[outside runtime root]"
         }
 
-        guard description.count > maxPathDiagnosticLength else {
-            return description
-        }
-        return String(description.prefix(maxPathDiagnosticLength - 3)) + "..."
+        let diagnostic = cappedDiagnostic(description, limit: maxPathDiagnosticLength)
+        return diagnostic.isEmpty ? "[runtime path]" : diagnostic
     }
 
     private static func resolvesInsideRuntimeRoot(_ url: URL, relativeTo rootURL: URL) -> Bool {
