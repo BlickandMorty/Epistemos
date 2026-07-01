@@ -232,10 +232,15 @@ struct HTMLWorkspaceRegenerateSheet: View {
                                         .font(.caption2)
                                         .foregroundStyle(mutedText)
                                         .lineLimit(2)
-                                    Text(item.sourceLabel)
+                                    Text(item.contextDescriptor)
                                         .font(pixelMicroFont)
                                         .foregroundStyle(mutedText)
                                         .lineLimit(1)
+                                    Text(item.provenanceDescriptor)
+                                        .font(pixelMicroFont)
+                                        .foregroundStyle(mutedText)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
                                 }
                                 .frame(width: 178, alignment: .leading)
                                 .padding(.horizontal, 8)
@@ -649,6 +654,23 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     var contextKind: String
     var sourceLabel: String
     var provenance: String
+
+    var contextDescriptor: String {
+        "\(sourceLabel) / \(contextKind)"
+    }
+
+    var provenanceDescriptor: String {
+        "via \(provenance)"
+    }
+
+    var systemImage: String {
+        let kind = contextKind.lowercased()
+        if kind.contains("capture") { return "tray.full" }
+        if kind.contains("chat") { return "bubble.left.and.text.bubble.right" }
+        if kind.contains("graph") || kind.contains("related") { return "point.3.connected.trianglepath.dotted" }
+        if kind.contains("folder") { return "folder" }
+        return "doc.text"
+    }
 
     var dragPayload: String {
         let safeTitle = Self.bounded(title, limit: 160)

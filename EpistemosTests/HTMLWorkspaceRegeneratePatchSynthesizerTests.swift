@@ -69,7 +69,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains(".font(pixelControlFont)"))
         #expect(sheet.contains(".font(pixelMicroFont)"))
         #expect(sheet.contains("ForEach(contextItems)"))
-        #expect(sheet.contains("Text(item.sourceLabel)"))
+        #expect(sheet.contains("Text(item.contextDescriptor)"))
+        #expect(sheet.contains("Text(item.provenanceDescriptor)"))
         #expect(sheet.contains(".onDrag"))
         #expect(sheet.contains("NSItemProvider(object: item.dragPayload as NSString)"))
         #expect(sheet.contains("nonisolated struct HTMLWorkspaceRegenerateContextItem"))
@@ -171,7 +172,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(sidebar.contains("NSItemProvider(object: item.dragPayload as NSString)"))
         #expect(sidebar.contains("Drag into the preview or click to apply context"))
-        #expect(sidebar.contains("Text(item.sourceLabel)"))
+        #expect(sidebar.contains("Text(item.contextDescriptor)"))
+        #expect(sidebar.contains("Text(item.provenanceDescriptor)"))
         #expect(sidebar.contains("Text(\"Workspace Context\")"))
         #expect(sidebar.contains("private var pixelCaptionFont: Font"))
         #expect(sidebar.contains("private var pixelMicroFont: Font"))
@@ -186,7 +188,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("onOpenContextSearch()"))
         #expect(picker.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(picker.contains("onPickContextItem(item)"))
-        #expect(picker.contains("item.sourceLabel"))
+        #expect(picker.contains("item.contextDescriptor"))
+        #expect(picker.contains("item.systemImage"))
         #expect(picker.contains("Pick read-only context for this preview surface"))
     }
 
@@ -305,6 +308,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(items.first?.contextKind == "vault_record")
         #expect(items.first?.sourceLabel == "Vault search result")
         #expect(items.first?.provenance == "VaultSyncService.searchFullAsync")
+        #expect(items.first?.contextDescriptor == "Vault search result / vault_record")
+        #expect(items.first?.provenanceDescriptor == "via VaultSyncService.searchFullAsync")
+        #expect(items.first?.systemImage == "doc.text")
         #expect(items.first?.dragPayload.contains("Workspace context: Alpha Note [note-a]") == true)
         #expect(items.first?.dragPayload.contains("Source: Vault search result / vault_record") == true)
         #expect(items.first?.dragPayload.contains("Provenance: VaultSyncService.searchFullAsync") == true)
@@ -335,6 +341,33 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(item.title.hasSuffix("..."))
         #expect(item.snippet.hasSuffix("..."))
         #expect(item.dragPayload.count < 920)
+    }
+
+    @Test("regenerate context items pick icons from explicit context kind only")
+    func regenerateContextItemsPickIconsFromExplicitContextKindOnly() {
+        let capture = HTMLWorkspaceRegenerateContextItem(
+            pageID: "capture-1",
+            title: "Capture",
+            snippet: "captured text",
+            rank: 1,
+            contextKind: "recent_capture",
+            sourceLabel: "Recent capture",
+            provenance: "CaptureStore"
+        )
+        let graph = HTMLWorkspaceRegenerateContextItem(
+            pageID: "graph-1",
+            title: "Graph",
+            snippet: "related text",
+            rank: 1,
+            contextKind: "graph_related_note",
+            sourceLabel: "Graph related note",
+            provenance: "GraphState"
+        )
+
+        #expect(capture.systemImage == "tray.full")
+        #expect(graph.systemImage == "point.3.connected.trianglepath.dotted")
+        #expect(capture.contextDescriptor == "Recent capture / recent_capture")
+        #expect(graph.provenanceDescriptor == "via GraphState")
     }
 
     @Test("regenerate preview package swaps reset stale route selection")
