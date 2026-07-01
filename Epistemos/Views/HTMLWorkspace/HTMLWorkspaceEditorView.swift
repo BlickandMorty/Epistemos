@@ -19,6 +19,7 @@ struct HTMLWorkspaceEditorView: View {
     @State private var statusText: String?
     @State private var liveDOMSnapshot: HTMLWorkspaceDOMSnapshot?
     @State private var selectedElementInspection: HTMLWorkspaceElementInspection?
+    @State private var isPreviewContextDropTargeted = false
     @State private var regenerateSheetPresented = false
     @State private var regenerateInstruction = ""
     @State private var regenerateStreamText = ""
@@ -543,7 +544,13 @@ struct HTMLWorkspaceEditorView: View {
                     )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
-                    .onDrop(of: [UTType.plainText], isTargeted: nil, perform: handlePreviewContextDrop)
+                    .onDrop(of: [UTType.plainText], isTargeted: $isPreviewContextDropTargeted, perform: handlePreviewContextDrop)
+
+                    if isPreviewContextDropTargeted {
+                        previewContextDropOverlay
+                            .padding(18)
+                            .transition(.opacity)
+                    }
 
                     HTMLWorkspacePreviewContextPicker(
                         contextItems: regenerateContextItems,
@@ -619,6 +626,32 @@ struct HTMLWorkspaceEditorView: View {
             onUpdateStyleDeclaration: updateInspectorStyleDeclaration,
             onCopyStyleDeclarationPatch: copyInspectorStyleDeclarationPatch
         )
+    }
+
+    private var previewContextDropOverlay: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Drop context to regenerate", systemImage: "plus.square.on.square")
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(workspaceTheme.resolved.foreground.color)
+            Text(previewContextDropTargetText)
+                .font(.caption2)
+                .foregroundStyle(workspaceTheme.textTertiary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(panelFill, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .shadow(color: .black.opacity(workspaceTheme.isDark ? 0.24 : 0.10), radius: 12, y: 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .allowsHitTesting(false)
+    }
+
+    private var previewContextDropTargetText: String {
+        guard let inspection = selectedElementInspection else {
+            return "Target: current preview surface"
+        }
+        return "Target: \(boundedInspectorSelectorStatus(inspection.selector))"
     }
 
     private var bridgeStatusText: String {
