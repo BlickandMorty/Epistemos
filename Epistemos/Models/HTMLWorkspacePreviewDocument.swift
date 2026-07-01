@@ -486,16 +486,21 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             const entry = pendingRequests.get(requestId);
             pendingRequests.delete(requestId);
             window.clearTimeout(entry.timer);
+            const responseVersion = Number(detail.safeAPIVersion);
             const response = Object.freeze({
               command: typeof detail.command === 'string' ? detail.command : null,
               requestId,
               ok: detail.ok !== false,
               error: typeof detail.error === 'string' ? detail.error : null,
               message: typeof detail.message === 'string' ? detail.message : '',
-              safeAPIVersion: Number.isFinite(Number(detail.safeAPIVersion)) ? Number(detail.safeAPIVersion) : \(safeAPIVersion)
+              safeAPIVersion: Number.isFinite(responseVersion) ? responseVersion : null
             });
             if (!response.command || entry.command !== response.command) {
               entry.reject(bridgeError('HTML Workspace app bridge response command mismatch'));
+              return;
+            }
+            if (response.safeAPIVersion !== \(safeAPIVersion)) {
+              entry.reject(bridgeError('HTML Workspace app bridge response version mismatch'));
               return;
             }
             if (detail.ok === false) {
