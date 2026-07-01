@@ -548,48 +548,13 @@ struct HTMLWorkspaceEditorView: View {
                     )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
-                    .onDrop(
-                        of: HTMLWorkspaceRegenerateContextItem.previewDropUTTypes,
-                        isTargeted: $isPreviewContextDropTargeted,
-                        perform: handlePreviewContextDrop
-                    )
-
-                    if isPreviewContextDropTargeted {
-                        previewContextDropOverlay
-                            .padding(18)
-                            .transition(.opacity)
-                    }
-
-                    HTMLWorkspacePreviewContextPicker(
-                        contextItems: regenerateContextItems,
-                        contextStatusText: regenerateContextStatusLine,
-                        isRegenerating: isRegenerating,
-                        isRefreshingContext: isRefreshingRegenerateContext,
-                        theme: workspaceTheme,
-                        targetText: previewContextDropTargetText,
-                        onOpenContextSearch: openRegenerateSheet,
-                        onRequestContextShortcut: refreshPreviewContextShortcut,
-                        onPickContextItem: applyPreviewContextItem
-                    )
-                    .padding(12)
+                    // Bold-cut (owner 2026-07-01): removed the floating in-preview context
+                    // picker, the drag drop-zones, and the drop overlay. The single
+                    // Add-Context surface is now the Regenerate sheet's context field.
                 }
             }
 
-            if shouldShowPreviewContextSidebar {
-                HTMLWorkspaceRegenerateContextSidebar(
-                    contextItems: regenerateContextItems,
-                    contextStatusText: regenerateContextStatusLine,
-                    isRegenerating: isRegenerating,
-                    isRefreshingContext: isRefreshingRegenerateContext,
-                    panelFill: panelFill,
-                    theme: workspaceTheme,
-                    targetText: previewContextDropTargetText,
-                    onRequestContextShortcut: refreshPreviewContextShortcut,
-                    onPickContextItem: applyPreviewContextItem
-                )
-                .frame(minWidth: 190, idealWidth: 220, maxWidth: 260)
-            }
-
+            // Bold-cut (owner 2026-07-01): removed the preview context sidebar.
             if inspectorVisible {
                 inspectorPanel
                     .frame(minWidth: 210, idealWidth: 250, maxWidth: 310)
