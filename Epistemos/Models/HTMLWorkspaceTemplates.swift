@@ -992,6 +992,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const contextKind = droppedPayloadField(raw, 'context_kind');
       const sourceLabel = droppedPayloadField(raw, 'source_label');
       const provenance = droppedPayloadField(raw, 'Provenance');
+      const hasStructuredFields = [pageID, title, contextKind, sourceLabel, provenance].some(Boolean);
+      if (!hasStructuredFields) { return ''; }
       const matches = (actual, expected) => {
         if (!expected) { return true; }
         const actualText = String(actual || '').trim();

@@ -896,6 +896,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("droppedPayloadField(raw, 'context_kind')"))
         #expect(package.scriptJS.contains("droppedPayloadField(raw, 'source_label')"))
         #expect(package.scriptJS.contains("droppedPayloadField(raw, 'Provenance')"))
+        #expect(package.scriptJS.contains("const hasStructuredFields = [pageID, title, contextKind, sourceLabel, provenance].some(Boolean);"))
+        #expect(package.scriptJS.contains("if (!hasStructuredFields) { return ''; }"))
         #expect(package.scriptJS.contains("return expected.endsWith('...') && actualText.startsWith(expected.slice(0, -3));"))
         #expect(package.scriptJS.contains("function pinDroppedContextKey(key, dropzone = null)"))
         #expect(package.scriptJS.contains("function pinDroppedContextPayload(payload, dropzone = null)"))
