@@ -758,7 +758,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
         }
         var lines = ["vault_search.results:"]
         for result in results.prefix(12) {
-            lines.append("- \(bounded(result.title, limit: 120)) [\(bounded(result.pageID, limit: 80))] \(bounded(result.sourceLabel, limit: 80)) / \(bounded(result.contextKind, limit: 60)) rank \(result.rank): \(bounded(result.snippet, limit: 240))")
+            lines.append("- \(bounded(result.title, limit: 120)) [\(bounded(result.pageID, limit: 80))] \(bounded(result.sourceLabel, limit: 80)) / \(bounded(result.contextKind, limit: 60)) via \(bounded(result.provenance, limit: 100)) rank \(result.rank): \(bounded(result.snippet, limit: 240))")
         }
         if results.count > 12 {
             lines.append("- omitted \(results.count - 12) additional result(s)")

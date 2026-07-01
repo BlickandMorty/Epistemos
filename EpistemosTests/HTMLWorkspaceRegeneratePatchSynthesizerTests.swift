@@ -274,7 +274,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("vault_search.query: substrate provenance"))
         #expect(prompt.contains("vault_search.context_kinds: vault_record"))
         #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
-        #expect(prompt.contains("- Research Note [page-1] Vault search result / vault_record rank 0.87: substrate provenance witness"))
+        #expect(prompt.contains("- Research Note [page-1] Vault search result / vault_record via VaultSyncService.searchFullAsync rank 0.87: substrate provenance witness"))
         #expect(prompt.contains("record_display_rule: show each attached record's source_label, context_kind, and provenance"))
         #expect(prompt.contains("grounding_rule: preserve real data provenance"))
 
