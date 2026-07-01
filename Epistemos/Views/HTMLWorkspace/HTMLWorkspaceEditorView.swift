@@ -1022,6 +1022,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         let directive = """
         Use this focused read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
+        \(droppedPreviewTargetDirective())
         Context:
         \(boundedDroppedContext(item.dragPayload))
         """

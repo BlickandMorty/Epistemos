@@ -210,6 +210,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)"))
         #expect(editor.contains("private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem)"))
         #expect(editor.contains("Use this focused read-only workspace context item as a primary source"))
+        #expect(editor.contains("Use this focused read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.\n        \\(droppedPreviewTargetDirective())"))
         #expect(editor.contains("boundedDroppedContext(item.dragPayload)"))
         #expect(editor.contains("guard !isRegenerating,\n              !isRefreshingRegenerateContext,\n              isCurrentRegenerateContextItem(item) else"))
         #expect(editor.contains(#"statusText = "Pick a current Epistemos workspace context item""#))
