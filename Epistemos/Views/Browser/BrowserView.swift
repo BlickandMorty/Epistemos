@@ -21,6 +21,13 @@ nonisolated enum BrowserURLGuard {
         guard !trimmed.isEmpty,
               trimmed.count <= maxRawInputLength else { return nil }
 
+        if hasNonHostExplicitSchemePrefix(trimmed) {
+            if let url = URL(string: trimmed), allows(url: url) {
+                return url
+            }
+            return nil
+        }
+
         if let url = URL(string: trimmed), url.scheme != nil {
             if allows(url: url) {
                 return url
@@ -85,6 +92,41 @@ nonisolated enum BrowserURLGuard {
             return nil
         }
         return String(prefix)
+    }
+
+    private static func hasNonHostExplicitSchemePrefix(_ raw: String) -> Bool {
+        guard let colonIndex = raw.firstIndex(of: ":"),
+              let scheme = schemePrefix(in: raw) else {
+            return false
+        }
+        let afterColon = raw.index(after: colonIndex)
+        if afterColon < raw.endIndex, raw[afterColon].isWhitespace {
+            return false
+        }
+        return !isLikelyHostPortInput(raw, colonIndex: colonIndex, scheme: scheme)
+    }
+
+    private static func isLikelyHostPortInput(_ raw: String, colonIndex: String.Index, scheme: String) -> Bool {
+        guard !allowedSchemes.contains(scheme),
+              !explicitlyBlockedSchemes.contains(scheme) else {
+            return false
+        }
+
+        let afterColon = raw.index(after: colonIndex)
+        guard afterColon < raw.endIndex else { return false }
+
+        let remainder = raw[afterColon...]
+        let portEnd = remainder.firstIndex(where: { $0 == "/" || $0 == "?" || $0 == "#" }) ?? raw.endIndex
+        let portText = remainder[..<portEnd]
+        guard !portText.isEmpty,
+              portText.allSatisfy(\.isNumber),
+              let port = Int(portText),
+              (1...65_535).contains(port) else {
+            return false
+        }
+
+        let host = raw[..<colonIndex]
+        return !host.isEmpty
     }
 
     private static func searchURL(for query: String, template: String) -> URL? {
