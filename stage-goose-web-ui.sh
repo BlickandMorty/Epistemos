@@ -5215,13 +5215,13 @@ if (!chatSource.includes(chatAcpImport)) {
 }
 // epistemos-acp-hide-security-settings: SECURITY_* keys have no Goose ACP
 // persistence/apply path, so the settings card must not appear operational.
-const securityCardAnchor = `      <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">
+const securityCardAnchor = `      <Card className="bg-background-primary/54 pb-2">
         <CardContent className="px-2.5">
           <SecurityToggle />
         </CardContent>
       </Card>`;
 const securityCardReplacement = `      {!USE_ACP_CHAT && (
-        <Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl" data-epistemos-acp-hide-security-settings="true">
+        <Card className="bg-background-primary/54 pb-2" data-epistemos-acp-hide-security-settings="true">
           <CardContent className="px-2.5">
             <SecurityToggle />
           </CardContent>
@@ -5926,15 +5926,15 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-hide-generic-config-settings" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "epistemos-acp-defaults-reset-unavailable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "data-epistemos-acp-hide-reset-provider-settings" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
-    grep -q "min-h-9 w-full rounded-\\[8px\\] border px-3 py-2 text-sm placeholder:text-text-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
-    grep -q "min-h-8 w-24 rounded-\\[8px\\] border px-2 py-1 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
-    grep -q "rounded-\\[9px\\] border border-transparent px-2 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
-    grep -q "border-t border-border-secondary pt-4" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
+    grep -q "min-h-9 w-full rounded-\\[8px\\] bg-background-primary/70 px-3 py-2 text-sm placeholder:text-text-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
+    grep -q "min-h-8 w-24 rounded-\\[8px\\] bg-background-primary/70 px-2 py-1 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
+    grep -q "rounded-\\[9px\\] px-2 py-2 transition-colors" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
+    grep -q "className=\"pt-4\"" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
     grep -q "mt-2 text-sm text-text-success" "$WORK_ROOT/ui/desktop/src/components/settings/security/SecurityToggle.tsx"
-    grep -q "border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
+    grep -q "bg-background-primary/54 pb-2" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
     grep -q "text-sm text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
-    grep -q "rounded-\\[10px\\] border p-3 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
-    grep -q "border-border-success bg-background-success/55 text-text-success" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
+    grep -q "rounded-\\[10px\\] p-3 text-sm" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
+    grep -q "bg-background-success/55 text-text-success" "$WORK_ROOT/ui/desktop/src/components/settings/sessions/SessionSharingSection.tsx"
     grep -q "Epistemos Apps bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/appsBridge.ts"
     grep -q "Epistemos context bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
     grep -q "if (snapshot.available === false) return '';" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
@@ -6164,12 +6164,12 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "min-h-\\[128px\\] overflow-hidden border-border-secondary bg-background-primary/68" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/subcomponents/ExtensionItem.tsx"
     grep -q "hover:text-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/subcomponents/ExtensionItem.tsx"
     grep -q "ep-native-badge mt-1 inline-flex max-w-full truncate" "$WORK_ROOT/ui/desktop/src/components/settings/extensions/subcomponents/ExtensionItem.tsx"
-    grep -q "border-border-secondary bg-background-primary/68 pb-2" "$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
-    grep -q "rounded-\\[9px\\] border px-3 py-2.5 text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSelectionItem.tsx"
+    grep -q "bg-background-primary/54 pb-2" "$WORK_ROOT/ui/desktop/src/components/settings/chat/ChatSettingsSection.tsx"
+    grep -q "rounded-\\[9px\\] px-3 py-2.5 text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSelectionItem.tsx"
     grep -q "peer-checked:border-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSelectionItem.tsx"
-    grep -q "rounded-\\[9px\\] border border-border-secondary bg-background-secondary/60" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ConversationLimitsDropdown.tsx"
-    grep -q "bg-background-primary/88 p-\\[16px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ConfigureApproveMode.tsx"
-    grep -q "rounded-\\[9px\\] border px-3 py-2.5 text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/response_styles/ResponseStyleSelectionItem.tsx"
+    grep -q "rounded-\\[9px\\] bg-background-secondary/56" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ConversationLimitsDropdown.tsx"
+    grep -q "bg-background-primary/92 p-\\[16px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ConfigureApproveMode.tsx"
+    grep -q "rounded-\\[9px\\] px-3 py-2.5 text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/response_styles/ResponseStyleSelectionItem.tsx"
     grep -q "epistemos-acp-permission-tools-list" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "listAcpSessionTools(sessionId, extensionName)" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
     grep -q "epistemos-acp-permission-save-unavailable" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionModal.tsx"
@@ -6192,7 +6192,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "stroke-\\[var(--epistemos-accent)\\]" "$WORK_ROOT/ui/desktop/src/components/settings/permission/PermissionSetting.tsx"
     grep -q "bg-background-primary/58 px-6" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
     grep -q "rounded-\\[10px\\] bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/settings/SettingsView.tsx"
-    grep -q "bg-background-primary/68 shadow-sm backdrop-blur-xl" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
+    grep -q "bg-background-primary/54" "$WORK_ROOT/ui/desktop/src/components/settings/app/AppSettingsSection.tsx"
     grep -q "text-\\[var(--epistemos-accent)\\] hover:underline" "$WORK_ROOT/ui/desktop/src/components/settings/app/TelemetrySettings.tsx"
     grep -q "grid grid-cols-\\[200px_1fr_auto\\] items-center gap-3 rounded-\\[10px\\]" "$WORK_ROOT/ui/desktop/src/components/settings/config/ConfigSettings.tsx"
     grep -q "focus:border-transparent" "$WORK_ROOT/ui/desktop/src/components/settings/config/ConfigSettings.tsx"

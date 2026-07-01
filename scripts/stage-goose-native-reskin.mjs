@@ -2846,7 +2846,7 @@ function applyChatSettingsSurfaces() {
     source,
     'chat settings cards native glass',
     'className="pb-2 rounded-[6px]"',
-    'className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/54 pb-2"'
   );
   source = replaceAllRequired(
     source,
@@ -2861,7 +2861,7 @@ function applyChatSettingsSurfaces() {
     source,
     'spellcheck native row',
     'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-border-secondary hover:bg-background-secondary/65"'
+    'className="flex items-center justify-between rounded-[9px] px-3 py-2.5 transition-colors duration-200 ease-[var(--epistemos-control-ease)] hover:bg-background-secondary/65"'
   );
   source = replaceRequired(
     source,
@@ -2885,7 +2885,7 @@ function applyChatSettingsSurfaces() {
     source,
     'mode item native row',
     "className={`flex items-center justify-between text-text-primary py-2 px-2 ${checked ? 'bg-background-secondary' : 'bg-background-primary hover:bg-background-secondary'} rounded-lg transition-all`}",
-    "className={`flex items-center justify-between rounded-[9px] border px-3 py-2.5 text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] ${checked ? 'border-border-secondary bg-background-secondary/78 shadow-sm ring-[1px] ring-[var(--epistemos-accent)]/25' : 'border-transparent bg-transparent hover:border-border-secondary hover:bg-background-secondary/55'}`}"
+    "className={`flex items-center justify-between rounded-[9px] px-3 py-2.5 text-text-primary transition-colors duration-200 ease-[var(--epistemos-control-ease)] ${checked ? 'bg-[var(--epistemos-accent)]/12' : 'bg-transparent hover:bg-background-secondary/55'}`}"
   );
   source = replaceRequired(
     source,
@@ -2929,7 +2929,7 @@ function applyChatSettingsSurfaces() {
     source,
     'conversation limits disclosure native',
     'className="w-full flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-[5px] transition-all group"',
-    'className="group flex w-full items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all duration-200 ease-[var(--epistemos-control-ease)] hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="group flex w-full items-center justify-between rounded-[9px] px-3 py-2.5 transition-colors duration-200 ease-[var(--epistemos-control-ease)] hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
@@ -2941,7 +2941,7 @@ function applyChatSettingsSurfaces() {
     source,
     'conversation limits row native glass',
     'className="flex items-center justify-between py-2 px-2 bg-background-secondary rounded-[5px] transform transition-all duration-200 ease-in-out"',
-    'className="flex items-center justify-between rounded-[9px] border border-border-secondary bg-background-secondary/60 px-3 py-2.5 shadow-sm backdrop-blur-xl transition-all duration-200 ease-[var(--epistemos-control-ease)]"'
+    'className="flex items-center justify-between rounded-[9px] bg-background-secondary/56 px-3 py-2.5 transition-colors duration-200 ease-[var(--epistemos-control-ease)]"'
   );
   source = replaceRequired(
     source,
@@ -2956,13 +2956,13 @@ function applyChatSettingsSurfaces() {
     source,
     'approve mode overlay native blur',
     'className="fixed inset-0 bg-black/30"',
-    'className="fixed inset-0 bg-black/24 backdrop-blur-sm"'
+    'className="fixed inset-0 bg-black/20"'
   );
   source = replaceRequired(
     source,
     'approve mode card native glass',
     'className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] bg-background-primary rounded-[6px] overflow-hidden p-[16px] pt-[24px] pb-0 border border-border-primary shadow-none"',
-    'className="fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] border border-border-primary bg-background-primary/88 p-[16px] pt-[24px] pb-0 shadow-2xl backdrop-blur-xl"'
+    'className="fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[14px] bg-background-primary/92 p-[16px] pt-[24px] pb-0"'
   );
   source = replaceRequired(
     source,
@@ -2974,13 +2974,13 @@ function applyChatSettingsSurfaces() {
     source,
     'approve mode save button native',
     'className="w-full h-[60px] rounded-none border-t border-border-primary hover:bg-background-secondary text-text-primary dark:border-gray-600 text-base font-regular"',
-    'className="h-11 w-full rounded-[8px] border border-border-secondary bg-background-primary/65 text-base font-medium text-text-primary hover:bg-background-secondary/75"'
+    'className="h-11 w-full rounded-[8px] bg-background-primary/65 text-base font-medium text-text-primary hover:bg-background-secondary/75"'
   );
   source = replaceRequired(
     source,
     'approve mode cancel button native',
     'className="w-full h-[60px] rounded-none border-t border-border-primary text-text-secondary hover:bg-background-secondary dark:border-gray-600 text-base font-regular"',
-    'className="h-11 w-full rounded-[8px] border border-border-secondary text-base font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
+    'className="h-11 w-full rounded-[8px] text-base font-regular text-text-secondary hover:bg-background-secondary/75 hover:text-text-primary"'
   );
   write('src/components/settings/mode/ConfigureApproveMode.tsx', source);
 
@@ -2998,7 +2998,7 @@ function applyChatSettingsSurfaces() {
     source,
     'response style item native row',
     "className={`flex items-center justify-between text-text-primary py-2 px-2 ${checked ? 'bg-background-secondary' : 'bg-background-primary hover:bg-background-secondary'} rounded-lg transition-all`}",
-    "className={`flex items-center justify-between rounded-[9px] border px-3 py-2.5 text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] ${checked ? 'border-border-secondary bg-background-secondary/78 shadow-sm ring-[1px] ring-[var(--epistemos-accent)]/25' : 'border-transparent bg-transparent hover:border-border-secondary hover:bg-background-secondary/55'}`}"
+    "className={`flex items-center justify-between rounded-[9px] px-3 py-2.5 text-text-primary transition-colors duration-200 ease-[var(--epistemos-control-ease)] ${checked ? 'bg-[var(--epistemos-accent)]/12' : 'bg-transparent hover:bg-background-secondary/55'}`}"
   );
   source = replaceRequired(
     source,
@@ -3154,25 +3154,25 @@ function applySettingsPanelSurfaces() {
     source,
     'app settings cards native glass',
     'className="rounded-lg"',
-    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/54"'
   );
   source = replaceAllRequired(
     source,
     'app settings rows native hover',
     'className="flex items-center justify-between"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-3 py-2.5 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
     'app settings language trigger native',
     'className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary"',
-    'className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-[8px] border border-border-primary bg-background-primary/70 px-3 py-2 text-sm text-text-primary shadow-sm transition-all hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/70"'
+    'className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-[8px] bg-background-primary/70 px-3 py-2 text-sm text-text-primary transition-colors hover:bg-background-secondary/70"'
   );
   source = replaceRequired(
     source,
     'app settings version badge native',
     'className="flex h-8 w-8 items-center justify-center border border-border-primary bg-background-secondary font-mono text-sm text-text-primary"',
-    'className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-border-secondary bg-background-secondary/72 font-sans text-sm font-semibold text-text-primary shadow-sm"'
+    'className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-background-secondary/62 font-sans text-sm font-semibold text-text-primary"'
   );
   source = replaceRequired(
     source,
@@ -4265,43 +4265,43 @@ function applySecuritySettingsSurfaces() {
     source,
     'security endpoint inputs native base',
     'className={`w-full px-3 py-2 text-sm border rounded placeholder:text-text-secondary ${',
-    'className={`min-h-9 w-full rounded-[8px] border px-3 py-2 text-sm placeholder:text-text-secondary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+    'className={`min-h-9 w-full rounded-[8px] bg-background-primary/70 px-3 py-2 text-sm placeholder:text-text-secondary transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0 ${'
   );
   source = replaceRequired(
     source,
     'security threshold input native base',
     'className={`w-24 px-2 py-1 text-sm border rounded ${',
-    'className={`min-h-8 w-24 rounded-[8px] border px-2 py-1 text-sm transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+    'className={`min-h-8 w-24 rounded-[8px] bg-background-primary/70 px-2 py-1 text-sm transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0 ${'
   );
   source = replaceRequired(
     source,
     'security model select native base',
     'className={`w-full px-3 py-2 text-sm border rounded ${',
-    'className={`min-h-9 w-full rounded-[8px] border px-3 py-2 text-sm transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20 ${'
+    'className={`min-h-9 w-full rounded-[8px] bg-background-primary/70 px-3 py-2 text-sm transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0 ${'
   );
   source = replaceAllRequired(
     source,
     'security enabled field state native',
     "? 'border-border-primary bg-background-primary text-text-primary'",
-    "? 'border-border-secondary bg-background-primary/68 text-text-primary'"
+    "? 'bg-background-primary/70 text-text-primary'"
   );
   source = replaceAllRequired(
     source,
     'security disabled field state native',
     ": 'border-border-primary bg-background-secondary text-text-secondary cursor-not-allowed'",
-    ": 'border-border-secondary bg-background-secondary/60 text-text-secondary cursor-not-allowed'"
+    ": 'bg-background-secondary/56 text-text-secondary cursor-not-allowed'"
   );
   source = replaceRequired(
     source,
     'security main row native',
     'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-2 py-2 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceAllRequired(
     source,
     'security nested rows native',
     'className="flex items-center justify-between py-2 hover:bg-background-secondary rounded-lg transition-all"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-2 py-2 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceAllRequired(
     source,
@@ -4313,7 +4313,7 @@ function applySecuritySettingsSurfaces() {
     source,
     'security dividers native',
     'className="border-t border-border-primary pt-4"',
-    'className="border-t border-border-secondary pt-4"'
+    'className="pt-4"'
   );
   source = replaceRequired(
     source,
@@ -4330,7 +4330,7 @@ function applySessionSharingSurfaces() {
     source,
     'session sharing card native glass',
     '<Card className="pb-2">',
-    '<Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">'
+    '<Card className="bg-background-primary/54 pb-2">'
   );
   source = replaceRequired(
     source,
@@ -4360,19 +4360,19 @@ function applySessionSharingSurfaces() {
     source,
     'session sharing test result base native',
     'className={`flex items-start gap-2 p-3 rounded-md text-sm ${',
-    'className={`flex items-start gap-2 rounded-[10px] border p-3 text-sm ${'
+    'className={`flex items-start gap-2 rounded-[10px] p-3 text-sm ${'
   );
   source = replaceRequired(
     source,
     'session sharing success result native',
     "? 'bg-green-50 text-green-800 border border-green-200'",
-    "? 'border-border-success bg-background-success/55 text-text-success'"
+    "? 'bg-background-success/55 text-text-success'"
   );
   source = replaceRequired(
     source,
     'session sharing error result native',
     ": 'bg-red-50 text-red-800 border border-red-200'",
-    ": 'border-border-danger bg-background-danger/55 text-text-danger'"
+    ": 'bg-background-danger/55 text-text-danger'"
   );
   write('src/components/settings/sessions/SessionSharingSection.tsx', source);
 }
