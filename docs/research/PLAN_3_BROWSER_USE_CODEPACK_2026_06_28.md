@@ -301,7 +301,9 @@ over optimistic raw status strings; a bare `completed` status without `is_done=t
 the delegated task successful, and non-empty bounded task errors downgrade completed-looking outcomes to failed. Final
 result and delegated task error truncation markers are kept inside their configured caps. The Rust wrapper also redacts
 delegated task error strings before returning them, so a future adapter data envelope cannot echo
-secret-looking diagnostics just because transport succeeded. The wrapper also rejects adapter envelopes that echo a different `max_steps` cap than the
+secret-looking diagnostics just because transport succeeded. The wrapper also requires the adapter to explicitly confirm
+`used_browser_use_agent=true`; completed-looking dry-run or unconfirmed envelopes now return failed task output with a
+bounded constant diagnostic instead of claiming browser-use delegation. The wrapper also rejects adapter envelopes that echo a different `max_steps` cap than the
 requested bounded task cap, non-integer echoed step fields, or step counts above the requested cap; the Python task
 adapter rejects missing `DEFAULT_LLM` with a bounded `browser.complete_task` configuration error before constructing a
 browser-use `Agent`; the model-facing v2 catalog now advertises that exact bounded result envelope while still accepting the standard

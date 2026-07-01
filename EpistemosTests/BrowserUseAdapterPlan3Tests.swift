@@ -215,6 +215,10 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_complete_task_redacts_adapter_error_values",
             "bounded_with_truncation_marker",
             "browser_complete_task_truncates_final_result_inside_cap",
+            "confirmed_browser_use_agent",
+            "append_browser_use_agent_error_if_missing",
+            "browser_complete_task_requires_confirmed_browser_use_agent",
+            "browser-use adapter returned dry-run task without delegated agent",
         ] {
             #expect(rustTaskSource.contains(required), "Missing browser.complete_task Rust policy string: \(required)")
         }

@@ -88,7 +88,7 @@ async fn complete_task_impl(input: &Value) -> Result<Value, ToolError> {
     let data = raw.get("data").cloned().unwrap_or_else(|| json!({}));
     let (final_result, final_result_truncated) =
         bounded_task_text(data.get("final_result"), MAX_TASK_RESULT_CHARS);
-    let (errors, errors_truncated) = bounded_task_error_fields(&data);
+    let (mut errors, errors_truncated) = bounded_task_error_fields(&data);
     let adapter_truncated = data
         .get("truncated")
         .and_then(Value::as_bool)
@@ -102,17 +102,17 @@ async fn complete_task_impl(input: &Value) -> Result<Value, ToolError> {
         data.get("is_done"),
         data.get("successful"),
     );
-    let errors_present = task_errors_present(&errors);
-    let status = task_status_after_errors(status, errors_present);
-    let used_browser_use_agent = data
-        .get("used_browser_use_agent")
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
+    let used_browser_use_agent = confirmed_browser_use_agent(&data);
     let dry_run = data
         .get("dry_run")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let task_success = task_outcome_success(status, is_done, successful) && !errors_present;
+    append_browser_use_agent_error_if_missing(&mut errors, used_browser_use_agent, dry_run);
+    let errors_present = task_errors_present(&errors);
+    let status = task_status_after_errors(status, errors_present);
+    let task_success = used_browser_use_agent
+        && task_outcome_success(status, is_done, successful)
+        && !errors_present;
 
     Ok(json!({
         "success": task_success,
@@ -286,6 +286,32 @@ fn bounded_task_error_items(items: Vec<&Value>) -> (Value, bool) {
 
 fn task_errors_present(errors: &Value) -> bool {
     matches!(errors, Value::Array(items) if !items.is_empty())
+}
+
+fn confirmed_browser_use_agent(data: &Value) -> bool {
+    data.get("used_browser_use_agent")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn append_browser_use_agent_error_if_missing(
+    errors: &mut Value,
+    used_browser_use_agent: bool,
+    dry_run: bool,
+) {
+    if used_browser_use_agent {
+        return;
+    }
+    let detail = if dry_run {
+        "browser-use adapter returned dry-run task without delegated agent"
+    } else {
+        "browser-use adapter did not confirm delegated agent execution"
+    };
+    if let Value::Array(items) = errors {
+        if items.len() < MAX_TASK_ERRORS {
+            items.push(Value::String(detail.to_string()));
+        }
+    }
 }
 
 fn task_status_after_errors(status: &'static str, errors_present: bool) -> &'static str {
@@ -606,5 +632,41 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake browse
         assert!(!serialized.contains("user:pass"));
         assert!(!serialized.contains("oauth-code"));
         assert!(!serialized.contains("id_token"));
+    }
+
+    #[test]
+    fn browser_complete_task_requires_confirmed_browser_use_agent() {
+        let data = json!({
+            "status": "completed",
+            "is_done": true,
+            "successful": true,
+            "errors": [],
+            "used_browser_use_agent": false,
+            "dry_run": true
+        });
+        let (mut errors, truncated) = bounded_task_error_fields(&data);
+        let used_browser_use_agent = confirmed_browser_use_agent(&data);
+        append_browser_use_agent_error_if_missing(&mut errors, used_browser_use_agent, true);
+        let errors_present = task_errors_present(&errors);
+        let status = task_status_after_errors(
+            normalized_task_status(
+                data.get("status").and_then(Value::as_str),
+                data.get("is_done"),
+                data.get("successful"),
+            ),
+            errors_present,
+        );
+
+        assert_eq!(truncated, false);
+        assert_eq!(used_browser_use_agent, false);
+        assert_eq!(status, "failed");
+        assert!(
+            !(used_browser_use_agent
+                && task_outcome_success(status, Some(true), Some(true))
+                && !errors_present)
+        );
+        assert!(errors
+            .to_string()
+            .contains("dry-run task without delegated agent"));
     }
 }
