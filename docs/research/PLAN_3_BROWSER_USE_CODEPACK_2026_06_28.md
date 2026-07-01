@@ -116,7 +116,10 @@ revisions through a no-follow regular-file descriptor outside MAS/App Store buil
 `scripts/package-browser-use-pro.sh` rebuilds this staged payload by default before signing; `--skip-build` is the only
 explicit escape hatch for reusing an existing staged payload. During signing, it rewrites `.venv/pyvenv.cfg` through a
 no-follow descriptor, reads `VENDOR_MANIFEST.json` and `BUILD_MANIFEST.json` through bounded no-follow descriptors with
-`fstat`, and writes `SIGNATURE_MANIFEST.json` through a no-follow regular-file descriptor before `codesign`.
+`fstat`, and writes `SIGNATURE_MANIFEST.json` through a no-follow regular-file descriptor before `codesign`. After the
+final deep `codesign` verification, it writes non-secret `PACKAGE_RESULT.json` checkpoint evidence beside the bundle
+with relative package paths and the exact `scripts/browser-use-pro-smoke-suite.sh --signed-bundle BrowserUsePro.bundle`
+command for periodic Pro checkpoint execution.
 
 Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
 `build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>

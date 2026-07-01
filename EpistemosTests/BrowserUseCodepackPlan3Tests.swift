@@ -765,6 +765,7 @@ struct BrowserUseCodepackPlan3Tests {
             "set -euo pipefail",
             "Plan 3 browser-use Pro packaging only",
             "Do not invoke this from MAS/App Store build phases",
+            "PACKAGE_RESULT.json non-secret checkpoint evidence beside the bundle",
             "uv venv --clear --python 3.11 --seed",
             "uv pip compile --python-version 3.11 --generate-hashes --quiet requirements.in -o requirements.lock",
             "cd \"$vendor_root\"",
@@ -825,6 +826,12 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(releaseScript.contains("json.loads(read_text_no_follow(Path(os.environ[\"BUILD_MANIFEST\"]), \"BUILD_MANIFEST.json\"))"))
         #expect(releaseScript.contains("write_text_no_follow("))
         #expect(releaseScript.contains("Path(os.environ[\"SIGNATURE_MANIFEST\"])"))
+        #expect(releaseScript.contains("package_result=\"$output_root/PACKAGE_RESULT.json\""))
+        #expect(releaseScript.contains("Path(os.environ[\"PACKAGE_RESULT\"])"))
+        #expect(releaseScript.contains("\"smoke_suite_entrypoint\": \"scripts/browser-use-pro-smoke-suite.sh\""))
+        #expect(releaseScript.contains("\"smoke_suite_args\": [\"--signed-bundle\", \"BrowserUsePro.bundle\"]"))
+        #expect(releaseScript.contains("\"notarization\": \"not recorded; release notarization remains distribution ops\""))
+        #expect(releaseScript.contains("browser-use Pro package result: $package_result"))
         #expect(!releaseScript.contains("&& ! -x \"$venv_python\""))
         #expect(!releaseScript.contains("Path(os.environ[\"VENDOR_MANIFEST\"]).read_text"))
         #expect(!releaseScript.contains("Path(os.environ[\"BUILD_MANIFEST\"]).read_text"))

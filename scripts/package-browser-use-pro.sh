@@ -12,6 +12,7 @@ The bundle contains:
   - staged wheelhouse, requirements.lock, BUILD_MANIFEST.json, and Playwright Chromium
   - the Python 3.11 venv plus an embedded relocatable Python runtime
   - SIGNATURE_MANIFEST.json package evidence
+  - PACKAGE_RESULT.json non-secret checkpoint evidence beside the bundle
 
 By default the script uses ad-hoc signing ("-") so local proof is possible.
 Set --sign-identity "Developer ID Application: ..." for release packaging.
@@ -85,6 +86,7 @@ venv_python="$venv_dir/bin/python"
 bundle_dir="$output_root/BrowserUsePro.bundle"
 payload_root="$bundle_dir/Contents/Resources/BrowserUsePro"
 info_plist="$bundle_dir/Contents/Info.plist"
+package_result="$output_root/PACKAGE_RESULT.json"
 
 require_tool() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -476,4 +478,58 @@ PY
 codesign --verify --strict --verbose=2 "$bundle_dir"
 codesign --verify --deep --strict --verbose=2 "$bundle_dir"
 
+PACKAGE_RESULT="$package_result" \
+SIGNATURE_TYPE="$signature_type" \
+PYTHON_VERSION="$python_version" \
+python3 - <<'PY'
+import json
+import os
+import stat
+from pathlib import Path
+from datetime import datetime, timezone
+
+
+def write_text_no_follow(path, text, label):
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_TRUNC
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    fd = os.open(path, flags, 0o644)
+    try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SystemExit(f"{label} is not a regular file")
+        with os.fdopen(fd, "wb") as handle:
+            fd = -1
+            handle.write(text.encode("utf-8"))
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
+payload = {
+    "schema_version": 1,
+    "package_name": "BrowserUsePro",
+    "bundle": "BrowserUsePro.bundle",
+    "signature_manifest": "BrowserUsePro.bundle/Contents/Resources/BrowserUsePro/SIGNATURE_MANIFEST.json",
+    "signature_type": os.environ["SIGNATURE_TYPE"],
+    "python": os.environ["PYTHON_VERSION"],
+    "codesign_verified": True,
+    "smoke_suite_entrypoint": "scripts/browser-use-pro-smoke-suite.sh",
+    "smoke_suite_args": ["--signed-bundle", "BrowserUsePro.bundle"],
+    "notarization": "not recorded; release notarization remains distribution ops",
+    "secrets": "not recorded",
+    "created_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+}
+write_text_no_follow(
+    Path(os.environ["PACKAGE_RESULT"]),
+    json.dumps(payload, indent=2, sort_keys=True) + "\n",
+    "PACKAGE_RESULT.json",
+)
+PY
+
 echo "browser-use Pro signed bundle ready: $bundle_dir"
+echo "browser-use Pro package result: $package_result"
