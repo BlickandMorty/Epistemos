@@ -1880,6 +1880,14 @@ function applyMotionSurfaces() {
     '<div className="px-3 py-2 text-xs text-text-secondary">',
     '<div className="px-3 py-2 text-[13px] text-text-secondary">'
   );
+  // Section label (CHATS) → pixel display font per the reskin spec (pixel twist = headings/labels
+  // only). The greeting already carries .ep-pixel; this extends the same treatment to the sidebar
+  // section header. replaceOptional so a benign upstream drift can never break staging.
+  source = replaceOptional(
+    source,
+    'uppercase text-text-secondary hover:text-text-primary transition-colors self-start font-mono',
+    'uppercase ep-pixel text-text-secondary hover:text-text-primary transition-colors self-start font-mono'
+  );
   write('src/components/Layout/NavigationPanel.tsx', source);
 }
 
