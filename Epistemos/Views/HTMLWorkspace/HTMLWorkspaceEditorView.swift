@@ -1298,6 +1298,9 @@ struct HTMLWorkspaceEditorView: View {
               let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON, matching: currentFeed) else {
             return true
         }
+        guard envelope.epistemos.stale == false else {
+            return true
+        }
         return (envelope.epistemos.requiredContextKind ?? "") != (requiredContextKind ?? "")
     }
 

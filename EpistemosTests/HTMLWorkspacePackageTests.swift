@@ -523,6 +523,16 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(source.contains("applyStaleRender(feed: feed, error: \"Vault feed unavailable\", requiredContextKind: requiredContextKind)"))
     }
 
+    @Test("HTMLWorkspace regenerate auto-attach retries stale matching context envelopes")
+    func regenerateAutoAttachRetriesStaleMatchingContextEnvelopes() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+
+        #expect(source.contains("shouldAttachRegenerateContextBeforeStreaming(query: query, requiredContextKind: requiredContextKind)"))
+        #expect(source.contains("let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON, matching: currentFeed)"))
+        #expect(source.contains("guard envelope.epistemos.stale == false else {"))
+        #expect(source.contains("return (envelope.epistemos.requiredContextKind ?? \"\") != (requiredContextKind ?? \"\")"))
+    }
+
     @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
     @MainActor
     func staleDataFeedRenderDoesNotPretendToRefresh() throws {
