@@ -30,7 +30,7 @@ final class GooseSurfaceWindowController {
         window.title = "Epistemos Goose"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.backgroundColor = bootstrap.uiState.theme.resolved.background.nsColor
+        window.backgroundColor = NSColor.clear
         window.isOpaque = false
         window.hasShadow = true
         window.isMovableByWindowBackground = true
@@ -44,7 +44,7 @@ final class GooseSurfaceWindowController {
         let host = NSHostingView(rootView: view)
         host.sizingOptions = .minSize
         host.wantsLayer = true
-        host.layer?.backgroundColor = bootstrap.uiState.theme.resolved.background.nsColor.cgColor
+        host.layer?.backgroundColor = NSColor.clear.cgColor
         host.layer?.cornerRadius = 18
         host.layer?.cornerCurve = .continuous
         host.layer?.masksToBounds = true
