@@ -94,20 +94,12 @@ nonisolated enum KokoroVoiceGateStatus {
         modelRoot: URL? = defaultModelRoot(),
         fileManager: FileManager = .default
     ) -> Status {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        return Status(
-            state: .unavailable,
-            isReady: false,
-            headline: "Kokoro voice: unavailable in App Store build",
-            detail: "Text-to-speech is Kokoro-only. The App Store build does not include the Pro Kokoro runtime package; Apple AVSpeech is not used as a fallback."
-        )
-        #else
-        guard isEnabled(environment[flagName]) else {
+        guard FeatureGateOverride.resolved(overrideKey: flagName, envValue: environment[flagName]) else {
             return Status(
                 state: .unavailable,
                 isReady: false,
                 headline: "Kokoro voice: off",
-                detail: "Set \(flagName)=1 in a Pro build after installing the checked \(upstreamRepositoryID) CoreML bundle. Off means text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
+                detail: "Turn on the Kokoro neural voice and install the checked \(upstreamRepositoryID) CoreML bundle. Off means text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 
@@ -171,7 +163,6 @@ nonisolated enum KokoroVoiceGateStatus {
                 : "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName), but KokoroPipeline is not linked in this build. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: packageEvidence
         )
-        #endif
     }
 
     private struct RuntimeManifest {

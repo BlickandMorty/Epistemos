@@ -371,8 +371,7 @@ struct VoiceCodepackPlan3Tests {
             "case unavailable",
             "case missingModel",
             "case packageReady",
-            "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
-            "Kokoro voice: unavailable in App Store build",
+            "FeatureGateOverride.resolved(overrideKey: flagName",
             "modelDirectoryName = \"kokoro-82m-coreml\"",
             "manifestFileName = \"KokoroRuntimeManifest.json\"",
             "hostedManifestFileName = \"HostedManifest.json\"",
@@ -621,7 +620,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(installer.contains("firstExistingSymlinkComponent"))
         #expect(installer.contains("isMacOSCompatibilitySymlink"))
         #expect(installer.contains("VoiceCapturePresentationBounds.statusMessage"))
-        #expect(installer.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
+        #expect(!installer.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(!section.contains("Color.green"))
         #expect(!section.contains("Color.orange"))
         #expect(!section.contains(".buttonStyle(.borderless)"))

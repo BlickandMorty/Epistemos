@@ -85,9 +85,6 @@ nonisolated enum KokoroVoicePackageInstaller {
         modelRoot: URL?,
         fileManager: FileManager
     ) throws -> InstallResult {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        throw InstallError.unavailableInAppStoreBuild
-        #else
         guard let modelRoot else {
             throw InstallError.modelRootUnavailable
         }
@@ -169,16 +166,12 @@ nonisolated enum KokoroVoicePackageInstaller {
             throw InstallError.installFailed(bounded(installedStatus.detail))
         }
         return InstallResult(status: installedStatus)
-        #endif
     }
 
     private static func removeInstalledPackageImpl(
         modelRoot: URL?,
         fileManager: FileManager
     ) throws -> InstallResult {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        throw InstallError.unavailableInAppStoreBuild
-        #else
         guard let modelRoot else {
             throw InstallError.modelRootUnavailable
         }
@@ -216,7 +209,6 @@ nonisolated enum KokoroVoicePackageInstaller {
             throw InstallError.installFailed("package could not be removed")
         }
         return InstallResult(status: removedStatus)
-        #endif
     }
 
     private static func sourceModelDirectory(

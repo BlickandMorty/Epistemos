@@ -97,6 +97,9 @@ final class KokoroModelDownloadService {
     /// Begin downloading + installing `tier`. No-op while a run is in flight.
     func startInstall(tier: Tier) {
         guard !isBusy else { return }
+        // Downloading is the user's explicit opt-in: enable the voice gate so
+        // the installed bundle turns text-to-speech on (both MAS and Pro).
+        FeatureGateOverride.set(true, forKey: KokoroVoiceGateStatus.flagName)
         activeTier = tier
         phase = .preparing
         runTask = Task { [weak self] in
