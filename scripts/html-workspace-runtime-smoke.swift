@@ -58,6 +58,7 @@ struct HTMLWorkspaceRuntimeSmoke {
         require(HTMLWorkspaceCapabilityStatus.summary.contains("bounded context payloads"), "summary should disclose bounded context payloads")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("workspace-context grounding"), "summary should disclose workspace context grounding")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("preview-side context rail"), "summary should disclose preview context rail")
+        require(HTMLWorkspaceCapabilityStatus.summary.contains("in-preview context picker"), "summary should disclose preview context picker")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("selected-preview drop targets"), "summary should disclose selected preview drop targets")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"), "summary should disclose Python wiring")
 

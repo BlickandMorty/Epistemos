@@ -518,30 +518,44 @@ struct HTMLWorkspaceEditorView: View {
         HSplitView {
             VStack(spacing: 0) {
                 previewHeader
-                HTMLWorkspacePreviewView(
-                    package: previewPackage,
-                    routeName: previewRouteName,
-                    safeAPIEnabled: true,
-                    previewTheme: previewTheme,
-                    themeGuardCSSOverride: previewThemeGuardCSS,
-                    themeIdentity: workspaceThemeIdentity,
-                    onConsoleError: { error in
-                        package = (try? HTMLWorkspacePatchApplier.apply(.recordConsoleError(error), to: package)) ?? package
-                    },
-                    onDOMSnapshot: { snapshot in
-                        liveDOMSnapshot = snapshot
-                    },
-                    isElementInspectorEnabled: inspectorVisible,
-                    onElementInspection: { inspection in
-                        selectedElementInspection = inspection
-                    },
-                    appBridgeProbeNonce: appBridgeProbeNonce,
-                    consoleProbeNonce: consoleProbeNonce,
-                    pythonProbeNonce: pythonProbeNonce
-                )
+                ZStack(alignment: .topTrailing) {
+                    HTMLWorkspacePreviewView(
+                        package: previewPackage,
+                        routeName: previewRouteName,
+                        safeAPIEnabled: true,
+                        previewTheme: previewTheme,
+                        themeGuardCSSOverride: previewThemeGuardCSS,
+                        themeIdentity: workspaceThemeIdentity,
+                        onConsoleError: { error in
+                            package = (try? HTMLWorkspacePatchApplier.apply(.recordConsoleError(error), to: package)) ?? package
+                        },
+                        onDOMSnapshot: { snapshot in
+                            liveDOMSnapshot = snapshot
+                        },
+                        isElementInspectorEnabled: inspectorVisible,
+                        onElementInspection: { inspection in
+                            selectedElementInspection = inspection
+                        },
+                        appBridgeProbeNonce: appBridgeProbeNonce,
+                        consoleProbeNonce: consoleProbeNonce,
+                        pythonProbeNonce: pythonProbeNonce
+                    )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
                     .onDrop(of: [UTType.plainText], isTargeted: nil, perform: handlePreviewContextDrop)
+
+                    if shouldShowPreviewContextSidebar {
+                        HTMLWorkspacePreviewContextPicker(
+                            contextItems: regenerateContextItems,
+                            contextStatusText: regenerateContextStatusLine,
+                            isRegenerating: isRegenerating,
+                            isRefreshingContext: isRefreshingRegenerateContext,
+                            theme: workspaceTheme,
+                            onPickContextItem: applyPreviewContextItem
+                        )
+                        .padding(12)
+                    }
+                }
             }
 
             if shouldShowPreviewContextSidebar {

@@ -37,6 +37,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         let sheet = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceRegenerateSurface.swift")
         let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
         let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceRegenerateContextSidebar.swift")
+        let picker = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspacePreviewContextPicker.swift")
 
         #expect(sheet.contains("let workspaceID: String"))
         #expect(sheet.contains("let expectedContentHash: String"))
@@ -104,7 +105,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem]"))
         #expect(editor.contains("private var shouldShowPreviewContextSidebar: Bool"))
         #expect(editor.contains("HTMLWorkspaceRegenerateContextSidebar("))
+        #expect(editor.contains("HTMLWorkspacePreviewContextPicker("))
         #expect(editor.contains("shouldShowPreviewContextSidebar"))
+        #expect(editor.contains("if shouldShowPreviewContextSidebar"))
         #expect(editor.contains("onPickContextItem: applyPreviewContextItem"))
         #expect(editor.contains("canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil"))
         #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
@@ -167,6 +170,13 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains("private var pixelMicroFont: Font"))
         #expect(sidebar.contains(".font(pixelCaptionFont)"))
         #expect(sidebar.contains(".font(pixelMicroFont)"))
+        #expect(picker.contains("struct HTMLWorkspacePreviewContextPicker: View"))
+        #expect(picker.contains("Menu {"))
+        #expect(picker.contains("Label(\"Add Context\", systemImage: \"plus.square.on.square\")"))
+        #expect(picker.contains("Label(\"No context attached\", systemImage: \"tray\")"))
+        #expect(picker.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
+        #expect(picker.contains("onPickContextItem(item)"))
+        #expect(picker.contains("Pick read-only context for this preview surface"))
     }
 
     @Test("regenerate presets expose required one-click categories")
