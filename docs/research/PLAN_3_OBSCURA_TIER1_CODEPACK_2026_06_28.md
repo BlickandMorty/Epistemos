@@ -29,7 +29,8 @@
   theme-token fill without a stroke outline.
 - **`BrowserWebView` (NSViewRepresentable)** — `WKWebView` with `nonPersistent()` store, JavaScript enabled, KVO state
   observation, strict `BrowserURLGuard.allows` navigation-action and navigation-response policy, single-tab
-  `target=_blank`, and teardown that breaks retained WebView/tab closures.
+  `target=_blank` where new-window navigations are reloaded from a sanitized URL-only request, and teardown that breaks
+  retained WebView/tab closures.
 
 ## Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]
 `.browser` is in `UtilityPanel` (title "Browser", icon "safari", defaultSize 1024×720, free resize), routes to

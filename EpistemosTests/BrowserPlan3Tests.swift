@@ -60,6 +60,9 @@ struct BrowserPlan3Tests {
         #expect(source.contains("decidePolicyFor navigationAction"))
         #expect(source.contains("decidePolicyFor navigationResponse"))
         #expect(source.contains("WKNavigationResponsePolicy"))
+        #expect(source.contains("guard let url = navigationAction.request.url"))
+        #expect(source.contains("webView.load(URLRequest(url: url))"))
+        #expect(!source.contains("webView.load(navigationAction.request)"))
         #expect(source.contains("Navigation failed (domain="))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
@@ -165,6 +168,7 @@ struct BrowserPlan3Tests {
         #expect(plan.contains("standalone lite Browser tab (`BrowserView`, human-driven"))
         #expect(plan.contains("user-driven Browser tab is live"))
         #expect(plan.contains("ellipsis inside configured caps"))
+        #expect(plan.contains("sanitized URL-only reloads for new-window navigations"))
         #expect(!plan.contains("`ObscuraBrowserView`"))
 
         for required in [
@@ -176,6 +180,7 @@ struct BrowserPlan3Tests {
             "BrowserView",
             "BrowserWebView",
             "Browser file contract [DELIVERED]",
+            "new-window navigations are reloaded from a sanitized URL-only request",
             "ellipsis kept inside the configured display caps",
             "Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]",
             "UtilityWindowManager.shared.show(.browser)",

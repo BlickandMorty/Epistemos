@@ -520,11 +520,12 @@ private struct BrowserWebView: NSViewRepresentable {
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
             if navigationAction.targetFrame == nil {
-                guard BrowserURLGuard.allows(url: navigationAction.request.url) else {
+                guard let url = navigationAction.request.url,
+                      BrowserURLGuard.allows(url: url) else {
                     tab?.lastError = "Blocked non-web navigation."
                     return nil
                 }
-                webView.load(navigationAction.request)
+                webView.load(URLRequest(url: url))
             }
             return nil
         }

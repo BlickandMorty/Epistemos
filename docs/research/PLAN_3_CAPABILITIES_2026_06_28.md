@@ -153,7 +153,7 @@ lives ONLY at T3. (Rest of the original heavy build = T3, below.)
 - `Epistemos/Views/Browser/BrowserView.swift` ships `BrowserURLGuard`, `BrowserTab`, SwiftUI browser chrome, and a
   non-persistent `WKWebView` wrapper with strict http/https navigation action/response policy, bounded-before-trim
   address input and bounded page-controlled title/address/error display state with ellipsis inside configured caps,
-  flat theme-token address-field chrome
+  sanitized URL-only reloads for new-window navigations, flat theme-token address-field chrome
   without a stroke outline, and teardown.
 - `UtilityPanel.browser`, the Browser command (`⌘⇧B`), and `LandingFeatureButton.browser` all summon the same
   human-driven Browser surface.
