@@ -2809,13 +2809,13 @@ function replaceRequired(label, pattern, replacement) {
 replaceRequired(
   'lucide close icon import for session tabs',
   `import { Menu, PanelLeft } from 'lucide-react';`,
-  `import { Menu, PanelLeft, X } from 'lucide-react';`
+  `import { Columns2, Menu, PanelLeft, X } from 'lucide-react';`
 );
 
 replaceRequired(
   'react hooks import for session tabs',
   `import React, { useEffect, useState } from 'react';`,
-  `import React, { useEffect, useMemo, useState } from 'react';`
+  `import React, { useCallback, useEffect, useMemo, useState } from 'react';`
 );
 
 replaceRequired(
@@ -2851,6 +2851,13 @@ if (!source.includes('const SessionTabsStrip')) {
   const [searchParams] = useSearchParams();
   const { recentSessions, fetchSessions } = useNavigationSessions();
   const activeSessionId = searchParams.get('resumeSessionId') ?? undefined;
+  const isSplitMode = searchParams.get('epistemosSplit') === '1';
+
+  const pairPathForSession = useCallback((sessionId: string): string => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('resumeSessionId', sessionId);
+    return \`/pair?\${nextParams.toString()}\`;
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeSessions.length > 1) {
@@ -2868,12 +2875,12 @@ if (!source.includes('const SessionTabsStrip')) {
       const targetSession = activeSessions[index];
       if (!targetSession) return;
       event.preventDefault();
-      navigate(\`/pair?resumeSessionId=\${targetSession.sessionId}\`);
+      navigate(pairPathForSession(targetSession.sessionId));
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSessions, navigate]);
+  }, [activeSessions, navigate, pairPathForSession]);
 
   const sessionNameById = useMemo(
     () => new Map(recentSessions.map((session) => [session.id, session.name])),
@@ -2891,8 +2898,18 @@ if (!source.includes('const SessionTabsStrip')) {
     );
 
     if (sessionId === activeSessionId) {
-      navigate(fallbackSession ? \`/pair?resumeSessionId=\${fallbackSession.sessionId}\` : '/');
+      navigate(fallbackSession ? pairPathForSession(fallbackSession.sessionId) : '/');
     }
+  };
+
+  const toggleSplitView = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (isSplitMode) {
+      nextParams.delete('epistemosSplit');
+    } else {
+      nextParams.set('epistemosSplit', '1');
+    }
+    navigate(\`/pair?\${nextParams.toString()}\`);
   };
 
   if (activeSessions.length <= 1) return null;
@@ -2908,6 +2925,21 @@ if (!source.includes('const SessionTabsStrip')) {
         role="tablist"
         aria-label="Active sessions"
       >
+        <button
+          type="button"
+          aria-pressed={isSplitMode}
+          aria-label={isSplitMode ? 'Exit split view' : 'Split active sessions'}
+          onClick={toggleSplitView}
+          className={cn(
+            'flex shrink-0 items-center rounded-[8px] p-1.5 transition-colors',
+            isSplitMode
+              ? 'bg-[var(--epistemos-accent)]/12 text-text-primary'
+              : 'text-text-secondary hover:bg-background-secondary/56 hover:text-text-primary'
+          )}
+          data-epistemos-session-split-toggle
+        >
+          <Columns2 className="h-3.5 w-3.5" />
+        </button>
         {activeSessions.slice(0, 9).map((session, index) => {
           const active = session.sessionId === activeSessionId;
           const label = sessionNameById.get(session.sessionId) || \`Session \${index + 1}\`;
@@ -2927,7 +2959,7 @@ if (!source.includes('const SessionTabsStrip')) {
                 role="tab"
                 aria-selected={active}
                 title={label}
-                onClick={() => navigate(\`/pair?resumeSessionId=\${session.sessionId}\`)}
+                onClick={() => navigate(pairPathForSession(session.sessionId))}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <span className="truncate">{label}</span>
@@ -2970,7 +3002,11 @@ replaceRequired(
 for (const snippet of [
   'const SessionTabsStrip',
   'REMOVE_ACTIVE_SESSION',
+  'const pairPathForSession =',
   'const closeSessionTab =',
+  'const toggleSplitView =',
+  'data-epistemos-session-split-toggle',
+  '<Columns2 className="h-3.5 w-3.5" />',
   '<X className="h-3 w-3" />',
   'data-epistemos-session-tabs',
   'data-epistemos-session-tabs-command-switch',
@@ -2979,6 +3015,96 @@ for (const snippet of [
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`AppLayout staged source is missing session tabs snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
+CHAT_SESSIONS_CONTAINER="$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
+node - "$CHAT_SESSIONS_CONTAINER" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`ChatSessionsContainer ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+replaceRequired(
+  'split session selection',
+  `  // If we have a currentSessionId that's not in activeSessions, add it (handles page refresh)
+  if (currentSessionId && !activeSessions.some((s) => s.sessionId === currentSessionId)) {
+    sessionsToRender = [...activeSessions, { sessionId: currentSessionId }];
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      {sessionsToRender.map((session) => {
+        const isVisible = session.sessionId === currentSessionId;
+
+        return (
+          <div
+            key={session.sessionId}
+            className={\`absolute inset-0 \${isVisible ? 'block' : 'hidden'}\`}
+            data-session-id={session.sessionId}
+          >`,
+  `  // If we have a currentSessionId that's not in activeSessions, add it (handles page refresh)
+  if (currentSessionId && !activeSessions.some((s) => s.sessionId === currentSessionId)) {
+    sessionsToRender = [...activeSessions, { sessionId: currentSessionId }];
+  }
+
+  const currentIndex = sessionsToRender.findIndex((session) => session.sessionId === currentSessionId);
+  const splitPartner = currentIndex >= 0
+    ? sessionsToRender[currentIndex - 1] || sessionsToRender[currentIndex + 1]
+    : undefined;
+  const isSplitMode =
+    searchParams.get('epistemosSplit') === '1' && Boolean(currentSessionId && splitPartner);
+  const splitSessionIds = new Set(
+    isSplitMode && currentSessionId && splitPartner
+      ? [currentSessionId, splitPartner.sessionId]
+      : []
+  );
+
+  return (
+    <div
+      className={
+        isSplitMode
+          ? 'grid h-full w-full grid-cols-2 gap-2 bg-background-primary/20 p-2'
+          : 'relative h-full w-full'
+      }
+      data-epistemos-session-split={isSplitMode ? 'active' : undefined}
+    >
+      {sessionsToRender.map((session) => {
+        const isVisible = session.sessionId === currentSessionId;
+        const isSplitVisible = splitSessionIds.has(session.sessionId);
+
+        return (
+          <div
+            key={session.sessionId}
+            className={
+              isSplitMode
+                ? isSplitVisible
+                  ? 'relative min-h-0 min-w-0 overflow-hidden rounded-[12px] bg-background-primary/32'
+                  : 'hidden'
+                : \`absolute inset-0 \${isVisible ? 'block' : 'hidden'}\`
+            }
+            data-session-id={session.sessionId}
+          >`
+);
+
+for (const snippet of [
+  "searchParams.get('epistemosSplit') === '1'",
+  'data-epistemos-session-split',
+  'grid h-full w-full grid-cols-2 gap-2',
+  'splitSessionIds.has(session.sessionId)',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`ChatSessionsContainer staged source is missing split snippet: ${snippet}`);
   }
 }
 
@@ -6880,7 +7006,12 @@ JS
     grep -q "data-epistemos-session-tabs" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-tabs-command-switch" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const closeSessionTab =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "const pairPathForSession = useCallback" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q 'Close \${label}' "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "data-epistemos-session-split-toggle" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "const toggleSplitView =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "data-epistemos-session-split" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
+    grep -q "grid h-full w-full grid-cols-2 gap-2" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
     grep -q "isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "goose-chat-input-card overflow-hidden rounded-\\[16px\\] bg-background-primary/40" "$WORK_ROOT/ui/desktop/src/components/ChatInputCard.tsx"
     grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] bg-background-primary/42 p-4" "$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"

@@ -1294,6 +1294,10 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("const removeActiveSession ="))
         #expect(script.contains("const handleRemoveActiveSession ="))
         #expect(script.contains("const closeSessionTab ="))
+        #expect(script.contains("const pairPathForSession = useCallback"))
+        #expect(script.contains("data-epistemos-session-split-toggle"))
+        #expect(script.contains("data-epistemos-session-split"))
+        #expect(script.contains("grid h-full w-full grid-cols-2 gap-2"))
         // Anti-silent-drift: the five formerly-silent ACP grafts (which would revert
         // to dead-in-ACP REST endpoints if upstream reformats their anchors) must
         // hard-FAIL the build on anchor drift, like the rest of the file. Lock each
