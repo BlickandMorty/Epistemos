@@ -696,7 +696,14 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       }
       results.forEach((result, index) => {
         const key = resultKey(result);
-        picker.append(HTMLWorkspace.el('option', { value: key }, result.title || result.page_id || `Source ${index + 1}`));
+        const title = result.title || result.page_id || `Source ${index + 1}`;
+        const source = result.source_label || 'Vault search result';
+        const kind = resultContextKind(result);
+        picker.append(HTMLWorkspace.el('option', {
+          value: key,
+          'data-context-kind': kind,
+          'data-source-label': source
+        }, `${title} / ${source} / ${kind}`));
       });
       picker.value = selected ? resultKey(selected) : resultKey(results[0]);
     }
