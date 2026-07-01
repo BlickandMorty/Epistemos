@@ -232,6 +232,18 @@ enum HTMLWorkspaceDataFeedContextSources {
         return searchResults.map(HTMLWorkspaceDataFeedResult.init(searchResult:))
     }
 
+    static func requiredContextKind(forFreeformQuery query: String?) -> String? {
+        if shouldUseRecentCaptureResults(for: query) { return "recent_capture" }
+        if shouldUseNoteResults(for: query) { return "note" }
+        if shouldUsePDFNoteResults(for: query) { return "pdf_note" }
+        if shouldUseFolderNoteResults(for: query) { return "folder_note" }
+        if shouldUseMeetingNoteResults(for: query) { return "meeting_note" }
+        if shouldUseWebClipResults(for: query) { return "web_clip" }
+        if shouldUseRecentChatResults(for: query) { return "recent_chat" }
+        if shouldUseGraphRelatedNoteResults(for: query) { return "graph_related_note" }
+        return nil
+    }
+
     static func recentCaptureResults(
         modelContainer: ModelContainer?,
         limit: Int
@@ -538,6 +550,7 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             return
         }
         let requiredContextKind = HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package)
+            ?? HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)
         guard feed.isRunnable else {
             applyStaleRender(feed: feed, error: "Data feed query is empty", requiredContextKind: requiredContextKind)
             return

@@ -427,6 +427,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
 
         #expect(source.contains("let requiredContextKind = HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package)"))
+        #expect(source.contains("HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
         #expect(source.contains("requiredContextKind: requiredContextKind"))
         #expect(source.contains("applyStaleRender(feed: feed, error: \"Data feed query is empty\", requiredContextKind: requiredContextKind)"))
         #expect(source.contains("applyStaleRender(feed: feed, error: \"Vault feed unavailable\", requiredContextKind: requiredContextKind)"))

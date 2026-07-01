@@ -886,6 +886,7 @@ struct HTMLWorkspaceEditorView: View {
         }
 
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
+        let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)
         regenerateContextTask?.cancel()
         regenerateContextRefreshNonce &+= 1
         let refreshNonce = regenerateContextRefreshNonce
@@ -893,7 +894,8 @@ struct HTMLWorkspaceEditorView: View {
         package.manifest.dataFeed = feed
         package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
             feed: feed,
-            error: "Feed pending"
+            error: "Feed pending",
+            requiredContextKind: requiredContextKind
         )
         regenerateContextStatusText = "Workspace context pending"
         statusText = "Refreshing workspace context"
@@ -901,7 +903,8 @@ struct HTMLWorkspaceEditorView: View {
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
                 feed: feed,
-                error: "Vault feed unavailable"
+                error: "Vault feed unavailable",
+                requiredContextKind: requiredContextKind
             )
             isRefreshingRegenerateContext = false
             regenerateContextTask = nil
@@ -924,13 +927,17 @@ struct HTMLWorkspaceEditorView: View {
             )
             guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
             let contextResults = HTMLWorkspaceDataFeedContextSources.results(
-                for: nil,
+                for: requiredContextKind,
                 searchResults: results,
                 modelContainer: AppBootstrap.shared?.modelContainer,
                 limit: feed.effectiveLimit,
                 query: feed.normalizedQuery
             )
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, contextResults: contextResults)
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+                feed: feed,
+                contextResults: contextResults,
+                requiredContextKind: requiredContextKind
+            )
             regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
             statusText = regenerateContextStatusText
         }

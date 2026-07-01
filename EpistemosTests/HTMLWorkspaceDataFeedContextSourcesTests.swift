@@ -430,12 +430,27 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(triggeredResults.first?.contextKind == "pdf_note")
     }
 
+    @MainActor
+    @Test("freeform query source classifier mirrors explicit context providers")
+    func freeformQuerySourceClassifierMirrorsExplicitContextProviders() {
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "captures alpha") == "recent_capture")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "note: alpha") == "note")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "pdf manual") == "pdf_note")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "folder: physics") == "folder_note")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "meeting notes launch") == "meeting_note")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "web clip example") == "web_clip")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "recent chats alpha") == "recent_chat")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "graph related anchor") == "graph_related_note")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "plain substrate search") == nil)
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
 
         #expect(source.contains("let contextResults = HTMLWorkspaceDataFeedContextSources.results("))
         #expect(source.contains("for: requiredContextKind"))
+        #expect(source.contains("HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
         #expect(source.contains("query: feed.normalizedQuery"))
         #expect(source.contains("contextResults: contextResults"))
     }
@@ -445,8 +460,9 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
 
         #expect(source.contains("let contextResults = HTMLWorkspaceDataFeedContextSources.results("))
-        #expect(source.contains("for: nil"))
+        #expect(source.contains("for: requiredContextKind"))
+        #expect(source.contains("let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
         #expect(source.contains("query: feed.normalizedQuery"))
-        #expect(source.contains("HTMLWorkspaceDataFeedRenderer.render(feed: feed, contextResults: contextResults)"))
+        #expect(source.contains("requiredContextKind: requiredContextKind"))
     }
 }
