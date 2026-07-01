@@ -31,7 +31,7 @@ public struct GooseSurfaceHealthRow: View {
 
             Text(Self.badge(for: availability))
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(availability.isReady ? Color.green : Color.orange)
+                .foregroundStyle(availability.isReady ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
