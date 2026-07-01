@@ -42,7 +42,7 @@ struct ToolTierBridgeVisibleFailureGuardTests {
         #expect(message.contains("tool execution failed"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=42"))
-        #expect(message.count <= ToolTierBridgeDiagnostics.maxMessageCharacters + 3)
+        #expect(message.count <= ToolTierBridgeDiagnostics.maxMessageCharacters)
         #expect(!message.contains(privatePath))
         #expect(!message.contains("registry failed"))
     }
@@ -52,7 +52,7 @@ struct ToolTierBridgeVisibleFailureGuardTests {
         let longMessage = String(repeating: "x", count: ToolTierBridgeDiagnostics.maxMessageCharacters + 50)
         let message = ToolTierBridgeDiagnostics.toolErrorMessage(longMessage)
 
-        #expect(message.count == ToolTierBridgeDiagnostics.maxMessageCharacters + 3)
+        #expect(message.count == ToolTierBridgeDiagnostics.maxMessageCharacters)
         #expect(message.hasSuffix("..."))
     }
 
@@ -62,6 +62,9 @@ struct ToolTierBridgeVisibleFailureGuardTests {
             "Epistemos/Bridge/ToolTierBridge.swift"
         )
         // The catch branch must post the canonical notification.
+        #expect(source.contains("String(message.prefix(maxMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(source.contains("maxMessageCharacters - 3"))
         #expect(source.contains(".toolTierBridgeLoadFailed"),
             "ToolTierBridge must post .toolTierBridgeLoadFailed in its catch branch so capability-aware UI can show diagnostics — see RCA2-P1-016")
         // And the notification name must be declared so subscribers
