@@ -417,6 +417,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
     func regenerateContextItemsRequireMatchingFeedEnvelope() {
         let attachedFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "attached context", limit: 2)
         let staleFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "stale context", limit: 2)
+        let wrongLimitFeed = HTMLWorkspaceDataFeed.vaultSearch(query: "attached context", limit: 4)
         var package = HTMLWorkspacePackage.defaultPackage(title: "Mismatched Context")
         package.manifest.dataFeed = attachedFeed
         package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
@@ -437,6 +438,15 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("vault_search.query: attached context"))
         #expect(prompt.contains("vault_search.status: missing or mismatched data.json envelope"))
         #expect(!prompt.contains("title: Alpha Note"))
+
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: wrongLimitFeed,
+            results: [
+                SearchResult(pageId: "note-b", title: "Beta Note", snippet: "beta snippet", rank: 0.8),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_004)
+        )
+        #expect(HTMLWorkspaceRegenerateContextItem.items(from: package).isEmpty)
 
         package.manifest.dataFeed = nil
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: package).isEmpty)

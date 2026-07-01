@@ -477,7 +477,8 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
         guard let feed = package.manifest.dataFeed,
               let metadata = metadata(from: package.dataJSON),
               metadata.source == feed.source.rawValue,
-              metadata.query == feed.normalizedQuery else {
+              metadata.query == feed.normalizedQuery,
+              metadata.limit == feed.effectiveLimit else {
             return nil
         }
         let kind = metadata.requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

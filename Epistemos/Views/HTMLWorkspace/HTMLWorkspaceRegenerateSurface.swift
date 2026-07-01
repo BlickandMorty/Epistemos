@@ -867,7 +867,8 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
     ) -> HTMLWorkspaceDataFeedEnvelope? {
         guard let envelope = dataFeedEnvelope(from: dataJSON),
               envelope.epistemos.source == feed.source.rawValue,
-              envelope.epistemos.query == feed.normalizedQuery else {
+              envelope.epistemos.query == feed.normalizedQuery,
+              envelope.epistemos.limit == feed.effectiveLimit else {
             return nil
         }
         return envelope
