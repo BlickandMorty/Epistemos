@@ -73,7 +73,7 @@ final class GooseRuntimeSupervisor {
         "OLLAMA_HOST",
     ]
     // Canonical macOS tool directories unioned into the child PATH so goose serve's
-    // PATH-based CLI/agent detection (codex/claude/cursor/gemini/ollama) and stdio
+    // PATH-based CLI/agent detection and stdio
     // MCP extensions resolve even when launched from Finder/launchd with a truncated
     // PATH. Detection still happens entirely inside Goose; we only widen the search
     // path. Non-existent dirs are harmless (ignored by PATH lookup).
