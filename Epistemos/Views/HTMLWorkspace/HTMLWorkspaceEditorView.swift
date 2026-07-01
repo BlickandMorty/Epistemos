@@ -114,7 +114,8 @@ struct HTMLWorkspaceEditorView: View {
                 hasPendingPreview: canApplyPendingRegeneratePreview,
                 hasVaultContext: package.manifest.dataFeed != nil,
                 contextItems: regenerateContextItems,
-                canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil,
+                canRestorePreviousSurface: restoreSnapshotName != nil,
+                restoreSnapshotName: restoreSnapshotName,
                 onCancel: {
                     if isRegenerating {
                         regenerateTask?.cancel()
@@ -203,7 +204,7 @@ struct HTMLWorkspaceEditorView: View {
             .disabled(isRegenerating)
             .help("Regenerate surface")
 
-            if package.manifest.generationProvenance?.reversibleSnapshotName != nil {
+            if restoreSnapshotName != nil {
                 Button {
                     restorePreviousSurface()
                 } label: {
@@ -211,7 +212,7 @@ struct HTMLWorkspaceEditorView: View {
                 }
                 .labelStyle(.iconOnly)
                 .disabled(isRegenerating)
-                .help("Revert to previous surface")
+                .help(restorePreviousSurfaceHelpText)
             }
 
             Button {
@@ -246,7 +247,8 @@ struct HTMLWorkspaceEditorView: View {
                 }
                 .disabled(isRegenerating)
                 Button("Restore Previous Surface", systemImage: "arrow.uturn.backward.circle", action: restorePreviousSurface)
-                .disabled(package.manifest.generationProvenance?.reversibleSnapshotName == nil || isRegenerating)
+                .disabled(restoreSnapshotName == nil || isRegenerating)
+                .help(restorePreviousSurfaceHelpText)
                 Divider()
                 Button("Import HTML", systemImage: "tray.and.arrow.down") {
                     importHTML()
@@ -685,6 +687,19 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextStatusText
             ?? HTMLWorkspaceDataFeedStatus.detailLine(for: package)
             ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
+    }
+
+    private var restoreSnapshotName: String? {
+        let name = package.manifest.generationProvenance?.reversibleSnapshotName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let name, !name.isEmpty else { return nil }
+        return name
+    }
+
+    private var restorePreviousSurfaceHelpText: String {
+        guard let restoreSnapshotName else {
+            return "No named restore snapshot available"
+        }
+        return "Revert to snapshot \(restoreSnapshotName)"
     }
 
     private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem] {
@@ -1893,7 +1908,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func restorePreviousSurface() {
-        guard let name = package.manifest.generationProvenance?.reversibleSnapshotName else {
+        guard let name = restoreSnapshotName else {
             statusText = "No restore snapshot"
             return
         }
@@ -1906,7 +1921,7 @@ struct HTMLWorkspaceEditorView: View {
             selectedPane = .html
             layoutMode = .split
             regenerateErrorText = nil
-            statusText = "Previous surface restored"
+            statusText = "Previous surface restored from \(name)"
         } catch {
             statusText = failedStatus("Restore", error: error)
         }

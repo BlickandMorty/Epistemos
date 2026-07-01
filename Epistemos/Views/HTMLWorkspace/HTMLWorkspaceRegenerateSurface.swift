@@ -16,6 +16,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
     let hasVaultContext: Bool
     let contextItems: [HTMLWorkspaceRegenerateContextItem]
     let canRestorePreviousSurface: Bool
+    let restoreSnapshotName: String?
     let onCancel: () -> Void
     let onCopyPrompt: () -> Void
     let onRefreshContext: () -> Void
@@ -87,6 +88,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     Label("Revert", systemImage: "clock.arrow.circlepath")
                 }
                 .disabled(isRegenerating || !canRestorePreviousSurface)
+                .help(restoreSnapshotHelpText)
                 Button(action: onApplyPreview) {
                     Label("Apply Preview", systemImage: "checkmark.circle")
                 }
@@ -177,6 +179,13 @@ struct HTMLWorkspaceRegenerateSheet: View {
             return "dot.radiowaves.left.and.right"
         }
         return "eye"
+    }
+
+    private var restoreSnapshotHelpText: String {
+        guard let restoreSnapshotName, !restoreSnapshotName.isEmpty else {
+            return "No named restore snapshot available"
+        }
+        return "Revert to snapshot \(restoreSnapshotName)"
     }
 
     private var contextSection: some View {
