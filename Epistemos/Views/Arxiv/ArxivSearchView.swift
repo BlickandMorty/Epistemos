@@ -287,9 +287,9 @@ struct ArxivSearchView: View {
             graphState: graphState
         )
         switch outcome {
-        case .imported(_, let title):
+        case .imported(_, let title, let sourcePDFRelativePath):
             importedIDs.insert(paper.id)
-            statusMessage = ArxivSearchPresentation.status("Added \(title).")
+            statusMessage = ArxivSearchPresentation.status("Added \(title). Source PDF: \(sourcePDFRelativePath).")
         case .rejected(.cancelled):
             statusMessage = nil
         case .rejected(let error):

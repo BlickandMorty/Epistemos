@@ -181,7 +181,7 @@ enum ArxivIngestService {
     nonisolated static let importDirectory = "arXiv"
 
     enum Outcome: Equatable {
-        case imported(pageID: String, title: String)
+        case imported(pageID: String, title: String, sourcePDFRelativePath: String)
         case rejected(ArxivIngestError)
     }
 
@@ -270,7 +270,11 @@ enum ArxivIngestService {
         do {
             try modelContext.save()
             graphState?.needsRefresh = true
-            return .imported(pageID: page.id, title: page.title)
+            return .imported(
+                pageID: page.id,
+                title: page.title,
+                sourcePDFRelativePath: materializedFiles.sourcePDFRelativePath
+            )
         } catch {
             modelContext.delete(page)
             removeMaterializedFiles(materializedFiles)

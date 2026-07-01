@@ -273,10 +273,13 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("exceeds the 128 MiB cap"))
         #expect(codepack.contains("request/XML parser failures are reported as bounded domain/code diagnostics"))
         #expect(codepack.contains("search or ingest status"))
+        #expect(codepack.contains("sheet status reports that copied PDF"))
+        #expect(codepack.contains("imported outcome's\n  vault-relative `source_pdf` matches"))
         #expect(codepack.contains("raw diagnostic and\n  metadata-label strings are bounded before trimming"))
         #expect(codepack.contains("ellipsis stays inside configured caps"))
         #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
+        #expect(capabilities.contains("successful ingest status reports the vault-relative `source_pdf` path"))
         #expect(capabilities.contains("capped at 128 MiB"))
         #expect(capabilities.contains("network-fed SwiftUI display strings\n  are bounded before trimming"))
         #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
@@ -311,6 +314,7 @@ struct ArxivPlan3Tests {
         #expect(searchView.contains("private var rowGap: some View"))
         #expect(searchView.contains("ingestActionImage(for:"))
         #expect(searchView.contains("chromePolicy: .alwaysSurface"))
+        #expect(searchView.contains("Source PDF: \\(sourcePDFRelativePath)"))
         #expect(!searchView.contains("error.localizedDescription"))
         #expect(!searchView.contains(".foregroundStyle(.secondary)"))
         #expect(!searchView.contains(".foregroundStyle(.tertiary)"))
@@ -319,6 +323,7 @@ struct ArxivPlan3Tests {
         #expect(!searchView.contains(".buttonStyle(.borderless)"))
         #expect(!searchView.contains("Divider()"))
         #expect(ingest.contains("materializeImportedFiles"))
+        #expect(ingest.contains("sourcePDFRelativePath: materializedFiles.sourcePDFRelativePath"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
         #expect(ingest.contains("open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)"))
@@ -512,7 +517,7 @@ struct ArxivPlan3Tests {
             downloader: FakeArxivDownloader(fileURL: sourcePDF)
         )
 
-        guard case .imported = outcome else {
+        guard case .imported(_, _, let outcomeSourcePDFRelative) = outcome else {
             Issue.record("Expected arXiv ingest to import, got \(String(describing: outcome))")
             return
         }
@@ -528,6 +533,7 @@ struct ArxivPlan3Tests {
         #expect(noteText.contains("Converted full text."))
 
         let sourcePDFRelative = try #require(page.frontMatter["source_pdf"])
+        #expect(outcomeSourcePDFRelative == sourcePDFRelative)
         #expect(FileManager.default.fileExists(atPath: vault.appendingPathComponent(sourcePDFRelative).path))
     }
 
@@ -560,7 +566,7 @@ struct ArxivPlan3Tests {
             downloader: FakeArxivDownloader(fileURL: sourcePDF)
         )
 
-        guard case .imported = outcome else {
+        guard case .imported(_, _, let outcomeSourcePDFRelative) = outcome else {
             Issue.record("Expected arXiv ingest to import, got \(String(describing: outcome))")
             return
         }
@@ -569,6 +575,7 @@ struct ArxivPlan3Tests {
         let filePath = try #require(page.filePath)
         let noteBaseName = URL(fileURLWithPath: filePath).deletingPathExtension().lastPathComponent
         let sourcePDFRelative = try #require(page.frontMatter["source_pdf"])
+        #expect(outcomeSourcePDFRelative == sourcePDFRelative)
         let sourcePDFBaseName = vault
             .appendingPathComponent(sourcePDFRelative)
             .deletingPathExtension()

@@ -51,7 +51,7 @@ enum ArxivIngestLiveSmoke {
             downloader: URLSessionArxivPDFDownloader()
         )
 
-        guard case .imported = outcome else {
+        guard case .imported(_, _, let outcomeSourcePDF) = outcome else {
             fail("ingest returned \(outcome)")
         }
 
@@ -71,6 +71,9 @@ enum ArxivIngestLiveSmoke {
         guard let sourcePDF = page.frontMatter["source_pdf"], sourcePDF.hasPrefix("arXiv/") else {
             fail("missing source_pdf frontmatter: \(page.frontMatter)")
         }
+        guard outcomeSourcePDF == sourcePDF else {
+            fail("outcome source_pdf \(outcomeSourcePDF) did not match frontmatter \(sourcePDF)")
+        }
         let copiedPDF = vault.appendingPathComponent(sourcePDF, isDirectory: false)
         guard copiedPDF.pathExtension.lowercased() == "pdf",
               FileManager.default.fileExists(atPath: copiedPDF.path) else {
@@ -85,6 +88,6 @@ enum ArxivIngestLiveSmoke {
             fail("note markdown missing parsed full text")
         }
 
-        print("arXiv ingest live smoke OK: downloaded=true parsed=true note=true source_pdf=\(sourcePDF)")
+        print("arXiv ingest live smoke OK: downloaded=true parsed=true note=true outcome_source_pdf=true source_pdf=\(sourcePDF)")
     }
 }
