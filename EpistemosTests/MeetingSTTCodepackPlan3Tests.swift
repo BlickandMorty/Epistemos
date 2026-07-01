@@ -6,6 +6,7 @@ struct MeetingSTTCodepackPlan3Tests {
     @Test("codepack keeps meeting note on LiveVoiceInputService plus TextCapturePipeline")
     func codepackUsesCanonicalVoiceAndCaptureSeams() throws {
         let plan = try loadMirroredSourceTextFile("docs/research/PLAN_3_MEETING_STT_CODEPACK_2026_06_28.md")
+        let view = try loadMirroredSourceTextFile("Epistemos/Views/Meeting/MeetingNoteView.swift")
 
         for required in [
             "LiveVoiceInputService",
@@ -21,6 +22,26 @@ struct MeetingSTTCodepackPlan3Tests {
         ] {
             #expect(plan.contains(required), "Missing required Meeting/STT plan string: \(required)")
         }
+        for required in [
+            "@Environment(UIState.self)",
+            "ToolbarCapsuleButton(",
+            "transcriptSurfaceBackground",
+            "ui.theme.resolved.background.color",
+            "ui.theme.resolved.foreground.color",
+            "ui.theme.resolved.mutedForeground.color",
+            ".lineLimit(1)",
+            ".truncationMode(.tail)",
+            ".frame(maxWidth: 220, alignment: .trailing)",
+            "private var isSaved: Bool",
+            "private var canSave: Bool",
+            ".disabled(!canSave)",
+            ".environment(UIState())",
+        ] {
+            #expect(view.contains(required), "Missing native Meeting/STT surface string: \(required)")
+        }
+        #expect(!view.contains("Divider()"))
+        #expect(!view.contains("textBackgroundColor"))
+        #expect(!view.contains(".foregroundStyle(.secondary)"))
     }
 
     @Test("codepack preserves Plan 3 boundaries and MAS honesty")

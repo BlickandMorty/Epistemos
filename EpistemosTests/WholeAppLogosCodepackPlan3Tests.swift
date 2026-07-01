@@ -53,6 +53,9 @@ struct WholeAppLogosCodepackPlan3Tests {
             "var assetName: String? { nil }",
             "NSImage(named: assetName)",
             "brand mark",
+            "@Environment(UIState.self)",
+            "theme.resolved.mutedForeground.color.opacity",
+            ".fill(monogramBackground)",
             "static func installedMCPServer",
             "static func mcpRegistry",
             "static func bestOfPreset",
@@ -61,7 +64,9 @@ struct WholeAppLogosCodepackPlan3Tests {
             "static func skillInstallSource",
             "static func skillInventory",
             "static func landingFeature",
-            "maxClassifierInputCharacters"
+            "maxClassifierInputCharacters",
+            "normalizedHaystack",
+            "String(value.prefix(maxClassifierInputCharacters))"
         ] {
             #expect(registry.contains(required), "Missing IntegrationBrand registry string: \(required)")
         }
@@ -74,10 +79,16 @@ struct WholeAppLogosCodepackPlan3Tests {
             "Epistemos/Goose",
             "Epistemos/Agent",
             "Epdoc",
-            "HTMLWorkspace"
+            "HTMLWorkspace",
+            #"normalized("\(name) \(host)")"#,
+            #"normalized("\(id) \(displayName)")"#,
+            #"normalized("\(identifier) \(category)")"#,
+            #"normalized("\(identifier) \(description)")"#
         ] {
             #expect(!registry.contains(forbidden), "IntegrationBrand registry crossed a forbidden boundary: \(forbidden)")
         }
+        #expect(!registry.contains(".stroke(.tertiary"))
+        #expect(!registry.contains(".fill(.quaternary)"))
     }
 
     @Test("extensibility settings rows use registry-backed brand marks")
@@ -150,7 +161,8 @@ struct WholeAppLogosCodepackPlan3Tests {
             "case .provenance:\n                .provenance",
             "SettingsIntegrationBrandBadge(",
             "brand: brand",
-            "SettingsPixelGlyphBadge("
+            "SettingsPixelGlyphBadge(",
+            "theme.resolved.mutedForeground.color"
         ] {
             #expect(settings.contains(required), "Settings sidebar missing brand mark path: \(required)")
         }
@@ -158,6 +170,8 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(components.contains("struct SettingsIntegrationBrandBadge"))
         #expect(components.contains("IntegrationBrandMarkView(brand: brand"))
         #expect(components.contains(".accessibilityHidden(true)"))
+        #expect(components.contains("theme.resolved.mutedForeground.color"))
+        #expect(!components.contains(".foregroundStyle(.secondary)"))
         #expect(codepack.contains("settings sidebar marks"))
         #expect(codepack.contains("Settings sidebar branded rows now use `SettingsIntegrationBrandBadge`"))
     }
@@ -174,10 +188,13 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(IntegrationBrand.installedMCPServer(name: "Context7 MCP", host: "context7.com") == .context7)
         #expect(IntegrationBrand.installedMCPServer(name: "Gmail", host: "googlemail.test") == .gmail)
         #expect(IntegrationBrand.mcpRegistry(source: "mcp.so", installKind: "remoteURL", name: "Search") == .mcpSO)
+        #expect(IntegrationBrand.mcpRegistry(source: "unknown", installKind: "REMOTEURL", name: "Search") == .remoteMCP)
         #expect(IntegrationBrand.bestOfPreset(kind: "remoteMCP", id: "vault", displayName: "Vault") == .vault)
+        #expect(IntegrationBrand.bestOfPreset(kind: "SKILLREPO", id: "plain", displayName: "Plain") == .skillRepo)
         #expect(IntegrationBrand.connector(id: "google-drive", displayName: "Drive") == .googleDrive)
         #expect(IntegrationBrand.skillDiscovery(source: "codex", identifier: "docs", category: "research") == .codexSkills)
         #expect(IntegrationBrand.skillInstallSource(rawValue: "localPath") == .localSkill)
+        #expect(IntegrationBrand.skillInstallSource(rawValue: "LOCALPATH") == .localSkill)
         #expect(IntegrationBrand.skillInventory(identifier: "github-helper", description: "GitHub tools") == .github)
 
         let longTail = String(repeating: "x", count: IntegrationBrand.maxClassifierInputCharacters + 64)
@@ -185,6 +202,14 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(IntegrationBrand.connector(id: longTail + "-slack", displayName: "") == .remoteMCP)
         #expect(IntegrationBrand.skillInventory(identifier: "github-\(longTail)", description: "") == .github)
         #expect(IntegrationBrand.skillInventory(identifier: longTail + "-github", description: "") == .skillRepo)
+        #expect(IntegrationBrand.mcpRegistry(source: "", installKind: longTail + "remoteURL", name: "") == .builtinTool)
+        #expect(IntegrationBrand.skillInstallSource(rawValue: longTail + "localPath") == .skillRepo)
+        #expect(IntegrationBrand.connector(id: longTail, displayName: "slack") == .slack)
+        #expect(
+            IntegrationBrand.skillInstallSource(
+                rawValue: String(repeating: " ", count: IntegrationBrand.maxClassifierInputCharacters + 64) + "github"
+            ) == .skillRepo
+        )
 
         for feature in LandingFeatureButton.allCases {
             #expect(feature.integrationBrand != .generic)

@@ -91,6 +91,10 @@ struct LandingOptimizationTests {
 
     @Test("landing log sites route through redacted diagnostics")
     func landingLogSitesRouteThroughRedactedDiagnostics() throws {
+        let diagnostics = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingDiagnostics.swift")
+        #expect(diagnostics.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(diagnostics.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+
         let paths = [
             "Epistemos/Views/Landing/TimeMachineView.swift",
             "Epistemos/Views/Landing/QuitSavePanelController.swift",

@@ -5,8 +5,9 @@ import Foundation
 
 // SS-QC (owner 2026-06-20): a GLOBAL default voice that applies across EVERY TTS surface, set via a
 // voice picker in Settings, plus an honest quality hint ("premium sounds basic" = no Premium voice
-// is downloaded → System Settings → Spoken Content → Manage Voices). This guards the functional
-// core (resolution + persistence) headless; the picker UI + audio are owner-verified (non-blocking).
+// is downloaded → System Settings → Spoken Content → Manage Voices) and a Personal Voice access
+// request hook. This guards the functional core (resolution + persistence) headless; the picker UI
+// + audio are owner-verified (non-blocking).
 @Suite("SS-QC — global default voice")
 struct SSQCGlobalVoiceTests {
 
@@ -48,6 +49,9 @@ struct SSQCGlobalVoiceTests {
         // The picker content surfaces the honest premium-download hint (so "sounds basic" is explained).
         let picker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
         #expect(picker.contains("voiceQualityHint()"))
+        #expect(picker.contains("personalVoiceAccessView"))
+        #expect(picker.contains("requestPersonalVoiceAccess()"))
+        #expect(picker.contains("ToolbarCapsuleButton("))
     }
 
     @Test("voicesGroupedByTier orders Premium > Enhanced > Default and drops empty tiers")
@@ -114,6 +118,8 @@ struct SSQCGlobalVoiceTests {
         #expect(src.contains("AVSpeechUtterance(string: text)"))
         #expect(src.contains("clampedRate(prosody?.rate ?? rate)"))
         #expect(src.contains("clampedPitch(prosody?.pitch ?? pitch)"))
+        #expect(src.contains("AVSpeechSynthesizer.personalVoiceAuthorizationStatus"))
+        #expect(src.contains("AVSpeechSynthesizer.requestPersonalVoiceAuthorization"))
     }
 
     @Test("stale utterance completion cannot clear a newer speech state")
