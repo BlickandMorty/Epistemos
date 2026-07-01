@@ -55,12 +55,22 @@ function replaceRequired(source, label, search, replacement) {
   return next;
 }
 
+function replaceOptional(source, search, replacement) {
+  return typeof search === 'string'
+    ? source.replace(search, replacement)
+    : source.replace(search, replacement);
+}
+
 function replaceAllRequired(source, label, search, replacement) {
   const next = source.replaceAll(search, replacement);
   if (next === source) {
     throw new Error(`${label} replacement was not applied`);
   }
   return next;
+}
+
+function replaceAllOptional(source, search, replacement) {
+  return source.replaceAll(search, replacement);
 }
 
 function replaceTokenValues(source, key, values) {
@@ -5183,6 +5193,30 @@ function applyRecipeDetailSurfaces() {
   source = replaceAllRequired(source, 'recipe form validation text token', 'text-red-500', 'text-text-danger');
   source = replaceRequired(
     source,
+    'recipe prompt textarea borderless',
+    'className="w-full p-3 border border-border-primary rounded-lg bg-background-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"',
+    'className="w-full resize-none rounded-[10px] bg-background-primary/60 p-3 text-text-primary outline-none transition-colors focus:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe advanced trigger borderless',
+    'className="flex items-baseline gap-2 w-full py-3 px-4 bg-background-secondary hover:bg-background-secondary/80 rounded-lg transition-colors border border-border-primary"',
+    'className="flex w-full items-baseline gap-2 rounded-[12px] bg-background-secondary/56 px-4 py-3 transition-colors hover:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe advanced content borderless',
+    'className="mt-4 space-y-4 pl-6 border-l-2 border-border-primary ml-2"',
+    'className="ml-2 mt-4 space-y-4 rounded-[12px] bg-background-secondary/32 px-4 py-3"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe parameter input borderless',
+    'className="flex-1 px-3 py-2 border border-border-primary rounded-lg bg-background-primary text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"',
+    'className="flex-1 rounded-[10px] bg-background-primary/60 px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
     'recipe form activity add button native',
     'className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"',
     'className="rounded-[8px] bg-[var(--epistemos-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--epistemos-accent)]/90 disabled:cursor-not-allowed disabled:bg-background-disabled disabled:text-text-disabled"'
@@ -5197,6 +5231,21 @@ function applyRecipeDetailSurfaces() {
     'className="rounded-[12px] bg-background-primary/54 p-4 transition-colors hover:bg-background-secondary/62"'
   );
   write('src/components/recipes/shared/SubRecipeEditor.tsx', source);
+
+  source = read('src/components/recipes/shared/KeyValueEditor.tsx');
+  source = replaceAllRequired(
+    source,
+    'key value editor input borderless',
+    'className="flex-1 px-3 py-2 border border-border-subtle rounded-lg bg-background-primary text-text-standard focus:outline-none focus:ring-2 focus:ring-ring text-sm"',
+    'className="flex-1 rounded-[10px] bg-background-primary/60 px-3 py-2 text-sm text-text-standard outline-none transition-colors focus:bg-background-secondary/72"'
+  );
+  source = replaceRequired(
+    source,
+    'key value editor values container borderless',
+    'className="space-y-2 border border-border-subtle rounded-lg p-3"',
+    'className="space-y-2 rounded-[12px] bg-background-secondary/44 p-3"'
+  );
+  write('src/components/recipes/shared/KeyValueEditor.tsx', source);
 
   source = read('src/components/recipes/shared/RecipeModelSelector.tsx');
   source = replaceRequired(
@@ -6118,6 +6167,50 @@ function applyModalScrimAndElicitationSurfaces() {
       'className="bg-background-primary border border-borderSubtle rounded-lg w-[90vw] max-w-2xl max-h-[90vh] flex flex-col"',
       'className="flex max-h-[90vh] w-[90vw] max-w-2xl flex-col overflow-hidden rounded-[14px] bg-background-primary/92"'
     );
+    source = replaceRequired(
+      source,
+      `${file} header borderless`,
+      'className="flex items-center justify-between p-6 border-b border-borderSubtle"',
+      'className="flex items-center justify-between bg-background-primary/42 p-6"'
+    );
+    source = replaceAllRequired(
+      source,
+      `${file} full input borderless`,
+      'className="w-full p-3 border border-border-subtle rounded-lg bg-background-primary text-text-standard focus:outline-none focus:ring-2 focus:ring-ring"',
+      'className="w-full rounded-[10px] bg-background-primary/60 p-3 text-text-standard outline-none transition-colors focus:bg-background-secondary/72"'
+    );
+    source = replaceAllOptional(
+      source,
+      'className="flex-1 p-3 border border-border-subtle rounded-lg bg-background-primary text-text-standard focus:outline-none focus:ring-2 focus:ring-ring"',
+      'className="flex-1 rounded-[10px] bg-background-primary/60 p-3 text-text-standard outline-none transition-colors focus:bg-background-secondary/72"'
+    );
+    source = replaceAllRequired(
+      source,
+      `${file} full textarea borderless`,
+      'className="w-full p-3 border border-border-subtle rounded-lg bg-background-primary text-text-standard focus:outline-none focus:ring-2 focus:ring-ring resize-none"',
+      'className="w-full resize-none rounded-[10px] bg-background-primary/60 p-3 text-text-standard outline-none transition-colors focus:bg-background-secondary/72"'
+    );
+    source = replaceAllOptional(
+      source,
+      'className="w-full p-3 border border-border-subtle rounded-lg bg-background-primary text-text-standard focus:outline-none focus:ring-2 focus:ring-ring resize-none font-mono text-sm"',
+      'className="w-full resize-none rounded-[10px] bg-background-primary/60 p-3 text-sm text-text-standard outline-none transition-colors focus:bg-background-secondary/72"'
+    );
+    source = replaceAllRequired(
+      source,
+      `${file} checkbox accent native`,
+      'className="w-4 h-4 border-border-subtle rounded focus:ring-2 focus:ring-ring"',
+      'className="h-4 w-4 rounded-[5px] accent-[var(--epistemos-accent)]"'
+    );
+    source = replaceOptional(
+      source,
+      'className="flex gap-2 p-6 border-t border-borderSubtle"',
+      'className="flex gap-2 bg-background-primary/42 p-6"'
+    );
+    source = replaceOptional(
+      source,
+      'className="flex gap-3 p-6 border-t border-borderSubtle justify-end"',
+      'className="flex justify-end gap-3 bg-background-primary/42 p-6"'
+    );
     write(file, source);
   }
 
@@ -6132,8 +6225,32 @@ function applyModalScrimAndElicitationSurfaces() {
       'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50"',
       'className="fixed inset-0 z-[400] flex items-center justify-center bg-black/20"'
     );
+    source = replaceRequired(
+      source,
+      `${file} footer borderless`,
+      'className="flex justify-end space-x-3 mt-6 pt-4 border-t border-border-primary"',
+      'className="mt-6 flex justify-end space-x-3 rounded-[10px] bg-background-primary/42 p-3"'
+    );
     write(file, source);
   }
+
+  source = read('src/components/recipes/shared/InstructionsEditor.tsx');
+  source = replaceRequired(
+    source,
+    'instructions editor modal card borderless',
+    'className="bg-background-primary border border-border-primary rounded-lg p-6 w-[900px] max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col"',
+    'className="flex max-h-[90vh] w-[900px] max-w-[90vw] flex-col overflow-hidden rounded-[14px] bg-background-primary/92 p-6"'
+  );
+  write('src/components/recipes/shared/InstructionsEditor.tsx', source);
+
+  source = read('src/components/recipes/shared/JsonSchemaEditor.tsx');
+  source = replaceRequired(
+    source,
+    'json schema editor modal card borderless',
+    'className="bg-background-primary border border-border-primary rounded-lg p-6 w-[800px] max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col"',
+    'className="flex max-h-[90vh] w-[800px] max-w-[90vw] flex-col overflow-hidden rounded-[14px] bg-background-primary/92 p-6"'
+  );
+  write('src/components/recipes/shared/JsonSchemaEditor.tsx', source);
 
   source = read('src/components/ui/sheet.tsx');
   source = replaceRequired(
