@@ -554,8 +554,8 @@ nonisolated enum SkillsSettingsStatus {
         }) else {
             return "Error"
         }
-        let bounded = String(value.prefix(maxDomainCharacters))
-        return bounded.isEmpty ? "Error" : bounded
+        let clamped = String(value.prefix(maxDomainCharacters))
+        return clamped.isEmpty ? "Error" : clamped
     }
 }
 
