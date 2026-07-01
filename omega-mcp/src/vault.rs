@@ -9,7 +9,9 @@ use crate::types::ToolResult;
 use memmap2::Mmap;
 use rayon::prelude::*;
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -178,7 +180,30 @@ impl VaultExecutor {
         self.reject_symlinked_relative_path(&clean)?;
 
         let full = self.resolve(&clean)?;
-        let metadata = fs::metadata(&full).map_err(|_| "read failed".to_string())?;
+        Self::read_markdown_resource_file(&full)
+    }
+
+    fn read_markdown_resource_file(full: &Path) -> Result<String, String> {
+        #[cfg(unix)]
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(nix::libc::O_NOFOLLOW | nix::libc::O_CLOEXEC)
+            .open(full)
+            .map_err(|error| {
+                if error.raw_os_error() == Some(nix::libc::ELOOP) {
+                    "symlinked vault resources cannot be read".to_string()
+                } else {
+                    "only regular markdown vault resources can be read".to_string()
+                }
+            })?;
+
+        #[cfg(not(unix))]
+        let file = File::open(full)
+            .map_err(|_| "only regular markdown vault resources can be read".to_string())?;
+
+        let metadata = file
+            .metadata()
+            .map_err(|_| "only regular markdown vault resources can be read".to_string())?;
         if !metadata.is_file() {
             return Err("only regular markdown vault resources can be read".to_string());
         }
@@ -186,12 +211,15 @@ impl VaultExecutor {
             return Err("markdown resource is too large".to_string());
         }
 
-        let content = fs::read_to_string(&full)
-            .map_err(|_| "markdown resource is not valid UTF-8".to_string())?;
-        if content.len() as u64 > MCP_RESOURCE_MAX_READ_BYTES {
+        let mut bytes = Vec::new();
+        let mut limited = file.take(MCP_RESOURCE_MAX_READ_BYTES + 1);
+        limited
+            .read_to_end(&mut bytes)
+            .map_err(|_| "read failed".to_string())?;
+        if bytes.len() as u64 > MCP_RESOURCE_MAX_READ_BYTES {
             return Err("markdown resource is too large".to_string());
         }
-        Ok(content)
+        String::from_utf8(bytes).map_err(|_| "markdown resource is not valid UTF-8".to_string())
     }
 
     fn reject_symlinked_relative_path(&self, relative: &str) -> Result<(), String> {
@@ -1108,6 +1136,7 @@ mod tests {
         let large = dir.path().join("large.md");
         let file = File::create(&large).unwrap();
         file.set_len(MCP_RESOURCE_MAX_READ_BYTES + 1).unwrap();
+        fs::write(dir.path().join("invalid.md"), [0xff, 0xfe, 0xfd]).unwrap();
 
         let note = exec.read_markdown_resource("note1.md").unwrap();
         assert!(note.contains("transformers"));
@@ -1126,6 +1155,10 @@ mod tests {
         assert_eq!(
             exec.read_markdown_resource("large.md").unwrap_err(),
             "markdown resource is too large"
+        );
+        assert_eq!(
+            exec.read_markdown_resource("invalid.md").unwrap_err(),
+            "markdown resource is not valid UTF-8"
         );
 
         #[cfg(unix)]
