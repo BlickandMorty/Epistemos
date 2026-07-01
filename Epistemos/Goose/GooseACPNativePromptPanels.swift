@@ -52,13 +52,13 @@ struct GooseACPPermissionPanel: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                         }
-                        .foregroundStyle(option.kind.isReject ? theme.error : theme.resolved.accent.color)
+                        .foregroundStyle(permissionOptionForeground(option.kind))
                         .frame(maxWidth: .infinity, minHeight: 30)
                         .padding(.horizontal, 10)
                     }
                     .buttonStyle(.plain)
                     .background {
-                        controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                        controlShape.fill(permissionOptionFill(option.kind))
                     }
                     .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                     .help(optionName(option))
@@ -72,7 +72,7 @@ struct GooseACPPermissionPanel: View {
                 }
                 .buttonStyle(.plain)
                 .background {
-                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                    controlShape.fill(neutralControlFill)
                 }
                 .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                 .help("Cancel")
@@ -108,6 +108,22 @@ struct GooseACPPermissionPanel: View {
             fallback: option.optionId,
             maxCharacters: GooseNativePromptPanelBounds.maxPermissionOptionNameCharacters
         )
+    }
+
+    private var neutralControlFill: Color {
+        theme.resolved.card.color.opacity(theme.isDark ? 0.62 : 0.68)
+    }
+
+    private func permissionOptionForeground(_ kind: GooseACPPermissionOptionKind) -> Color {
+        kind.isReject ? theme.error : theme.resolved.accent.color
+    }
+
+    private func permissionOptionFill(_ kind: GooseACPPermissionOptionKind) -> Color {
+        if kind.isReject {
+            theme.error.opacity(theme.isDark ? 0.18 : 0.10)
+        } else {
+            theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11)
+        }
     }
 
     private var promptTitle: String {
@@ -214,7 +230,7 @@ struct GooseACPElicitationPanel: View {
                 .opacity(allRequiredFilled ? 1 : 0.5)
                 .help(allRequiredFilled ? "Submit" : "Fill all required (*) fields to submit")
                 .background {
-                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                    controlShape.fill(accentControlFill)
                 }
                 .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
 
@@ -225,13 +241,13 @@ struct GooseACPElicitationPanel: View {
                         Text("Decline")
                             .font(GooseSurfaceStyle.bodyFont(11, weight: .semibold))
                     }
-                    .foregroundStyle(theme.textTertiary)
+                    .foregroundStyle(theme.error)
                     .frame(minHeight: 30)
                     .padding(.horizontal, 10)
                 }
                 .buttonStyle(.plain)
                 .background {
-                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                    controlShape.fill(dangerControlFill)
                 }
                 .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
 
@@ -245,7 +261,7 @@ struct GooseACPElicitationPanel: View {
                 }
                 .buttonStyle(.plain)
                 .background {
-                    controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
+                    controlShape.fill(neutralControlFill)
                 }
                 .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                 .help("Cancel")
@@ -285,6 +301,7 @@ struct GooseACPElicitationPanel: View {
                     .foregroundStyle(theme.resolved.foreground.color)
             }
             .toggleStyle(.checkbox)
+            .tint(theme.resolved.accent.color)
         case .string, .number, .unknown:
             VStack(alignment: .leading, spacing: 5) {
                 Text(fieldLabel(field))
@@ -293,6 +310,7 @@ struct GooseACPElicitationPanel: View {
                 TextField("", text: textBinding(field.id))
                     .textFieldStyle(.plain)
                     .font(GooseSurfaceStyle.bodyFont(12))
+                    .tint(theme.resolved.accent.color)
                     .padding(.horizontal, 9)
                     .frame(height: 30)
                     .background {
@@ -301,6 +319,18 @@ struct GooseACPElicitationPanel: View {
                     }
             }
         }
+    }
+
+    private var accentControlFill: Color {
+        theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11)
+    }
+
+    private var dangerControlFill: Color {
+        theme.error.opacity(theme.isDark ? 0.18 : 0.10)
+    }
+
+    private var neutralControlFill: Color {
+        theme.resolved.card.color.opacity(theme.isDark ? 0.62 : 0.68)
     }
 
     private func fieldLabel(_ field: GooseACPElicitationFormField) -> String {

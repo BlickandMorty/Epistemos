@@ -88,6 +88,16 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!webView.contains("detailsButton"))
         #expect(!webView.contains("Label(\"Manage models\""))
 
+        let nativePrompts = try loadMirroredSourceTextFile("Epistemos/Goose/GooseACPNativePromptPanels.swift")
+        #expect(nativePrompts.contains("permissionOptionFill(option.kind)"))
+        #expect(nativePrompts.contains("permissionOptionForeground(option.kind)"))
+        #expect(nativePrompts.contains("controlShape.fill(accentControlFill)"))
+        #expect(nativePrompts.contains("controlShape.fill(dangerControlFill)"))
+        #expect(nativePrompts.contains("controlShape.fill(neutralControlFill)"))
+        #expect(nativePrompts.contains(".tint(theme.resolved.accent.color)"))
+        #expect(nativePrompts.contains("theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11)"))
+        #expect(nativePrompts.contains("theme.error.opacity(theme.isDark ? 0.18 : 0.10)"))
+
         let reskin = try loadMirroredSourceTextFile("scripts/stage-goose-native-reskin.mjs")
         #expect(reskin.contains("epistemos-native-high-quality-flat-polish"))
         #expect(reskin.contains("epistemos-native-claude-pixel-polish"))
