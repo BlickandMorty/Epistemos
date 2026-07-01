@@ -685,6 +685,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("Selected preview context:"))
         #expect(prompt.contains("in-surface add-context picker/filter"))
         #expect(prompt.contains("picking a record should visibly add/pin that real record into the workspace"))
+        #expect(prompt.contains("section-level context drop zones"))
+        #expect(prompt.contains("unmatched drops must show an honest unavailable status"))
         #expect(prompt.contains("When selected preview context is present"))
         #expect(prompt.contains("Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance."))
         #expect(prompt.contains("_epistemos.required_context_kind"))

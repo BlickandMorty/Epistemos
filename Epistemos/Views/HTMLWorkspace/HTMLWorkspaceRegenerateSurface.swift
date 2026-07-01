@@ -609,6 +609,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance. Keep source_label/provenance visible in generated cards, tables, charts, and detail panes.
     When _epistemos.required_context_kind is present and _epistemos.required_context_available is false, show that required source as unavailable instead of relabeling generic vault results.
     Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; picking a record should visibly add/pin that real record into the workspace, and absent records must show an honest empty or stale state.
+    When rendering context-backed sections, make section-level context drop zones that only select/pin records already present in data.json or matching native Epistemos context payloads; unmatched drops must show an honest unavailable status instead of silently fabricating or accepting arbitrary text.
     When selected preview context is present, treat it as the user's intended surface target and preserve its selector relationship when practical.
     Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
