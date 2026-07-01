@@ -202,6 +202,39 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("web_ui_dry_run_submit"))
     }
 
+    @Test("browser.complete_task v2 catalog advertises the bounded task envelope")
+    func browserCompleteTaskV2CatalogAdvertisesBoundedTaskEnvelope() throws {
+        let catalog = try Self.loadSource("agent_core/src/tools_v2/v2_catalog/browser_complete_task.rs")
+        let runtime = try Self.loadSource("agent_core/src/tools/browser_complete_task.rs")
+
+        #expect(catalog.contains("pub fn output_schema() -> &'static Value"))
+        #expect(catalog.contains("output_schema,"))
+        #expect(!catalog.contains("generic_text_or_object_output_schema"))
+        #expect(catalog.contains(#""additionalProperties": false"#))
+        #expect(catalog.contains(#""enum": ["completed", "failed", "incomplete", "unknown"]"#))
+        #expect(catalog.contains(#""required": ["error"]"#))
+
+        for field in [
+            "success",
+            "adapter_success",
+            "task_success",
+            "status",
+            "final_result",
+            "errors",
+            "steps",
+            "max_steps",
+            "task_chars",
+            "is_done",
+            "successful",
+            "used_browser_use_agent",
+            "dry_run",
+            "truncated",
+        ] {
+            #expect(catalog.contains(#""\#(field)""#), "Catalog output schema missing \(field)")
+            #expect(runtime.contains(#""\#(field)": "#), "Runtime output envelope missing \(field)")
+        }
+    }
+
     @Test("browser-use plan preserves browser settings and MAS boundary")
     func browserUseCodepackPreservesSettingsAndBoundary() throws {
         let codepack = Self.normalizedWhitespace(
