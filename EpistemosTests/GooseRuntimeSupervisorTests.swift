@@ -97,6 +97,23 @@ struct GooseRuntimeSupervisorTests {
         #expect(server.contains("#if EPISTEMOS_APP_STORE"))
     }
 
+    @Test("MAS in-process loopback fallback rejects non-loopback Host and Origin")
+    func masInProcessLoopbackFallbackRejectsNonLoopbackHostAndOrigin() throws {
+        let server = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
+
+        #expect(server.contains("private var boundPort: UInt16?"))
+        #expect(server.contains("authorizeHTTPRequestEnvelope(request, on: connection)"))
+        #expect(server.contains("isAllowedLoopbackHostHeader(request.header(\"host\"), boundPort: boundPort)"))
+        #expect(server.contains("isAllowedOriginHeader(request.header(\"origin\"))"))
+        #expect(server.contains("forbidden host"))
+        #expect(server.contains("forbidden origin"))
+        #expect(server.contains("scheme.hasPrefix(\"epistemos-goose-\")"))
+        #expect(server.contains("normalized == \"127.0.0.1\" || normalized == \"localhost\" || normalized == \"::1\""))
+        #expect(server.contains("Access-Control-Allow-Origin: \\(accessControlAllowOrigin)"))
+        #expect(server.contains("Vary: Origin"))
+        #expect(!server.contains("Access-Control-Allow-Origin: *"))
+    }
+
     @Test("MAS in-process ACP implements the WebUI config methods used during first render")
     func masInProcessACPImplementsWebUIConfigMethods() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")

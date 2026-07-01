@@ -337,6 +337,8 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private static let logger = Logger(subsystem: "com.epistemos.goose", category: "GooseInProcessACPServer")
     private static let maxHTTPRequestBytes = 256 * 1024
     private static let maxWebSocketBufferBytes = 2 * 1024 * 1024
+    private static let maxHTTPHostHeaderCharacters = 256
+    private static let maxHTTPOriginHeaderCharacters = 512
     private static let defaultPromptMaxTokens = 4_096
     private static let permissionResponseTimeoutSeconds: TimeInterval = 300
     private static let thirdPartyAIConsentDefaultsKey =
@@ -356,6 +358,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private let statusLock = NSLock()
     private var _status: Status = .idle
     private var listener: NWListener?
+    private var boundPort: UInt16?
     private var sessions: [String: Session] = [:]
 
     var status: Status { statusLock.withLock { _status } }
@@ -396,6 +399,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
                     self.setStatus(.failed("in-process ACP listener ready but no bound port"))
                     return
                 }
+                self.boundPort = port
                 self.setStatus(.running(baseURL: baseURL))
                 Self.logger.info("Goose in-process ACP ready on 127.0.0.1:\(port, privacy: .public)")
             case .failed(let error):
@@ -420,6 +424,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     func stop() {
         listener?.cancel()
         listener = nil
+        boundPort = nil
         setStatus(.stopped)
     }
 
@@ -465,10 +470,15 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     }
 
     private func handle(_ request: GooseInProcessACPHTTPRequest, on connection: NWConnection) {
+        guard authorizeHTTPRequestEnvelope(request, on: connection) else { return }
         let method = request.method.uppercased()
         switch (method, request.path) {
         case ("OPTIONS", _):
-            sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 204, body: ""))
+            sendHTTP(connection, GooseInProcessACPHTTPRequest.response(
+                status: 204,
+                body: "",
+                accessControlAllowOrigin: Self.allowedCORSOrigin(for: request)
+            ))
         case ("GET", "/health"), ("HEAD", "/health"):
             let body = method == "HEAD" ? "" : "ok"
             sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 200, body: body))
@@ -479,38 +489,38 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             upgradeToWebSocket(request, on: connection)
         case ("GET", "/config"):
             guard authorizeREST(request, on: connection) else { return }
-            sendHTTPJSON(connection, ["config": configValues])
+            sendHTTPJSON(connection, ["config": configValues], request: request)
         case ("POST", "/config/read"):
             guard authorizeREST(request, on: connection) else { return }
             let body = request.jsonBody()
             let key = body["key"] as? String ?? ""
-            sendHTTPJSON(connection, configValues[key] ?? NSNull())
+            sendHTTPJSON(connection, configValues[key] ?? NSNull(), request: request)
         case ("POST", "/config/upsert"):
             guard authorizeREST(request, on: connection) else { return }
             let body = request.jsonBody()
             if let key = body["key"] as? String, !key.isEmpty {
                 configValues[key] = body["value"] ?? NSNull()
             }
-            sendHTTPJSON(connection, ["ok": true])
+            sendHTTPJSON(connection, ["ok": true], request: request)
         case ("POST", "/config/remove"):
             guard authorizeREST(request, on: connection) else { return }
             let body = request.jsonBody()
             if let key = body["key"] as? String {
                 configValues.removeValue(forKey: key)
             }
-            sendHTTPJSON(connection, ["ok": true])
+            sendHTTPJSON(connection, ["ok": true], request: request)
         case ("GET", "/config/providers"):
             guard authorizeREST(request, on: connection) else { return }
-            sendHTTPJSON(connection, restProviderDetails())
+            sendHTTPJSON(connection, restProviderDetails(), request: request)
         case ("GET", "/config/provider-catalog"):
             guard authorizeREST(request, on: connection) else { return }
-            sendHTTPJSON(connection, catalog.providerCatalogResult())
+            sendHTTPJSON(connection, catalog.providerCatalogResult(), request: request)
         case ("GET", "/config/extensions"):
             guard authorizeREST(request, on: connection) else { return }
-            sendHTTPJSON(connection, ["extensions": [], "_meta": catalog.metadata()])
+            sendHTTPJSON(connection, ["extensions": [], "_meta": catalog.metadata()], request: request)
         case ("GET", "/features"):
             guard authorizeREST(request, on: connection) else { return }
-            sendHTTPJSON(connection, ["features": ["masBoundedGoose": true], "_meta": catalog.metadata()])
+            sendHTTPJSON(connection, ["features": ["masBoundedGoose": true], "_meta": catalog.metadata()], request: request)
         default:
             sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 404, body: "not found"))
         }
@@ -522,20 +532,42 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         })
     }
 
-    private func sendHTTPJSON(_ connection: NWConnection, _ object: Any, status: Int = 200) {
+    private func sendHTTPJSON(
+        _ connection: NWConnection,
+        _ object: Any,
+        status: Int = 200,
+        request: GooseInProcessACPHTTPRequest? = nil
+    ) {
         guard JSONSerialization.isValidJSONObject(object) || object is NSNull || object is String || object is Bool || object is NSNumber else {
             sendHTTP(connection, GooseInProcessACPHTTPRequest.jsonResponse(
                 status: 500,
-                object: ["error": "invalid json response"]
+                object: ["error": "invalid json response"],
+                accessControlAllowOrigin: request.flatMap(Self.allowedCORSOrigin)
             ))
             return
         }
-        sendHTTP(connection, GooseInProcessACPHTTPRequest.jsonResponse(status: status, object: object))
+        sendHTTP(connection, GooseInProcessACPHTTPRequest.jsonResponse(
+            status: status,
+            object: object,
+            accessControlAllowOrigin: request.flatMap(Self.allowedCORSOrigin)
+        ))
+    }
+
+    private func authorizeHTTPRequestEnvelope(_ request: GooseInProcessACPHTTPRequest, on connection: NWConnection) -> Bool {
+        guard Self.isAllowedLoopbackHostHeader(request.header("host"), boundPort: boundPort) else {
+            sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 403, body: "forbidden host"))
+            return false
+        }
+        guard Self.isAllowedOriginHeader(request.header("origin")) else {
+            sendHTTP(connection, GooseInProcessACPHTTPRequest.response(status: 403, body: "forbidden origin"))
+            return false
+        }
+        return true
     }
 
     private func authorizeREST(_ request: GooseInProcessACPHTTPRequest, on connection: NWConnection) -> Bool {
         guard request.header("x-secret-key") == secretKey else {
-            sendHTTPJSON(connection, ["error": "unauthorized"], status: 401)
+            sendHTTPJSON(connection, ["error": "unauthorized"], status: 401, request: request)
             return false
         }
         return true
@@ -1760,6 +1792,73 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         })
     }
 
+    private static func allowedCORSOrigin(for request: GooseInProcessACPHTTPRequest) -> String? {
+        guard let origin = request.header("origin"),
+              isAllowedOriginHeader(origin) else {
+            return nil
+        }
+        return origin
+    }
+
+    private static func isAllowedOriginHeader(_ origin: String?) -> Bool {
+        guard let origin else { return true }
+        let trimmed = origin.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxHTTPOriginHeaderCharacters,
+              !trimmed.utf8.contains(0) else {
+            return false
+        }
+        if trimmed == "null" { return true }
+        guard let components = URLComponents(string: trimmed),
+              let scheme = components.scheme?.lowercased() else {
+            return false
+        }
+        if scheme.hasPrefix("epistemos-goose-") {
+            return true
+        }
+        guard scheme == "http" || scheme == "https" else { return false }
+        return isAllowedLoopbackHost(components.host)
+    }
+
+    private static func isAllowedLoopbackHostHeader(_ hostHeader: String?, boundPort: UInt16?) -> Bool {
+        guard let parsed = loopbackHostAndPort(from: hostHeader),
+              isAllowedLoopbackHost(parsed.host) else {
+            return false
+        }
+        if let boundPort {
+            return parsed.port == boundPort
+        }
+        return true
+    }
+
+    private static func isAllowedLoopbackHost(_ host: String?) -> Bool {
+        guard let host else { return false }
+        let normalized = host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "127.0.0.1" || normalized == "localhost" || normalized == "::1"
+    }
+
+    private static func loopbackHostAndPort(from hostHeader: String?) -> (host: String, port: UInt16?)? {
+        guard let hostHeader else { return nil }
+        let trimmed = hostHeader.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxHTTPHostHeaderCharacters,
+              !trimmed.utf8.contains(0) else {
+            return nil
+        }
+        if trimmed.hasPrefix("[") {
+            guard let end = trimmed.firstIndex(of: "]") else { return nil }
+            let host = String(trimmed[trimmed.index(after: trimmed.startIndex)..<end])
+            let suffix = trimmed[trimmed.index(after: end)...]
+            guard suffix.isEmpty || suffix.hasPrefix(":") else { return nil }
+            let port = suffix.dropFirst().isEmpty ? nil : UInt16(String(suffix.dropFirst()))
+            return (host, port)
+        }
+        let parts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        let host = String(parts.first ?? "")
+        let port = parts.count == 2 ? UInt16(String(parts[1])) : nil
+        return host.isEmpty ? nil : (host, port)
+    }
+
     private static func isProGated(method: String) -> Bool {
         let lower = method.lowercased()
         return lower.contains("developer")
@@ -1992,25 +2091,41 @@ nonisolated struct GooseInProcessACPHTTPRequest: Equatable, Sendable {
         return .complete(Self(method: method, target: target, path: path, headers: headers, body: body))
     }
 
-    static func response(status: Int, body: String) -> Data {
-        response(status: status, body: Data(body.utf8), contentType: "text/plain; charset=utf-8")
+    static func response(status: Int, body: String, accessControlAllowOrigin: String? = nil) -> Data {
+        response(
+            status: status,
+            body: Data(body.utf8),
+            contentType: "text/plain; charset=utf-8",
+            accessControlAllowOrigin: accessControlAllowOrigin
+        )
     }
 
-    static func jsonResponse(status: Int, object: Any) -> Data {
+    static func jsonResponse(status: Int, object: Any, accessControlAllowOrigin: String? = nil) -> Data {
         let data = (try? JSONSerialization.data(
             withJSONObject: object,
             options: [.fragmentsAllowed]
         )) ?? Data("null".utf8)
-        return response(status: status, body: data, contentType: "application/json; charset=utf-8")
+        return response(
+            status: status,
+            body: data,
+            contentType: "application/json; charset=utf-8",
+            accessControlAllowOrigin: accessControlAllowOrigin
+        )
     }
 
-    static func response(status: Int, body bodyData: Data, contentType: String) -> Data {
+    static func response(
+        status: Int,
+        body bodyData: Data,
+        contentType: String,
+        accessControlAllowOrigin: String? = nil
+    ) -> Data {
         let reason: String
         switch status {
         case 204: reason = "No Content"
         case 200: reason = "OK"
         case 400: reason = "Bad Request"
         case 401: reason = "Unauthorized"
+        case 403: reason = "Forbidden"
         case 404: reason = "Not Found"
         case 413: reason = "Payload Too Large"
         default: reason = "Error"
@@ -2019,9 +2134,12 @@ nonisolated struct GooseInProcessACPHTTPRequest: Equatable, Sendable {
         response.append(Data("HTTP/1.1 \(status) \(reason)\r\n".utf8))
         response.append(Data("Content-Type: \(contentType)\r\n".utf8))
         response.append(Data("Content-Length: \(bodyData.count)\r\n".utf8))
-        response.append(Data("Access-Control-Allow-Origin: *\r\n".utf8))
-        response.append(Data("Access-Control-Allow-Headers: Content-Type, X-Secret-Key\r\n".utf8))
-        response.append(Data("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n".utf8))
+        if let accessControlAllowOrigin {
+            response.append(Data("Access-Control-Allow-Origin: \(accessControlAllowOrigin)\r\n".utf8))
+            response.append(Data("Access-Control-Allow-Headers: Content-Type, X-Secret-Key\r\n".utf8))
+            response.append(Data("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n".utf8))
+            response.append(Data("Vary: Origin\r\n".utf8))
+        }
         response.append(Data("Connection: close\r\n\r\n".utf8))
         response.append(bodyData)
         return response
