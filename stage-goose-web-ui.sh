@@ -7676,6 +7676,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-native-flat-source-surfaces" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "epistemos-native-final-flat-pixel-audit" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q -- "--epistemos-pixel-font:" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    grep -q -- "--epistemos-pixel-accent: var(--epistemos-accent);" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q -- "--tw-ring-shadow: 0 0 #0000 !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "backdrop-filter: none !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "outline: none !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"

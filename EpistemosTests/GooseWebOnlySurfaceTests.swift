@@ -320,6 +320,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-native-claude-pixel-contract"))
         #expect(stageScript.contains("epistemos-native-claude-desktop-lock"))
         #expect(stageScript.contains("epistemos-native-flat-source-surfaces"))
+        #expect(stageScript.contains("--epistemos-pixel-accent: var(--epistemos-accent);"))
         #expect(stageScript.contains("--tw-ring-shadow: 0 0 #0000 !important"))
         #expect(stageScript.contains("backdrop-filter: none !important"))
         #expect(stageScript.contains("background: var(--epistemos-claude-focus) !important"))
