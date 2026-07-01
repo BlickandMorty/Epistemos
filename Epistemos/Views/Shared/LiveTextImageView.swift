@@ -30,10 +30,6 @@ nonisolated enum LiveTextImageAnalysisPolicy {
 
             let pixelWidth = representation.pixelsWide
             let pixelHeight = representation.pixelsHigh
-            guard pixelWidth > 0 || pixelHeight > 0 else {
-                return true
-            }
-
             guard pixelWidth > 0,
                   pixelHeight > 0,
                   pixelWidth <= maxPixelDimension,

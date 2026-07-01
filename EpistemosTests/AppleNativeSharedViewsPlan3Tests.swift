@@ -145,6 +145,16 @@ struct AppleNativeSharedViewsPlan3Tests {
         }
 
         let emptyContainer = NSImage(size: NSSize(width: 128, height: 128))
+        let zeroPixelRepresentation = NSImage(size: NSSize(width: 128, height: 128))
+        let vectorRep = NSCustomImageRep(
+            size: NSSize(width: 128, height: 128),
+            flipped: false
+        ) { _ in
+            true
+        }
+        #expect(vectorRep.pixelsWide == 0)
+        #expect(vectorRep.pixelsHigh == 0)
+        zeroPixelRepresentation.addRepresentation(vectorRep)
         let oversizedPoints = NSImage(
             size: NSSize(width: LiveTextImageAnalysisPolicy.maxPointDimension + 1, height: 128)
         )
@@ -187,6 +197,7 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(nil))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(NSImage(size: .zero)))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(emptyContainer))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(zeroPixelRepresentation))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(oversizedPoints))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(oversizedPixels))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(tooManyRepresentations))
