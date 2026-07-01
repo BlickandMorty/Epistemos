@@ -575,6 +575,16 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return String(result.context_kind || 'vault_record').trim() || 'vault_record';
     }
 
+    function feedProvenance(meta = null) {
+      const data = HTMLWorkspace.data || {};
+      const envelope = meta || data._epistemos || {};
+      return String(envelope.provenance || 'No provenance recorded').trim() || 'No provenance recorded';
+    }
+
+    function resultProvenance(result, meta = null) {
+      return String((result && result.provenance) || '').trim() || feedProvenance(meta);
+    }
+
     function resultKey(result) {
       return [
         result.page_id,
@@ -735,7 +745,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       );
     }
 
-    function renderResultDetail(results, allResults) {
+    function renderResultDetail(results, allResults, meta = null) {
       const host = HTMLWorkspace.q('[data-result-detail]');
       if (!host) { return; }
       host.replaceChildren();
@@ -755,7 +765,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           detailRow('Rank', Number.isFinite(Number(selected.rank)) ? Number(selected.rank).toFixed(2) : 'Unavailable'),
           detailRow('Context', resultContextKind(selected)),
           detailRow('Source', selected.source_label || 'Vault search result'),
-          detailRow('Provenance', selected.provenance || 'VaultSyncService.searchFullAsync')
+          detailRow('Provenance', resultProvenance(selected, meta))
         ]));
         return;
       }
@@ -976,7 +986,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           && matches(result.title, title)
           && matches(resultContextKind(result), contextKind)
           && matches(result.source_label || 'Vault search result', sourceLabel)
-          && matches(result.provenance || 'VaultSyncService.searchFullAsync', provenance);
+          && matches(resultProvenance(result), provenance);
       });
       return matched ? resultKey(matched) : '';
     }
@@ -1126,7 +1136,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-count]', meta.result_count ?? allResults.length);
       text('[data-feed-status]', status);
       text('[data-refresh]', refreshed);
-      text('[data-provenance]', meta.provenance || 'No provenance recorded');
+      text('[data-provenance]', feedProvenance(meta));
       text('[data-context-requirement]', requiredContextLabel(meta));
       text('[data-context-drop-status]', contextDropStatus);
       text('[data-filter-count]', resultCountLabel(results, allResults, filter));
@@ -1135,7 +1145,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       updatePinButton(selectedResult);
       renderPinnedContext(allResults);
       renderResultChart(results, allResults);
-      renderResultDetail(displayedResults, allResults);
+      renderResultDetail(displayedResults, allResults, meta);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
       if (!host) {

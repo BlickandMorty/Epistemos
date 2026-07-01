@@ -1173,6 +1173,9 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("boundResult ? 'Dropped section rank signal' : 'Rank signal'"))
         #expect(package.scriptJS.contains("function renderDetailTabs()"))
         #expect(package.scriptJS.contains("function renderResultDetail(results, allResults)"))
+        #expect(package.scriptJS.contains("function feedProvenance(meta = null)"))
+        #expect(package.scriptJS.contains("function resultProvenance(result, meta = null)"))
+        #expect(package.scriptJS.contains("text('[data-provenance]', feedProvenance(meta));"))
         #expect(package.scriptJS.contains("function detailRow(label, value)"))
         #expect(package.scriptJS.contains("class: active ? 'detail-tab is-active' : 'detail-tab'"))
         #expect(package.scriptJS.contains("'data-detail-view': view"))
@@ -1186,7 +1189,10 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("tabindex: '0'"))
         #expect(package.scriptJS.contains("card.addEventListener('click'"))
         #expect(package.scriptJS.contains("card.addEventListener('keydown'"))
-        #expect(package.scriptJS.contains("selected.provenance || 'VaultSyncService.searchFullAsync'"))
+        #expect(package.scriptJS.contains("detailRow('Provenance', resultProvenance(selected, meta))"))
+        #expect(package.scriptJS.contains("matches(resultProvenance(result), provenance)"))
+        #expect(package.scriptJS.contains("renderResultDetail(displayedResults, allResults, meta);"))
+        #expect(!package.scriptJS.contains("selected.provenance || 'VaultSyncService.searchFullAsync'"))
         #expect(package.scriptJS.contains("No visible result selected."))
     }
 
