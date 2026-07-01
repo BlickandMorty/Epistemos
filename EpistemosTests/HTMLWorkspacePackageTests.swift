@@ -231,6 +231,39 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.requiredContextAvailable == false)
     }
 
+    @Test("HTMLWorkspace data feed status exposes existing required context kind for refreshes")
+    func dataFeedStatusExposesExistingRequiredContextKindForRefreshes() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "recent captures project", limit: 2)
+        var package = Self.samplePackage()
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(
+                    pageId: "page-1",
+                    title: "Generic note",
+                    snippet: "not an explicit capture",
+                    rank: 0.5
+                )
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_005),
+            requiredContextKind: "recent_capture"
+        )
+
+        #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package) == "recent_capture")
+        #expect(HTMLWorkspaceDataFeedStatus.requiredContextKind(for: Self.samplePackage()) == nil)
+    }
+
+    @Test("HTMLWorkspace data feed binder preserves required context kind on refresh renders")
+    func dataFeedBinderPreservesRequiredContextKindOnRefreshRenders() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
+
+        #expect(source.contains("let requiredContextKind = HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package)"))
+        #expect(source.contains("requiredContextKind: requiredContextKind"))
+        #expect(source.contains("applyStaleRender(feed: feed, error: \"Data feed query is empty\", requiredContextKind: requiredContextKind)"))
+        #expect(source.contains("applyStaleRender(feed: feed, error: \"Vault feed unavailable\", requiredContextKind: requiredContextKind)"))
+    }
+
     @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
     @MainActor
     func staleDataFeedRenderDoesNotPretendToRefresh() throws {

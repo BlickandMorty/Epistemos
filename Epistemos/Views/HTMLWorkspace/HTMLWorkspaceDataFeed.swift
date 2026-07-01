@@ -269,6 +269,11 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
             .epistemos
     }
 
+    static func requiredContextKind(for package: HTMLWorkspacePackage) -> String? {
+        let kind = metadata(from: package.dataJSON)?.requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return kind.isEmpty ? nil : kind
+    }
+
     @MainActor
     static func shouldRefresh(for notification: Notification) -> Bool {
         guard let dependencies = QueryDependencyKey.from(notification) else { return true }
@@ -353,12 +358,13 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
             refreshTask = nil
             return
         }
+        let requiredContextKind = HTMLWorkspaceDataFeedStatus.requiredContextKind(for: package)
         guard feed.isRunnable else {
-            applyStaleRender(feed: feed, error: "Data feed query is empty")
+            applyStaleRender(feed: feed, error: "Data feed query is empty", requiredContextKind: requiredContextKind)
             return
         }
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
-            applyStaleRender(feed: feed, error: "Vault feed unavailable")
+            applyStaleRender(feed: feed, error: "Vault feed unavailable", requiredContextKind: requiredContextKind)
             return
         }
 
@@ -373,7 +379,11 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
                 limit: feed.effectiveLimit
             )
             guard !Task.isCancelled else { return }
-            let nextJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
+            let nextJSON = HTMLWorkspaceDataFeedRenderer.render(
+                feed: feed,
+                results: results,
+                requiredContextKind: requiredContextKind
+            )
             if package.dataJSON != nextJSON {
                 package.dataJSON = nextJSON
             }
@@ -381,8 +391,12 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
         }
     }
 
-    private func applyStaleRender(feed: HTMLWorkspaceDataFeed, error: String) {
-        let nextJSON = HTMLWorkspaceDataFeedRenderer.staleRender(feed: feed, error: error)
+    private func applyStaleRender(feed: HTMLWorkspaceDataFeed, error: String, requiredContextKind: String?) {
+        let nextJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
+            feed: feed,
+            error: error,
+            requiredContextKind: requiredContextKind
+        )
         if package.dataJSON != nextJSON {
             package.dataJSON = nextJSON
         }
