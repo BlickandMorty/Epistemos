@@ -1199,6 +1199,9 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("epistemos-acp-inventory-model-capabilities"))
         #expect(script.contains("providersList_unstable({ providerIds: [providerId] })"))
         #expect(script.contains("(entry?.models ?? []).map(modelInfo)"))
+        #expect(script.contains("for (const entry of catalogEntries)"))
+        #expect(!script.contains("catalogEntries.slice(0, 8)"))
+        #expect(script.contains("Goose ACP provider catalog templates are still capped at the first 8 providers."))
         // Thinking Effort + Mode applied LIVE to the session via setSessionConfigOption.
         #expect(script.contains("export async function saveAcpSessionThinkingEffort"))
         #expect(script.contains("configId: 'thinking_effort'"))

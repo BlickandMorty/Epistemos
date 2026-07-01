@@ -588,7 +588,7 @@ async function loadProviderCatalogSurface(): Promise<ProviderDetails[]> {
     );
     const catalogEntries = (catalogResponse.providers ?? []) as AcpProviderCatalogEntry[];
     let templateProviders: ProviderDetails[] = [];
-    for (const entry of catalogEntries.slice(0, 8)) {
+    for (const entry of catalogEntries) {
       try {
         const templateResponse = await withAcpTimeout(
           client.goose.providersCatalogTemplate_unstable({ providerId: entry.providerId }),
@@ -7281,6 +7281,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "LM Studio is not reachable at http://localhost:1234" "$WORK_ROOT/ui/desktop/src/components/settings/models/modelInterface.ts"
     grep -q "listAcpProviderSecrets" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "providersConfigStatus_unstable" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
+    if grep -q "catalogEntries.slice(0, 8)" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"; then
+        echo "Goose ACP provider catalog templates are still capped at the first 8 providers." >&2
+        exit 1
+    fi
     grep -q "epistemos-acp-authenticate-status-cache-reset" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-provider-modal-custom-delete" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/ProviderConfigurationModal.tsx"
     grep -q "await listAcpProviderSecrets()" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
