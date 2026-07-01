@@ -229,7 +229,7 @@ nonisolated enum MCPUrlServerDirectory {
                 throw WriteError.writeFailed("encoded config exceeds \(maxConfigBytes) bytes")
             }
             try validateWritableConfigTarget(configURL, fileManager: fileManager)
-            try data.write(to: configURL, options: [.atomic])
+            try writeConfigDataNoFollow(data, to: configURL)
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
             return parse(data)
         } catch let error as WriteError {
@@ -390,6 +390,40 @@ nonisolated enum MCPUrlServerDirectory {
             throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
         }
         return data
+    }
+
+    private static func writeConfigDataNoFollow(_ data: Data, to configURL: URL) throws {
+        let fd = configURL.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        }
+        guard fd >= 0 else {
+            if errno == ELOOP {
+                throw WriteError.writeFailed("existing config file is a symbolic link")
+            }
+            throw WriteError.writeFailed("config file could not be opened safely")
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            throw WriteError.writeFailed("config file attributes are unavailable")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw WriteError.writeFailed("config file is not a regular file")
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        do {
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw WriteError.writeFailed(
+                Diagnostics.externalErrorDescription(error, fallback: "filesystem error")
+            )
+        }
     }
 
     private static func validateReadableConfigFile(

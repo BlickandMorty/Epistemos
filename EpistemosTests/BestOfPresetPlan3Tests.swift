@@ -102,6 +102,8 @@ struct BestOfPresetPlan3Tests {
             "destinationOfSymbolicLink",
             "attributes[.type] as? FileAttributeType == .typeRegular",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
+            "writeConfigDataNoFollow",
+            "open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC",
             "fstat(fd",
             "readToEnd()",
             "data.count <= maxConfigBytes",
