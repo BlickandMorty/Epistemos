@@ -118,7 +118,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("static func verifiedPreviewDropPayload(from payload: String) -> String?"))
         #expect(sheet.contains("static func verifiedPreviewDropPayload("))
         #expect(sheet.contains("matching package: HTMLWorkspacePackage"))
-        #expect(sheet.contains("items(from: package).contains { $0.contextID == contextID }"))
+        #expect(sheet.contains("items(from: package).contains { $0.payloadContextID == contextID }"))
         #expect(sheet.contains("private static func normalizedPayloadLines(from payload: String) -> [String]"))
         #expect(sheet.contains("hasLinePrefix(\"context_id: context_kind:\""))
         #expect(sheet.contains("hasLinePrefix(\"Provenance: \""))
@@ -489,7 +489,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("vault_search.required_context_available: false"))
         #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
         #expect(prompt.contains("vault_search.results:\n- record:"))
-        #expect(prompt.contains("  context_id: context_kind:vault_record|source:Vault search result|page_id:page-1"))
+        #expect(prompt.contains("  context_id: context_kind:vault_record|source:Vault search result|page_id:page-1|provenance:VaultSyncService.searchFullAsync"))
         #expect(prompt.contains("  page_id: page-1"))
         #expect(prompt.contains("  title: Research Note"))
         #expect(prompt.contains("  context_kind: vault_record"))
@@ -527,8 +527,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         let items = HTMLWorkspaceRegenerateContextItem.items(from: package)
 
         #expect(items.map(\.pageID) == ["note-a", "note-b"])
-        #expect(items.first?.id == "context_kind:vault_record|source:Vault search result|page_id:note-a")
-        #expect(items.first?.contextID == "context_kind:vault_record|source:Vault search result|page_id:note-a")
+        #expect(items.first?.id == "context_kind:vault_record|source:Vault search result|page_id:note-a|provenance:VaultSyncService.searchFullAsync")
+        #expect(items.first?.contextID == "context_kind:vault_record|source:Vault search result|page_id:note-a|provenance:VaultSyncService.searchFullAsync")
         #expect(items.first?.title == "Alpha Note")
         #expect(items.first?.contextKind == "vault_record")
         #expect(items.first?.sourceLabel == "Vault search result")
@@ -540,7 +540,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(HTMLWorkspaceRegenerateContextItem.previewDropTypeIdentifiers.first == "com.epistemos.workspace-context")
         #expect(HTMLWorkspaceRegenerateContextItem.previewDropTypeIdentifiers.contains("public.plain-text"))
         #expect(items.first?.dragPayload.contains("Workspace context: Alpha Note [note-a]") == true)
-        #expect(items.first?.dragPayload.contains("context_id: context_kind:vault_record|source:Vault search result|page_id:note-a") == true)
+        #expect(items.first?.dragPayload.contains("context_id: context_kind:vault_record|source:Vault search result|page_id:note-a|provenance:VaultSyncService.searchFullAsync") == true)
         #expect(items.first?.dragPayload.contains("drop_action: regenerate_preview_context") == true)
         #expect(items.first?.dragPayload.contains("readonly: true") == true)
         #expect(items.first?.dragPayload.contains("page_id: note-a") == true)
@@ -621,7 +621,12 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(item.pageID.hasSuffix("..."))
         #expect(item.title.hasSuffix("..."))
         #expect(item.snippet.hasSuffix("..."))
+        #expect(item.contextID.count > 220)
         #expect(item.dragPayload.count < 1_080)
+        #expect(HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(
+            from: item.dragPayload,
+            matching: package
+        ) == item.dragPayload.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     @Test("regenerate context items pick icons from explicit context kind only")

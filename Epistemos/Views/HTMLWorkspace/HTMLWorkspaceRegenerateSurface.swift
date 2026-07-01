@@ -748,7 +748,11 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     var provenance: String
 
     var contextID: String {
-        "context_kind:\(Self.inlineIDPart(contextKind))|source:\(Self.inlineIDPart(sourceLabel))|page_id:\(Self.inlineIDPart(pageID))"
+        "context_kind:\(Self.inlineIDPart(contextKind))|source:\(Self.inlineIDPart(sourceLabel))|page_id:\(Self.inlineIDPart(pageID))|provenance:\(Self.inlineIDPart(provenance))"
+    }
+
+    private var payloadContextID: String {
+        Self.bounded(contextID, limit: 220)
     }
 
     var contextDescriptor: String {
@@ -783,7 +787,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         let safeKind = Self.bounded(contextKind, limit: 80)
         let safeSource = Self.bounded(sourceLabel, limit: 120)
         let safeProvenance = Self.bounded(provenance, limit: 160)
-        let safeContextID = Self.bounded(contextID, limit: 220)
+        let safeContextID = payloadContextID
         let safeSnippet = Self.bounded(snippet, limit: 560)
         return """
         Workspace context: \(safeTitle) [\(safePageID)]
@@ -840,7 +844,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
               let contextID = lineValue("context_id: ", in: normalizedPayloadLines(from: trimmed)) else {
             return nil
         }
-        return items(from: package).contains { $0.contextID == contextID } ? trimmed : nil
+        return items(from: package).contains { $0.payloadContextID == contextID } ? trimmed : nil
     }
 
     static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {
@@ -869,7 +873,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         let safeKind = Self.bounded(contextKind, limit: 80)
         let safeSource = Self.bounded(sourceLabel, limit: 120)
         let safeProvenance = Self.bounded(provenance, limit: 160)
-        let safeContextID = Self.bounded(contextID, limit: 220)
+        let safeContextID = payloadContextID
         let safeSnippet = Self.bounded(snippet, limit: 240)
         return [
             "- record:",
