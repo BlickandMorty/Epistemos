@@ -247,12 +247,13 @@ nonisolated final class WorkNativeMCPServer: @unchecked Sendable {
     static func constantTimeEquals(_ lhs: String, _ rhs: String) -> Bool {
         let lhsBytes = Array(lhs.utf8)
         let rhsBytes = Array(rhs.utf8)
-        guard lhsBytes.count == rhsBytes.count else { return false }
         var difference: UInt8 = 0
-        for index in lhsBytes.indices {
-            difference |= lhsBytes[index] ^ rhsBytes[index]
+        for index in 0..<max(lhsBytes.count, rhsBytes.count) {
+            let lhsByte = index < lhsBytes.count ? lhsBytes[index] : 0
+            let rhsByte = index < rhsBytes.count ? rhsBytes[index] : 0
+            difference |= lhsByte ^ rhsByte
         }
-        return difference == 0
+        return difference == 0 && lhsBytes.count == rhsBytes.count
     }
 
     /// Frame a complete HTTP/1.1 response (Connection: close) around a JSON body.
