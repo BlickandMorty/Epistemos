@@ -251,52 +251,9 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     .lineLimit(2)
             }
 
-            if !contextItems.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(contextItems) { item in
-                            Button {
-                                onFocusContextItem(item)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.title)
-                                        .font(pixelControlFont)
-                                        .lineLimit(1)
-                                    Text(item.snippet)
-                                        .font(.caption2)
-                                        .foregroundStyle(mutedText)
-                                        .lineLimit(2)
-                                    Text(item.contextDescriptor)
-                                        .font(pixelMicroFont)
-                                        .foregroundStyle(mutedText)
-                                        .lineLimit(1)
-                                    Text(item.rankDescriptor)
-                                        .font(pixelMicroFont)
-                                        .foregroundStyle(mutedText)
-                                        .lineLimit(1)
-                                    Text(item.provenanceDescriptor)
-                                        .font(pixelMicroFont)
-                                        .foregroundStyle(mutedText)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                }
-                                .frame(width: 178, alignment: .leading)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 7)
-                                .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(theme.resolved.foreground.color)
-                            .disabled(isRegenerating || isRefreshingContext)
-                            .onDrag {
-                                item.dragItemProvider()
-                            }
-                            .help(item.dragPayload)
-                        }
-                    }
-                    .padding(.vertical, 1)
-                }
-            }
+            // Bold-cut (owner 2026-07-01): removed the horizontal context tray (cramped
+            // 5-line cards — also a "too connected" spot). Chat-regenerate + the context
+            // query field remain; Add-Context is the single context surface.
         }
     }
 
