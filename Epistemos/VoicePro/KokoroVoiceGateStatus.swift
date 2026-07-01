@@ -5,21 +5,32 @@ import Foundation
 nonisolated enum KokoroVoiceGateStatus {
     static let flagName = "EPISTEMOS_KOKORO_VOICE_PRO_V0"
     static let modelDirectoryName = "kokoro-82m-coreml"
-    static let manifestFileName = "manifest.json"
-    static let modelPackageName = "Kokoro82M.mlpackage"
-    static let packageManifestFileName = "Manifest.json"
+    static let manifestFileName = "KokoroRuntimeManifest.json"
+    static let hostedManifestFileName = "HostedManifest.json"
+    static let sdkReleaseManifestPath = "sdk/SDKReleaseManifest.json"
     static let manifestSchemaVersion = 1
     static let modelIdentifier = "kokoro-82m"
+    static let upstreamRepositoryID = "mattmireles/kokoro-coreml"
     static let runtimeIdentifier = "coreml"
+    static let coreMLDirectoryPrefix = "coreml/"
     static let coreMLDataPathPrefix = "Data/com.apple.CoreML/"
-    static let maxManifestBytes = 64 * 1024
-    static let maxManifestFileCount = 128
+    static let packageManifestFileName = "Manifest.json"
+    static let runtimeVocabPath = "runtime/kokoro-vocab.json"
+    static let runtimeHNSFWeightsPath = "runtime/hnsf_weights.json"
+    static let starterVoicePath = "voices/af_heart.bin"
+    static let starterVoiceIdentifier = "af_heart"
+    static let sampleRateHz = 24_000
+    static let starterVoiceEmbeddingDimensions = 256
+    static let maxManifestBytes = 256 * 1024
+    static let maxManifestFileCount = 4_096
     static let maxPackageEntryCount = 250_000
     static let maxPackageFileBytes = UInt64(2) * 1024 * 1024 * 1024
     static let maxPackageTotalBytes = UInt64(4) * 1024 * 1024 * 1024
     private static let maxPathDiagnosticLength = 160
-    private static let maxPackageFilePathLength = 240
+    private static let maxPackageFilePathLength = 280
     private static let hashReadChunkBytes = 1024 * 1024
+    private static let requiredDurationTokenSizes: Set<Int> = [32, 64, 128, 256, 320, 384, 512]
+    private static let allowedBuckets: Set<Int> = [3, 7, 10, 15, 30]
 
     enum State: String, Equatable, Sendable {
         case unavailable
@@ -40,14 +51,20 @@ nonisolated enum KokoroVoiceGateStatus {
     struct PackageEvidence: Equatable, Sendable {
         let modelDirectoryName: String
         let manifestFileName: String
-        let modelPackageName: String
         let runtimeIdentifier: String
+        let hfRepositoryID: String
+        let bundleProfile: String
+        let modelPackageCount: Int
+        let voiceCount: Int
+        let runtimeAssetCount: Int
         let manifestFileCount: Int
         let declaredPackageBytes: UInt64
 
         var settingsSummary: String {
+            let packageLabel = modelPackageCount == 1 ? "Core ML package" : "Core ML packages"
+            let voiceLabel = voiceCount == 1 ? "voice" : "voices"
             let fileLabel = manifestFileCount == 1 ? "file" : "files"
-            return "\(modelPackageName): \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) package. Kokoro synthesis remains unavailable until the native engine is wired."
+            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle. Kokoro synthesis remains unavailable until the native engine is wired."
         }
     }
 
@@ -81,7 +98,7 @@ nonisolated enum KokoroVoiceGateStatus {
                 state: .unavailable,
                 isReady: false,
                 headline: "Kokoro voice: off",
-                detail: "Set \(flagName)=1 in a Pro build after installing the checked model package. Off means text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
+                detail: "Set \(flagName)=1 in a Pro build after installing the checked \(upstreamRepositoryID) CoreML bundle. Off means text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 
@@ -96,17 +113,9 @@ nonisolated enum KokoroVoiceGateStatus {
 
         let modelDirectory = modelRoot.appendingPathComponent(modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(manifestFileName, isDirectory: false)
-        let modelPackageURL = modelDirectory.appendingPathComponent(modelPackageName, isDirectory: true)
-        let manifestCheck = manifestProblem(
+        let manifestCheck = runtimeManifestProblem(
             name: manifestFileName,
             url: manifestURL,
-            rootURL: modelDirectory,
-            fileManager: fileManager
-        )
-        let packageShapeProblem = artifactProblem(
-            name: modelPackageName,
-            url: modelPackageURL,
-            kind: .directory,
             rootURL: modelDirectory,
             fileManager: fileManager
         )
@@ -115,13 +124,9 @@ nonisolated enum KokoroVoiceGateStatus {
         if let manifestProblem = manifestCheck.problem {
             problems.append(manifestProblem)
         }
-        if let packageShapeProblem {
-            problems.append(packageShapeProblem)
-        }
-        if let manifest = manifestCheck.manifest, packageShapeProblem == nil,
-           let contentsProblem = packageContentsProblem(
+        if let manifest = manifestCheck.manifest,
+           let contentsProblem = runtimeBundleContentsProblem(
                 manifest: manifest,
-                packageURL: modelPackageURL,
                 modelDirectoryURL: modelDirectory,
                 fileManager: fileManager
            ) {
@@ -133,7 +138,7 @@ nonisolated enum KokoroVoiceGateStatus {
                 state: .missingModel,
                 isReady: false,
                 headline: "Kokoro voice: model package missing",
-                detail: "Expected \(modelDirectoryName), but \(problems.joined(separator: ", ")). Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
+                detail: "Expected \(modelDirectoryName) from \(upstreamRepositoryID), but \(problems.joined(separator: ", ")). Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 
@@ -141,20 +146,33 @@ nonisolated enum KokoroVoiceGateStatus {
         return Status(
             state: .packageReady,
             isReady: false,
-            headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in \(modelDirectoryName), but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
+            headline: "Kokoro voice: CoreML runtime package ready, synthesis deferred",
+            detail: "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName), but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: packageEvidence
         )
         #endif
     }
 
-    private struct InstallManifest {
-        let files: [PackageFile]
+    private struct RuntimeManifest {
+        let hfRepositoryID: String
+        let bundleProfile: String
+        let durationTokenSizes: Set<Int>
+        let buckets: Set<Int>
+        let modelPackages: [ModelPackage]
+        let voices: [PackageFile]
+        let runtimeAssets: [PackageFile]
     }
 
     private struct ManifestCheck {
-        let manifest: InstallManifest?
+        let manifest: RuntimeManifest?
         let problem: String?
+    }
+
+    private struct ModelPackage {
+        let path: String
+        let fileCount: Int
+        let bytes: UInt64
+        let files: [PackageFile]
     }
 
     private struct PackageFile {
@@ -173,18 +191,23 @@ nonisolated enum KokoroVoiceGateStatus {
         case directory
     }
 
-    private static func packageEvidence(from manifest: InstallManifest) -> PackageEvidence {
-        PackageEvidence(
+    private static func packageEvidence(from manifest: RuntimeManifest) -> PackageEvidence {
+        let declaredFiles = declaredBundleFiles(from: manifest)
+        return PackageEvidence(
             modelDirectoryName: modelDirectoryName,
             manifestFileName: manifestFileName,
-            modelPackageName: modelPackageName,
             runtimeIdentifier: runtimeIdentifier,
-            manifestFileCount: manifest.files.count,
-            declaredPackageBytes: manifest.files.reduce(UInt64(0)) { $0 + $1.bytes }
+            hfRepositoryID: manifest.hfRepositoryID,
+            bundleProfile: manifest.bundleProfile,
+            modelPackageCount: manifest.modelPackages.count,
+            voiceCount: manifest.voices.count,
+            runtimeAssetCount: manifest.runtimeAssets.count,
+            manifestFileCount: declaredFiles.count,
+            declaredPackageBytes: declaredFiles.reduce(UInt64(0)) { $0 + $1.bytes }
         )
     }
 
-    private static func manifestProblem(
+    private static func runtimeManifestProblem(
         name: String,
         url: URL,
         rootURL: URL,
@@ -206,147 +229,312 @@ nonisolated enum KokoroVoiceGateStatus {
               let dictionary = object as? [String: Any] else {
             return ManifestCheck(manifest: nil, problem: "\(name) is not a JSON object")
         }
-        if let contractProblem = manifestContractProblem(dictionary) {
-            return ManifestCheck(manifest: nil, problem: "\(name) \(contractProblem)")
-        }
-        return ManifestCheck(
-            manifest: InstallManifest(files: packageFiles(from: dictionary)),
-            problem: nil
-        )
+        return runtimeManifest(from: dictionary)
     }
 
-    private static func manifestContractProblem(_ object: [String: Any]) -> String? {
-        guard unsignedIntegerValue(object["schemaVersion"]) == UInt64(manifestSchemaVersion) else {
-            return "schemaVersion must be \(manifestSchemaVersion)"
+    private static func runtimeManifest(from object: [String: Any]) -> ManifestCheck {
+        guard unsignedIntegerValue(object["schema_version"]) == UInt64(manifestSchemaVersion) else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) schema_version must be \(manifestSchemaVersion)")
         }
-        guard object["modelId"] as? String == modelIdentifier else {
-            return "modelId must be \(modelIdentifier)"
+        guard requiredString(object["hf_repo_id"]) == upstreamRepositoryID else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) hf_repo_id must be \(upstreamRepositoryID)")
         }
-        guard object["runtime"] as? String == runtimeIdentifier else {
-            return "runtime must be \(runtimeIdentifier)"
+        let bundleProfile = requiredString(object["bundle_profile"]) ?? "unknown"
+
+        guard let minimumPlatforms = object["minimum_platforms"] as? [String: Any],
+              let macOSMinimum = requiredString(minimumPlatforms["macOS"]),
+              compareVersion(macOSMinimum, minimum: "15.0") else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) minimum_platforms.macOS must be at least 15.0")
         }
-        guard object["modelPackageName"] as? String == modelPackageName else {
-            return "modelPackageName must be \(modelPackageName)"
+        guard let languages = object["supported_languages"] as? [String],
+              languages.contains("en-US") else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) supported_languages must include en-US")
         }
-        guard let files = object["files"] as? [[String: Any]],
-              files.count >= 2,
-              files.count <= maxManifestFileCount else {
-            return "files must list \(packageManifestFileName) plus model data"
+        guard let durationTokenSizes = integerSet(object["duration_token_sizes"]),
+              requiredDurationTokenSizes.isSubset(of: durationTokenSizes) else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) duration_token_sizes must include 32,64,128,256,320,384,512")
+        }
+        guard let buckets = integerSet(object["buckets"]),
+              !buckets.isEmpty,
+              buckets.isSubset(of: allowedBuckets) else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) buckets must be one or more of 3,7,10,15,30")
+        }
+        guard let packageObjects = object["model_packages"] as? [[String: Any]],
+              !packageObjects.isEmpty,
+              packageObjects.count <= maxManifestFileCount else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) model_packages must list Core ML packages")
+        }
+        let packageParse = modelPackages(from: packageObjects)
+        if let problem = packageParse.problem {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) \(problem)")
+        }
+        let modelPackages = packageParse.packages
+        if let familyProblem = modelPackageFamilyProblem(modelPackages) {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) \(familyProblem)")
         }
 
+        guard let voiceObjects = object["voices"] as? [[String: Any]],
+              !voiceObjects.isEmpty,
+              voiceObjects.count <= 128 else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) voices must list Kokoro voice embeddings")
+        }
+        let voiceParse = packageFiles(
+            from: voiceObjects,
+            fieldName: "voices",
+            pathPolicy: isSafeVoicePath
+        )
+        if let problem = voiceParse.problem {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) \(problem)")
+        }
+        guard voiceParse.files.contains(where: { $0.path == starterVoicePath }) else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) voices must include \(starterVoiceIdentifier)")
+        }
+
+        guard let runtimeAssetObject = object["runtime_assets"] as? [String: Any] else {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) runtime_assets must list tokenizer and hnsf weights")
+        }
+        let runtimeAssets = runtimeAssetFiles(from: runtimeAssetObject)
+        if let problem = runtimeAssets.problem {
+            return ManifestCheck(manifest: nil, problem: "\(manifestFileName) \(problem)")
+        }
+
+        let manifest = RuntimeManifest(
+            hfRepositoryID: upstreamRepositoryID,
+            bundleProfile: bundleProfile,
+            durationTokenSizes: durationTokenSizes,
+            buckets: buckets,
+            modelPackages: modelPackages,
+            voices: voiceParse.files,
+            runtimeAssets: runtimeAssets.files
+        )
+        return ManifestCheck(manifest: manifest, problem: nil)
+    }
+
+    private static func modelPackages(
+        from objects: [[String: Any]]
+    ) -> (packages: [ModelPackage], problem: String?) {
+        var packages = [ModelPackage]()
         var seenPaths = Set<String>()
-        var hasPackageManifest = false
-        var hasModelPayload = false
         var totalManifestBytes: UInt64 = 0
-        for (index, file) in files.enumerated() {
-            guard let path = file["path"] as? String,
-                  isSafePackageRelativePath(path) else {
-                return "files[\(index)].path must be a package-relative file"
+
+        for (index, object) in objects.enumerated() {
+            guard let path = requiredString(object["path"]),
+                  isSafeModelPackagePath(path) else {
+                return ([], "model_packages[\(index)].path must be a coreml/*.mlpackage directory")
             }
             guard seenPaths.insert(path).inserted else {
-                return "files[\(index)].path duplicates \(pathDiagnostic(path))"
+                return ([], "model_packages[\(index)].path duplicates \(pathDiagnostic(path))")
             }
-            guard let bytes = unsignedIntegerValue(file["bytes"]), bytes > 0 else {
-                return "files[\(index)].bytes must be a positive integer"
+            guard let fileCount = unsignedIntegerValue(object["file_count"]),
+                  fileCount > 0,
+                  fileCount <= UInt64(maxManifestFileCount) else {
+                return ([], "model_packages[\(index)].file_count is invalid")
             }
-            guard bytes <= maxPackageFileBytes else {
-                return "files[\(index)].bytes exceeds package file limit"
-            }
-            guard totalManifestBytes <= maxPackageTotalBytes - bytes else {
-                return "files total exceeds package size limit"
+            guard let bytes = unsignedIntegerValue(object["bytes"]),
+                  bytes > 0,
+                  bytes <= maxPackageTotalBytes,
+                  totalManifestBytes <= maxPackageTotalBytes - bytes else {
+                return ([], "model_packages[\(index)].bytes exceeds package size limit")
             }
             totalManifestBytes += bytes
-            guard let sha256 = file["sha256"] as? String,
-                  isValidSHA256Hex(sha256) else {
-                return "files[\(index)].sha256 must be a SHA-256 hex digest"
+            guard let fileObjects = object["files"] as? [[String: Any]],
+                  fileObjects.count == Int(fileCount) else {
+                return ([], "model_packages[\(index)].files must match file_count")
             }
-            let isPackageManifest = path == packageManifestFileName
-            let isCoreMLPayload = path.hasPrefix(coreMLDataPathPrefix)
-            guard isPackageManifest || isCoreMLPayload else {
-                return "files[\(index)].path must be \(packageManifestFileName) or a Core ML data file"
+            let filesParse = packageFiles(
+                from: fileObjects,
+                fieldName: "model_packages[\(index)].files",
+                pathPolicy: isSafeModelPackageRelativeFilePath
+            )
+            if let problem = filesParse.problem {
+                return ([], problem)
             }
-            hasPackageManifest = hasPackageManifest || isPackageManifest
-            hasModelPayload = hasModelPayload || isCoreMLPayload
+            let packageRelativePaths = Set(filesParse.files.map(\.path))
+            let hasPackageManifest = packageRelativePaths.contains(packageManifestFileName)
+            let hasCoreMLPayload = packageRelativePaths.contains { $0.hasPrefix(coreMLDataPathPrefix) }
+            guard hasPackageManifest, hasCoreMLPayload else {
+                return ([], "model_packages[\(index)].files must include \(packageManifestFileName) and Core ML data")
+            }
+            let declaredBytes = filesParse.files.reduce(UInt64(0)) { $0 + $1.bytes }
+            guard declaredBytes == bytes else {
+                return ([], "model_packages[\(index)].bytes must equal declared file bytes")
+            }
+            packages.append(ModelPackage(
+                path: path,
+                fileCount: Int(fileCount),
+                bytes: bytes,
+                files: filesParse.files
+            ))
         }
+        return (packages, nil)
+    }
 
-        guard hasPackageManifest, hasModelPayload else {
-            return "files must include \(packageManifestFileName) and at least one Core ML data file"
+    private static func packageFiles(
+        from objects: [[String: Any]],
+        fieldName: String,
+        pathPolicy: (String) -> Bool
+    ) -> (files: [PackageFile], problem: String?) {
+        var files = [PackageFile]()
+        var seenPaths = Set<String>()
+        var totalBytes: UInt64 = 0
+
+        for (index, object) in objects.enumerated() {
+            guard let path = requiredString(object["path"]),
+                  pathPolicy(path) else {
+                return ([], "\(fieldName)[\(index)].path is invalid")
+            }
+            guard seenPaths.insert(path).inserted else {
+                return ([], "\(fieldName)[\(index)].path duplicates \(pathDiagnostic(path))")
+            }
+            guard let bytes = unsignedIntegerValue(object["bytes"]), bytes > 0 else {
+                return ([], "\(fieldName)[\(index)].bytes must be a positive integer")
+            }
+            guard bytes <= maxPackageFileBytes,
+                  totalBytes <= maxPackageTotalBytes - bytes else {
+                return ([], "\(fieldName)[\(index)].bytes exceeds package size limit")
+            }
+            totalBytes += bytes
+            guard let sha256 = object["sha256"] as? String,
+                  isValidSHA256Hex(sha256) else {
+                return ([], "\(fieldName)[\(index)].sha256 must be a SHA-256 hex digest")
+            }
+            files.append(PackageFile(path: path, bytes: bytes, sha256: sha256.lowercased()))
+        }
+        return (files, nil)
+    }
+
+    private static func runtimeAssetFiles(
+        from object: [String: Any]
+    ) -> (files: [PackageFile], problem: String?) {
+        let expected: [(key: String, path: String)] = [
+            ("vocab", runtimeVocabPath),
+            ("hnsf_weights", runtimeHNSFWeightsPath),
+        ]
+        var files = [PackageFile]()
+        for item in expected {
+            guard let asset = object[item.key] as? [String: Any] else {
+                return ([], "runtime_assets.\(item.key) is missing")
+            }
+            let parsed = packageFiles(
+                from: [asset],
+                fieldName: "runtime_assets.\(item.key)",
+                pathPolicy: { $0 == item.path }
+            )
+            if let problem = parsed.problem {
+                return ([], problem)
+            }
+            files.append(contentsOf: parsed.files)
+        }
+        return (files, nil)
+    }
+
+    private static func modelPackageFamilyProblem(_ packages: [ModelPackage]) -> String? {
+        let names = Set(packages.map { URL(fileURLWithPath: $0.path).lastPathComponent })
+        let hasDuration = names.contains { $0.hasPrefix("kokoro_duration_t") && $0.hasSuffix(".mlpackage") }
+        let hasF0NTrain = names.contains { $0.hasPrefix("kokoro_f0ntrain_t") && $0.hasSuffix(".mlpackage") }
+        let hasDecoderPre = names.contains { $0.hasPrefix("kokoro_decoder_pre_") && $0.hasSuffix(".mlpackage") }
+        let hasGenerator = names.contains { $0.hasPrefix("kokoro_decoder_har_post_") && $0.hasSuffix(".mlpackage") }
+        guard hasDuration, hasF0NTrain, hasDecoderPre, hasGenerator else {
+            return "model_packages must include duration, f0ntrain, decoder_pre, and decoder_har_post Core ML packages"
         }
         return nil
     }
 
-    private static func packageFiles(from object: [String: Any]) -> [PackageFile] {
-        guard let files = object["files"] as? [[String: Any]] else {
-            return []
-        }
-        return files.compactMap { file in
-            guard let path = file["path"] as? String,
-                  let bytes = unsignedIntegerValue(file["bytes"]),
-                  let sha256 = file["sha256"] as? String else {
-                return nil
-            }
-            return PackageFile(path: path, bytes: bytes, sha256: sha256.lowercased())
-        }
-    }
-
-    private static func packageContentsProblem(
-        manifest: InstallManifest,
-        packageURL: URL,
+    private static func runtimeBundleContentsProblem(
+        manifest: RuntimeManifest,
         modelDirectoryURL: URL,
         fileManager: FileManager
     ) -> String? {
-        var verifiedPayloadFile = false
-        let declaredPaths = Set(manifest.files.map(\.path))
-        for file in manifest.files {
-            let fileURL = packageURL.appendingPathComponent(file.path, isDirectory: false)
-            let displayName = "\(modelPackageName)/\(pathDiagnostic(file.path))"
+        let declaredFiles = declaredBundleFiles(from: manifest)
+        guard declaredFiles.count <= maxManifestFileCount else {
+            return "\(manifestFileName) declares too many files"
+        }
+
+        for package in manifest.modelPackages {
+            let packageURL = modelDirectoryURL.appendingPathComponent(package.path, isDirectory: true)
             if let shapeProblem = artifactProblem(
-                name: displayName,
-                url: fileURL,
-                kind: .file,
+                name: pathDiagnostic(package.path),
+                url: packageURL,
+                kind: .directory,
                 rootURL: modelDirectoryURL,
                 fileManager: fileManager
             ) {
                 return shapeProblem
             }
-            guard let fileSize = regularFileSizeNoFollow(at: fileURL) else {
-                return "\(displayName) could not be read safely"
+            for file in package.files {
+                let fullPath = package.path + "/" + file.path
+                if let problem = verifiedDeclaredFileProblem(
+                    declaredFile: PackageFile(path: fullPath, bytes: file.bytes, sha256: file.sha256),
+                    modelDirectoryURL: modelDirectoryURL,
+                    fileManager: fileManager
+                ) {
+                    return problem
+                }
             }
-            guard fileSize == file.bytes else {
-                return "\(displayName) size mismatch"
-            }
-            guard fileSize <= maxPackageFileBytes else {
-                return "\(displayName) exceeds package file limit"
-            }
-            guard let digest = fileDigestNoFollow(at: fileURL, expectedBytes: file.bytes) else {
-                return "\(displayName) could not be read safely"
-            }
-            guard digest.sha256 == file.sha256 else {
-                return "\(displayName) digest mismatch"
-            }
-            verifiedPayloadFile = verifiedPayloadFile || file.path != packageManifestFileName
         }
-        if let coverageProblem = packageCoverageProblem(
-            declaredPaths: declaredPaths,
-            packageURL: packageURL,
+
+        for file in manifest.runtimeAssets + manifest.voices {
+            if let problem = verifiedDeclaredFileProblem(
+                declaredFile: file,
+                modelDirectoryURL: modelDirectoryURL,
+                fileManager: fileManager
+            ) {
+                return problem
+            }
+        }
+
+        if let coverageProblem = bundleCoverageProblem(
+            declaredFiles: Set(declaredFiles.map(\.path)),
+            modelDirectoryURL: modelDirectoryURL,
             fileManager: fileManager
         ) {
             return coverageProblem
         }
-        return verifiedPayloadFile ? nil : "\(modelPackageName) has no verified model payload file"
+        return nil
     }
 
-    private static func packageCoverageProblem(
-        declaredPaths: Set<String>,
-        packageURL: URL,
+    private static func verifiedDeclaredFileProblem(
+        declaredFile: PackageFile,
+        modelDirectoryURL: URL,
+        fileManager: FileManager
+    ) -> String? {
+        let fileURL = modelDirectoryURL.appendingPathComponent(declaredFile.path, isDirectory: false)
+        let displayName = pathDiagnostic(declaredFile.path)
+        if let shapeProblem = artifactProblem(
+            name: displayName,
+            url: fileURL,
+            kind: .file,
+            rootURL: modelDirectoryURL,
+            fileManager: fileManager
+        ) {
+            return shapeProblem
+        }
+        guard let fileSize = regularFileSizeNoFollow(at: fileURL) else {
+            return "\(displayName) could not be read safely"
+        }
+        guard fileSize == declaredFile.bytes else {
+            return "\(displayName) size mismatch"
+        }
+        guard let digest = fileDigestNoFollow(at: fileURL, expectedBytes: declaredFile.bytes) else {
+            return "\(displayName) could not be read safely"
+        }
+        guard digest.sha256 == declaredFile.sha256 else {
+            return "\(displayName) digest mismatch"
+        }
+        return nil
+    }
+
+    private static func bundleCoverageProblem(
+        declaredFiles: Set<String>,
+        modelDirectoryURL: URL,
         fileManager: FileManager
     ) -> String? {
         guard let enumerator = fileManager.enumerator(
-            at: packageURL,
+            at: modelDirectoryURL,
             includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
             options: []
         ) else {
-            return "\(modelPackageName) could not be enumerated"
+            return "\(modelDirectoryName) could not be enumerated"
         }
 
         var visited = 0
@@ -354,37 +542,52 @@ nonisolated enum KokoroVoiceGateStatus {
         for case let url as URL in enumerator {
             visited += 1
             guard visited <= maxPackageEntryCount else {
-                return "\(modelPackageName) contains too many entries"
+                return "\(modelDirectoryName) contains too many entries"
             }
-            guard let relativePath = packageRelativePath(url, relativeTo: packageURL) else {
-                return "\(modelPackageName) contains an unreadable path"
+            guard let relativePath = bundleRelativePath(url, relativeTo: modelDirectoryURL) else {
+                return "\(modelDirectoryName) contains an unreadable path"
             }
 
             let values: URLResourceValues
             do {
                 values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey])
             } catch {
-                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) attributes unavailable"
+                return "\(pathDiagnostic(relativePath)) attributes unavailable"
             }
             if values.isSymbolicLink == true {
-                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) is a symlink"
+                return "\(pathDiagnostic(relativePath)) is a symlink"
             }
             if values.isDirectory == true {
                 continue
             }
             guard values.isRegularFile == true else {
-                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) is not a regular file"
+                return "\(pathDiagnostic(relativePath)) is not a regular file"
             }
-            guard declaredPaths.contains(relativePath) else {
-                return "\(modelPackageName)/\(pathDiagnostic(relativePath)) is not listed in manifest"
+            if relativePath == manifestFileName || optionalMetadataPath(relativePath) {
+                continue
+            }
+            guard declaredFiles.contains(relativePath) else {
+                return "\(pathDiagnostic(relativePath)) is not listed in \(manifestFileName)"
             }
             seenFiles.insert(relativePath)
         }
 
-        guard seenFiles == declaredPaths else {
-            return "\(modelPackageName) manifest does not match package contents"
+        guard seenFiles == declaredFiles else {
+            return "\(manifestFileName) manifest does not match package contents"
         }
         return nil
+    }
+
+    private static func declaredBundleFiles(from manifest: RuntimeManifest) -> [PackageFile] {
+        var files = [PackageFile]()
+        for package in manifest.modelPackages {
+            files.append(contentsOf: package.files.map {
+                PackageFile(path: package.path + "/" + $0.path, bytes: $0.bytes, sha256: $0.sha256)
+            })
+        }
+        files.append(contentsOf: manifest.runtimeAssets)
+        files.append(contentsOf: manifest.voices)
+        return files
     }
 
     private static func readManifestDataNoFollow(at url: URL) -> Data? {
@@ -564,7 +767,67 @@ nonisolated enum KokoroVoiceGateStatus {
         return nil
     }
 
-    private static func isSafePackageRelativePath(_ path: String) -> Bool {
+    private static func requiredString(_ value: Any?) -> String? {
+        guard let value = value as? String else {
+            return nil
+        }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func integerSet(_ value: Any?) -> Set<Int>? {
+        guard let array = value as? [Any] else {
+            return nil
+        }
+        var result = Set<Int>()
+        for item in array {
+            guard let integer = unsignedIntegerValue(item),
+                  integer <= UInt64(Int.max) else {
+                return nil
+            }
+            result.insert(Int(integer))
+        }
+        return result
+    }
+
+    private static func compareVersion(_ version: String, minimum: String) -> Bool {
+        let lhs = version.split(separator: ".").compactMap { Int($0) }
+        let rhs = minimum.split(separator: ".").compactMap { Int($0) }
+        guard !lhs.isEmpty, !rhs.isEmpty else {
+            return false
+        }
+        let count = max(lhs.count, rhs.count)
+        for index in 0..<count {
+            let left = index < lhs.count ? lhs[index] : 0
+            let right = index < rhs.count ? rhs[index] : 0
+            if left != right {
+                return left > right
+            }
+        }
+        return true
+    }
+
+    private static func isSafeModelPackagePath(_ path: String) -> Bool {
+        guard isSafeBundleRelativePath(path),
+              path.hasPrefix(coreMLDirectoryPrefix),
+              path.hasSuffix(".mlpackage") else {
+            return false
+        }
+        return path.split(separator: "/", omittingEmptySubsequences: false).count == 2
+    }
+
+    private static func isSafeModelPackageRelativeFilePath(_ path: String) -> Bool {
+        guard isSafeBundleRelativePath(path) else {
+            return false
+        }
+        return path == packageManifestFileName || path.hasPrefix(coreMLDataPathPrefix)
+    }
+
+    private static func isSafeVoicePath(_ path: String) -> Bool {
+        isSafeBundleRelativePath(path) && path.hasPrefix("voices/") && path.hasSuffix(".bin")
+    }
+
+    private static func isSafeBundleRelativePath(_ path: String) -> Bool {
         guard !path.isEmpty,
               path.count <= maxPackageFilePathLength,
               path.rangeOfCharacter(from: .controlCharacters) == nil,
@@ -591,6 +854,10 @@ nonisolated enum KokoroVoiceGateStatus {
         return value.allSatisfy { character in
             character >= "0" && character <= "9" || character >= "a" && character <= "f"
         }
+    }
+
+    private static func optionalMetadataPath(_ path: String) -> Bool {
+        path == hostedManifestFileName || path == sdkReleaseManifestPath || path == "LICENSE" || path == "README.md"
     }
 
     private static func firstSymlinkComponent(
@@ -625,8 +892,8 @@ nonisolated enum KokoroVoiceGateStatus {
         return resolved.path == root.path || resolved.path.hasPrefix(root.path + "/")
     }
 
-    private static func packageRelativePath(_ url: URL, relativeTo packageURL: URL) -> String? {
-        let root = packageURL.standardizedFileURL.path
+    private static func bundleRelativePath(_ url: URL, relativeTo modelDirectoryURL: URL) -> String? {
+        let root = modelDirectoryURL.standardizedFileURL.path
         let path = url.standardizedFileURL.path
         let prefix = root + "/"
         guard path.hasPrefix(prefix) else {

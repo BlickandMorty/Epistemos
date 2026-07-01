@@ -331,32 +331,46 @@ struct VoiceCodepackPlan3Tests {
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "Kokoro voice: unavailable in App Store build",
             "modelDirectoryName = \"kokoro-82m-coreml\"",
-            "manifestFileName = \"manifest.json\"",
-            "modelPackageName = \"Kokoro82M.mlpackage\"",
+            "manifestFileName = \"KokoroRuntimeManifest.json\"",
+            "hostedManifestFileName = \"HostedManifest.json\"",
+            "upstreamRepositoryID = \"mattmireles/kokoro-coreml\"",
+            "coreMLDirectoryPrefix = \"coreml/\"",
             "packageManifestFileName = \"Manifest.json\"",
             "manifestSchemaVersion = 1",
             "modelIdentifier = \"kokoro-82m\"",
             "runtimeIdentifier = \"coreml\"",
             "coreMLDataPathPrefix = \"Data/com.apple.CoreML/\"",
+            "runtimeVocabPath = \"runtime/kokoro-vocab.json\"",
+            "runtimeHNSFWeightsPath = \"runtime/hnsf_weights.json\"",
+            "starterVoicePath = \"voices/af_heart.bin\"",
+            "sampleRateHz = 24_000",
+            "starterVoiceEmbeddingDimensions = 256",
             "maxManifestBytes",
             "maxManifestFileCount",
             "maxPackageFileBytes",
             "maxPackageTotalBytes",
-            "manifestProblem(",
-            "manifestContractProblem(",
+            "runtimeManifestProblem(",
+            "runtimeManifest(from:",
+            "duration_token_sizes",
+            "model_packages",
+            "runtime_assets",
+            "voices must include",
             "readManifestDataNoFollow",
             "artifactProblem(",
-            "packageContentsProblem(",
+            "runtimeBundleContentsProblem(",
+            "bundleCoverageProblem(",
+            "declaredBundleFiles(from:",
+            "modelPackageFamilyProblem(",
             "fileDigestNoFollow",
             "regularFileSizeNoFollow",
             "totalManifestBytes",
-            "files[\\(index)].bytes exceeds package file limit",
-            "files[\\(index)].bytes must be a positive integer",
-            "files[\\(index)].path must be \\(packageManifestFileName) or a Core ML data file",
-            "files total exceeds package size limit",
+            "bytes exceeds package size limit",
+            "bytes must be a positive integer",
+            "files must include \\(packageManifestFileName) and Core ML data",
+            "model_packages must include duration, f0ntrain, decoder_pre, and decoder_har_post Core ML packages",
             "CFBooleanGetTypeID",
             "rounded(.towardZero)",
-            "fileDigestNoFollow(at: fileURL, expectedBytes: file.bytes)",
+            "fileDigestNoFollow(at: fileURL, expectedBytes: declaredFile.bytes)",
             "SHA256()",
             "firstSymlinkComponent(",
             "destinationOfSymbolicLink",
@@ -371,14 +385,15 @@ struct VoiceCodepackPlan3Tests {
             "rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength",
             "limit - 3",
             "resolvesInsideModelDirectory",
-            "files must list",
+            "supported_languages must include en-US",
+            "minimum_platforms.macOS must be at least 15.0",
             "size mismatch",
             "digest mismatch",
-            "package file digests match",
+            "runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match",
             "Apple AVSpeech is not used as a fallback",
             "Runtime readiness, not merely model-package readiness",
             "var packageEvidence: PackageEvidence? = nil",
-            "Kokoro voice: model package ready, runtime deferred"
+            "Kokoro voice: CoreML runtime package ready, synthesis deferred"
         ] {
             #expect(gate.contains(required), "Kokoro gate missing honesty string: \(required)")
         }
@@ -433,7 +448,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(gate.contains("struct PackageEvidence"))
         #expect(gate.contains("manifestFileCount"))
         #expect(gate.contains("declaredPackageBytes"))
-        #expect(gate.contains("manifest.files.reduce(UInt64(0))"))
+        #expect(gate.contains("modelPackageCount"))
+        #expect(gate.contains("voiceCount"))
+        #expect(gate.contains("runtimeAssetCount"))
+        #expect(gate.contains("declaredFiles.reduce(UInt64(0))"))
         #expect(installer.contains("nonisolated enum KokoroVoicePackageInstaller"))
         #expect(installer.contains("installCheckedPackage("))
         #expect(installer.contains("removeInstalledPackage("))
@@ -499,20 +517,24 @@ struct VoiceCodepackPlan3Tests {
         let packageReady = KokoroVoiceGateStatus.Status(
             state: .packageReady,
             isReady: false,
-            headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
+            headline: "Kokoro voice: CoreML runtime package ready, synthesis deferred",
+            detail: "The checked Pro mattmireles/kokoro-coreml runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in kokoro-82m-coreml, but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
         )
         let packageReadyWithEvidence = KokoroVoiceGateStatus.Status(
             state: .packageReady,
             isReady: false,
-            headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
+            headline: "Kokoro voice: CoreML runtime package ready, synthesis deferred",
+            detail: "The checked Pro mattmireles/kokoro-coreml runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in kokoro-82m-coreml, but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: KokoroVoiceGateStatus.PackageEvidence(
                 modelDirectoryName: KokoroVoiceGateStatus.modelDirectoryName,
                 manifestFileName: KokoroVoiceGateStatus.manifestFileName,
-                modelPackageName: KokoroVoiceGateStatus.modelPackageName,
                 runtimeIdentifier: KokoroVoiceGateStatus.runtimeIdentifier,
-                manifestFileCount: 2,
+                hfRepositoryID: KokoroVoiceGateStatus.upstreamRepositoryID,
+                bundleProfile: "test",
+                modelPackageCount: 4,
+                voiceCount: 1,
+                runtimeAssetCount: 2,
+                manifestFileCount: 11,
                 declaredPackageBytes: 42
             )
         )
@@ -529,8 +551,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(packageReadyPresentation.detail.contains("native Kokoro synthesis is not wired yet"))
 
         let evidencePresentation = KokoroVoiceProSettingsModel.presentation(for: packageReadyWithEvidence)
-        #expect(evidencePresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.modelPackageName) == true)
-        #expect(evidencePresentation.packageEvidenceSummary?.contains("2 checked files") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.manifestFileName) == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("4 checked Core ML packages") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("1 voice") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("11 checked files") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("42 declared bytes") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("Kokoro synthesis remains unavailable") == true)
     }
@@ -559,9 +583,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(result.status.state == .packageReady)
         #expect(result.status.packageEvidence?.modelDirectoryName == KokoroVoiceGateStatus.modelDirectoryName)
         #expect(result.status.packageEvidence?.manifestFileName == KokoroVoiceGateStatus.manifestFileName)
-        #expect(result.status.packageEvidence?.modelPackageName == KokoroVoiceGateStatus.modelPackageName)
         #expect(result.status.packageEvidence?.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier)
-        #expect(result.status.packageEvidence?.manifestFileCount == 2)
+        #expect(result.status.packageEvidence?.hfRepositoryID == KokoroVoiceGateStatus.upstreamRepositoryID)
+        #expect(result.status.packageEvidence?.modelPackageCount == 4)
+        #expect(result.status.packageEvidence?.voiceCount == 1)
+        #expect(result.status.packageEvidence?.runtimeAssetCount == 2)
+        #expect(result.status.packageEvidence?.manifestFileCount == 11)
         #expect((result.status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
         #expect(FileManager.default.fileExists(
             atPath: targetRoot
@@ -628,9 +655,6 @@ struct VoiceCodepackPlan3Tests {
             at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: true),
             withIntermediateDirectories: true
         )
-        try Data("not a CoreML package\n".utf8).write(
-            to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: false)
-        )
 
         let status = KokoroVoiceGateStatus.status(
             environment: [KokoroVoiceGateStatus.flagName: "1"],
@@ -639,8 +663,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!status.isReady)
         #expect(status.state == .missingModel)
-        #expect(status.detail.contains("manifest.json is a directory"))
-        #expect(status.detail.contains("Kokoro82M.mlpackage is not a directory"))
+        #expect(status.detail.contains("KokoroRuntimeManifest.json is a directory"))
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #else
@@ -665,13 +688,18 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!status.isReady)
         #expect(status.state == .packageReady)
-        #expect(status.headline.contains("runtime deferred"))
+        #expect(status.headline.contains("synthesis deferred"))
         #expect(status.detail.contains(KokoroVoiceGateStatus.modelDirectoryName))
-        #expect(status.detail.contains("package file digests match"))
+        #expect(status.detail.contains("segmented CoreML packages"))
+        #expect(status.detail.contains(KokoroVoiceGateStatus.upstreamRepositoryID))
         #expect(status.detail.contains("Apple AVSpeech is not used as a fallback"))
-        #expect(status.packageEvidence?.manifestFileCount == 2)
+        #expect(status.packageEvidence?.modelPackageCount == 4)
+        #expect(status.packageEvidence?.voiceCount == 1)
+        #expect(status.packageEvidence?.runtimeAssetCount == 2)
+        #expect(status.packageEvidence?.manifestFileCount == 11)
         #expect((status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
-        #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.modelPackageName) == true)
+        #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.manifestFileName) == true)
+        #expect(status.packageEvidence?.settingsSummary.contains("4 checked Core ML packages") == true)
         #expect(status.packageEvidence?.settingsSummary.contains("declared bytes") == true)
         #expect(status.packageEvidence?.settingsSummary.contains(root.path) == false)
         #expect(status.packageEvidence?.settingsSummary.contains(modelDirectory.path) == false)
@@ -689,7 +717,9 @@ struct VoiceCodepackPlan3Tests {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-extra-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
-        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        let packageURL = modelDirectory
+            .appendingPathComponent("coreml", isDirectory: true)
+            .appendingPathComponent("kokoro_duration_t32.mlpackage", isDirectory: true)
         let extraFileURL = packageURL
             .appendingPathComponent("Data", isDirectory: true)
             .appendingPathComponent("com.apple.CoreML", isDirectory: true)
@@ -706,7 +736,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!status.isReady)
         #expect(status.state == .missingModel)
-        #expect(status.detail.contains("Kokoro82M.mlpackage/Data/com.apple.CoreML/extra.mlmodel is not listed in manifest"))
+        #expect(status.detail.contains("coreml/kokoro_duration_t32.mlpackage/Data/com.apple.CoreML/extra.mlmodel is not listed in KokoroRuntimeManifest.json"))
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #else
@@ -721,7 +751,9 @@ struct VoiceCodepackPlan3Tests {
             .appendingPathComponent("kokoro-gate-non-coreml-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
-        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        let packageURL = modelDirectory
+            .appendingPathComponent("coreml", isDirectory: true)
+            .appendingPathComponent("kokoro_duration_t32.mlpackage", isDirectory: true)
         let packageManifestURL = packageURL.appendingPathComponent(KokoroVoiceGateStatus.packageManifestFileName)
         let payloadURL = packageURL.appendingPathComponent("payload.bin")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -732,25 +764,17 @@ struct VoiceCodepackPlan3Tests {
         try packageManifest.write(to: packageManifestURL)
         try payload.write(to: payloadURL)
 
-        let manifest: [String: Any] = [
-            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": packageManifest.count,
-                    "sha256": sha256Hex(packageManifest),
-                ],
-                [
-                    "path": "payload.bin",
-                    "bytes": payload.count,
-                    "sha256": sha256Hex(payload),
-                ],
-            ],
-        ]
-        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+        try kokoroRuntimeManifestData(
+            packageOverrides: [
+                kokoroModelPackageObject(
+                    path: "coreml/kokoro_duration_t32.mlpackage",
+                    files: [
+                        kokoroFileObject(path: KokoroVoiceGateStatus.packageManifestFileName, data: packageManifest),
+                        kokoroFileObject(path: "payload.bin", data: payload),
+                    ]
+                )
+            ]
+        )
             .write(to: manifestURL)
 
         let status = KokoroVoiceGateStatus.status(
@@ -760,7 +784,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!status.isReady)
         #expect(status.state == .missingModel)
-        #expect(status.detail.contains("files[1].path must be Manifest.json or a Core ML data file"))
+        #expect(status.detail.contains("model_packages[0].files[1].path is invalid"))
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #else
@@ -775,7 +799,9 @@ struct VoiceCodepackPlan3Tests {
             .appendingPathComponent("kokoro-gate-control-path-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
-        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        let packageURL = modelDirectory
+            .appendingPathComponent("coreml", isDirectory: true)
+            .appendingPathComponent("kokoro_duration_t32.mlpackage", isDirectory: true)
         let packageManifestURL = packageURL.appendingPathComponent(KokoroVoiceGateStatus.packageManifestFileName)
         let payloadURL = packageURL
             .appendingPathComponent("Data", isDirectory: true)
@@ -792,25 +818,17 @@ struct VoiceCodepackPlan3Tests {
         try packageManifest.write(to: packageManifestURL)
         try payload.write(to: payloadURL)
 
-        let manifest: [String: Any] = [
-            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": packageManifest.count,
-                    "sha256": sha256Hex(packageManifest),
-                ],
-                [
-                    "path": "Data/com.apple.CoreML/model\nname.mlmodel",
-                    "bytes": payload.count,
-                    "sha256": sha256Hex(payload),
-                ],
-            ],
-        ]
-        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+        try kokoroRuntimeManifestData(
+            packageOverrides: [
+                kokoroModelPackageObject(
+                    path: "coreml/kokoro_duration_t32.mlpackage",
+                    files: [
+                        kokoroFileObject(path: KokoroVoiceGateStatus.packageManifestFileName, data: packageManifest),
+                        kokoroFileObject(path: "Data/com.apple.CoreML/model\nname.mlmodel", data: payload),
+                    ]
+                )
+            ]
+        )
             .write(to: manifestURL)
 
         let status = KokoroVoiceGateStatus.status(
@@ -820,7 +838,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!status.isReady)
         #expect(status.state == .missingModel)
-        #expect(status.detail.contains("files[1].path must be a package-relative file"))
+        #expect(status.detail.contains("model_packages[0].files[1].path is invalid"))
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #else
@@ -835,10 +853,9 @@ struct VoiceCodepackPlan3Tests {
             .appendingPathComponent("kokoro-gate-placeholder-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
-        let modelPackageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        try FileManager.default.createDirectory(at: modelPackageURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
         try Data("{}".utf8).write(to: manifestURL)
 
         let placeholder = KokoroVoiceGateStatus.status(
@@ -848,11 +865,9 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!placeholder.isReady)
         #expect(placeholder.state == .missingModel)
-        #expect(placeholder.detail.contains("manifest.json schemaVersion must be 1"))
+        #expect(placeholder.detail.contains("KokoroRuntimeManifest.json schema_version must be 1"))
 
-        let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
-        let payload = Data("fixture kokoro payload\n".utf8)
-        try kokoroInstallManifestData(packageManifest: packageManifest, payload: payload).write(to: manifestURL)
+        try kokoroRuntimeManifestData().write(to: manifestURL)
 
         let emptyPackage = KokoroVoiceGateStatus.status(
             environment: [KokoroVoiceGateStatus.flagName: "1"],
@@ -861,7 +876,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!emptyPackage.isReady)
         #expect(emptyPackage.state == .missingModel)
-        #expect(emptyPackage.detail.contains("missing Kokoro82M.mlpackage/Manifest.json"))
+        #expect(emptyPackage.detail.contains("missing coreml/kokoro_duration_t32.mlpackage"))
         #expect(emptyPackage.detail.contains(root.path) == false)
         #expect(emptyPackage.detail.contains(modelDirectory.path) == false)
         #else
@@ -876,11 +891,9 @@ struct VoiceCodepackPlan3Tests {
             .appendingPathComponent("kokoro-gate-manifest-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
-        let modelPackageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
         try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: modelPackageURL, withIntermediateDirectories: true)
         try Data("not-json".utf8).write(to: manifestURL)
 
         let invalid = KokoroVoiceGateStatus.status(
@@ -890,7 +903,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!invalid.isReady)
         #expect(invalid.state == .missingModel)
-        #expect(invalid.detail.contains("manifest.json is not a JSON object"))
+        #expect(invalid.detail.contains("KokoroRuntimeManifest.json is not a JSON object"))
 
         try Data(repeating: UInt8(ascii: "{"), count: KokoroVoiceGateStatus.maxManifestBytes + 1)
             .write(to: manifestURL)
@@ -902,27 +915,27 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!oversized.isReady)
         #expect(oversized.state == .missingModel)
-        #expect(oversized.detail.contains("manifest.json could not be read safely"))
+        #expect(oversized.detail.contains("KokoroRuntimeManifest.json could not be read safely"))
 
-        let oversizedPackageManifest: [String: Any] = [
-            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": 1,
-                    "sha256": String(repeating: "a", count: 64),
-                ],
-                [
-                    "path": "Data/com.apple.CoreML/oversized.mlmodel",
-                    "bytes": Int(KokoroVoiceGateStatus.maxPackageFileBytes + 1),
-                    "sha256": String(repeating: "b", count: 64),
-                ],
-            ],
-        ]
-        try JSONSerialization.data(withJSONObject: oversizedPackageManifest, options: [.sortedKeys])
+        try kokoroRuntimeManifestData(
+            packageOverrides: [
+                kokoroModelPackageObject(
+                    path: "coreml/kokoro_duration_t32.mlpackage",
+                    files: [
+                        [
+                            "path": KokoroVoiceGateStatus.packageManifestFileName,
+                            "bytes": 1,
+                            "sha256": String(repeating: "a", count: 64),
+                        ],
+                        [
+                            "path": "Data/com.apple.CoreML/oversized.mlmodel",
+                            "bytes": Int(KokoroVoiceGateStatus.maxPackageFileBytes + 1),
+                            "sha256": String(repeating: "b", count: 64),
+                        ],
+                    ]
+                )
+            ]
+        )
             .write(to: manifestURL)
 
         let oversizedPackage = KokoroVoiceGateStatus.status(
@@ -932,26 +945,10 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!oversizedPackage.isReady)
         #expect(oversizedPackage.state == .missingModel)
-        #expect(oversizedPackage.detail.contains("files[1].bytes exceeds package file limit"))
+        #expect(oversizedPackage.detail.contains("model_packages[0].files[1].bytes exceeds package size limit"))
 
-        let fractionalSchemaManifest: [String: Any] = [
-            "schemaVersion": Double(KokoroVoiceGateStatus.manifestSchemaVersion) + 0.5,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": 1,
-                    "sha256": String(repeating: "a", count: 64),
-                ],
-                [
-                    "path": "Data/com.apple.CoreML/model.mlmodel",
-                    "bytes": 1,
-                    "sha256": String(repeating: "b", count: 64),
-                ],
-            ],
-        ]
+        var fractionalSchemaManifest = try kokoroRuntimeManifestObject()
+        fractionalSchemaManifest["schema_version"] = Double(KokoroVoiceGateStatus.manifestSchemaVersion) + 0.5
         try JSONSerialization.data(withJSONObject: fractionalSchemaManifest, options: [.sortedKeys])
             .write(to: manifestURL)
 
@@ -962,27 +959,27 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!fractionalSchema.isReady)
         #expect(fractionalSchema.state == .missingModel)
-        #expect(fractionalSchema.detail.contains("manifest.json schemaVersion must be 1"))
+        #expect(fractionalSchema.detail.contains("KokoroRuntimeManifest.json schema_version must be 1"))
 
-        let fractionalBytesManifest: [String: Any] = [
-            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": 1.5,
-                    "sha256": String(repeating: "a", count: 64),
-                ],
-                [
-                    "path": "Data/com.apple.CoreML/model.mlmodel",
-                    "bytes": 1,
-                    "sha256": String(repeating: "b", count: 64),
-                ],
-            ],
-        ]
-        try JSONSerialization.data(withJSONObject: fractionalBytesManifest, options: [.sortedKeys])
+        try kokoroRuntimeManifestData(
+            packageOverrides: [
+                kokoroModelPackageObject(
+                    path: "coreml/kokoro_duration_t32.mlpackage",
+                    files: [
+                        [
+                            "path": KokoroVoiceGateStatus.packageManifestFileName,
+                            "bytes": 1.5,
+                            "sha256": String(repeating: "a", count: 64),
+                        ],
+                        [
+                            "path": "Data/com.apple.CoreML/model.mlmodel",
+                            "bytes": 1,
+                            "sha256": String(repeating: "b", count: 64),
+                        ],
+                    ]
+                )
+            ]
+        )
             .write(to: manifestURL)
 
         let fractionalBytes = KokoroVoiceGateStatus.status(
@@ -992,7 +989,7 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!fractionalBytes.isReady)
         #expect(fractionalBytes.state == .missingModel)
-        #expect(fractionalBytes.detail.contains("files[0].bytes must be a positive integer"))
+        #expect(fractionalBytes.detail.contains("model_packages[0].files[0].bytes must be a positive integer"))
         #else
         #expect(true)
         #endif
@@ -1015,11 +1012,6 @@ struct VoiceCodepackPlan3Tests {
             at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName, isDirectory: false),
             withDestinationURL: outsideManifest
         )
-        try FileManager.default.createSymbolicLink(
-            at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true),
-            withDestinationURL: outsidePackage
-        )
-
         let status = KokoroVoiceGateStatus.status(
             environment: [KokoroVoiceGateStatus.flagName: "1"],
             modelRoot: root
@@ -1027,61 +1019,154 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!status.isReady)
         #expect(status.state == .missingModel)
-        #expect(status.detail.contains("manifest.json path must not include symlink component"))
-        #expect(status.detail.contains("Kokoro82M.mlpackage path must not include symlink component"))
+        #expect(status.detail.contains("KokoroRuntimeManifest.json path must not include symlink component"))
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #expect(status.detail.contains(outsideManifest.path) == false)
         #expect(status.detail.contains(outsidePackage.path) == false)
+
+        try FileManager.default.removeItem(at: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName))
+        try kokoroRuntimeManifestData().write(
+            to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
+        )
+        try FileManager.default.createDirectory(
+            at: modelDirectory.appendingPathComponent("coreml", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: modelDirectory
+                .appendingPathComponent("coreml", isDirectory: true)
+                .appendingPathComponent("kokoro_duration_t32.mlpackage", isDirectory: true),
+            withDestinationURL: outsidePackage
+        )
+
+        let packageSymlink = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+        #expect(!packageSymlink.isReady)
+        #expect(packageSymlink.detail.contains("coreml/kokoro_duration_t32.mlpackage path must not include symlink component"))
+        #expect(packageSymlink.detail.contains(outsidePackage.path) == false)
         #else
         #expect(true)
         #endif
     }
 
     private func writeValidKokoroPackage(at modelDirectory: URL) throws {
-        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
-        let packageManifestURL = packageURL.appendingPathComponent(
-            KokoroVoiceGateStatus.packageManifestFileName,
-            isDirectory: false
-        )
-        let payloadURL = packageURL
-            .appendingPathComponent("Data", isDirectory: true)
-            .appendingPathComponent("com.apple.CoreML", isDirectory: true)
-            .appendingPathComponent("model.mlmodel", isDirectory: false)
-        let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
-        let payload = Data("fixture kokoro payload\n".utf8)
+        var packageObjects = [[String: Any]]()
+        for packagePath in kokoroFixturePackagePaths() {
+            let packageURL = modelDirectory.appendingPathComponent(packagePath, isDirectory: true)
+            let packageManifestURL = packageURL.appendingPathComponent(
+                KokoroVoiceGateStatus.packageManifestFileName,
+                isDirectory: false
+            )
+            let payloadURL = packageURL
+                .appendingPathComponent("Data", isDirectory: true)
+                .appendingPathComponent("com.apple.CoreML", isDirectory: true)
+                .appendingPathComponent("model.mlmodel", isDirectory: false)
+            let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
+            let payload = Data("fixture \(packagePath)\n".utf8)
 
-        try FileManager.default.createDirectory(
-            at: payloadURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try packageManifest.write(to: packageManifestURL)
-        try payload.write(to: payloadURL)
-        try kokoroInstallManifestData(packageManifest: packageManifest, payload: payload)
+            try FileManager.default.createDirectory(
+                at: payloadURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try packageManifest.write(to: packageManifestURL)
+            try payload.write(to: payloadURL)
+            packageObjects.append(kokoroModelPackageObject(
+                path: packagePath,
+                files: [
+                    kokoroFileObject(path: KokoroVoiceGateStatus.packageManifestFileName, data: packageManifest),
+                    kokoroFileObject(path: "Data/com.apple.CoreML/model.mlmodel", data: payload),
+                ]
+            ))
+        }
+
+        let runtimeVocab = Data(#"{"hello":1}"#.utf8)
+        let hnsfWeights = Data(#"{"amplitude":1.0}"#.utf8)
+        let voice = Data(repeating: 7, count: 256)
+        try writeFixtureFile(runtimeVocab, relativePath: KokoroVoiceGateStatus.runtimeVocabPath, root: modelDirectory)
+        try writeFixtureFile(hnsfWeights, relativePath: KokoroVoiceGateStatus.runtimeHNSFWeightsPath, root: modelDirectory)
+        try writeFixtureFile(voice, relativePath: KokoroVoiceGateStatus.starterVoicePath, root: modelDirectory)
+        try kokoroRuntimeManifestData(packageOverrides: packageObjects)
             .write(to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName))
     }
 
-    private func kokoroInstallManifestData(packageManifest: Data, payload: Data) throws -> Data {
-        let payloadPath = "Data/com.apple.CoreML/model.mlmodel"
+    private func kokoroRuntimeManifestData(packageOverrides: [[String: Any]]? = nil) throws -> Data {
+        try JSONSerialization.data(
+            withJSONObject: kokoroRuntimeManifestObject(packageOverrides: packageOverrides),
+            options: [.prettyPrinted, .sortedKeys]
+        )
+    }
+
+    private func kokoroRuntimeManifestObject(packageOverrides: [[String: Any]]? = nil) throws -> [String: Any] {
+        let runtimeVocab = Data(#"{"hello":1}"#.utf8)
+        let hnsfWeights = Data(#"{"amplitude":1.0}"#.utf8)
+        let voice = Data(repeating: 7, count: 256)
         let object: [String: Any] = [
-            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": packageManifest.count,
-                    "sha256": sha256Hex(packageManifest),
-                ],
-                [
-                    "path": payloadPath,
-                    "bytes": payload.count,
-                    "sha256": sha256Hex(payload),
-                ],
+            "schema_version": KokoroVoiceGateStatus.manifestSchemaVersion,
+            "hf_repo_id": KokoroVoiceGateStatus.upstreamRepositoryID,
+            "bundle_profile": "test",
+            "minimum_platforms": [
+                "macOS": "15.0",
+                "iOS": "18.0",
+            ],
+            "supported_languages": ["en-US"],
+            "buckets": [15],
+            "duration_token_sizes": [32, 64, 128, 256, 320, 384, 512],
+            "model_packages": packageOverrides ?? kokoroFixturePackagePaths().map { packagePath in
+                let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
+                let payload = Data("fixture \(packagePath)\n".utf8)
+                return kokoroModelPackageObject(
+                    path: packagePath,
+                    files: [
+                        kokoroFileObject(path: KokoroVoiceGateStatus.packageManifestFileName, data: packageManifest),
+                        kokoroFileObject(path: "Data/com.apple.CoreML/model.mlmodel", data: payload),
+                    ]
+                )
+            },
+            "voices": [
+                kokoroFileObject(path: KokoroVoiceGateStatus.starterVoicePath, data: voice),
+            ],
+            "runtime_assets": [
+                "vocab": kokoroFileObject(path: KokoroVoiceGateStatus.runtimeVocabPath, data: runtimeVocab),
+                "hnsf_weights": kokoroFileObject(path: KokoroVoiceGateStatus.runtimeHNSFWeightsPath, data: hnsfWeights),
             ],
         ]
-        return try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+        return object
+    }
+
+    private func kokoroFixturePackagePaths() -> [String] {
+        [
+            "coreml/kokoro_duration_t32.mlpackage",
+            "coreml/kokoro_f0ntrain_t600.mlpackage",
+            "coreml/kokoro_decoder_pre_15s.mlpackage",
+            "coreml/kokoro_decoder_har_post_15s.mlpackage",
+        ]
+    }
+
+    private func kokoroModelPackageObject(path: String, files: [[String: Any]]) -> [String: Any] {
+        let bytes = files.compactMap { $0["bytes"] as? Int }.reduce(0, +)
+        return [
+            "path": path,
+            "file_count": files.count,
+            "bytes": bytes,
+            "files": files,
+        ]
+    }
+
+    private func kokoroFileObject(path: String, data: Data) -> [String: Any] {
+        [
+            "path": path,
+            "bytes": data.count,
+            "sha256": sha256Hex(data),
+        ]
+    }
+
+    private func writeFixtureFile(_ data: Data, relativePath: String, root: URL) throws {
+        let url = root.appendingPathComponent(relativePath, isDirectory: false)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url)
     }
 
     private func sha256Hex(_ data: Data) -> String {

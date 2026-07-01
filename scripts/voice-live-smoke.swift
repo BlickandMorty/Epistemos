@@ -46,7 +46,6 @@ enum VoiceLiveSmoke {
             .appendingPathComponent("epistemos-voice-smoke-\(UUID().uuidString)", isDirectory: true)
         let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
         let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
-        let modelURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let off = KokoroVoiceGateStatus.status(environment: [:], modelRoot: root)
@@ -74,7 +73,7 @@ enum VoiceLiveSmoke {
         }
 
         do {
-            try FileManager.default.createDirectory(at: modelURL, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
             try Data("{}".utf8).write(to: manifestURL)
         } catch {
             fail("could not create temporary Kokoro placeholder shape: \(error)")
@@ -86,29 +85,12 @@ enum VoiceLiveSmoke {
         )
         guard placeholder.state == .missingModel,
               !placeholder.isReady,
-              placeholder.detail.contains("manifest.json schemaVersion must be 1") else {
+              placeholder.detail.contains("KokoroRuntimeManifest.json schema_version must be 1") else {
             fail("Kokoro gate accepted a placeholder package shape: \(placeholder.detail)")
         }
 
         do {
-            let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
-            let payload = Data("fixture kokoro payload\n".utf8)
-            let packageManifestURL = modelURL.appendingPathComponent(
-                KokoroVoiceGateStatus.packageManifestFileName,
-                isDirectory: false
-            )
-            let payloadURL = modelURL
-                .appendingPathComponent("Data", isDirectory: true)
-                .appendingPathComponent("com.apple.CoreML", isDirectory: true)
-                .appendingPathComponent("model.mlmodel", isDirectory: false)
-            try FileManager.default.createDirectory(
-                at: payloadURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try packageManifest.write(to: packageManifestURL)
-            try payload.write(to: payloadURL)
-            try kokoroInstallManifestData(packageManifest: packageManifest, payload: payload)
-                .write(to: manifestURL)
+            try writeValidKokoroPackage(at: modelDirectory)
         } catch {
             fail("could not create temporary Kokoro model shape: \(error)")
         }
@@ -121,8 +103,10 @@ enum VoiceLiveSmoke {
             fail("Kokoro gate did not keep the checked package distinct from runtime readiness: \(packageReady.detail)")
         }
         guard let packageEvidence = packageReady.packageEvidence,
-              packageEvidence.manifestFileCount == 2,
-              packageEvidence.modelPackageName == KokoroVoiceGateStatus.modelPackageName,
+              packageEvidence.manifestFileCount == 11,
+              packageEvidence.modelPackageCount == 4,
+              packageEvidence.voiceCount == 1,
+              packageEvidence.runtimeAssetCount == 2,
               packageEvidence.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier,
               packageEvidence.settingsSummary.contains("Kokoro synthesis remains unavailable") else {
             fail("Kokoro gate did not expose checked package evidence without enabling runtime")
@@ -131,7 +115,7 @@ enum VoiceLiveSmoke {
         guard packageReadyPresentation.selectedRuntime == .textToSpeechUnavailable,
               !packageReadyPresentation.proRuntimeEnabled,
               packageReadyPresentation.badgeTitle == "Package ready",
-              packageReadyPresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.modelPackageName) == true else {
+              packageReadyPresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.manifestFileName) == true else {
             fail("Kokoro Pro presentation did not keep TTS unavailable while neural inference is deferred")
         }
 
@@ -144,7 +128,7 @@ enum VoiceLiveSmoke {
             guard installed.status.state == .packageReady, !installed.status.isReady else {
                 fail("Kokoro installer did not stage a checked package without enabling runtime: \(installed.status.detail)")
             }
-            guard installed.status.packageEvidence?.manifestFileCount == 2,
+            guard installed.status.packageEvidence?.manifestFileCount == 11,
                   installed.status.packageEvidence?.settingsSummary.contains("declared bytes") == true else {
                 fail("Kokoro installer did not return checked package evidence")
             }
@@ -171,27 +155,104 @@ enum VoiceLiveSmoke {
         }
     }
 
-    static func kokoroInstallManifestData(packageManifest: Data, payload: Data) throws -> Data {
-        let payloadPath = "Data/com.apple.CoreML/model.mlmodel"
+    static func writeValidKokoroPackage(at modelDirectory: URL) throws {
+        var packageObjects = [[String: Any]]()
+        for packagePath in kokoroFixturePackagePaths() {
+            let packageURL = modelDirectory.appendingPathComponent(packagePath, isDirectory: true)
+            let packageManifestURL = packageURL.appendingPathComponent(
+                KokoroVoiceGateStatus.packageManifestFileName,
+                isDirectory: false
+            )
+            let payloadURL = packageURL
+                .appendingPathComponent("Data", isDirectory: true)
+                .appendingPathComponent("com.apple.CoreML", isDirectory: true)
+                .appendingPathComponent("model.mlmodel", isDirectory: false)
+            let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
+            let payload = Data("fixture \(packagePath)\n".utf8)
+
+            try FileManager.default.createDirectory(
+                at: payloadURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try packageManifest.write(to: packageManifestURL)
+            try payload.write(to: payloadURL)
+            packageObjects.append(kokoroModelPackageObject(
+                path: packagePath,
+                files: [
+                    kokoroFileObject(path: KokoroVoiceGateStatus.packageManifestFileName, data: packageManifest),
+                    kokoroFileObject(path: "Data/com.apple.CoreML/model.mlmodel", data: payload),
+                ]
+            ))
+        }
+
+        let runtimeVocab = Data(#"{"hello":1}"#.utf8)
+        let hnsfWeights = Data(#"{"amplitude":1.0}"#.utf8)
+        let voice = Data(repeating: 7, count: 256)
+        try writeFixtureFile(runtimeVocab, relativePath: KokoroVoiceGateStatus.runtimeVocabPath, root: modelDirectory)
+        try writeFixtureFile(hnsfWeights, relativePath: KokoroVoiceGateStatus.runtimeHNSFWeightsPath, root: modelDirectory)
+        try writeFixtureFile(voice, relativePath: KokoroVoiceGateStatus.starterVoicePath, root: modelDirectory)
+        try kokoroRuntimeManifestData(packageOverrides: packageObjects)
+            .write(to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName))
+    }
+
+    static func kokoroRuntimeManifestData(packageOverrides: [[String: Any]]) throws -> Data {
+        let runtimeVocab = Data(#"{"hello":1}"#.utf8)
+        let hnsfWeights = Data(#"{"amplitude":1.0}"#.utf8)
+        let voice = Data(repeating: 7, count: 256)
         let object: [String: Any] = [
-            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
-            "modelId": KokoroVoiceGateStatus.modelIdentifier,
-            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
-            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
-            "files": [
-                [
-                    "path": KokoroVoiceGateStatus.packageManifestFileName,
-                    "bytes": packageManifest.count,
-                    "sha256": sha256Hex(packageManifest),
-                ],
-                [
-                    "path": payloadPath,
-                    "bytes": payload.count,
-                    "sha256": sha256Hex(payload),
-                ],
+            "schema_version": KokoroVoiceGateStatus.manifestSchemaVersion,
+            "hf_repo_id": KokoroVoiceGateStatus.upstreamRepositoryID,
+            "bundle_profile": "test",
+            "minimum_platforms": [
+                "macOS": "15.0",
+                "iOS": "18.0",
+            ],
+            "supported_languages": ["en-US"],
+            "buckets": [15],
+            "duration_token_sizes": [32, 64, 128, 256, 320, 384, 512],
+            "model_packages": packageOverrides,
+            "voices": [
+                kokoroFileObject(path: KokoroVoiceGateStatus.starterVoicePath, data: voice),
+            ],
+            "runtime_assets": [
+                "vocab": kokoroFileObject(path: KokoroVoiceGateStatus.runtimeVocabPath, data: runtimeVocab),
+                "hnsf_weights": kokoroFileObject(path: KokoroVoiceGateStatus.runtimeHNSFWeightsPath, data: hnsfWeights),
             ],
         ]
         return try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+    }
+
+    static func kokoroFixturePackagePaths() -> [String] {
+        [
+            "coreml/kokoro_duration_t32.mlpackage",
+            "coreml/kokoro_f0ntrain_t600.mlpackage",
+            "coreml/kokoro_decoder_pre_15s.mlpackage",
+            "coreml/kokoro_decoder_har_post_15s.mlpackage",
+        ]
+    }
+
+    static func kokoroModelPackageObject(path: String, files: [[String: Any]]) -> [String: Any] {
+        let bytes = files.compactMap { $0["bytes"] as? Int }.reduce(0, +)
+        return [
+            "path": path,
+            "file_count": files.count,
+            "bytes": bytes,
+            "files": files,
+        ]
+    }
+
+    static func kokoroFileObject(path: String, data: Data) -> [String: Any] {
+        [
+            "path": path,
+            "bytes": data.count,
+            "sha256": sha256Hex(data),
+        ]
+    }
+
+    static func writeFixtureFile(_ data: Data, relativePath: String, root: URL) throws {
+        let url = root.appendingPathComponent(relativePath, isDirectory: false)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url)
     }
 
     static func sha256Hex(_ data: Data) -> String {
