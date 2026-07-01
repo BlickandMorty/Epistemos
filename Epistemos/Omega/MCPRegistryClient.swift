@@ -180,6 +180,7 @@ nonisolated struct MCPRegistryClient: Sendable {
               response.scheme?.lowercased() == "https",
               response.host?.lowercased() == request.host?.lowercased(),
               response.percentEncodedPath == request.percentEncodedPath,
+              response.percentEncodedQuery == request.percentEncodedQuery,
               response.user == nil,
               response.password == nil,
               response.percentEncodedFragment == nil else {

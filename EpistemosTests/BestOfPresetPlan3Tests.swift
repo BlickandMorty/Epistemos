@@ -84,6 +84,7 @@ struct BestOfPresetPlan3Tests {
             "isAllowedRegistryResponseURL",
             "response.host?.lowercased() == request.host?.lowercased()",
             "response.percentEncodedPath == request.percentEncodedPath",
+            "response.percentEncodedQuery == request.percentEncodedQuery",
             "String(trimmed.prefix(maxRegistryFieldLength))",
             "homepageURL",
             "components.host?.lowercased() == \"github.com\"",

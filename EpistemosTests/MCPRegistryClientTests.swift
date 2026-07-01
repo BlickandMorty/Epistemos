@@ -123,6 +123,30 @@ struct MCPRegistryClientTests {
         #expect(entries.isEmpty)
     }
 
+    @Test("registry search rejects same-host response URL query rewrites")
+    func searchRejectsSameHostResponseURLQueryRewrites() async throws {
+        let client = MCPRegistryClient { _ in
+            let responseURL = try #require(URL(string: "https://smithery.ai/api/servers?q=other"))
+            let response = HTTPURLResponse(
+                url: responseURL,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            let body = """
+            {
+              "servers": [
+                { "name": "Rewritten", "remoteUrl": "https://rewritten.example.com/mcp" }
+              ]
+            }
+            """
+            return (Data(body.utf8), try #require(response))
+        }
+
+        let entries = await client.searchSmithery(query: "docs")
+        #expect(entries.isEmpty)
+    }
+
     @Test("registry search caps per-source record processing")
     func searchCapsPerSourceRecords() async throws {
         let records = (0..<40).map {
