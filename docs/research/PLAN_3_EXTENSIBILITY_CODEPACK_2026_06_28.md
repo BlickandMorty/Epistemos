@@ -25,8 +25,9 @@ Pure `URLSession` clients for **Smithery / mcp.so / Glama / GitHub** → unified
 `searchAll(query)` bounds query text, fans out via TaskGroup, dedupes by id; each `search*` is defensive (schema drift or
 oversized JSON → empty, never crash), caps per-source record processing, and filters remote URL targets that carry
 userinfo/query/fragment secret channels. Registry responses must stay on the requested HTTPS host/path after redirects.
-Registry fields are trimmed and capped, nested schema probing is depth-bounded, `searchAll(limit:)` clamps
-non-positive/oversized limits, and GitHub repo URLs are parsed with `URLComponents` so
+Registry fields are raw-capped, control-stripped, trimmed, and capped before display/ID construction; nested schema
+probing is depth-bounded, `searchAll(limit:)` clamps non-positive/oversized limits, and GitHub repo URLs are parsed with
+`URLComponents` so
 userinfo/query/fragment channels are rejected there too. Registry homepage URLs are HTTPS-only with userinfo/query/fragment
 channels rejected before entries carry them. `isMASInstallable = installKind == .remoteURL`. **GitHub search
 is the one documented/stable endpoint; the other three registry endpoints are `[INFERRED]` — confirm at build time.** No

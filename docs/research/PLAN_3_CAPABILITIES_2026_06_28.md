@@ -256,7 +256,8 @@ caught Swift/Foundation failures to bounded domain/code diagnostics before Swift
 strings bounded before trim/validation. External HTTPS URL MCP now
 has the shipped Swift trio:
 `MCPRegistryClient` (Smithery/mcp.so/Glama/GitHub browse, network-read only, bounded fields/limits, secret-bearing remote
-or GitHub repo URLs filtered, redirected responses must stay on the requested HTTPS host/path),
+or GitHub repo URLs filtered, registry display fields raw-capped and control-stripped, redirected responses must stay on
+the requested HTTPS host/path),
 `MCPUrlServerDirectory.write/install/uninstall` (bare-array HTTPS config writer, no token values,
 final-symlink/non-regular config reads plus symlinked config-directory components rejected, 256 KiB config cap). Rust URL
 server discovery mirrors that no-userinfo/query/fragment URL policy, strict env-key shape, inline-token rejection, and

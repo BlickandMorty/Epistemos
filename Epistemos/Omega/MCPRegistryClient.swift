@@ -310,9 +310,8 @@ nonisolated struct MCPRegistryClient: Sendable {
     private static func string(_ record: [String: Any], keys: [String], depth: Int) -> String? {
         for key in keys {
             if let value = record[key] as? String {
-                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    return String(trimmed.prefix(maxRegistryFieldLength))
+                if let bounded = boundedRegistryString(value) {
+                    return bounded
                 }
             }
             if depth < maxRegistryLookupDepth,
@@ -322,6 +321,16 @@ nonisolated struct MCPRegistryClient: Sendable {
             }
         }
         return nil
+    }
+
+    private static func boundedRegistryString(_ value: String) -> String? {
+        let rawBounded = String(value.unicodeScalars.prefix(maxRegistryFieldLength + 128))
+        let controlStripped = rawBounded.unicodeScalars.compactMap { scalar in
+            CharacterSet.controlCharacters.contains(scalar) ? nil : String(scalar)
+        }.joined()
+        let trimmed = controlStripped.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxRegistryFieldLength))
     }
 
     private static func githubURL(_ value: String?) -> String? {

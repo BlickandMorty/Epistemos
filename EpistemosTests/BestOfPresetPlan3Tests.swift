@@ -24,6 +24,7 @@ struct BestOfPresetPlan3Tests {
             "`VaultMCPServerSettingsRow`",
             "allowedToolNames: Set(VaultMCPCore.readToolNames)",
             "cap request bodies at 8 MiB",
+            "registry display fields raw-capped and control-stripped",
             "raw failure/domain strings bounded before",
             "raw listener/domain and protocol diagnostic strings bounded before trim/validation",
         ] {
@@ -39,6 +40,7 @@ struct BestOfPresetPlan3Tests {
             "MCPServersDetailView",
             "BrowserUseSettingsView",
             "off the SwiftUI path",
+            "Registry fields are raw-capped, control-stripped",
             "raw failure/domain strings bounded before trimming or punctuation validation",
             "raw-bounded MCP URL diagnostic helper",
         ] {
@@ -80,6 +82,9 @@ struct BestOfPresetPlan3Tests {
         for required in [
             "maxRegistryFieldLength",
             "maxRegistryLookupDepth",
+            "boundedRegistryString",
+            "unicodeScalars.prefix(maxRegistryFieldLength + 128)",
+            "CharacterSet.controlCharacters",
             "normalizedLimit",
             "isAllowedRegistryResponseURL",
             "response.host?.lowercased() == request.host?.lowercased()",
@@ -144,6 +149,39 @@ struct BestOfPresetPlan3Tests {
             #expect(!vault.contains(stale), "Vault MCP codepack kept stale claim: \(stale)")
             #expect(!directory.contains(stale), "MCPUrlServerDirectory kept stale source comment: \(stale)")
         }
+    }
+
+    @Test("registry entries strip controls before display and ids")
+    func registryEntriesStripControlsBeforeDisplayAndIDs() async throws {
+        let payload = """
+        {
+          "servers": [
+            {
+              "name": " Context\\u0000\\n7 ",
+              "description": "Docs\\rserver",
+              "remoteUrl": "https://mcp.context7.com/mcp"
+            }
+          ]
+        }
+        """
+        let client = MCPRegistryClient { request in
+            let response = HTTPURLResponse(
+                url: try #require(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            return (Data(payload.utf8), try #require(response))
+        }
+
+        let entries = await client.searchSmithery(query: "docs")
+        let entry = try #require(entries.first)
+
+        #expect(entry.name == "Context7")
+        #expect(entry.description == "Docsserver")
+        #expect(entry.id == "smithery:remote:context7")
+        #expect(entry.name.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) })
+        #expect(entry.description.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) })
     }
 
     @Test("apply reports built-ins and installs only missing remote MCP rows")
