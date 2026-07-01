@@ -4,6 +4,7 @@ import os
 nonisolated enum ChunkedMCPFramingDiagnostics {
     static let maxFailureMessageCharacters = 240
     static let maxSegmentNameCharacters = 128
+    private static let maxDomainCharacters = 80
     private static let redactedSegmentName = "/ep_redacted"
 
     static func externalErrorDescription(_ error: Error, fallback: String = "SHM read failed") -> String {
@@ -19,7 +20,8 @@ nonisolated enum ChunkedMCPFramingDiagnostics {
     }
 
     static func segmentLogName(_ segmentName: String) -> String {
-        let trimmed = segmentName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(segmentName.prefix(maxSegmentNameCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/ep_"),
               !trimmed.dropFirst("/ep_".count).isEmpty,
               trimmed.count <= maxSegmentNameCharacters else {
@@ -35,7 +37,8 @@ nonisolated enum ChunkedMCPFramingDiagnostics {
     }
 
     private static func boundedMessage(_ message: String, fallback: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxFailureMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return fallback }
         guard trimmed.count > maxFailureMessageCharacters else { return trimmed }
 
@@ -48,14 +51,15 @@ nonisolated enum ChunkedMCPFramingDiagnostics {
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Error" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
             return "Error"
         }
-        guard trimmed.count <= 80 else {
-            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+        guard trimmed.count <= maxDomainCharacters else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: maxDomainCharacters)
             return String(trimmed[..<end])
         }
         return trimmed

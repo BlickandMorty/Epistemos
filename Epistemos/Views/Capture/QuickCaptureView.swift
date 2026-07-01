@@ -3,6 +3,7 @@ import SwiftUI
 
 nonisolated enum QuickCaptureDiagnostics {
     static let maxStatusMessageCharacters = 240
+    private static let maxDomainCharacters = 80
 
     static func statusMessage(for error: Error, fallback: String = "Capture failed") -> String {
         if let captureError = error as? TextCaptureError {
@@ -28,7 +29,8 @@ nonisolated enum QuickCaptureDiagnostics {
     }
 
     static func statusMessage(_ message: String, fallback: String = "Capture failed") -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxStatusMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return fallback }
         guard trimmed.count > maxStatusMessageCharacters else { return trimmed }
 
@@ -41,14 +43,15 @@ nonisolated enum QuickCaptureDiagnostics {
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Error" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
             return "Error"
         }
-        guard trimmed.count <= 80 else {
-            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+        guard trimmed.count <= maxDomainCharacters else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: maxDomainCharacters)
             return String(trimmed[..<end])
         }
         return trimmed

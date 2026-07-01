@@ -68,7 +68,7 @@ struct VisualVerifyLoopTests {
     }
 
     @Test("Omega vision diagnostics redact external errors")
-    func omegaVisionDiagnosticsRedactExternalErrors() {
+    func omegaVisionDiagnosticsRedactExternalErrors() throws {
         let message = OmegaVisionDiagnostics.externalLogMessage(
             "Vision OCR failed",
             error: NSError(
@@ -91,6 +91,10 @@ struct VisualVerifyLoopTests {
         ] {
             #expect(!message.contains(forbidden))
         }
+
+        let source = try loadMirroredSourceTextFile("Epistemos/Omega/Vision/OmegaVisionDiagnostics.swift")
+        #expect(source.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
     }
 
     @Test("Omega vision sources do not log raw external errors")

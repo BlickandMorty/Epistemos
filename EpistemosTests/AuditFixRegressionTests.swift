@@ -165,7 +165,7 @@ struct AuditFixRegressionTests {
     }
 
     @Test("approval audit diagnostics redact external errors")
-    func approvalAuditDiagnosticsRedactExternalErrors() {
+    func approvalAuditDiagnosticsRedactExternalErrors() throws {
         let message = ApprovalAuditDiagnostics.externalLogMessage(
             "approval audit append failed",
             error: NSError(
@@ -188,6 +188,10 @@ struct AuditFixRegressionTests {
         ] {
             #expect(!message.contains(forbidden))
         }
+
+        let source = try loadAuditSource("Epistemos/Views/Approval/ApprovalModalView.swift")
+        #expect(source.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
     }
 
     @Test("managed tools use an application-support scratch vault instead of crashing when no vault is attached")

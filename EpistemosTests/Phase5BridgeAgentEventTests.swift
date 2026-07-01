@@ -181,6 +181,8 @@ struct Phase5BridgeAgentEventTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Bridge/Phase5Bridge.swift")
 
         #expect(source.contains("Phase5BridgeDiagnostics.externalFailureMessage"))
+        #expect(source.contains("String(message.prefix(maxFailureMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
     }

@@ -89,6 +89,8 @@ nonisolated struct CodeEditorPolishTests {
                 "Markdown Source saves should be note-backed first, matching Prose robustness.")
         #expect(workspaceSource.contains("private func saveCurrentNoteToDisk()"),
                 "Save affordances should share one flush path.")
+        #expect(workspaceSource.contains("save: saveCurrentNoteToDisk"),
+                "Command-surface saves must flush the active editor before hitting disk.")
         #expect(workspaceSource.contains("Button(\"\") { saveCurrentNoteToDisk() }"),
                 "Cmd-S must flush the active editor before hitting disk.")
         #expect(workspaceSource.contains("case .saveToDisk:\n            saveCurrentNoteToDisk()"),
@@ -115,6 +117,44 @@ nonisolated struct CodeEditorPolishTests {
                 "Markdown Source should not expose CodeFileService read failures as a permanent source panel.")
         #expect(!workspaceSource.contains(#"message: "No active vault is available for this source file.""#),
                 "Missing vault state must not hide markdown Source when note content is available.")
+        #expect(!workspaceSource.contains("ui.theme.resolved.border.color.opacity(0.55)"),
+                "Source header should stay flat instead of reintroducing a hard bottom rule.")
+    }
+
+    @Test("Markdown Source fallback serialization preserves front matter metadata")
+    func markdownSourceFallbackSerializationPreservesFrontMatterMetadata() {
+        let rendered = VaultIndexActor.buildMarkdownSource(
+            pageId: "page-1",
+            title: "Title: With Quotes \"Here\"",
+            tags: ["source", "proof"],
+            emoji: "spark",
+            isJournal: true,
+            journalDate: "2026-06-30",
+            parentPageId: "parent-1",
+            templateId: "template-1",
+            frontMatter: [
+                "capture": "web",
+                "source_pdf": "papers/source.pdf",
+                "title": "stale-title-should-not-win"
+            ],
+            body: "Body text"
+        )
+
+        let parsed = VaultIndexActor.parseFrontMatter(rendered)
+
+        #expect(parsed.0["id"] == "page-1")
+        #expect(parsed.0["title"] == "Title: With Quotes \"Here\"")
+        #expect(parsed.0["tags"] == "source, proof")
+        #expect(parsed.0["icon"] == "spark")
+        #expect(parsed.0["journal"] == "true")
+        #expect(parsed.0["date"] == "2026-06-30")
+        #expect(parsed.0["parent"] == "parent-1")
+        #expect(parsed.0["template"] == "template-1")
+        #expect(parsed.0["capture"] == "web")
+        #expect(parsed.0["source_pdf"] == "papers/source.pdf")
+        #expect(parsed.1 == "Body text")
+        #expect(try #require(rendered.range(of: "capture: web")).lowerBound
+            < #require(rendered.range(of: "source_pdf: papers/source.pdf")).lowerBound)
     }
 
     // MARK: - OutlineParserCache (item 3)
@@ -289,9 +329,10 @@ nonisolated struct CodeEditorPolishTests {
                 "CodeEditorView must flush the visible Source text before detaching the debouncer during lens switches.")
     }
 
-    @Test("MarkEdit Source engine flushes latest text during teardown")
-    func markEditSourceEngineFlushesLatestTextDuringTeardown() throws {
+    @Test("MarkEdit Source engines flush latest text during teardown")
+    func markEditSourceEnginesFlushLatestTextDuringTeardown() throws {
         let markEditChrome = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        let coreEditorCoordinator = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
 
         let flushRange = try #require(markEditChrome.range(of: "flushCurrentTextBeforeDetach(from: viewController)"))
         let pollingCancelRange = try #require(markEditChrome.range(of: "pollingTask?.cancel()"))
@@ -299,6 +340,8 @@ nonisolated struct CodeEditorPolishTests {
                 "Full MarkEdit markdown chrome must sample editor text before teardown cancels polling.")
         #expect(markEditChrome.contains("let nextText = await viewController.editorText"))
         #expect(markEditChrome.contains("applyObservedText(nextText)"))
+        #expect(coreEditorCoordinator.contains(#"window.addEventListener("pagehide", () => postSnapshot("pagehide"));"#),
+                "CoreEditor fallback should push a final snapshot when WebKit starts unloading the Source page.")
     }
 
     @Test("CodeEditorView feeds live preferences into MarkEdit CoreEditor")
@@ -551,6 +594,10 @@ nonisolated struct CodeEditorPolishTests {
                 "The visible find bar must execute a real wrapped search instead of only accepting query text.")
         #expect(source.contains("requestEditorSelection(match)"),
                 "Search results must be selected through the active editor bridge.")
+        #expect(source.contains(#".keyboardShortcut("f", modifiers: .command)"#),
+                "The visible Source search bar must be reachable from Cmd-F.")
+        #expect(source.contains(#".help("Find (Cmd-F)")"#),
+                "The Source find affordance should advertise the shortcut it handles.")
         #expect(source.contains("webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: range)"),
                 "The v1 fallback must receive the same explicit selection requests as CoreEditor.")
         #expect(source.contains("activeSearchRange = nil"),
@@ -702,6 +749,14 @@ nonisolated struct CodeEditorPolishTests {
                 "Definition lookup must call the real LSP definition request.")
         #expect(source.contains("requestEditorSelection(definitionRange)"),
                 "Same-file definitions must select the real definition range through the active editor bridge.")
+        #expect(source.contains("semanticStatusCopyText"),
+                "Cross-file definitions must expose an actionable target instead of a dead-end status.")
+        #expect(source.contains("definitionTargetText(uri: definition.uri"),
+                "Cross-file definition targets should include a concrete path/URI, line, and column.")
+        #expect(source.contains("Copy definition target"),
+                "The LSP status surface must expose a copy action for cross-file definitions.")
+        #expect(!source.contains("cross-file navigation is not wired yet"),
+                "Cross-file definition lookup must not regress to a non-actionable placeholder.")
     }
 
     @Test("Code editor large-file affordances stay on CoreEditor")
@@ -709,6 +764,8 @@ nonisolated struct CodeEditorPolishTests {
         let editor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let textUtilities = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorTextUtilities.swift")
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
         let guides = try loadRepoTextFile("Epistemos/Views/Notes/SegmentedIndentationGuideView.swift")
         let gutter = try loadRepoTextFile("Epistemos/Views/Notes/CodeLineGutter.swift")
 

@@ -220,6 +220,8 @@ struct ComputerUseBridgeAgentEventTests {
         #expect(source.contains(#""text_length_bucket""#))
         #expect(source.contains("parseComputerActionResult"))
         #expect(source.contains("ComputerUseBridgeDiagnostics.externalStatusMessage"))
+        #expect(source.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("argumentsJSON: actionJSON"))
         #expect(!source.contains("argumentsJSON: input"))
         #expect(!source.contains("resultJSON: result,"))

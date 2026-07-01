@@ -1485,7 +1485,7 @@ struct EpistemosCommands: Commands {
                 .disabled(!gooseAvailability.isReady)
             #else
             let gooseAvailability = GooseSurfaceAvailability.current()
-            Button("Open Epistemos Goose (Native Frame)") {
+            Button("Open Epistemos Goose") {
                 if AgentSurface.isEnabled() {
                     AgentSurfaceWindowController.shared.open()
                 } else {
@@ -1510,6 +1510,12 @@ struct EpistemosCommands: Commands {
                 UtilityWindowManager.shared.show(.browser)
             }
             .keyboardShortcut("b", modifiers: [.command, .shift])
+
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+            Button("browser-use Pro") {
+                UtilityWindowManager.shared.show(.browserUsePro)
+            }
+            #endif
 
             Button("Reveal Current Document in Graph") {
                 (NSApp.delegate as? EpistemosAppDelegate)?
