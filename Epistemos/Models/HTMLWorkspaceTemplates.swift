@@ -807,15 +807,19 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderVaultResults();
     }
 
+    function pinContextKey(key) {
+      if (key && !pinnedContextKeys.includes(key)) {
+        pinnedContextKeys.push(key);
+      }
+    }
+
     function pinSelectedContext() {
       const data = HTMLWorkspace.data || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
       const selected = activeResult(visibleResults(allResults));
       if (!selected) { return; }
       const key = resultKey(selected);
-      if (!pinnedContextKeys.includes(key)) {
-        pinnedContextKeys.push(key);
-      }
+      pinContextKey(key);
       renderVaultResults();
     }
 
@@ -929,6 +933,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     HTMLWorkspace.q('[data-result-sort]')?.addEventListener('change', renderVaultResults);
     HTMLWorkspace.q('[data-context-picker]')?.addEventListener('change', (event) => {
       selectedResultKey = event.currentTarget.value || null;
+      pinContextKey(selectedResultKey);
       renderVaultResults();
     });
     HTMLWorkspace.q('[data-pin-context]')?.addEventListener('click', pinSelectedContext);
