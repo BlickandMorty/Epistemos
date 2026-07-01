@@ -193,6 +193,17 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
     /// Read-only: forwards errors, never exposes an app API. Posts {level, message, source, line, column}.
     static let injectionScript = """
     (function(){
+      if (window.__epistemosConsoleBridgeInstalled === true) { return; }
+      try {
+        Object.defineProperty(window, '__epistemosConsoleBridgeInstalled', {
+          value: true,
+          writable: false,
+          configurable: false,
+          enumerable: false
+        });
+      } catch (e) {
+        window.__epistemosConsoleBridgeInstalled = true;
+      }
       function post(level, message, source, line, column){
         try {
           window.webkit.messageHandlers.epistemosWorkspaceConsole.postMessage({
