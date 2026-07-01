@@ -252,9 +252,8 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
     static func compactLine(for package: HTMLWorkspacePackage) -> String? {
         guard package.manifest.dataFeed != nil else { return nil }
         guard let metadata = metadata(from: package.dataJSON) else { return "Feed pending" }
-        return metadata.stale
-            ? "Feed stale"
-            : "Feed fresh: \(metadata.resultCount)"
+        let status = metadata.stale ? "Feed stale" : "Feed fresh"
+        return "\(status): \(metadata.resultCount) / \(contextKindsText(for: metadata))"
     }
 
     @MainActor
@@ -264,9 +263,13 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
             return "Vault search: \(feed.normalizedQuery)"
         }
         let age = refreshedAgeText(refreshedAtMS: metadata.refreshedAtMS)
-        let kinds = metadata.contextKinds.isEmpty ? "none" : metadata.contextKinds.joined(separator: ", ")
         let errorSuffix = metadata.error.map { " / \($0)" } ?? ""
-        return "\(metadata.query) / \(age) / kinds: \(kinds) / \(metadata.provenance)\(errorSuffix)"
+        return "\(metadata.query) / \(age) / kinds: \(contextKindsText(for: metadata)) / \(metadata.provenance)\(errorSuffix)"
+    }
+
+    @MainActor
+    private static func contextKindsText(for metadata: HTMLWorkspaceDataFeedMetadata) -> String {
+        metadata.contextKinds.isEmpty ? "none" : metadata.contextKinds.joined(separator: ", ")
     }
 
     @MainActor

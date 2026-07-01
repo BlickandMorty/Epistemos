@@ -152,6 +152,8 @@ nonisolated struct HTMLWorkspacePackageTests {
         )
 
         let detail = try #require(HTMLWorkspaceDataFeedStatus.detailLine(for: package))
+        let compact = try #require(HTMLWorkspaceDataFeedStatus.compactLine(for: package))
+        #expect(compact == "Feed fresh: 1 / vault_record")
         #expect(detail.contains("substrate provenance"))
         #expect(detail.contains("kinds: vault_record"))
         #expect(detail.contains("VaultSyncService.searchFullAsync"))
@@ -197,6 +199,7 @@ nonisolated struct HTMLWorkspacePackageTests {
     }
 
     @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
+    @MainActor
     func staleDataFeedRenderDoesNotPretendToRefresh() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)
         let rendered = HTMLWorkspaceDataFeedRenderer.staleRender(
@@ -209,6 +212,12 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.contextKinds == ["vault_record"])
         #expect(metadata.refreshedAtMS == 0)
         #expect(metadata.error == "Vault feed unavailable")
+
+        var package = Self.samplePackage()
+        package.manifest.dataFeed = feed
+        package.dataJSON = rendered
+        let compact = try #require(HTMLWorkspaceDataFeedStatus.compactLine(for: package))
+        #expect(compact == "Feed stale: 0 / vault_record")
     }
 
     @Test("HTMLWorkspace offline CSP admits package-local resources without network")
