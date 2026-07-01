@@ -280,6 +280,8 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
             }
             return setWindowTitle(title)
+        case "hideWindow":
+            return hideWindow()
         case "getSetting":
             guard let key = Self.boundedNativeSettingKey(stringArgument(args, at: 0)) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -1272,6 +1274,12 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     private func setWindowTitle(_ title: String) -> Bool {
         guard let window = targetHostWindow() else { return false }
         window.title = title
+        return true
+    }
+
+    private func hideWindow() -> Bool {
+        guard let window = targetHostWindow() else { return false }
+        window.orderOut(nil)
         return true
     }
 
