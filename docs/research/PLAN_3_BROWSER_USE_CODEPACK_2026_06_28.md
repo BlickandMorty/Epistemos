@@ -184,9 +184,10 @@ IBM project ID, and VNC password are bound to Keychain environment keys. Default
 version checks off.
 `EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
 binding, non-secret JSON round-trip behavior, owner-only settings file permissions, no-follow bounded regular-file
-settings JSON reads, bounded path diagnostics that avoid full user-local paths, and symlink rejection before the
-settings store reads or writes disk; non-secret environment settings are bounded before launch and reject control
-characters plus leading/trailing whitespace so `.env` escaping cannot diverge from the raw `Process.environment` map.
+settings JSON reads, decoded settings validation before returning UI/runtime state, bounded path diagnostics that avoid
+full user-local paths, and symlink rejection before the settings store reads or writes disk; non-secret environment
+settings are bounded before launch and reject control characters plus leading/trailing whitespace so `.env` escaping
+cannot diverge from the raw `Process.environment` map.
 `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path guard that rejects final symlinks plus
 symlink components in parent paths, while allowing macOS `/var`/`/tmp`/`/etc` compatibility links used by temporary
 directories.

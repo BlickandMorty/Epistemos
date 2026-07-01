@@ -182,7 +182,8 @@ are bounded before trim/compare, invalid loopback address failures use a bounded
 of echoing raw `host:port`, and signature payload enumeration is capped with symlink descendants skipped before target
 resolution. The Developer ID resource bundler and runtime gate both validate the signed manifest plus package-result
 checkpoint through no-follow regular-file evidence before a signed package can report ready. Browser-use Pro gate/settings/runtime diagnostics bound raw status/domain/path strings before
-trimming and keep ellipsis inside configured caps.
+trimming and keep ellipsis inside configured caps. Decoded browser-use settings JSON is validated before returning
+UI/runtime state, not only before saves or launch planning.
 
 ---
 

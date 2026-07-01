@@ -27,6 +27,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("release notarization remains distribution ops"))
         #expect(plan.contains("signature payload enumeration is capped with symlink descendants skipped before target resolution"))
         #expect(plan.contains("Browser-use Pro gate/settings/runtime diagnostics bound raw status/domain/path strings"))
+        #expect(plan.contains("Decoded browser-use settings JSON is validated before returning"))
         #expect(plan.contains("invalid loopback address failures use a bounded secret-aware host diagnostic"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and full real Gradio WKWebView task-submit smoke"))
@@ -196,6 +197,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("optional LangChain MCP/provider packages are no longer imported at UI module load"))
         #expect(codepack.contains("Gradio 6 `buttons=[\"copy\"]` API"))
         #expect(codepack.contains("detached worker using the injected `BrowserUseSettingsStore`"))
+        #expect(codepack.contains("decoded settings validation before returning UI/runtime state"))
         #expect(codepack.contains("adapter contract landed"))
         #expect(codepack.contains("keeps console/errors compatibility stubs runtime"))
         #expect(codepack.contains("Behavior test"))
@@ -373,6 +375,9 @@ struct BrowserUseCodepackPlan3Tests {
             "settings.json",
             "JSONEncoder",
             "JSONDecoder",
+            "let settings = try JSONDecoder().decode(BrowserUseSettings.self, from: data)",
+            "BrowserUseSettingsValidation.problem(in: settings)",
+            "return settings",
             "attributes[.type] as? FileAttributeType == .typeRegular",
             "browser-use settings file must be a regular file",
             "Keychain.load",

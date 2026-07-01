@@ -233,6 +233,29 @@ struct BrowserUseSettingsStoreTests {
         #expect(!FileManager.default.fileExists(atPath: url.path))
     }
 
+    @Test("settings store validates decoded JSON before returning settings")
+    func settingsStoreValidatesDecodedJSONBeforeReturningSettings() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-settings-invalid-load-\(UUID().uuidString)", isDirectory: true)
+        let url = directory.appendingPathComponent("settings.json", isDirectory: false)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var settings = BrowserUseSettings.default
+        settings.browser.browserCDP = "ws://user:pass@127.0.0.1:9222/devtools/browser/session"
+        try JSONEncoder().encode(settings).write(to: url)
+
+        do {
+            _ = try BrowserUseSettingsStore(settingsURL: url).load()
+            Issue.record("Expected invalid decoded browser-use settings JSON to be rejected")
+        } catch let error as BrowserUseSettingsStoreError {
+            #expect(error.errorDescription?.contains("browser-use settings invalid") == true)
+            #expect(error.errorDescription?.contains("browser CDP URL must not include username or password credentials") == true)
+        }
+    }
+
     @Test("settings store rejects oversized JSON before loading")
     func settingsStoreRejectsOversizedJSONBeforeLoading() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -420,7 +443,9 @@ struct BrowserUseSettingsStoreTests {
             "data.count <= Self.maxSettingsBytes",
             "maxSecretValueBytes",
             "sanitizedSecretValue",
+            "let settings = try JSONDecoder().decode(BrowserUseSettings.self, from: data)",
             "BrowserUseSettingsValidation.problem(in: settings)",
+            "return settings",
         ] {
             #expect(source.contains(required), "Missing browser-use settings read marker: \(required)")
         }

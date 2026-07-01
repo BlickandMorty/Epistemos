@@ -562,7 +562,11 @@ nonisolated struct BrowserUseSettingsStore: Sendable {
         }
 
         let data = try Self.readSettingsData(at: settingsURL)
-        return try JSONDecoder().decode(BrowserUseSettings.self, from: data)
+        let settings = try JSONDecoder().decode(BrowserUseSettings.self, from: data)
+        if let problem = BrowserUseSettingsValidation.problem(in: settings) {
+            throw BrowserUseSettingsStoreError.invalidFile("browser-use settings invalid: \(problem)")
+        }
+        return settings
     }
 
     func save(_ settings: BrowserUseSettings) throws {
