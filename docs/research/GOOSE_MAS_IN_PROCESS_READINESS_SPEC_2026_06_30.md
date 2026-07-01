@@ -1,9 +1,15 @@
 # Goose on the Mac App Store — in-process backend readiness spec (2026-06-30)
 
+> ⚠️ **SUPERSEDED ON TRANSPORT by the converged canon.** Read **`docs/research/GOOSE_MAS_BUILD_CANON_2026_06_30.md`**
+> FIRST — it converges 6 independent research efforts and **corrects the transport**: prefer
+> `WKScriptMessageHandlerWithReply` (control) + `callAsyncJavaScript` event-push (stream) over the loopback
+> `WorkSPAServer` + `network.server` described below (loopback becomes the hardened FALLBACK, not the default). This
+> spec remains the source for build order, the "truly good" loop rules, the PROOF BAR, and the §6 long-form findings.
+
 > **The plan to ship Goose on MAS:** keep the reskinned Goose WebUI; swap the `goose serve` *subprocess* for an
 > **in-process ACP backend over `agent_core`** (Rust, via FFI), behind `EPISTEMOS_APP_STORE`. **DEFERRED + OWNER-GATED —
 > do this ONLY after ALL the visible Goose work (reskin + features) is done and good.** Deep-research run
-> `wf_7d57fe20-003` is validating the transport + App-Review risk; its findings fold into §6 on completion.
+> `wf_7d57fe20-003` completed (CONDITIONAL YES); its findings are folded into §6 and the converged canon.
 
 ## Why this is achievable — the foundation already exists (verified 2026-06-30)
 - **MAS entitlements already declared** (`Epistemos/Epistemos-AppStore.entitlements`): `app-sandbox` · `cs.allow-jit` (for MLX) · `files.bookmarks.app-scope` + `files.user-selected.read-write` (vault via security-scoped bookmarks) · `network.client` (cloud APIs + HTTP MCP) · **`network.server` (the in-app loopback ACP)**. ✅
