@@ -32,8 +32,8 @@
   another before the UI consumes them; partial, final, buffered, and consumed transcript strings are capped to the
   `TextCapturePipeline.maxCleanedTextCharacters` envelope before host callbacks receive them. External SpeechAnalyzer
   failures are mapped to bounded domain/code diagnostics before they reach voice UI status text or public analyzer logs,
-  with raw status/domain strings bounded before trimming or punctuation validation and status ellipsis kept inside the
-  configured cap.
+  with raw status/domain strings bounded, control/whitespace-normalized, then punctuation-validated before voice UI
+  display; status ellipsis stays inside the configured cap.
 - **Reusable mic API has no inert auto-stop flag:** `VoiceInputButton` is manual by design; surfaces that support
   automatic silence-stop own the policy at their capture-service boundary.
 - **Legacy Apple voice compatibility helpers stay source-guarded:** `preferredVoice()` resolves installed voices by
@@ -56,8 +56,8 @@
   carries manifest-derived package evidence (Core ML package count, voice count, runtime asset count, checked file count,
   declared bytes, and a bounded printable bundle profile) without exposing local roots.
   `isReady` is true only when the checked package can feed the linked native playback path. Status details use
-  bounded-before-trim model-relative diagnostics with ellipsis inside configured caps instead of local absolute model
-  paths. A Pro-only Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and
+  bounded and control/whitespace-normalized model-relative diagnostics with ellipsis inside configured caps instead of
+  local absolute model paths. A Pro-only Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and
   selects `Kokoro neural voice` only when that package/runtime gate is ready.
 - **Native Kokoro Swift/CoreML playback is wired:** `LocalPackages/KokoroPipeline` vendors
   the upstream Swift package pinned at `052bdcd8333d4ac38d77485a5067d9a1e3397cac`, `project.yml` links the

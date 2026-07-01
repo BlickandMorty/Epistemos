@@ -362,7 +362,8 @@ nonisolated enum KokoroVoicePackageInstaller {
         } else {
             clipped = bounded
         }
-        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = VoiceCapturePresentationBounds.normalizedDisplayText(clipped)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "package validation failed" : trimmed
     }
 }

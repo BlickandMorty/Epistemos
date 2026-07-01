@@ -999,7 +999,8 @@ nonisolated enum KokoroVoiceGateStatus {
         } else {
             clipped = bounded
         }
-        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = VoiceCapturePresentationBounds.normalizedDisplayText(clipped)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
     }
 }

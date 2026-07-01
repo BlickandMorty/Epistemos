@@ -419,7 +419,8 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         } else {
             clipped = bounded
         }
-        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = VoiceCapturePresentationBounds.normalizedDisplayText(clipped)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "runtime assets are invalid" : trimmed
     }
 }

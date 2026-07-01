@@ -455,18 +455,19 @@ Folded in as clean Plan-3 capabilities:
   consumer-backed Auto/Manual toggles, Kokoro-only read-aloud availability, and legacy Apple voice compatibility helpers
   are wired with
   partial/final transcript output capped to the capture pipeline envelope and finite/clamped download progress plus
-  capped, domain/code-redacted status/error text for UI display, with raw status/domain strings bounded before trimming
-  and status ellipsis kept inside the configured cap. `EpistemosSpeechSynthesizer.speak()` refuses playback while the
-  Kokoro gate is not ready; with a checked Pro `mattmireles/kokoro-coreml` package, the linked native
+  capped, domain/code-redacted status/error text for UI display, with raw status/domain strings bounded and
+  control/whitespace-normalized before punctuation validation; status ellipsis stays inside the configured cap.
+  `EpistemosSpeechSynthesizer.speak()` refuses playback while the Kokoro gate is not ready; with a checked Pro
+  `mattmireles/kokoro-coreml` package, the linked native
   Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text, synthesizes 24 kHz PCM, and plays through
   `AVAudioEngine` with observable read-aloud progress derived from `AVAudioPlayerNode` render time.
   Read-aloud/Quick Capture/Settings controls surface TTS unavailable instead of silently falling back
   to AVSpeech when that gate is not ready.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
-  model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
-  with ellipsis inside configured caps and requires the complete manifest-declared duration/bucket CoreML package
-  families plus exact runtime vocab/HNSF/starter-voice shapes before reporting ready. A checked package reports `packageReady` with manifest-derived package evidence
+  model artifacts with integer declared package byte caps and bounded, control/whitespace-normalized model-relative
+  status diagnostics with ellipsis inside configured caps and requires the complete manifest-declared duration/bucket
+  CoreML package families plus exact runtime vocab/HNSF/starter-voice shapes before reporting ready. A checked package reports `packageReady` with manifest-derived package evidence
   (Core ML package count, voice count, runtime asset count, checked file count, declared bytes, and a bounded printable
   bundle profile) and flips
   `isReady=true` only when the native playback path is linked. Developer ID builds now show a Pro-only Voice settings

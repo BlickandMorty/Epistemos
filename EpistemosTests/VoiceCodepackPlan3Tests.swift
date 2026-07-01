@@ -18,7 +18,7 @@ struct VoiceCodepackPlan3Tests {
             "Shared mic callbacks are capture-owner gated",
             "Live macOS 26 STT is surfaced",
             "bounded domain/code diagnostics",
-            "raw status/domain strings bounded before trimming or punctuation validation",
+            "raw status/domain strings bounded, control/whitespace-normalized, then punctuation-validated",
             "Kokoro-only TTS is live when a checked Pro CoreML package is installed",
             "Legacy Apple voice code is unwired from the shipped TTS path",
             "Personal Voice authorization is live",
@@ -27,7 +27,7 @@ struct VoiceCodepackPlan3Tests {
             "Local Kokoro package install/removal is real and playback-enabling",
             "manifest-derived package evidence",
             "bounded printable bundle profile",
-            "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
+            "bounded and control/whitespace-normalized model-relative diagnostics with ellipsis inside configured caps",
             "KokoroCoreMLRuntimeLoader",
             "KokoroCoreMLSynthesizer",
             "AVAudioEngine",
@@ -86,12 +86,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("Voice — STT SHIPPED; TTS KOKORO-ONLY GATED (Pass 8)"))
         #expect(capabilities.contains("Kokoro-only read-aloud availability"))
         #expect(capabilities.contains("domain/code-redacted status/error text"))
-        #expect(capabilities.contains("raw status/domain strings bounded before trimming"))
+        #expect(capabilities.contains("raw status/domain strings bounded and\n  control/whitespace-normalized"))
         #expect(capabilities.contains("status ellipsis kept inside the configured cap"))
         #expect(capabilities.contains("Kokoro-82M is Pro-only"))
         #expect(capabilities.contains("rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched"))
         #expect(capabilities.contains("declared package byte caps"))
-        #expect(capabilities.contains("bounded-before-trim model-relative status diagnostics"))
+        #expect(capabilities.contains("bounded, control/whitespace-normalized model-relative\n  status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
         #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
         #expect(capabilities.contains("no Apple AVSpeech fallback"))
@@ -179,6 +179,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(facade.contains("VoiceCapturePresentationBounds.modelDownloadProgress(progress)"))
         #expect(facade.contains("VoiceCapturePresentationBounds.statusMessage"))
         #expect(facade.contains("rawBoundedDiagnostic(message, maxCharacters: maxStatusMessageCharacters"))
+        #expect(facade.contains("normalizedDisplayText(clipped)"))
+        #expect(facade.contains("CharacterSet.controlCharacters"))
         #expect(facade.contains("String(domain.prefix(maxDomainCharacters))"))
         #expect(facade.contains("limit - 3"))
         #expect(facade.contains("VoiceCaptureDiagnostics.externalStatusMessage"))
@@ -226,6 +228,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(boundedStatus.count <= VoiceCapturePresentationBounds.maxStatusMessageCharacters)
         #expect(boundedStatus.hasSuffix("..."))
         #expect(VoiceCapturePresentationBounds.statusMessage(" \n\t ") == "Voice input failed.")
+        #expect(VoiceCapturePresentationBounds.statusMessage("Voice\ninput\tready\u{0007}") == "Voice input ready")
+        #expect(VoiceCaptureDiagnostics.safeDomain("NS\nCocoa\tError") == "Error")
     }
 
     @Test("voice diagnostics redact path-leaking external errors")
@@ -402,6 +406,7 @@ struct VoiceCodepackPlan3Tests {
             "pathDiagnostic(",
             "maxPathDiagnosticLength",
             "rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength",
+            "VoiceCapturePresentationBounds.normalizedDisplayText(clipped)",
             "limit - 3",
             "resolvesInsideModelDirectory",
             "supported_languages must include en-US",
@@ -453,6 +458,7 @@ struct VoiceCodepackPlan3Tests {
             "linear_bias",
             "validateStarterVoice(at:",
             "voice embedding must contain exactly 256 Float32 values",
+            "VoiceCapturePresentationBounds.normalizedDisplayText(clipped)",
             "starterVoiceEmbedding",
             "starterVoiceEmbeddingDimensions",
             "runtime starter voice is invalid",
@@ -563,6 +569,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(installer.contains("rejectSymlinkDescendants"))
         #expect(installer.contains("sourceModelDirectory("))
         #expect(installer.contains("KokoroVoiceGateStatus.status("))
+        #expect(installer.contains("VoiceCapturePresentationBounds.normalizedDisplayText(clipped)"))
         #expect(installer.contains("package could not be finalized"))
         #expect(installer.contains("rollbackFailedFinalization("))
         #expect(installer.contains("try? fileManager.removeItem(at: finalModelDirectory)"))
