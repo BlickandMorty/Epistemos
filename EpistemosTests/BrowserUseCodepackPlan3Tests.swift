@@ -20,6 +20,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("A local WKWebView fixture dry-run shell smoke also landed"))
         #expect(codepack.contains("A real Gradio WKWebView shell/control smoke also landed"))
         #expect(codepack.contains("A full real Gradio WKWebView task-submit smoke also landed"))
+        #expect(codepack.contains("scripts/browser-use-pro-smoke-suite.sh"))
+        #expect(codepack.contains("bounded Pro smoke-suite entrypoint without `xcodebuild` or the full test suite"))
         #expect(codepack.contains("EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT"))
         #expect(codepack.contains("Signed `BrowserUsePro.bundle` packaging now exists"))
         #expect(codepack.contains("release notarization remains distribution ops"))
@@ -922,6 +924,55 @@ struct BrowserUseCodepackPlan3Tests {
             "UserDefaults",
         ] {
             #expect(!script.contains(forbidden), "browser-use loopback smoke crossed boundary: \(forbidden)")
+        }
+    }
+
+    @Test("browser-use Pro smoke suite composes signed gate and loopback smokes only")
+    func browserUseProSmokeSuiteComposesGateAndLoopbackSmokesOnly() throws {
+        let script = try Self.loadSource("scripts/browser-use-pro-smoke-suite.sh")
+
+        for required in [
+            "Plan 3 browser-use Pro smoke suite",
+            "This script intentionally does not run xcodebuild or the full test suite.",
+            "swiftc",
+            "browser-use-pro-gate-smoke-stubs.swift",
+            "FeatureGateOverride.swift",
+            "BrowserUseManifestError.swift",
+            "BrowserUseSymlinkPathGuard.swift",
+            "BrowserUseProGateStatus.swift",
+            "BrowserUseSignedBundleStatus.swift",
+            "browser-use-pro-gate-smoke.swift",
+            "-framework Security",
+            "browser-use-pro-loopback-smoke.sh",
+            "--signed-bundle",
+            "--payload-root",
+            "--skip-gate",
+            "--skip-loopback",
+            "--repo-root",
+            "--artifact-dir",
+            "Timeout must be an integer from 5 through 600 seconds",
+            "Port must be an integer from 1024 through 65535",
+            "--signed-bundle is required for the gate smoke; pass --skip-gate",
+            "At least one smoke must run.",
+            "browser-use Pro smoke suite OK",
+        ] {
+            #expect(script.contains(required), "Missing browser-use Pro suite string: \(required)")
+        }
+
+        for forbidden in [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "UserDefaults",
+            "BrowserView",
+            "Epistemos/Goose",
+            "Epistemos/Agent",
+            "HTMLWorkspace",
+            "PDFView",
+            "xcodebuild -",
+            "swift test",
+            "cargo test",
+        ] {
+            #expect(!script.contains(forbidden), "browser-use Pro suite crossed boundary: \(forbidden)")
         }
     }
 

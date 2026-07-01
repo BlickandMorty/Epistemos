@@ -129,7 +129,10 @@ isolated named-store shell, opens the Run Agent tab, fills the task box without 
 navigation blocking. A full real Gradio WKWebView task-submit smoke also landed with the Epistemos-only
 `EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT` no-provider hook: it clicks the real Submit Task event, completes before
 LLM/provider/browser setup, observes the deterministic `Epistemos browser-use WebUI dry-run task-submit complete` marker,
-and verifies non-loopback navigation blocking. Signed `BrowserUsePro.bundle` packaging now exists with a
+and verifies non-loopback navigation blocking. `scripts/browser-use-pro-smoke-suite.sh` now composes the signed gate
+smoke and loopback server smoke as the bounded Pro smoke-suite entrypoint without `xcodebuild` or the full test suite;
+`--payload-root --skip-gate` keeps staged-payload loopback checks honest when a signed bundle is not available. Signed
+`BrowserUsePro.bundle` packaging now exists with a
 `SIGNATURE_MANIFEST.json` that records component pins plus Playwright browser payload revisions, and code-signature verification backing the gate; release notarization remains distribution
 ops. Swift gate validation requires the signed payload root to be exactly `Contents/Resources/BrowserUsePro` inside the
 enclosing bundle. The app resource bundler parses `SIGNATURE_MANIFEST.json` as JSON and exact-matches the signed package
@@ -580,4 +583,5 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 6. Bridge the existing Pro `browser_*` tools to the bundled browser-use adapter or add sibling Pro-only tools.
    **Source-only adapter contract, Rust discovery wiring, canonical high-level `browser.complete_task` v2 alias,
    Pro-only app-hosted MCP catalog exposure, MAS MCP exclusion, and live tool smoke landed.**
-7. Run the full Pro smoke suite, then the MAS boundary audit.
+7. Run the full Pro smoke suite, then the MAS boundary audit. **Bounded suite runner landed at
+   `scripts/browser-use-pro-smoke-suite.sh`; periodic checkpoint execution remains manual/distribution ops.**
