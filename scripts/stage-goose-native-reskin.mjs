@@ -6711,23 +6711,25 @@ function applyFinalFlatPixelAudit() {
   --epistemos-native-claude-desktop-lock: 1;
   --${flatSourceSurfacesMarker}: 1;
   --epistemos-claude-bg: var(--color-background-primary);
-  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 70%, var(--color-background-primary));
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 72%, var(--color-background-primary));
   --epistemos-claude-sidebar-hover: color-mix(in srgb, var(--color-background-secondary) 88%, var(--color-background-primary));
   --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 36%, var(--color-background-primary));
   --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 56%, var(--color-background-primary));
   --epistemos-claude-active: color-mix(in srgb, var(--epistemos-pixel-accent) 9%, var(--epistemos-claude-sidebar-hover));
   --epistemos-claude-focus: color-mix(in srgb, var(--epistemos-pixel-accent) 6%, var(--epistemos-claude-surface-strong));
   --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, var(--color-background-inverse) 10%, transparent);
+  --epistemos-claude-composer-shadow: 0 14px 38px color-mix(in srgb, var(--color-text-primary) 5%, transparent);
   background: var(--epistemos-claude-bg) !important;
   color: var(--color-text-primary) !important;
 }
 
 .dark .goose-epistemos {
-  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 52%, var(--color-background-primary));
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 54%, var(--color-background-primary));
   --epistemos-claude-sidebar-hover: color-mix(in srgb, var(--color-background-secondary) 64%, var(--color-background-primary));
   --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 28%, var(--color-background-primary));
   --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 44%, var(--color-background-primary));
   --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, black 26%, transparent);
+  --epistemos-claude-composer-shadow: 0 16px 44px color-mix(in srgb, black 24%, transparent);
 }
 
 html,
@@ -6903,12 +6905,13 @@ body,
 .goose-epistemos .goose-chat-input-card {
   background: color-mix(in srgb, var(--epistemos-claude-surface) 44%, var(--epistemos-claude-bg)) !important;
   border-radius: 16px !important;
+  box-shadow: var(--epistemos-claude-composer-shadow) !important;
 }
 
 .goose-epistemos .goose-chat-input-card:focus-within {
   outline: none !important;
   background: var(--epistemos-claude-focus) !important;
-  box-shadow: none !important;
+  box-shadow: 0 18px 46px color-mix(in srgb, var(--epistemos-pixel-accent) 9%, transparent) !important;
 }
 
 .goose-epistemos :is(
