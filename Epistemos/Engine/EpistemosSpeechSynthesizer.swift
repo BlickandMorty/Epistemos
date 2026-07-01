@@ -174,6 +174,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     private let kokoroEngine = AVAudioEngine()
     private let kokoroPlayer = AVAudioPlayerNode()
     private var kokoroPlaybackTask: Task<Void, Never>?
+    private var kokoroProgressTask: Task<Void, Never>?
     private var activeKokoroUtteranceID: String?
     private var activeKokoroCharactersTotal = 0
 
@@ -322,6 +323,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         if !kokoroEngine.isRunning {
             try kokoroEngine.start()
         }
+        let durationSeconds = Double(rendered.samples.count) / Double(max(1, rendered.sampleRateHz))
         kokoroPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
             Task { @MainActor in
                 self?.completeKokoroPlayback(utteranceID: utteranceID)
@@ -333,6 +335,11 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             utteranceId: utteranceID,
             charactersTotal: charactersTotal,
             charactersSpoken: 0
+        )
+        startKokoroProgressUpdates(
+            utteranceID: utteranceID,
+            charactersTotal: charactersTotal,
+            durationSeconds: durationSeconds
         )
     }
 
@@ -369,6 +376,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         )
         kokoroPlayer.stop()
         kokoroEngine.pause()
+        kokoroProgressTask?.cancel()
+        kokoroProgressTask = nil
         activeKokoroUtteranceID = nil
         activeKokoroCharactersTotal = 0
         kokoroPlaybackTask = nil
@@ -377,6 +386,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
 
     private func completeKokoroPlayback(utteranceID: String) {
         guard activeKokoroUtteranceID == utteranceID else { return }
+        kokoroProgressTask?.cancel()
+        kokoroProgressTask = nil
         activeKokoroUtteranceID = nil
         activeKokoroCharactersTotal = 0
         kokoroPlaybackTask = nil
@@ -387,11 +398,65 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     private func stopKokoroPlayback() {
         kokoroPlaybackTask?.cancel()
         kokoroPlaybackTask = nil
+        kokoroProgressTask?.cancel()
+        kokoroProgressTask = nil
         if activeKokoroUtteranceID != nil || kokoroPlayer.isPlaying {
             kokoroPlayer.stop()
         }
         activeKokoroUtteranceID = nil
         activeKokoroCharactersTotal = 0
+    }
+
+    private func startKokoroProgressUpdates(
+        utteranceID: String,
+        charactersTotal: Int,
+        durationSeconds: Double
+    ) {
+        kokoroProgressTask?.cancel()
+        guard charactersTotal > 0, durationSeconds.isFinite, durationSeconds > 0 else { return }
+        kokoroProgressTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                guard !Task.isCancelled,
+                      let self,
+                      self.activeKokoroUtteranceID == utteranceID else { return }
+                self.updateKokoroPlaybackProgress(
+                    utteranceID: utteranceID,
+                    charactersTotal: charactersTotal,
+                    durationSeconds: durationSeconds
+                )
+            }
+        }
+    }
+
+    private func updateKokoroPlaybackProgress(
+        utteranceID: String,
+        charactersTotal: Int,
+        durationSeconds: Double
+    ) {
+        guard kokoroPlayer.isPlaying,
+              activeKokoroUtteranceID == utteranceID,
+              case let .speaking(currentID, _, currentSpoken) = state,
+              currentID == utteranceID,
+              let renderTime = kokoroPlayer.lastRenderTime,
+              let playerTime = kokoroPlayer.playerTime(forNodeTime: renderTime),
+              playerTime.sampleRate > 0 else {
+            return
+        }
+
+        let elapsedFrames = max(AVAudioFramePosition(0), playerTime.sampleTime)
+        let elapsedSeconds = Double(elapsedFrames) / playerTime.sampleRate
+        let fraction = min(0.99, max(0, elapsedSeconds / durationSeconds))
+        let spoken = min(
+            charactersTotal,
+            max(currentSpoken, Int((Double(charactersTotal) * fraction).rounded(.down)))
+        )
+        guard spoken != currentSpoken else { return }
+        state = .speaking(
+            utteranceId: utteranceID,
+            charactersTotal: charactersTotal,
+            charactersSpoken: spoken
+        )
     }
 
     private nonisolated static func kokoroSpeedMultiplier(rate: Float) -> Float {

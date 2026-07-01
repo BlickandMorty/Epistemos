@@ -31,6 +31,7 @@ struct VoiceCodepackPlan3Tests {
             "KokoroCoreMLSynthesizer",
             "AVAudioEngine",
             "raw-vocabulary",
+            "advances observable read-aloud progress",
             "LocalPackages/KokoroPipeline",
             "Voice settings section now shows",
             "TTS unavailable",
@@ -95,6 +96,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("no Apple AVSpeech fallback"))
         #expect(capabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("manifest-derived package evidence"))
+        #expect(capabilities.contains("observable read-aloud progress"))
         #expect(capabilities.contains("Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text"))
         #expect(capabilities.contains("requires the complete manifest-declared duration/bucket CoreML package"))
         #expect(capabilities.contains("no Apple AVSpeech fallback, committed model asset, network downloader, Python, subprocess"))
@@ -458,12 +460,28 @@ struct VoiceCodepackPlan3Tests {
             "PcmJoiner.join",
             "AVAudioEngine",
             "AVAudioPlayerNode",
-            "scheduleBuffer"
+            "scheduleBuffer",
+            "kokoroProgressTask",
+            "startKokoroProgressUpdates(",
+            "updateKokoroPlaybackProgress(",
+            "playerTime(forNodeTime:",
+            "charactersSpoken: spoken"
         ] {
             let source: String
             if ["static func renderRawText(", "rawVocabularyChunks(", "attentionMask", "PcmJoiner.join"].contains(required) {
                 source = bridge
-            } else if ["KokoroCoreMLRuntimeLoader.isLinked", "KokoroCoreMLSynthesizer.renderRawText", "AVAudioEngine", "AVAudioPlayerNode", "scheduleBuffer"].contains(required) {
+            } else if [
+                "KokoroCoreMLRuntimeLoader.isLinked",
+                "KokoroCoreMLSynthesizer.renderRawText",
+                "AVAudioEngine",
+                "AVAudioPlayerNode",
+                "scheduleBuffer",
+                "kokoroProgressTask",
+                "startKokoroProgressUpdates(",
+                "updateKokoroPlaybackProgress(",
+                "playerTime(forNodeTime:",
+                "charactersSpoken: spoken"
+            ].contains(required) {
                 source = synthesizer
             } else {
                 source = loader

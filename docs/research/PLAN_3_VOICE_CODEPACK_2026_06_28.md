@@ -64,7 +64,8 @@
   parses `runtime/kokoro-vocab.json` plus `runtime/hnsf_weights.json` through bounded no-follow reads, loads the
   `af_heart` Float32 voice embedding, and instantiates `KokoroPipeline` on demand. `KokoroCoreMLSynthesizer` tokenizes
   supported raw vocabulary characters, chunks to the manifest duration-token cap, joins synthesized 24 kHz PCM, and
-  `EpistemosSpeechSynthesizer` plays it through `AVAudioEngine`. This remains native Swift/CoreML only: no model weights
+  `EpistemosSpeechSynthesizer` plays it through `AVAudioEngine` while advancing observable read-aloud progress from
+  `AVAudioPlayerNode` render time. This remains native Swift/CoreML only: no model weights
   are committed and no network downloader is added. A higher-quality phonemizer remains future polish; the live path is
   an honest raw-vocabulary Kokoro path.
 - **Local Kokoro package install/removal is real and playback-enabling:** `KokoroVoicePackageInstaller` lets Pro users choose a

@@ -446,7 +446,8 @@ Folded in as clean Plan-3 capabilities:
   and status ellipsis kept inside the configured cap. `EpistemosSpeechSynthesizer.speak()` refuses playback while the
   Kokoro gate is not ready; with a checked Pro `mattmireles/kokoro-coreml` package, the linked native
   Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text, synthesizes 24 kHz PCM, and plays through
-  `AVAudioEngine`. Read-aloud/Quick Capture/Settings controls surface TTS unavailable instead of silently falling back
+  `AVAudioEngine` with observable read-aloud progress derived from `AVAudioPlayerNode` render time.
+  Read-aloud/Quick Capture/Settings controls surface TTS unavailable instead of silently falling back
   to AVSpeech when that gate is not ready.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
