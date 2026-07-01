@@ -2251,15 +2251,27 @@ function applyChatSurfaces() {
   source = read('src/components/Hub.tsx');
   source = replaceRequired(
     source,
-    'hub clock system font',
+    'hub clock compact system font',
     'className="flex items-baseline gap-2 mb-1 font-mono"',
-    'className="flex items-baseline gap-2 mb-1 font-sans"'
+    'className="mb-2 flex items-baseline gap-1 font-sans text-text-secondary"'
   );
   source = replaceRequired(
     source,
-    'hub greeting native copy',
+    'hub clock compact size',
+    'className="ep-display text-4xl font-normal text-text-primary tabular-nums"',
+    'className="text-[13px] font-medium text-text-secondary tabular-nums"'
+  );
+  source = replaceRequired(
+    source,
+    'hub meridiem compact size',
+    'className="text-sm text-text-secondary"',
+    'className="text-[11px] text-text-secondary"'
+  );
+  source = replaceRequired(
+    source,
+    'hub greeting native compact copy',
     'className="ep-pixel text-sm text-text-secondary mb-5 uppercase tracking-[0.06em]"',
-    'className="text-[13px] font-medium text-text-secondary mb-5 tracking-normal"'
+    'className="mb-4 text-sm font-medium text-text-primary tracking-normal"'
   );
   write('src/components/Hub.tsx', source);
 
