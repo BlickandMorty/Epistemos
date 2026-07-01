@@ -380,10 +380,13 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.indexHTML.contains("data-vault-results"))
         #expect(package.indexHTML.contains("data-result-filter"))
         #expect(package.indexHTML.contains("data-filter-count"))
+        #expect(package.indexHTML.contains("data-result-chart"))
         #expect(package.styleCSS.contains(".result-card"))
         #expect(package.styleCSS.contains(".feed-controls input"))
+        #expect(package.styleCSS.contains(".feed-chart"))
         #expect(package.scriptJS.contains("renderVaultResults"))
         #expect(package.scriptJS.contains("visibleResults(allResults)"))
+        #expect(package.scriptJS.contains("renderResultChart(results)"))
         #expect(package.scriptJS.contains("addEventListener('input', renderVaultResults)"))
         #expect(package.scriptJS.contains("htmlworkspace:datachange"))
 
@@ -568,6 +571,21 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("result.context_kind || 'vault_record'"))
         #expect(package.scriptJS.contains("result.provenance"))
         #expect(package.scriptJS.contains("class: 'source-label'"))
+    }
+
+    @Test("vault search dashboard chart is bound to real result ranks")
+    func vaultSearchDashboardChartIsBoundToRealResultRanks() {
+        let package = HTMLWorkspaceVaultSearchDashboardTemplate.package(query: "context")
+
+        #expect(package.indexHTML.contains(#"aria-label="Result rank chart""#))
+        #expect(package.scriptJS.contains("function rankDatum(result, index)"))
+        #expect(package.scriptJS.contains("const value = Number(result.rank);"))
+        #expect(package.scriptJS.contains("!Number.isFinite(value) || value <= 0"))
+        #expect(package.scriptJS.contains(".sort((a, b) => b.value - a.value)"))
+        #expect(package.scriptJS.contains("No numeric ranks available for charting."))
+        #expect(package.scriptJS.contains("No visible results to chart."))
+        #expect(package.scriptJS.contains("class: 'chart-bar'"))
+        #expect(!package.scriptJS.contains("Math.random"))
     }
 
     @Test("starter template detection distinguishes untouched defaults from edited workspaces")

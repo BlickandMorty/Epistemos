@@ -67,6 +67,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         </label>
         <span data-filter-count>0 visible</span>
       </section>
+      <section class="feed-chart" data-result-chart aria-label="Result rank chart">
+        <p class="empty">Waiting for ranked results.</p>
+      </section>
       <section class="results" data-vault-results aria-live="polite"></section>
     </main>
     """
@@ -129,6 +132,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     }
 
     .feed-summary article,
+    .feed-chart,
     .result-card {
       border-radius: 8px;
       background: var(--epistemos-workspace-card);
@@ -204,6 +208,57 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       font-size: 12px;
     }
 
+    .feed-chart {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+      padding: 16px;
+    }
+
+    .chart-heading {
+      margin: 0;
+      color: var(--epistemos-workspace-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) minmax(120px, 2fr) minmax(44px, auto);
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .chart-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chart-track {
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--epistemos-workspace-fg) 10%, transparent);
+    }
+
+    .chart-bar {
+      display: block;
+      width: var(--chart-value);
+      height: 100%;
+      background: var(--epistemos-workspace-accent);
+    }
+
+    .chart-value {
+      color: var(--epistemos-workspace-muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
     .results {
       display: grid;
       gap: 10px;
@@ -267,6 +322,49 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return results.filter((result) => resultSearchText(result).includes(filter));
     }
 
+    function rankDatum(result, index) {
+      const value = Number(result.rank);
+      if (!Number.isFinite(value) || value <= 0) { return null; }
+      return {
+        label: result.title || result.page_id || `Result ${index + 1}`,
+        source: result.source_label || result.context_kind || 'Vault search result',
+        value
+      };
+    }
+
+    function renderResultChart(results) {
+      const host = HTMLWorkspace.q('[data-result-chart]');
+      if (!host) { return; }
+      host.replaceChildren();
+
+      const ranked = results
+        .map(rankDatum)
+        .filter(Boolean)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8);
+
+      if (ranked.length === 0) {
+        const message = results.length > 0
+          ? 'No numeric ranks available for charting.'
+          : 'No visible results to chart.';
+        host.append(HTMLWorkspace.el('p', { class: 'empty' }, message));
+        return;
+      }
+
+      const max = Math.max(...ranked.map((datum) => datum.value));
+      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, 'Rank signal'));
+      ranked.forEach((datum) => {
+        const percent = Math.max(4, Math.round((datum.value / max) * 100));
+        host.append(HTMLWorkspace.el('div', { class: 'chart-row', title: datum.source }, [
+          HTMLWorkspace.el('span', { class: 'chart-label' }, datum.label),
+          HTMLWorkspace.el('span', { class: 'chart-track' }, [
+            HTMLWorkspace.el('span', { class: 'chart-bar', style: `--chart-value: ${percent}%` }, '')
+          ]),
+          HTMLWorkspace.el('span', { class: 'chart-value' }, datum.value.toFixed(2))
+        ]));
+      });
+    }
+
     function renderVaultResults() {
       const data = HTMLWorkspace.data || {};
       const meta = data._epistemos || {};
@@ -284,6 +382,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-refresh]', refreshed);
       text('[data-provenance]', meta.provenance || 'No provenance recorded');
       text('[data-filter-count]', filter ? `${results.length} visible / ${allResults.length} total` : `${allResults.length} visible`);
+      renderResultChart(results);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
       if (!host) { return; }
