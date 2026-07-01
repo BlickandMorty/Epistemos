@@ -24,7 +24,7 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
         self.title = title
         self.snippet = snippet
         self.rank = rank
-        self.contextKind = contextKind
+        self.contextKind = Self.normalizedContextKind(contextKind)
         self.sourceLabel = sourceLabel
         self.provenance = provenance
     }
@@ -45,10 +45,17 @@ nonisolated struct HTMLWorkspaceDataFeedResult: Codable, Equatable, Sendable {
         title = try container.decode(String.self, forKey: .title)
         snippet = try container.decode(String.self, forKey: .snippet)
         rank = try container.decode(Double.self, forKey: .rank)
-        contextKind = try container.decodeIfPresent(String.self, forKey: .contextKind) ?? "vault_record"
+        contextKind = Self.normalizedContextKind(
+            try container.decodeIfPresent(String.self, forKey: .contextKind) ?? "vault_record"
+        )
         sourceLabel = try container.decodeIfPresent(String.self, forKey: .sourceLabel) ?? "Vault search result"
         provenance = try container.decodeIfPresent(String.self, forKey: .provenance)
             ?? HTMLWorkspaceDataFeedJSONEnvelope.provenance
+    }
+
+    private static func normalizedContextKind(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "vault_record" : trimmed
     }
 }
 
@@ -251,7 +258,11 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     }
 
     private static func contextKinds(from results: [HTMLWorkspaceDataFeedResult]) -> [String] {
-        let kinds = Set(results.map(\.contextKind).filter { !$0.isEmpty })
+        let kinds = Set(
+            results
+                .map { $0.contextKind.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
         return kinds.isEmpty ? ["vault_record"] : kinds.sorted()
     }
 

@@ -203,6 +203,42 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(!metadata.stale)
     }
 
+    @Test("HTMLWorkspace data feed normalizes context kind metadata")
+    func dataFeedNormalizesContextKindMetadata() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "padded context", limit: 2)
+        let rendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            contextResults: [
+                HTMLWorkspaceDataFeedResult(
+                    pageID: "capture-1",
+                    title: "Capture",
+                    snippet: "captured text",
+                    rank: 0.91,
+                    contextKind: "  recent_capture  ",
+                    sourceLabel: "Recent capture",
+                    provenance: "CaptureStore"
+                ),
+                HTMLWorkspaceDataFeedResult(
+                    pageID: "generic-1",
+                    title: "Generic",
+                    snippet: "generic text",
+                    rank: 0.42,
+                    contextKind: "   ",
+                    sourceLabel: "Vault search result",
+                    provenance: "VaultSyncService.searchFullAsync"
+                ),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_006),
+            requiredContextKind: "recent_capture"
+        )
+
+        #expect(rendered.contains(#""context_kind" : "recent_capture""#))
+        #expect(rendered.contains(#""context_kind" : "vault_record""#))
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
+        #expect(metadata.contextKinds == ["recent_capture", "vault_record"])
+        #expect(metadata.requiredContextAvailable == true)
+    }
+
     @Test("HTMLWorkspace data feed records unavailable required context without relabeling results")
     func dataFeedRecordsUnavailableRequiredContextWithoutRelabelingResults() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "recent captures project", limit: 2)
