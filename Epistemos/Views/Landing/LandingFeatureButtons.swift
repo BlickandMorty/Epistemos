@@ -118,7 +118,12 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return ArxivPullGateStatus.status().isActive
         case .provenance, .extensions:
             return true
-        case .browser, .meetingNote, .voice:
+        case .meetingNote:
+            if #available(macOS 26.0, *) {
+                return true
+            }
+            return false
+        case .browser, .voice:
             return true
         }
     }
@@ -136,7 +141,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .vaultMCP:
             return "vault MCP is available in Epistemos Pro."
         case .meetingNote:
-            return "Meeting notes are unavailable in this build."
+            return "Meeting notes require macOS 26 SpeechAnalyzer."
         case .voice:
             return "Voice settings are unavailable in this build."
         case .provenance, .extensions:
