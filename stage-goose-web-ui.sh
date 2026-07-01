@@ -4810,6 +4810,19 @@ export function formatEpistemosContextForPrompt(snapshot: EpistemosContextSnapsh
     const selected = snapshot.graph.selectedNodeTitle || snapshot.graph.selectedNodeId;
     if (selected) lines.push(`  Selected node: ${selected}`);
   }
+  const attachments = (snapshot.attachments ?? []).filter((attachment) =>
+    Boolean(attachment?.title || attachment?.summary || attachment?.path || attachment?.targetId)
+  ).slice(0, 8);
+  if (attachments.length > 0) {
+    lines.push('- Attachments:');
+    for (const attachment of attachments) {
+      const title = attachment.title || attachment.targetId || attachment.kind || 'context';
+      const kind = attachment.kind ? `${attachment.kind}: ` : '';
+      lines.push(`  - ${kind}${title}`);
+      if (attachment.path) lines.push(`    Path: ${attachment.path}`);
+      if (attachment.summary) lines.push(`    Summary: ${attachment.summary}`);
+    }
+  }
   return lines.length > 1 ? lines.join('\n') : '';
 }
 TS
@@ -6831,6 +6844,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "Epistemos context bridge unavailable" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
     grep -q "if (snapshot.available === false) return '';" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
     grep -q "formatEpistemosContextForPrompt" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
+    grep -q "lines.push('- Attachments:')" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
+    grep -q "snapshot.attachments" "$WORK_ROOT/ui/desktop/src/epistemos/contextBridge.ts"
     grep -q "getEpistemosContextSnapshot" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "handleAttachEpistemosContext" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Attach Epistemos context" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"

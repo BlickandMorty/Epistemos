@@ -109,6 +109,8 @@ struct GooseAppContextSnapshotTests {
         #expect(staging.contains("src/epistemos/contextBridge.ts"))
         #expect(staging.contains("Epistemos context bridge unavailable"))
         #expect(staging.contains("if (snapshot.available === false) return '';"))
+        #expect(staging.contains("lines.push('- Attachments:');"))
+        #expect(staging.contains("snapshot.attachments"))
         #expect(staging.contains("getEpistemosContextSnapshot"))
         #expect(staging.contains("formatEpistemosContextForPrompt"))
         #expect(staging.contains("handleAttachEpistemosContext"))
