@@ -78,14 +78,8 @@ enum GooseWebBootShim {
         "getSecretKey": .implementedRuntime,
         "getAcpUrl": .implementedRuntime,
         "getConfig": .implementedNative,
-        // review M1: generic get/setSetting are a JS-runtime localStorage cache (shim loadSettings/
-        // saveSettings), NOT a native store — and the surface's data store is `.nonPersistent()`, so
-        // they are session-scoped (reset on relaunch). Honest tier is `.implementedRuntime`, not
-        // `.implementedNative`. (Goose's own prefs persist via ACP preferences; dedicated UI prefs —
-        // menubar/dock/wakelock/spellcheck — persist via their native affordances below.) A native
-        // generic-KV store to make these durable is a named, deferred parity item.
-        "getSetting": .implementedRuntime,
-        "setSetting": .implementedRuntime,
+        "getSetting": .implementedNative,
+        "setSetting": .implementedNative,
         "platform": .implementedNative,
         "reactReady": .compatibilityPreserved,
         "on": .compatibilityPreserved,
@@ -181,30 +175,11 @@ enum GooseWebBootShim {
             if (value === null || typeof value !== 'object') return value;
             return JSON.parse(JSON.stringify(value));
           };
-          const settingsStorageKey = 'epistemos.goose.settings';
-          const maxSettingsJsonCharacters = 256 * 1024;
           const maxConsoleMessageCharacters = 4096;
           const maxACPTraceFrameCharacters = 1024 * 1024;
           const maxNativeBridgePayloadBytes = 16 * 1024 * 1024;
           const maxNativePromptPayloadBytes = 1024 * 1024;
           const maxNativeAffordanceNameCharacters = 96;
-          const loadSettings = () => {
-            try {
-              const rawSettings = localStorage.getItem(settingsStorageKey) || '{}';
-              if (rawSettings.length > maxSettingsJsonCharacters) return Object.assign({}, epistemosGoose.settings);
-              const stored = JSON.parse(rawSettings);
-              return Object.assign({}, epistemosGoose.settings, stored);
-            } catch {
-              return Object.assign({}, epistemosGoose.settings);
-            }
-          };
-          const saveSettings = (settings) => {
-            try {
-              const serialized = JSON.stringify(settings);
-              if (serialized.length > maxSettingsJsonCharacters) return;
-              localStorage.setItem(settingsStorageKey, serialized);
-            } catch {}
-          };
           const appsStorageKey = 'epistemos.goose.importedApps';
           const maxImportedApps = 32;
           const maxImportedAppHtmlBytes = 16 * 1024 * 1024;
@@ -482,12 +457,6 @@ enum GooseWebBootShim {
             window.WebSocket = TracedWebSocket;
             window.__epistemosGooseACPTraceInstalled = true;
           }
-          const getSetting = async (key) => clone(loadSettings()[key]);
-          const setSetting = async (key, value) => {
-            const settings = loadSettings();
-            settings[key] = clone(value);
-            saveSettings(settings);
-          };
           const showNotification = (data) => postNativeAffordance('showNotification', [data || {}]);
           const epistemosContextSnapshot = () => postNativeAffordance('epistemos.context.snapshot');
           const postHostPrompt = async (type, request) => {
@@ -513,6 +482,14 @@ enum GooseWebBootShim {
               id,
               args: boundedJSONClone(Array.isArray(args) ? args : [], maxNativeBridgePayloadBytes, 'native affordance')
             });
+          };
+          const getSetting = async (key) => {
+            const stored = await postNativeAffordance('getSetting', [key]);
+            if (stored?.found) return clone(stored.value);
+            return clone(epistemosGoose.settings[key]);
+          };
+          const setSetting = async (key, value) => {
+            await postNativeAffordance('setSetting', [key, value]);
           };
           const routeMap = {
             chat: '/',

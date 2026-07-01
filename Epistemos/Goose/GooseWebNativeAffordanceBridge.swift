@@ -35,6 +35,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeAffordanceNameCharacters = 96
     nonisolated static let maxLaunchedAppNameCharacters = 128
     nonisolated static let maxRecentDirsFileBytes = 64 * 1024
+    nonisolated static let maxNativeSettingKeyCharacters = 160
+    nonisolated static let maxNativeSettingJSONBytes = 256 * 1024
+    nonisolated static let maxNativeSettingsEntries = 512
+    nonisolated static let maxNativeSettingDepth = 32
+    nonisolated static let maxNativeSettingCollectionEntries = 4_096
     nonisolated static let maxRecipeHashInputBytes = 1 * 1024 * 1024
     nonisolated static let maxRecipeHashDepth = 32
     nonisolated static let maxRecipeHashCollectionEntries = 4_096
@@ -248,6 +253,17 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return openNotificationsSettings()
         case "showNotification":
             return showNotification(dictionaryArgument(args, at: 0) ?? [:])
+        case "getSetting":
+            guard let key = Self.boundedNativeSettingKey(stringArgument(args, at: 0)) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return nativeSetting(forKey: key)
+        case "setSetting":
+            guard let key = Self.boundedNativeSettingKey(stringArgument(args, at: 0)),
+                  args.indices.contains(1) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            return setNativeSetting(args[1], forKey: key)
         case "setMenuBarIcon":
             guard let show = boolArgument(args.first) else {
                 throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
@@ -1163,6 +1179,68 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         preferences.object(forKey: key) == nil ? defaultValue : preferences.bool(forKey: key)
     }
 
+    private func nativeSetting(forKey key: String) -> [String: Any] {
+        guard let rawValue = nativeSettingsStore()[key],
+              rawValue.utf8.count <= Self.maxNativeSettingJSONBytes,
+              let data = rawValue.data(using: .utf8),
+              let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              envelope.keys.contains("value") else {
+            return ["found": false]
+        }
+        return [
+            "found": true,
+            "value": envelope["value"] ?? NSNull(),
+        ]
+    }
+
+    private func setNativeSetting(_ value: Any, forKey key: String) -> Bool {
+        guard Self.nativeSettingValueIsPersistable(value),
+              let rawValue = Self.encodedNativeSettingValue(value) else {
+            return false
+        }
+
+        var store = nativeSettingsStore()
+        guard store[key] != nil || store.count < Self.maxNativeSettingsEntries else {
+            return false
+        }
+        store[key] = rawValue
+        preferences.set(store, forKey: PreferenceKey.nativeSettingsStore)
+        return true
+    }
+
+    private func nativeSettingsStore() -> [String: String] {
+        let rawStore = preferences.dictionary(forKey: PreferenceKey.nativeSettingsStore) ?? [:]
+        var store: [String: String] = [:]
+        for (rawKey, rawValue) in rawStore {
+            guard let key = Self.boundedNativeSettingKey(rawKey),
+                  let value = rawValue as? String,
+                  value.utf8.count <= Self.maxNativeSettingJSONBytes else {
+                continue
+            }
+            store[key] = value
+        }
+        return store
+    }
+
+    private nonisolated static func nativeSettingValueIsPersistable(_ value: Any) -> Bool {
+        GooseNativeJSONSizeBudget.permits(
+            value,
+            maxBytes: Self.maxNativeSettingJSONBytes,
+            maxDepth: Self.maxNativeSettingDepth,
+            maxCollectionEntries: Self.maxNativeSettingCollectionEntries
+        )
+    }
+
+    private nonisolated static func encodedNativeSettingValue(_ value: Any) -> String? {
+        let envelope: [String: Any] = ["value": value]
+        guard JSONSerialization.isValidJSONObject(envelope),
+              let data = try? JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys]),
+              data.count <= Self.maxNativeSettingJSONBytes else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
     private func applyOpenOptions(_ options: [String: Any], to panel: NSOpenPanel) {
         let properties = Set((options["properties"] as? [String]) ?? [])
         panel.canChooseDirectories = properties.contains("openDirectory")
@@ -1532,6 +1610,19 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         return trimmed
     }
 
+    nonisolated static func boundedNativeSettingKey(_ rawKey: String?) -> String? {
+        guard let rawKey else { return nil }
+        let withoutControls = String(String.UnicodeScalarView(rawKey.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= Self.maxNativeSettingKeyCharacters else {
+            return nil
+        }
+        return trimmed
+    }
+
     private func intArgument(_ value: Any?) -> Int? {
         switch value {
         case let value as Int:
@@ -1786,6 +1877,7 @@ private enum PreferenceKey {
     static let showDockIcon = "epistemos.goose.showDockIcon"
     static let enableWakelock = "epistemos.goose.enableWakelock"
     static let spellcheckEnabled = "epistemos.goose.spellcheckEnabled"
+    static let nativeSettingsStore = "epistemos.goose.nativeSettings"
 }
 
 @MainActor

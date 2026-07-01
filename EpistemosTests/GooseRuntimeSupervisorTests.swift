@@ -1398,16 +1398,18 @@ struct GooseWebViewBootShimTests {
         )
         let script = GooseWebBootShim.bootstrapScript(for: bootstrap)
 
-        #expect(script.contains("const maxSettingsJsonCharacters = 256 * 1024;"))
         #expect(script.contains("const maxConsoleMessageCharacters = 4096;"))
         #expect(script.contains("const maxACPTraceFrameCharacters = 1024 * 1024;"))
         #expect(script.contains("const maxNativeBridgePayloadBytes = 16 * 1024 * 1024;"))
         #expect(script.contains("const maxNativePromptPayloadBytes = 1024 * 1024;"))
-        #expect(script.contains("if (rawSettings.length > maxSettingsJsonCharacters)"))
         #expect(script.contains("if (data.length > maxACPTraceFrameCharacters) return null;"))
         #expect(script.contains("boundedJSONClone(request, maxNativePromptPayloadBytes, 'native prompt')"))
         #expect(script.contains("boundedNativeAffordanceName(name)"))
         #expect(script.contains("boundedJSONClone(Array.isArray(args) ? args : [], maxNativeBridgePayloadBytes, 'native affordance')"))
+        #expect(script.contains("postNativeAffordance('getSetting', [key])"))
+        #expect(script.contains("postNativeAffordance('setSetting', [key, value])"))
+        #expect(!script.contains("localStorage.getItem(settingsStorageKey)"))
+        #expect(!script.contains("localStorage.setItem(settingsStorageKey"))
     }
 
     @Test("bootstrap payload serialization failure stays loud")
@@ -1655,6 +1657,8 @@ struct GooseWebViewBootShimTests {
         #expect(ledger["getSecretKey"] == .implementedRuntime)
         #expect(ledger["getAcpUrl"] == .implementedRuntime)
         #expect(ledger["getConfig"] == .implementedNative)
+        #expect(ledger["getSetting"] == .implementedNative)
+        #expect(ledger["setSetting"] == .implementedNative)
         #expect(ledger["checkForUpdates"] == .hiddenShell)
         #expect(ledger["createChatWindow"] == .implementedRuntime)
         #expect(ledger["closeWindow"] == .implementedRuntime)
@@ -1731,6 +1735,8 @@ struct GooseWebViewBootShimTests {
         #expect(script.contains("postNativeAffordance('closeApp', [appName])"))
         #expect(script.contains("postNativeAffordance('openNotificationsSettings')"))
         #expect(script.contains("postNativeAffordance('showNotification', [data || {}])"))
+        #expect(script.contains("postNativeAffordance('getSetting', [key])"))
+        #expect(script.contains("postNativeAffordance('setSetting', [key, value])"))
         #expect(script.contains("postNativeAffordance('setMenuBarIcon', [show])"))
         #expect(script.contains("postNativeAffordance('getMenuBarIconState')"))
         #expect(script.contains("postNativeAffordance('setDockIcon', [show])"))
@@ -1760,6 +1766,8 @@ struct GooseWebViewBootShimTests {
         #expect(!script.contains("visibleError('closeApp')"))
         #expect(!script.contains("visibleError('openNotificationsSettings')"))
         #expect(!script.contains("visibleError('showNotification')"))
+        #expect(!script.contains("visibleError('getSetting')"))
+        #expect(!script.contains("visibleError('setSetting')"))
         #expect(!script.contains("visibleError('setMenuBarIcon')"))
         #expect(!script.contains("visibleError('getMenuBarIconState')"))
         #expect(!script.contains("visibleError('setDockIcon')"))
@@ -2353,6 +2361,35 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(try bridge.handleAffordance(name: "getSpellcheckState", args: []) as? Bool == false)
         #expect(try bridge.handleAffordance(name: "setWakelock", args: [false]) as? Bool == true)
         #expect(try bridge.handleAffordance(name: "getWakelockState", args: []) as? Bool == false)
+
+        #expect(try bridge.handleAffordance(
+            name: "setSetting",
+            args: ["responseStyle", "detailed"]
+        ) as? Bool == true)
+        let stored = try #require(bridge.handleAffordance(name: "getSetting", args: ["responseStyle"]) as? [String: Any])
+        #expect(stored["found"] as? Bool == true)
+        #expect(stored["value"] as? String == "detailed")
+
+        let reloadedBridge = GooseWebNativeAffordanceBridge(preferences: defaults)
+        let reloaded = try #require(
+            reloadedBridge.handleAffordance(name: "getSetting", args: ["responseStyle"]) as? [String: Any]
+        )
+        #expect(reloaded["found"] as? Bool == true)
+        #expect(reloaded["value"] as? String == "detailed")
+
+        let missing = try #require(
+            reloadedBridge.handleAffordance(name: "getSetting", args: ["missingSetting"]) as? [String: Any]
+        )
+        #expect(missing["found"] as? Bool == false)
+
+        let oversizedSetting = String(
+            repeating: "s",
+            count: GooseWebNativeAffordanceBridge.maxNativeSettingJSONBytes + 1
+        )
+        #expect(try reloadedBridge.handleAffordance(
+            name: "setSetting",
+            args: ["oversized", oversizedSetting]
+        ) as? Bool == false)
     }
 
     @Test("file bridge denies unscoped paths")
