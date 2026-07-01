@@ -4,7 +4,7 @@ import Network
 import os
 
 protocol GooseMASAgentCoreRunning: AnyObject, Sendable {
-    func streamGooseMASAgentCoreRun(
+    nonisolated func streamGooseMASAgentCoreRun(
         sessionID: String,
         prompt: String,
         systemPrompt: String?,
