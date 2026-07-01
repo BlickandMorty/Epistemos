@@ -16,6 +16,22 @@ struct VaultMCPCoreTests {
         }
     }
 
+    private final class RecordingResourceDispatcher: VaultMCPResourceDispatcher, @unchecked Sendable {
+        private let lock = NSLock()
+        private var requests: [String] = []
+
+        nonisolated func dispatch(requestJson: String) -> String {
+            lock.withLock {
+                requests.append(requestJson)
+            }
+            return #"{"jsonrpc":"2.0","id":"dispatcher","result":{"resources":[]}}"#
+        }
+
+        func snapshot() -> [String] {
+            lock.withLock { requests }
+        }
+    }
+
     private static let echoExecutor: LocalAgentToolExecutor = { name, argumentsJSON in
         LocalToolResult(
             toolName: name,
@@ -83,6 +99,10 @@ struct VaultMCPCoreTests {
         try FileManager.default.createSymbolicLink(
             at: root.appendingPathComponent("Linked.md"),
             withDestinationURL: outside.appendingPathComponent("Secret.md"))
+        try "visible".write(to: root.appendingPathComponent("Visible.md"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleAlias.md"),
+            withDestinationURL: root.appendingPathComponent("Visible.md"))
         try FileManager.default.createDirectory(at: root.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
         let hiddenNote = root.appendingPathComponent(".hidden").appendingPathComponent("Hidden.md")
         try "hidden".write(to: hiddenNote, atomically: true, encoding: .utf8)
@@ -100,6 +120,7 @@ struct VaultMCPCoreTests {
             #"{"name":"file.read","arguments":{"path":"../Secret.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"/tmp/Secret.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"Linked.md"}}"#,
+            #"{"name":"vault.read","arguments":{"path":"VisibleAlias.md"}}"#,
             #"{"name":"vault.read","arguments":{"path":"VisibleHiddenAlias.md"}}"#,
         ] {
             let response = await core.handle(
@@ -124,6 +145,11 @@ struct VaultMCPCoreTests {
         try FileManager.default.createSymbolicLink(
             at: root.appendingPathComponent("LinkedFolder", isDirectory: true),
             withDestinationURL: outside)
+        let visibleFolder = root.appendingPathComponent("VisibleFolder", isDirectory: true)
+        try FileManager.default.createDirectory(at: visibleFolder, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleFolderAlias", isDirectory: true),
+            withDestinationURL: visibleFolder)
 
         let recorder = CallRecorder()
         let core = VaultMCPCore(vaultRoot: root, executor: { name, argumentsJSON in
@@ -135,6 +161,7 @@ struct VaultMCPCoreTests {
             #"{"name":"vault.list","arguments":{"path":"../"}}"#,
             #"{"name":"file.list","arguments":{"path_prefix":"/tmp"}}"#,
             #"{"name":"vault.list","arguments":{"prefix":"LinkedFolder"}}"#,
+            #"{"name":"vault.list","arguments":{"path":"VisibleFolderAlias"}}"#,
         ] {
             let response = await core.handle(
                 requestJSON: #"{"jsonrpc":"2.0","id":23,"method":"tools/call","params":\#(payload)}"#)
@@ -222,6 +249,23 @@ struct VaultMCPCoreTests {
         #expect(id.allSatisfy { $0 == "i" })
     }
 
+    @Test("delegated resource dispatch receives bounded JSON-RPC request ids")
+    func delegatedResourceDispatchReceivesBoundedRequestIDs() async throws {
+        let longID = String(repeating: "r", count: VaultMCPCore.maxJSONRPCIDStringLength + 32)
+        let dispatcher = RecordingResourceDispatcher()
+        let core = VaultMCPCore(executor: Self.echoExecutor, resourceDispatcher: dispatcher)
+
+        _ = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":"\#(longID)","method":"resources/list"}"#)
+
+        let delegated = try #require(dispatcher.snapshot().first)
+        let object = try Self.jsonObject(delegated)
+        let id = try #require(object["id"] as? String)
+        #expect(id.count == VaultMCPCore.maxJSONRPCIDStringLength)
+        #expect(id.allSatisfy { $0 == "r" })
+        #expect(object["method"] as? String == "resources/list")
+    }
+
     @Test("JSON-RPC protocol diagnostics are bounded")
     func jsonRPCProtocolDiagnosticsAreBounded() async throws {
         let recorder = CallRecorder()
@@ -279,6 +323,13 @@ struct VaultMCPCoreTests {
             try? FileManager.default.removeItem(at: outside)
         }
         try "Top".write(to: root.appendingPathComponent("Top.md"), atomically: true, encoding: .utf8)
+        try "Symlink target".write(
+            to: root.appendingPathComponent("SymlinkTarget.md"),
+            atomically: true,
+            encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleTargetAlias.md"),
+            withDestinationURL: root.appendingPathComponent("SymlinkTarget.md"))
         try "Needs encoding".write(
             to: root.appendingPathComponent("Space #1.md"),
             atomically: true,
@@ -318,8 +369,13 @@ struct VaultMCPCoreTests {
         let uris = Set(resources.compactMap { $0["uri"] as? String })
         let names = Set(resources.compactMap { $0["name"] as? String })
 
-        #expect(uris == ["vault:///Folder/Nested.md", "vault:///Space%20%231.md", "vault:///Top.md"])
-        #expect(names == ["Folder/Nested.md", "Space #1.md", "Top.md"])
+        #expect(uris == [
+            "vault:///Folder/Nested.md",
+            "vault:///Space%20%231.md",
+            "vault:///SymlinkTarget.md",
+            "vault:///Top.md",
+        ])
+        #expect(names == ["Folder/Nested.md", "Space #1.md", "SymlinkTarget.md", "Top.md"])
         #expect(Set(resources.compactMap { $0["mimeType"] as? String }) == ["text/markdown"])
     }
 
@@ -334,6 +390,9 @@ struct VaultMCPCoreTests {
             to: folder.appendingPathComponent("Note.md"),
             atomically: true,
             encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("VisibleNoteAlias.md"),
+            withDestinationURL: folder.appendingPathComponent("Note.md"))
         try "Hidden".write(
             to: root.appendingPathComponent(".hidden").appendingPathComponent("Secret.md"),
             atomically: true,
@@ -403,6 +462,13 @@ struct VaultMCPCoreTests {
         let hiddenSymlinkError = try #require(hiddenSymlinkObject["error"] as? [String: Any])
         #expect(hiddenSymlinkError["code"] as? Int == -32602)
         #expect((hiddenSymlinkError["message"] as? String)?.contains("hidden vault resources") == true)
+
+        let visibleSymlink = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":15,"method":"resources/read","params":{"uri":"vault:///VisibleNoteAlias.md"}}"#)
+        let visibleSymlinkObject = try Self.jsonObject(visibleSymlink)
+        let visibleSymlinkError = try #require(visibleSymlinkObject["error"] as? [String: Any])
+        #expect(visibleSymlinkError["code"] as? Int == -32602)
+        #expect((visibleSymlinkError["message"] as? String)?.contains("symlinked vault resources") == true)
     }
 
     @Test("resources/read rejects oversized markdown before loading it")
@@ -464,11 +530,17 @@ struct VaultMCPCoreTests {
         #expect(source.contains("resources/list"))
         #expect(source.contains("resources/read"))
         #expect(source.contains("VaultMCPResourceDispatcher"))
-        #expect(source.contains("resourceDispatcher.dispatch(requestJson: requestJSON)"))
+        #expect(source.contains("delegatedDispatchRequestJSON(from: request, id: id)"))
+        #expect(!source.contains("resourceDispatcher.dispatch(requestJson: requestJSON)"))
         #expect(source.contains("maxRequestJSONBytes"))
         #expect(source.contains("maxJSONRPCIDStringLength"))
+        #expect(source.contains("String(value.prefix(maxProtocolDiagnosticCharacters + 32))"))
+        #expect(source.contains("String(value.prefix(maxProtocolErrorMessageCharacters + 32))"))
+        #expect(source.contains("maxProtocolDiagnosticCharacters - 3"))
+        #expect(source.contains("maxProtocolErrorMessageCharacters - 3"))
         #expect(source.contains("request[\"jsonrpc\"] as? String == \"2.0\""))
         #expect(source.contains("responseID(from:"))
+        #expect(source.contains("boundedRequest[\"id\"] = id"))
         #expect(source.contains("maxResourceNotes"))
         #expect(source.contains("maxResourceReadBytes"))
         #expect(source.contains("pathRequiredReadToolNameSet"))
@@ -477,6 +549,10 @@ struct VaultMCPCoreTests {
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))
         #expect(source.contains("readMarkdownFile"))
+        #expect(source.contains("rejectExistingSymlinkComponents"))
+        #expect(source.contains("lstat"))
+        #expect(source.contains("S_IFLNK"))
+        #expect(source.contains("symlinked vault resources cannot be read"))
         #expect(source.contains("O_NOFOLLOW"))
         #expect(source.contains("fstat"))
         #expect(source.contains("Task.detached(priority: .utility)"))

@@ -14,16 +14,18 @@ nonisolated enum VaultMCPServerDiagnostics {
     }
 
     static func statusMessage(_ message: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxStatusMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? "listener failed" : trimmed
         guard description.count > maxStatusMessageCharacters else {
             return description
         }
-        return String(description.prefix(maxStatusMessageCharacters)) + "..."
+        return String(description.prefix(maxStatusMessageCharacters - 3)) + "..."
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Network"

@@ -6,6 +6,7 @@ import SwiftUI
 struct VaultMCPServerSettingsRow: View {
     let vaultRoot: URL?
 
+    @Environment(UIState.self) private var ui
     @State private var registration: WorkNativeMCPRegistration?
     @State private var pendingVaultPath: String?
     @State private var statusMessage: String?
@@ -36,7 +37,7 @@ struct VaultMCPServerSettingsRow: View {
 
             Text("Expose the connected markdown vault as a bearer-protected local MCP endpoint for external tools. The server advertises read-only vault and graph tools only.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let registration {
@@ -59,23 +60,36 @@ struct VaultMCPServerSettingsRow: View {
 
                 Spacer()
 
-                Button("Rotate") {
+                ToolbarCapsuleButton(
+                    title: "Rotate",
+                    systemImage: "arrow.triangle.2.circlepath",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Rotate vault MCP token",
+                    accessibilityLabel: "Rotate vault MCP token"
+                ) {
                     rotate()
                 }
                 .disabled(!isRunning || isStarting || vaultRoot == nil)
-                .controlSize(.small)
 
-                Button(didCopyConfig ? "Copied" : "Copy MCP client config") {
+                ToolbarCapsuleButton(
+                    title: didCopyConfig ? "Copied" : "Copy MCP client config",
+                    systemImage: didCopyConfig ? "checkmark" : "doc.on.doc",
+                    role: didCopyConfig ? .primaryAction : .toolbarUtility,
+                    isActive: didCopyConfig,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Copy MCP client config",
+                    accessibilityLabel: "Copy MCP client config"
+                ) {
                     copyClientConfig()
                 }
                 .disabled(registration == nil)
-                .controlSize(.small)
             }
 
             if let statusMessage {
                 Text(statusMessage)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -100,7 +114,7 @@ struct VaultMCPServerSettingsRow: View {
                 .frame(width: 8, height: 8)
             Text(statusText)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
         }
     }
 
@@ -113,9 +127,9 @@ struct VaultMCPServerSettingsRow: View {
     }
 
     private var statusColor: Color {
-        guard vaultRoot != nil else { return .secondary }
-        if isStarting { return .orange }
-        return isRunning ? .green : .secondary
+        guard vaultRoot != nil else { return ui.theme.resolved.mutedForeground.color }
+        if isStarting { return ui.theme.resolved.headingAccent.color }
+        return isRunning ? ui.theme.resolved.accent.color : ui.theme.resolved.mutedForeground.color
     }
 
     private func start() {
@@ -131,7 +145,7 @@ struct VaultMCPServerSettingsRow: View {
             let result = await VaultMCPHost.shared.start(vaultRoot: vaultRoot)
             guard completePendingOperation(for: vaultPath) else { return }
             registration = result
-            statusMessage = result == nil ? "The MCP server did not become ready." : nil
+            statusMessage = result == nil ? failureStatusMessage() ?? "The MCP server did not become ready." : nil
             if result == nil {
                 vaultNoteCount = nil
             } else {
@@ -159,7 +173,9 @@ struct VaultMCPServerSettingsRow: View {
             let result = await VaultMCPHost.shared.rotateTokenAndRestart(vaultRoot: vaultRoot)
             guard completePendingOperation(for: vaultPath) else { return }
             registration = result
-            statusMessage = result == nil ? "Token rotated, but the MCP server did not restart." : "Token rotated."
+            statusMessage = result == nil
+                ? failureStatusMessage() ?? "Token rotated, but the MCP server did not restart."
+                : "Token rotated."
             if result == nil {
                 vaultNoteCount = nil
             } else {
@@ -202,6 +218,13 @@ struct VaultMCPServerSettingsRow: View {
         }
         pendingVaultPath = nil
         return true
+    }
+
+    private func failureStatusMessage() -> String? {
+        if case .failed(let message) = VaultMCPHost.shared.currentStatus {
+            return message
+        }
+        return nil
     }
 
     private func copyClientConfig() {

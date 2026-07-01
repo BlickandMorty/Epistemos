@@ -88,6 +88,15 @@ struct VaultMCPServerLifecycleTests {
         #expect(replacementStore.currentToken() == replacementToken)
         #expect(weakStoredKeychain.load(VaultMCPTokenStore.keychainKey) == replacementToken)
 
+        let unsafeStoredKeychain = MemoryKeychain(
+            values: [VaultMCPTokenStore.keychainKey: "abcdefghijklmnopqrstuvwxyz:123456"])
+        let unsafeStoredStore = VaultMCPTokenStore(
+            load: unsafeStoredKeychain.load,
+            save: unsafeStoredKeychain.save,
+            makeToken: { replacementToken })
+        #expect(unsafeStoredStore.currentToken() == replacementToken)
+        #expect(unsafeStoredKeychain.load(VaultMCPTokenStore.keychainKey) == replacementToken)
+
         let generatedKeychain = MemoryKeychain()
         let invalidGeneratedStore = VaultMCPTokenStore(
             load: generatedKeychain.load,
@@ -97,6 +106,22 @@ struct VaultMCPServerLifecycleTests {
         #expect(fallback != "bad\nbearer")
         #expect(fallback.count >= 24)
         #expect(generatedKeychain.load(VaultMCPTokenStore.keychainKey) == fallback)
+
+        for invalid in [
+            "abcdefghijklmnopqrstuvwxyz:123456",
+            "abcdefghijklmnopqrstuvwxyz@123456",
+            #"abcdefghijklmnopqrstuvwxyz"123456"#,
+        ] {
+            let invalidPunctuationKeychain = MemoryKeychain()
+            let invalidPunctuationStore = VaultMCPTokenStore(
+                load: invalidPunctuationKeychain.load,
+                save: invalidPunctuationKeychain.save,
+                makeToken: { invalid })
+            let fallback = invalidPunctuationStore.currentToken()
+            #expect(fallback != invalid)
+            #expect(fallback.count >= 24)
+            #expect(invalidPunctuationKeychain.load(VaultMCPTokenStore.keychainKey) == fallback)
+        }
     }
 
     @Test("authorized POST dispatches to the read-only vault core over loopback HTTP")
@@ -176,6 +201,9 @@ struct VaultMCPServerLifecycleTests {
         let oversized = VaultMCPServerDiagnostics.statusMessage(
             String(repeating: "e", count: VaultMCPServerDiagnostics.maxStatusMessageCharacters + 32)
         )
+        let paddedOversized = VaultMCPServerDiagnostics.statusMessage(
+            String(repeating: " ", count: VaultMCPServerDiagnostics.maxStatusMessageCharacters + 64) + "late detail"
+        )
 
         #expect(status.contains("domain=VaultMCPPathLeak"))
         #expect(status.contains("code=91"))
@@ -184,7 +212,8 @@ struct VaultMCPServerLifecycleTests {
         #expect(pathDomainStatus.contains("code=92"))
         #expect(pathDomainStatus.contains(privatePath) == false)
         #expect(status.count <= VaultMCPServerDiagnostics.maxStatusMessageCharacters)
-        #expect(oversized.count == VaultMCPServerDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(oversized.count == VaultMCPServerDiagnostics.maxStatusMessageCharacters)
+        #expect(paddedOversized == "listener failed")
     }
 
     @Test("host scopes running registration to the active vault")
@@ -254,6 +283,9 @@ struct VaultMCPServerLifecycleTests {
         #expect(server.contains("VaultMCPServerDiagnostics.statusMessage(for: error)"))
         #expect(server.contains("fallback: \"receive failed\""))
         #expect(server.contains("maxStatusMessageCharacters"))
+        #expect(server.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(server.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(server.contains("maxStatusMessageCharacters - 3"))
         #expect(!server.contains("error.localizedDescription"))
 
         let tokenStore = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPTokenStore.swift")
@@ -262,7 +294,9 @@ struct VaultMCPServerLifecycleTests {
         #expect(tokenStore.contains("vault_mcp_bearer"))
         #expect(tokenStore.contains("minimumTokenLength"))
         #expect(tokenStore.contains("usableToken"))
+        #expect(tokenStore.contains("WorkNativeMCPRegistration.isSafeBearerToken"))
         #expect(tokenStore.contains("uuidFallbackToken"))
+        #expect(!tokenStore.contains("isTokenScalar"))
         #expect(!tokenStore.contains("UserDefaults"))
 
         let host = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPHost.swift")
@@ -270,6 +304,9 @@ struct VaultMCPServerLifecycleTests {
         #expect(host.contains("dispatcher.setVaultRoot(root: vaultPath)"))
         #expect(host.contains("tier: .readOnly"))
         #expect(host.contains("allowedToolNames: Set(VaultMCPCore.readToolNames)"))
+        #expect(host.contains("if case .failed = server.status"))
+        #expect(host.contains("try server.start()"))
+        #expect(host.contains("catch {\n            stop()\n            return nil"))
         #expect(host.contains("canonicalVaultURL"))
         #expect(host.contains("canonicalVaultPath"))
         #expect(host.contains("standardizedFileURL.resolvingSymlinksInPath()"))
@@ -288,12 +325,26 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("pendingVaultPath"))
         #expect(row.contains("isPendingOperationCurrent(for: vaultPath)"))
         #expect(row.contains("completePendingOperation(for: vaultPath)"))
+        #expect(row.contains("failureStatusMessage()"))
+        #expect(row.contains("case .failed(let message)"))
         #expect(row.contains(".task(id: vaultRoot.map(Self.canonicalVaultPath))"))
         #expect(row.contains("VaultMCPTokenStore.masked"))
         #expect(row.contains("Copy MCP client config"))
+        #expect(row.contains("@Environment(UIState.self)"))
+        #expect(row.contains("ToolbarCapsuleButton("))
+        #expect(row.contains("role: .toolbarUtility"))
+        #expect(row.contains("chromePolicy: .bareUntilPressed"))
+        #expect(row.contains("ui.theme.resolved.mutedForeground.color"))
+        #expect(row.contains("ui.theme.resolved.headingAccent.color"))
+        #expect(row.contains("ui.theme.resolved.accent.color"))
         #expect(row.contains(#""type": "http""#))
         #expect(row.contains("Authorization"))
         #expect(!row.contains("@AppStorage"))
+        #expect(!row.contains("Button(\"Rotate\")"))
+        #expect(!row.contains("Button(didCopyConfig"))
+        #expect(!row.contains(".foregroundStyle(.secondary)"))
+        #expect(!row.contains("return .green"))
+        #expect(!row.contains("return .orange"))
 
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
         #expect(settings.contains("VaultMCPServerSettingsRow(vaultRoot: vaultSync.vaultURL)"))

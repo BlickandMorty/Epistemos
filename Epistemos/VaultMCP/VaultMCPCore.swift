@@ -109,7 +109,7 @@ nonisolated struct VaultMCPCore {
             return await handleToolsCall(id: id, request: request)
         case "resources/list":
             if let resourceDispatcher {
-                return resourceDispatcher.dispatch(requestJson: requestJSON)
+                return resourceDispatcher.dispatch(requestJson: Self.delegatedDispatchRequestJSON(from: request, id: id))
             }
             let relativePaths = await Task.detached(priority: .utility) {
                 Self.markdownRelPaths(vaultRoot: vaultRoot)
@@ -117,7 +117,7 @@ nonisolated struct VaultMCPCore {
             return Self.successResponse(id: id, result: ["resources": Self.resourcesList(from: relativePaths)])
         case "resources/read":
             if let resourceDispatcher {
-                return resourceDispatcher.dispatch(requestJson: requestJSON)
+                return resourceDispatcher.dispatch(requestJson: Self.delegatedDispatchRequestJSON(from: request, id: id))
             }
             return await handleResourcesRead(id: id, request: request)
         default:
@@ -393,6 +393,12 @@ nonisolated struct VaultMCPCore {
         return NSNull()
     }
 
+    static func delegatedDispatchRequestJSON(from request: [String: Any], id: Any) -> String {
+        var boundedRequest = request
+        boundedRequest["id"] = id
+        return jsonRPC(boundedRequest)
+    }
+
     static func toolCallResult(from result: LocalToolResult) -> [String: Any] {
         [
             "content": [["type": "text", "text": result.resultJson]],
@@ -538,6 +544,7 @@ nonisolated struct VaultMCPCore {
         }
 
         let root = vaultRoot.standardizedFileURL.resolvingSymlinksInPath()
+        try rejectExistingSymlinkComponents(root: root, relativePath: normalizedPath)
         let candidate = root
             .appendingPathComponent(normalizedPath, isDirectory: false)
             .standardizedFileURL
@@ -554,6 +561,23 @@ nonisolated struct VaultMCPCore {
             }
         }
         return resolvedCandidate
+    }
+
+    private static func rejectExistingSymlinkComponents(root: URL, relativePath: String) throws {
+        var current = root
+        for component in relativePath.split(separator: "/") {
+            current = current.appendingPathComponent(String(component), isDirectory: false)
+            var fileStatus = stat()
+            guard lstat(current.path, &fileStatus) == 0 else {
+                if errno == ENOENT || errno == ENOTDIR {
+                    return
+                }
+                throw VaultMCPPathError.notRegularFile
+            }
+            guard (fileStatus.st_mode & S_IFMT) != S_IFLNK else {
+                throw VaultMCPPathError.symlinkPath
+            }
+        }
     }
 
     private static func resolvedURLForContainment(_ url: URL) -> URL {
@@ -601,6 +625,8 @@ nonisolated struct VaultMCPCore {
             "markdown resource is too large"
         case .hiddenPath:
             "hidden vault resources cannot be read"
+        case .symlinkPath:
+            "symlinked vault resources cannot be read"
         case .invalidEncoding:
             "markdown resource is not valid UTF-8"
         case .none:
@@ -609,17 +635,18 @@ nonisolated struct VaultMCPCore {
     }
 
     private static func protocolDiagnostic(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let bounded = boundedProtocolInput(trimmed)
-        let fallback = bounded.isEmpty ? "[empty]" : bounded
-        guard trimmed.count > maxProtocolDiagnosticCharacters else {
+        let bounded = String(value.prefix(maxProtocolDiagnosticCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = trimmed.isEmpty ? "[empty]" : trimmed
+        guard fallback.count > maxProtocolDiagnosticCharacters else {
             return fallback
         }
-        return fallback + "..."
+        return String(fallback.prefix(maxProtocolDiagnosticCharacters - 3)) + "..."
     }
 
     private static func boundedProtocolInput(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(maxProtocolDiagnosticCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > maxProtocolDiagnosticCharacters else {
             return trimmed
         }
@@ -627,12 +654,13 @@ nonisolated struct VaultMCPCore {
     }
 
     private static func protocolErrorMessage(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(maxProtocolErrorMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let message = trimmed.isEmpty ? "request failed" : trimmed
         guard message.count > maxProtocolErrorMessageCharacters else {
             return message
         }
-        return String(message.prefix(maxProtocolErrorMessageCharacters)) + "..."
+        return String(message.prefix(maxProtocolErrorMessageCharacters - 3)) + "..."
     }
 
     private static func jsonRPC(_ object: [String: Any]) -> String {
@@ -662,5 +690,6 @@ private enum VaultMCPPathError: Error, Sendable {
     case pathTooLong
     case tooLarge
     case hiddenPath
+    case symlinkPath
     case invalidEncoding
 }

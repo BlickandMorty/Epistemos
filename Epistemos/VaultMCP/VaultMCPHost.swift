@@ -26,11 +26,16 @@ final class VaultMCPHost {
     }
 
     func start(vaultRoot: URL, timeout: Duration = .seconds(5)) async -> WorkNativeMCPRegistration? {
-        let server = ensureServer(vaultRoot: vaultRoot)
+        var server = ensureServer(vaultRoot: vaultRoot)
         if case .running(let registration) = server.status { return registration }
+        if case .failed = server.status {
+            stop()
+            server = ensureServer(vaultRoot: vaultRoot)
+        }
         do {
             try server.start()
         } catch {
+            stop()
             return nil
         }
 

@@ -52,14 +52,10 @@ nonisolated struct VaultMCPTokenStore {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               trimmed.count >= minimumTokenLength,
               trimmed.count <= maximumTokenLength,
-              trimmed.unicodeScalars.allSatisfy(isTokenScalar) else {
+              WorkNativeMCPRegistration.isSafeBearerToken(trimmed) else {
             return nil
         }
         return trimmed
-    }
-
-    private static func isTokenScalar(_ scalar: Unicode.Scalar) -> Bool {
-        scalar.value > 0x20 && scalar.value < 0x7f
     }
 
     private static func uuidFallbackToken() -> String {

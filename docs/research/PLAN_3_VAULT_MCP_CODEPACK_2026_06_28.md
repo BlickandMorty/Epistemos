@@ -25,9 +25,10 @@ Mirrors `WorkToolMCPCore` but: `tools/list` advertises ONLY `readToolNames` (`va
 the 6 graph reads); `tools/call` **canonicalizes aliases through `AgentToolNameAliases.canonical` then rejects anything not on the allowlist with
 `-32601 "read-only vault server"`** (enforced at the core — even a full-tier executor can't be coerced into a write);
 `resources/list` enumerates path-contained `.md` notes as `vault:///<rel>` in a detached utility worker, and
-`resources/read` reads only path-contained Markdown through the same detached resource path; final reads reopen the
-resolved note with `O_NOFOLLOW`, verify a regular file with `fstat`, enforce the byte cap on the descriptor, and reject
-invalid UTF-8. Tool calls still go through the read-only executor allowlist. Empty vault → honest-empty (`resources:[]`,
+`resources/read` reads only path-contained Markdown through the same detached resource path; the Swift fallback rejects
+hidden paths and existing symlink components before resolving containment, then final reads reopen the resolved note with
+`O_NOFOLLOW`, verify a regular file with `fstat`, enforce the byte cap on the descriptor, and reject invalid UTF-8.
+Tool calls still go through the read-only executor allowlist. Empty vault → honest-empty (`resources:[]`,
 real empty search/list payloads). Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap before JSON
 parsing, requires a JSON-RPC 2.0 object envelope before dispatch, and caps echoed string request IDs, matching the
 loopback HTTP body limit. Protocol error diagnostics for client-provided methods/tool names are bounded, and relative
@@ -36,22 +37,26 @@ helpers (`successResponse`/`errorResponse`/`toolCallResult`/`argumentsJSON`/`mar
 a stub executor, no network/FFI in the file.
 When the host supplies `VaultMCPRustResourceDispatcher`, `resources/list` and `resources/read` delegate to the Rust
 `MCPDispatcher.dispatch()` path after `set_vault_root`, giving the app-hosted HTTP server byte-parity with the stdio MCP
-resource server while preserving the Swift read-only tool allowlist for `tools/call`. Rust resource reads now match the
-Swift fallback contract: Markdown-only, regular-file context, 8 MiB cap, invalid UTF-8 rejection, and hidden/symlinked
-resource refusal.
+resource server while preserving the Swift read-only tool allowlist for `tools/call`. Swift still bounds the JSON-RPC
+request id before resource delegation, so delegated responses cannot be forced to echo an oversized client id through the
+Rust parity path. Swift method/tool protocol diagnostics bound raw strings before trimming and cap ellipsis output inside
+the advertised diagnostic budget. Rust resource reads now match the Swift fallback contract: Markdown-only, regular-file context, 8 MiB
+cap, invalid UTF-8 rejection, and hidden/symlinked resource refusal.
 
 ## 2. `VaultMCPServer.swift` [DELIVERED]
 Loopback `/mcp` NWListener binding `VaultMCPCore`, delegating auth/framing/routing to `WorkNativeMCPServer`'s static
 helpers (one audited copy of the security logic). Difference from `WorkNativeMCPServer`: a **persistent** bearer token
 (not per-launch). Lifecycle = same `start()`/`stop()` + `.ready`→`WorkNativeMCPRegistration{url,token}` shape;
 `WorkNativeMCPRegistration.isTrustedLoopbackMCP (:33)` validates it for free. Listener failure status uses bounded
-domain/code diagnostics rather than raw localized network descriptions.
+domain/code diagnostics rather than raw localized network descriptions, and bounds raw listener/domain strings before
+trimming or validating punctuation.
 
 ## 3. `VaultMCPTokenStore.swift` [DELIVERED]
 `currentToken()` returns the stored token or mints+persists one (`WorkNativeMCPServer.randomToken()` CSPRNG, 24-byte
 base64) via `Keychain.save(_, for: "vault_mcp_bearer")` — **never UserDefaults** (CLAUDE.md). Stored/generated bearer
-values must be printable ASCII and at least 24 characters; weak or control-character values are discarded and replaced
-with a fresh fallback token. `rotateToken()` re-mints (invalidates old client configs). `masked(_)` → `abcd…wxyz` for
+values must match the native MCP generated-token alphabet (`A-Z`, `a-z`, `0-9`, `-._~+/=`) and be at least 24
+characters; weak, control-character, or unsafe-punctuation values are discarded and replaced with a fresh fallback token.
+`rotateToken()` re-mints (invalidates old client configs). `masked(_)` → `abcd…wxyz` for
 display.
 
 ## 4. `VaultMCPHost.swift` [DELIVERED]
@@ -61,13 +66,16 @@ an old server for a different connected vault. **OFF BY DEFAULT** — nothing ca
 Settings toggle does. Executor uses
 `ToolTierBridge(vaultPath:, tier:.readOnly, allowedToolNames: Set(VaultMCPCore.readToolNames))`;
 `ChatToolTier.readOnly` maps to the Rust full tier only with an explicit allowlist, and the core's allowlist still
-enforces read-only.
+enforces read-only. A failed listener is discarded before the next start attempt, including synchronous `start()` throws,
+so retrying from Settings creates a fresh loopback listener rather than reusing a terminal `.failed` server object.
 
 ## 5. `VaultMCPServerSettingsRow.swift` [DELIVERED]
 Toggle start/stop; shows `http://127.0.0.1:<port>/mcp` + masked token + **Rotate** + **"Copy MCP client config"** →
 `{"type":"http","url":…,"headers":{"Authorization":"Bearer …"}}` (the shape Claude Desktop/Cursor expect, same as the
 in-repo OpenCode config writer). Surfaces "Running (vault empty)" honestly. Async start/rotate completions are gated
 by the active canonical vault path so a stale task cannot present a registration after the connected vault changes.
+Settings actions use `ToolbarCapsuleButton`, and status text/dots use `UIState` theme tokens rather than hard-coded
+traffic-light colors. Start/rotate failure text surfaces the server's bounded diagnostic message when one exists.
 
 ## MAS/Pro + honesty
 - Read-only enforced at the CORE (allowlist; write/exec verbs never surfaced) — defense-in-depth, not client trust.
