@@ -1285,6 +1285,11 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("data-epistemos-provider-engine-group"))
         #expect(script.contains("data-epistemos-provider-engine-option"))
         #expect(script.contains("options={providerOptionGroups}"))
+        // Paseo phase-5 session tabs: Goose already keeps active sessions mounted;
+        // surface that as fast WebUI tabs and keyboard switching instead of native chrome.
+        #expect(script.contains("data-epistemos-session-tabs"))
+        #expect(script.contains("data-epistemos-session-tabs-command-switch"))
+        #expect(script.contains("isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />"))
         // Anti-silent-drift: the five formerly-silent ACP grafts (which would revert
         // to dead-in-ACP REST endpoints if upstream reformats their anchors) must
         // hard-FAIL the build on anchor drift, like the rest of the file. Lock each

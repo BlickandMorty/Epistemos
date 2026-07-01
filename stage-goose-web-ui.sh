@@ -2689,6 +2689,150 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+APP_LAYOUT="$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+node - "$APP_LAYOUT" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`AppLayout ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+replaceRequired(
+  'react hooks import for session tabs',
+  `import React, { useEffect, useState } from 'react';`,
+  `import React, { useEffect, useMemo, useState } from 'react';`
+);
+
+replaceRequired(
+  'router hooks import for session tabs',
+  `import { Outlet, useLocation } from 'react-router-dom';`,
+  `import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';`
+);
+
+if (!source.includes("import { useNavigationSessions } from '../../hooks/useNavigationSessions';")) {
+  replaceRequired(
+    'navigation sessions import for session tabs',
+    `import { Navigation } from './NavigationPanel';`,
+    `import { Navigation } from './NavigationPanel';
+import { useNavigationSessions } from '../../hooks/useNavigationSessions';`
+  );
+}
+
+if (!source.includes('const SessionTabsStrip')) {
+  replaceRequired(
+    'session tabs component',
+    `const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) => {`,
+    `const SessionTabsStrip: React.FC<AppLayoutContentProps> = ({ activeSessions }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { recentSessions, fetchSessions } = useNavigationSessions();
+  const activeSessionId = searchParams.get('resumeSessionId') ?? undefined;
+
+  useEffect(() => {
+    if (activeSessions.length > 1) {
+      void fetchSessions();
+    }
+  }, [activeSessions.length, fetchSessions]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      const index = Number(event.key) - 1;
+      if (!Number.isInteger(index) || index < 0 || index >= Math.min(activeSessions.length, 9)) {
+        return;
+      }
+      const targetSession = activeSessions[index];
+      if (!targetSession) return;
+      event.preventDefault();
+      navigate(\`/pair?resumeSessionId=\${targetSession.sessionId}\`);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeSessions, navigate]);
+
+  const sessionNameById = useMemo(
+    () => new Map(recentSessions.map((session) => [session.id, session.name])),
+    [recentSessions]
+  );
+
+  if (activeSessions.length <= 1) return null;
+
+  return (
+    <div
+      className="pointer-events-none absolute left-16 right-6 top-3 z-[40] flex justify-center"
+      data-epistemos-session-tabs
+      data-epistemos-session-tabs-command-switch
+    >
+      <div
+        className="pointer-events-auto flex max-w-full gap-1 overflow-x-auto rounded-[10px] bg-background-primary/58 p-1"
+        role="tablist"
+        aria-label="Active sessions"
+      >
+        {activeSessions.slice(0, 9).map((session, index) => {
+          const active = session.sessionId === activeSessionId;
+          const label = sessionNameById.get(session.sessionId) || \`Session \${index + 1}\`;
+          return (
+            <button
+              key={session.sessionId}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              title={label}
+              onClick={() => navigate(\`/pair?resumeSessionId=\${session.sessionId}\`)}
+              className={cn(
+                'flex min-w-0 max-w-[180px] items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-xs transition-colors',
+                active
+                  ? 'bg-[var(--epistemos-accent)]/12 text-text-primary'
+                  : 'text-text-secondary hover:bg-background-secondary/56 hover:text-text-primary'
+              )}
+            >
+              <span className="truncate">{label}</span>
+              <span className="shrink-0 font-mono text-[10px] text-text-secondary">
+                {index + 1}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) => {`
+  );
+}
+
+replaceRequired(
+  'main content relative for session tabs',
+  `<div className="flex-1 overflow-hidden min-h-0">
+          <Outlet />`,
+  `<div className="relative flex-1 overflow-hidden min-h-0">
+          {isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />}
+          <Outlet />`
+);
+
+for (const snippet of [
+  'const SessionTabsStrip',
+  'data-epistemos-session-tabs',
+  'data-epistemos-session-tabs-command-switch',
+  "window.addEventListener('keydown', handleKeyDown)",
+  'isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`AppLayout staged source is missing session tabs snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 ONBOARDING_PROVIDER_SELECTOR="$WORK_ROOT/ui/desktop/src/components/onboarding/ProviderSelector.tsx"
 node - "$ONBOARDING_PROVIDER_SELECTOR" <<'NODE'
 const fs = require('fs');
@@ -6578,6 +6722,9 @@ JS
     grep -q "rounded-\\[10px\\] bg-background-primary/54 p-3" "$WORK_ROOT/ui/desktop/src/components/onboarding/LocalModelPicker.tsx"
     grep -q "backgroundColor = 'bg-transparent'" "$WORK_ROOT/ui/desktop/src/components/Layout/MainPanelLayout.tsx"
     grep -q "bg-background-secondary/70" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "data-epistemos-session-tabs" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "data-epistemos-session-tabs-command-switch" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "goose-chat-input-card overflow-hidden rounded-\\[16px\\] bg-background-primary/40" "$WORK_ROOT/ui/desktop/src/components/ChatInputCard.tsx"
     grep -q "ep-native-header-band flex flex-col rounded-\\[16px\\] bg-background-primary/42 p-4" "$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
     grep -q "bg-background-primary/42 p-3 pb-4" "$WORK_ROOT/ui/desktop/src/components/settings/models/ModelsSection.tsx"
