@@ -2867,7 +2867,19 @@ if (!source.includes('const SessionTabsStrip')) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      if (event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        const nextParams = new URLSearchParams(searchParams);
+        if (isSplitMode) {
+          nextParams.delete('epistemosSplit');
+        } else {
+          nextParams.set('epistemosSplit', '1');
+        }
+        navigate(\`/pair?\${nextParams.toString()}\`);
+        return;
+      }
+      if (event.shiftKey) return;
       const index = Number(event.key) - 1;
       if (!Number.isInteger(index) || index < 0 || index >= Math.min(activeSessions.length, 9)) {
         return;
@@ -2880,7 +2892,7 @@ if (!source.includes('const SessionTabsStrip')) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSessions, navigate, pairPathForSession]);
+  }, [activeSessions, isSplitMode, navigate, pairPathForSession, searchParams]);
 
   const sessionNameById = useMemo(
     () => new Map(recentSessions.map((session) => [session.id, session.name])),
@@ -3005,6 +3017,7 @@ for (const snippet of [
   'const pairPathForSession =',
   'const closeSessionTab =',
   'const toggleSplitView =',
+  "event.key.toLowerCase() === 'd'",
   'data-epistemos-session-split-toggle',
   '<Columns2 className="h-3.5 w-3.5" />',
   '<X className="h-3 w-3" />',
@@ -7010,6 +7023,7 @@ JS
     grep -q 'Close \${label}' "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-split-toggle" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "const toggleSplitView =" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
+    grep -q "event.key.toLowerCase() === 'd'" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
     grep -q "data-epistemos-session-split" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
     grep -q "grid h-full w-full grid-cols-2 gap-2" "$WORK_ROOT/ui/desktop/src/components/ChatSessionsContainer.tsx"
     grep -q "isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />" "$WORK_ROOT/ui/desktop/src/components/Layout/AppLayout.tsx"
