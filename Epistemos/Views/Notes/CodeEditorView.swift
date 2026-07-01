@@ -1782,6 +1782,47 @@ struct CodeEditorView: View {
             .buttonStyle(.plain)
             .help("Go to line")
 
+            // L3-CHROME graft: LSP hover / Go-to-definition / Outline live here in the mounted top
+            // bar (their status overlay + outline sidebar are already mounted in codeEditorChromeContent).
+            // Previously these triggers existed only in `breadcrumbBar`, which is never mounted, so
+            // the Outline and on-demand LSP actions were unreachable.
+            Button {
+                requestSemanticHover()
+            } label: {
+                Image(systemName: semanticStatusIsLoading ? "info.circle.fill" : "info.circle")
+                    .foregroundStyle(semanticStatusIsLoading ? Color.accentColor : .secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
+            .help(semanticLSPHelpText)
+
+            Button {
+                requestSemanticDefinition()
+            } label: {
+                Image(systemName: "arrow.down.right.circle")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
+            .help(definitionLSPHelpText)
+
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
+                    showOutlineNavigator.toggle()
+                }
+            } label: {
+                Image(systemName: showOutlineNavigator ? "sidebar.trailing" : "sidebar.right")
+                    .foregroundStyle(showOutlineNavigator ? Color.accentColor : .secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Toggle Outline")
+
             viewOptionsMenu
             editorSettingsMenu
         }
