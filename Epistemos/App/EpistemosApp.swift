@@ -1476,21 +1476,26 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
+            // Owner "instant Goose": reveal the PRE-WARMED embedded Goose home page
+            // instead of opening a new window (which would boot a 2nd runtime). Mirrors
+            // Show Home + LandingView.openEpistemosGoose. (thermo-nuclear 2026-07-01)
             #if EPISTEMOS_APP_STORE
             let gooseAvailability = GooseSurfaceAvailability.current()
             Button(gooseAvailability.menuTitle) {
-                GooseSurfaceWindowController.shared.open()
+                ui.homeContent = .goose
+                ui.homeTab = .home
+                ui.setActivePanel(.home)
+                HomeWindowIdentity.surfaceHomeWindow()
             }
                 .keyboardShortcut("3", modifiers: .command)
                 .disabled(!gooseAvailability.isReady)
             #else
             let gooseAvailability = GooseSurfaceAvailability.current()
             Button("Open Epistemos Goose") {
-                if AgentSurface.isEnabled() {
-                    AgentSurfaceWindowController.shared.open()
-                } else {
-                    GooseSurfaceWindowController.shared.open()
-                }
+                ui.homeContent = .goose
+                ui.homeTab = .home
+                ui.setActivePanel(.home)
+                HomeWindowIdentity.surfaceHomeWindow()
             }
             .keyboardShortcut("3", modifiers: .command)
             .disabled(!gooseAvailability.isReady)

@@ -188,7 +188,10 @@ struct LandingView: View {
             // ready, no hang"). Mounted ONCE whenever Goose is staged so its runtime
             // stays warm across navigations; hidden until homeContent == .goose. It
             // warms in the background while the user is still on the landing page.
-            if gooseSurfacePrewarmEnabled {
+            if gooseSurfacePrewarmEnabled || ui.homeContent == .goose {
+                // `|| homeContent == .goose` ensures the surface always mounts when
+                // navigated to (Cmd+3 / a late-ready Goose), never a blank page even if
+                // the prewarm flag was resolved false at onAppear. (thermo-nuclear 2026-07-01)
                 HomeEmbeddedPage(title: "Goose") {
                     if AgentSurface.isEnabled() {
                         AgentSurfaceRootView(theme: ui.theme)
