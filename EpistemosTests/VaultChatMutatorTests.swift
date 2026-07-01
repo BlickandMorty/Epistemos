@@ -101,6 +101,35 @@ struct VaultChatMutatorTests {
         }
     }
 
+    @Test("mutate rejects symlinked existing memory files")
+    @MainActor
+    func mutateRejectsSymlinkedExistingMemoryFiles() async throws {
+        let vaultRoot = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: vaultRoot) }
+        let targetFile = vaultRoot.appendingPathComponent("MEMORY.md", isDirectory: false)
+        let linkedTarget = vaultRoot.appendingPathComponent("Other.md", isDirectory: false)
+        try "linked body".write(to: linkedTarget, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: targetFile, withDestinationURL: linkedTarget)
+
+        let mutator = VaultChatMutator(
+            vaultResolver: { _ in vaultRoot },
+            autoCommitInAgentMode: false
+        )
+
+        do {
+            _ = try await mutator.mutate(
+                message: "Remember that symlinked memory files are rejected.",
+                targetVault: .personal
+            )
+            Issue.record("Expected symlinked MEMORY.md to be rejected before staging")
+        } catch let error as VaultChatMutatorError {
+            guard case .unsafeFileTarget = error else {
+                Issue.record("Expected unsafeFileTarget, got \(error)")
+                return
+            }
+        }
+    }
+
     private func temporaryRoot() -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-vault-chat-mutator-\(UUID().uuidString)", isDirectory: true)

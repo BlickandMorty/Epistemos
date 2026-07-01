@@ -223,7 +223,7 @@ nonisolated enum VaultVerifiedFileWriter {
         didRename = true
     }
 
-    private static func readUTF8(from fileURL: URL) throws -> String {
+    static func readUTF8(from fileURL: URL) throws -> String {
         let fd = fileURL.path.withCString { path in
             open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         }
@@ -438,7 +438,7 @@ private actor VaultMutationIO {
         }
 
         do {
-            return try String(contentsOf: fileURL, encoding: .utf8)
+            return try VaultVerifiedFileWriter.readUTF8(from: fileURL)
         } catch {
             VaultChatMutatorDiagnostics.log.error(
                 "VaultChatMutator: failed to read staged memory file at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
