@@ -1194,6 +1194,13 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func setNativeSetting(_ value: Any, forKey key: String) -> Bool {
+        if value is NSNull {
+            var store = nativeSettingsStore()
+            store.removeValue(forKey: key)
+            preferences.set(store, forKey: PreferenceKey.nativeSettingsStore)
+            return true
+        }
+
         guard Self.nativeSettingValueIsPersistable(value),
               let rawValue = Self.encodedNativeSettingValue(value) else {
             return false

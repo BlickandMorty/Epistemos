@@ -2398,6 +2398,21 @@ struct GooseWebNativeAffordanceBridgeTests {
         #expect(reloaded["found"] as? Bool == true)
         #expect(reloaded["value"] as? String == "detailed")
 
+        #expect(try reloadedBridge.handleAffordance(
+            name: "setSetting",
+            args: ["responseStyle", NSNull()]
+        ) as? Bool == true)
+        let removed = try #require(
+            reloadedBridge.handleAffordance(name: "getSetting", args: ["responseStyle"]) as? [String: Any]
+        )
+        #expect(removed["found"] as? Bool == false)
+
+        let removalReloadedBridge = GooseWebNativeAffordanceBridge(preferences: defaults)
+        let removedAfterReload = try #require(
+            removalReloadedBridge.handleAffordance(name: "getSetting", args: ["responseStyle"]) as? [String: Any]
+        )
+        #expect(removedAfterReload["found"] as? Bool == false)
+
         let missing = try #require(
             reloadedBridge.handleAffordance(name: "getSetting", args: ["missingSetting"]) as? [String: Any]
         )
