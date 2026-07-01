@@ -701,8 +701,10 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
     }
 
     private static func bounded(_ value: String, limit: Int) -> String {
-        guard value.count > limit else { return value }
-        return String(value.prefix(limit)) + "..."
+        let bounded = String(value.prefix(limit + 32))
+        guard bounded.count > limit else { return bounded }
+        guard limit > 3 else { return String(bounded.prefix(limit)) }
+        return String(bounded.prefix(limit - 3)) + "..."
     }
 }
 
