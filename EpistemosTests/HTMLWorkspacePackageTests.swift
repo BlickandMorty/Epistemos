@@ -380,12 +380,15 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.indexHTML.contains("data-vault-results"))
         #expect(package.indexHTML.contains("data-result-filter"))
         #expect(package.indexHTML.contains("data-filter-count"))
+        #expect(package.indexHTML.contains("data-context-tabs"))
         #expect(package.indexHTML.contains("data-result-chart"))
         #expect(package.styleCSS.contains(".result-card"))
         #expect(package.styleCSS.contains(".feed-controls input"))
+        #expect(package.styleCSS.contains(".context-tab"))
         #expect(package.styleCSS.contains(".feed-chart"))
         #expect(package.scriptJS.contains("renderVaultResults"))
         #expect(package.scriptJS.contains("visibleResults(allResults)"))
+        #expect(package.scriptJS.contains("renderContextTabs(allResults, meta)"))
         #expect(package.scriptJS.contains("renderResultChart(results)"))
         #expect(package.scriptJS.contains("addEventListener('input', renderVaultResults)"))
         #expect(package.scriptJS.contains("htmlworkspace:datachange"))
@@ -586,6 +589,22 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("No visible results to chart."))
         #expect(package.scriptJS.contains("class: 'chart-bar'"))
         #expect(!package.scriptJS.contains("Math.random"))
+    }
+
+    @Test("vault search dashboard tabs are driven by real context kinds")
+    func vaultSearchDashboardTabsAreDrivenByRealContextKinds() {
+        let package = HTMLWorkspaceVaultSearchDashboardTemplate.package(query: "context")
+
+        #expect(package.indexHTML.contains(#"aria-label="Context kind tabs""#))
+        #expect(package.scriptJS.contains("let selectedContextKind = 'all';"))
+        #expect(package.scriptJS.contains("function resultContextKind(result)"))
+        #expect(package.scriptJS.contains("result.context_kind || 'vault_record'"))
+        #expect(package.scriptJS.contains("const metadataKinds = Array.isArray(meta.context_kinds) ? meta.context_kinds : [];"))
+        #expect(package.scriptJS.contains("function resultsForSelectedKind(results)"))
+        #expect(package.scriptJS.contains("selectedContextKind = kind;"))
+        #expect(package.scriptJS.contains("'data-context-kind': kind"))
+        #expect(package.scriptJS.contains("renderVaultResults();"))
+        #expect(!package.scriptJS.contains("fakeContext"))
     }
 
     @Test("starter template detection distinguishes untouched defaults from edited workspaces")

@@ -67,6 +67,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         </label>
         <span data-filter-count>0 visible</span>
       </section>
+      <section class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
       <section class="feed-chart" data-result-chart aria-label="Result rank chart">
         <p class="empty">Waiting for ranked results.</p>
       </section>
@@ -208,6 +209,35 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       font-size: 12px;
     }
 
+    .context-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .context-tab {
+      appearance: none;
+      border: 0;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--epistemos-workspace-card) 88%, var(--epistemos-workspace-fg) 12%);
+      color: var(--epistemos-workspace-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      padding: 7px 10px;
+    }
+
+    .context-tab.is-active {
+      background: var(--epistemos-workspace-accent);
+      color: var(--epistemos-workspace-bg);
+    }
+
+    .context-tab:focus {
+      outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
+      outline-offset: 2px;
+    }
+
     .feed-chart {
       display: grid;
       gap: 10px;
@@ -305,6 +335,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return String(value || '').toLowerCase();
     }
 
+    let selectedContextKind = 'all';
+
+    function resultContextKind(result) {
+      return String(result.context_kind || 'vault_record').trim() || 'vault_record';
+    }
+
     function resultSearchText(result) {
       return [
         result.title,
@@ -316,10 +352,56 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       ].map(normalized).join(' ');
     }
 
+    function availableContextKinds(results, meta) {
+      const metadataKinds = Array.isArray(meta.context_kinds) ? meta.context_kinds : [];
+      return Array.from(new Set(
+        metadataKinds
+          .concat(results.map(resultContextKind))
+          .map((kind) => String(kind || '').trim())
+          .filter(Boolean)
+      )).sort();
+    }
+
+    function resultsForSelectedKind(results) {
+      if (selectedContextKind === 'all') { return results; }
+      return results.filter((result) => resultContextKind(result) === selectedContextKind);
+    }
+
     function visibleResults(results) {
       const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
-      if (!filter) { return results; }
-      return results.filter((result) => resultSearchText(result).includes(filter));
+      const scopedResults = resultsForSelectedKind(results);
+      if (!filter) { return scopedResults; }
+      return scopedResults.filter((result) => resultSearchText(result).includes(filter));
+    }
+
+    function renderContextTabs(allResults, meta) {
+      const host = HTMLWorkspace.q('[data-context-tabs]');
+      if (!host) { return; }
+
+      const kinds = availableContextKinds(allResults, meta);
+      if (selectedContextKind !== 'all' && !kinds.includes(selectedContextKind)) {
+        selectedContextKind = 'all';
+      }
+
+      host.replaceChildren();
+      ['all'].concat(kinds).forEach((kind) => {
+        const active = kind === selectedContextKind;
+        const count = kind === 'all'
+          ? allResults.length
+          : allResults.filter((result) => resultContextKind(result) === kind).length;
+        const label = kind === 'all' ? 'All' : kind.replace(/_/g, ' ');
+        const button = HTMLWorkspace.el('button', {
+          type: 'button',
+          class: active ? 'context-tab is-active' : 'context-tab',
+          'aria-pressed': active ? 'true' : 'false',
+          'data-context-kind': kind
+        }, `${label} ${count}`);
+        button.addEventListener('click', () => {
+          selectedContextKind = kind;
+          renderVaultResults();
+        });
+        host.append(button);
+      });
     }
 
     function rankDatum(result, index) {
@@ -369,6 +451,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const data = HTMLWorkspace.data || {};
       const meta = data._epistemos || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
+      renderContextTabs(allResults, meta);
       const results = visibleResults(allResults);
       const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
       const status = meta.stale ? 'Stale' : (meta.status || 'Fresh');
