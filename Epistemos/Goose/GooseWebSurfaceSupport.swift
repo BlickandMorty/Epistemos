@@ -267,9 +267,31 @@ extension GooseWebSurfaceView {
           style.textContent = \(jsStringLiteral(css));
           document.documentElement.appendChild(style);
           document.documentElement.dataset.epistemosTheme = \(jsStringLiteral(theme.rawValue));
+          const runtimeExtensibilityEnabled = window.__epistemosGooseRuntimeExtensibilityEnabled !== false;
+          document.documentElement.dataset.epistemosRuntimeExtensibility = runtimeExtensibilityEnabled ? 'enabled' : 'disabled';
           document.documentElement.classList.toggle('dark', \(theme.isDark ? "true" : "false"));
           document.documentElement.classList.toggle('light', \(theme.isDark ? "false" : "true"));
           document.documentElement.style.colorScheme = \(jsStringLiteral(webTheme));
+          if (!runtimeExtensibilityEnabled && !window.__epistemosGooseRuntimeExtensibilityChromeGuardInstalled) {
+            window.__epistemosGooseRuntimeExtensibilityChromeGuardInstalled = true;
+            const blockedLabels = new Set(['Apps', 'Extensions', 'Recipes', 'Scheduler', 'Skills']);
+            const blockedHrefs = ['#/apps', '#/extensions', '#/recipes', '#/schedules', '#/skills'];
+            const hideBlockedExtensibilityChrome = () => {
+              for (const element of document.querySelectorAll('a[href],button,[role="button"],[role="menuitem"],[role="tab"]')) {
+                const href = String(element.getAttribute('href') || '');
+                const label = String(element.getAttribute('aria-label') || element.textContent || '').trim();
+                if (blockedHrefs.some((fragment) => href.includes(fragment)) || blockedLabels.has(label)) {
+                  element.setAttribute('data-epistemos-mas-hidden', 'runtime-extensibility');
+                  element.style.setProperty('display', 'none', 'important');
+                }
+              }
+            };
+            hideBlockedExtensibilityChrome();
+            new MutationObserver(hideBlockedExtensibilityChrome).observe(document.documentElement, {
+              childList: true,
+              subtree: true
+            });
+          }
         })();
         """
     }
@@ -349,6 +371,9 @@ extension GooseWebSurfaceView {
           --epistemos-theme-muted-foreground: \(mutedForeground) !important;
           --epistemos-theme-border: transparent !important;
           --epistemos-theme-border-source: \(border) !important;
+        }
+        :root[data-epistemos-runtime-extensibility='disabled'] [data-epistemos-mas-hidden='runtime-extensibility'] {
+          display: none !important;
         }
         :root :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus,
         :root :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible,

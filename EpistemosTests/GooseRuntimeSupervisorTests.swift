@@ -1512,6 +1512,43 @@ struct GooseWebViewBootShimTests {
         #expect(config.dictionary["GOOSE_ALLOWLIST_WARNING"] as? Bool == true)
     }
 
+    @Test("MAS bootstrap disables runtime extensibility affordances")
+    func masBootstrapDisablesRuntimeExtensibilityAffordances() {
+        let bootstrap = GooseWebBootstrap(
+            baseURL: URL(string: "http://127.0.0.1:3284")!,
+            secretKey: "secret-123",
+            config: GooseWebConfig(runtimeExtensibilityEnabled: false)
+        )
+        let script = GooseWebBootShim.bootstrapScript(for: bootstrap)
+
+        #expect(script.contains(#""runtimeExtensibilityEnabled":false"#))
+        #expect(script.contains("window.__epistemosGooseRuntimeExtensibilityEnabled = runtimeExtensibilityEnabled;"))
+        #expect(script.contains("Runtime extensibility is disabled in the App Store build."))
+        #expect(script.contains("const blockedExtensibilityRoutes = new Set(runtimeExtensibilityEnabled ? [] : ["))
+        #expect(script.contains("'/extensions'"))
+        #expect(script.contains("'/recipes'"))
+        #expect(script.contains("'/skills'"))
+        #expect(script.contains("if (extensionHref) {"))
+        #expect(script.contains("console.warn(runtimeExtensibilityError('Extension install').message);"))
+        #expect(script.contains("if (!runtimeExtensibilityEnabled) return { apps: [] };"))
+        #expect(script.contains("throw runtimeExtensibilityError('App import');"))
+        #expect(script.contains("throw runtimeExtensibilityError('App export');"))
+        #expect(script.contains("runtimeExtensibilityEnabled ? postNativeAffordance('getAllowedExtensions') : Promise.resolve([])"))
+    }
+
+    @Test("native feel script hides MAS runtime extensibility chrome")
+    func nativeFeelScriptHidesMASRuntimeExtensibilityChrome() {
+        let script = GooseWebSurfaceView.nativeFeelScript(theme: .nativeDefault)
+
+        #expect(script.contains("epistemosRuntimeExtensibility"))
+        #expect(script.contains("__epistemosGooseRuntimeExtensibilityChromeGuardInstalled"))
+        #expect(script.contains("data-epistemos-mas-hidden"))
+        #expect(script.contains("'#/extensions'"))
+        #expect(script.contains("'#/recipes'"))
+        #expect(script.contains("'#/skills'"))
+        #expect(script.contains("Extensions', 'Recipes', 'Scheduler', 'Skills"))
+    }
+
     @Test("bootstrap script bounds imported MCP app storage")
     func bootstrapScriptBoundsImportedMCPAppStorage() {
         let bootstrap = GooseWebBootstrap(

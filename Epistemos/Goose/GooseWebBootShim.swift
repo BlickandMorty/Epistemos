@@ -13,6 +13,7 @@ struct GooseWebConfig: Equatable, Sendable {
     var bundleName: String = "Epistemos"
     var useACPChat: Bool = true
     var workingDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path
+    var runtimeExtensibilityEnabled: Bool = defaultRuntimeExtensibilityEnabled()
     var allowlistWarning: Bool = allowlistWarning(
         from: ProcessInfo.processInfo.environment
     )
@@ -22,12 +23,22 @@ struct GooseWebConfig: Equatable, Sendable {
             "GOOSE_ALLOWLIST_WARNING": allowlistWarning,
             "GOOSE_BUNDLE_NAME": bundleName,
             "GOOSE_WORKING_DIR": workingDirectory,
+            "EPISTEMOS_MAS_EXTENSIBILITY_DISABLED": !runtimeExtensibilityEnabled,
+            "EPISTEMOS_RUNTIME_EXTENSIBILITY_ENABLED": runtimeExtensibilityEnabled,
             "USE_ACP_CHAT": useACPChat,
         ]
         if let version {
             value["GOOSE_VERSION"] = version
         }
         return value
+    }
+
+    nonisolated static func defaultRuntimeExtensibilityEnabled() -> Bool {
+        #if EPISTEMOS_APP_STORE
+        false
+        #else
+        true
+        #endif
     }
 
     nonisolated static func allowlistWarning(from environment: [String: String]) -> Bool {
@@ -167,21 +178,45 @@ enum GooseWebBootShim {
             "platform": bootstrap.platform,
             "arch": bootstrap.arch,
             "ledger": ledger,
+            "runtimeExtensibilityEnabled": bootstrap.config.runtimeExtensibilityEnabled,
         ]
         let payloadJSON = jsonLiteral(payload)
         return """
         (() => {
           const epistemosGoose = Object.freeze(\(payloadJSON));
           const runtimeConfig = Object.assign({}, epistemosGoose.config);
+          const runtimeExtensibilityEnabled = epistemosGoose.runtimeExtensibilityEnabled === true;
+          window.__epistemosGooseRuntimeExtensibilityEnabled = runtimeExtensibilityEnabled;
           const visibleError = (name) => async () => {
             throw new Error(`Epistemos native host has not implemented ${name} yet.`);
           };
+          const runtimeExtensibilityError = (surface = 'Runtime extensibility') => new Error(`${surface} is disabled in the App Store build.`);
           const nullAffordance = async () => null;
           const trueAffordance = async () => true;
           const falseAffordance = async () => false;
           const undefinedAffordance = async () => undefined;
           const noop = () => undefined;
           const updateUnavailable = async () => ({ success: false, updateInfo: null, error: 'Goose updater shell is disabled in Epistemos.' });
+          const blockedExtensibilityRoutes = new Set(runtimeExtensibilityEnabled ? [] : [
+            '/apps',
+            '/extensions',
+            '/recipes',
+            '/schedules',
+            '/skills'
+          ]);
+          const normalizedHashRoute = () => {
+            const raw = String(window.location.hash || '#/').replace(/^#/, '') || '/';
+            const path = raw.split('?')[0].replace(/\\/+$/g, '') || '/';
+            return path.startsWith('/') ? path : `/${path}`;
+          };
+          const enforceRuntimeExtensibilityRouteGate = () => {
+            if (runtimeExtensibilityEnabled) return false;
+            const path = normalizedHashRoute();
+            if (!blockedExtensibilityRoutes.has(path)) return false;
+            window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}#/`);
+            emitEvent('epistemos-runtime-extensibility-blocked', path);
+            return true;
+          };
           const clone = (value) => {
             if (value === null || typeof value !== 'object') return value;
             return JSON.parse(JSON.stringify(value));
@@ -245,6 +280,7 @@ enum GooseWebBootShim {
             return normalized || 'Imported app';
           };
           const loadImportedApps = async () => {
+            if (!runtimeExtensibilityEnabled) return [];
             try {
               const parsed = await postNativeAffordance('listImportedApps');
               if (!Array.isArray(parsed)) return [];
@@ -261,6 +297,9 @@ enum GooseWebBootShim {
             }
           };
           const saveImportedApps = async (apps) => {
+            if (!runtimeExtensibilityEnabled) {
+              throw runtimeExtensibilityError('App import');
+            }
             try {
               const saved = await postNativeAffordance('saveImportedApps', [apps.slice(-maxImportedApps)]);
               if (!saved) throw new Error('native store rejected imported apps');
@@ -313,6 +352,7 @@ enum GooseWebBootShim {
             };
           };
           const listLiveApps = async (sessionId = null) => {
+            if (!runtimeExtensibilityEnabled) return [];
             const path = sessionId
               ? `/agent/list_apps?session_id=${encodeURIComponent(sessionId)}`
               : '/agent/list_apps';
@@ -326,6 +366,7 @@ enum GooseWebBootShim {
           const exportLiveApp = async (name) => gooseFetch(`/agent/export_app/${encodeURIComponent(name)}`);
           const epistemosGooseApps = Object.freeze({
             listApps: async (sessionId = null) => {
+              if (!runtimeExtensibilityEnabled) return { apps: [] };
               try {
                 return { apps: await listLiveApps(sessionId) };
               } catch (error) {
@@ -334,6 +375,9 @@ enum GooseWebBootShim {
               }
             },
             importApp: async (html) => {
+              if (!runtimeExtensibilityEnabled) {
+                throw runtimeExtensibilityError('App import');
+              }
               try {
                 return await importLiveApp(html);
               } catch (error) {
@@ -346,6 +390,9 @@ enum GooseWebBootShim {
               return { name: nextApp.name, message: `Imported ${nextApp.name}` };
             },
             exportApp: async (name) => {
+              if (!runtimeExtensibilityEnabled) {
+                throw runtimeExtensibilityError('App export');
+              }
               try {
                 return await exportLiveApp(name);
               } catch (error) {
@@ -569,6 +616,10 @@ enum GooseWebBootShim {
           const forwardGooseDeepLink = (rawURL) => {
             const extensionHref = extensionDeepLinkURL(rawURL);
             if (extensionHref) {
+              if (!runtimeExtensibilityEnabled) {
+                console.warn(runtimeExtensibilityError('Extension install').message);
+                return true;
+              }
               emitEvent('add-extension', extensionHref);
               return true;
             }
@@ -641,6 +692,7 @@ enum GooseWebBootShim {
             const launch = options || {};
             setRuntimeLaunchConfig(launch);
             let appPath = launch.viewType ? (routeMap[launch.viewType] || '/') : '/';
+            if (blockedExtensibilityRoutes.has(appPath)) appPath = '/';
             const initialMessage = launch.query || launch.initialMessage || '';
             if (appPath === '/' && (
               launch.recipeDeeplink !== undefined ||
@@ -671,6 +723,10 @@ enum GooseWebBootShim {
               window.location.hash = '#/';
             }
           };
+          if (!runtimeExtensibilityEnabled) {
+            window.addEventListener('hashchange', enforceRuntimeExtensibilityRouteGate, true);
+            setTimeout(enforceRuntimeExtensibilityRouteGate, 0);
+          }
           const electron = window.electron || {};
           Object.defineProperties(electron, {
             platform: { configurable: true, value: epistemosGoose.platform },
@@ -712,7 +768,7 @@ enum GooseWebBootShim {
             setWindowTitle: { configurable: true, value: (title) => postNativeAffordance('setWindowTitle', [title]) },
             reloadApp: { configurable: true, value: () => window.location.reload() },
             checkForOllama: { configurable: true, value: () => postNativeAffordance('checkForOllama') },
-            getAllowedExtensions: { configurable: true, value: () => postNativeAffordance('getAllowedExtensions') },
+            getAllowedExtensions: { configurable: true, value: () => runtimeExtensibilityEnabled ? postNativeAffordance('getAllowedExtensions') : Promise.resolve([]) },
             getPathForFile: { configurable: true, value: (file) => {
               const path = file?.path || file?.epistemosNativePath || '';
               if (typeof path === 'string' && path.startsWith('/')) return path;
@@ -764,6 +820,7 @@ enum GooseWebBootShim {
               dispositionLedger: Object.freeze(epistemosGoose.ledger),
               acpTrace: acpTrace.snapshot,
               consoleEvents: () => consoleEvents.slice(),
+              runtimeExtensibilityEnabled,
               apps: epistemosGooseApps,
               requestPermission: (request) => postHostPrompt('permission', request),
               requestElicitation: (request) => postHostPrompt('elicitation', request),
