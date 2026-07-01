@@ -517,7 +517,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             sendHTTPJSON(connection, catalog.providerCatalogResult(), request: request)
         case ("GET", "/config/extensions"):
             guard authorizeREST(request, on: connection) else { return }
-            sendHTTPJSON(connection, ["extensions": [], "_meta": catalog.metadata()], request: request)
+            sendHTTPJSON(connection, catalog.extensionsResult(), request: request)
         case ("GET", "/features"):
             guard authorizeREST(request, on: connection) else { return }
             sendHTTPJSON(connection, ["features": ["masBoundedGoose": true], "_meta": catalog.metadata()], request: request)
