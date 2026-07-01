@@ -1917,6 +1917,46 @@ for (const stale of [
 fs.writeFileSync(path, source);
 NODE
 
+SKILLS_VIEW="$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
+node - "$SKILLS_VIEW" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+if (!source.includes('epistemos-goose-only-skill-doc-guide')) {
+  const anchor = `      name: 'epistemos-act-guide',
+      description:
+        'Reference Act engine documentation to create, configure, or explain recipes, extensions, sessions, and providers. Fetch relevant docs before answering.',`;
+  const replacement = `      name: 'epistemos-goose-guide',
+      description:
+        'Reference Goose agent documentation to create, configure, or explain recipes, extensions, sessions, and providers. Fetch relevant docs before answering.', // epistemos-goose-only-skill-doc-guide`;
+  if (!source.includes(anchor)) {
+    throw new Error('SkillsView stale Act guide anchor not found');
+  }
+  source = source.replace(anchor, replacement);
+}
+
+for (const snippet of [
+  'epistemos-goose-only-skill-doc-guide',
+  "name: 'epistemos-goose-guide'",
+  'Reference Goose agent documentation',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`SkillsView staged source is missing required Goose-only snippet: ${snippet}`);
+  }
+}
+for (const stale of [
+  "epistemos-act-guide",
+  "Reference Act engine documentation",
+]) {
+  if (source.includes(stale)) {
+    throw new Error(`SkillsView staged source still contains stale Act snippet: ${stale}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 PROVIDER_SETTINGS_PAGE="$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
 node - "$PROVIDER_SETTINGS_PAGE" <<'NODE'
 const fs = require('fs');
@@ -7562,6 +7602,10 @@ JS
     grep -q "h-8 w-8 rounded-\\[8px\\] p-0 text-text-secondary hover:bg-background-danger/55" "$WORK_ROOT/ui/desktop/src/components/recipes/RecipesView.tsx"
     grep -q "mb-4 h-12 w-12 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/recipes/RecipesView.tsx"
     grep -q "mb-4 h-12 w-12 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
+    grep -q "epistemos-goose-only-skill-doc-guide" "$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
+    grep -q "epistemos-goose-guide" "$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
+    ! grep -q "Reference Act engine documentation" "$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
+    ! grep -q "epistemos-act-guide" "$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
     grep -q "ep-native-badge cursor-pointer px-3 py-1.5" "$WORK_ROOT/ui/desktop/src/components/recipes/RecipeActivities.tsx"
     grep -q "bg-\\[var(--epistemos-accent)\\] px-4 py-2" "$WORK_ROOT/ui/desktop/src/components/recipes/RecipeActivityEditor.tsx"
     grep -q "bg-background-danger/35" "$WORK_ROOT/ui/desktop/src/components/recipes/shared/RecipeNameField.tsx"
