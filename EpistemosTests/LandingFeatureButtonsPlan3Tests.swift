@@ -96,6 +96,8 @@ struct LandingFeatureButtonsPlan3Tests {
 
         #expect(buttons.contains("LiteParseImportGateStatus.status().isActive"))
         #expect(buttons.contains("ArxivPullGateStatus.status().isActive"))
+        #expect(buttons.contains("BrowserUseProGateStatus.status().isActive"))
+        #expect(buttons.contains("BrowserUseProGateStatus.status().detail"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().isActive"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().detail"))
         #expect(buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))

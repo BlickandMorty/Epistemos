@@ -24,7 +24,8 @@
 - **`enum LandingFeatureButton: CaseIterable`** — one case per feature (`pdfImport`/`arxiv`/`provenance`/`extensions`/
   `vaultMCP`/`browser`/`browserUsePro`/`meetingNote`/`voice`). Each derives
   `title`/`glyph`(reuse `PixelGlyphKind`)/theme-token `accent(in:)`/`haptic`/`isProOnly`/`isAvailableInThisBuild`;
-  meeting additionally uses `MeetingNoteLandingGateStatus` for macOS 26 SpeechAnalyzer plus microphone denial checks.
+  browser-use additionally uses `BrowserUseProGateStatus` for the signed Pro payload/flag gate, and meeting additionally
+  uses `MeetingNoteLandingGateStatus` for macOS 26 SpeechAnalyzer plus microphone denial checks.
   Adding a feature = **1 enum case + 1 switch line**.
 - **`LandingFeatureButtonTile`** — wraps the existing `PixelLandingCommandTile` (unchanged) + overlays a "PRO" pill when
   `isProOnly && !isAvailableInThisBuild`; `.help` text honest. Pro-only feature tiles do not also reuse the shortcut
@@ -46,7 +47,8 @@
 - **Deep-link refinement `[VERIFIED-CODE]`:** `SettingsView.init(initialSelection:)` +
   `UtilityWindowManager.shared.showSettings(section:)` now land `.provenance`, `.extensions/.vaultMCP`, and `.voice`
   directly on their panes.
-- **MAS-safe + no clash:** pure UI; every action summons an already-shipping surface; `.vaultMCP` and `.browserUsePro`
-  are Pro-gated (lock pill + bounded status alert in MAS). Reusing the pixel tile inherits theme-token accents + hover motion automatically.
+- **MAS-safe + no clash:** pure UI; every action summons an already-shipping surface; `.vaultMCP` is MAS-gated and
+  `.browserUsePro` is signed-Pro-gated (lock pill + bounded status alert when unavailable). Reusing the pixel tile
+  inherits theme-token accents + hover motion automatically.
 - **Browser button → Browser:** points at the in-app WKWebView Browser utility panel. The browser-use Chromium robot
   remains Pro-only and separate from this human-driven WebKit tab.

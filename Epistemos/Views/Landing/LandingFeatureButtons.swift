@@ -176,12 +176,14 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
 
     var isAvailableInThisBuild: Bool {
         switch self {
-        case .vaultMCP, .browserUsePro:
+        case .vaultMCP:
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             return false
             #else
             return true
             #endif
+        case .browserUsePro:
+            return BrowserUseProGateStatus.status().isActive
         case .pdfImport:
             return LiteParseImportGateStatus.status().isActive
         case .arxiv:
@@ -204,7 +206,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .browser:
             return "Browser is unavailable in this build."
         case .browserUsePro:
-            return "browser-use Pro is available in Developer ID builds only."
+            return BrowserUseProGateStatus.status().detail
         case .vaultMCP:
             return "vault MCP is available in Epistemos Pro."
         case .meetingNote:
