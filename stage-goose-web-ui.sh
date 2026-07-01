@@ -52,6 +52,34 @@ printf 'export const USE_ACP_CHAT = true;\n' > "$WORK_ROOT/ui/desktop/src/acpCha
 
 node "$ROOT_DIR/scripts/stage-goose-native-reskin.mjs" "$WORK_ROOT/ui/desktop"
 
+node - "$WORK_ROOT/ui/desktop/src/preload.ts" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+const search = '  listGitWorktreeDirs: (dir: string) => Promise<string[]>;';
+const replacement = `  listGitWorktreeDirs: (dir: string) => Promise<Array<string | {
+    path: string;
+    branch?: string | null;
+  }>>;`;
+
+if (!source.includes(search)) {
+  throw new Error('preload worktree type anchor not found');
+}
+source = source.replace(search, replacement);
+
+for (const snippet of [
+  'Promise<Array<string | {',
+  'branch?: string | null;',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`preload staged source is missing worktree branch type snippet: ${snippet}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 cat > "$WORK_ROOT/ui/desktop/src/acp/providers.ts" <<'TS'
 import type {
   ConfigKey,
@@ -7713,6 +7741,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "rounded-full bg-background-success" "$WORK_ROOT/ui/desktop/src/components/GroupedExtensionLoadingToast.tsx"
     grep -q "success: 'bg-background-success'" "$WORK_ROOT/ui/desktop/src/components/ui/Dot.tsx"
     grep -q "text-text-warning" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/ContextWindowIndicator.tsx"
+    grep -q "Promise<Array<string | {" "$WORK_ROOT/ui/desktop/src/preload.ts"
+    grep -q "branch?: string | null;" "$WORK_ROOT/ui/desktop/src/preload.ts"
     grep -q "function epistemosDirBaseName" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
     grep -q "handleStartWorktreeSession" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"
     grep -q "epistemosWorktreeTitle" "$WORK_ROOT/ui/desktop/src/components/bottom_menu/DirSwitcher.tsx"

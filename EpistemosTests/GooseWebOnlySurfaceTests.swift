@@ -333,6 +333,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("fill|stroke"))
         #expect(stageScript.contains("Goose Web UI artifact still contains hardcoded Tailwind palette leftovers after bundle postprocess."))
         #expect(stageScript.contains("['text-orange-500', 'text-text-warning']"))
+        #expect(stageScript.contains("preload worktree type anchor not found"))
+        #expect(stageScript.contains("Promise<Array<string | {"))
         #expect(stageScript.contains("data-epistemos-worktree-menu-item"))
         #expect(stageScript.contains("data-epistemos-worktree-new-session"))
         #expect(stageScript.contains("epistemosWorktreeTitle"))
