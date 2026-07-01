@@ -121,6 +121,10 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             try? fileManager.removeItem(at: fileURL)
             throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
         }
+        guard fileStatus.st_nlink == 1 else {
+            try? fileManager.removeItem(at: fileURL)
+            throw ArxivIngestError.downloadFailed("downloaded file is not a regular file")
+        }
         guard fileStatus.st_size >= 0 else {
             try? fileManager.removeItem(at: fileURL)
             throw ArxivIngestError.downloadFailed("could not inspect downloaded PDF size")

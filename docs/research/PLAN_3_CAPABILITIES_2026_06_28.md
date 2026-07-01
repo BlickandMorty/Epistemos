@@ -92,7 +92,7 @@ test-linking condition, not the shipped MAS parser state.
    untrusted parsing/trimming work, so the import button, Settings row, and controller did not need a new UI contract.
 4. **PDF-only scope enforced:** Office/image inputs are rejected before FFI on Swift and as `UnsupportedFormat` in Rust;
    no subprocess/sidecar fallback is introduced.
-5. **Parser input envelope hardened:** Swift and Rust both reject symlink/non-regular PDF paths, empty files, bodies over
+5. **Parser input envelope hardened:** Swift and Rust both reject symlink/hardlink/non-regular PDF paths, empty files, bodies over
    the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path. Rust preflight also reopens the
    header read with `O_NOFOLLOW|O_CLOEXEC` and revalidates the opened handle before magic sniffing. Import materialization also
    revalidates the copied source PDF with a no-follow descriptor before streaming it into the vault, and the parser runs

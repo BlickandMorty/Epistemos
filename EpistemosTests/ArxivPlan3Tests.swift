@@ -534,6 +534,7 @@ struct ArxivPlan3Tests {
 
         let targetPDF = root.appendingPathComponent("target.pdf")
         let symlinkPDF = root.appendingPathComponent("CFNetworkDownload_symlink.tmp")
+        let hardlinkedPDF = root.appendingPathComponent("CFNetworkDownload_hardlink.tmp")
         try Data("%PDF-1.7\n".utf8).write(to: targetPDF)
         try FileManager.default.createSymbolicLink(at: symlinkPDF, withDestinationURL: targetPDF)
         do {
@@ -544,6 +545,17 @@ struct ArxivPlan3Tests {
         }
         #expect(!FileManager.default.fileExists(atPath: symlinkPDF.path))
         #expect(FileManager.default.fileExists(atPath: targetPDF.path))
+
+        if (try? FileManager.default.linkItem(at: targetPDF, to: hardlinkedPDF)) != nil {
+            do {
+                _ = try URLSessionArxivPDFDownloader.prepareDownloadedPDF(from: hardlinkedPDF)
+                Issue.record("Expected hardlinked arXiv PDF download to be rejected")
+            } catch let error as ArxivIngestError {
+                #expect(error == .downloadFailed("downloaded file is not a regular file"))
+            }
+            #expect(!FileManager.default.fileExists(atPath: hardlinkedPDF.path))
+            #expect(FileManager.default.fileExists(atPath: targetPDF.path))
+        }
     }
 
     @Test("downloader rejects redirected non-arXiv final URLs")

@@ -29,7 +29,7 @@
   + parsed full text, where abstract body text is bounded before the note write, plus bounded persisted metadata/frontmatter labels `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. The paired PDF/Markdown writes use the shared reserved-file writer, including final
   symlink rejection after reservation. Downloaded temp PDFs are also opened with `O_NOFOLLOW`, checked with `fstat`,
-  and rejected before import if the temp path is a symlink, is not a regular file, exceeds the 128 MiB cap, or lacks
+  and rejected before import if the temp path is a symlink, is hardlinked, is not a regular file, exceeds the 128 MiB cap, or lacks
   `%PDF-` magic; extensionless `URLSession.download` temps are moved to a `.pdf` path and that final importer path is
   revalidated before `LiteParsePDFImporter` sees it. Successful ingest returns the vault-relative `source_pdf` path, and
   the sheet status reports that copied PDF

@@ -157,17 +157,28 @@ struct LiteParseImportTests {
 
         let targetPDF = root.appendingPathComponent("target.pdf")
         let symlinkPDF = root.appendingPathComponent("linked.pdf")
+        let hardlinkedPDF = root.appendingPathComponent("hardlinked.pdf")
         try Data("%PDF-1.7\n".utf8).write(to: targetPDF)
         try FileManager.default.createSymbolicLink(at: symlinkPDF, withDestinationURL: targetPDF)
+        let hardlinkSupported = (try? FileManager.default.linkItem(at: targetPDF, to: hardlinkedPDF)) != nil
 
         let importer = InertLiteParsePDFImporter()
         #expect(importer.importToMarkdown(pdfPath: emptyPDF.path) == .failed(LiteParsePDFSignature.emptyPDFMessage))
         #expect(importer.importToMarkdown(pdfPath: oversizedPDF.path) == .failed(LiteParsePDFSignature.tooLargePDFMessage))
         #expect(importer.importToMarkdown(pdfPath: symlinkPDF.path) == .failed(LiteParsePDFSignature.nonRegularPDFMessage))
+        if hardlinkSupported {
+            #expect(importer.importToMarkdown(pdfPath: hardlinkedPDF.path) == .failed(LiteParsePDFSignature.nonRegularPDFMessage))
+        }
 
         guard case .unreadable = LiteParsePDFSignature.fileStartsWithPDFMagic(symlinkPDF.path) else {
             Issue.record("PDF magic helper must reject a final symlink without following it")
             return
+        }
+        if hardlinkSupported {
+            guard case .unreadable(LiteParsePDFSignature.nonRegularPDFMessage) = LiteParsePDFSignature.fileStartsWithPDFMagic(hardlinkedPDF.path) else {
+                Issue.record("PDF magic helper must reject a hardlinked source PDF")
+                return
+            }
         }
     }
 
@@ -310,6 +321,8 @@ struct LiteParseImportTests {
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(rust.contains("doc.source_path = None"))
         #expect(rust.contains("symlink_metadata"))
+        #expect(rust.contains("metadata.nlink() == 1"))
+        #expect(rust.contains("std::fs::hard_link"))
         #expect(rust.contains("open_pdf_for_preflight"))
         #expect(rust.contains("OpenOptionsExt"))
         #expect(rust.contains("custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)"))
@@ -468,6 +481,7 @@ struct LiteParseImportTests {
         let nonPDFSource = root.appendingPathComponent("source-html.pdf")
         let oversizedSource = root.appendingPathComponent("oversized.pdf")
         let symlinkSource = root.appendingPathComponent("linked.pdf")
+        let hardlinkedSource = root.appendingPathComponent("hardlinked.pdf")
         let reservedPDF = root.appendingPathComponent("reserved.pdf")
 
         try Data("%PDF- source".utf8).write(to: validSource)
@@ -477,6 +491,7 @@ struct LiteParseImportTests {
         try oversizedHandle.truncate(atOffset: UInt64(LiteParsePDFSignature.maxPDFBytes + 1))
         try oversizedHandle.close()
         try FileManager.default.createSymbolicLink(at: symlinkSource, withDestinationURL: validSource)
+        let hardlinkSupported = (try? FileManager.default.linkItem(at: validSource, to: hardlinkedSource)) != nil
 
         func expectCopyRejected(from source: URL) throws {
             try Data().write(to: reservedPDF)
@@ -490,6 +505,10 @@ struct LiteParseImportTests {
         try expectCopyRejected(from: nonPDFSource)
         try expectCopyRejected(from: oversizedSource)
         try expectCopyRejected(from: symlinkSource)
+        if hardlinkSupported {
+            try expectCopyRejected(from: hardlinkedSource)
+            try FileManager.default.removeItem(at: hardlinkedSource)
+        }
 
         try Plan3ImportFileIO.copyFileContents(from: validSource, toReservedFile: reservedPDF)
         #expect((try? Data(contentsOf: reservedPDF)) == Data("%PDF- source".utf8))

@@ -100,6 +100,17 @@ fn reject_if_not_pdf_or_extensionless(pdf_path: &str) -> Result<(), LiteParseErr
     Err(LiteParseError::UnsupportedFormat(ext))
 }
 
+#[cfg(unix)]
+fn metadata_is_single_link(metadata: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    metadata.nlink() == 1
+}
+
+#[cfg(not(unix))]
+fn metadata_is_single_link(_metadata: &std::fs::Metadata) -> bool {
+    true
+}
+
 fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
     reject_if_not_pdf_or_extensionless(pdf_path)?;
     let metadata = match std::fs::symlink_metadata(pdf_path) {
@@ -112,6 +123,11 @@ fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
         }
     };
     if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(LiteParseError::Failed(
+            "PDF path is not a regular file".to_string(),
+        ));
+    }
+    if !metadata_is_single_link(&metadata) {
         return Err(LiteParseError::Failed(
             "PDF path is not a regular file".to_string(),
         ));
@@ -130,6 +146,11 @@ fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
         .metadata()
         .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))?;
     if !opened_metadata.is_file() {
+        return Err(LiteParseError::Failed(
+            "PDF path is not a regular file".to_string(),
+        ));
+    }
+    if !metadata_is_single_link(&opened_metadata) {
         return Err(LiteParseError::Failed(
             "PDF path is not a regular file".to_string(),
         ));
@@ -505,6 +526,36 @@ mod tests {
                 );
             }
             other => panic!("expected symlink preflight failure, got {other:?}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preflight_rejects_hardlinked_pdf_before_parser() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the Unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("epistemos-liteparse-hardlink-{unique}"));
+        std::fs::create_dir_all(&dir).expect("create temp liteparse dir");
+        let target = dir.join("target.pdf");
+        let hardlink = dir.join("hardlinked.pdf");
+        std::fs::write(&target, b"%PDF-1.7\n").expect("write target pdf");
+        if std::fs::hard_link(&target, &hardlink).is_err() {
+            let _ = std::fs::remove_dir_all(&dir);
+            return;
+        }
+
+        match preflight_pdf_path(hardlink.to_str().expect("utf-8 temp path")) {
+            Err(LiteParseError::Failed(message)) => {
+                assert!(
+                    message.contains("not a regular file"),
+                    "unexpected error: {message}"
+                );
+            }
+            other => panic!("expected hardlink preflight failure, got {other:?}"),
         }
 
         let _ = std::fs::remove_dir_all(&dir);

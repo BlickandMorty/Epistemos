@@ -155,26 +155,24 @@ nonisolated enum LiteParsePDFSignature {
             return .failed(nonRegularPDFMessage)
         }
 
-        do {
-            let values = try URL(fileURLWithPath: path).resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            guard values.isRegularFile == true else {
-                return .failed(nonRegularPDFMessage)
-            }
-            guard let fileSize = values.fileSize else {
-                return .failed("Could not inspect the PDF file: file size is unavailable")
-            }
-            if fileSize == 0 {
-                return .failed(emptyPDFMessage)
-            }
-            if fileSize > maxPDFBytes {
-                return .failed(tooLargePDFMessage)
-            }
-            return nil
-        } catch {
+        var fileStatus = stat()
+        guard lstat(path, &fileStatus) == 0 else {
+            let error = pdfReadError("Could not inspect the PDF file.", errnoCode: errno)
             return hasPDFExtension
                 ? .failed("Could not inspect the PDF file: \(LiteParseImportDiagnostics.inspectionFailure(error))")
                 : .unsupported(unsupportedPDFMessage)
         }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink == 1 else {
+            return .failed(nonRegularPDFMessage)
+        }
+        guard fileStatus.st_size > 0 else {
+            return .failed(emptyPDFMessage)
+        }
+        guard UInt64(fileStatus.st_size) <= UInt64(maxPDFBytes) else {
+            return .failed(tooLargePDFMessage)
+        }
+        return nil
     }
 
     static func fileStartsWithPDFMagic(_ path: String) -> PDFMagicCheck {
@@ -192,6 +190,10 @@ nonisolated enum LiteParsePDFSignature {
             return .unreadable(message)
         }
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            return .unreadable(nonRegularPDFMessage)
+        }
+        guard fileStatus.st_nlink == 1 else {
             close(fd)
             return .unreadable(nonRegularPDFMessage)
         }
@@ -232,6 +234,10 @@ nonisolated enum LiteParsePDFSignature {
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             close(fd)
             throw pdfReadError(nonRegularPDFMessage, errnoCode: EFTYPE)
+        }
+        guard fileStatus.st_nlink == 1 else {
+            close(fd)
+            throw pdfReadError(nonRegularPDFMessage, errnoCode: EMLINK)
         }
         guard fileStatus.st_size > 0 else {
             close(fd)

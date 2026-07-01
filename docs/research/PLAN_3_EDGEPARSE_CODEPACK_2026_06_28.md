@@ -18,7 +18,7 @@
   `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}` while rejecting oversized engine envelopes/Markdown and
   capping engine error strings before untrusted parsing/trimming work. `LiveLiteParsePDFImporter` rejects explicit
   non-PDF extensions before FFI while still accepting extensionless PDF downloads by `%PDF-` magic, and mirrors the Rust
-  input envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB before parser dispatch. The
+  input envelope by rejecting symlink/hardlink/non-regular paths, empty files, and PDFs over 512 MiB before parser dispatch. The
   Swift magic read revalidates empty/oversized files after the final no-follow open. It calls
   the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that binding honestly fall back to
   `.notWired`. Swift-side Foundation/file failures are mapped to bounded domain/code diagnostics before reaching import
@@ -32,7 +32,7 @@
   `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If conversion or writing the note fails, the copied source
   PDF is removed too. Reserved PDF/Markdown destination writes reopen with `O_NOFOLLOW` and regular-file validation so a
   final symlink swap cannot redirect import output after reservation. Source PDF copy reopens through
-  `openValidatedPDFForReading` with no-follow, regular-file, 512 MiB, and `%PDF-` magic checks on the copied file
+  `openValidatedPDFForReading` with no-follow, regular-file, single-link, 512 MiB, and `%PDF-` magic checks on the copied file
   descriptor before the parser runs against that copied vault PDF path. Import basename normalization starts from a
   bounded prefix and duplicate filename reservation has a hard attempt cap. Successful imports return the copied
   vault-relative `source_pdf` path so sidebar and landing status lines can show the exact stored source-PDF evidence.
@@ -52,7 +52,7 @@
 ## Rust path
 `agent_core/src/liteparse.rs` is the single parser seam:
 - Inert/no-engine builds: PDF inputs return `EngineNotWired`; non-PDF inputs return `UnsupportedFormat`.
-- Preflight uses `symlink_metadata` and rejects symlink/non-regular paths, empty files, bodies over the 512 MiB cap,
+- Preflight uses `symlink_metadata` and rejects symlink/hardlink/non-regular paths, empty files, bodies over the 512 MiB cap,
   and files without `%PDF-` magic before EdgeParse, unpdf, or the legacy liteparse lane receives the path. The Rust
   header read reopens with `O_NOFOLLOW|O_CLOEXEC` and revalidates the opened file handle before sniffing `%PDF-`, so a
   final-symlink swap cannot redirect the parser preflight after the metadata check.
