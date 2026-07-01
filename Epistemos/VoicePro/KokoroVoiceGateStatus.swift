@@ -28,6 +28,8 @@ nonisolated enum KokoroVoiceGateStatus {
     static let maxPackageTotalBytes = UInt64(4) * 1024 * 1024 * 1024
     private static let maxPathDiagnosticLength = 160
     private static let maxPackageFilePathLength = 280
+    private static let maxManifestMetadataCharacters = 96
+    private static let manifestMetadataAllowedPunctuation = CharacterSet(charactersIn: "._-")
     private static let hashReadChunkBytes = 1024 * 1024
     private static let requiredDurationTokenSizes: Set<Int> = [32, 64, 128, 256, 320, 384, 512]
     private static let allowedBuckets: Set<Int> = [3, 7, 10, 15, 30]
@@ -251,7 +253,15 @@ nonisolated enum KokoroVoiceGateStatus {
         guard requiredString(object["hf_repo_id"]) == upstreamRepositoryID else {
             return ManifestCheck(manifest: nil, problem: "\(manifestFileName) hf_repo_id must be \(upstreamRepositoryID)")
         }
-        let bundleProfile = requiredString(object["bundle_profile"]) ?? "unknown"
+        let bundleProfile: String
+        if object.keys.contains("bundle_profile") {
+            guard let profile = manifestMetadataString(object["bundle_profile"]) else {
+                return ManifestCheck(manifest: nil, problem: "\(manifestFileName) bundle_profile is invalid")
+            }
+            bundleProfile = profile
+        } else {
+            bundleProfile = "unknown"
+        }
 
         guard let minimumPlatforms = object["minimum_platforms"] as? [String: Any],
               let macOSMinimum = requiredString(minimumPlatforms["macOS"]),
@@ -809,6 +819,19 @@ nonisolated enum KokoroVoiceGateStatus {
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func manifestMetadataString(_ value: Any?) -> String? {
+        guard let value = requiredString(value),
+              value.count <= maxManifestMetadataCharacters,
+              value.rangeOfCharacter(from: .controlCharacters) == nil,
+              value.unicodeScalars.allSatisfy({ scalar in
+                  CharacterSet.alphanumerics.contains(scalar)
+                      || manifestMetadataAllowedPunctuation.contains(scalar)
+              }) else {
+            return nil
+        }
+        return value
     }
 
     private static func integerSet(_ value: Any?) -> Set<Int>? {

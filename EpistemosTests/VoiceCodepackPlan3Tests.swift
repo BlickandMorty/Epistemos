@@ -26,6 +26,7 @@ struct VoiceCodepackPlan3Tests {
             "Native Kokoro Swift/CoreML playback is wired",
             "Local Kokoro package install/removal is real and playback-enabling",
             "manifest-derived package evidence",
+            "bounded printable bundle profile",
             "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
             "KokoroCoreMLRuntimeLoader",
             "KokoroCoreMLSynthesizer",
@@ -96,6 +97,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("no Apple AVSpeech fallback"))
         #expect(capabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("manifest-derived package evidence"))
+        #expect(capabilities.contains("bounded printable\n  bundle profile"))
         #expect(capabilities.contains("observable read-aloud progress"))
         #expect(capabilities.contains("Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text"))
         #expect(capabilities.contains("requires the complete manifest-declared duration/bucket CoreML package"))
@@ -361,6 +363,9 @@ struct VoiceCodepackPlan3Tests {
             "maxManifestFileCount",
             "maxPackageFileBytes",
             "maxPackageTotalBytes",
+            "maxManifestMetadataCharacters",
+            "manifestMetadataString(",
+            "bundle_profile is invalid",
             "runtimeManifestProblem(",
             "runtimeManifest(from:",
             "duration_token_sizes",
@@ -795,6 +800,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.packageEvidence?.runtimeAssetCount == 2)
         #expect(status.packageEvidence?.manifestFileCount == 23)
         #expect((status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
+        #expect(status.packageEvidence?.bundleProfile == "test")
         #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.manifestFileName) == true)
         #expect(status.packageEvidence?.settingsSummary.contains("10 checked Core ML packages") == true)
         #expect(status.packageEvidence?.settingsSummary.contains("declared bytes") == true)
@@ -1087,6 +1093,34 @@ struct VoiceCodepackPlan3Tests {
         #expect(!fractionalBytes.isReady)
         #expect(fractionalBytes.state == .missingModel)
         #expect(fractionalBytes.detail.contains("model_packages[0].files[0].bytes must be a positive integer"))
+
+        var oversizedProfileManifest = try kokoroRuntimeManifestObject()
+        oversizedProfileManifest["bundle_profile"] = String(repeating: "x", count: 97)
+        try JSONSerialization.data(withJSONObject: oversizedProfileManifest, options: [.sortedKeys])
+            .write(to: manifestURL)
+
+        let oversizedProfile = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!oversizedProfile.isReady)
+        #expect(oversizedProfile.state == .missingModel)
+        #expect(oversizedProfile.detail.contains("KokoroRuntimeManifest.json bundle_profile is invalid"))
+
+        var pathLikeProfileManifest = try kokoroRuntimeManifestObject()
+        pathLikeProfileManifest["bundle_profile"] = "test/profile"
+        try JSONSerialization.data(withJSONObject: pathLikeProfileManifest, options: [.sortedKeys])
+            .write(to: manifestURL)
+
+        let pathLikeProfile = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!pathLikeProfile.isReady)
+        #expect(pathLikeProfile.state == .missingModel)
+        #expect(pathLikeProfile.detail.contains("KokoroRuntimeManifest.json bundle_profile is invalid"))
         #else
         #expect(true)
         #endif

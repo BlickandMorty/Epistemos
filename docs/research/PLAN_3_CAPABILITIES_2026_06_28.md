@@ -459,7 +459,8 @@ Folded in as clean Plan-3 capabilities:
   model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
   with ellipsis inside configured caps and requires the complete manifest-declared duration/bucket CoreML package
   families before reporting ready. A checked package reports `packageReady` with manifest-derived package evidence
-  (Core ML package count, voice count, runtime asset count, checked file count, and declared bytes) and flips
+  (Core ML package count, voice count, runtime asset count, checked file count, declared bytes, and a bounded printable
+  bundle profile) and flips
   `isReady=true` only when the native playback path is linked. Developer ID builds now show a Pro-only Voice settings
   status/runtime affordance labelled `TTS unavailable` / `Kokoro neural voice` plus a local checked-package
   installer/remover; no Apple AVSpeech fallback, committed model asset, network downloader, Python, subprocess, or

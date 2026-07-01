@@ -53,7 +53,7 @@
   total package bytes before digesting any listed artifact, and verifies the listed segmented `.mlpackage`, runtime
   vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests before reporting `packageReady`. Package-ready status
   carries manifest-derived package evidence (Core ML package count, voice count, runtime asset count, checked file count,
-  and declared bytes) without exposing local roots.
+  declared bytes, and a bounded printable bundle profile) without exposing local roots.
   `isReady` is true only when the checked package can feed the linked native playback path. Status details use
   bounded-before-trim model-relative diagnostics with ellipsis inside configured caps instead of local absolute model
   paths. A Pro-only Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and
@@ -167,9 +167,9 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
   does not regress to ad hoc borderless/raw accent chrome.
 - STT facade tests prove partial/final transcript helpers stay inside the capture pipeline text envelope before callbacks.
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
-- Kokoro gate tests prove malformed, symlink-routed, non-regular, placeholder, digest-mismatched, or
-  oversized/invalid-manifest model artifacts keep TTS unavailable with no AVSpeech fallback and without exposing local
-  model roots in UI-facing status details.
+- Kokoro gate tests prove malformed, symlink-routed, non-regular, placeholder, digest-mismatched,
+  oversized/invalid-manifest, or invalid manifest-metadata model artifacts keep TTS unavailable with no AVSpeech fallback
+  and without exposing local model roots in UI-facing status details.
 - MAS boundary guard proves no Kokoro weights, Python, subprocess, or Chromium-like runtime enters the App Store target.
   The vendored `KokoroPipeline` package is native Swift/CoreML source only.
 
