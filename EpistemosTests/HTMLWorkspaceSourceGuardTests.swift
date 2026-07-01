@@ -66,6 +66,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("HTML Workspace info probe"))
         #expect(previewSource.contains("HTML Workspace console probe"))
         #expect(previewSource.contains("HTML Workspace error probe"))
+        #expect(previewSource.contains("HTML Workspace window error probe"))
+        #expect(previewSource.contains("HTML Workspace rejection probe"))
         #expect(previewSource.contains("requestPythonProbe"))
         #expect(previewSource.contains("pendingPythonProbeNonce"))
         #expect(previewSource.contains("Python runtime manual probe"))

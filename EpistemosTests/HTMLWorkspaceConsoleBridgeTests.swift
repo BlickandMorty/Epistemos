@@ -82,6 +82,8 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(preview.contains("HTML Workspace info probe"))
         #expect(preview.contains("HTML Workspace console probe"))
         #expect(preview.contains("HTML Workspace error probe"))
+        #expect(preview.contains("HTML Workspace window error probe"))
+        #expect(preview.contains("HTML Workspace rejection probe"))
         #expect(preview.contains("onConsoleError?(error.boundedForPackage())"))
         #expect(preview.contains("source: diagnostic.source ?? activeDocumentSourceName"))
         #expect(preview.contains("severity: diagnostic.severity"))

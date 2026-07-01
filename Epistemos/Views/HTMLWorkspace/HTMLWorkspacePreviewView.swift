@@ -555,6 +555,15 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
           console.info('HTML Workspace info probe');
           console.warn('HTML Workspace console probe');
           console.error('HTML Workspace error probe');
+          window.dispatchEvent(new ErrorEvent('error', {
+            message: 'HTML Workspace window error probe',
+            filename: 'html-workspace-console-probe.js',
+            lineno: 1,
+            colno: 1
+          }));
+          setTimeout(() => {
+            Promise.reject(new Error('HTML Workspace rejection probe'));
+          }, 0);
           return 'posted';
         })();
         """
