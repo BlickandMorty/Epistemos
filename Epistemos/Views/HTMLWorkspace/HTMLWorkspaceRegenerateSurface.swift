@@ -520,7 +520,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         let query = bounded(contextQuery, limit: 160)
         return """
         \(instruction)
-        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, PDFs/arXiv papers, folders, captures, meeting notes, web clips, chats, provenance claims, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
+        Attached context query: "\(query)" through the read-only HTMLWorkspaceDataFeed data.json envelope. Use only records present in data.json, honor _epistemos.provenance plus each record's source_label/context_kind/provenance, keep source provenance visible, and render an honest empty state when no matching notes, PDFs/arXiv papers, folders, captures, meeting notes, web clips, chats, provenance claims, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
         \(requiredContextKindInstruction)
         """
     }

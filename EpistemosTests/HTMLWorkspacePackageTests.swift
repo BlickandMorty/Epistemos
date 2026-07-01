@@ -728,6 +728,19 @@ nonisolated struct HTMLWorkspacePackageTests {
         }
     }
 
+    @Test("HTMLWorkspace vault-data preset prompt uses feed envelope provenance")
+    func vaultDataPresetPromptUsesFeedEnvelopeProvenance() throws {
+        let preset = try #require(HTMLWorkspaceRegeneratePreset.all.first { $0.id == "vault-notes-cards" })
+        let instruction = preset.instruction(contextQuery: "  notes alpha  ")
+
+        #expect(instruction.contains(#"Attached context query: "notes alpha""#))
+        #expect(instruction.contains("read-only HTMLWorkspaceDataFeed data.json envelope"))
+        #expect(instruction.contains("_epistemos.provenance"))
+        #expect(instruction.contains("source_label/context_kind/provenance"))
+        #expect(instruction.contains(#"context_kind "note""#))
+        #expect(!instruction.contains("via VaultSyncService.searchFullAsync"))
+    }
+
     @Test("HTMLWorkspace setDataFeed patch seeds pending data for the new query")
     func setDataFeedPatchSeedsPendingDataForNewQuery() throws {
         var package = Self.samplePackage()
