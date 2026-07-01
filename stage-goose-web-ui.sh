@@ -889,6 +889,12 @@ async function readPreferenceConfig(key: string): Promise<string | null> {
   return typeof entry.value === 'string' ? entry.value : String(entry.value);
 }
 
+async function removePreferenceConfig(key: string): Promise<void> {
+  const prefKey = preferenceBackedConfigKeys[key];
+  const client = await getAcpClient();
+  await client.goose.preferencesRemove_unstable({ keys: [prefKey] });
+}
+
 export async function readAcpProviderConfigValue(key: string): Promise<string | null> {
   if (key === 'GOOSE_PROVIDER' || key === 'GOOSE_DEFAULT_PROVIDER') {
     const defaults = await readAcpProviderDefaults();
@@ -1025,6 +1031,10 @@ export async function removeAcpProviderConfig(key: string): Promise<void> {
     // and defaults/save, but no defaults/delete. Returning here makes the reset
     // provider/model button look successful while doing nothing.
     throw new Error('Goose ACP cannot reset provider/model defaults because defaults/save requires a providerId and ACP exposes no defaults delete.');
+  }
+  if (key in preferenceBackedConfigKeys) {
+    await removePreferenceConfig(key);
+    return;
   }
   if (isLocalAcpConfigKey(key)) {
     localAcpConfigValues.delete(key);

@@ -1219,7 +1219,17 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("async function readPreferenceConfig"))
         #expect(script.contains("client.goose.preferencesRead_unstable({ keys: [prefKey] })"))
         #expect(script.contains("'Goose ACP preference read'"))
+        #expect(script.contains("async function removePreferenceConfig"))
+        #expect(script.contains("client.goose.preferencesRemove_unstable({ keys: [prefKey] })"))
+        #expect(script.contains("await removePreferenceConfig(key)"))
         #expect(script.contains("if (key in preferenceBackedConfigKeys)"))
+        #expect(script.contains("""
+  if (key in preferenceBackedConfigKeys) {
+    await removePreferenceConfig(key);
+    return;
+  }
+  if (isLocalAcpConfigKey(key)) {
+"""))
         // First-run welcome provider grid (OnboardingGuard -> ProviderSelector)
         // populated from the live ACP catalog. The upstream REST /config/providers
         // does not exist in ACP mode, so the un-grafted fetchProviders threw and the
