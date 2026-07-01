@@ -266,6 +266,46 @@ struct VaultMCPCoreTests {
         #expect(object["method"] as? String == "resources/list")
     }
 
+    @Test("delegated resources/read validates and sanitizes target before dispatch")
+    func delegatedResourcesReadValidatesAndSanitizesTargetBeforeDispatch() async throws {
+        let root = try Self.makeVaultRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "Visible".write(to: root.appendingPathComponent("Visible.md"), atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
+        try "Hidden".write(
+            to: root.appendingPathComponent(".hidden").appendingPathComponent("Secret.md"),
+            atomically: true,
+            encoding: .utf8)
+
+        let dispatcher = RecordingResourceDispatcher()
+        let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor, resourceDispatcher: dispatcher)
+
+        for uri in [
+            "vault:///../Secret.md",
+            "vault:///.hidden/Secret.md",
+            "file:///tmp/Secret.md",
+        ] {
+            let response = await core.handle(
+                requestJSON: #"{"jsonrpc":"2.0","id":24,"method":"resources/read","params":{"uri":"\#(uri)"}}"#)
+            let object = try Self.jsonObject(response)
+            let error = try #require(object["error"] as? [String: Any])
+            #expect(error["code"] as? Int == -32602)
+        }
+        #expect(dispatcher.snapshot().isEmpty)
+
+        _ = await core.handle(
+            requestJSON: #"""
+            {"jsonrpc":"2.0","id":25,"method":"resources/read","params":{"uri":"vault:///Visible.md","path":"../Secret.md","extra":true}}
+            """#)
+
+        let delegated = try #require(dispatcher.snapshot().first)
+        let object = try Self.jsonObject(delegated)
+        let params = try #require(object["params"] as? [String: Any])
+        #expect(object["method"] as? String == "resources/read")
+        #expect(params["uri"] as? String == "vault:///Visible.md")
+        #expect(Set(params.keys) == Set(["uri"]))
+    }
+
     @Test("JSON-RPC protocol diagnostics are bounded")
     func jsonRPCProtocolDiagnosticsAreBounded() async throws {
         let recorder = CallRecorder()

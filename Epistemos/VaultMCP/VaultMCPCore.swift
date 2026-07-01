@@ -116,10 +116,19 @@ nonisolated struct VaultMCPCore {
             }.value
             return Self.successResponse(id: id, result: ["resources": Self.resourcesList(from: relativePaths)])
         case "resources/read":
-            if let resourceDispatcher {
-                return resourceDispatcher.dispatch(requestJson: Self.delegatedDispatchRequestJSON(from: request, id: id))
+            switch validatedResourceReadTarget(id: id, request: request) {
+            case .failure(let response):
+                return response
+            case .success(let target):
+                if let resourceDispatcher {
+                    return resourceDispatcher.dispatch(
+                        requestJson: Self.delegatedResourceReadRequestJSON(
+                            from: request,
+                            id: id,
+                            target: target))
+                }
+                return await handleResourcesRead(id: id, target: target)
             }
-            return await handleResourcesRead(id: id, request: request)
         default:
             return Self.errorResponse(
                 id: id,
@@ -219,20 +228,28 @@ nonisolated struct VaultMCPCore {
         return nil
     }
 
-    private func handleResourcesRead(id: Any, request: [String: Any]) async -> String {
+    private func validatedResourceReadTarget(id: Any, request: [String: Any]) -> ResourceReadTargetValidationResult {
         guard let params = request["params"] as? [String: Any] else {
-            return Self.errorResponse(id: id, code: -32602, message: "resources/read requires params")
+            return .failure(Self.errorResponse(id: id, code: -32602, message: "resources/read requires params"))
         }
         guard let uri = params["uri"] as? String, !uri.isEmpty else {
-            return Self.errorResponse(id: id, code: -32602, message: "params.uri is required")
+            return .failure(Self.errorResponse(id: id, code: -32602, message: "params.uri is required"))
         }
         guard let relativePath = Self.relativePath(fromVaultURI: uri) else {
-            return Self.errorResponse(id: id, code: -32602, message: "resources/read requires vault:/// URI")
+            return .failure(Self.errorResponse(id: id, code: -32602, message: "resources/read requires vault:/// URI"))
         }
+        do {
+            _ = try Self.containedMarkdownURL(vaultRoot: vaultRoot, relativePath: relativePath)
+        } catch {
+            return .failure(Self.errorResponse(id: id, code: -32602, message: Self.errorMessage(for: error)))
+        }
+        return .success(ResourceReadTarget(uri: Self.vaultURI(for: relativePath), relativePath: relativePath))
+    }
 
+    private func handleResourcesRead(id: Any, target: ResourceReadTarget) async -> String {
         let readResult = await Task.detached(priority: .utility) {
             do {
-                return ResourceReadResult.success(try Self.noteText(vaultRoot: vaultRoot, relativePath: relativePath))
+                return ResourceReadResult.success(try Self.noteText(vaultRoot: vaultRoot, relativePath: target.relativePath))
             } catch {
                 return ResourceReadResult.failure(Self.errorMessage(for: error))
             }
@@ -244,7 +261,7 @@ nonisolated struct VaultMCPCore {
                 id: id,
                 result: [
                     "contents": [[
-                        "uri": uri,
+                        "uri": target.uri,
                         "mimeType": "text/markdown",
                         "text": text,
                     ]],
@@ -396,6 +413,18 @@ nonisolated struct VaultMCPCore {
     static func delegatedDispatchRequestJSON(from request: [String: Any], id: Any) -> String {
         var boundedRequest = request
         boundedRequest["id"] = id
+        return jsonRPC(boundedRequest)
+    }
+
+    static func delegatedResourceReadRequestJSON(
+        from request: [String: Any],
+        id: Any,
+        target: ResourceReadTarget
+    ) -> String {
+        var boundedRequest = request
+        boundedRequest["id"] = id
+        boundedRequest["method"] = "resources/read"
+        boundedRequest["params"] = ["uri": target.uri]
         return jsonRPC(boundedRequest)
     }
 
@@ -674,6 +703,16 @@ nonisolated struct VaultMCPCore {
 
 private enum ResourceReadResult: Sendable {
     case success(String)
+    case failure(String)
+}
+
+nonisolated struct ResourceReadTarget: Sendable {
+    let uri: String
+    let relativePath: String
+}
+
+private enum ResourceReadTargetValidationResult: Sendable {
+    case success(ResourceReadTarget)
     case failure(String)
 }
 
