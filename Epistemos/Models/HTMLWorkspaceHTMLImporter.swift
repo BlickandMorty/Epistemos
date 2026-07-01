@@ -122,7 +122,9 @@ nonisolated enum HTMLWorkspaceHTMLImporter {
 
     private static func capturedAttribute(_ name: String, in attributes: String) -> String? {
         let escapedName = NSRegularExpression.escapedPattern(for: name)
-        guard let expression = try? NSRegularExpression(pattern: #"(?is)\b\#(escapedName)\s*=\s*["']([^"']+)["']"#) else {
+        // (?<![\w-]) instead of \b so the name cannot start mid-attribute: \bid would otherwise
+        // match the tail of data-id / data-type and wrongly drop user <style data-id=...> blocks.
+        guard let expression = try? NSRegularExpression(pattern: #"(?is)(?<![\w-])\#(escapedName)\s*=\s*["']([^"']+)["']"#) else {
             return nil
         }
         let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
@@ -133,17 +135,11 @@ nonisolated enum HTMLWorkspaceHTMLImporter {
         return String(attributes[idRange])
     }
 
-    private static func decodeBasicHTMLEntities(_ source: String) -> String {
-        source
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&amp;", with: "&")
-    }
-
     private static func decodeScriptData(_ source: String) -> String {
-        decodeBasicHTMLEntities(source)
-            .replacingOccurrences(of: #"<\/script"#, with: "</script", options: [.caseInsensitive])
-            .replacingOccurrences(of: #"<\!--"#, with: "<!--")
+        // Exact inverse of HTMLWorkspacePreviewDocument.escapeScriptData (which escapes `<` as
+        // <). Deliberately does NOT HTML-entity-decode: the forward path never entity-encodes,
+        // so decoding &quot;/&amp;/&lt;/&gt; here corrupted legitimate data.json content (unescaped
+        // quotes -> invalid JSON) and made the revert/import round-trip lossy.
+        source.replacingOccurrences(of: "\\u003C", with: "<", options: [.caseInsensitive])
     }
 }

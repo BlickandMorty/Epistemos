@@ -138,8 +138,11 @@ nonisolated public enum HTMLWorkspacePreviewDocument {
     }
 
     private static func escapeScriptData(_ value: String) -> String {
-        value
-            .replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
+        // Neutralize every `<` so the HTML tokenizer can never enter script-data-(double-)escaped
+        // state via </script, <!-- or <script and swallow the runtime bridge + user script. <
+        // is a valid JSON escape that JSON.parse restores to `<`; decodeScriptData reverses it
+        // exactly. This subsumes the previous </script-only escape.
+        value.replacingOccurrences(of: "<", with: "\\u003C")
     }
 }
 
