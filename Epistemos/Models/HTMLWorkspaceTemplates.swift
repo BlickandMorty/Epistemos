@@ -1022,27 +1022,33 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       };
     }
 
-    function renderResultChart(results) {
+    function renderResultChart(results, allResults) {
       const host = HTMLWorkspace.q('[data-result-chart]');
       if (!host) { return; }
       host.replaceChildren();
 
-      const ranked = results
+      const boundResult = sectionBoundResult('rank-signal', allResults);
+      const boundKey = boundResult ? resultKey(boundResult) : null;
+      const chartResults = boundResult
+        ? [boundResult].concat(results.filter((result) => resultKey(result) !== boundKey))
+        : results;
+
+      const ranked = chartResults
         .map(rankDatum)
         .filter(Boolean)
         .sort((a, b) => b.value - a.value)
         .slice(0, 8);
 
       if (ranked.length === 0) {
-        const message = results.length > 0
-          ? 'No numeric ranks available for charting.'
-          : 'No visible results to chart.';
+        const message = boundResult
+          ? 'Dropped section source has no numeric rank available for charting.'
+          : (results.length > 0 ? 'No numeric ranks available for charting.' : 'No visible results to chart.');
         host.append(HTMLWorkspace.el('p', { class: 'empty' }, message));
         return;
       }
 
       const max = Math.max(...ranked.map((datum) => datum.value));
-      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, 'Rank signal'));
+      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, boundResult ? 'Dropped section rank signal' : 'Rank signal'));
       ranked.forEach((datum) => {
         const percent = Math.max(4, Math.round((datum.value / max) * 100));
         host.append(HTMLWorkspace.el('div', { class: 'chart-row', title: datum.source }, [
@@ -1080,7 +1086,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderContextPicker(results, selectedResult);
       updatePinButton(selectedResult);
       renderPinnedContext(allResults);
-      renderResultChart(results);
+      renderResultChart(results, allResults);
       renderResultDetail(results, allResults);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
