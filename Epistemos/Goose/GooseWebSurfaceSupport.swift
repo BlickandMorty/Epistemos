@@ -331,9 +331,11 @@ extension GooseWebSurfaceView {
         let surfaceStrong = cssColor(resolved.floatingSurfaceTint)
         let foreground = cssColor(resolved.foreground)
         let mutedForeground = cssColor(resolved.mutedForeground)
-        let border = cssColor(resolved.border)
         let accent = cssColor(resolved.accent)
+        // Focus feedback is theme-toned, never the chunky OS/Tailwind ring (spec HARD RULE 2):
+        // a soft surface-fill shift on inputs + a quiet diffuse halo on keyboard focus.
         let quietFocus = "color-mix(in srgb, \(accent) 7%, \(surfaceStrong))"
+        let quietFocusRing = "color-mix(in srgb, \(accent) 18%, transparent)"
         let inverseBackground = cssColor(resolved.foreground)
         let inverseText = cssColor(resolved.background)
         let colorScheme = theme.isDark ? "dark" : "light"
@@ -359,18 +361,8 @@ extension GooseWebSurfaceView {
           --color-ring-primary: transparent !important;
           --color-ring-secondary: transparent !important;
           --color-ring-info: transparent !important;
-          --epistemos-accent: \(accent) !important;
           --epistemos-quiet-focus: \(quietFocus) !important;
-          --epistemos-radius-base: 11px !important;
-          --epistemos-radius-control: 8px !important;
-          --epistemos-radius-panel: 9px !important;
-          --epistemos-theme-background: \(background) !important;
-          --epistemos-theme-surface: \(surface) !important;
-          --epistemos-theme-surface-strong: \(surfaceStrong) !important;
-          --epistemos-theme-foreground: \(foreground) !important;
-          --epistemos-theme-muted-foreground: \(mutedForeground) !important;
-          --epistemos-theme-border: transparent !important;
-          --epistemos-theme-border-source: \(border) !important;
+          --epistemos-quiet-ring: \(quietFocusRing) !important;
         }
         :root[data-epistemos-runtime-extensibility='disabled'] [data-epistemos-mas-hidden='runtime-extensibility'] {
           display: none !important;
@@ -380,10 +372,18 @@ extension GooseWebSurfaceView {
         .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus,
         .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible {
           outline: none !important;
-          box-shadow: none !important;
           --tw-ring-color: transparent !important;
           --tw-ring-shadow: 0 0 #0000 !important;
           --tw-ring-offset-shadow: 0 0 #0000 !important;
+        }
+        :root :is(button, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible,
+        .goose-epistemos :is(button, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible {
+          box-shadow: 0 0 0 2px var(--epistemos-quiet-ring), 0 0 12px -2px var(--epistemos-quiet-ring) !important;
+        }
+        :root :is(input, textarea, [contenteditable='true'], [contenteditable='']):focus,
+        .goose-epistemos :is(input, textarea, [contenteditable='true'], [contenteditable='']):focus {
+          background-color: var(--epistemos-quiet-focus) !important;
+          box-shadow: 0 0 12px -3px var(--epistemos-quiet-ring) !important;
         }
         * { -webkit-font-smoothing: antialiased; }
         html,
