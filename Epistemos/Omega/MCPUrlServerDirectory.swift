@@ -453,12 +453,19 @@ nonisolated enum MCPUrlServerDirectory {
         if (try? fileManager.destinationOfSymbolicLink(atPath: configURL.path)) != nil {
             throw WriteError.writeFailed("existing config file is a symbolic link")
         }
-        let attributes = try fileManager.attributesOfItem(atPath: configURL.path)
-        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+
+        var fileStatus = stat()
+        guard lstat(configURL.path, &fileStatus) == 0 else {
+            throw WriteError.writeFailed("existing config file attributes are unavailable")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             throw WriteError.writeFailed("existing config file is not a regular file")
         }
-        guard let size = attributes[.size] as? NSNumber,
-              size.intValue <= maxConfigBytes else {
+        guard fileStatus.st_nlink <= 1 else {
+            throw WriteError.writeFailed("existing config file has multiple hard links")
+        }
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxConfigBytes) else {
             throw WriteError.writeFailed("existing config file exceeds \(maxConfigBytes) bytes")
         }
     }

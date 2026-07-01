@@ -418,6 +418,7 @@ struct MCPUrlServerDirectoryTests {
         #expect(directory.contains("firstExistingSymlinkComponent"))
         #expect(directory.contains("config path could not be inspected safely"))
         #expect(directory.contains("lstat"))
+        #expect(directory.contains("st_nlink <= 1"))
         #expect(directory.contains("S_IFLNK"))
         #expect(!directory.contains("throw WriteError.writeFailed(error.localizedDescription)"))
         #expect(rustURLServers.contains("const MAX_CONFIG_BYTES: usize = 256 * 1024"))
@@ -546,6 +547,40 @@ struct MCPUrlServerDirectoryTests {
         }
 
         let raw = try String(contentsOf: outside, encoding: .utf8)
+        #expect(raw.contains("outside.example.com"))
+        #expect(!raw.contains("context7"))
+    }
+
+    @Test("install refuses to rewrite hardlinked config files")
+    func installRefusesHardlinkedConfigRewrite() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("mcp-hardlink-rewrite-\(UUID().uuidString)")
+        let original = root.appendingPathComponent("original-url-servers.json")
+        let config = root.appendingPathComponent("url_servers.json")
+        defer { try? fm.removeItem(at: root) }
+
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        try data("""
+        [ { "name": "outside", "url": "https://outside.example.com/mcp" } ]
+        """).write(to: original)
+        do {
+            try fm.linkItem(at: original, to: config)
+        } catch {
+            return
+        }
+
+        #expect(throws: MCPUrlServerDirectory.WriteError.writeFailed("existing config file has multiple hard links")) {
+            try MCPUrlServerDirectory.install(
+                MCPUrlServerDirectory.WritableEntry(
+                    name: "context7",
+                    url: "https://mcp.context7.com/mcp"
+                ),
+                to: config
+            )
+        }
+
+        let raw = try String(contentsOf: original, encoding: .utf8)
         #expect(raw.contains("outside.example.com"))
         #expect(!raw.contains("context7"))
     }

@@ -39,7 +39,7 @@ secret channels, strict process-env-shaped auth keys, inline token entries hidde
 secret-safe validation diagnostics, **name-dedupe idempotent** (re-install replaces, never duplicates),
 **token VALUE never written or forwarded from config** (only a process-env-shaped `authorization_token_env` name), bare-array JSON to
 `~/.config/mcp/url_servers.json` (atomic write; parent directory forced owner-only `0700`, config file forced
-owner-only `0600`). Config reads are regular-file checked, final-symlink rejected, and bounded at 256 KiB before JSON
+owner-only `0600`). Config reads are regular-file checked, final-symlink and multi-hardlink files rejected, and bounded at 256 KiB before JSON
 decode; mutations refuse unsafe existing config files instead of treating them as missing.
 `install(WritableEntry)` / `uninstall(name:)` return the new `[ServerInfo]`. Config write only → **MAS-safe**; the Rust
 side forwards via the Anthropic `mcp_servers` API param.
