@@ -201,6 +201,16 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
       function consoleArgumentsToString(args){
         return Array.prototype.slice.call(args).map(consoleValueToString).join(' ');
       }
+      function errorEventMessage(event){
+        var message = event && event.message ? String(event.message) : 'Error';
+        var detail = event && event.error ? consoleValueToString(event.error) : null;
+        if (detail && detail !== message) { return message + '\\n' + detail; }
+        return message;
+      }
+      function rejectionMessage(event){
+        var reason = event && 'reason' in event ? event.reason : undefined;
+        return 'Unhandled promise rejection: ' + consoleValueToString(reason);
+      }
       function wrapConsole(method, level){
         var original = console[method];
         console[method] = function(){
@@ -208,8 +218,8 @@ nonisolated enum HTMLWorkspaceConsoleBridge {
           if (typeof original === 'function') { return original.apply(console, arguments); }
         };
       }
-      window.addEventListener('error', function(e){ post('error', e.message || 'Error', e.filename, e.lineno, e.colno); });
-      window.addEventListener('unhandledrejection', function(e){ post('error', 'Unhandled promise rejection: ' + e.reason, null, 0, 0); });
+      window.addEventListener('error', function(e){ post('error', errorEventMessage(e), e && e.filename, e && e.lineno, e && e.colno); });
+      window.addEventListener('unhandledrejection', function(e){ post('error', rejectionMessage(e), null, 0, 0); });
       wrapConsole('debug', 'diagnostic');
       wrapConsole('log', 'diagnostic');
       wrapConsole('info', 'info');
