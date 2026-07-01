@@ -919,8 +919,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func listGitWorktreeDirs(_ path: String) -> [[String: Any]] {
-        guard let inv = gitWorktreeInvocation(for: path) else { return [] }
-        return Self.runGitWorktreeList(git: inv.git, expandedPath: inv.expandedPath, environment: inv.env)
+        // Owner 2026-07-01: DISABLED — `git worktree list` on this large repo takes seconds and
+        // the Goose directory chip runs it on every transition (the perceived Goose hang). The
+        // worktree roster is non-essential; return empty. (re-enable: restore the invocation below)
+        []
     }
 
     /// Off-main variant. The git Process()+semaphore.wait(+3) blocked @MainActor and was the
@@ -928,12 +930,10 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     /// worktrees as the surface became active. Validation stays on @MainActor (fast fs stats);
     /// only the subprocess wait is detached. Behavior/timeouts/caps are identical. (goose-3s 2026-07-01)
     private func listGitWorktreeDirsOffMain(_ path: String) async -> [[String: Any]] {
-        guard let inv = gitWorktreeInvocation(for: path) else { return [] }
-        let box = await Task.detached(priority: .userInitiated) {
-            GooseAffordanceResultBox(value: Self.runGitWorktreeList(
-                git: inv.git, expandedPath: inv.expandedPath, environment: inv.env))
-        }.value
-        return box.value
+        // Owner 2026-07-01: DISABLED (see listGitWorktreeDirs). Return empty instantly so the
+        // Goose directory chip never waits on git. The off-main plumbing + runGitWorktreeList
+        // worker remain below for easy re-enable.
+        []
     }
 
     nonisolated static func runGitWorktreeList(
