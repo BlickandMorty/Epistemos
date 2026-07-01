@@ -766,7 +766,9 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
 
         guard let loopbackURL = BrowserUseLoopbackPolicy.loopbackURL(host: host, port: port),
               let loopbackOrigin = BrowserUseLoopbackPolicy.origin(for: loopbackURL) else {
-            return .unavailable("browser-use Pro runtime has invalid loopback address \(host):\(port)")
+            return .unavailable(
+                "browser-use Pro runtime has invalid loopback address \(loopbackAddressDiagnostic(host: host, port: port))"
+            )
         }
         let launchHost = loopbackOrigin.host
         guard let theme = normalizedThemeArgument(theme) else {
@@ -840,6 +842,56 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
             return nil
         }
         return normalized
+    }
+
+    private static func loopbackAddressDiagnostic(host: String, port: Int) -> String {
+        let safeHost = loopbackHostDiagnostic(host)
+        let safePort = (1...65535).contains(port) ? String(port) : "[invalid-port]"
+        return cappedDiagnostic("\(safeHost):\(safePort)", limit: maxURLDiagnosticLength)
+    }
+
+    private static func loopbackHostDiagnostic(_ host: String) -> String {
+        let bounded = String(host.prefix(maxURLDiagnosticLength + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return "[empty-host]"
+        }
+
+        if let parsed = URL(string: trimmed),
+           parsed.scheme != nil,
+           parsed.host != nil {
+            return BrowserUseLoopbackPolicy.redactedDescription(for: parsed, maxLength: maxURLDiagnosticLength)
+        }
+
+        let withoutControlCharacters = String(trimmed.unicodeScalars.map { scalar in
+            CharacterSet.controlCharacters.contains(scalar) ? " " : String(scalar)
+        }.joined())
+        let withoutCredentials = withoutControlCharacters.split(
+            separator: "@",
+            omittingEmptySubsequences: false
+        ).last.map(String.init) ?? withoutControlCharacters
+        let withoutPathOrTokenTail = withoutCredentials.split(
+            whereSeparator: { character in
+                character == "/" || character == "\\" || character == "?" || character == "#"
+            }
+        ).first.map(String.init) ?? withoutCredentials
+        let scrubbed = withoutPathOrTokenTail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !scrubbed.isEmpty else {
+            return "[blocked-host]"
+        }
+        return cappedDiagnostic(scrubbed, limit: maxURLDiagnosticLength)
+    }
+
+    private static func cappedDiagnostic(_ value: String, limit: Int) -> String {
+        let limit = max(0, limit)
+        let bounded = String(value.prefix(limit + 1))
+        guard bounded.count > limit else {
+            return bounded
+        }
+        guard limit > 3 else {
+            return String(bounded.prefix(limit))
+        }
+        return String(bounded.prefix(limit - 3)) + "..."
     }
 
     private static func artifactProblem(

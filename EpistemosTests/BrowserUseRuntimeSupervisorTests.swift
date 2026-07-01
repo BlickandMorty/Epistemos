@@ -160,6 +160,26 @@ struct BrowserUseRuntimeSupervisorTests {
             #expect(!readiness.isReady)
             #expect(readiness.message.contains("invalid loopback address"))
         }
+
+        let secretBearingHost = "https://user:pass@example.com/private/path?token=secret#frag"
+        let secretReadiness = BrowserUseRuntimeSupervisor.readiness(
+            paths: paths,
+            settings: .default,
+            secretStore: BrowserUseSecretStore(loadValue: { _ in nil }),
+            processEnvironment: [BrowserUseProGateStatus.flagName: "1"],
+            host: secretBearingHost,
+            port: 7878
+        )
+        #expect(!secretReadiness.isReady)
+        #expect(secretReadiness.message.contains("invalid loopback address"))
+        #expect(secretReadiness.message.count <= 180)
+        #expect(secretReadiness.message.contains("https://example.com"))
+        #expect(!secretReadiness.message.contains("user"))
+        #expect(!secretReadiness.message.contains("pass"))
+        #expect(!secretReadiness.message.contains("private"))
+        #expect(!secretReadiness.message.contains("token"))
+        #expect(!secretReadiness.message.contains("secret"))
+        #expect(!secretReadiness.message.contains("frag"))
     }
 
     @Test("ready launch plan uses normalized loopback host argument")
@@ -749,6 +769,9 @@ struct BrowserUseRuntimeSupervisorTests {
             "maxURLDiagnosticLength",
             "BrowserUseLoopbackPolicy.redactedDescription(for: plan.loopbackURL)",
             "BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxURLDiagnosticLength)",
+            "loopbackAddressDiagnostic(host: host, port: port)",
+            "loopbackHostDiagnostic(_ host: String)",
+            "cappedDiagnostic(",
             "maxPathDiagnosticLength",
             "maxPathDiagnosticLength - 3",
             "runtimeArtifactPathDescription",
@@ -778,6 +801,7 @@ struct BrowserUseRuntimeSupervisorTests {
         }
         #expect(!source.contains("request failed: \\(error.localizedDescription)"))
         #expect(!source.contains("plan.loopbackURL.absoluteString"))
+        #expect(!source.contains("invalid loopback address \\(host):\\(port)"))
 
         for forbidden in [
             "NSWorkspace",

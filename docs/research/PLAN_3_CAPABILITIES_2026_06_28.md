@@ -177,8 +177,9 @@ O-5 privacy stack · O-6 agentic scraper. All superseded by browser-use (§9).
 packaging with `PACKAGE_RESULT.json` checkpoint evidence, loopback shell/control, task-submit dry-run UI, and gate smokes have landed. Release notarization remains
 distribution ops, not a fake runtime gate. The loopback Web UI shell and runtime readiness/status text share
 origin-only URL redaction rather than raw `absoluteString`; loopback host normalization and redacted URL diagnostics
-are bounded before trim/compare, and signature payload enumeration is capped with symlink descendants skipped before
-target resolution. The Developer ID resource bundler and runtime gate both validate the signed manifest plus package-result
+are bounded before trim/compare, invalid loopback address failures use a bounded secret-aware host diagnostic instead
+of echoing raw `host:port`, and signature payload enumeration is capped with symlink descendants skipped before target
+resolution. The Developer ID resource bundler and runtime gate both validate the signed manifest plus package-result
 checkpoint through no-follow regular-file evidence before a signed package can report ready. Browser-use Pro gate/settings/runtime diagnostics bound raw status/domain/path strings before
 trimming and keep ellipsis inside configured caps.
 

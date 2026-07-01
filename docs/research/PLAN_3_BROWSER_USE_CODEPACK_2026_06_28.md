@@ -202,8 +202,9 @@ a usable runtime from starting, stops any prior runtime before writing a replace
 `.env` on stop, launches the Pro process and only reports it usable after an injected loopback health probe validates
 `http://127.0.0.1:<port>/`, returns runtime readiness text and rejected-redirect health diagnostics through the shared
 origin-only loopback URL redaction helper so hostile Location URLs cannot echo credentials, query tokens, fragments, or
-path contents, bounds loopback host normalization and redacted URL diagnostics before trimming/comparison, preserves that bounded redirect reason even when URLSession also
-reports cancellation, maps health request failures to bounded domain/code diagnostics,
+path contents, bounds loopback host normalization and redacted URL diagnostics before trimming/comparison, reports
+invalid loopback address failures through a bounded secret-aware host diagnostic instead of echoing raw `host:port`,
+preserves that bounded redirect reason even when URLSession also reports cancellation, maps health request failures to bounded domain/code diagnostics,
 terminates the launched process if the loopback health probe fails, and compiles the actual
 `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
