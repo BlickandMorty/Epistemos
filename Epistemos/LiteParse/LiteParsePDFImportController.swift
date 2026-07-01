@@ -102,26 +102,32 @@ enum LiteParsePDFImportController {
         importer: LiteParsePDFImporter
     ) throws -> PreparedPDFImport {
         try Task.checkCancellation()
-        let result = importer.importToMarkdown(pdfPath: pdfPath)
-        try Task.checkCancellation()
-        guard case let .markdown(markdown) = result else {
-            return .rejected(result)
+        if let failure = LiteParsePDFSignature.validationFailure(forPath: pdfPath) {
+            return .rejected(failure)
         }
 
         let baseName = ((pdfPath as NSString).lastPathComponent as NSString).deletingPathExtension
         let title = baseName.isEmpty ? "Imported PDF" : baseName
         let dirURL = vaultURL.appendingPathComponent(importDirectory, isDirectory: true)
         var selectedURLs: (noteURL: URL, pdfURL: URL)?
+        var createdImportDirectory = false
         var keepMaterializedFiles = false
         defer {
-            if !keepMaterializedFiles, let selectedURLs {
-                removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
+            if !keepMaterializedFiles {
+                if let selectedURLs {
+                    removeMaterializedURLs(noteURL: selectedURLs.noteURL, pdfURL: selectedURLs.pdfURL)
+                }
+                if createdImportDirectory {
+                    try? FileManager.default.removeItem(at: dirURL)
+                }
             }
         }
 
         do {
             try Task.checkCancellation()
+            let importDirectoryExisted = FileManager.default.fileExists(atPath: dirURL.path)
             try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+            createdImportDirectory = !importDirectoryExisted
             guard Plan3VaultPath.resolvesInsideVault(dirURL, in: vaultURL) else {
                 return .rejected(.failed("Couldn't write the note file: \(Plan3VaultPath.outsideVaultMessage)"))
             }
@@ -138,6 +144,11 @@ enum LiteParsePDFImportController {
             try Task.checkCancellation()
             try Plan3ImportFileIO.copyFileContents(from: URL(fileURLWithPath: pdfPath), toReservedFile: urls.pdfURL)
             try Task.checkCancellation()
+            let result = importer.importToMarkdown(pdfPath: urls.pdfURL.path)
+            try Task.checkCancellation()
+            guard case let .markdown(markdown) = result else {
+                return .rejected(result)
+            }
             try Plan3ImportFileIO.writeData(Data(markdown.utf8), toReservedFile: urls.noteURL)
             try Task.checkCancellation()
             keepMaterializedFiles = true

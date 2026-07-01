@@ -25,15 +25,16 @@
   status text, so raw localized filesystem descriptions are not displayed; raw messages are bounded before trimming and
   ellipsis stays inside the configured cap. The sidebar status alert caps each file line, caps the total status string,
   and reports an overflow marker instead of rendering unbounded bulk-import output.
-- **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
-  main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
-  basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
-  note fails, the copied source PDF is removed too. Reserved PDF/Markdown destination writes reopen with `O_NOFOLLOW`
-  and regular-file validation so a final symlink swap cannot redirect import output after reservation. Source PDF copy
-  reopens through `openValidatedPDFForReading` with no-follow, regular-file, 512 MiB, and `%PDF-` magic checks on the
-  copied file descriptor. Import basename normalization starts from a bounded prefix and duplicate filename reservation
-  has a hard attempt cap. Successful imports return the copied vault-relative `source_pdf` path so sidebar and landing
-  status lines can show the exact stored source-PDF evidence.
+- **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs source validation and file materialization off
+  the main actor, copies the original `.pdf` into `<vault>/Imported PDFs/` with the paired basename, runs the parser
+  against that copied vault PDF path, then writes the parsed `.md` beside it and records `source_kind=pdf` plus
+  `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If conversion or writing the note fails, the copied source
+  PDF is removed too. Reserved PDF/Markdown destination writes reopen with `O_NOFOLLOW` and regular-file validation so a
+  final symlink swap cannot redirect import output after reservation. Source PDF copy reopens through
+  `openValidatedPDFForReading` with no-follow, regular-file, 512 MiB, and `%PDF-` magic checks on the copied file
+  descriptor before the parser runs against that copied vault PDF path. Import basename normalization starts from a
+  bounded prefix and duplicate filename reservation has a hard attempt cap. Successful imports return the copied
+  vault-relative `source_pdf` path so sidebar and landing status lines can show the exact stored source-PDF evidence.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Frontmatter
   `source_pdf` is length-bounded before trimming, and absolute paths, `..`, `.`, empty path components, missing files,

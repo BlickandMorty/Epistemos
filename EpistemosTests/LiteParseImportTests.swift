@@ -204,6 +204,9 @@ struct LiteParseImportTests {
         let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
         #expect(src.contains("Plan3ImportFileIO.copyFileContents"))
         #expect(src.contains("Plan3ImportFileIO.writeData"))
+        #expect(src.contains("LiteParsePDFSignature.validationFailure(forPath: pdfPath)"))
+        #expect(src.contains("importer.importToMarkdown(pdfPath: urls.pdfURL.path)"))
+        #expect(!src.contains("importer.importToMarkdown(pdfPath: pdfPath)"))
         #expect(src.contains("LiteParseImportDiagnostics.failureMessage"))
         #expect(!src.contains("error.localizedDescription"))
         #expect(src.contains("Task.detached(priority: .userInitiated)"))
@@ -287,6 +290,7 @@ struct LiteParseImportTests {
         #expect(codepack.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(codepack.contains("source_pdf=<vault-relative path>"))
         #expect(codepack.contains("off-main import materialization, paired Markdown/PDF basenames"))
+        #expect(codepack.contains("runs the parser against that copied vault PDF path"))
         #expect(codepack.contains("512 MiB"))
         #expect(codepack.contains("bounded domain/code diagnostics"))
         #expect(codepack.contains("raw messages are bounded before trimming"))
@@ -299,6 +303,7 @@ struct LiteParseImportTests {
         #expect(capabilities.contains("raw messages bounded before trimming"))
         #expect(capabilities.contains("filename ellipsis inside configured caps"))
         #expect(capabilities.contains("import status reports the copied `source_pdf` path"))
+        #expect(capabilities.contains("parser runs against the revalidated vault copy"))
         #expect(capabilities.contains("revalidates no-follow `%PDF-`"))
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(rust.contains("doc.source_path = None"))
@@ -351,9 +356,9 @@ struct LiteParseImportTests {
         let outside = root.appendingPathComponent("outside.pdf")
         let symlink = imported.appendingPathComponent("linked-outside.pdf")
         try FileManager.default.createDirectory(at: imported, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: pdf)
+        try Data("%PDF- fake".utf8).write(to: pdf)
         try Data("<html>not a paper</html>".utf8).write(to: htmlNamedPDF)
-        try Data("%PDF outside".utf8).write(to: outside)
+        try Data("%PDF- outside".utf8).write(to: outside)
         try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: outside)
         defer { try? FileManager.default.removeItem(at: root) }
 
@@ -410,7 +415,7 @@ struct LiteParseImportTests {
         let outside = root.appendingPathComponent("outside.txt")
         let pdfSymlink = root.appendingPathComponent("reserved.pdf")
         let markdownSymlink = root.appendingPathComponent("reserved.md")
-        try Data("%PDF source".utf8).write(to: source)
+        try Data("%PDF- source".utf8).write(to: source)
         try Data("outside original".utf8).write(to: outside)
         try FileManager.default.createSymbolicLink(at: pdfSymlink, withDestinationURL: outside)
         try FileManager.default.createSymbolicLink(at: markdownSymlink, withDestinationURL: outside)
@@ -463,9 +468,9 @@ struct LiteParseImportTests {
         let symlinkSource = root.appendingPathComponent("linked.pdf")
         let reservedPDF = root.appendingPathComponent("reserved.pdf")
 
-        try Data("%PDF source".utf8).write(to: validSource)
+        try Data("%PDF- source".utf8).write(to: validSource)
         try Data("<html>not a paper</html>".utf8).write(to: nonPDFSource)
-        try Data("%PDF large".utf8).write(to: oversizedSource)
+        try Data("%PDF- large".utf8).write(to: oversizedSource)
         let oversizedHandle = try FileHandle(forWritingTo: oversizedSource)
         try oversizedHandle.truncate(atOffset: UInt64(LiteParsePDFSignature.maxPDFBytes + 1))
         try oversizedHandle.close()
@@ -485,7 +490,7 @@ struct LiteParseImportTests {
         try expectCopyRejected(from: symlinkSource)
 
         try Plan3ImportFileIO.copyFileContents(from: validSource, toReservedFile: reservedPDF)
-        #expect((try? Data(contentsOf: reservedPDF)) == Data("%PDF source".utf8))
+        #expect((try? Data(contentsOf: reservedPDF)) == Data("%PDF- source".utf8))
     }
 
     @MainActor
@@ -498,7 +503,7 @@ struct LiteParseImportTests {
         let sourcePDF = root.appendingPathComponent("paper.pdf")
         try FileManager.default.createDirectory(at: importDir, withIntermediateDirectories: true)
         try Data("existing imported note".utf8).write(to: importDir.appendingPathComponent("paper.md"))
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Data("%PDF- fake".utf8).write(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -541,6 +546,50 @@ struct LiteParseImportTests {
     }
 
     @MainActor
+    @Test("import controller parses the copied vault PDF")
+    func importControllerParsesCopiedVaultPDF() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liteparse-import-copy-parse-\(UUID().uuidString)")
+        let vault = root.appendingPathComponent("Vault")
+        let importDir = vault.appendingPathComponent(LiteParsePDFImportController.importDirectory, isDirectory: true)
+        let sourcePDF = root.appendingPathComponent("paper.pdf")
+        try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try Data("%PDF- source copy".utf8).write(to: sourcePDF)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+        let importer = VaultCopyOnlyLiteParseImporter(
+            originalPath: sourcePDF.standardizedFileURL.path,
+            expectedDirectoryPath: importDir.standardizedFileURL.path
+        )
+
+        let outcome = await LiteParsePDFImportController.importPage(
+            pdfPath: sourcePDF.path,
+            vaultURL: vault,
+            modelContext: context,
+            graphState: nil,
+            importer: importer
+        )
+
+        guard case .imported(_, _, let sourcePDFRelativePath) = outcome else {
+            Issue.record("Expected PDF import to parse the copied vault PDF, got \(String(describing: outcome))")
+            return
+        }
+
+        let copiedPDF = vault.appendingPathComponent(sourcePDFRelativePath)
+        let note = try #require(try context.fetch(FetchDescriptor<SDPage>()).first)
+        let notePath = try #require(note.filePath)
+        let noteText = try String(contentsOfFile: notePath, encoding: .utf8)
+
+        #expect(copiedPDF.deletingLastPathComponent().standardizedFileURL.path == importDir.standardizedFileURL.path)
+        #expect((try? Data(contentsOf: copiedPDF)) == Data("%PDF- source copy".utf8))
+        #expect(noteText.contains("Copied-vault-path body."))
+    }
+
+    @MainActor
     @Test("concurrent import controller writes distinct paired source PDFs")
     func concurrentImportControllerKeepsPairedFiles() async throws {
         let root = FileManager.default.temporaryDirectory
@@ -549,7 +598,7 @@ struct LiteParseImportTests {
         let sourcePDF = root.appendingPathComponent("paper.pdf")
         let importDir = vault.appendingPathComponent(LiteParsePDFImportController.importDirectory, isDirectory: true)
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Data("%PDF- fake".utf8).write(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -617,7 +666,7 @@ struct LiteParseImportTests {
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: importLink, withDestinationURL: outside)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Data("%PDF- fake".utf8).write(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -652,7 +701,7 @@ struct LiteParseImportTests {
         let vault = root.appendingPathComponent("Vault")
         let sourcePDF = root.appendingPathComponent("paper.pdf")
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Data("%PDF- fake".utf8).write(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -681,6 +730,26 @@ struct LiteParseImportTests {
         #expect(message.localizedCaseInsensitiveContains("cancelled"))
         #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
         #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(LiteParsePDFImportController.importDirectory).path))
+    }
+}
+
+private struct VaultCopyOnlyLiteParseImporter: LiteParsePDFImporter {
+    let originalPath: String
+    let expectedDirectoryPath: String
+
+    func importToMarkdown(pdfPath: String) -> LiteParseImportResult {
+        let pdfURL = URL(fileURLWithPath: pdfPath).standardizedFileURL
+        guard pdfURL.path != originalPath else {
+            return .failed("importer received the original source path")
+        }
+        guard pdfURL.deletingLastPathComponent().path == expectedDirectoryPath else {
+            return .failed("importer did not receive the vault copy path")
+        }
+        guard let data = try? Data(contentsOf: pdfURL),
+              data.starts(with: Data("%PDF-".utf8)) else {
+            return .failed("importer received an invalid PDF copy")
+        }
+        return .markdown("# Parsed\n\nCopied-vault-path body.")
     }
 }
 
