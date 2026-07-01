@@ -355,6 +355,7 @@ struct VoiceCodepackPlan3Tests {
             "package file digests match",
             "AVSpeech remains the voice runtime",
             "Runtime readiness, not merely model-package readiness",
+            "var packageEvidence: PackageEvidence? = nil",
             "Kokoro voice: model package ready, runtime deferred"
         ] {
             #expect(gate.contains(required), "Kokoro gate missing honesty string: \(required)")

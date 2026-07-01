@@ -32,7 +32,7 @@ nonisolated enum KokoroVoiceGateStatus {
         let isReady: Bool
         let headline: String
         let detail: String
-        let packageEvidence: PackageEvidence? = nil
+        var packageEvidence: PackageEvidence? = nil
     }
 
     struct PackageEvidence: Equatable, Sendable {
