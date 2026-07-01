@@ -1017,9 +1017,11 @@ struct HTMLWorkspaceEditorView: View {
         guard !isRegenerating,
               !isRefreshingRegenerateContext,
               isCurrentRegenerateContextItem(item) else {
+            regenerateErrorText = nil
             statusText = "Pick a current Epistemos workspace context item"
             return
         }
+        regenerateErrorText = nil
         let directive = """
         Use this focused read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
         \(droppedPreviewTargetDirective())
@@ -1077,6 +1079,7 @@ struct HTMLWorkspaceEditorView: View {
 
     private func applyDroppedPreviewContext(_ payload: String) {
         guard let context = HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: payload, matching: package) else {
+            regenerateErrorText = nil
             statusText = "Drop a current Epistemos workspace context item"
             return
         }
@@ -1093,6 +1096,7 @@ struct HTMLWorkspaceEditorView: View {
         guard !isRegenerating,
               !isRefreshingRegenerateContext,
               isCurrentRegenerateContextItem(item) else {
+            regenerateErrorText = nil
             statusText = "Pick a current Epistemos workspace context item"
             return
         }
@@ -1119,6 +1123,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func startRegenerateWithContextDirective(_ directive: String, status: String) {
+        regenerateErrorText = nil
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         regenerateInstruction = current.isEmpty ? directive : current + "\n" + directive
         regenerateSheetPresented = true
