@@ -73,7 +73,7 @@ nonisolated enum KokoroVoiceGateStatus {
             let packageLabel = modelPackageCount == 1 ? "Core ML package" : "Core ML packages"
             let voiceLabel = voiceCount == 1 ? "voice" : "voices"
             let fileLabel = manifestFileCount == 1 ? "file" : "files"
-            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle. Kokoro playback uses this native bundle when the Pro runtime is active."
+            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle, profile \(bundleProfile). Kokoro playback uses this native bundle when the Pro runtime is active."
         }
     }
 

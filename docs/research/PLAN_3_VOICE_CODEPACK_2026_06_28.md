@@ -54,7 +54,7 @@
   vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests, and parses the runtime vocab/HNSF plus exact
   256-Float32 starter voice shape before reporting `packageReady`. Package-ready status
   carries manifest-derived package evidence (Core ML package count, voice count, runtime asset count, checked file count,
-  declared bytes, and a bounded printable bundle profile) without exposing local roots.
+  declared bytes, and a bounded printable bundle profile surfaced in settings) without exposing local roots.
   `isReady` is true only when the checked package can feed the linked native playback path. Status details use
   bounded and control/whitespace-normalized model-relative diagnostics with ellipsis inside configured caps instead of
   local absolute model paths. A Pro-only Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and

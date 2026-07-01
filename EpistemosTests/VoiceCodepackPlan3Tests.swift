@@ -391,6 +391,7 @@ struct VoiceCodepackPlan3Tests {
             "files must include \\(packageManifestFileName) and Core ML data",
             "model_packages must include duration Core ML packages for token sizes",
             "model_packages must include f0ntrain, decoder_pre, and decoder_har_post Core ML packages for buckets",
+            "profile \\(bundleProfile)",
             "CFBooleanGetTypeID",
             "rounded(.towardZero)",
             "fileDigestNoFollow(at: fileURL, expectedBytes: declaredFile.bytes)",
@@ -667,6 +668,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(evidencePresentation.packageEvidenceSummary?.contains("1 voice") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("23 checked files") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("42 declared bytes") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("profile test") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("Kokoro playback uses this native bundle") == true)
     }
 
@@ -814,6 +816,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.manifestFileName) == true)
         #expect(status.packageEvidence?.settingsSummary.contains("10 checked Core ML packages") == true)
         #expect(status.packageEvidence?.settingsSummary.contains("declared bytes") == true)
+        #expect(status.packageEvidence?.settingsSummary.contains("profile test") == true)
         #expect(status.packageEvidence?.settingsSummary.contains(root.path) == false)
         #expect(status.packageEvidence?.settingsSummary.contains(modelDirectory.path) == false)
         #expect(status.detail.contains(root.path) == false)
