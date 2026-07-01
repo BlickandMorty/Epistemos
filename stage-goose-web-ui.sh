@@ -5497,7 +5497,7 @@ source = source.replace(
     }
   };
 
-  const handleOpenGitHubCompare = async () => {
+  const handleOpenGitHubPullRequest = async () => {
     if (isGitCompareOpenInFlight) return;
     setIsGitCompareOpenInFlight(true);
     try {
@@ -5512,8 +5512,8 @@ source = source.replace(
       };
       if (typeof nativeElectron.readGitHubCompareURL !== 'function') {
         toastError({
-          title: 'Compare unavailable',
-          msg: 'The Epistemos native bridge has not exposed GitHub compare links yet.',
+          title: 'Pull request unavailable',
+          msg: 'The Epistemos native bridge has not exposed GitHub pull request links yet.',
         });
         return;
       }
@@ -5521,8 +5521,8 @@ source = source.replace(
       const compareURL = typeof result?.url === 'string' ? result.url : '';
       if (!compareURL) {
         toastError({
-          title: 'No GitHub compare',
-          msg: result?.error || 'This working directory does not have a GitHub compare target.',
+          title: 'No GitHub pull request target',
+          msg: result?.error || 'This working directory does not have a GitHub pull request target.',
         });
         return;
       }
@@ -5533,8 +5533,8 @@ source = source.replace(
       }
     } catch (error) {
       toastError({
-        title: 'Compare unavailable',
-        msg: error instanceof Error ? error.message : 'Epistemos GitHub compare bridge failed.',
+        title: 'Pull request unavailable',
+        msg: error instanceof Error ? error.message : 'Epistemos GitHub pull request bridge failed.',
       });
     } finally {
       setIsGitCompareOpenInFlight(false);
@@ -5586,12 +5586,12 @@ source = source.replace(
               <TooltipContent>Attach git diff</TooltipContent>
             </Tooltip>
 
-            {/* Right: GitHub compare */}
+            {/* Right: GitHub pull request */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  onClick={handleOpenGitHubCompare}
+                  onClick={handleOpenGitHubPullRequest}
                   disabled={isGitCompareOpenInFlight}
                   variant="ghost"
                   size="sm"
@@ -5600,12 +5600,12 @@ source = source.replace(
                     'text-text-primary/70 hover:text-text-primary transition-colors',
                     isGitCompareOpenInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                   )}
-                  aria-label="Open GitHub compare"
+                  aria-label="Open GitHub pull request"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open GitHub compare</TooltipContent>
+              <TooltipContent>Open GitHub pull request</TooltipContent>
             </Tooltip>
 
             {/* Right: Epistemos context */}
@@ -5662,9 +5662,9 @@ for (const snippet of [
   'readGitDiff(currentWorkingDir)',
   'Git status:',
   'Attach git diff',
-  'handleOpenGitHubCompare',
+  'handleOpenGitHubPullRequest',
   'readGitHubCompareURL(currentWorkingDir)',
-  'Open GitHub compare',
+  'Open GitHub pull request',
   'BookOpen',
   'ExternalLink',
 ]) {
@@ -7652,9 +7652,9 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "handleAttachGitDiff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "readGitDiff(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "Attach git diff" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
-    grep -q "handleOpenGitHubCompare" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "handleOpenGitHubPullRequest" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "readGitHubCompareURL(currentWorkingDir)" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
-    grep -q "Open GitHub compare" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "Open GitHub pull request" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "BookOpen" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "ExternalLink" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "epistemos-acp-session-mode-setting" "$WORK_ROOT/ui/desktop/src/components/settings/mode/ModeSection.tsx"

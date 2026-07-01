@@ -1098,7 +1098,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
         guard let repositoryPath = Self.gitHubRepositoryPath(from: remote),
               let compareURL = Self.gitHubCompareURL(repositoryPath: repositoryPath, branch: branch) else {
-            return result(ok: false, branch: branch, error: "The origin remote is not a GitHub repository.")
+            return result(ok: false, branch: branch, error: "The origin remote cannot open a GitHub pull request.")
         }
         return result(ok: true, url: compareURL, branch: branch)
     }
