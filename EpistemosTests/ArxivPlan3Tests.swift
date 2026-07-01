@@ -271,7 +271,12 @@ struct ArxivPlan3Tests {
         ))
 
         do {
-            try URLSessionArxivPDFDownloader.validateDownloadResponse(response, downloadedFileURL: tempPDF)
+            let requestURL = try #require(URL(string: "https://arxiv.org/pdf/2401.12345v2"))
+            try URLSessionArxivPDFDownloader.validateDownloadResponse(
+                response,
+                requestURL: requestURL,
+                downloadedFileURL: tempPDF
+            )
             Issue.record("Expected final HTTP arXiv PDF response to be rejected")
         } catch let error as ArxivIngestError {
             #expect(error == .downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage))
@@ -576,8 +581,44 @@ struct ArxivPlan3Tests {
         ))
 
         do {
-            try URLSessionArxivPDFDownloader.validateDownloadResponse(response, downloadedFileURL: tempPDF)
+            let requestURL = try #require(URL(string: "https://arxiv.org/pdf/2401.12345"))
+            try URLSessionArxivPDFDownloader.validateDownloadResponse(
+                response,
+                requestURL: requestURL,
+                downloadedFileURL: tempPDF
+            )
             Issue.record("Expected non-arXiv final response URL to be rejected")
+        } catch let error as ArxivIngestError {
+            #expect(error == .downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage))
+        }
+        #expect(!FileManager.default.fileExists(atPath: tempPDF.path))
+    }
+
+    @Test("downloader rejects redirected arXiv PDF for a different paper")
+    func downloaderRejectsRedirectedDifferentArxivPDF() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("arxiv-download-paper-swap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let tempPDF = root.appendingPathComponent("CFNetworkDownload_789.tmp")
+        try Data("%PDF-1.7\n".utf8).write(to: tempPDF)
+        let requestURL = try #require(URL(string: "https://arxiv.org/pdf/2401.12345v2"))
+        let redirectedURL = try #require(URL(string: "https://arxiv.org/pdf/2501.54321"))
+        let response = try #require(HTTPURLResponse(
+            url: redirectedURL,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        ))
+
+        do {
+            try URLSessionArxivPDFDownloader.validateDownloadResponse(
+                response,
+                requestURL: requestURL,
+                downloadedFileURL: tempPDF
+            )
+            Issue.record("Expected redirected arXiv PDF for a different paper to be rejected")
         } catch let error as ArxivIngestError {
             #expect(error == .downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage))
         }

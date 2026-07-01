@@ -17,12 +17,13 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
         }
 
         let (fileURL, response) = try await URLSession.shared.download(from: downloadURL)
-        try Self.validateDownloadResponse(response, downloadedFileURL: fileURL)
+        try Self.validateDownloadResponse(response, requestURL: downloadURL, downloadedFileURL: fileURL)
         return try Self.prepareDownloadedPDF(from: fileURL)
     }
 
     static func validateDownloadResponse(
         _ response: URLResponse,
+        requestURL: URL,
         downloadedFileURL fileURL: URL
     ) throws {
         guard let http = response as? HTTPURLResponse else {
@@ -34,10 +35,19 @@ nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
             throw ArxivIngestError.downloadFailed("HTTP \(http.statusCode)")
         }
         guard let finalURL = http.url,
-              ArxivPDFURLPolicy.isAllowedHTTPSResponse(finalURL) else {
+              Self.isExpectedPDFResponse(finalURL, requestURL: requestURL) else {
             try? FileManager.default.removeItem(at: fileURL)
             throw ArxivIngestError.downloadFailed(ArxivPDFURLPolicy.rejectedFinalURLMessage)
         }
+    }
+
+    private static func isExpectedPDFResponse(_ responseURL: URL, requestURL: URL) -> Bool {
+        guard ArxivPDFURLPolicy.isAllowedHTTPSResponse(responseURL),
+              let normalizedResponse = ArxivPDFURLPolicy.normalizedAllowedURL(responseURL),
+              let normalizedRequest = ArxivPDFURLPolicy.normalizedAllowedURL(requestURL) else {
+            return false
+        }
+        return normalizedResponse.absoluteString == normalizedRequest.absoluteString
     }
 
     static func prepareDownloadedPDF(from fileURL: URL) throws -> URL {
