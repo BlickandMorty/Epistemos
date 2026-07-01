@@ -63,6 +63,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       </section>
       <nav class="workspace-nav" aria-label="Workspace sections">
         <a href="#context-feed">Context</a>
+        <a href="#pinned-context">Pinned</a>
         <a href="#rank-signal">Ranks</a>
         <a href="#selected-source">Detail</a>
         <a href="#vault-results">Results</a>
@@ -76,7 +77,11 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           <span>Pick source</span>
           <select data-context-picker aria-label="Pick context source"></select>
         </label>
+        <button type="button" data-pin-context>Pin source</button>
         <span data-filter-count>0 visible</span>
+      </section>
+      <section id="pinned-context" class="pinned-context" data-pinned-context aria-label="Pinned context sources">
+        <p class="empty">No pinned sources yet.</p>
       </section>
       <section id="context-feed" class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
       <section id="rank-signal" class="feed-chart" data-result-chart aria-label="Result rank chart">
@@ -229,9 +234,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     }
 
     .feed-controls input,
-    .feed-controls select {
+    .feed-controls select,
+    .feed-controls button {
       appearance: none;
-      width: 100%;
       box-sizing: border-box;
       border: 0;
       border-radius: 8px;
@@ -242,8 +247,25 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       box-shadow: 0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 8%, transparent);
     }
 
+    .feed-controls input,
+    .feed-controls select {
+      width: 100%;
+    }
+
+    .feed-controls button {
+      align-self: end;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .feed-controls button:disabled {
+      cursor: default;
+      opacity: 0.58;
+    }
+
     .feed-controls input:focus,
-    .feed-controls select:focus {
+    .feed-controls select:focus,
+    .feed-controls button:focus {
       outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
       outline-offset: 2px;
     }
@@ -262,6 +284,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     .context-tabs,
     .feed-chart,
+    .pinned-context,
     .result-detail,
     .results {
       scroll-margin-top: 18px;
@@ -323,6 +346,33 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       gap: 10px;
       margin-top: 18px;
       padding: 16px;
+    }
+
+    .pinned-context {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+      padding: 16px;
+    }
+
+    .pinned-card {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      cursor: pointer;
+    }
+
+    .pinned-card button {
+      justify-self: start;
+      appearance: none;
+      border: 0;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--epistemos-workspace-card) 88%, var(--epistemos-workspace-fg) 12%);
+      color: var(--epistemos-workspace-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      padding: 6px 9px;
     }
 
     .chart-heading {
@@ -467,6 +517,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     let selectedContextKind = 'all';
     let selectedResultKey = null;
+    let pinnedContextKeys = [];
     const selectedDetailViews = ['summary', 'metadata'];
     const selectedDetailLabels = { summary: 'Summary', metadata: 'Metadata' };
     let selectedDetailView = 'summary';
@@ -480,7 +531,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         result.page_id,
         result.title,
         result.source_label,
-        result.rank
+        result.context_kind,
+        result.provenance
       ].map((part) => String(part || '').trim()).join('|') || 'vault-result';
     }
 
@@ -649,6 +701,87 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       picker.value = selected ? resultKey(selected) : resultKey(results[0]);
     }
 
+    function updatePinButton(selected) {
+      const button = HTMLWorkspace.q('[data-pin-context]');
+      if (!button) { return; }
+      const key = selected ? resultKey(selected) : '';
+      const alreadyPinned = key && pinnedContextKeys.includes(key);
+      button.disabled = !selected || alreadyPinned;
+      button.textContent = alreadyPinned ? 'Pinned' : 'Pin source';
+    }
+
+    function renderPinnedContext(allResults) {
+      const host = HTMLWorkspace.q('[data-pinned-context]');
+      if (!host) { return; }
+      host.replaceChildren();
+
+      const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
+      for (let index = pinnedContextKeys.length - 1; index >= 0; index -= 1) {
+        if (!byKey.has(pinnedContextKeys[index])) {
+          pinnedContextKeys.splice(index, 1);
+        }
+      }
+
+      if (pinnedContextKeys.length === 0) {
+        host.append(HTMLWorkspace.el('p', { class: 'empty' }, 'No pinned sources yet.'));
+        return;
+      }
+
+      host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, 'Pinned context'));
+      pinnedContextKeys.forEach((key) => {
+        const result = byKey.get(key);
+        if (!result) { return; }
+        const card = HTMLWorkspace.el('article', {
+          class: 'pinned-card',
+          role: 'button',
+          tabindex: '0',
+          'data-pinned-context-key': key
+        }, [
+          HTMLWorkspace.el('strong', {}, result.title || result.page_id || 'Pinned source'),
+          HTMLWorkspace.el('span', { class: 'source-label' }, `${result.source_label || 'Vault search result'} / ${resultContextKind(result)}`),
+          HTMLWorkspace.el('p', {}, result.snippet || 'No snippet available.'),
+          HTMLWorkspace.el('button', { type: 'button', 'data-unpin-context': key }, 'Remove')
+        ]);
+        card.addEventListener('click', () => {
+          selectPinnedContext(key);
+        });
+        card.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') { return; }
+          event.preventDefault();
+          selectPinnedContext(key);
+        });
+        card.querySelector('[data-unpin-context]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const removeIndex = pinnedContextKeys.indexOf(key);
+          if (removeIndex >= 0) {
+            pinnedContextKeys.splice(removeIndex, 1);
+          }
+          renderVaultResults();
+        });
+        host.append(card);
+      });
+    }
+
+    function selectPinnedContext(key) {
+      const filterInput = HTMLWorkspace.q('[data-result-filter]');
+      if (filterInput) { filterInput.value = ''; }
+      selectedContextKind = 'all';
+      selectedResultKey = key;
+      renderVaultResults();
+    }
+
+    function pinSelectedContext() {
+      const data = HTMLWorkspace.data || {};
+      const allResults = Array.isArray(data.results) ? data.results : [];
+      const selected = activeResult(visibleResults(allResults));
+      if (!selected) { return; }
+      const key = resultKey(selected);
+      if (!pinnedContextKeys.includes(key)) {
+        pinnedContextKeys.push(key);
+      }
+      renderVaultResults();
+    }
+
     function rankDatum(result, index) {
       const value = Number(result.rank);
       if (!Number.isFinite(value) || value <= 0) { return null; }
@@ -713,6 +846,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-filter-count]', resultCountLabel(results, allResults, filter));
       const selectedResult = activeResult(results);
       renderContextPicker(results, selectedResult);
+      updatePinButton(selectedResult);
+      renderPinnedContext(allResults);
       renderResultChart(results);
       renderResultDetail(results);
 
@@ -758,6 +893,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       selectedResultKey = event.currentTarget.value || null;
       renderVaultResults();
     });
+    HTMLWorkspace.q('[data-pin-context]')?.addEventListener('click', pinSelectedContext);
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
     """
