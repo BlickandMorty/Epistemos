@@ -96,13 +96,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <p class="empty">No pinned sources yet.</p>
       </section>
       <section id="context-feed" class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
-      <section id="rank-signal" class="feed-chart" data-result-chart aria-label="Result rank chart">
+      <section id="rank-signal" class="feed-chart" data-result-chart data-context-dropzone aria-label="Result rank chart">
         <p class="empty">Waiting for ranked results.</p>
       </section>
-      <section id="selected-source" class="result-detail" data-result-detail aria-label="Selected result detail">
+      <section id="selected-source" class="result-detail" data-result-detail data-context-dropzone aria-label="Selected result detail">
         <p class="empty">Select a result to inspect its source.</p>
       </section>
-      <section id="vault-results" class="results" data-vault-results aria-live="polite"></section>
+      <section id="vault-results" class="results" data-vault-results data-context-dropzone aria-live="polite"></section>
     </main>
     """
 
@@ -358,6 +358,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       gap: 10px;
       margin-top: 18px;
       padding: 16px;
+      transition: box-shadow 120ms ease, background 120ms ease;
     }
 
     .pinned-context {
@@ -368,7 +369,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       transition: box-shadow 120ms ease, background 120ms ease;
     }
 
-    .pinned-context.is-drop-target {
+    [data-context-dropzone].is-drop-target {
       background: color-mix(in srgb, var(--epistemos-workspace-accent) 14%, transparent);
       box-shadow: 0 12px 30px color-mix(in srgb, var(--epistemos-workspace-accent) 18%, transparent);
     }
@@ -442,6 +443,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       gap: 10px;
       margin-top: 18px;
       padding: 16px;
+      transition: box-shadow 120ms ease, background 120ms ease;
     }
 
     .result-detail h2 {
@@ -479,6 +481,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       display: grid;
       gap: 10px;
       margin-top: 24px;
+      transition: box-shadow 120ms ease, background 120ms ease;
     }
 
     .result-card {
@@ -905,8 +908,28 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       pinDroppedContextKey(key);
     }
 
-    function clearPinnedDropTarget() {
-      HTMLWorkspace.q('[data-pinned-context]')?.classList.remove('is-drop-target');
+    function clearContextDropTargets() {
+      document.querySelectorAll('[data-context-dropzone].is-drop-target').forEach((node) => {
+        node.classList.remove('is-drop-target');
+      });
+    }
+
+    function installContextDropzone(dropzone) {
+      if (!dropzone) { return; }
+      dropzone.addEventListener('dragover', (event) => {
+        if (!hasContextDrag(event)) { return; }
+        event.preventDefault();
+        if (event.dataTransfer) { event.dataTransfer.dropEffect = 'copy'; }
+        dropzone.classList.add('is-drop-target');
+      });
+      dropzone.addEventListener('dragleave', clearContextDropTargets);
+      dropzone.addEventListener('drop', (event) => {
+        if (!hasContextDrag(event)) { return; }
+        event.preventDefault();
+        const payload = droppedContextPayload(event);
+        clearContextDropTargets();
+        pinDroppedContextPayload(payload);
+      });
     }
 
     function rankDatum(result, index) {
@@ -1030,20 +1053,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderVaultResults();
     });
     HTMLWorkspace.q('[data-pin-context]')?.addEventListener('click', pinSelectedContext);
-    HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('dragover', (event) => {
-      if (!hasContextDrag(event)) { return; }
-      event.preventDefault();
-      if (event.dataTransfer) { event.dataTransfer.dropEffect = 'copy'; }
-      event.currentTarget.classList.add('is-drop-target');
-    });
-    HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('dragleave', clearPinnedDropTarget);
-    HTMLWorkspace.q('[data-pinned-context]')?.addEventListener('drop', (event) => {
-      if (!hasContextDrag(event)) { return; }
-      event.preventDefault();
-      const payload = droppedContextPayload(event);
-      clearPinnedDropTarget();
-      pinDroppedContextPayload(payload);
-    });
+    document.querySelectorAll('[data-context-dropzone]').forEach(installContextDropzone);
     window.addEventListener('htmlworkspace:datachange', renderVaultResults);
     document.documentElement.dataset.htmlWorkspace = 'ready';
     """
