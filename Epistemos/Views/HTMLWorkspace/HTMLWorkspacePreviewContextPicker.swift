@@ -6,6 +6,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
     let isRegenerating: Bool
     let isRefreshingContext: Bool
     let theme: EpistemosTheme
+    let targetText: String
     let onOpenContextSearch: () -> Void
     let onRequestContextShortcut: (HTMLWorkspaceRegenerateContextShortcut) -> Void
     let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
@@ -26,6 +27,10 @@ struct HTMLWorkspacePreviewContextPicker: View {
                 Label("Search Context", systemImage: "magnifyingglass")
             }
             .disabled(isRefreshingContext)
+
+            if !targetText.isEmpty {
+                Text(targetText)
+            }
 
             Divider()
             Section("Source Families") {

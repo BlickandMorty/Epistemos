@@ -566,6 +566,7 @@ struct HTMLWorkspaceEditorView: View {
                         isRegenerating: isRegenerating,
                         isRefreshingContext: isRefreshingRegenerateContext,
                         theme: workspaceTheme,
+                        targetText: previewContextDropTargetText,
                         onOpenContextSearch: openRegenerateSheet,
                         onRequestContextShortcut: refreshPreviewContextShortcut,
                         onPickContextItem: applyPreviewContextItem

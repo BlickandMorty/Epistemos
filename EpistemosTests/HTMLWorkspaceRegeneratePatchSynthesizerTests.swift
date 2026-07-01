@@ -289,6 +289,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sidebar.contains(".font(pixelCaptionFont)"))
         #expect(sidebar.contains(".font(pixelMicroFont)"))
         #expect(picker.contains("struct HTMLWorkspacePreviewContextPicker: View"))
+        #expect(picker.contains("let targetText: String"))
+        #expect(picker.contains("if !targetText.isEmpty"))
+        #expect(picker.contains("Text(targetText)"))
         #expect(picker.contains("Menu {"))
         #expect(picker.contains("Label(\"Add Context\", systemImage: \"plus.square.on.square\")"))
         #expect(picker.contains("Label(\"Search Context\", systemImage: \"magnifyingglass\")"))
@@ -306,6 +309,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("Text(item.rankDescriptor)"))
         #expect(picker.contains("item.systemImage"))
         #expect(picker.contains("Pick read-only context for this preview surface"))
+        #expect(editor.contains("targetText: previewContextDropTargetText"))
     }
 
     @Test("context shortcuts expose source families without becoming regenerate presets")
