@@ -286,11 +286,20 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     private static func normalized(_ value: String) -> String {
-        let bounded = String(value.prefix(maxClassifierInputCharacters))
+        let bounded = boundedClassifierInput(value)
         let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.lowercased()
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: "_", with: "-")
+    }
+
+    private static func boundedClassifierInput(_ value: String) -> String {
+        var output = ""
+        for scalar in value.unicodeScalars.prefix(maxClassifierInputCharacters) {
+            guard !CharacterSet.controlCharacters.contains(scalar) else { continue }
+            output.append(Character(scalar))
+        }
+        return output
     }
 }
 

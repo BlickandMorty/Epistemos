@@ -23,7 +23,8 @@ struct WholeAppLogosCodepackPlan3Tests {
             "Marketplace search results",
             "Best-of preset items",
             "Connectors",
-            "The delivered implementation wires"
+            "The delivered implementation wires",
+            "raw-cap and control-strip each arbitrary MCP/skill/connector input"
         ] {
             #expect(plan.contains(required), "Missing whole-app logos codepack string: \(required)")
         }
@@ -38,6 +39,7 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(plan.contains("Whole-app brand-logo coverage — SHIPPED"))
         #expect(plan.contains("the non-model `IntegrationBrand` registry"))
         #expect(plan.contains("without runtime logo downloads or official-logo claims"))
+        #expect(plan.contains("raw-capped and\n  control-stripped before normalization"))
         #expect(!plan.contains("Whole-app brand-logo coverage** — the non-model pass"))
         #expect(!plan.contains("Cross-cutting UI polish."))
     }
@@ -67,7 +69,9 @@ struct WholeAppLogosCodepackPlan3Tests {
             "private static func isBrowserUse",
             "maxClassifierInputCharacters",
             "normalizedHaystack",
-            "String(value.prefix(maxClassifierInputCharacters))"
+            "boundedClassifierInput",
+            "value.unicodeScalars.prefix(maxClassifierInputCharacters)",
+            "CharacterSet.controlCharacters"
         ] {
             #expect(registry.contains(required), "Missing IntegrationBrand registry string: \(required)")
         }
@@ -211,12 +215,15 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(IntegrationBrand.skillInventory(identifier: "github-helper", description: "GitHub tools") == .github)
         #expect(IntegrationBrand.skillInventory(identifier: "browseruse-helper", description: "Chromium automation") == .browserUse)
         #expect(IntegrationBrand.mcpRegistry(source: "github", installKind: "skillRepo", name: "browser-use") == .browserUse)
+        #expect(IntegrationBrand.connector(id: "s\nlack", displayName: "") == .slack)
 
         let longTail = String(repeating: "x", count: IntegrationBrand.maxClassifierInputCharacters + 64)
+        let longControlPrefix = String(repeating: "\u{0}", count: IntegrationBrand.maxClassifierInputCharacters + 64)
         #expect(IntegrationBrand.connector(id: "slack-\(longTail)", displayName: "") == .slack)
         #expect(IntegrationBrand.connector(id: longTail + "-slack", displayName: "") == .remoteMCP)
         #expect(IntegrationBrand.skillInventory(identifier: "github-\(longTail)", description: "") == .github)
         #expect(IntegrationBrand.skillInventory(identifier: longTail + "-github", description: "") == .skillRepo)
+        #expect(IntegrationBrand.skillInventory(identifier: longControlPrefix + "github", description: "") == .skillRepo)
         #expect(IntegrationBrand.mcpRegistry(source: "", installKind: longTail + "remoteURL", name: "") == .builtinTool)
         #expect(IntegrationBrand.skillInstallSource(rawValue: longTail + "localPath") == .skillRepo)
         #expect(IntegrationBrand.connector(id: longTail, displayName: "slack") == .slack)
