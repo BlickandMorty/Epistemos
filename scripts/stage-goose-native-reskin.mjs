@@ -3199,13 +3199,13 @@ function applySettingsPanelSurfaces() {
     source,
     'telemetry row native',
     'className="flex items-center justify-between"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-3 py-2.5 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
     'telemetry card native glass',
     'className="rounded-[6px]"',
-    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/54"'
   );
   write('src/components/settings/app/TelemetrySettings.tsx', source);
 
@@ -3214,7 +3214,7 @@ function applySettingsPanelSurfaces() {
     source,
     'config settings card native glass',
     'className="rounded-lg"',
-    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/54"'
   );
   source = replaceAllRequired(
     source,
@@ -3238,19 +3238,19 @@ function applySettingsPanelSurfaces() {
     source,
     'config row native',
     'className="grid grid-cols-[200px_1fr_auto] gap-3 items-center"',
-    'className="grid grid-cols-[200px_1fr_auto] items-center gap-3 rounded-[10px] border border-border-secondary bg-background-secondary/45 px-3 py-2.5"'
+    'className="grid grid-cols-[200px_1fr_auto] items-center gap-3 rounded-[10px] bg-background-secondary/45 px-3 py-2.5"'
   );
   source = replaceRequired(
     source,
     'config input native',
     "'text-text-primary border-border-primary hover:border-border-primary transition-colors'",
-    "'border-border-primary bg-background-primary/70 text-text-primary transition-all hover:border-border-tertiary focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20'"
+    "'bg-background-primary/70 text-text-primary transition-colors hover:bg-background-secondary/72 focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0'"
   );
   source = replaceRequired(
     source,
     'config modified input accent',
     "modifiedKeys.has(key) && 'border-blue-500 focus:ring-blue-500/20'",
-    "modifiedKeys.has(key) && 'border-[var(--epistemos-accent)] focus:ring-[var(--epistemos-accent)]/20'"
+    "modifiedKeys.has(key) && 'bg-[var(--epistemos-accent)]/10'"
   );
   source = replaceRequired(
     source,
@@ -3265,7 +3265,7 @@ function applySettingsPanelSurfaces() {
     source,
     'prompt editor card native glass',
     'className="pb-2 rounded-lg"',
-    'className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/54 pb-2"'
   );
   source = replaceRequired(
     source,
@@ -3277,13 +3277,13 @@ function applySettingsPanelSurfaces() {
     source,
     'prompt template tip native',
     'className="text-sm text-text-secondary bg-background-secondary p-3 rounded-lg"',
-    'className="rounded-[10px] border border-border-secondary bg-background-secondary/60 p-3 text-sm text-text-secondary backdrop-blur-xl"'
+    'className="rounded-[10px] bg-background-secondary/56 p-3 text-sm text-text-secondary"'
   );
   source = replaceRequired(
     source,
     'prompt textarea native',
     'className="w-full flex-1 min-h-[500px] border rounded-md p-3 text-sm font-mono resize-y bg-background-primary text-text-primary border-border-primary focus:outline-none focus:ring-2 focus:ring-blue-500"',
-    'className="min-h-[500px] w-full flex-1 resize-y rounded-[10px] border border-border-primary bg-background-primary/70 p-3 font-mono text-sm text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="min-h-[500px] w-full flex-1 resize-y rounded-[10px] bg-background-primary/70 p-3 font-mono text-sm text-text-primary transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0"'
   );
   source = replaceRequired(
     source,
@@ -3295,7 +3295,7 @@ function applySettingsPanelSurfaces() {
     source,
     'prompt list warning card native',
     'className="pb-2 rounded-lg border-yellow-500/50 bg-yellow-500/10"',
-    'className="border-border-warning bg-background-warning/55 pb-2 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-warning/55 pb-2"'
   );
   source = replaceRequired(
     source,
@@ -3313,13 +3313,13 @@ function applySettingsPanelSurfaces() {
     source,
     'prompt reset all button native',
     'className="flex items-center gap-2 border-yellow-500/50 hover:bg-yellow-500/20"',
-    'className="flex items-center gap-2 border-border-warning text-text-warning hover:bg-background-warning/70"'
+    'className="flex items-center gap-2 text-text-warning hover:bg-background-warning/70"'
   );
   source = replaceRequired(
     source,
     'prompt row native glass',
     'className="flex items-center justify-between p-3 rounded-lg border border-border-primary hover:bg-background-secondary transition-colors"',
-    'className="flex items-center justify-between rounded-[10px] border border-border-secondary bg-background-primary/55 p-3 shadow-sm transition-all hover:bg-background-secondary/70"'
+    'className="flex items-center justify-between rounded-[10px] bg-background-primary/55 p-3 transition-colors hover:bg-background-secondary/70"'
   );
   source = replaceRequired(
     source,
@@ -3601,19 +3601,19 @@ function applyKeyboardSettingsSurfaces() {
     source,
     'keyboard restart warning native card',
     'className="rounded-lg border-yellow-600/50 bg-yellow-600/10"',
-    'className="border-border-warning bg-background-warning/55 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-warning/55"'
   );
   source = replaceAllRequired(
     source,
     'keyboard cards native glass',
     'className="rounded-lg"',
-    'className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+    'className="bg-background-primary/54"'
   );
   source = replaceAllRequired(
     source,
     'keyboard rows native hover',
     'className="flex items-center justify-between"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-3 py-2.5 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-3 py-2.5 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
@@ -3648,19 +3648,19 @@ function applyAuthSettingsSurfaces() {
     source,
     'auth expired badge native token',
     "return 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300';",
-    "return 'border-border-danger bg-background-danger/55 text-text-danger';"
+    "return 'bg-background-danger/55 text-text-danger';"
   );
   source = replaceRequired(
     source,
     'auth valid badge native token',
     "return 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300';",
-    "return 'border-border-success bg-background-success/55 text-text-success';"
+    "return 'bg-background-success/55 text-text-success';"
   );
   source = replaceRequired(
     source,
     'auth card native glass',
     '<Card className="pb-2">',
-    '<Card className="border-border-secondary bg-background-primary/68 pb-2 shadow-sm backdrop-blur-xl">'
+    '<Card className="bg-background-primary/54 pb-2">'
   );
   source = replaceRequired(
     source,
@@ -3678,7 +3678,7 @@ function applyAuthSettingsSurfaces() {
     source,
     'auth credential row native',
     'className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"',
-    'className="flex flex-col gap-3 rounded-[10px] border border-transparent px-3 py-3 transition-all hover:border-border-secondary hover:bg-background-secondary/60 sm:flex-row sm:items-center sm:justify-between"'
+    'className="flex flex-col gap-3 rounded-[10px] px-3 py-3 transition-colors hover:bg-background-secondary/60 sm:flex-row sm:items-center sm:justify-between"'
   );
   source = replaceRequired(
     source,
@@ -3711,7 +3711,7 @@ function applyAuthSettingsSurfaces() {
     source,
     'huggingface sign-in prompt native glass',
     'className={`flex flex-col gap-3 rounded-lg border border-border-subtle bg-background-default p-3 sm:flex-row sm:items-center sm:justify-between ${className ?? \'\'}`}',
-    'className={`flex flex-col gap-3 rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between ${className ?? \'\'}`}'
+    'className={`flex flex-col gap-3 rounded-[10px] bg-background-primary/54 p-3 sm:flex-row sm:items-center sm:justify-between ${className ?? \'\'}`}'
   );
   source = replaceRequired(
     source,
@@ -3758,7 +3758,7 @@ function applyLocalInferenceSurfaces() {
     source,
     'local downloads card native',
     'className="border rounded-lg p-3 border-border-subtle bg-background-default"',
-    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl"'
+    'className="rounded-[10px] bg-background-primary/54 p-3"'
   );
   source = replaceAllRequired(
     source,
@@ -3788,19 +3788,19 @@ function applyLocalInferenceSurfaces() {
     source,
     'local downloaded card base native',
     'className={`border rounded-lg p-3 transition-colors ${',
-    'className={`rounded-[10px] border p-3 shadow-sm backdrop-blur-xl transition-colors ${'
+    'className={`rounded-[10px] p-3 transition-colors ${'
   );
   source = replaceRequired(
     source,
     'local selected card native',
     "? 'border-accent-primary bg-accent-primary/5'",
-    "? 'border-[var(--epistemos-accent)] bg-background-primary/78 ring-[3px] ring-[var(--epistemos-accent)]/20'"
+    "? 'bg-[var(--epistemos-accent)]/12'"
   );
   source = replaceRequired(
     source,
     'local unselected card native',
     ": 'border-border-subtle bg-background-default hover:border-border-default'",
-    ": 'border-border-secondary bg-background-primary/68 hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62'"
+    ": 'bg-background-primary/54 hover:bg-background-secondary/62'"
   );
   source = replaceAllRequired(
     source,
@@ -3812,7 +3812,7 @@ function applyLocalInferenceSurfaces() {
     source,
     'local featured card native',
     'className="border rounded-lg p-3 border-border-subtle bg-background-default hover:border-border-default"',
-    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 p-3 shadow-sm backdrop-blur-xl transition-colors hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62"'
+    'className="rounded-[10px] bg-background-primary/54 p-3 transition-colors hover:bg-background-secondary/62"'
   );
   source = replaceRequired(
     source,
@@ -3824,13 +3824,13 @@ function applyLocalInferenceSurfaces() {
     source,
     'local search separator native',
     '<div className="border-t border-border-subtle pt-4">',
-    '<div className="border-t border-border-secondary pt-5">'
+    '<div className="pt-5">'
   );
   source = replaceRequired(
     source,
     'local settings dialog native',
     '<DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-xl">',
-    '<DialogContent className="max-h-[80vh] overflow-y-auto border-border-secondary bg-background-primary/82 shadow-lg backdrop-blur-xl sm:max-w-xl">'
+    '<DialogContent className="max-h-[80vh] overflow-y-auto bg-background-primary/92 sm:max-w-xl">'
   );
   write('src/components/settings/localInference/LocalInferenceSettings.tsx', source);
 
@@ -3845,7 +3845,7 @@ function applyLocalInferenceSurfaces() {
     source,
     'hf search input native',
     'className="w-full pl-9 pr-4 py-2 text-sm border border-border-subtle rounded-lg bg-background-default text-text-default placeholder:text-text-muted focus:outline-none focus:border-accent-primary"',
-    'className="min-h-9 w-full rounded-[9px] border border-border-secondary bg-background-primary/68 py-2 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-secondary transition-all duration-200 ease-[var(--epistemos-control-ease)] focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="min-h-9 w-full rounded-[9px] bg-background-primary/70 py-2 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-secondary transition-colors duration-200 ease-[var(--epistemos-control-ease)] focus:bg-background-secondary/72 focus:outline-none focus:ring-0"'
   );
   source = replaceRequired(
     source,
@@ -3863,7 +3863,7 @@ function applyLocalInferenceSurfaces() {
     source,
     'hf repo card native',
     'className="border border-border-subtle rounded-lg"',
-    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl"'
+    'className="rounded-[10px] bg-background-primary/54"'
   );
   source = replaceRequired(
     source,
@@ -3875,31 +3875,31 @@ function applyLocalInferenceSurfaces() {
     source,
     'hf variants panel native',
     'className="border-t border-border-subtle px-3 pb-3 space-y-1"',
-    'className="space-y-1 border-t border-border-secondary px-3 pb-3 pt-2"'
+    'className="space-y-1 px-3 pb-3 pt-2"'
   );
   source = replaceRequired(
     source,
     'hf variant row base native',
     'className={`flex items-center justify-between py-2 px-2 rounded ${',
-    'className={`flex items-center justify-between rounded-[9px] border px-2 py-2 transition-colors ${'
+    'className={`flex items-center justify-between rounded-[9px] px-2 py-2 transition-colors ${'
   );
   source = replaceRequired(
     source,
     'hf downloaded variant native',
     "? 'bg-green-500/5 border border-green-500/20'",
-    "? 'border-border-success bg-background-success/55'"
+    "? 'bg-background-success/55'"
   );
   source = replaceRequired(
     source,
     'hf recommended variant native',
     "? 'bg-blue-500/5 border border-blue-500/20'",
-    "? 'border-[var(--epistemos-accent)] bg-background-primary/78'"
+    "? 'bg-[var(--epistemos-accent)]/12'"
   );
   source = replaceRequired(
     source,
     'hf neutral variant native',
     ": 'hover:bg-background-subtle'",
-    ": 'border-transparent hover:border-border-secondary hover:bg-background-secondary/60'"
+    ": 'hover:bg-background-secondary/60'"
   );
   source = replaceRequired(
     source,
@@ -3932,25 +3932,25 @@ function applyLocalInferenceSurfaces() {
     source,
     'local number field native input',
     'className="w-full rounded border border-border-subtle bg-background-default px-2 py-1 text-sm text-text-default"',
-    'className="min-h-8 w-full rounded-[8px] border border-border-secondary bg-background-primary/68 px-2 py-1 text-sm text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="min-h-8 w-full rounded-[8px] bg-background-primary/70 px-2 py-1 text-sm text-text-primary transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0"'
   );
   source = replaceAllRequired(
     source,
     'local settings compact rows native',
     'className="flex items-center justify-between gap-2"',
-    'className="flex items-center justify-between gap-2 rounded-[9px] border border-transparent px-2 py-2 transition-colors hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between gap-2 rounded-[9px] px-2 py-2 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
     'local select field native',
     'className="rounded border border-border-subtle bg-background-default px-2 py-1 text-xs text-text-default"',
-    'className="min-h-8 rounded-[8px] border border-border-secondary bg-background-primary/68 px-2 py-1 text-xs text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="min-h-8 rounded-[8px] bg-background-primary/70 px-2 py-1 text-xs text-text-primary transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0"'
   );
   source = replaceRequired(
     source,
     'local textarea field native',
     'className="min-h-32 rounded border border-border-subtle bg-background-default px-2 py-1 font-mono text-xs text-text-default"',
-    'className="min-h-32 rounded-[8px] border border-border-secondary bg-background-primary/68 px-2 py-1 font-mono text-xs text-text-primary transition-all focus:border-[var(--epistemos-accent)] focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20"'
+    'className="min-h-32 rounded-[8px] bg-background-primary/70 px-2 py-1 font-mono text-xs text-text-primary transition-colors focus:bg-background-secondary/72 focus:outline-none focus:ring-0"'
   );
   source = replaceRequired(
     source,
@@ -3967,7 +3967,7 @@ function applyGatewaySettingsSurfaces() {
     source,
     'gateway error banner native',
     'className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200 mb-4"',
-    'className="mb-4 rounded-[10px] border border-border-danger bg-background-danger/55 p-3 text-sm text-text-danger"'
+    'className="mb-4 rounded-[10px] bg-background-danger/55 p-3 text-sm text-text-danger"'
   );
   source = replaceRequired(
     source,
@@ -3985,7 +3985,7 @@ function applyGatewaySettingsSurfaces() {
     source,
     'gateway paired user row native',
     'className="flex items-center justify-between py-1.5 px-2 bg-background-muted rounded text-sm"',
-    'className="flex items-center justify-between rounded-[9px] border border-border-secondary bg-background-primary/68 px-2 py-1.5 text-sm"'
+    'className="flex items-center justify-between rounded-[9px] bg-background-primary/54 px-2 py-1.5 text-sm"'
   );
   source = replaceRequired(
     source,
@@ -4003,7 +4003,7 @@ function applyGatewaySettingsSurfaces() {
     source,
     'gateway card native glass',
     '<Card className="rounded-lg">',
-    '<Card className="border-border-secondary bg-background-primary/68 shadow-sm backdrop-blur-xl">'
+    '<Card className="bg-background-primary/54">'
   );
   source = replaceRequired(
     source,
@@ -4057,7 +4057,7 @@ function applyGatewaySettingsSurfaces() {
     source,
     'gateway pairing dialog native',
     '<DialogContent className="sm:max-w-[400px]">',
-    '<DialogContent className="border-border-secondary bg-background-primary/82 shadow-lg backdrop-blur-xl sm:max-w-[400px]">'
+    '<DialogContent className="bg-background-primary/92 sm:max-w-[400px]">'
   );
   source = replaceRequired(
     source,
@@ -4080,19 +4080,19 @@ function applyDictationSettingsSurfaces() {
     source,
     'dictation provider row native',
     'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-2 py-2 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
     'dictation provider dropdown native',
     'className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border-primary rounded-md hover:border-border-primary transition-colors text-text-primary bg-background-primary"',
-    'className="flex min-h-9 items-center gap-2 rounded-[8px] border border-border-secondary bg-background-primary/68 px-3 py-1.5 text-sm text-text-primary transition-colors hover:border-[var(--epistemos-accent)]"'
+    'className="flex min-h-9 items-center gap-2 rounded-[8px] bg-background-primary/70 px-3 py-1.5 text-sm text-text-primary transition-colors hover:bg-background-secondary/72"'
   );
   source = replaceAllRequired(
     source,
     'dictation config panels native',
     'className="py-2 px-2 bg-background-secondary rounded-lg"',
-    'className="rounded-[10px] border border-border-secondary bg-background-primary/68 px-2 py-2 shadow-sm backdrop-blur-xl"'
+    'className="rounded-[10px] bg-background-primary/54 px-2 py-2"'
   );
   source = replaceAllRequired(
     source,
@@ -4137,7 +4137,7 @@ function applyDictationSettingsSurfaces() {
     source,
     'microphone rows native',
     'className="flex items-center justify-between py-2 px-2 hover:bg-background-secondary rounded-lg transition-all"',
-    'className="flex items-center justify-between rounded-[9px] border border-transparent px-2 py-2 transition-all hover:border-border-secondary hover:bg-background-secondary/60"'
+    'className="flex items-center justify-between rounded-[9px] px-2 py-2 transition-colors hover:bg-background-secondary/60"'
   );
   source = replaceRequired(
     source,
@@ -4149,7 +4149,7 @@ function applyDictationSettingsSurfaces() {
     source,
     'microphone dropdown native',
     'className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border-primary rounded-md hover:border-border-primary transition-colors text-text-primary bg-background-primary max-w-[220px]"',
-    'className="flex min-h-9 max-w-[220px] items-center gap-2 rounded-[8px] border border-border-secondary bg-background-primary/68 px-3 py-1.5 text-sm text-text-primary transition-colors hover:border-[var(--epistemos-accent)]"'
+    'className="flex min-h-9 max-w-[220px] items-center gap-2 rounded-[8px] bg-background-primary/70 px-3 py-1.5 text-sm text-text-primary transition-colors hover:bg-background-secondary/72"'
   );
   source = replaceRequired(
     source,
@@ -4176,19 +4176,19 @@ function applyDictationSettingsSurfaces() {
     source,
     'dictation local model card base native',
     'className={`border rounded-lg p-3 transition-colors ${',
-    'className={`rounded-[10px] border p-3 shadow-sm backdrop-blur-xl transition-colors ${'
+    'className={`rounded-[10px] p-3 transition-colors ${'
   );
   source = replaceRequired(
     source,
     'dictation local model selected native',
     "? 'border-text-inverse bg-background-inverse/5'",
-    "? 'border-[var(--epistemos-accent)] bg-background-primary/78 ring-[3px] ring-[var(--epistemos-accent)]/20'"
+    "? 'bg-[var(--epistemos-accent)]/12'"
   );
   source = replaceRequired(
     source,
     'dictation local model unselected native',
     ": 'border-border-primary bg-background-primary hover:border-border-primary'",
-    ": 'border-border-secondary bg-background-primary/68 hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/62'"
+    ": 'bg-background-primary/54 hover:bg-background-secondary/62'"
   );
   source = replaceRequired(
     source,
