@@ -44,6 +44,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(window.contains("window.isOpaque = false"))
         #expect(window.contains("window.contentView = host"))
         #expect(window.contains("WindowThemeStyler.refreshChrome(of: window)"))
+        #expect(window.contains("host.layer?.cornerRadius = 18"))
+        #expect(window.contains("host.layer?.masksToBounds = true"))
         #expect(!window.contains("WindowThemeStyler.themedContentView"))
         #expect(!window.contains("WindowThemeStyler.apply(to: window"))
 
@@ -53,6 +55,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(fallbackWindow.contains("window.isOpaque = false"))
         #expect(fallbackWindow.contains("window.contentView = host"))
         #expect(fallbackWindow.contains("WindowThemeStyler.refreshChrome(of: window)"))
+        #expect(fallbackWindow.contains("host.layer?.cornerRadius = 18"))
+        #expect(fallbackWindow.contains("host.layer?.masksToBounds = true"))
         #expect(!fallbackWindow.contains("WindowThemeStyler.themedContentView"))
         #expect(!fallbackWindow.contains("WindowThemeStyler.apply(to: window"))
 

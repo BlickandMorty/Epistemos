@@ -48,6 +48,8 @@ final class AgentSurfaceWindowController {
         host.sizingOptions = .minSize
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
+        host.layer?.cornerRadius = 18
+        host.layer?.masksToBounds = true
         window.contentView = host
         WindowThemeStyler.refreshChrome(of: window)
 
