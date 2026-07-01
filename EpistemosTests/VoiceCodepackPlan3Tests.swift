@@ -430,6 +430,7 @@ struct VoiceCodepackPlan3Tests {
             "FileAttributeType == .typeRegular",
             "FileAttributeType == .typeDirectory",
             "path must not include symlink component",
+            "character >= \"A\" && character <= \"F\"",
             "pathDiagnostic(",
             "maxPathDiagnosticLength",
             "rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength",
@@ -1035,6 +1036,40 @@ struct VoiceCodepackPlan3Tests {
         #expect(emptyPackage.detail.contains("missing coreml/kokoro_duration_t32.mlpackage"))
         #expect(emptyPackage.detail.contains(root.path) == false)
         #expect(emptyPackage.detail.contains(modelDirectory.path) == false)
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro Pro gate accepts uppercase SHA-256 manifest digests")
+    func kokoroProGateAcceptsUppercaseSHA256ManifestDigests() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-uppercase-digest-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeValidKokoroPackage(at: modelDirectory)
+
+        var manifest = try kokoroRuntimeManifestObject()
+        var voices = try #require(manifest["voices"] as? [[String: Any]])
+        var starterVoice = try #require(voices.first)
+        let digest = try #require(starterVoice["sha256"] as? String)
+        starterVoice["sha256"] = digest.uppercased()
+        voices[0] = starterVoice
+        manifest["voices"] = voices
+        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+            .write(to: manifestURL)
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(status.isReady)
+        #expect(status.state == .packageReady)
+        #expect(status.detail.contains("digest mismatch") == false)
         #else
         #expect(true)
         #endif

@@ -924,7 +924,9 @@ nonisolated enum KokoroVoiceGateStatus {
             return false
         }
         return value.allSatisfy { character in
-            character >= "0" && character <= "9" || character >= "a" && character <= "f"
+            character >= "0" && character <= "9"
+                || character >= "a" && character <= "f"
+                || character >= "A" && character <= "F"
         }
     }
 
