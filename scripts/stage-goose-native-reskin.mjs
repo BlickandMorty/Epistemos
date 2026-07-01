@@ -1795,13 +1795,73 @@ function applyMotionSurfaces() {
     source,
     'navigation row native transition',
     "'border-l-2 px-2.5 py-1.5 text-xs font-medium transition-colors'",
-    "'border-l-2 px-2.5 py-1.5 text-xs font-medium transition-all duration-200 ease-[var(--epistemos-control-ease)]'"
+    "'rounded-[8px] px-2.5 py-1.5 text-[13px] font-medium tracking-normal transition-all duration-200 ease-[var(--epistemos-control-ease)]'"
+  );
+  source = replaceAllRequired(
+    source,
+    'navigation active rows borderless',
+    "'border-border-active bg-background-tertiary text-text-primary'",
+    "'bg-background-tertiary text-text-primary'"
+  );
+  source = replaceAllRequired(
+    source,
+    'navigation inactive rows borderless',
+    "'border-transparent text-text-secondary hover:bg-background-tertiary/60 hover:text-text-primary'",
+    "'text-text-secondary hover:bg-background-tertiary/60 hover:text-text-primary'"
   );
   source = replaceRequired(
     source,
     'navigation session row native transition',
     "'hover:bg-background-tertiary/60 transition-colors text-text-secondary hover:text-text-primary'",
     "'hover:bg-background-tertiary/60 transition-all duration-200 ease-[var(--epistemos-control-ease)] text-text-secondary hover:text-text-primary'"
+  );
+  source = replaceRequired(
+    source,
+    'navigation label sf font',
+    'className="text-left flex-1 truncate font-mono"',
+    'className="text-left flex-1 truncate font-sans tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'navigation tag sf font',
+    '<span className="text-xs font-mono text-text-secondary">{item.getTag()}</span>',
+    '<span className="text-xs font-sans text-text-secondary">{item.getTag()}</span>'
+  );
+  source = replaceRequired(
+    source,
+    'navigation session row geometry',
+    "'flex items-center gap-2 border-l-2 px-2.5 py-1.5 cursor-pointer text-xs'",
+    "'flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 cursor-pointer text-[13px]'"
+  );
+  source = replaceRequired(
+    source,
+    'navigation inline edit sf font',
+    'className="truncate text-inherit flex-1 !px-0 !py-0 hover:bg-transparent font-mono"',
+    'className="truncate text-inherit flex-1 !px-0 !py-0 hover:bg-transparent font-sans tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'navigation top spacer no divider',
+    '<div className="h-[48px] no-drag border-b border-border-secondary" />',
+    '<div className="h-[48px] no-drag" />'
+  );
+  source = replaceRequired(
+    source,
+    'navigation chats section no divider',
+    '<div className="flex-1 min-h-0 flex flex-col mt-3 border-t border-border-secondary pt-2">',
+    '<div className="flex-1 min-h-0 flex flex-col mt-3 pt-2">'
+  );
+  source = replaceRequired(
+    source,
+    'navigation chats section pixel label',
+    'className="flex items-center gap-1 px-3 py-1 text-[11px] font-semibold uppercase text-text-secondary hover:text-text-primary transition-colors self-start font-mono"',
+    'className="ep-pixel flex items-center gap-1 px-3 py-1 text-[11px] font-semibold uppercase text-text-secondary hover:text-text-primary transition-colors self-start tracking-normal"'
+  );
+  source = replaceRequired(
+    source,
+    'navigation settings footer no divider',
+    '<div className="px-2 pt-2 pb-2 border-t border-border-secondary bg-background-secondary">',
+    '<div className="px-2 pt-2 pb-2 bg-background-secondary">'
   );
   write('src/components/Layout/NavigationPanel.tsx', source);
 }
@@ -1887,13 +1947,13 @@ function applyAppSurfaces() {
     source,
     'app layout nav glass',
     'className="relative flex-shrink-0 overflow-hidden h-full border-r border-border-secondary bg-background-secondary"',
-    'className="relative flex-shrink-0 overflow-hidden h-full border-r border-border-secondary bg-background-secondary/62 backdrop-blur-xl"'
+    'className="relative flex-shrink-0 overflow-hidden h-full bg-background-secondary/70"'
   );
   source = replaceRequired(
     source,
     'app layout nav toggle glass',
     'className="no-drag border border-border-secondary bg-background-primary/85 hover:!bg-background-tertiary"',
-    'className="no-drag border border-border-secondary bg-background-primary/70 shadow-sm backdrop-blur-xl hover:!bg-background-tertiary/80"'
+    'className="no-drag bg-background-primary/70 hover:!bg-background-tertiary/80"'
   );
   write('src/components/Layout/AppLayout.tsx', source);
 }
@@ -2017,7 +2077,7 @@ function applyChatSurfaces() {
     source,
     'chat input native glass',
     "'goose-chat-input-card border border-border-primary overflow-hidden bg-background-primary'",
-    "'goose-chat-input-card overflow-hidden rounded-[16px] border border-border-primary bg-background-primary/76 shadow-[0_18px_46px_rgba(0,0,0,.10)] backdrop-blur-xl'"
+    "'goose-chat-input-card overflow-hidden rounded-[16px] bg-background-primary/40'"
   );
   write('src/components/ChatInputCard.tsx', source);
 
