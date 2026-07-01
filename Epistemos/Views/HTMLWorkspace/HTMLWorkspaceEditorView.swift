@@ -1039,9 +1039,19 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard !isRegenerating,
-              !isRefreshingRegenerateContext,
-              let dropProvider = previewContextDropProvider(from: providers) else {
+        guard !isRegenerating else {
+            regenerateErrorText = nil
+            statusText = "Finish the current regenerate before dropping context"
+            return false
+        }
+        guard !isRefreshingRegenerateContext else {
+            regenerateErrorText = nil
+            statusText = "Finish loading context before dropping context"
+            return false
+        }
+        guard let dropProvider = previewContextDropProvider(from: providers) else {
+            regenerateErrorText = nil
+            statusText = "Drop a current Epistemos workspace context item"
             return false
         }
 
@@ -1078,6 +1088,16 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func applyDroppedPreviewContext(_ payload: String) {
+        guard !isRegenerating else {
+            regenerateErrorText = nil
+            statusText = "Finish the current regenerate before dropping context"
+            return
+        }
+        guard !isRefreshingRegenerateContext else {
+            regenerateErrorText = nil
+            statusText = "Finish loading context before dropping context"
+            return
+        }
         guard let context = HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: payload, matching: package) else {
             regenerateErrorText = nil
             statusText = "Drop a current Epistemos workspace context item"
