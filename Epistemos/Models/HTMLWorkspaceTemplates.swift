@@ -289,6 +289,35 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       outline-offset: 2px;
     }
 
+    .detail-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 4px 0 8px;
+    }
+
+    .detail-tab {
+      appearance: none;
+      border: 0;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--epistemos-workspace-card) 88%, var(--epistemos-workspace-fg) 12%);
+      color: var(--epistemos-workspace-muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      padding: 7px 10px;
+    }
+
+    .detail-tab.is-active {
+      background: var(--epistemos-workspace-accent);
+      color: var(--epistemos-workspace-bg);
+    }
+
+    .detail-tab:focus {
+      outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
+      outline-offset: 2px;
+    }
+
     .feed-chart {
       display: grid;
       gap: 10px;
@@ -438,6 +467,9 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     let selectedContextKind = 'all';
     let selectedResultKey = null;
+    const selectedDetailViews = ['summary', 'metadata'];
+    const selectedDetailLabels = { summary: 'Summary', metadata: 'Metadata' };
+    let selectedDetailView = 'summary';
 
     function resultContextKind(result) {
       return String(result.context_kind || 'vault_record').trim() || 'vault_record';
@@ -550,6 +582,25 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       ]);
     }
 
+    function renderDetailTabs() {
+      return HTMLWorkspace.el('div', { class: 'detail-tabs', 'aria-label': 'Selected source views' },
+        selectedDetailViews.map((view) => {
+          const active = view === selectedDetailView;
+          const button = HTMLWorkspace.el('button', {
+            type: 'button',
+            class: active ? 'detail-tab is-active' : 'detail-tab',
+            'aria-pressed': active ? 'true' : 'false',
+            'data-detail-view': view
+          }, selectedDetailLabels[view] || view);
+          button.addEventListener('click', () => {
+            selectedDetailView = view;
+            renderVaultResults();
+          });
+          return button;
+        })
+      );
+    }
+
     function renderResultDetail(results) {
       const host = HTMLWorkspace.q('[data-result-detail]');
       if (!host) { return; }
@@ -562,14 +613,23 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       }
 
       host.append(HTMLWorkspace.el('p', { class: 'chart-heading' }, 'Selected source'));
+      host.append(renderDetailTabs());
+      if (selectedDetailView === 'metadata') {
+        host.append(HTMLWorkspace.el('div', { class: 'detail-grid' }, [
+          detailRow('Page', selected.page_id || 'vault'),
+          detailRow('Rank', Number.isFinite(Number(selected.rank)) ? Number(selected.rank).toFixed(2) : 'Unavailable'),
+          detailRow('Context', resultContextKind(selected)),
+          detailRow('Source', selected.source_label || 'Vault search result'),
+          detailRow('Provenance', selected.provenance || 'VaultSyncService.searchFullAsync')
+        ]));
+        return;
+      }
+
       host.append(HTMLWorkspace.el('h2', {}, selected.title || 'Untitled'));
       host.append(HTMLWorkspace.el('p', {}, selected.snippet || 'No snippet available.'));
       host.append(HTMLWorkspace.el('div', { class: 'detail-grid' }, [
-        detailRow('Page', selected.page_id || 'vault'),
-        detailRow('Rank', Number.isFinite(Number(selected.rank)) ? Number(selected.rank).toFixed(2) : 'Unavailable'),
         detailRow('Context', resultContextKind(selected)),
-        detailRow('Source', selected.source_label || 'Vault search result'),
-        detailRow('Provenance', selected.provenance || 'VaultSyncService.searchFullAsync')
+        detailRow('Source', selected.source_label || 'Vault search result')
       ]));
     }
 
