@@ -65,6 +65,63 @@ struct WorkSkillsProvisionerTests {
         #expect(!WorkSkillsProvisioner.isSkillDirectory(src.appendingPathComponent("README.md")))
     }
 
+    @Test("provisionSkills skips linked skill directories and linked skill files")
+    func skipsLinkedSkillDirectoriesAndFiles() throws {
+        let ws = tmp(); defer { try? FileManager.default.removeItem(at: ws) }
+        let src = tmp(); defer { try? FileManager.default.removeItem(at: src) }
+        let outside = tmp(); defer { try? FileManager.default.removeItem(at: outside) }
+        let fm = FileManager.default
+
+        makeSkill(src, "safe")
+        makeSkill(outside, "outside-skill")
+        try fm.createSymbolicLink(
+            at: src.appendingPathComponent("linked-dir", isDirectory: true),
+            withDestinationURL: outside.appendingPathComponent("outside-skill", isDirectory: true)
+        )
+
+        let hardlinkedSkill = src.appendingPathComponent("hardlinked-skill", isDirectory: true)
+        try fm.createDirectory(at: hardlinkedSkill, withIntermediateDirectories: true)
+        try fm.linkItem(
+            at: outside.appendingPathComponent("outside-skill/SKILL.md", isDirectory: false),
+            to: hardlinkedSkill.appendingPathComponent("SKILL.md", isDirectory: false)
+        )
+
+        makeSkill(src, "nested-link")
+        let secret = outside.appendingPathComponent("secret.md", isDirectory: false)
+        try "secret".write(to: secret, atomically: true, encoding: .utf8)
+        try fm.createSymbolicLink(
+            at: src.appendingPathComponent("nested-link/secret.md", isDirectory: false),
+            withDestinationURL: secret
+        )
+
+        #expect(WorkSkillsProvisioner.provisionSkills(from: src, into: ws) == 1)
+        let dest = WorkSkillsProvisioner.skillsDestination(workspace: ws)
+        #expect(fm.fileExists(atPath: dest.appendingPathComponent("safe/SKILL.md").path))
+        #expect(!fm.fileExists(atPath: dest.appendingPathComponent("linked-dir").path))
+        #expect(!fm.fileExists(atPath: dest.appendingPathComponent("hardlinked-skill").path))
+        #expect(!fm.fileExists(atPath: dest.appendingPathComponent("nested-link").path))
+        #expect(!WorkSkillsProvisioner.isSkillDirectory(src.appendingPathComponent("linked-dir")))
+        #expect(!WorkSkillsProvisioner.isSkillDirectory(hardlinkedSkill))
+    }
+
+    @Test("provisionSkills refuses symlinked destination directories")
+    func refusesSymlinkedDestinationDirectories() throws {
+        let ws = tmp(); defer { try? FileManager.default.removeItem(at: ws) }
+        let src = tmp(); defer { try? FileManager.default.removeItem(at: src) }
+        let outside = tmp(); defer { try? FileManager.default.removeItem(at: outside) }
+        let fm = FileManager.default
+
+        makeSkill(src, "safe")
+        try fm.createDirectory(at: ws.appendingPathComponent(".opencode", isDirectory: true), withIntermediateDirectories: true)
+        try fm.createSymbolicLink(
+            at: WorkSkillsProvisioner.skillsDestination(workspace: ws),
+            withDestinationURL: outside
+        )
+
+        #expect(WorkSkillsProvisioner.provisionSkills(from: src, into: ws) == 0)
+        #expect(!fm.fileExists(atPath: outside.appendingPathComponent("safe/SKILL.md").path))
+    }
+
     @Test("missing source is an honest no-op")
     func missingSource() {
         let ws = tmp(); defer { try? FileManager.default.removeItem(at: ws) }
