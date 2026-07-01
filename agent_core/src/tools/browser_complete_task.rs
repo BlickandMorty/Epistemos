@@ -16,6 +16,7 @@ use super::browser_command::{
 };
 use super::browser_executable::cdp_url_from_env;
 use super::browser_private::create_private_browser_dir;
+use super::browser_redaction::redact_browser_error_detail;
 pub use super::browser_schema::browser_complete_task_schema;
 use super::registry::{ToolError, ToolHandler};
 
@@ -92,13 +93,17 @@ async fn complete_task_impl(input: &Value) -> Result<Value, ToolError> {
         .get("truncated")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let status = data
-        .get("status")
-        .and_then(Value::as_str)
-        .unwrap_or("completed");
     let steps = data.get("steps").and_then(Value::as_u64);
+    validate_task_envelope_limits(&data, max_steps)?;
     let is_done = data.get("is_done").and_then(Value::as_bool);
     let successful = data.get("successful").and_then(Value::as_bool);
+    let status = normalized_task_status(
+        data.get("status").and_then(Value::as_str),
+        data.get("is_done"),
+        data.get("successful"),
+    );
+    let errors_present = task_errors_present(&errors);
+    let status = task_status_after_errors(status, errors_present);
     let used_browser_use_agent = data
         .get("used_browser_use_agent")
         .and_then(Value::as_bool)
@@ -107,9 +112,12 @@ async fn complete_task_impl(input: &Value) -> Result<Value, ToolError> {
         .get("dry_run")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let task_success = task_outcome_success(status, is_done, successful) && !errors_present;
 
     Ok(json!({
-        "success": true,
+        "success": task_success,
+        "adapter_success": true,
+        "task_success": task_success,
         "status": status,
         "final_result": final_result,
         "errors": errors,
@@ -162,6 +170,34 @@ fn parse_task_max_steps(input: &Value) -> Result<u64, ToolError> {
     Ok(max_steps)
 }
 
+fn validate_task_envelope_limits(data: &Value, requested_max_steps: u64) -> Result<(), ToolError> {
+    if let Some(value) = data.get("max_steps") {
+        let Some(adapter_max_steps) = value.as_u64() else {
+            return Err(ToolError::ExecutionFailed(
+                "browser-use adapter returned non-integer max_steps".into(),
+            ));
+        };
+        if adapter_max_steps != requested_max_steps {
+            return Err(ToolError::ExecutionFailed(
+                "browser-use adapter returned mismatched max_steps".into(),
+            ));
+        }
+    }
+    if let Some(value) = data.get("steps") {
+        let Some(steps) = value.as_u64() else {
+            return Err(ToolError::ExecutionFailed(
+                "browser-use adapter returned non-integer steps".into(),
+            ));
+        };
+        if steps > requested_max_steps {
+            return Err(ToolError::ExecutionFailed(
+                "browser-use adapter returned steps above max_steps".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn bounded_task_text(value: Option<&Value>, cap: usize) -> (Value, bool) {
     let Some(value) = value else {
         return (Value::Null, false);
@@ -174,11 +210,20 @@ fn bounded_task_text(value: Option<&Value>, cap: usize) -> (Value, bool) {
     if total <= cap {
         return (Value::String(text), false);
     }
-    let prefix: String = text.chars().take(cap).collect();
     (
-        Value::String(format!("{prefix}\n[Truncated: {total} total chars]")),
+        Value::String(bounded_with_truncation_marker(&text, cap, total)),
         true,
     )
+}
+
+fn bounded_with_truncation_marker(text: &str, cap: usize, total: usize) -> String {
+    let marker = format!("\n[Truncated: {total} total chars]");
+    let marker_chars = marker.chars().count();
+    if cap <= marker_chars {
+        return marker.chars().take(cap).collect();
+    }
+    let prefix: String = text.chars().take(cap - marker_chars).collect();
+    format!("{prefix}{marker}")
 }
 
 fn bounded_task_errors(value: Option<&Value>) -> (Value, bool) {
@@ -193,11 +238,11 @@ fn bounded_task_errors(value: Option<&Value>) -> (Value, bool) {
             if item.is_null() {
                 None
             } else {
-                Some(
-                    item.as_str()
-                        .map(ToString::to_string)
-                        .unwrap_or_else(|| item.to_string()),
-                )
+                let text = item
+                    .as_str()
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| item.to_string());
+                Some(redact_browser_error_detail(&text))
             }
         })
         .filter(|text| !text.is_empty())
@@ -207,12 +252,94 @@ fn bounded_task_errors(value: Option<&Value>) -> (Value, bool) {
                 Value::String(text)
             } else {
                 truncated = true;
-                let prefix: String = text.chars().take(MAX_TASK_ERROR_CHARS).collect();
-                Value::String(format!("{prefix}\n[Truncated: {total} total chars]"))
+                Value::String(bounded_with_truncation_marker(
+                    &text,
+                    MAX_TASK_ERROR_CHARS,
+                    total,
+                ))
             }
         })
         .collect();
     (Value::Array(errors), truncated)
+}
+
+fn task_errors_present(errors: &Value) -> bool {
+    matches!(errors, Value::Array(items) if !items.is_empty())
+}
+
+fn task_status_after_errors(status: &'static str, errors_present: bool) -> &'static str {
+    if errors_present && status == "completed" {
+        "failed"
+    } else {
+        status
+    }
+}
+
+fn normalized_task_status(
+    raw_status: Option<&str>,
+    is_done: Option<&Value>,
+    successful: Option<&Value>,
+) -> &'static str {
+    let is_done = is_done.and_then(Value::as_bool);
+    let successful = successful.and_then(Value::as_bool);
+    if is_done == Some(false) {
+        return "incomplete";
+    }
+    if successful == Some(false) {
+        return "failed";
+    }
+
+    if let Some(status) = raw_status.map(str::trim) {
+        if status.eq_ignore_ascii_case("completed")
+            || status.eq_ignore_ascii_case("complete")
+            || status.eq_ignore_ascii_case("succeeded")
+            || status.eq_ignore_ascii_case("success")
+        {
+            return "completed";
+        }
+        if status.eq_ignore_ascii_case("failed")
+            || status.eq_ignore_ascii_case("failure")
+            || status.eq_ignore_ascii_case("error")
+        {
+            return "failed";
+        }
+        if status.eq_ignore_ascii_case("incomplete")
+            || status.eq_ignore_ascii_case("running")
+            || status.eq_ignore_ascii_case("cancelled")
+            || status.eq_ignore_ascii_case("canceled")
+            || status.eq_ignore_ascii_case("stopped")
+        {
+            return "incomplete";
+        }
+        if status.eq_ignore_ascii_case("unknown") {
+            return "unknown";
+        }
+    }
+    inferred_task_status(is_done, successful)
+}
+
+fn inferred_task_status(is_done: Option<bool>, successful: Option<bool>) -> &'static str {
+    match (is_done, successful) {
+        (Some(true), _) => "completed",
+        (None, Some(true)) => "completed",
+        _ => "unknown",
+    }
+}
+
+fn task_outcome_success(
+    status: &str,
+    is_done: Option<bool>,
+    successful: Option<bool>,
+) -> bool {
+    match status {
+        "completed" => {
+            (successful == Some(true) || is_done == Some(true))
+                && successful != Some(false)
+                && is_done != Some(false)
+        }
+        "failed" | "incomplete" | "unknown" => false,
+        _ => successful == Some(true) && is_done != Some(false),
+    }
 }
 
 #[cfg(test)]
@@ -375,9 +502,72 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake browse
             errors.as_array().unwrap()[2],
             Value::String(r#"{"kind":"adapter"}"#.to_string())
         );
-        assert!(errors.as_array().unwrap()[3]
-            .as_str()
-            .unwrap()
-            .contains("[Truncated:"));
+        let truncated_error = errors.as_array().unwrap()[3].as_str().unwrap();
+        assert!(truncated_error.contains("[Truncated:"));
+        assert!(truncated_error.chars().count() <= MAX_TASK_ERROR_CHARS);
+    }
+
+    #[test]
+    fn browser_complete_task_truncates_final_result_inside_cap() {
+        let cap = 64;
+        let (text, truncated) = bounded_task_text(Some(&json!("x".repeat(200))), cap);
+        let text = text.as_str().unwrap();
+
+        assert_eq!(truncated, true);
+        assert!(text.contains("[Truncated:"));
+        assert!(text.chars().count() <= cap);
+    }
+
+    #[test]
+    fn browser_complete_task_infers_status_from_successful_when_is_done_missing() {
+        assert_eq!(
+            normalized_task_status(None, None, Some(&json!(true))),
+            "completed"
+        );
+        assert_eq!(
+            normalized_task_status(None, None, Some(&json!(false))),
+            "failed"
+        );
+        assert_eq!(
+            normalized_task_status(None, Some(&json!(false)), Some(&json!(true))),
+            "incomplete"
+        );
+        assert_eq!(
+            normalized_task_status(
+                Some("completed"),
+                Some(&json!(true)),
+                Some(&json!(false))
+            ),
+            "failed"
+        );
+        assert_eq!(task_outcome_success("completed", None, None), false);
+        assert_eq!(task_outcome_success("completed", Some(true), None), true);
+        assert_eq!(task_outcome_success("completed", None, Some(true)), true);
+    }
+
+    #[test]
+    fn browser_complete_task_errors_prevent_successful_completed_outcome() {
+        let errors = json!(["adapter error"]);
+        let errors_present = task_errors_present(&errors);
+        let status = task_status_after_errors("completed", errors_present);
+
+        assert_eq!(errors_present, true);
+        assert_eq!(status, "failed");
+        assert!(!(task_outcome_success(status, Some(true), Some(true)) && !errors_present));
+    }
+
+    #[test]
+    fn browser_complete_task_redacts_adapter_error_values() {
+        let (errors, truncated) = bounded_task_errors(Some(&json!([
+            "token=sk-secret-token https://user:pass@example.com/path?code=oauth-code#id_token=jwt"
+        ])));
+        let serialized = errors.to_string();
+
+        assert_eq!(truncated, false);
+        assert!(serialized.contains("[redacted]"));
+        assert!(!serialized.contains("sk-secret-token"));
+        assert!(!serialized.contains("user:pass"));
+        assert!(!serialized.contains("oauth-code"));
+        assert!(!serialized.contains("id_token"));
     }
 }

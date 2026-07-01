@@ -21,6 +21,8 @@ struct BrowserUseProGateStatusTests {
         #expect(manifest.packagingSummary.contains("requirements.lock=generated"))
         #expect(manifest.packagingSummary.contains("wheels=staged"))
         #expect(manifest.packagingSummary.contains("browser payload=staged"))
+        #expect(manifest.packagingSummary.contains("web-ui shims=landed"))
+        #expect(manifest.packagingSummary.contains("dry-run hook=landed"))
         #expect(manifest.sourceMirrorGuard.requiredExclude == "--exclude='vendor/browser-use/'")
     }
 
@@ -87,7 +89,7 @@ struct BrowserUseProGateStatusTests {
         #expect(message.contains("manifest read failed"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=31"))
-        #expect(message.count <= BrowserUseDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(message.count <= BrowserUseDiagnostics.maxStatusMessageCharacters)
         #expect(!message.contains(privatePath))
         #expect(!message.contains("failed to read"))
     }
@@ -103,6 +105,17 @@ struct BrowserUseProGateStatusTests {
 
         #expect(message.contains("browser-use settings file must be a regular file at settings.json"))
         #expect(!message.contains("domain="))
+    }
+
+    @Test("diagnostics cap raw status before trim and keep ellipsis inside bound")
+    func diagnosticsCapRawStatusBeforeTrim() {
+        let message = BrowserUseDiagnostics.statusMessage(
+            String(repeating: "x", count: BrowserUseDiagnostics.maxStatusMessageCharacters + 64),
+            fallback: "browser-use status"
+        )
+
+        #expect(message.count <= BrowserUseDiagnostics.maxStatusMessageCharacters)
+        #expect(message.hasSuffix("..."))
     }
 
     @Test("manifest file envelope rejects symlinks and oversized JSON before decode")
@@ -168,6 +181,8 @@ struct BrowserUseProGateStatusTests {
         #expect(status.detail.contains("requirements.lock"))
         #expect(status.detail.contains("wheelhouse"))
         #expect(status.detail.contains("BUILD_MANIFEST.json"))
+        #expect(status.detail.contains("web-ui compatibility shim"))
+        #expect(status.detail.contains("web-ui dry-run submit hook"))
         #endif
     }
 
@@ -194,6 +209,38 @@ struct BrowserUseProGateStatusTests {
         #expect(!status.isActive)
         #expect(status.headline == "browser-use Pro: packaged payload incomplete")
         #expect(status.detail.contains("requirements.lock has unsafe path ../requirements.lock"))
+        #endif
+    }
+
+    @Test("vendor manifest identity and browser boundary must match the Pro contract")
+    func vendorManifestIdentityAndBrowserBoundaryMustMatchProContract() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-gate-identity-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let manifestURL = root.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        let manifest = Self.packagedManifestJSON
+            .replacingOccurrences(
+                of: #""runtime_lane": "pro-developer-id-only""#,
+                with: #""runtime_lane": "app-store""#
+            )
+            .replacingOccurrences(
+                of: #"browser-use drives bundled Chromium over CDP; it does not drive Epistemos BrowserView WKWebView"#,
+                with: #"browser-use drives the native WKWebView Browser"#
+            )
+        try Data(manifest.utf8).write(to: manifestURL)
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: manifestURL
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: vendor manifest invalid")
+        #expect(status.detail.contains("manifest runtime lane mismatch"))
+        #expect(status.detail.contains("manifest native Browser boundary mismatch"))
         #endif
     }
 
@@ -335,6 +382,24 @@ struct BrowserUseProGateStatusTests {
         try Data(Self.packagedManifestJSON.utf8).write(
             to: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
         )
+        try writeExecutableFixture(
+            payloadRoot.appendingPathComponent("epistemos_agent_browser.py", isDirectory: false)
+        )
+        try Data("env\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("epistemos_browser_env.py", isDirectory: false)
+        )
+        try Data("task\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("epistemos_browser_task.py", isDirectory: false)
+        )
+        try writeExecutableFixture(
+            payloadRoot.appendingPathComponent("build-pro-payload.sh", isDirectory: false)
+        )
+        try writeWebUICompatibilityFixtureFiles(in: payloadRoot)
+        try writeTextFixture(
+            "web-ui/src/webui/components/browser_use_agent_tab.py",
+            in: payloadRoot,
+            contents: "dry run hook\n"
+        )
         try Data("{\"schema_version\":1}\n".utf8).write(
             to: payloadRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
         )
@@ -345,9 +410,15 @@ struct BrowserUseProGateStatusTests {
             at: payloadRoot.appendingPathComponent("wheels", isDirectory: true),
             withIntermediateDirectories: true
         )
+        try writeWheelhouseFixtureFiles(
+            in: payloadRoot.appendingPathComponent("wheels", isDirectory: true)
+        )
         try FileManager.default.createDirectory(
             at: payloadRoot.appendingPathComponent("playwright", isDirectory: true),
             withIntermediateDirectories: true
+        )
+        try writePlaywrightRevisionMarkers(
+            in: payloadRoot.appendingPathComponent("playwright", isDirectory: true)
         )
         try Data(Self.signatureManifestJSON.utf8).write(
             to: payloadRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
@@ -375,6 +446,7 @@ struct BrowserUseProGateStatusTests {
     @Test("gate source stays pure and out of other plan ownership")
     func gateSourceStaysPureAndInPlan3Boundary() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift")
+        let signedSource = try loadMirroredSourceTextFile("Epistemos/BrowserUsePro/BrowserUseSignedBundleStatus.swift")
 
         for required in [
             "nonisolated enum BrowserUseProGateStatus",
@@ -398,10 +470,29 @@ struct BrowserUseProGateStatusTests {
             "artifactURL(",
             "pathDiagnostic(",
             "maxPathDiagnosticLength",
+            "rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength",
+            "limit - 3",
             "BrowserUseDiagnostics",
             "BrowserUseDiagnostics.statusMessage(for: error",
+            "rawBoundedDiagnostic(message, maxCharacters: maxStatusMessageCharacters",
+            "String(domain.prefix(maxDomainCharacters))",
             "BrowserUseSignedBundleStatus",
             "SecStaticCodeCheckValidity",
+            "kSecCSCheckNestedCode",
+            "kSecCSCheckAllArchitectures",
+            "webUIRuntimeCompatibility",
+            "webUIDryRunSubmit",
+            "expectedDryRunSubmitEnvVar",
+            "expectedDryRunSubmitMarker",
+            "web-ui compatibility shim",
+            "web-ui dry-run submit hook",
+            "manifest schema",
+            "manifest name mismatch",
+            "manifest runtime lane mismatch",
+            "manifest native Browser boundary mismatch",
+            "signature manifest top-level keys mismatch",
+            "isSecondPrecisionUTCTimestamp",
+            "signature manifest codesign contract mismatch",
             "signed packaged payload ready",
             "signature manifest",
             "unsafe path",
@@ -412,6 +503,19 @@ struct BrowserUseProGateStatusTests {
             "sourceMirrorGuard.requiredExclude"
         ] {
             #expect(source.contains(required), "Missing browser-use Pro gate string: \(required)")
+        }
+
+        for required in [
+            "maxPayloadEnumerationEntries",
+            "visitedEntryCount",
+            "signature payload contains too many entries",
+            "enumerator.skipDescendants()",
+            "String(value.prefix(32))",
+            "rawBoundedDiagnostic(",
+            "maxCharacters: maxStatusMessageCharacters",
+            "limit - 3",
+        ] {
+            #expect(signedSource.contains(required), "Missing browser-use signed bundle string: \(required)")
         }
 
         for forbidden in [
@@ -451,6 +555,56 @@ struct BrowserUseProGateStatusTests {
         }
     }
 
+    private func writeWheelhouseFixtureFiles(in wheelhouseURL: URL) throws {
+        for index in 0..<177 {
+            try Data("wheel \(index)\n".utf8).write(
+                to: wheelhouseURL.appendingPathComponent("fixture-\(index).whl", isDirectory: false)
+            )
+        }
+    }
+
+    private func writePlaywrightRevisionMarkers(in playwrightURL: URL) throws {
+        for directoryName in [
+            "chromium-1223",
+            "chromium_headless_shell-1223",
+            "ffmpeg-1011",
+        ] {
+            let directoryURL = playwrightURL.appendingPathComponent(directoryName, isDirectory: true)
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            try Data("ok\n".utf8).write(
+                to: directoryURL.appendingPathComponent("INSTALLATION_COMPLETE", isDirectory: false)
+            )
+        }
+    }
+
+    private func writeWebUICompatibilityFixtureFiles(in payloadRoot: URL) throws {
+        for relativePath in [
+            "browser-use/browser_use/browser/browser.py",
+            "browser-use/browser_use/browser/context.py",
+            "browser-use/browser_use/browser/chrome.py",
+            "browser-use/browser_use/browser/utils/__init__.py",
+            "browser-use/browser_use/browser/utils/screen_resolution.py",
+            "browser-use/browser_use/controller/service.py",
+            "browser-use/browser_use/controller/registry/__init__.py",
+            "browser-use/browser_use/controller/registry/service.py",
+            "browser-use/browser_use/controller/registry/views.py",
+            "browser-use/browser_use/controller/views.py",
+        ] {
+            try writeTextFixture(relativePath, in: payloadRoot, contents: "shim\n")
+        }
+    }
+
+    private func writeTextFixture(_ relativePath: String, in payloadRoot: URL, contents: String) throws {
+        let url = payloadRoot.appendingPathComponent(relativePath, isDirectory: false)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(contents.utf8).write(to: url)
+    }
+
+    private func writeExecutableFixture(_ url: URL) throws {
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+
     private static let packagedManifestJSON = """
     {
       "schema_version": 1,
@@ -469,6 +623,7 @@ struct BrowserUseProGateStatusTests {
           "repo": "https://github.com/browser-use/browser-use.git",
           "commit": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
           "license": "MIT",
+          "package_version": "0.13.2",
           "full_clone": true,
           "file_count": 501
         },
@@ -477,6 +632,7 @@ struct BrowserUseProGateStatusTests {
           "repo": "https://github.com/browser-use/web-ui.git",
           "commit": "61962296c38a0d064e0ba02c827192b7a81d1819",
           "license": "MIT",
+          "package_version": null,
           "full_clone": true,
           "file_count": 42
         },
@@ -485,22 +641,64 @@ struct BrowserUseProGateStatusTests {
           "repo": "https://github.com/browser-use/cdp-use.git",
           "commit": "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
           "license": "MIT",
+          "package_version": "1.4.5",
           "full_clone": true,
           "file_count": 357
         }
       ],
       "packaging_artifacts": {
+        "agent_browser_adapter": {
+          "status": "landed",
+          "expected_paths": [
+            "epistemos_agent_browser.py",
+            "epistemos_browser_env.py",
+            "epistemos_browser_task.py"
+          ]
+        },
+        "web_ui_runtime_compatibility": {
+          "status": "landed",
+          "expected_paths": [
+            "browser-use/browser_use/browser/browser.py",
+            "browser-use/browser_use/browser/context.py",
+            "browser-use/browser_use/browser/chrome.py",
+            "browser-use/browser_use/browser/utils/__init__.py",
+            "browser-use/browser_use/browser/utils/screen_resolution.py",
+            "browser-use/browser_use/controller/service.py",
+            "browser-use/browser_use/controller/registry/__init__.py",
+            "browser-use/browser_use/controller/registry/service.py",
+            "browser-use/browser_use/controller/registry/views.py",
+            "browser-use/browser_use/controller/views.py"
+          ]
+        },
+        "web_ui_dry_run_submit": {
+          "status": "landed",
+          "expected_path": "web-ui/src/webui/components/browser_use_agent_tab.py",
+          "env_var": "EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT",
+          "marker": "Epistemos browser-use WebUI dry-run task-submit complete"
+        },
+        "build_script": {
+          "status": "landed",
+          "expected_path": "build-pro-payload.sh"
+        },
+        "build_manifest": {
+          "status": "generated",
+          "expected_path": "BUILD_MANIFEST.json"
+        },
         "requirements_lock": {
           "status": "generated",
           "expected_path": "requirements.lock"
         },
         "wheelhouse": {
           "status": "staged",
-          "expected_path": "wheels/"
+          "expected_path": "wheels/",
+          "file_count": 177
         },
         "playwright_chromium": {
           "status": "staged",
-          "expected_path": "playwright/"
+          "expected_path": "playwright/",
+          "chromium_revision": "1223",
+          "headless_shell_revision": "1223",
+          "ffmpeg_revision": "1011"
         }
       }
     }
@@ -514,7 +712,31 @@ struct BrowserUseProGateStatusTests {
       "signature_type": "ad-hoc",
       "signing_identity": "-",
       "payload_root": "Contents/Resources/BrowserUsePro",
-      "file_count": 5
+      "file_count": 198,
+      "python": "Python 3.11.15",
+      "browser_use_version": "0.13.2",
+      "component_repos": {
+        "browser-use": "https://github.com/browser-use/browser-use.git",
+        "web-ui": "https://github.com/browser-use/web-ui.git",
+        "cdp-use": "https://github.com/browser-use/cdp-use.git"
+      },
+      "component_commits": {
+        "browser-use": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+        "web-ui": "61962296c38a0d064e0ba02c827192b7a81d1819",
+        "cdp-use": "a318684daab5ab3a9a516fcab447ed4bdfb92be9"
+      },
+      "component_versions": {
+        "browser-use": "0.13.2",
+        "web-ui": null,
+        "cdp-use": "1.4.5"
+      },
+      "playwright_revisions": {
+        "chromium": "1223",
+        "chromium_headless_shell": "1223",
+        "ffmpeg": "1011"
+      },
+      "created_utc": "2026-06-30T00:00:00Z",
+      "codesign_contract": "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime."
     }
     """
 

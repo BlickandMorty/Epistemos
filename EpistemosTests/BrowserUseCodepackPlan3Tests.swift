@@ -23,6 +23,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT"))
         #expect(codepack.contains("Signed `BrowserUsePro.bundle` packaging now exists"))
         #expect(codepack.contains("release notarization remains distribution ops"))
+        #expect(plan.contains("signature payload enumeration is capped with symlink descendants skipped before target resolution"))
+        #expect(plan.contains("Browser-use Pro gate/settings/runtime diagnostics bound raw status/domain/path strings"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and full real Gradio WKWebView task-submit smoke"))
         #expect(!codepack.contains("Still pending: signing/notarization into final Pro resources and live browser tool smoke"))
@@ -72,10 +74,15 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Settings JSON reads require a regular file"))
         #expect(codepack.contains("Runtime launch contract and WKWebView loopback shell landed"))
         #expect(codepack.contains("WKWebView loopback shell landed"))
-        #expect(codepack.contains("Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload"))
-        #expect(codepack.contains("verifies bundled `BrowserUsePro/` resources are preferred over source-checkout discovery"))
-        #expect(codepack.contains("inherits only a small POSIX environment allowlist"))
+        #expect(codepack.contains("Runtime path discovery prefers a signed `BrowserUsePro.bundle` resource payload"))
+        #expect(codepack.contains("verifies the signed `BrowserUsePro.bundle` payload is preferred over source-checkout discovery"))
+        #expect(codepack.contains("rejects packaged adapters outside `BrowserUsePro.bundle/Contents/Resources/BrowserUsePro`"))
+        #expect(codepack.contains("inherits only a bounded POSIX environment allowlist"))
+        #expect(codepack.contains("oversized or control-character values dropped"))
         #expect(codepack.contains("verifies ambient process secrets/injection variables are not inherited"))
+        #expect(codepack.contains("provider and browser-use cloud endpoints reject embedded URL credentials"))
+        #expect(codepack.contains("non-secret environment settings are bounded before launch"))
+        #expect(codepack.contains("leading/trailing whitespace before the browser-use process environment is built"))
         #expect(codepack.contains("sets `PYTHON_DOTENV_DISABLED=true`"))
         #expect(codepack.contains("does not re-interpolate Keychain-rendered values"))
         #expect(codepack.contains("Rust browser bridge also sets `PYTHON_DOTENV_DISABLED=true`"))
@@ -95,6 +102,11 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME` after validating"))
         #expect(codepack.contains("session names are capped at 64 safe characters"))
         #expect(codepack.contains("adapter argument errors remain generic and JSON-bounded before runtime import"))
+        #expect(codepack.contains("Loaded proxy and endpoint environment URLs are validated before runtime import"))
+        #expect(codepack.contains("allowed browser-use Pro environment values are capped to 4 KiB"))
+        #expect(codepack.contains("reject control characters plus leading/trailing whitespace"))
+        #expect(codepack.contains("Pro `.env` files are read through a no-follow descriptor"))
+        #expect(codepack.contains("keeping Keychain proxy username/password bindings separate from proxy server URLs"))
         #expect(codepack.contains("adapter receives `AGENT_BROWSER_SCREENSHOT_DIR`"))
         #expect(codepack.contains("rejects requested or returned screenshot paths that resolve outside"))
         #expect(codepack.contains("screenshot size metadata is normalized to numeric width/height only"))
@@ -107,6 +119,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Runtime environment setup happens only after adapter arguments are accepted"))
         #expect(codepack.contains("never trusts ambient `BROWSER_CDP_URL`"))
         #expect(codepack.contains("EPISTEMOS_BROWSER_USE_CDP_URL"))
+        #expect(codepack.contains("browser open URL policy blocks legacy IPv4 literal forms"))
         #expect(codepack.contains("`browser_vision` also rejects screenshot paths that resolve outside"))
         #expect(codepack.contains("image `src` URLs are sanitized before the image text cap"))
         #expect(codepack.contains("redact non-HTTP(S) URL schemes"))
@@ -118,9 +131,33 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("pre-bound before sanitizer regex work"))
         #expect(codepack.contains("runtime responses require `success is True`"))
         #expect(codepack.contains("preserves adapter truncation flags before returning capped refs"))
+        #expect(codepack.contains("Rust bounds refs plus type text, press key, and eval expression inputs"))
+        #expect(codepack.contains("bare `completed` status without `is_done=true` or `successful=true` no longer marks"))
+        #expect(codepack.contains("non-empty bounded task errors downgrade completed-looking outcomes to failed"))
+        #expect(codepack.contains("Final result and delegated task error truncation markers are kept inside their configured caps"))
+        #expect(codepack.contains("redacts delegated task error strings"))
+        #expect(codepack.contains("rejects missing `DEFAULT_LLM` with a bounded `browser.complete_task` configuration error"))
+        #expect(codepack.contains("non-empty `error` / `errors`"))
+        #expect(codepack.contains("loopback Origin and native-MCP registration URL validators reject embedded credentials, bearer tokens outside the generated token alphabet"))
+        #expect(codepack.contains("rejected JSON-RPC method/tool identifiers are bounded and secret-aware"))
+        #expect(codepack.contains("Bearer authorization parser accepts standard HTTP space/tab optional whitespace"))
+        #expect(codepack.contains("MCP HTTP transport refuses query-bearing `/mcp` request targets"))
+        #expect(codepack.contains("malformed or non-HTTP/1.1 single-space request lines, duplicate headers, transfer-encoded bodies, or trailing-byte request frames"))
+        #expect(codepack.contains("native MCP bearer are forced to owner-only `0700` directories"))
+        #expect(codepack.contains("owner-only `0600` file permissions"))
+        #expect(codepack.contains("exclusive owner-only temporary files"))
+        #expect(codepack.contains("negative/out-of-range click/scroll coordinates"))
+        #expect(codepack.contains("unsupported computer-use tool names"))
         #expect(codepack.contains("can report `browser-use Pro: signed packaged payload ready` only after"))
         #expect(codepack.contains("`SIGNATURE_MANIFEST.json`"))
         #expect(codepack.contains("enclosing `BrowserUsePro.bundle` signature verify"))
+        #expect(codepack.contains("nested-code and all-architecture checks"))
+        #expect(codepack.contains("signed payload root to be exactly `Contents/Resources/BrowserUsePro`"))
+        #expect(codepack.contains("Signature payload enumeration counts every visited entry"))
+        #expect(codepack.contains("skips symlink descendants before resolving/checking the symlink target"))
+        #expect(codepack.contains("bounds loopback host normalization and redacted URL diagnostics before trimming/comparison"))
+        #expect(codepack.contains("app resource bundler parses `SIGNATURE_MANIFEST.json` as JSON"))
+        #expect(codepack.contains("rejects symlinked signature manifests and symlink components before parsing"))
         #expect(codepack.contains("the manifest file itself is regular-file checked"))
         #expect(codepack.contains("capped at 1 MiB before JSON decode"))
         #expect(codepack.contains("browser-use Pro: packaged payload incomplete"))
@@ -132,17 +169,21 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("manifest symlinks and oversized manifest files are rejected before decode"))
         #expect(codepack.contains("symlink escapes are rejected before ready"))
         #expect(codepack.contains("unexpected external manifest read failures are mapped to bounded domain/code diagnostics"))
+        #expect(codepack.contains("raw status/domain/path strings bounded before trimming"))
+        #expect(codepack.contains("ellipsis kept inside configured caps"))
         #expect(codepack.contains("same bounded diagnostics helper as the gate"))
         #expect(codepack.contains("rejects non-executable Python, file/directory artifact shape mismatches"))
-        #expect(codepack.contains("runtime artifact symlink escapes before launch planning"))
-        #expect(codepack.contains("rejects a non-executable Python runtime and runtime artifact symlink escapes before launch planning"))
+        #expect(codepack.contains("uses ad-hoc\n  signed `BrowserUsePro.bundle` fixtures for ready-path launch planning"))
+        #expect(codepack.contains("lets the signed-payload\n  gate reject symlink escapes before runtime launch planning"))
         #expect(codepack.contains("rejects final symlinks plus symlink components in parent paths"))
         #expect(codepack.contains("rejecting symlinked env directories/files and symlinked parent components"))
+        #expect(codepack.contains("removes that exact generated `.env` again through a no-follow descriptor/`fstat` exact-content check"))
         #expect(codepack.contains("rejects launch `.env` paths below symlinked parent directories before secrets are written"))
         #expect(codepack.contains("loopback health probe"))
         #expect(codepack.contains("maps health request failures to bounded domain/code diagnostics"))
         #expect(codepack.contains("terminates the launched process if the loopback health probe fails"))
         #expect(codepack.contains("Loopback server smoke harness"))
+        #expect(codepack.contains("verifies any supplied signed bundle with deep strict `codesign`"))
         #expect(codepack.contains("local WKWebView fixture dry-run shell smoke also landed"))
         #expect(codepack.contains("real Gradio WKWebView shell/control smoke also landed"))
         #expect(codepack.contains("real Gradio WKWebView shell/control plus task-submit dry-run smokes landed"))
@@ -154,6 +195,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Behavior test"))
         #expect(codepack.contains("generated lock"))
         #expect(codepack.contains("wheelhouse, Chromium payload, signed `BrowserUsePro.bundle`, and gate smoke landed"))
+        #expect(codepack.contains("rebuilds this staged payload by default before signing"))
         #expect(codepack.contains("live browser-use fixture smoke landed"))
         #expect(codepack.contains("complemented by the real Gradio WKWebView shell/control smoke"))
         #expect(codepack.contains("Full task-submit smoke landed"))
@@ -191,6 +233,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("Secrets go to Keychain only"))
         #expect(codepack.contains("browser-use drives Chromium"))
         #expect(codepack.contains("does not and must not drive the native WKWebView Browser"))
+        #expect(codepack.contains("schema/name/runtime-lane/two-browser-boundary mismatches"))
+        #expect(codepack.contains("vendor manifest schema, name, runtime lane, and two-browser boundary"))
         #expect(codepack.contains("WebKitBrowserEngine` still returns `NotConfigured"))
         #expect(codepack.contains("Do not edit `Epistemos/Goose/*`"))
         #expect(codepack.contains("Do not edit `Epistemos/Goose/*`, `Epistemos/Agent/*`"))
@@ -218,6 +262,18 @@ struct BrowserUseCodepackPlan3Tests {
             "Env renderer",
             "Keychain secrets",
             "BrowserUseDiagnostics.statusMessage(for: error",
+            "BrowserUseDiagnostics.statusMessage(",
+            "BrowserUseDiagnostics.statusMessage(joined, fallback: \"browser-use settings status\")",
+            "ToolbarCapsuleButton(",
+            "role: .primaryAction",
+            "role: .secondaryGhost",
+            "BrowserUseSettingsInputChrome",
+            ".textFieldStyle(.plain)",
+            "theme.resolved.card.color.opacity",
+            "private var foregroundTint: Color",
+            "private var mutedTint: Color",
+            "private var rowGap: some View",
+            "Reset browser-use Pro settings to defaults",
             "Native Browser tab",
             "browser-use does not drive it",
             "Python, Playwright, Chromium, and subprocess launch remain outside the MAS path",
@@ -244,6 +300,13 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(extensions.contains("case .browserUse:"))
         #expect(extensions.contains("BrowserUseSettingsView()"))
         #expect(!settings.contains("error.localizedDescription"))
+        #expect(!settings.contains(".foregroundStyle(.secondary)"))
+        #expect(!settings.contains(".foregroundStyle(.tertiary)"))
+        #expect(!settings.contains(".foregroundStyle(.primary)"))
+        #expect(!settings.contains(".buttonStyle(.plain)"))
+        #expect(!settings.contains(".buttonStyle(.borderless)"))
+        #expect(!settings.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(!settings.contains("Divider()"))
     }
 
     @Test("browser-use settings contract preserves environment shape without launching runtime")
@@ -333,6 +396,8 @@ struct BrowserUseCodepackPlan3Tests {
             "browser debugging host must be localhost",
             "browser CDP URL must point at localhost",
             "browser CDP URL must not include username or password credentials",
+            "OPENAI_ENDPOINT must not include username or password credentials",
+            "BROWSER_USE_CLOUD_API_URL must not include a URL query",
             "browser-use proxy server must not include username or password credentials",
         ] {
             #expect(store.contains(required), "Missing browser-use settings contract string: \(required)")
@@ -373,6 +438,8 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseEnvironmentFileWriter",
             "BrowserUseRuntimeHealthProbe",
             "BrowserUseLoopbackPolicy.loopbackURL",
+            "BrowserUseLoopbackPolicy.redactedDescription(for: plan.loopbackURL)",
+            "BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxURLDiagnosticLength)",
             "#if EPISTEMOS_APP_STORE || MAS_SANDBOX",
             "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)",
             "throw BrowserUseRuntimeSupervisorError.appStoreBuild",
@@ -405,6 +472,7 @@ struct BrowserUseCodepackPlan3Tests {
         ] {
             #expect(supervisor.contains(required), "Missing runtime supervisor string: \(required)")
         }
+        #expect(!supervisor.contains("plan.loopbackURL.absoluteString"))
 
         for forbidden in [
             "NSWorkspace",
@@ -428,7 +496,8 @@ struct BrowserUseCodepackPlan3Tests {
             "BrowserUseLoopbackGuard",
             "BrowserUseRuntimeSupervisor",
             "BrowserUseLoopbackWebView",
-            "WKWebsiteDataStore.nonPersistent()",
+            "WKWebsiteDataStore(forIdentifier:",
+            "websiteDataStoreIdentifier",
             "BrowserUseLoopbackPolicy.allows",
             "self.settingsStore = settingsStore",
             "Task.detached(priority: .userInitiated)",
@@ -441,6 +510,8 @@ struct BrowserUseCodepackPlan3Tests {
             "supervisor.start",
             "shouldCancel: { Task.isCancelled }",
             "supervisor?.stop()",
+            "BrowserUseLoopbackPolicy.redactedDescription(for: url, maxLength: maxNavigationDiagnosticLength)",
+            "return BrowserUseLoopbackGuard.redactedDescription(for: loadedURL)",
             "startWorker?.cancel()",
             "if !readiness.isReady",
             "startRequestID = UUID()",
@@ -453,6 +524,8 @@ struct BrowserUseCodepackPlan3Tests {
         }
         #expect(!shell.contains("loadOrDefault()"))
         #expect(!shell.contains("error.localizedDescription"))
+        #expect(!shell.contains("url.absoluteString)"))
+        #expect(!shell.contains("loadedURL.absoluteString"))
 
         for forbidden in [
             "BrowserView(",
@@ -549,12 +622,19 @@ struct BrowserUseCodepackPlan3Tests {
             "web-ui": 42,
             "cdp-use": 357,
         ]
+        let expectedPackageVersions: [String: String?] = [
+            "browser-use": "0.13.2",
+            "web-ui": nil,
+            "cdp-use": "1.4.5",
+        ]
 
         for component in components {
             let name = try #require(component["name"] as? String)
             #expect(component["repo"] as? String == "https://github.com/browser-use/\(name).git")
             #expect(component["commit"] as? String == expectedPins[name])
             #expect(component["license"] as? String == "MIT")
+            let expectedPackageVersion = expectedPackageVersions[name] ?? nil
+            #expect(component["package_version"] as? String == expectedPackageVersion)
             #expect(component["full_clone"] as? Bool == true)
             #expect(component["file_count"] as? Int == expectedFileCounts[name])
             #expect(FileManager.default.fileExists(
@@ -600,6 +680,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(wheelhouse["file_count"] as? Int == 177)
         #expect(playwrightChromium["status"] as? String == "staged")
         #expect(playwrightChromium["chromium_revision"] as? String == "1223")
+        #expect(playwrightChromium["headless_shell_revision"] as? String == "1223")
+        #expect(playwrightChromium["ffmpeg_revision"] as? String == "1011")
         let adapterURL = try Self.sourceURL("agent_core/vendor/browser-use/epistemos_agent_browser.py")
         let adapterMode = try #require(
             FileManager.default.attributesOfItem(atPath: adapterURL.path)[.posixPermissions] as? NSNumber
@@ -611,6 +693,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(generated["runtime_lane"] as? String == "pro-developer-id-only")
         #expect(generated["mas_safe"] as? Bool == false)
         #expect(generated["chromium_revision"] as? String == "1223")
+        #expect(generated["headless_shell_revision"] as? String == "1223")
+        #expect(generated["ffmpeg_revision"] as? String == "1011")
         #expect(generated["secrets"] as? String == "not recorded; runtime secrets must come from Keychain")
 
         let requirements = try Self.loadSource("agent_core/vendor/browser-use/requirements.lock")
@@ -626,11 +710,18 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(FileManager.default.fileExists(
             atPath: vendorRoot.appendingPathComponent("playwright/chromium-1223").path
         ))
+        #expect(FileManager.default.fileExists(
+            atPath: vendorRoot.appendingPathComponent("playwright/chromium_headless_shell-1223").path
+        ))
+        #expect(FileManager.default.fileExists(
+            atPath: vendorRoot.appendingPathComponent("playwright/ffmpeg-1011").path
+        ))
     }
 
     @Test("browser-use Pro packaging script is deterministic, Pro-only, and non-secret")
     func browserUseProPackagingScriptIsDeterministicAndProOnly() throws {
         let script = try Self.loadSource("agent_core/vendor/browser-use/build-pro-payload.sh")
+        let releaseScript = try Self.loadSource("scripts/package-browser-use-pro.sh")
         let manifest = try Self.loadSource("agent_core/vendor/browser-use/VENDOR_MANIFEST.json")
 
         for required in [
@@ -647,8 +738,17 @@ struct BrowserUseCodepackPlan3Tests {
             "--no-deps",
             "PLAYWRIGHT_BROWSERS_PATH=\"$playwright_dir\"",
             "-m playwright install chromium",
+            "require_playwright_marker",
+            "INSTALLATION_COMPLETE",
+            "HEADLESS_SHELL_REVISION",
+            "FFMPEG_REVISION",
             "BUILD_MANIFEST.json",
             "BUILD_MANIFEST=\"$build_manifest\"",
+            "write_text_no_follow(",
+            "os.open(path, flags, 0o644)",
+            "os.fstat(fd)",
+            "O_NOFOLLOW",
+            "Path(os.environ[\"BUILD_MANIFEST\"])",
             "json.dumps(payload, indent=2, sort_keys=True)",
             "\"wheelhouse\": \"agent_core/vendor/browser-use/wheels\"",
             "\"sdist_wheel_exceptions\": [",
@@ -677,6 +777,59 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(manifest.contains("\"expected_path\": \"build-pro-payload.sh\""))
         #expect(manifest.contains("\"build_manifest\""))
         #expect(manifest.contains("\"expected_path\": \"BUILD_MANIFEST.json\""))
+        #expect(releaseScript.contains("if [[ \"$skip_build\" -eq 0 ]]; then"))
+        #expect(releaseScript.contains("read_text_no_follow"))
+        #expect(releaseScript.contains("write_text_no_follow"))
+        #expect(releaseScript.contains("os.open(path, flags)"))
+        #expect(releaseScript.contains("os.fstat(fd)"))
+        #expect(releaseScript.contains("O_NOFOLLOW"))
+        #expect(releaseScript.contains("lines = read_text_no_follow(path, \"pyvenv.cfg\", MAX_PYVENV_CFG_BYTES).splitlines()"))
+        #expect(releaseScript.contains("json.loads(read_text_no_follow(Path(os.environ[\"VENDOR_MANIFEST\"]), \"VENDOR_MANIFEST.json\"))"))
+        #expect(releaseScript.contains("json.loads(read_text_no_follow(Path(os.environ[\"BUILD_MANIFEST\"]), \"BUILD_MANIFEST.json\"))"))
+        #expect(releaseScript.contains("write_text_no_follow("))
+        #expect(releaseScript.contains("Path(os.environ[\"SIGNATURE_MANIFEST\"])"))
+        #expect(!releaseScript.contains("&& ! -x \"$venv_python\""))
+        #expect(!releaseScript.contains("Path(os.environ[\"VENDOR_MANIFEST\"]).read_text"))
+        #expect(!releaseScript.contains("Path(os.environ[\"BUILD_MANIFEST\"]).read_text"))
+    }
+
+    @Test("browser-use app resource bundler validates signed manifest as structured JSON")
+    func browserUseAppResourceBundlerValidatesSignedManifestAsStructuredJSON() throws {
+        let script = try Self.loadSource("bundle-app-runtime-assets.sh")
+
+        for required in [
+            "signature_manifest_has_required_browser_use_pro_evidence",
+            "path_has_symlink_component",
+            "current.is_symlink()",
+            "path_has_symlink_component(manifest_path) or manifest_path.is_symlink() or not manifest_path.is_file()",
+            "read_manifest_no_follow",
+            "os.open(path, flags)",
+            "os.fstat(fd)",
+            "O_NOFOLLOW",
+            "json.loads(read_manifest_no_follow(manifest_path))",
+            "required_string(manifest, \"package_name\") != \"BrowserUsePro\"",
+            "required_string(manifest, \"runtime_lane\") != \"pro-developer-id-only\"",
+            "required_string(manifest, \"payload_root\") != \"Contents/Resources/BrowserUsePro\"",
+            "type(file_count) is not int or file_count <= 0 or file_count > 250000",
+            "required_string(manifest, \"python\").startswith(\"Python 3.11.\")",
+            "required_string(manifest, \"browser_use_version\") != \"0.13.2\"",
+            "not isinstance(manifest, dict)",
+            "set(manifest.keys()) != expected_manifest_keys",
+            "is_second_precision_utc_timestamp",
+            "required_string(manifest, \"created_utc\")",
+            "not is_second_precision_utc_timestamp(created_utc)",
+            "required_string(manifest, \"codesign_contract\") != expected_codesign_contract",
+            "manifest.get(\"component_repos\") != expected_repos",
+            "manifest.get(\"component_commits\") != expected_commits",
+            "manifest.get(\"component_versions\") != expected_versions",
+            "manifest.get(\"playwright_revisions\") != expected_playwright",
+            "[ ! -L \"$signature_manifest\" ]",
+            "/usr/bin/codesign --verify --deep --strict --verbose=2 \"$candidate\"",
+        ] {
+            #expect(script.contains(required), "Missing browser-use app resource bundler guard: \(required)")
+        }
+
+        #expect(!script.contains("grep -q \"$pattern\" \"$signature_manifest\""))
     }
 
     @Test("browser-use loopback smoke harness is bounded, loopback-only, and non-secret")
@@ -690,6 +843,9 @@ struct BrowserUseCodepackPlan3Tests {
             "BUILD_MANIFEST.json",
             "wheelhouse_dir",
             "playwright_dir",
+            "/usr/bin/codesign --verify --deep --strict --verbose=2",
+            "signature_manifest=\"$payload_root/SIGNATURE_MANIFEST.json\"",
+            "Missing regular signed package evidence",
             "127.0.0.1",
             "--ip 127.0.0.1",
             "--theme Ocean",
@@ -699,6 +855,13 @@ struct BrowserUseCodepackPlan3Tests {
             "BROWSER_USE_HOME",
             "result.json",
             "webui.log",
+            "MAX_BODY_SAMPLE_BYTES",
+            "read_body_sample_no_follow",
+            "write_text_no_follow",
+            "os.open(path, flags, 0o600)",
+            "os.fstat(fd)",
+            "O_NOFOLLOW",
+            "body_truncated",
             "secrets\": \"not recorded\"",
             "curl -fsS --max-time 2",
             "timeout_seconds > 600",

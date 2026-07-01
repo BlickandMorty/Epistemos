@@ -43,6 +43,9 @@ struct BrowserUseAdapterPlan3Tests {
     @Test("adapter delegates to browser-use CLI daemon without importing runtime for contract checks")
     func adapterDelegatesToBrowserUseCLIDaemon() throws {
         let source = try loadMirroredSourceTextFile("agent_core/vendor/browser-use/epistemos_agent_browser.py")
+        let envSource = try loadMirroredSourceTextFile("agent_core/vendor/browser-use/epistemos_browser_env.py")
+        let taskSource = try loadMirroredSourceTextFile("agent_core/vendor/browser-use/epistemos_browser_task.py")
+        let rustTaskSource = try loadMirroredSourceTextFile("agent_core/src/tools/browser_complete_task.rs")
 
         for required in [
             "importlib.import_module(\"browser_use.skill_cli.main\")",
@@ -67,6 +70,12 @@ struct BrowserUseAdapterPlan3Tests {
             "screenshot path resolved outside private screenshot directory",
             "screenshot returned non-string path",
             "write_screenshot_bytes",
+            "write_screenshot_file",
+            "os.open(path, flags, 0o600)",
+            "os.fstat(fd)",
+            "O_NOFOLLOW",
+            "O_NONBLOCK",
+            "screenshot output is not a regular file",
             "screenshot returned invalid base64 image bytes",
             "screenshot returned non-PNG image bytes",
             "screenshot did not create requested output path",
@@ -79,6 +88,10 @@ struct BrowserUseAdapterPlan3Tests {
             "require_only_flags",
             "open accepts exactly one url",
             "fill accepts exactly a ref and text",
+            "MAX_FILL_TEXT_CHARS = 16_384",
+            "MAX_PRESS_KEY_CHARS = 128",
+            "MAX_EVAL_INPUT_CHARS = 65_536",
+            "validate_input_chars",
             "\"typed\": True",
             "\"typed_chars\": len(text)",
             "\"pressed\": True",
@@ -99,6 +112,7 @@ struct BrowserUseAdapterPlan3Tests {
             "apikey",
             "AUTH_SCHEME_PATTERN",
             "Basic",
+            "URL_PATTERN = re.compile(r\"[A-Za-z][A-Za-z0-9+.-]*://",
             "\"url_redacted\"",
             "validate_cdp_url(parsed.cdp)",
             "def validate_cdp_url",
@@ -106,6 +120,11 @@ struct BrowserUseAdapterPlan3Tests {
             "--cdp must not include username or password credentials",
             "--cdp must not include a URL query",
             "--cdp must not include a URL fragment",
+            "LEGACY_IPV4_PATTERN",
+            "parse_legacy_ipv4_literal",
+            "parse_legacy_ipv4_part",
+            "is_restricted_ip_address",
+            "validate_loaded_epistemos_pro_env",
             "raise AdapterError(\"invalid element ref\")",
             "raise AdapterError(CONSOLE_ARGUMENT_ERROR_PREFIX)",
             "console does not accept argument",
@@ -144,6 +163,50 @@ struct BrowserUseAdapterPlan3Tests {
             "def close_session(name",
         ] {
             #expect(source.contains(required), "Missing browser-use daemon delegation string: \(required)")
+        }
+        #expect(!source.contains("path.write_bytes(payload)"))
+        for required in [
+            "ALLOWED_PROXY_URL_SCHEMES",
+            "HTTP_ENDPOINT_ENV_NAMES",
+            "MISTRAL_BASE_URL",
+            "SILICONFLOW_ENDPOINT",
+            "MAX_ENV_VALUE_BYTES = 4 * 1024",
+            "validate_allowed_environment_values()",
+            "def validate_env_value",
+            "contains oversized environment value",
+            "contains control characters in environment value",
+            "contains leading or trailing whitespace in environment value",
+            "validate_proxy_env(\"BROWSER_USE_PROXY_SERVER\")",
+            "validate_proxy_env(\"BROWSER_USE_PROXY_URL\")",
+            "validate_http_endpoint_env",
+            "must not include username or password credentials; use Keychain proxy bindings",
+            "must not include a URL path",
+            "must not include a URL query",
+            "must not include a URL fragment",
+            "read_pro_env_file_no_follow",
+            "os.open(path, flags)",
+            "os.fstat(fd)",
+            "O_NOFOLLOW",
+        ] {
+            #expect(envSource.contains(required), "Missing browser-use env policy string: \(required)")
+        }
+        for required in [
+            "build_task_llm_from_environment",
+            "DEFAULT_LLM is required for browser.complete_task",
+            "DEFAULT_LLM provider '{provider}' is not supported by browser.complete_task",
+        ] {
+            #expect(taskSource.contains(required), "Missing browser-use task policy string: \(required)")
+        }
+        for required in [
+            "task_errors_present",
+            "task_status_after_errors",
+            "browser_complete_task_errors_prevent_successful_completed_outcome",
+            "redact_browser_error_detail",
+            "browser_complete_task_redacts_adapter_error_values",
+            "bounded_with_truncation_marker",
+            "browser_complete_task_truncates_final_result_inside_cap",
+        ] {
+            #expect(rustTaskSource.contains(required), "Missing browser.complete_task Rust policy string: \(required)")
         }
         #expect(!source.contains("str(response.get(\"error\""))
         #expect(!source.contains("invalid browser-use adapter arguments: {message}"))
@@ -232,6 +295,7 @@ struct BrowserUseAdapterPlan3Tests {
             "\"key_chars\"",
             "browser_press_result_does_not_echo_key_text",
             "cleanup_screenshot_file(&actual_path)",
+            "cleanup_screenshot_file(&screenshot_path)",
             "\"screenshot_captured\"",
             "\"screenshot_retained\"",
             "sanitize_url_for_output",
@@ -240,6 +304,12 @@ struct BrowserUseAdapterPlan3Tests {
             "browser_cdp_commands_still_pass_private_session_name",
             "GET_IMAGES_PAGE_LIMIT",
             "GET_IMAGES_TEXT_LIMIT",
+            "MAX_BROWSER_TYPE_TEXT_CHARS",
+            "MAX_BROWSER_PRESS_KEY_CHARS",
+            "MAX_BROWSER_EVAL_CHARS",
+            "'text' exceeds",
+            "'key' exceeds",
+            "'expression' exceeds",
             "\"result_truncated\"",
             "browser_get_images_preserves_page_truncation_flag",
             "browser_console_preserves_adapter_eval_truncation_flag",
@@ -286,6 +356,7 @@ struct BrowserUseAdapterPlan3Tests {
             "epistemos_agent_browser.py",
             "resolve_agent_browser(",
             "require_executable_browser(",
+            "#[serde(deny_unknown_fields)]",
             "cdp_url_from_env",
             "cdp_url_from_env_value",
             "validate_cdp_url",
@@ -296,7 +367,14 @@ struct BrowserUseAdapterPlan3Tests {
             "must not include a URL fragment",
             "browser_cdp_url_env_accepts_only_loopback_urls",
             "not an executable file",
-            "agent-browser CLI not found",
+            "browser-use adapter not found",
+            "require_packaged_browser_use_bundle_evidence",
+            "require_packaged_payload_root_layout",
+            "BrowserUsePro.bundle payload root path must be Contents/Resources/BrowserUsePro",
+            "SIGNATURE_MANIFEST.json",
+            "is_second_precision_utc_timestamp",
+            "created_utc mismatch",
+            "codesign_contract mismatch",
             "browser_use_agent_browser_override_wins_before_path_search",
             "browser_use_vendor_root_discovers_bundled_adapter",
             "browser_use_explicit_adapter_rejects_non_executable_without_fallback",
@@ -309,11 +387,16 @@ struct BrowserUseAdapterPlan3Tests {
             "optional_string_field",
             "normalize_ref",
             "MAX_BROWSER_REF_CHARS",
+            "MAX_BROWSER_TYPE_TEXT_CHARS",
+            "MAX_BROWSER_PRESS_KEY_CHARS",
+            "MAX_BROWSER_EVAL_CHARS",
+            "ensure_max_chars",
             "invalid ref",
             "truncate_snapshot",
             "SNAPSHOT_CHAR_CAP",
             "ref cannot be empty",
             "browser_input_normalizes_refs_and_truncates_snapshots",
+            "browser_input_rejects_oversized_command_text",
         ] {
             #expect(browserInput.contains(required), "Missing browser input policy string: \(required)")
         }

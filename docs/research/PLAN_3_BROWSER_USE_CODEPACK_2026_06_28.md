@@ -110,38 +110,62 @@ browser-use automation drives CDP through `cdp-use`.
 under `build/browser-use-pro/.venv`, compiles `requirements.lock` with hashes from the vendored paths, syncs the venv,
 staged third-party and local package wheels under `agent_core/vendor/browser-use/wheels/` (177 wheel files), staged
 Playwright Chromium under `agent_core/vendor/browser-use/playwright/` (`chromium-1223`, `chromium_headless_shell-1223`,
-and `ffmpeg-1011`), and writes a JSON-escaped, non-secret `BUILD_MANIFEST.json` outside MAS/App Store build phases.
+and `ffmpeg-1011`), and writes a JSON-escaped, non-secret `BUILD_MANIFEST.json` with all three browser-payload
+revisions through a no-follow regular-file descriptor outside MAS/App Store build phases only after their
+`INSTALLATION_COMPLETE` markers exist.
+`scripts/package-browser-use-pro.sh` rebuilds this staged payload by default before signing; `--skip-build` is the only
+explicit escape hatch for reusing an existing staged payload. During signing, it rewrites `.venv/pyvenv.cfg` through a
+no-follow descriptor, reads `VENDOR_MANIFEST.json` and `BUILD_MANIFEST.json` through bounded no-follow descriptors with
+`fstat`, and writes `SIGNATURE_MANIFEST.json` through a no-follow regular-file descriptor before `codesign`.
 
 Loopback server smoke harness landed at `scripts/browser-use-pro-loopback-smoke.sh`: it starts the staged
 `build/browser-use-pro/.venv/bin/python agent_core/vendor/browser-use/web-ui/webui.py --ip 127.0.0.1 --port <ephemeral>
 --theme Ocean`, probes the Gradio root document over loopback with a 5-600 second timeout bound, writes non-secret
-evidence, and always tears down the child process. A local WKWebView fixture dry-run shell smoke also landed: it loads a loopback fixture in the
-non-persistent shell, submits a no-provider fixture action, and verifies non-loopback navigation blocking. A real
+evidence through a no-follow result descriptor with a bounded root-body sample, verifies any supplied signed bundle with deep strict `codesign`, rejects symlinked signature evidence, and
+always tears down the child process. A local WKWebView fixture dry-run shell smoke also landed: it loads a loopback fixture in the
+isolated named-store shell, submits a no-provider fixture action, and verifies non-loopback navigation blocking. A real
 Gradio WKWebView shell/control smoke also landed: it starts the staged loopback Gradio server, loads it in the
-non-persistent shell, opens the Run Agent tab, fills the task box without clicking Submit, and verifies non-loopback
+isolated named-store shell, opens the Run Agent tab, fills the task box without clicking Submit, and verifies non-loopback
 navigation blocking. A full real Gradio WKWebView task-submit smoke also landed with the Epistemos-only
 `EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT` no-provider hook: it clicks the real Submit Task event, completes before
 LLM/provider/browser setup, observes the deterministic `Epistemos browser-use WebUI dry-run task-submit complete` marker,
 and verifies non-loopback navigation blocking. Signed `BrowserUsePro.bundle` packaging now exists with a
-`SIGNATURE_MANIFEST.json` and code-signature verification backing the gate; release notarization remains distribution
-ops. The manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
+`SIGNATURE_MANIFEST.json` that records component pins plus Playwright browser payload revisions, and code-signature verification backing the gate; release notarization remains distribution
+ops. Swift gate validation requires the signed payload root to be exactly `Contents/Resources/BrowserUsePro` inside the
+enclosing bundle. The app resource bundler parses `SIGNATURE_MANIFEST.json` as JSON and exact-matches the signed package
+name, runtime lane, payload root, component pins, component versions, Python 3.11 runtime, Playwright revisions,
+top-level key set, second-precision UTC creation stamp shape, and deep-codesign contract before
+copying `BrowserUsePro.bundle` into app resources; it rejects symlinked signature manifests and symlink components before parsing so build-time
+copy policy matches the runtime no-follow manifest reader, and it reads the signature manifest through a no-follow descriptor
+with `fstat` before JSON decoding. The manifest marks the build script and adapter contract as `landed`, and marks the generated lock/build manifest,
 wheelhouse, and Playwright payload as staged inputs to the signed Pro package.
 
 `Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift` is now the always-compiled honest gate and manifest reader:
 MAS returns unavailable; Pro returns off unless `EPISTEMOS_BROWSER_USE_PRO_V0=1`; with the signed bundle manifest it
 can report `browser-use Pro: signed packaged payload ready` only after the declared `requirements.lock`, wheelhouse,
-Chromium payload, `BUILD_MANIFEST.json`, `SIGNATURE_MANIFEST.json`, and enclosing `BrowserUsePro.bundle` signature
-verify; the manifest file itself is regular-file checked,
+Chromium payload, web-ui compatibility shims, dry-run submit hook, `BUILD_MANIFEST.json`, `SIGNATURE_MANIFEST.json`, and enclosing `BrowserUsePro.bundle` signature
+verify; signature type and signing identity are validated before the ready gate; the manifest file itself is regular-file checked,
 symlink-path rejected, read through a no-follow descriptor, and capped at 1 MiB before JSON decode; manifest-declared
 artifact paths are relative-only and cannot escape the vendor root; artifact and manifest path diagnostics are bounded
 and never surface full user-local paths; unexpected external manifest read failures are mapped to bounded domain/code
-diagnostics before gate or Settings status text; artifact symlink aliases are rejected before shape checks; file artifacts must
-be files and directory artifacts must be directories. Launch remains user-initiated and
-separate from the native WKWebView Browser.
+diagnostics before gate or Settings status text, with raw status/domain/path strings bounded before trimming and
+ellipsis kept inside configured caps; artifact symlink aliases are rejected before shape checks; file artifacts must
+be files and directory artifacts must be directories; Playwright payload readiness requires the exact `chromium-*`,
+`chromium_headless_shell-*`, and `ffmpeg-*` regular-file revision markers declared by the manifest. The gate exact-matches
+the vendor manifest schema, name, runtime lane, and two-browser boundary before artifact/signature checks. Signature
+payload enumeration counts every visited entry, caps total entries above the manifest file-count cap with bounded slack,
+and skips symlink descendants before resolving/checking the symlink target. Launch remains user-initiated and
+separate from the native WKWebView Browser. Runtime signature verification uses strict Security.framework validation with
+nested-code and all-architecture checks, matching the packaging script's deep `codesign --verify` contract.
 `Epistemos/Views/Settings/BrowserUseSettingsView.swift` mounts the Settings diagnostics surface under Extensions:
 it reads the same gate/manifest, lists full-clone pins and packaging gaps, states the two-browser boundary, and exposes
-no runtime launch control. It also reports the settings contract for the Pro lane, with manifest read errors routed
-through the same bounded diagnostics helper as the gate.
+no runtime launch control. It renders refresh/save/reload/reset/secret-clear actions through shared
+`ToolbarCapsuleButton` chrome instead of local plain/borderless buttons, and separates repeated diagnostic rows with
+spacing instead of hard `Divider()` rules. Settings labels, icons, and diagnostics use Epistemos theme foreground/muted
+tokens instead of hierarchical `.secondary`/`.primary` styles. It also reports the settings contract for the Pro lane,
+with manifest read errors routed through the same bounded diagnostics helper as the gate. Validation, Keychain-result,
+and generated `.env` status strings are normalized through the bounded browser-use diagnostics helper after joining, so
+settings status text cannot grow with secret count or external renderer detail.
 `Epistemos/BrowserUsePro/BrowserUseSettingsStore.swift` is now the non-secret settings and environment-rendering
 contract: provider endpoints, browser profile/CDP/resolution settings, logging/telemetry/cloud/proxy flags, and
 browser-use/web-ui environment names are Codable settings; API keys, cloud keys, proxy credentials, AWS credentials,
@@ -150,19 +174,25 @@ version checks off.
 `EpistemosTests/BrowserUseSettingsStoreTests.swift` verifies privacy-first `.env` rendering, injected Keychain secret
 binding, non-secret JSON round-trip behavior, owner-only settings file permissions, no-follow bounded regular-file
 settings JSON reads, bounded path diagnostics that avoid full user-local paths, and symlink rejection before the
-settings store reads or writes disk.
+settings store reads or writes disk; non-secret environment settings are bounded before launch and reject control
+characters plus leading/trailing whitespace so `.env` escaping cannot diverge from the raw `Process.environment` map.
 `Epistemos/BrowserUsePro/BrowserUseSymlinkPathGuard.swift` is the shared path guard that rejects final symlinks plus
 symlink components in parent paths, while allowing macOS `/var`/`/tmp`/`/etc` compatibility links used by temporary
 directories.
 `Epistemos/BrowserUsePro/BrowserUseRuntimeSupervisor.swift` now lands the Pro runtime launch contract: it validates
 the browser-use gate plus staged payload artifacts, validates loopback host/port plus a bounded Web UI theme, builds the
 exact `web-ui/webui.py --ip 127.0.0.1 --port 7788 --theme Ocean` loopback plan, rejects non-executable Python, file/directory artifact shape mismatches, and runtime
-artifact symlink escapes before launch planning, reports runtime artifact diagnostics as bounded paths relative to the
+artifact symlink aliases and symlink escapes before launch planning (except the expected internal `.venv/bin/python`
+final symlink when it resolves inside the packaged runtime root), reports runtime artifact diagnostics as bounded paths relative to the
 runtime root instead of full user-local paths, writes the Keychain-combined launch `.env` under Application Support
 with owner-only permissions while rejecting symlinked env directories/files and symlinked parent components before
-secrets are written, launches the Pro process only after an injected loopback health probe can validate
-`http://127.0.0.1:<port>/`, keeps rejected-redirect health diagnostics origin-only so hostile Location URLs cannot echo
-credentials, query tokens, fragments, or path contents, maps health request failures to bounded domain/code diagnostics,
+secrets are written, rejects non-regular file artifacts before launch planning, removes that exact generated `.env` again through a no-follow descriptor/`fstat` exact-content check if cancellation, process launch, or health probing prevents
+a usable runtime from starting, stops any prior runtime before writing a replacement `.env`, removes the active generated
+`.env` on stop, launches the Pro process and only reports it usable after an injected loopback health probe validates
+`http://127.0.0.1:<port>/`, returns runtime readiness text and rejected-redirect health diagnostics through the shared
+origin-only loopback URL redaction helper so hostile Location URLs cannot echo credentials, query tokens, fragments, or
+path contents, bounds loopback host normalization and redacted URL diagnostics before trimming/comparison, preserves that bounded redirect reason even when URLSession also
+reports cancellation, maps health request failures to bounded domain/code diagnostics,
 terminates the launched process if the loopback health probe fails, and compiles the actual
 `Process()` launch only in
 `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
@@ -175,11 +205,13 @@ packages are no longer imported at UI module load, missing optional provider pac
 selected, `ToolCallingMethod`/`is_model_without_tool_support`/`BrowserState` compatibility exports exist for the pinned
 web-ui, and the Chatbot constructor uses the installed Gradio 6 `buttons=["copy"]` API instead of removed
 `type="messages"` / `show_copy_button` arguments. `[VERIFIED-CODE]`
-Runtime path discovery prefers a signed bundled `BrowserUsePro/` resource payload when present, then falls back to the
+Runtime path discovery prefers a signed `BrowserUsePro.bundle` resource payload when present, then falls back to the
 development source checkout layout, so Settings and launch planning resolve the same packaged Pro artifact.
-The launched Python/Chromium process inherits only a small POSIX environment allowlist (PATH/HOME/locale/temp/user
-basics); provider keys, proxy credentials, DYLD/PYTHON injection vectors, and the Pro gate flag are rendered only from
-typed settings plus Keychain-backed secret bindings. The launch environment sets `PYTHON_DOTENV_DISABLED=true` so
+The launched Python/Chromium process inherits only a bounded POSIX environment allowlist (PATH/HOME/locale/temp/user
+basics, with oversized or control-character values dropped); provider keys, proxy credentials, DYLD/PYTHON injection vectors, and the Pro gate flag are rendered only from
+typed settings plus Keychain-backed secret bindings. Browser CDP and browser-use proxy URLs reject embedded credentials,
+query strings, and fragments before launch planning; provider and browser-use cloud endpoints reject embedded URL
+credentials, query strings, and fragments while still allowing normal http/https endpoint paths. The launch environment sets `PYTHON_DOTENV_DISABLED=true` so
 browser-use consumes the exact `Process.environment` values and does not re-interpolate Keychain-rendered values from
 the generated `.env` file.
 App Store builds return an honest unavailable readiness and keep the native Browser tab separate.
@@ -187,10 +219,17 @@ App Store builds return an honest unavailable readiness and keep the native Brow
 shape, Keychain environment propagation, secure `.env` file permissions, and source boundaries.
 `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` is the Pro loopback shell: it refreshes settings/readiness in a
 detached worker using the injected `BrowserUseSettingsStore`, starts the supervisor only from a user action, loads only
-`http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in a non-persistent WKWebView, cancels non-loopback
-navigations with origin-only blocked-URL diagnostics, surfaces settings load failures instead of silently falling back,
+`http://127.0.0.1:<port>` / `localhost` / `[::1]` Gradio URLs in an isolated named WKWebsiteDataStore, cancels non-loopback
+navigations with origin-only blocked-URL diagnostics, displays loaded loopback status through the same origin-only
+redaction helper instead of `absoluteString`, shares that redaction path with runtime readiness/status text, surfaces settings load failures instead of silently falling back,
 maps Web UI settings-load and runtime-start failures through bounded browser-use diagnostics instead of raw localized
 external errors,
+offers a native clear-state control that stops the Pro shell, detaches the embedded WKWebView, and then removes only the browser-use named WKWebsiteDataStore with one bounded teardown-race retry,
+injects the current Epistemos palette into Gradio as transparent-over-glass, flat/borderless controls with soft
+theme-derived shadows and focus glows instead of hard outlines, replaces the document-start theme script on palette
+changes instead of stacking stale startup scripts,
+renders its native Refresh/Open/Stop/Clear shell actions through shared `ToolbarCapsuleButton` chrome without a hard
+toolbar/content divider, and keeps native shell labels/icons on the same `BrowserUseStatusTone` theme-token tint path,
 tears down delegates on dismantle, stops
 the runtime if a start plan ever returns a non-loopback URL, stops the runtime on disappear, and stops an already-launched runtime if a readiness refresh finds the Pro gate invalid. It
 does not reuse or drive the native `BrowserView`. `[VERIFIED-CODE]`
@@ -210,7 +249,12 @@ the macOS `/tmp`/`/var`/`/etc` compatibility symlinks and requires current-user 
 derives daemon/socket files.
 Rust `find_agent_browser()` now discovers the bundled executable through
 `EPISTEMOS_BROWSER_USE_AGENT_BROWSER` or `EPISTEMOS_BROWSER_USE_VENDOR_ROOT` before falling back to a user-installed
-`agent-browser`; `agent_core` exposes the model-facing `browser.complete_task` alias in Pro builds only, and the
+`agent-browser`; packaged `BrowserUsePro.bundle` discovery requires `VENDOR_MANIFEST.json`, `BUILD_MANIFEST.json`, and
+`SIGNATURE_MANIFEST.json` evidence, opens the signature manifest as a bounded regular non-symlink file before decoding
+it, rejects packaged adapters outside `BrowserUsePro.bundle/Contents/Resources/BrowserUsePro`, and validates the pinned
+browser-use/web-ui/cdp-use component evidence, Playwright browser payload revisions, second-precision UTC creation stamp shape, and
+deep-codesign contract with unknown top-level signature manifest fields rejected before using the bundled adapter.
+`agent_core` exposes the model-facing `browser.complete_task` alias in Pro builds only, and the
 app-hosted `omega-mcp` dispatcher now lists the same canonical MCP tool outside `mas-sandbox` while keeping it out of the
 MAS catalog. The `omega_mcp_stdio` vault/graph server remains intentionally scoped to the Rust tools it can execute and
 does not advertise app-hosted browser automation.
@@ -218,8 +262,53 @@ does not advertise app-hosted browser automation.
 isolated session with `PLAYWRIGHT_BROWSERS_PATH` pointed at the staged payload; adapter argument errors remain generic and
 JSON-bounded before runtime import, so invalid or missing `--json` commands produce the same machine-readable failure
 shape without importing browser-use or emitting argparse usage on stderr. Direct adapter `--cdp` values are also
-validated before runtime import and must be loopback-only with no URL credentials, query, or fragment. Direct adapter
+validated before runtime import and must be loopback-only with no URL credentials, query, or fragment; the browser open
+URL policy blocks legacy IPv4 literal forms (shortened, decimal, octal, and hex) that Chromium may interpret as loopback
+or internal addresses. Loaded proxy and
+endpoint environment URLs are validated before runtime import; all allowed browser-use Pro environment values are capped
+to 4 KiB and reject control characters plus leading/trailing whitespace before browser-use imports: proxy URLs must use
+http/https/socks4/socks5/socks5h with no embedded credentials, path, query, or fragment, and endpoint URLs must use
+http/https with no embedded credentials, query, or fragment, keeping Keychain proxy username/password bindings separate
+from proxy server URLs. Pro `.env` files are read through a no-follow descriptor with `fstat` shape/ownership/permission
+checks plus a bounded byte read before UTF-8 decode. Direct adapter
 `snapshot` responses cap snapshot text and refs before returning JSON, matching the Rust tool-output boundary. `[VERIFIED-CODE]`
+The Rust `browser.complete_task` wrapper now keeps adapter transport success separate from delegated task success:
+`adapter_success=true` means the adapter returned a valid envelope, while top-level `success` and `task_success` mirror
+the browser-use task outcome (`completed`/`failed`/`incomplete`/`unknown`) instead of silently marking an incomplete run as
+complete; if a future adapter variant reports `successful` but omits `is_done`, the wrapper now infers completed/failed
+from that explicit success bit while still letting `is_done=false` win as incomplete and `successful=false` win as failed
+over optimistic raw status strings; a bare `completed` status without `is_done=true` or `successful=true` no longer marks
+the delegated task successful, and non-empty bounded task errors downgrade completed-looking outcomes to failed. Final
+result and delegated task error truncation markers are kept inside their configured caps. The Rust wrapper also redacts
+delegated task error strings before returning them, so a future adapter data envelope cannot echo
+secret-looking diagnostics just because transport succeeded. The wrapper also rejects adapter envelopes that echo a different `max_steps` cap than the
+requested bounded task cap, non-integer echoed step fields, or step counts above the requested cap; the Python task
+adapter rejects missing `DEFAULT_LLM` with a bounded `browser.complete_task` configuration error before constructing a
+browser-use `Agent`; the model-facing v2 catalog now advertises that exact bounded result envelope while still accepting the standard
+`{"error": ...}` tool-error object. The Swift tool bridge classifies `browser.complete_task` output with
+`adapter_success=false`, `task_success=false`, `success=false`, non-empty `error` / `errors`, or
+failed/incomplete/unknown status as a `LocalToolResult.isError`, while ignoring null/empty `error` fields that are not
+real failures, so the
+app-hosted executable MCP server (`WorkToolMCPCore`) returns MCP `isError=true` for failed delegated browser-use tasks
+instead of treating adapter transport success as task success; the same MCP core now resolves `tools/call` through the
+actual advertised catalog, not just broad distribution policy, preserving canonical/legacy/separator aliases while
+returning the catalog's real canonical name, so guessed hidden names cannot execute if a client skips `tools/list`; rejected
+JSON-RPC method/tool identifiers are bounded and secret-aware before they enter error text; its Bearer authorization
+parser accepts standard HTTP space/tab optional whitespace while still rejecting empty tokens and non-Bearer schemes; its
+loopback Origin and native-MCP registration URL validators reject embedded credentials, bearer tokens outside the generated token alphabet, paths where an Origin must be
+origin-only, queries, and fragments, and the MCP HTTP transport refuses query-bearing `/mcp` request targets plus malformed or non-HTTP/1.1 single-space request lines, duplicate headers, transfer-encoded bodies, or trailing-byte request frames before bearer-authenticated dispatch/config write; OpenCode config files
+that carry the native MCP bearer are forced to owner-only `0700` directories and owner-only `0600` file permissions
+through exclusive owner-only temporary files and no-follow existing-config reads before merge, while OpenGUI workspace
+config files force owner-only `0600` file permissions through exclusive owner-only temporary files and no-follow
+existing-config reads without chmoding the user's workspace.
+Its app-hosted catalog merges the Rust FFI tools with explicit Swift-owned computer-use descriptors
+(`see/click/type/scroll/keys/screenshot`) and those aliases are translated to `ComputerUseBridge`'s real
+`screenshot/type_text/key_press` action vocabulary before execution, with `keys` split honestly between command/text
+typing (`type_text`) and supported navigation/editing key presses (`key_press`) instead of collapsing whole strings into
+a fake single key press; destructive Work MCP actions now reject missing, fractional, boolean, truncating, or
+negative/out-of-range click/scroll coordinates, invalid scroll directions, empty type text, malformed computer-use argument JSON,
+unsupported computer-use tool names, non-empty modifier shortcuts, and malformed key arrays before `ComputerUseBridge` can fall back to `(0,0)`, horizontal
+scroll defaults, screen capture on bad args, or no-op typing. `[VERIFIED-CODE]`
 
 ## Existing Epistemos seams `[VERIFIED-CODE]`
 - Native MAS browser tab: `Epistemos/Views/Browser/BrowserView.swift` is human-driven `WKWebView` with
@@ -252,11 +341,11 @@ validated before runtime import and must be loopback-only with no URL credential
   cannot re-interpolate ambient `.env` values on this path. For screenshot commands, the adapter receives
   `AGENT_BROWSER_SCREENSHOT_DIR` and rejects requested or returned screenshot paths that resolve outside that private
   directory; if browser-use returns base64 image bytes instead of a saved file for a requested path, the adapter writes only
-  valid PNG bytes into the confined path, and screenshot size metadata is normalized to numeric width/height only. It
+  valid PNG bytes into the confined path through a no-follow, nonblocking, regular-file-checked descriptor, and screenshot size metadata is normalized to numeric width/height only. It
   also rejects multiple screenshot output paths before runtime import. More generally, command-specific
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Rust bounds refs
-  to short safe tokens before adapter execution. Extra positional
+  plus type text, press key, and eval expression inputs before adapter execution. Extra positional
   arguments and unexpected console/error flags are rejected before daemon startup without echoing rejected values. The console/errors compatibility
   stubs avoid browser-use runtime import until upstream exposes matching stream actions; they only accept optional
   `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. The adapter
@@ -277,13 +366,13 @@ validated before runtime import and must be loopback-only with no URL credential
   `open`/`back`/`browser_navigate`/`browser_back` drop credentials, queries, and fragments, redact non-HTTP(S) URL
   schemes, then cap long URL/path strings before returning tool output. Adapter JSON error responses pre-bound the error
   input before sanitizer regex work, then redact common secret assignments, token/api-key aliases, OAuth-style
-  refresh/authorization codes, Bearer/Basic auth-scheme tokens, and URL credential/query/fragment tokens before applying
+  refresh/authorization codes, Bearer/Basic auth-scheme tokens, scheme-bearing URLs, and URL credential/query/fragment tokens before applying
   an error length cap.
   Runtime responses require `success is True`; non-string runtime error payloads are not stringified into adapter output.
   `browser_vision` also rejects screenshot
   paths that resolve outside the private screenshot directory before handing the image to any external vision provider,
-  deletes the temporary screenshot after the provider call returns, and does not return the absolute screenshot path in
-  success or validation error output. The
+  deletes the requested private screenshot on pre-provider validation failures, deletes the temporary screenshot after
+  the provider call returns, and does not return the absolute screenshot path in success or validation error output. The
   registry exposes the 11 `browser_*` tools only under `#[cfg(feature = "pro-build")]`
   (`browser_navigate/snapshot/click/type/scroll/back/press/close/get_images/vision/console`).
 - MAS boundary tests already forbid `browser_use`/process tools in core App Store surfaces. This codepack must preserve
@@ -373,6 +462,8 @@ browser-use environment shape as typed Codable settings and renders a launch-tim
 resolution, browser-use executable/profile/headless fields, logging, proxy, cloud URLs, and privacy flags. Browser debugging
 host and non-empty CDP URLs are loopback-constrained and reject URL credentials, queries, and fragments; non-empty proxy
 server URLs must use supported proxy schemes and keep credentials, paths, queries, and fragments out of non-secret JSON.
+Non-secret settings values are capped and reject control characters plus leading/trailing whitespace before the
+browser-use process environment is built.
 Settings JSON reads require a regular file before size checks or decode. It does not launch Python, Chromium,
 Playwright, or `webui.py`. The `.env` renderer quotes and escapes multiline/CRLF values before writing the launch file.
 
@@ -388,7 +479,8 @@ New Plan 3 files should live outside Plan 1/Plan 2 ownership, for example:
 - `Epistemos/Views/BrowserUse/BrowserUseWebUIView.swift` — WKWebView shell for the loopback Gradio UI with honest status.
   **Loopback guard, user-initiated shell, local WKWebView fixture dry-run shell smoke, and real Gradio WKWebView
   shell/control plus task-submit dry-run smokes landed.**
-- `Epistemos/Views/Settings/BrowserUseSettingsView.swift` — settings mirror + diagnostics.
+- `Epistemos/Views/Settings/BrowserUseSettingsView.swift` — settings mirror + diagnostics, including local flat
+  theme-token input chrome for provider/browser/runtime/secret fields.
 
 Do not edit `Epistemos/Goose/*`, `Epistemos/Agent/*`, or Plan 2 editor surfaces for the Pro shell. Goose access should
 come through the existing tool/MCP registry seam once the Pro runtime is registered.
@@ -423,7 +515,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
 - Gate artifact test: an armed manifest that claims staged packaging but lacks the declared runtime artifacts remains
   inactive and reports `browser-use Pro: packaged payload incomplete`; absolute or parent-relative artifact paths are
   rejected before disk checks; manifest symlinks and oversized/no-follow manifest files are rejected before decode;
-  file-vs-directory mismatches, artifact symlink aliases, and symlink escapes are rejected before ready.
+  schema/name/runtime-lane/two-browser-boundary mismatches, file-vs-directory mismatches, artifact symlink aliases, and
+  symlink escapes are rejected before ready.
 - Packaging script test: shell syntax passes; script requires `uv`, uses Python 3.11, compiles with
   `--generate-hashes`, stages third-party wheels under `--require-hashes --only-binary=:all:`, stages local vendored
   package wheels with `--no-deps`, installs Playwright Chromium into the Pro staging directory, writes only non-secret
@@ -433,28 +526,30 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   for provider/cloud/proxy/AWS/VNC values, privacy defaults with telemetry/cloud/version checks off, and no runtime launch seam.
 - Behavior test: `BrowserUseSettingsStoreTests.swift` renders defaults without secret keys, appends only non-empty
   injected Keychain secrets, deletes empty secret values, and proves the JSON store omits API/proxy/VNC secret names.
-- Runtime launch contract test: `BrowserUseRuntimeSupervisorTests.swift` keeps unpackaged payloads inactive, proves the
-  staged launch plan uses `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only
-  launch `.env` permissions, rejects a non-executable Python runtime and runtime artifact symlink escapes before
-  launch planning, rejects launch `.env` paths below symlinked parent directories before secrets are written, verifies
-  bundled `BrowserUsePro/` resources are preferred over source-checkout discovery, verifies ambient process
-  secrets/injection variables are not inherited, verifies dotenv loading is disabled for exact Keychain-rendered values,
-  verifies a failed loopback health probe terminates the launched process before surfacing a bounded error, and verifies
-  the subprocess branch is Pro-only.
+- Runtime launch contract test: `BrowserUseRuntimeSupervisorTests.swift` keeps unpackaged payloads inactive, uses ad-hoc
+  signed `BrowserUsePro.bundle` fixtures for ready-path launch planning, proves the staged launch plan uses
+  `web-ui/webui.py`, loopback `127.0.0.1`, Keychain-combined environment values, and owner-only launch `.env`
+  permissions, rejects a non-executable Python runtime after refreshing signed fixture evidence, lets the signed-payload
+  gate reject symlink escapes before runtime launch planning, rejects launch `.env` paths below symlinked parent
+  directories before secrets are written, verifies the signed `BrowserUsePro.bundle` payload is preferred over
+  source-checkout discovery, verifies ambient process secrets/injection variables are not inherited, verifies dotenv
+  loading is disabled for exact Keychain-rendered values, verifies a failed loopback health probe terminates the launched
+  process before surfacing a bounded error, and verifies the subprocess branch is Pro-only.
 - Loopback server smoke harness: `scripts/browser-use-pro-loopback-smoke.sh` starts the staged Pro `webui.py` on
   `127.0.0.1`, forces the staged Playwright browser path, disables dotenv reloading and Gradio analytics, polls only the
-  loopback root URL with a 5-600 second timeout bound, writes non-secret `result.json`/`webui.log` evidence, and kills the
-  child process on pass, timeout, or early exit. This is complemented by the real Gradio WKWebView shell/control smoke
+  loopback root URL with a 5-600 second timeout bound, writes non-secret `result.json`/`webui.log` evidence with bounded
+  body sampling and a no-follow result writer, and kills the child process on pass, timeout, or early exit. This is complemented by the real Gradio WKWebView shell/control smoke
   and the no-provider task-submit dry-run smoke.
 - Web-ui compatibility guard: the vendor manifest must record the Epistemos overlay shims separately from upstream
   source counts, including the `web_ui_dry_run_submit` no-provider hook; the pinned web-ui must import/build a Gradio
   Blocks object without eager LangChain MCP/provider package imports; and the staged Gradio 6 Chatbot constructor must not
   use removed `type="messages"` or `show_copy_button` parameters.
 - Web UI shell test: `BrowserUseWebUIViewTests.swift` allows only loopback Gradio URLs, keeps the WKWebView
-  non-persistent, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
+  in an isolated named store, refreshes readiness off the SwiftUI path through the injected settings store, cancels non-loopback
   navigation, loads a local loopback fixture, submits a no-provider fixture action, starts the staged real Gradio UI,
   opens its Run Agent tab, fills the task input without submitting, submits a separate no-provider dry-run task through
-  the real Gradio Submit Task event, tears down delegates/processes, and proves it does not reference native Browser,
+  the real Gradio Submit Task event, tears down delegates/processes, clears only the browser-use named store after detaching
+  the shell web view, and proves it does not reference native Browser,
   Goose/Agent, or Plan 2 editor/PDF surfaces.
 - Adapter source test: `BrowserUseAdapterPlan3Tests.swift` verifies `epistemos_agent_browser.py` supports the existing
   `agent-browser --json` command set, delegates to `browser_use.skill_cli` only after runtime commands begin, keeps

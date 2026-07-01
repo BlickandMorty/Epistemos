@@ -4,12 +4,19 @@ import Foundation
 nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     static let maxManifestBytes = 1 * 1024 * 1024
     private static let maxPathDiagnosticLength = 160
+    private static let chromiumRevisionAllowedCharacters = CharacterSet(charactersIn: "0123456789")
+    private static let expectedSchemaVersion = 1
+    private static let expectedName = "plan3-browser-use-pro"
+    private static let expectedRuntimeLane = "pro-developer-id-only"
+    private static let expectedNativeWKWebViewBoundary =
+        "browser-use drives bundled Chromium over CDP; it does not drive Epistemos BrowserView WKWebView"
 
     struct Component: Decodable, Equatable, Sendable {
         let name: String
         let repo: String
         let commit: String
         let license: String
+        let packageVersion: String?
         let fullClone: Bool
         let fileCount: Int
 
@@ -18,9 +25,48 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             case repo
             case commit
             case license
+            case packageVersion = "package_version"
             case fullClone = "full_clone"
             case fileCount = "file_count"
         }
+    }
+
+    struct RequiredComponentPin: Equatable, Sendable {
+        let repo: String
+        let commit: String
+        let packageVersion: String?
+        let fileCount: Int
+    }
+
+    static let requiredComponentPins: [String: RequiredComponentPin] = [
+        "browser-use": RequiredComponentPin(
+            repo: "https://github.com/browser-use/browser-use.git",
+            commit: "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+            packageVersion: "0.13.2",
+            fileCount: 501
+        ),
+        "web-ui": RequiredComponentPin(
+            repo: "https://github.com/browser-use/web-ui.git",
+            commit: "61962296c38a0d064e0ba02c827192b7a81d1819",
+            packageVersion: nil,
+            fileCount: 42
+        ),
+        "cdp-use": RequiredComponentPin(
+            repo: "https://github.com/browser-use/cdp-use.git",
+            commit: "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
+            packageVersion: "1.4.5",
+            fileCount: 357
+        ),
+    ]
+
+    static let requiredPlaywrightPayloadRevisions: [String: String] = [
+        "chromium": "1223",
+        "chromium_headless_shell": "1223",
+        "ffmpeg": "1011",
+    ]
+
+    static var browserUsePackageVersion: String {
+        requiredComponentPins["browser-use"]?.packageVersion ?? ""
     }
 
     struct SourceMirrorGuard: Decodable, Equatable, Sendable {
@@ -36,13 +82,32 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     struct PackagingArtifacts: Decodable, Equatable, Sendable {
+        static let agentBrowserAdapterReadyStatus = "landed"
+        static let buildScriptReadyStatus = "landed"
+        static let buildManifestReadyStatus = "generated"
+        static let requirementsLockReadyStatus = "generated"
+        static let wheelhouseReadyStatus = "staged"
+        static let playwrightChromiumReadyStatus = "staged"
+        static let webUIRuntimeCompatibilityReadyStatus = "landed"
+        static let webUIDryRunSubmitReadyStatus = "landed"
+        static let expectedDryRunSubmitEnvVar = "EPISTEMOS_BROWSER_USE_WEBUI_DRY_RUN_SUBMIT"
+        static let expectedDryRunSubmitMarker = "Epistemos browser-use WebUI dry-run task-submit complete"
+
         let agentBrowserAdapter: PackagingPathListArtifact
+        let webUIRuntimeCompatibility: PackagingPathListArtifact
+        let webUIDryRunSubmit: WebUIDryRunSubmitArtifact
+        let buildScript: PackagingArtifact
+        let buildManifest: PackagingArtifact
         let requirementsLock: PackagingArtifact
         let wheelhouse: PackagingArtifact
         let playwrightChromium: PackagingArtifact
 
         enum CodingKeys: String, CodingKey {
             case agentBrowserAdapter = "agent_browser_adapter"
+            case webUIRuntimeCompatibility = "web_ui_runtime_compatibility"
+            case webUIDryRunSubmit = "web_ui_dry_run_submit"
+            case buildScript = "build_script"
+            case buildManifest = "build_manifest"
             case requirementsLock = "requirements_lock"
             case wheelhouse
             case playwrightChromium = "playwright_chromium"
@@ -52,11 +117,19 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     struct PackagingArtifact: Decodable, Equatable, Sendable {
         let status: String
         let expectedPath: String
+        let fileCount: Int?
+        let chromiumRevision: String?
+        let headlessShellRevision: String?
+        let ffmpegRevision: String?
         let notes: String?
 
         enum CodingKeys: String, CodingKey {
             case status
             case expectedPath = "expected_path"
+            case fileCount = "file_count"
+            case chromiumRevision = "chromium_revision"
+            case headlessShellRevision = "headless_shell_revision"
+            case ffmpegRevision = "ffmpeg_revision"
             case notes
         }
     }
@@ -69,6 +142,22 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey {
             case status
             case expectedPaths = "expected_paths"
+            case notes
+        }
+    }
+
+    struct WebUIDryRunSubmitArtifact: Decodable, Equatable, Sendable {
+        let status: String
+        let expectedPath: String
+        let envVar: String
+        let marker: String
+        let notes: String?
+
+        enum CodingKeys: String, CodingKey {
+            case status
+            case expectedPath = "expected_path"
+            case envVar = "env_var"
+            case marker
             case notes
         }
     }
@@ -168,26 +257,36 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
 
     var pinnedSourceProblems: [String] {
         var problems: [String] = []
-        let required: [String: (repo: String, commit: String, fileCount: Int)] = [
-            "browser-use": (
-                "https://github.com/browser-use/browser-use.git",
-                "2454d3e2551705232333c906ded8fc31ab0fc9f2",
-                501
-            ),
-            "web-ui": (
-                "https://github.com/browser-use/web-ui.git",
-                "61962296c38a0d064e0ba02c827192b7a81d1819",
-                42
-            ),
-            "cdp-use": (
-                "https://github.com/browser-use/cdp-use.git",
-                "a318684daab5ab3a9a516fcab447ed4bdfb92be9",
-                357
-            ),
-        ]
 
-        let byName = Dictionary(uniqueKeysWithValues: components.map { ($0.name, $0) })
-        for (name, expected) in required {
+        if schemaVersion != Self.expectedSchemaVersion {
+            problems.append("manifest schema \(schemaVersion) is unsupported")
+        }
+        if name != Self.expectedName {
+            problems.append("manifest name mismatch")
+        }
+        if runtimeLane != Self.expectedRuntimeLane {
+            problems.append("manifest runtime lane mismatch")
+        }
+        if nativeWKWebViewBoundary != Self.expectedNativeWKWebViewBoundary {
+            problems.append("manifest native Browser boundary mismatch")
+        }
+
+        var byName: [String: Component] = [:]
+        for component in components {
+            let name = component.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else {
+                problems.append("component name is empty")
+                continue
+            }
+            if byName[name] != nil {
+                problems.append("duplicate \(name)")
+                continue
+            }
+            byName[name] = component
+        }
+
+        for name in Self.requiredComponentPins.keys.sorted() {
+            guard let expected = Self.requiredComponentPins[name] else { continue }
             guard let component = byName[name] else {
                 problems.append("missing \(name)")
                 continue
@@ -201,6 +300,9 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             if component.license != "MIT" {
                 problems.append("\(name) license mismatch")
             }
+            if component.packageVersion != expected.packageVersion {
+                problems.append("\(name) package version mismatch")
+            }
             if !component.fullClone {
                 problems.append("\(name) is not marked full_clone")
             }
@@ -209,7 +311,7 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             }
         }
 
-        if components.count != required.count {
+        if components.count != Self.requiredComponentPins.count {
             problems.append("unexpected component count \(components.count)")
         }
         if masSafe {
@@ -217,6 +319,15 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         }
         if sourceMirrorGuard.requiredExclude != "--exclude='vendor/browser-use/'" {
             problems.append("missing SourceMirror browser-use exclusion")
+        }
+        if packagingArtifacts.webUIRuntimeCompatibility.expectedPaths.isEmpty {
+            problems.append("web-ui runtime compatibility helper list is empty")
+        }
+        if packagingArtifacts.webUIDryRunSubmit.envVar != PackagingArtifacts.expectedDryRunSubmitEnvVar {
+            problems.append("web-ui dry-run submit env var mismatch")
+        }
+        if packagingArtifacts.webUIDryRunSubmit.marker != PackagingArtifacts.expectedDryRunSubmitMarker {
+            problems.append("web-ui dry-run submit marker mismatch")
         }
         return problems
     }
@@ -226,10 +337,14 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     var isProPayloadStaged: Bool {
-        packagingArtifacts.agentBrowserAdapter.status == "landed"
-            && packagingArtifacts.requirementsLock.status == "generated"
-            && packagingArtifacts.wheelhouse.status == "staged"
-            && packagingArtifacts.playwrightChromium.status == "staged"
+        packagingArtifacts.agentBrowserAdapter.status == PackagingArtifacts.agentBrowserAdapterReadyStatus
+            && packagingArtifacts.buildScript.status == PackagingArtifacts.buildScriptReadyStatus
+            && packagingArtifacts.buildManifest.status == PackagingArtifacts.buildManifestReadyStatus
+            && packagingArtifacts.requirementsLock.status == PackagingArtifacts.requirementsLockReadyStatus
+            && packagingArtifacts.wheelhouse.status == PackagingArtifacts.wheelhouseReadyStatus
+            && packagingArtifacts.playwrightChromium.status == PackagingArtifacts.playwrightChromiumReadyStatus
+            && packagingArtifacts.webUIRuntimeCompatibility.status == PackagingArtifacts.webUIRuntimeCompatibilityReadyStatus
+            && packagingArtifacts.webUIDryRunSubmit.status == PackagingArtifacts.webUIDryRunSubmitReadyStatus
     }
 
     func stagedArtifactProblems(
@@ -240,10 +355,18 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             return []
         }
 
-        return [
+        var problems = [
             artifactProblem(
                 name: "agent-browser adapter",
                 relativePath: packagingArtifacts.agentBrowserAdapter.expectedPaths.first ?? "",
+                relativeTo: manifestRoot,
+                requiresDirectory: false,
+                requiresExecutable: true,
+                fileManager: fileManager
+            ),
+            artifactProblem(
+                name: "build-pro-payload.sh",
+                relativePath: packagingArtifacts.buildScript.expectedPath,
                 relativeTo: manifestRoot,
                 requiresDirectory: false,
                 requiresExecutable: true,
@@ -275,7 +398,15 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             ),
             artifactProblem(
                 name: "BUILD_MANIFEST.json",
-                relativePath: "BUILD_MANIFEST.json",
+                relativePath: packagingArtifacts.buildManifest.expectedPath,
+                relativeTo: manifestRoot,
+                requiresDirectory: false,
+                requiresExecutable: false,
+                fileManager: fileManager
+            ),
+            artifactProblem(
+                name: "web-ui dry-run submit hook",
+                relativePath: packagingArtifacts.webUIDryRunSubmit.expectedPath,
                 relativeTo: manifestRoot,
                 requiresDirectory: false,
                 requiresExecutable: false,
@@ -284,24 +415,79 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         ].compactMap(\.self) + agentBrowserAdapterHelperProblems(
             relativeTo: manifestRoot,
             fileManager: fileManager
+        ) + pathListArtifactProblems(
+            name: "web-ui compatibility shim",
+            relativePaths: packagingArtifacts.webUIRuntimeCompatibility.expectedPaths,
+            relativeTo: manifestRoot,
+            fileManager: fileManager
         )
+
+        if let wheelhouseURL = artifactURL(
+            relativePath: packagingArtifacts.wheelhouse.expectedPath,
+            relativeTo: manifestRoot,
+            isDirectory: true
+        ), let wheelhouseProblem = directoryFileCountProblem(
+            name: "wheelhouse",
+            url: wheelhouseURL,
+            expectedFileCount: packagingArtifacts.wheelhouse.fileCount,
+            fileManager: fileManager
+        ) {
+            problems.append(wheelhouseProblem)
+        }
+
+        if let playwrightURL = artifactURL(
+            relativePath: packagingArtifacts.playwrightChromium.expectedPath,
+            relativeTo: manifestRoot,
+            isDirectory: true
+        ), let playwrightProblem = playwrightPayloadRevisionProblem(
+            rootURL: playwrightURL,
+            artifact: packagingArtifacts.playwrightChromium,
+            fileManager: fileManager
+        ) {
+            problems.append(playwrightProblem)
+        }
+
+        return problems
     }
 
     var packagingSummary: String {
-        "adapter=\(packagingArtifacts.agentBrowserAdapter.status), requirements.lock=\(packagingArtifacts.requirementsLock.status), wheels=\(packagingArtifacts.wheelhouse.status), browser payload=\(packagingArtifacts.playwrightChromium.status)"
+        [
+            "adapter=\(packagingArtifacts.agentBrowserAdapter.status)",
+            "build script=\(packagingArtifacts.buildScript.status)",
+            "build manifest=\(packagingArtifacts.buildManifest.status)",
+            "requirements.lock=\(packagingArtifacts.requirementsLock.status)",
+            "wheels=\(packagingArtifacts.wheelhouse.status)",
+            "browser payload=\(packagingArtifacts.playwrightChromium.status)",
+            "web-ui shims=\(packagingArtifacts.webUIRuntimeCompatibility.status)",
+            "dry-run hook=\(packagingArtifacts.webUIDryRunSubmit.status)",
+        ].joined(separator: ", ")
     }
 
-    private func agentBrowserAdapterHelperProblems(
+    private func pathListArtifactProblems(
+        name: String,
+        relativePaths: ArraySlice<String>,
         relativeTo manifestRoot: URL,
         fileManager: FileManager
     ) -> [String] {
-        let helperPaths = packagingArtifacts.agentBrowserAdapter.expectedPaths.dropFirst()
-        guard !helperPaths.isEmpty else {
-            return ["agent-browser adapter helper list is empty"]
+        pathListArtifactProblems(
+            name: name,
+            relativePaths: Array(relativePaths),
+            relativeTo: manifestRoot,
+            fileManager: fileManager)
+    }
+
+    private func pathListArtifactProblems(
+        name: String,
+        relativePaths: [String],
+        relativeTo manifestRoot: URL,
+        fileManager: FileManager
+    ) -> [String] {
+        guard !relativePaths.isEmpty else {
+            return ["\(name) list is empty"]
         }
-        return helperPaths.compactMap { relativePath in
+        return relativePaths.compactMap { relativePath in
             artifactProblem(
-                name: "agent-browser adapter helper",
+                name: name,
                 relativePath: relativePath,
                 relativeTo: manifestRoot,
                 requiresDirectory: false,
@@ -309,6 +495,18 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
                 fileManager: fileManager
             )
         }
+    }
+
+    private func agentBrowserAdapterHelperProblems(
+        relativeTo manifestRoot: URL,
+        fileManager: FileManager
+    ) -> [String] {
+        let helperPaths = packagingArtifacts.agentBrowserAdapter.expectedPaths.dropFirst()
+        return pathListArtifactProblems(
+            name: "agent-browser adapter helper",
+            relativePaths: helperPaths,
+            relativeTo: manifestRoot,
+            fileManager: fileManager)
     }
 
     private func artifactProblem(
@@ -348,6 +546,141 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
         return nil
     }
 
+    private func directoryFileCountProblem(
+        name: String,
+        url: URL,
+        expectedFileCount: Int?,
+        fileManager: FileManager
+    ) -> String? {
+        guard let expectedFileCount else {
+            return "\(name) manifest is missing file_count"
+        }
+        guard expectedFileCount > 0 else {
+            return "\(name) manifest has invalid file_count \(expectedFileCount)"
+        }
+
+        let children: [URL]
+        do {
+            children = try fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                options: []
+            )
+        } catch {
+            return "\(name) contents could not be inspected"
+        }
+
+        var actualFileCount = 0
+        for child in children {
+            if (try? fileManager.destinationOfSymbolicLink(atPath: child.path)) != nil {
+                return "\(name) contains symlink entry \(Self.pathDiagnostic(child.lastPathComponent))"
+            }
+
+            let values: URLResourceValues
+            do {
+                values = try child.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+            } catch {
+                return "\(name) entry could not be inspected at \(Self.pathDiagnostic(child.lastPathComponent))"
+            }
+
+            if values.isDirectory == true {
+                return "\(name) contains unexpected directory \(Self.pathDiagnostic(child.lastPathComponent))"
+            }
+            guard values.isRegularFile == true else {
+                return "\(name) contains unsupported entry \(Self.pathDiagnostic(child.lastPathComponent))"
+            }
+
+            actualFileCount += 1
+            if actualFileCount > expectedFileCount {
+                return "\(name) file_count mismatch: expected \(expectedFileCount), found more"
+            }
+        }
+
+        guard actualFileCount == expectedFileCount else {
+            return "\(name) file_count mismatch: expected \(expectedFileCount), found \(actualFileCount)"
+        }
+        return nil
+    }
+
+    private func playwrightPayloadRevisionProblem(
+        rootURL: URL,
+        artifact: PackagingArtifact,
+        fileManager: FileManager
+    ) -> String? {
+        return playwrightRevisionMarkerProblem(
+            label: "Chromium",
+            directoryPrefix: "chromium",
+            rootURL: rootURL,
+            revision: artifact.chromiumRevision,
+            expectedRevision: Self.requiredPlaywrightPayloadRevisions["chromium"],
+            missingRevisionMessage: "Playwright Chromium manifest is missing chromium_revision",
+            fileManager: fileManager
+        ) ?? playwrightRevisionMarkerProblem(
+            label: "Chromium headless shell",
+            directoryPrefix: "chromium_headless_shell",
+            rootURL: rootURL,
+            revision: artifact.headlessShellRevision,
+            expectedRevision: Self.requiredPlaywrightPayloadRevisions["chromium_headless_shell"],
+            missingRevisionMessage: "Playwright Chromium manifest is missing headless_shell_revision",
+            fileManager: fileManager
+        ) ?? playwrightRevisionMarkerProblem(
+            label: "ffmpeg",
+            directoryPrefix: "ffmpeg",
+            rootURL: rootURL,
+            revision: artifact.ffmpegRevision,
+            expectedRevision: Self.requiredPlaywrightPayloadRevisions["ffmpeg"],
+            missingRevisionMessage: "Playwright Chromium manifest is missing ffmpeg_revision",
+            fileManager: fileManager
+        )
+    }
+
+    private func playwrightRevisionMarkerProblem(
+        label: String,
+        directoryPrefix: String,
+        rootURL: URL,
+        revision: String?,
+        expectedRevision: String?,
+        missingRevisionMessage: String,
+        fileManager: FileManager
+    ) -> String? {
+        guard let expectedRevision else {
+            return "Playwright \(label) expected revision is not pinned"
+        }
+        guard let revision = revision?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !revision.isEmpty else {
+            return missingRevisionMessage
+        }
+        guard revision.unicodeScalars.allSatisfy({ Self.chromiumRevisionAllowedCharacters.contains($0) }) else {
+            return "Playwright \(label) manifest has invalid revision"
+        }
+        guard revision == expectedRevision else {
+            return "Playwright \(label) revision mismatch"
+        }
+
+        let markerURL = rootURL
+            .appendingPathComponent("\(directoryPrefix)-\(revision)", isDirectory: true)
+            .appendingPathComponent("INSTALLATION_COMPLETE", isDirectory: false)
+        if BrowserUseSymlinkPathGuard.firstSymlinkComponent(in: markerURL, fileManager: fileManager) != nil {
+            return "Playwright \(label) revision marker path must not include symlink component"
+        }
+        guard resolvesInsideVendorRoot(markerURL, relativeTo: rootURL) else {
+            return "Playwright \(label) revision marker resolves outside payload"
+        }
+
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: markerURL.path, isDirectory: &isDirectory) else {
+            return "missing Playwright \(label) revision \(revision)"
+        }
+        guard !isDirectory.boolValue else {
+            return "Playwright \(label) revision marker is a directory"
+        }
+        let attributes = try? fileManager.attributesOfItem(atPath: markerURL.path)
+        guard attributes?[.type] as? FileAttributeType == .typeRegular else {
+            return "Playwright \(label) revision marker is not a regular file"
+        }
+        return nil
+    }
+
     private func artifactURL(
         relativePath: String,
         relativeTo manifestRoot: URL,
@@ -374,23 +707,24 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
     }
 
     private static func pathDiagnostic(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let description = trimmed.isEmpty ? "[empty path]" : trimmed
-        guard description.count > maxPathDiagnosticLength else {
-            return description
-        }
-        return String(description.prefix(maxPathDiagnosticLength)) + "..."
+        rawBoundedDiagnostic(value, maxCharacters: maxPathDiagnosticLength, fallback: "[empty path]")
     }
-}
 
-nonisolated enum BrowserUseVendorManifestError: Error, LocalizedError, Equatable {
-    case invalid(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .invalid(let reason):
-            return reason
+    private static func rawBoundedDiagnostic(
+        _ value: String,
+        maxCharacters: Int,
+        fallback: String
+    ) -> String {
+        let limit = max(0, maxCharacters)
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
         }
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
     }
 }
 
@@ -398,6 +732,10 @@ nonisolated enum BrowserUseDiagnostics {
     static let maxStatusMessageCharacters = 360
     private static let maxDomainCharacters = 96
     private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+
+    static func statusMessage(_ message: String, fallback: String) -> String {
+        bounded(message, fallback: fallback)
+    }
 
     static func statusMessage(for error: Error, fallback: String) -> String {
         if let manifestError = error as? BrowserUseVendorManifestError {
@@ -412,16 +750,12 @@ nonisolated enum BrowserUseDiagnostics {
     }
 
     private static func bounded(_ message: String, fallback: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = trimmed.isEmpty ? fallback : trimmed
-        guard value.count > maxStatusMessageCharacters else {
-            return value
-        }
-        return String(value.prefix(maxStatusMessageCharacters)) + "..."
+        rawBoundedDiagnostic(message, maxCharacters: maxStatusMessageCharacters, fallback: fallback)
     }
 
     static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"
@@ -434,6 +768,23 @@ nonisolated enum BrowserUseDiagnostics {
         }
         let bounded = String(value.prefix(maxDomainCharacters))
         return bounded.isEmpty ? "Error" : bounded
+    }
+
+    private static func rawBoundedDiagnostic(
+        _ value: String,
+        maxCharacters: Int,
+        fallback: String
+    ) -> String {
+        let limit = max(0, maxCharacters)
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
+        }
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
     }
 }
 
@@ -464,11 +815,6 @@ nonisolated enum BrowserUseProGateStatus {
                 .appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
             if fileManager.fileExists(atPath: signedBundlePayload.path) {
                 return signedBundlePayload
-            }
-
-            let bundled = resourceURL.appendingPathComponent("BrowserUsePro/VENDOR_MANIFEST.json")
-            if fileManager.fileExists(atPath: bundled.path) {
-                return bundled
             }
         }
 
