@@ -271,6 +271,33 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(metadata.requiredContextAvailable == false)
     }
 
+    @Test("HTMLWorkspace data feed metadata decode normalizes context kind labels")
+    func dataFeedMetadataDecodeNormalizesContextKindLabels() throws {
+        let json = """
+        {
+          "results": [],
+          "_epistemos": {
+            "source": "vault_search",
+            "query": "decode context",
+            "limit": 2,
+            "result_count": 0,
+            "context_kinds": [" graph_related_note ", "", "recent_capture", "graph_related_note"],
+            "refreshed_at_ms": 0,
+            "provenance": "VaultSyncService.searchFullAsync",
+            "stale": false,
+            "status": "fresh",
+            "required_context_kind": " recent_capture ",
+            "required_context_available": true
+          }
+        }
+        """
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: json))
+        #expect(metadata.contextKinds == ["graph_related_note", "recent_capture"])
+        #expect(metadata.requiredContextKind == "recent_capture")
+        #expect(metadata.requiredContextAvailable == true)
+    }
+
     @Test("HTMLWorkspace data feed status exposes existing required context kind for refreshes")
     func dataFeedStatusExposesExistingRequiredContextKindForRefreshes() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "recent captures project", limit: 2)

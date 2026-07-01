@@ -116,13 +116,13 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         self.query = query
         self.limit = limit
         self.resultCount = resultCount
-        self.contextKinds = contextKinds
+        self.contextKinds = Self.normalizedContextKinds(contextKinds)
         self.refreshedAtMS = refreshedAtMS
         self.provenance = provenance
         self.stale = stale
         self.status = status
         self.error = error
-        self.requiredContextKind = requiredContextKind
+        self.requiredContextKind = Self.normalizedOptional(requiredContextKind)
         self.requiredContextAvailable = requiredContextAvailable
     }
 
@@ -132,14 +132,24 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         query = try container.decode(String.self, forKey: .query)
         limit = try container.decode(Int.self, forKey: .limit)
         resultCount = try container.decode(Int.self, forKey: .resultCount)
-        contextKinds = try container.decodeIfPresent([String].self, forKey: .contextKinds) ?? []
+        contextKinds = Self.normalizedContextKinds(try container.decodeIfPresent([String].self, forKey: .contextKinds) ?? [])
         refreshedAtMS = try container.decode(Int64.self, forKey: .refreshedAtMS)
         provenance = try container.decode(String.self, forKey: .provenance)
         stale = try container.decode(Bool.self, forKey: .stale)
         status = try container.decode(String.self, forKey: .status)
         error = try container.decodeIfPresent(String.self, forKey: .error)
-        requiredContextKind = try container.decodeIfPresent(String.self, forKey: .requiredContextKind)
+        requiredContextKind = Self.normalizedOptional(try container.decodeIfPresent(String.self, forKey: .requiredContextKind))
         requiredContextAvailable = try container.decodeIfPresent(Bool.self, forKey: .requiredContextAvailable)
+    }
+
+    static func normalizedContextKinds(_ values: [String]) -> [String] {
+        let kinds = Set(values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+        return kinds.isEmpty ? ["vault_record"] : kinds.sorted()
+    }
+
+    private static func normalizedOptional(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -240,7 +250,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         error: String?,
         requiredContextKind: String?
     ) -> String {
-        let contextKinds = contextKinds(from: results)
+        let contextKinds = HTMLWorkspaceDataFeedMetadata.normalizedContextKinds(results.map(\.contextKind))
         let normalizedRequiredKind = normalizedRequiredContextKind(requiredContextKind)
         let metadata = HTMLWorkspaceDataFeedMetadata(
             source: feed.source.rawValue,
@@ -265,15 +275,6 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             return #"{"results":[],"_epistemos":{"source":"vault_search","query":"","limit":0,"result_count":0,"context_kinds":["vault_record"],"refreshed_at_ms":0,"provenance":"VaultSyncService.searchFullAsync","stale":true,"status":"stale","error":"data feed encoding failed"}}"#
         }
         return json
-    }
-
-    private static func contextKinds(from results: [HTMLWorkspaceDataFeedResult]) -> [String] {
-        let kinds = Set(
-            results
-                .map { $0.contextKind.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-        )
-        return kinds.isEmpty ? ["vault_record"] : kinds.sorted()
     }
 
     private static func normalizedRequiredContextKind(_ requiredContextKind: String?) -> String? {
