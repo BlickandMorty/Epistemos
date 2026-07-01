@@ -106,6 +106,8 @@ struct BrowserUseAdapterPlan3Tests {
             "sanitize_error_message",
             "bound_error_input",
             "exit_detail = sanitize_error_message",
+            "return sanitize_error_message(error)",
+            "raise AdapterError(sanitize_error_message(nested))",
             "SECRET_ASSIGNMENT_PATTERN",
             "refresh_token",
             "authorization_code",
@@ -211,6 +213,8 @@ struct BrowserUseAdapterPlan3Tests {
             #expect(rustTaskSource.contains(required), "Missing browser.complete_task Rust policy string: \(required)")
         }
         #expect(!source.contains("str(response.get(\"error\""))
+        #expect(!source.contains("return error\n    return fallback"))
+        #expect(!source.contains("raise AdapterError(nested)"))
         #expect(!source.contains("invalid browser-use adapter arguments: {message}"))
         #expect(!source.contains("invalid element ref: {value!r}"))
         #expect(!source.contains("does not accept argument: {value}"))

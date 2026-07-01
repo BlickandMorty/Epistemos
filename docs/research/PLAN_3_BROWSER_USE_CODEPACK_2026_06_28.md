@@ -284,6 +284,8 @@ http/https with no embedded credentials, query, or fragment, keeping Keychain pr
 from proxy server URLs. Pro `.env` files are read through a no-follow descriptor with `fstat` shape/ownership/permission
 checks plus a bounded byte read before UTF-8 decode. Direct adapter
 `snapshot` responses cap snapshot text and refs before returning JSON, matching the Rust tool-output boundary. `[VERIFIED-CODE]`
+Nested browser-use daemon error strings are sanitized at the adapter helper boundary before they become `AdapterError`,
+so future call sites cannot accidentally echo raw daemon diagnostics outside the final JSON sanitizer. `[VERIFIED-CODE]`
 The Rust `browser.complete_task` wrapper now keeps adapter transport success separate from delegated task success:
 `adapter_success=true` means the adapter returned a valid envelope, while top-level `success` and `task_success` mirror
 the browser-use task outcome (`completed`/`failed`/`incomplete`/`unknown`) instead of silently marking an incomplete run as
