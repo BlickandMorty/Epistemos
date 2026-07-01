@@ -77,6 +77,16 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           <span>Pick source</span>
           <select data-context-picker aria-label="Pick context source"></select>
         </label>
+        <label>
+          <span>Sort</span>
+          <select data-result-sort aria-label="Sort visible results">
+            <option value="rank-desc">Rank high first</option>
+            <option value="rank-asc">Rank low first</option>
+            <option value="title-asc">Title A-Z</option>
+            <option value="source-asc">Source A-Z</option>
+            <option value="context-asc">Context kind A-Z</option>
+          </select>
+        </label>
         <button type="button" data-pin-context>Pin source</button>
         <span data-filter-count>0 visible</span>
       </section>
@@ -569,6 +579,26 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return scopedResults.filter((result) => resultSearchText(result).includes(filter));
     }
 
+    function sortedResults(results) {
+      const sortMode = HTMLWorkspace.q('[data-result-sort]')?.value || 'rank-desc';
+      const sorted = results.slice();
+      const textValue = (result, field) => normalized(result[field]).trim();
+      const rankValue = (result) => Number.isFinite(Number(result.rank)) ? Number(result.rank) : -Infinity;
+      if (sortMode === 'rank-asc') {
+        return sorted.sort((a, b) => rankValue(a) - rankValue(b));
+      }
+      if (sortMode === 'title-asc') {
+        return sorted.sort((a, b) => textValue(a, 'title').localeCompare(textValue(b, 'title')));
+      }
+      if (sortMode === 'source-asc') {
+        return sorted.sort((a, b) => textValue(a, 'source_label').localeCompare(textValue(b, 'source_label')));
+      }
+      if (sortMode === 'context-asc') {
+        return sorted.sort((a, b) => resultContextKind(a).localeCompare(resultContextKind(b)));
+      }
+      return sorted.sort((a, b) => rankValue(b) - rankValue(a));
+    }
+
     function resultCountLabel(results, allResults, filter) {
       if (selectedContextKind !== 'all' || filter) {
         return `${results.length} visible / ${allResults.length} total`;
@@ -837,7 +867,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const meta = data._epistemos || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
       renderContextTabs(allResults, meta);
-      const results = visibleResults(allResults);
+      const results = sortedResults(visibleResults(allResults));
       const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
       const status = meta.stale ? 'Stale' : (meta.status || 'Fresh');
       const refreshed = meta.refreshed_at_ms
@@ -896,6 +926,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
 
     renderVaultResults();
     HTMLWorkspace.q('[data-result-filter]')?.addEventListener('input', renderVaultResults);
+    HTMLWorkspace.q('[data-result-sort]')?.addEventListener('change', renderVaultResults);
     HTMLWorkspace.q('[data-context-picker]')?.addEventListener('change', (event) => {
       selectedResultKey = event.currentTarget.value || null;
       renderVaultResults();
