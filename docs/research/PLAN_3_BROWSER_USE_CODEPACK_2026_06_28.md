@@ -265,7 +265,8 @@ Rust `find_agent_browser()` now discovers the bundled executable through
 `SIGNATURE_MANIFEST.json` evidence, opens the signature manifest as a bounded regular non-symlink file before decoding
 it, rejects packaged adapters outside `BrowserUsePro.bundle/Contents/Resources/BrowserUsePro`, and validates the pinned
 browser-use/web-ui/cdp-use component evidence, Playwright browser payload revisions, second-precision UTC creation stamp shape, and
-deep-codesign contract with unknown top-level signature manifest fields rejected before using the bundled adapter.
+deep-codesign contract with unknown top-level signature manifest fields rejected, then runs deep strict `codesign`
+verification before using the bundled adapter.
 `agent_core` exposes the model-facing `browser.complete_task` alias in Pro builds only, and the
 app-hosted `omega-mcp` dispatcher now lists the same canonical MCP tool outside `mas-sandbox` while keeping it out of the
 MAS catalog. The `omega_mcp_stdio` vault/graph server remains intentionally scoped to the Rust tools it can execute and

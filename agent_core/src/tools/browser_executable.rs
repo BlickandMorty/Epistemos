@@ -226,7 +226,7 @@ fn require_packaged_browser_use_bundle_evidence(adapter_path: &Path) -> Result<(
             "BrowserUsePro.bundle adapter resolved without a payload root".into(),
         )
     })?;
-    require_packaged_payload_root_layout(payload_root)?;
+    let bundle_dir = require_packaged_payload_root_layout(payload_root)?;
     for required in [
         payload_root.join("VENDOR_MANIFEST.json"),
         payload_root.join("BUILD_MANIFEST.json"),
@@ -237,10 +237,11 @@ fn require_packaged_browser_use_bundle_evidence(adapter_path: &Path) -> Result<(
     let signature_manifest = payload_root.join("SIGNATURE_MANIFEST.json");
     require_regular_packaged_file(&signature_manifest)?;
     let manifest = read_bounded_signature_manifest(&signature_manifest)?;
-    require_signature_manifest_evidence(&manifest)
+    require_signature_manifest_evidence(&manifest)?;
+    require_packaged_bundle_signature(&bundle_dir)
 }
 
-fn require_packaged_payload_root_layout(payload_root: &Path) -> Result<(), ToolError> {
+fn require_packaged_payload_root_layout(payload_root: &Path) -> Result<PathBuf, ToolError> {
     let Some(resources_dir) = payload_root.parent() else {
         return Err(packaged_payload_root_problem());
     };
@@ -256,7 +257,7 @@ fn require_packaged_payload_root_layout(payload_root: &Path) -> Result<(), ToolE
         && path_file_name_eq(contents_dir, "Contents")
         && path_file_name_eq(bundle_dir, "BrowserUsePro.bundle")
     {
-        return Ok(());
+        return Ok(bundle_dir.to_path_buf());
     }
 
     Err(packaged_payload_root_problem())
@@ -284,6 +285,38 @@ fn require_regular_packaged_file(path: &Path) -> Result<(), ToolError> {
             "BrowserUsePro.bundle package evidence '{}' must be a regular file",
             path_diagnostic(path)
         )));
+    }
+    Ok(())
+}
+
+fn require_packaged_bundle_signature(bundle_dir: &Path) -> Result<(), ToolError> {
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("/usr/bin/codesign")
+            .arg("--verify")
+            .arg("--deep")
+            .arg("--strict")
+            .arg("--verbose=2")
+            .arg(bundle_dir)
+            .env_clear()
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map_err(|error| {
+                ToolError::ExecutionFailed(format!(
+                    "BrowserUsePro.bundle code signature could not be verified: {error}"
+                ))
+            })?;
+        if !status.success() {
+            return Err(ToolError::ExecutionFailed(
+                "BrowserUsePro.bundle code signature verification failed".into(),
+            ));
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = bundle_dir;
     }
     Ok(())
 }
@@ -408,9 +441,7 @@ fn require_signature_manifest_evidence(manifest: &str) -> Result<(), ToolError> 
 }
 
 fn signature_manifest_problem(message: &'static str) -> ToolError {
-    ToolError::ExecutionFailed(format!(
-        "BrowserUsePro.bundle signature manifest {message}"
-    ))
+    ToolError::ExecutionFailed(format!("BrowserUsePro.bundle signature manifest {message}"))
 }
 
 fn is_second_precision_utc_timestamp(value: &str) -> bool {
@@ -903,6 +934,64 @@ mod tests {
         let message = format!("{err}");
         assert!(message.contains(BROWSER_USE_AGENT_BROWSER_ENV));
         assert!(message.contains("path must not include symlink component"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn browser_use_packaged_adapter_requires_codesign_verification() {
+        let temp = tempfile::tempdir().unwrap();
+        let bundle_dir = temp.path().join("BrowserUsePro.bundle");
+        let payload_root = bundle_dir
+            .join("Contents")
+            .join("Resources")
+            .join("BrowserUsePro");
+        let adapter = payload_root.join(BROWSER_USE_ADAPTER_FILENAME);
+        fs::create_dir_all(&payload_root).unwrap();
+        write_executable_stub(&adapter);
+        fs::write(payload_root.join("VENDOR_MANIFEST.json"), "{}\n").unwrap();
+        fs::write(payload_root.join("BUILD_MANIFEST.json"), "{}\n").unwrap();
+        fs::write(
+            payload_root.join("SIGNATURE_MANIFEST.json"),
+            r#"{
+  "schema_version": 1,
+  "package_name": "BrowserUsePro",
+  "runtime_lane": "pro-developer-id-only",
+  "signature_type": "ad-hoc",
+  "signing_identity": "-",
+  "payload_root": "Contents/Resources/BrowserUsePro",
+  "file_count": 1,
+  "python": "Python 3.11.15",
+  "browser_use_version": "0.13.2",
+  "component_repos": {
+    "browser-use": "https://github.com/browser-use/browser-use.git",
+    "web-ui": "https://github.com/browser-use/web-ui.git",
+    "cdp-use": "https://github.com/browser-use/cdp-use.git"
+  },
+  "component_commits": {
+    "browser-use": "2454d3e2551705232333c906ded8fc31ab0fc9f2",
+    "web-ui": "61962296c38a0d064e0ba02c827192b7a81d1819",
+    "cdp-use": "a318684daab5ab3a9a516fcab447ed4bdfb92be9"
+  },
+  "component_versions": {
+    "browser-use": "0.13.2",
+    "web-ui": null,
+    "cdp-use": "1.4.5"
+  },
+  "playwright_revisions": {
+    "chromium": "1223",
+    "chromium_headless_shell": "1223",
+    "ffmpeg": "1011"
+  },
+  "created_utc": "2026-06-30T00:00:00Z",
+  "codesign_contract": "BrowserUsePro.bundle must pass codesign --verify --deep --strict before bundling and strict Security.framework validation at runtime."
+}
+"#,
+        )
+        .unwrap();
+
+        let err = require_packaged_browser_use_bundle_evidence(&adapter).unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("code signature verification failed"));
     }
 
     #[cfg(unix)]
