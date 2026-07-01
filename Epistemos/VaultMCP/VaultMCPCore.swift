@@ -339,7 +339,8 @@ nonisolated struct VaultMCPCore {
             let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
             guard values?.isRegularFile == true,
                   let relativePath = relativePath(for: url, under: root),
-                  (try? containedMarkdownURL(vaultRoot: root, relativePath: relativePath)) != nil else {
+                  let containedURL = try? containedMarkdownURL(vaultRoot: root, relativePath: relativePath),
+                  descriptorConfirmsReadableSingleLinkMarkdownFile(at: containedURL) else {
                 continue
             }
             paths.append(relativePath)
@@ -370,6 +371,10 @@ nonisolated struct VaultMCPCore {
             close(fd)
             throw VaultMCPPathError.notRegularFile
         }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            throw VaultMCPPathError.notRegularFile
+        }
         guard fileStatus.st_size >= 0,
               UInt64(fileStatus.st_size) <= UInt64(maxResourceReadBytes) else {
             close(fd)
@@ -386,6 +391,28 @@ nonisolated struct VaultMCPCore {
             throw VaultMCPPathError.invalidEncoding
         }
         return text
+    }
+
+    private static func descriptorConfirmsReadableSingleLinkMarkdownFile(at url: URL) -> Bool {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            return false
+        }
+        defer { close(fd) }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            return false
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
+              fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxResourceReadBytes) else {
+            return false
+        }
+        return true
     }
 
     static func argumentsJSON(from arguments: Any?) -> String {

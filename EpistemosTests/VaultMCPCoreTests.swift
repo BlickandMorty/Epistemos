@@ -458,6 +458,38 @@ struct VaultMCPCoreTests {
         #expect(Set(resources.compactMap { $0["mimeType"] as? String }) == ["text/markdown"])
     }
 
+    @Test("resources reject hardlinked markdown files")
+    func resourcesRejectHardlinkedMarkdownFiles() async throws {
+        let root = try Self.makeVaultRoot()
+        let outside = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-vault-mcp-hardlink-\(UUID().uuidString).md", isDirectory: false)
+        let hardlink = root.appendingPathComponent("Hardlinked.md", isDirectory: false)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outside)
+        }
+
+        try "Hardlinked".write(to: outside, atomically: true, encoding: .utf8)
+        guard (try? FileManager.default.linkItem(at: outside, to: hardlink)) != nil else {
+            return
+        }
+
+        let core = VaultMCPCore(vaultRoot: root, executor: Self.echoExecutor)
+        let listResponse = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":31,"method":"resources/list"}"#)
+        let listObject = try Self.jsonObject(listResponse)
+        let listResult = try #require(listObject["result"] as? [String: Any])
+        let resources = try #require(listResult["resources"] as? [[String: Any]])
+        #expect(resources.compactMap { $0["uri"] as? String }.contains("vault:///Hardlinked.md") == false)
+
+        let readResponse = await core.handle(
+            requestJSON: #"{"jsonrpc":"2.0","id":32,"method":"resources/read","params":{"uri":"vault:///Hardlinked.md"}}"#)
+        let readObject = try Self.jsonObject(readResponse)
+        let error = try #require(readObject["error"] as? [String: Any])
+        #expect(error["code"] as? Int == -32602)
+        #expect((error["message"] as? String)?.contains("regular markdown vault resources") == true)
+    }
+
     @Test("resources/read returns markdown text, decodes resource URIs, and rejects traversal")
     func resourcesReadReturnsMarkdownDecodesURIsAndRejectsTraversal() async throws {
         let root = try Self.makeVaultRoot()
@@ -647,6 +679,8 @@ struct VaultMCPCoreTests {
         #expect(source.contains("markdownRelPaths"))
         #expect(source.contains("noteText"))
         #expect(source.contains("readMarkdownFile"))
+        #expect(source.contains("descriptorConfirmsReadableSingleLinkMarkdownFile"))
+        #expect(source.contains("st_nlink <= 1"))
         #expect(source.contains("rejectExistingSymlinkComponents"))
         #expect(source.contains("lstat"))
         #expect(source.contains("S_IFLNK"))
