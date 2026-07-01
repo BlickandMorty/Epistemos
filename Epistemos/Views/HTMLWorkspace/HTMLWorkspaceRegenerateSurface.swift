@@ -824,12 +824,12 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         guard lines.contains("drop_action: regenerate_preview_context"),
               lines.contains("readonly: true"),
               hasLinePrefix("context_id: context_kind:", in: lines),
-              hasLinePrefix("page_id: ", in: lines),
-              hasLinePrefix("title: ", in: lines),
-              hasLinePrefix("context_kind: ", in: lines),
-              hasLinePrefix("source_label: ", in: lines),
-              hasLinePrefix("Provenance: ", in: lines),
-              hasLinePrefix("snippet: ", in: lines) else {
+              hasLineKey("page_id:", in: lines),
+              hasLineKey("title:", in: lines),
+              hasLineKey("context_kind:", in: lines),
+              hasLineKey("source_label:", in: lines),
+              hasLineKey("Provenance:", in: lines),
+              hasLineKey("snippet:", in: lines) else {
             return nil
         }
 
@@ -896,7 +896,15 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     }
 
     private static func bounded(_ value: String, limit: Int) -> String {
-        let bounded = String(value.prefix(limit + 32))
+        // Collapse interior newlines/whitespace runs BEFORE truncating. These values are
+        // interpolated line-by-line into the regenerate prompt context / drag payload, so an
+        // embedded newline in a vault snippet could otherwise forge extra lines (e.g. a fake
+        // "- record:" with forged provenance) into the LLM's authoritative grounding context.
+        let flattened = value
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        let bounded = String(flattened.prefix(limit + 32))
         guard bounded.count > limit else { return bounded }
         guard limit > 3 else { return String(bounded.prefix(limit)) }
         return String(bounded.prefix(limit - 3)) + "..."
@@ -908,6 +916,14 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
 
     private static func hasLinePrefix(_ prefix: String, in lines: [String]) -> Bool {
         lines.contains { $0.hasPrefix(prefix) && $0.count > prefix.count }
+    }
+
+    /// Verifies a payload key line is present WITHOUT requiring a non-empty value. normalizedPayloadLines
+    /// strips the trailing space, so an empty field renders as e.g. "snippet:"; the real authenticity
+    /// gate is the context_id match against a live feed item, so a genuine item with an empty
+    /// snippet/title must still verify instead of being silently dropped.
+    private static func hasLineKey(_ key: String, in lines: [String]) -> Bool {
+        lines.contains { $0.hasPrefix(key) }
     }
 
     private static func lineValue(_ prefix: String, in lines: [String]) -> String? {
@@ -997,7 +1013,15 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
     }
 
     private static func bounded(_ value: String, limit: Int) -> String {
-        let bounded = String(value.prefix(limit + 32))
+        // Collapse interior newlines/whitespace runs BEFORE truncating. These values are
+        // interpolated line-by-line into the regenerate prompt context / drag payload, so an
+        // embedded newline in a vault snippet could otherwise forge extra lines (e.g. a fake
+        // "- record:" with forged provenance) into the LLM's authoritative grounding context.
+        let flattened = value
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        let bounded = String(flattened.prefix(limit + 32))
         guard bounded.count > limit else { return bounded }
         guard limit > 3 else { return String(bounded.prefix(limit)) }
         return String(bounded.prefix(limit - 3)) + "..."
