@@ -438,15 +438,19 @@ nonisolated enum BrowserUseSignedBundleStatus {
                 return "signature payload contains too many entries"
             }
 
-            if (try? fileManager.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
-                return "signature payload symlink entries are not allowed at \(payloadPathDiagnostic(fileURL, relativeTo: payloadRootURL))"
-            }
-
             let values: URLResourceValues
             do {
-                values = try fileURL.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey])
+                values = try fileURL.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey])
             } catch {
                 return "signature payload file could not be inspected at \(payloadPathDiagnostic(fileURL, relativeTo: payloadRootURL))"
+            }
+
+            if values.isSymbolicLink == true {
+                guard symlinkTargetResolvesInsidePayload(fileURL, relativeTo: payloadRootURL, fileManager: fileManager) else {
+                    return "signature payload symlink resolves outside package at \(payloadPathDiagnostic(fileURL, relativeTo: payloadRootURL))"
+                }
+                enumerator.skipDescendants()
+                continue
             }
 
             if values.isDirectory == true {
@@ -472,6 +476,28 @@ nonisolated enum BrowserUseSignedBundleStatus {
             return "signature manifest file count mismatch: expected \(expectedFileCount), found \(actualFileCount)"
         }
         return nil
+    }
+
+    private static func symlinkTargetResolvesInsidePayload(
+        _ url: URL,
+        relativeTo payloadRootURL: URL,
+        fileManager: FileManager
+    ) -> Bool {
+        guard let destination = try? fileManager.destinationOfSymbolicLink(atPath: url.path),
+              !destination.isEmpty else {
+            return false
+        }
+
+        let targetURL = destination.hasPrefix("/")
+            ? URL(fileURLWithPath: destination)
+            : url.deletingLastPathComponent().appendingPathComponent(destination)
+        guard fileManager.fileExists(atPath: targetURL.path) else {
+            return false
+        }
+
+        let rootPath = payloadRootURL.standardizedFileURL.resolvingSymlinksInPath().path
+        let targetPath = targetURL.standardizedFileURL.resolvingSymlinksInPath().path
+        return targetPath == rootPath || targetPath.hasPrefix(rootPath + "/")
     }
 
     private static func componentEvidenceProblems(

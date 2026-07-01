@@ -402,7 +402,8 @@ struct BrowserUseProGateStatusTests {
         try writeSignedBrowserUseBundleFixture(
             root: root,
             bundleURL: bundleURL,
-            payloadRoot: payloadRoot
+            payloadRoot: payloadRoot,
+            includeInternalSymlink: true
         )
 
         let status = BrowserUseProGateStatus.status(
@@ -419,23 +420,32 @@ struct BrowserUseProGateStatusTests {
         #endif
     }
 
-    @Test("signed BrowserUsePro payload rejects symlink entries")
-    func signedBrowserUseProPayloadRejectsSymlinkEntries() throws {
+    @Test("signed BrowserUsePro payload rejects symlink escapes")
+    func signedBrowserUseProPayloadRejectsSymlinkEscapes() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("browser-use-signed-bundle-symlink-\(UUID().uuidString)", isDirectory: true)
+        let outsideURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-signed-outside-\(UUID().uuidString).txt", isDirectory: false)
         let bundleURL = root.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
         let payloadRoot = bundleURL
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("Resources", isDirectory: true)
             .appendingPathComponent("BrowserUsePro", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outsideURL)
+        }
 
         try writeSignedBrowserUseBundleFixture(
             root: root,
             bundleURL: bundleURL,
-            payloadRoot: payloadRoot,
-            includeInternalSymlink: true
+            payloadRoot: payloadRoot
+        )
+        try Data("outside\n".utf8).write(to: outsideURL)
+        try FileManager.default.createSymbolicLink(
+            at: payloadRoot.appendingPathComponent("outside.alias", isDirectory: false),
+            withDestinationURL: outsideURL
         )
 
         let status = BrowserUseProGateStatus.status(
@@ -445,7 +455,7 @@ struct BrowserUseProGateStatusTests {
 
         #expect(!status.isActive)
         #expect(status.headline == "browser-use Pro: signed package invalid")
-        #expect(status.detail.contains("signature payload symlink entries are not allowed"))
+        #expect(status.detail.contains("signature payload symlink resolves outside package"))
         #expect(!status.detail.contains(root.path))
         #endif
     }
@@ -524,7 +534,8 @@ struct BrowserUseProGateStatusTests {
             "maxPayloadEnumerationEntries",
             "visitedEntryCount",
             "signature payload contains too many entries",
-            "signature payload symlink entries are not allowed",
+            "signature payload symlink resolves outside package",
+            "enumerator.skipDescendants()",
             "String(value.prefix(32))",
             "rawBoundedDiagnostic(",
             "maxCharacters: maxStatusMessageCharacters",
