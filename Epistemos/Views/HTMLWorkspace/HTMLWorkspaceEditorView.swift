@@ -108,6 +108,7 @@ struct HTMLWorkspaceEditorView: View {
                 isRefreshingContext: isRefreshingRegenerateContext,
                 hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil,
                 hasVaultContext: package.manifest.dataFeed != nil,
+                contextItems: HTMLWorkspaceRegenerateContextItem.items(from: package),
                 canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil,
                 onCancel: {
                     if isRegenerating {
@@ -122,6 +123,7 @@ struct HTMLWorkspaceEditorView: View {
                 onCopyPrompt: copyRegeneratePrompt,
                 onRefreshContext: refreshRegenerateVaultContext,
                 onClearContext: clearRegenerateVaultContext,
+                onFocusContextItem: focusRegenerateContextItem,
                 onRunPreset: runRegeneratePreset,
                 onSubmit: beginRegenerateSurface,
                 onApplyPreview: applyPendingRegeneratePreview,
@@ -855,6 +857,18 @@ struct HTMLWorkspaceEditorView: View {
         package.manifest.dataFeed = nil
         regenerateContextStatusText = "Vault context cleared"
         statusText = "Vault context cleared"
+    }
+
+    private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
+        let directive = "Use vault context item \"\(item.title)\" (\(item.pageID)) as a primary source; keep its provenance visible and do not invent missing details."
+        let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        if current.isEmpty {
+            regenerateInstruction = directive
+        } else if !current.contains(item.pageID) {
+            regenerateInstruction = current + "\n" + directive
+        }
+        regenerateContextStatusText = "Focused \(item.title)"
+        statusText = "Vault context item focused"
     }
 
     private func beginRegenerateSurface() {

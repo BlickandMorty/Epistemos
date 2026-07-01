@@ -13,11 +13,13 @@ struct HTMLWorkspaceRegenerateSheet: View {
     let isRefreshingContext: Bool
     let hasPendingPreview: Bool
     let hasVaultContext: Bool
+    let contextItems: [HTMLWorkspaceRegenerateContextItem]
     let canRestorePreviousSurface: Bool
     let onCancel: () -> Void
     let onCopyPrompt: () -> Void
     let onRefreshContext: () -> Void
     let onClearContext: () -> Void
+    let onFocusContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
     let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void
     let onSubmit: () -> Void
     let onApplyPreview: () -> Void
@@ -201,6 +203,40 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     .font(.caption2)
                     .foregroundStyle(mutedText)
                     .lineLimit(2)
+            }
+
+            if !contextItems.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(contextItems) { item in
+                            Button {
+                                onFocusContextItem(item)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.title)
+                                        .font(.caption.weight(.semibold))
+                                        .lineLimit(1)
+                                    Text(item.snippet)
+                                        .font(.caption2)
+                                        .foregroundStyle(mutedText)
+                                        .lineLimit(2)
+                                }
+                                .frame(width: 178, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 7)
+                                .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(theme.resolved.foreground.color)
+                            .disabled(isRegenerating || isRefreshingContext)
+                            .onDrag {
+                                NSItemProvider(object: item.dragPayload as NSString)
+                            }
+                            .help(item.dragPayload)
+                        }
+                    }
+                    .padding(.vertical, 1)
+                }
             }
         }
     }
@@ -548,6 +584,32 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     }
 }
 
+nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, Equatable {
+    var id: String { pageID }
+    var pageID: String
+    var title: String
+    var snippet: String
+    var rank: Double
+
+    var dragPayload: String {
+        "Vault note: \(title) [\(pageID)]\n\(snippet)"
+    }
+
+    static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {
+        guard let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON) else {
+            return []
+        }
+        return envelope.results.prefix(limit).map {
+            HTMLWorkspaceRegenerateContextItem(
+                pageID: $0.pageID,
+                title: $0.title,
+                snippet: $0.snippet,
+                rank: $0.rank
+            )
+        }
+    }
+}
+
 nonisolated enum HTMLWorkspaceRegenerateContext {
     static func promptSection(for package: HTMLWorkspacePackage) -> String {
         var lines: [String] = [
@@ -581,7 +643,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
         return lines.joined(separator: "\n")
     }
 
-    private static func dataFeedEnvelope(from dataJSON: String) -> HTMLWorkspaceDataFeedEnvelope? {
+    static func dataFeedEnvelope(from dataJSON: String) -> HTMLWorkspaceDataFeedEnvelope? {
         guard let data = dataJSON.data(using: .utf8) else { return nil }
         return try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceDataFeedEnvelope.self, from: data)
     }

@@ -46,9 +46,11 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("let hasVaultContext: Bool"))
         #expect(sheet.contains("let isRefreshingContext: Bool"))
         #expect(sheet.contains("let contextStatusText: String?"))
+        #expect(sheet.contains("let contextItems: [HTMLWorkspaceRegenerateContextItem]"))
         #expect(sheet.contains("let canRestorePreviousSurface: Bool"))
         #expect(sheet.contains("let onRefreshContext: () -> Void"))
         #expect(sheet.contains("let onClearContext: () -> Void"))
+        #expect(sheet.contains("let onFocusContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(sheet.contains("let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void"))
         #expect(sheet.contains("let onApplyPreview: () -> Void"))
         #expect(sheet.contains("let onRestorePreviousSurface: () -> Void"))
@@ -58,6 +60,10 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("Label(\"Vault Context\", systemImage: \"tray.full\")"))
         #expect(sheet.contains("TextField(\"Search vault context\", text: $contextQuery)"))
         #expect(sheet.contains("Label(isRefreshingContext ? \"Searching\" : \"Add Context\", systemImage: \"magnifyingglass.circle\")"))
+        #expect(sheet.contains("ForEach(contextItems)"))
+        #expect(sheet.contains(".onDrag"))
+        #expect(sheet.contains("NSItemProvider(object: item.dragPayload as NSString)"))
+        #expect(sheet.contains("nonisolated struct HTMLWorkspaceRegenerateContextItem"))
         #expect(sheet.contains("HTMLWorkspaceRegeneratePreset.Family.allCases"))
         #expect(sheet.contains("FlowLayout(spacing: 6)"))
         #expect(sheet.contains("Label(\"Advanced response paste fallback\", systemImage: \"terminal\")"))
@@ -87,10 +93,12 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("isRefreshingContext: isRefreshingRegenerateContext"))
         #expect(editor.contains("hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil"))
         #expect(editor.contains("hasVaultContext: package.manifest.dataFeed != nil"))
+        #expect(editor.contains("contextItems: HTMLWorkspaceRegenerateContextItem.items(from: package)"))
         #expect(editor.contains("canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil"))
         #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
         #expect(editor.contains("onRefreshContext: refreshRegenerateVaultContext"))
         #expect(editor.contains("onClearContext: clearRegenerateVaultContext"))
+        #expect(editor.contains("onFocusContextItem: focusRegenerateContextItem"))
         #expect(editor.contains("onRunPreset: runRegeneratePreset"))
         #expect(editor.contains("onApplyPreview: applyPendingRegeneratePreview"))
         #expect(editor.contains("onPreviewStream: previewRegenerateStreamText"))
@@ -107,6 +115,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("VaultSyncService.searchFullAsync") || editor.contains("vaultSync.searchFullAsync"))
         #expect(editor.contains("HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)"))
         #expect(editor.contains("private func clearRegenerateVaultContext()"))
+        #expect(editor.contains("private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem)"))
+        #expect(editor.contains("keep its provenance visible and do not invent missing details"))
         #expect(editor.contains("private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
         #expect(editor.contains("private func applyPendingRegeneratePreview()"))
         #expect(editor.contains("pendingRegeneratePatchResponse = patchResponse"))
@@ -182,6 +192,29 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         )
         #expect(emptyPrompt.contains("vault_search: not attached"))
         #expect(emptyPrompt.contains("do not invent vault notes, graph links, captures, or chats"))
+    }
+
+    @Test("regenerate context items decode feed results as draggable read-only sources")
+    func regenerateContextItemsDecodeFeedResultsAsDraggableReadOnlySources() {
+        var package = HTMLWorkspacePackage.defaultPackage(title: "Drag Context")
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "drag context", limit: 2)
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(pageId: "note-a", title: "Alpha Note", snippet: "alpha snippet", rank: 0.9),
+                SearchResult(pageId: "note-b", title: "Beta Note", snippet: "beta snippet", rank: 0.7),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_001)
+        )
+
+        let items = HTMLWorkspaceRegenerateContextItem.items(from: package)
+
+        #expect(items.map(\.pageID) == ["note-a", "note-b"])
+        #expect(items.first?.title == "Alpha Note")
+        #expect(items.first?.dragPayload.contains("Vault note: Alpha Note [note-a]") == true)
+        #expect(items.first?.dragPayload.contains("alpha snippet") == true)
+        #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
 
     @Test("regenerate preview package swaps reset stale route selection")
