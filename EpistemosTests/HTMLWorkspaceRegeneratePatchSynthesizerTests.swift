@@ -209,6 +209,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(picker.contains("onPickContextItem(item)"))
         #expect(picker.contains("item.contextDescriptor"))
+        #expect(picker.contains("Text(item.provenanceDescriptor)"))
+        #expect(picker.contains("Text(item.rankDescriptor)"))
         #expect(picker.contains("item.systemImage"))
         #expect(picker.contains("Pick read-only context for this preview surface"))
     }

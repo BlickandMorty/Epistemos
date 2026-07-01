@@ -40,7 +40,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
                     Button {
                         onPickContextItem(item)
                     } label: {
-                        Label("\(item.title) / \(item.contextDescriptor)", systemImage: item.systemImage)
+                        contextMenuLabel(for: item)
                     }
                     .help(item.dragPayload)
                 }
@@ -59,5 +59,25 @@ struct HTMLWorkspacePreviewContextPicker: View {
         .disabled(isRegenerating)
         .help("Pick read-only context for this preview surface")
         .opacity(isRefreshingContext ? 0.78 : 1)
+    }
+
+    private func contextMenuLabel(for item: HTMLWorkspaceRegenerateContextItem) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: item.systemImage)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .lineLimit(1)
+                Text(item.contextDescriptor)
+                    .font(.caption2)
+                    .lineLimit(1)
+                Text(item.provenanceDescriptor)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(item.rankDescriptor)
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+        }
     }
 }
