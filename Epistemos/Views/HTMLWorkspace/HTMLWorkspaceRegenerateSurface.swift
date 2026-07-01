@@ -103,6 +103,9 @@ struct HTMLWorkspaceRegenerateSheet: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(isRegenerating || isRefreshingContext || instructionIsEmpty)
             }
+            .font(pixelControlFont)
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.resolved.foreground.color)
             .padding(14)
 
             ScrollView {
@@ -220,6 +223,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                 .disabled(isRegenerating || isRefreshingContext || !hasVaultContext)
             }
             .font(.caption)
+            .buttonStyle(.plain)
 
             FlowLayout(spacing: 6) {
                 ForEach(HTMLWorkspaceRegenerateContextShortcut.all) { shortcut in
@@ -339,6 +343,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                 .disabled(isRegenerating || streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .font(pixelControlFont)
+            .buttonStyle(.plain)
 
             ZStack(alignment: .topLeading) {
                 if streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
