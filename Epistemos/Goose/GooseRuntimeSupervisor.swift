@@ -12,6 +12,15 @@ struct GooseRuntimeConnection: Equatable, Sendable {
     }
 }
 
+/// Transfers a just-created Process across the actor boundary so its blocking
+/// `run()` (spawn) can execute OFF the main actor. proc.run() blocks on the OS
+/// code-signature validation of the notarized goosed binary (hundreds of ms–
+/// seconds) and GooseRuntimeSupervisor is @MainActor, so spawning inline froze
+/// the UI on the Goose transition. (hang-trace 2026-07-01)
+private struct GooseSpawnBox: @unchecked Sendable {
+    let process: Process
+}
+
 @MainActor
 @Observable
 final class GooseRuntimeSupervisor {
@@ -407,7 +416,12 @@ final class GooseRuntimeSupervisor {
         }
 
         do {
-            try proc.run()
+            // Spawn OFF the main actor — proc.run() blocks on OS code-signature validation of
+            // the notarized binary (hundreds of ms–seconds). This class is @MainActor, so
+            // spawning inline froze the UI on the Goose transition. CLAUDE.md: never block
+            // @MainActor. The terminationHandler is already installed above (no exit race). (hang-trace 2026-07-01)
+            let spawnBox = GooseSpawnBox(process: proc)
+            try await Task.detached(priority: .userInitiated) { try spawnBox.process.run() }.value
             #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
             AppBootstrap.shared?.orphanCleanup.track(proc)
             #endif

@@ -103,12 +103,13 @@ struct LandingView: View {
         return activeLandingInlineCommand?.minStageHeight ?? 220
     }
 
-    /// Whether to mount + PRE-WARM the persistent embedded Goose surface. Only when
-    /// Goose is actually staged/ready, so we never warm a missing runtime. Mounting it
-    /// (hidden) while on the landing page is the warm-up; it stays alive across nav so
-    /// pressing Goose is instant instead of a cold-load hang. Set ONCE in .onAppear —
-    /// computing GooseSurfaceAvailability.current() every render lagged the landing. (audit 2026-07-01)
-    @State private var gooseSurfacePrewarmEnabled = false
+    /// ALWAYS mount + PRE-WARM the persistent embedded Goose surface from first render
+    /// (owner: "goose is always loaded; nav should feel instant"). The runtime spawn is
+    /// now off the main actor (GooseRuntimeSupervisor), so warming at launch no longer
+    /// freezes startup; an unstaged runtime just renders a harmless placeholder. Latching
+    /// this to a once-checked availability flag was why the prewarm never actually warmed
+    /// (isReady was false at onAppear → the layer never mounted → every nav was cold). (hang-trace 2026-07-01)
+    @State private var gooseSurfacePrewarmEnabled = true
 
     // MARK: - Body
 
@@ -285,10 +286,6 @@ struct LandingView: View {
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
             scheduleWelcomeBackPresentationIfNeeded()
-            // Resolve Goose prewarm eligibility ONCE (not per render frame). (audit 2026-07-01)
-            if !gooseSurfacePrewarmEnabled {
-                gooseSurfacePrewarmEnabled = GooseSurfaceAvailability.current().isReady
-            }
         }
         // Phase 1 — graphViewLocation mid-session flip handler. When the
         // user changes Settings → Graph → Graph view location while the
