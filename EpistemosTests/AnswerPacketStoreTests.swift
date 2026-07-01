@@ -42,6 +42,14 @@ struct AnswerPacketStoreTests {
         #expect(all.last?.attentionMode == .staticFallback) // attention_mode survived the round-trip
     }
 
+    @Test("default store path is shared for durable answer packet readers")
+    func defaultStorePathIsSharedForDurableReaders() throws {
+        let url = try #require(AnswerPacketStore.defaultEpistemosLogURL())
+        #expect(url.lastPathComponent == "answer_packets.jsonl")
+        #expect(url.deletingLastPathComponent().lastPathComponent == "Epistemos")
+        #expect(AnswerPacketStore.defaultEpistemosStore()?.fileURL == url)
+    }
+
     @Test("loadRecent honors the limit (last N, most-recent-first)")
     func limit() throws {
         let (store, cleanup) = tempStore(); defer { cleanup() }

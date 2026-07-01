@@ -20,6 +20,20 @@ nonisolated public struct AnswerPacketStore: Sendable {
         self.fileURL = fileURL
     }
 
+    /// Default durable log location shared by the emitter and read-only consumers.
+    public static func defaultEpistemosStore() -> AnswerPacketStore? {
+        guard let url = defaultEpistemosLogURL() else { return nil }
+        return AnswerPacketStore(fileURL: url)
+    }
+
+    public static func defaultEpistemosLogURL() -> URL? {
+        guard let dir = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        return dir
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("answer_packets.jsonl")
+    }
+
     /// Append one packet as a single JSON line. Creates the parent directory + file on first use.
     public func append(_ packet: AnswerPacket) throws {
         var line = try JSONEncoder().encode(packetWithHonestStoredLabel(packet))

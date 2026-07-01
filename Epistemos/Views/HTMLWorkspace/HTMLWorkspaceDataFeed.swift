@@ -222,6 +222,9 @@ enum HTMLWorkspaceDataFeedContextSources {
         if requiredKind == "recent_chat" || (requiredKind.isEmpty && shouldUseRecentChatResults(for: query)) {
             return recentChatResults(query: query, modelContainer: modelContainer, limit: limit)
         }
+        if requiredKind == "provenance_claim" || (requiredKind.isEmpty && shouldUseProvenanceClaimResults(for: query)) {
+            return provenanceClaimResults(query: query, limit: limit)
+        }
         if requiredKind == "graph_related_note" || (requiredKind.isEmpty && shouldUseGraphRelatedNoteResults(for: query)) {
             return graphRelatedNoteResults(
                 searchResults: searchResults,
@@ -240,6 +243,7 @@ enum HTMLWorkspaceDataFeedContextSources {
         if shouldUseMeetingNoteResults(for: query) { return "meeting_note" }
         if shouldUseWebClipResults(for: query) { return "web_clip" }
         if shouldUseRecentChatResults(for: query) { return "recent_chat" }
+        if shouldUseProvenanceClaimResults(for: query) { return "provenance_claim" }
         if shouldUseGraphRelatedNoteResults(for: query) { return "graph_related_note" }
         return nil
     }

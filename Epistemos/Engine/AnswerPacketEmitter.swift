@@ -214,12 +214,7 @@ public actor AnswerPacketEmitter {
     /// The default durable log location: `<Application Support>/Epistemos/answer_packets.jsonl`.
     /// `nil` (→ persistence off) if Application Support can't be resolved — never a launch blocker.
     nonisolated private static func defaultStore() -> AnswerPacketStore? {
-        guard let dir = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
-        let url = dir
-            .appendingPathComponent("Epistemos", isDirectory: true)
-            .appendingPathComponent("answer_packets.jsonl")
-        return AnswerPacketStore(fileURL: url)
+        AnswerPacketStore.defaultEpistemosStore()
     }
 
     /// Snapshot of recent packets in chronological order

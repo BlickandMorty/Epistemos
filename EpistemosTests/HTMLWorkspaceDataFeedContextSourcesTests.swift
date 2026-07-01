@@ -431,6 +431,71 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
     }
 
     @MainActor
+    @Test("provenance claim context source emits real persisted answer packet claims")
+    func provenanceClaimContextSourceEmitsRealPersistedAnswerPacketClaims() throws {
+        let verifiedClaim = Claim(
+            id: "claim-active",
+            text: "Tool execution completed with a bounded success witness.",
+            status: .active,
+            createdAtMs: 1_800_000_001,
+            kind: .empirical,
+            acsAnchor: AcsAnchor(
+                anchorId: "anchor-claim-active",
+                theoremId: "E1",
+                plane: .controller,
+                residency: .verifiedFloor,
+                activePacketId: "packet-verified",
+                salience: 0.9
+            )
+        )
+        let inactiveClaim = Claim(
+            id: "claim-retracted",
+            text: "Retracted claim should not enter regenerate context.",
+            status: .retracted,
+            createdAtMs: 1_800_000_000,
+            kind: .speculative
+        )
+        let packet = AnswerPacket(
+            id: "packet-verified",
+            claims: [inactiveClaim, verifiedClaim],
+            uiLabel: .verified,
+            attentionMode: .dynamic,
+            interruptBucket: .high,
+            witnessedStateRef: "stop:end_turn",
+            mutationEnvelopeRef: "mutation-packet-verified"
+        )
+        let storeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("html-workspace-claims-\(UUID().uuidString).jsonl")
+        let store = AnswerPacketStore(fileURL: storeURL)
+        defer { try? FileManager.default.removeItem(at: storeURL) }
+        try store.append(packet)
+
+        let claimResults = HTMLWorkspaceDataFeedContextSources.provenanceClaimResults(
+            query: "claims tool execution",
+            limit: 5,
+            store: store
+        )
+        #expect(claimResults.map(\.pageID) == ["answer-packet:packet-verified:claim:claim-active"])
+        #expect(claimResults.first?.contextKind == "provenance_claim")
+        #expect(claimResults.first?.title == "Empirical claim")
+        #expect(claimResults.first?.sourceLabel == "Provenance claim: Verified")
+        #expect(claimResults.first?.snippet == "Tool execution completed with a bounded success witness.")
+        #expect(claimResults.first?.provenance.contains("AnswerPacketStore / packet:packet-verified") == true)
+        #expect(claimResults.first?.provenance.contains("claim:claim-active") == true)
+        #expect(claimResults.first?.provenance.contains("acs:anchor-claim-active:E1") == true)
+
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [SearchResult(pageId: "note-a", title: "Generic", snippet: "generic", rank: 0.7)],
+            modelContainer: nil,
+            limit: 5,
+            query: "provenance claims"
+        )
+        #expect(triggeredResults.isEmpty)
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "claims tool execution") == "provenance_claim")
+    }
+
+    @MainActor
     @Test("freeform query source classifier mirrors explicit context providers")
     func freeformQuerySourceClassifierMirrorsExplicitContextProviders() {
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "captures alpha") == "recent_capture")
@@ -440,6 +505,7 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "meeting notes launch") == "meeting_note")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "web clip example") == "web_clip")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "recent chats alpha") == "recent_chat")
+        #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "provenance claims") == "provenance_claim")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "graph related anchor") == "graph_related_note")
         #expect(HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: "plain substrate search") == nil)
     }
