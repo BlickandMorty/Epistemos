@@ -18,6 +18,7 @@ const motionPolishMarker = 'epistemos-native-motion-polish';
 const flatPolishMarker = 'epistemos-native-high-quality-flat-polish';
 const claudePixelPolishMarker = 'epistemos-native-claude-pixel-polish';
 const claudePixelContractMarker = 'epistemos-native-claude-pixel-contract';
+const claudeDesktopLockMarker = 'epistemos-native-claude-desktop-lock';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -1243,10 +1244,13 @@ body,
 
 .goose-epistemos :is(
   .bg-background-primary,
-  .bg-background-tertiary,
   .bg-background-default
 ) {
   background: transparent !important;
+}
+
+.goose-epistemos .bg-background-tertiary {
+  background: var(--epistemos-claude-active) !important;
 }
 
 .goose-epistemos :is(
@@ -6022,11 +6026,8 @@ function applyFinalFlatPixelAudit() {
         .replace(/\bbg-blue-[^\s"'`}$]+/g, 'bg-[var(--epistemos-accent)]/10');
     }
 
-    if (next !== source) {
-      fs.writeFileSync(file, next);
-    }
     if (relativePath === 'src/styles/main.css' && !next.includes('epistemos-native-final-flat-pixel-audit')) {
-      fs.appendFileSync(file, `
+      next += `
 
 /* Epistemos final flat/pixel audit (epistemos-native-final-flat-pixel-audit)
    Last staging guard: no blue fallback focus rings or hard outline rules after
@@ -6039,7 +6040,262 @@ function applyFinalFlatPixelAudit() {
   border-width: 0 !important;
   box-shadow: none !important;
 }
-`);
+`;
+    }
+    if (relativePath === 'src/styles/main.css' && !next.includes(claudeDesktopLockMarker)) {
+      next += `
+
+/* Epistemos Claude desktop lock (${claudeDesktopLockMarker})
+   Absolute final visual lock for the owner-approved direction: Claude-like
+   flat desktop shell, one Goose sidebar, no native rail, no box borders, no
+   blue focus ring, and only a small pixel accent on display/section labels. */
+.goose-epistemos {
+  --epistemos-native-claude-desktop-lock: 1;
+  --epistemos-claude-bg: var(--color-background-primary);
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 70%, var(--color-background-primary));
+  --epistemos-claude-sidebar-hover: color-mix(in srgb, var(--color-background-secondary) 88%, var(--color-background-primary));
+  --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 36%, var(--color-background-primary));
+  --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 56%, var(--color-background-primary));
+  --epistemos-claude-active: color-mix(in srgb, var(--epistemos-pixel-accent) 9%, var(--epistemos-claude-sidebar-hover));
+  --epistemos-claude-focus: color-mix(in srgb, var(--epistemos-pixel-accent) 6%, var(--epistemos-claude-surface-strong));
+  --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, var(--color-background-inverse) 10%, transparent);
+  background: var(--epistemos-claude-bg) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.dark .goose-epistemos {
+  --epistemos-claude-sidebar: color-mix(in srgb, var(--color-background-secondary) 52%, var(--color-background-primary));
+  --epistemos-claude-sidebar-hover: color-mix(in srgb, var(--color-background-secondary) 64%, var(--color-background-primary));
+  --epistemos-claude-surface: color-mix(in srgb, var(--color-background-secondary) 28%, var(--color-background-primary));
+  --epistemos-claude-surface-strong: color-mix(in srgb, var(--color-background-secondary) 44%, var(--color-background-primary));
+  --epistemos-claude-float-shadow: 0 18px 50px color-mix(in srgb, black 26%, transparent);
+}
+
+html,
+body,
+#root,
+.goose-epistemos,
+.goose-epistemos :is(main, [role='main']) {
+  background: var(--epistemos-claude-bg) !important;
+}
+
+.goose-epistemos :is(
+  aside,
+  [data-sidebar],
+  [data-slot='sidebar'],
+  [class*='Sidebar'],
+  [class*='sidebar'],
+  .bg-background-secondary
+) {
+  background: var(--epistemos-claude-sidebar) !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  .bg-background-primary,
+  .bg-background-tertiary,
+  .bg-background-default
+) {
+  background: transparent !important;
+}
+
+.goose-epistemos :is(
+  [class*='border'],
+  .border,
+  .border-t,
+  .border-r,
+  .border-b,
+  .border-l,
+  .divide-y > :not([hidden]) ~ :not([hidden]),
+  [data-orientation='horizontal'],
+  [data-orientation='vertical']
+) {
+  border-color: transparent !important;
+  outline-color: transparent !important;
+}
+
+.goose-epistemos :is(.border, .border-t, .border-r, .border-b, .border-l) {
+  border-width: 0 !important;
+}
+
+.goose-epistemos :is(
+  [class*='shadow'],
+  [class*='backdrop-blur'],
+  .shadow,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-2xl,
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  input,
+  textarea,
+  select,
+  [contenteditable='true']
+) {
+  border-color: transparent !important;
+  border-width: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus,
+.goose-epistemos :is(
+  button,
+  [href],
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not([tabindex='-1'])
+):focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  background: var(--epistemos-claude-focus) !important;
+  box-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+.goose-epistemos :is(
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option']
+):not(:disabled):hover {
+  background: var(--epistemos-claude-sidebar-hover) !important;
+}
+
+.goose-epistemos :is(
+  [aria-current='page'],
+  [data-state='active'],
+  button[aria-selected='true'],
+  [role='tab'][aria-selected='true']
+) {
+  background: var(--epistemos-claude-active) !important;
+}
+
+.goose-epistemos [class*='bg-[var(--epistemos-accent)]'] {
+  background: var(--epistemos-pixel-accent) !important;
+}
+
+.goose-epistemos [class*='bg-[var(--epistemos-accent)]']:not(:disabled):hover {
+  background: color-mix(in srgb, var(--epistemos-pixel-accent) 88%, var(--epistemos-claude-bg)) !important;
+}
+
+.goose-epistemos :is(
+  input,
+  textarea,
+  select,
+  [contenteditable='true'],
+  .goose-chat-input-card,
+  .goose-user-message-bubble,
+  .goose-message-content,
+  .goose-message-tool,
+  .goose-tool-call,
+  .ep-native-screen-card,
+  .ep-native-list-card,
+  [data-slot='card']
+) {
+  background: var(--epistemos-claude-surface) !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos .goose-chat-input-card {
+  background: color-mix(in srgb, var(--epistemos-claude-surface) 44%, var(--epistemos-claude-bg)) !important;
+  border-radius: 16px !important;
+}
+
+.goose-epistemos .goose-chat-input-card:focus-within {
+  outline: none !important;
+  background: var(--epistemos-claude-focus) !important;
+  box-shadow: none !important;
+}
+
+.goose-epistemos :is(
+  [role='dialog'],
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  [data-radix-popper-content-wrapper] > *
+) {
+  background: var(--epistemos-claude-bg) !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: var(--epistemos-claude-float-shadow) !important;
+}
+
+.goose-epistemos :is(
+  .ep-display,
+  .ep-pixel,
+  .ep-native-section-label,
+  .ep-native-window-title,
+  .ep-native-companion,
+  [data-epistemos-pixel-heading],
+  [data-epistemos-section-label],
+  [data-epistemos-window-title],
+  [data-epistemos-companion],
+  [class*='section-label'],
+  [class*='SectionLabel'],
+  [class*='window-title'],
+  [class*='WindowTitle'],
+  [class*='companion-mascot'],
+  [class*='CompanionMascot']
+) {
+  font-family: var(--epistemos-pixel-font) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  image-rendering: pixelated;
+}
+
+.goose-epistemos :is(h2, h3, h4, h5, h6):not(.ep-display):not(.ep-pixel):not(.ep-native-section-label):not([data-epistemos-pixel-heading]):not([data-epistemos-section-label]):not([data-epistemos-window-title]):not([data-epistemos-companion]) {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif !important;
+}
+`;
+    }
+
+    if (next !== source) {
+      fs.writeFileSync(file, next);
     }
   }
 }
