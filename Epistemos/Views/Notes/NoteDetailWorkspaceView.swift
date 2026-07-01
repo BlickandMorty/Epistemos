@@ -1434,11 +1434,6 @@ struct NoteDetailWorkspaceView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(ui.theme.resolved.border.color.opacity(0.55))
-                .frame(height: 0.5)
-        }
     }
 
     /// Saves code file content back to disk and updates associated page state

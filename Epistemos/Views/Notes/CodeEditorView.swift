@@ -1498,6 +1498,7 @@ struct CodeEditorView: View {
     @State private var semanticStatusMessage: String?
     @State private var semanticStatusIsError = false
     @State private var semanticStatusIsLoading = false
+    @State private var semanticStatusCopyText: String?
     @State private var showLivePreview = false
     @State private var livePreviewText = ""
     @State private var livePreviewTask: Task<Void, Never>?
@@ -1567,12 +1568,14 @@ struct CodeEditorView: View {
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
+                semanticStatusCopyText = nil
             }
             .onChange(of: text) { _, newText in
                 activeSearchRange = nil
                 semanticLookupTask?.cancel()
                 semanticStatusMessage = nil
                 semanticStatusIsLoading = false
+                semanticStatusCopyText = nil
                 onTextSnapshot?(newText)
                 ensureContentDebouncer().enqueue(newText)
                 if showOutlineNavigator {
@@ -1765,7 +1768,8 @@ struct CodeEditorView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Find")
+            .keyboardShortcut("f", modifiers: .command)
+            .help("Find (Cmd-F)")
 
             Button {
                 showGoToLineSheet = true
@@ -1837,6 +1841,7 @@ struct CodeEditorView: View {
                         .foregroundStyle(showSearchBar ? Color.accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut("f", modifiers: .command)
                 .help("Find (Cmd-F)")
 
                 Button {
@@ -2352,9 +2357,21 @@ struct CodeEditorView: View {
 
                 Spacer(minLength: 8)
 
+                if semanticStatusCopyText != nil {
+                    Button {
+                        copySemanticStatusTarget()
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy definition target")
+                }
+
                 Button {
                     semanticStatusMessage = nil
                     semanticStatusIsLoading = false
+                    semanticStatusCopyText = nil
                 } label: {
                     Image(systemName: "xmark")
                         .font(.caption)
@@ -2369,6 +2386,19 @@ struct CodeEditorView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .padding(12)
         }
+    }
+
+    private func copySemanticStatusTarget() {
+        guard let target = semanticStatusCopyText else { return }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(target, forType: .string)
+
+        semanticStatusMessage = "Definition target copied."
+        semanticStatusIsError = false
+        semanticStatusIsLoading = false
+        semanticStatusCopyText = nil
     }
     
     @ViewBuilder
@@ -2432,6 +2462,7 @@ struct CodeEditorView: View {
             semanticStatusMessage = CodeEditorSemanticLSP.unavailableMessage(language: language)
             semanticStatusIsError = true
             semanticStatusIsLoading = false
+            semanticStatusCopyText = nil
             return
         }
 
@@ -2445,6 +2476,7 @@ struct CodeEditorView: View {
         semanticStatusMessage = "Inspecting symbol..."
         semanticStatusIsError = false
         semanticStatusIsLoading = true
+        semanticStatusCopyText = nil
 
         semanticLookupTask = Task {
             do {
@@ -2460,6 +2492,7 @@ struct CodeEditorView: View {
                     semanticStatusMessage = summary ?? "No symbol information at cursor."
                     semanticStatusIsError = false
                     semanticStatusIsLoading = false
+                    semanticStatusCopyText = nil
                 }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -2467,6 +2500,7 @@ struct CodeEditorView: View {
                     semanticStatusMessage = CodeEditorSemanticLSP.userFacingError(error)
                     semanticStatusIsError = true
                     semanticStatusIsLoading = false
+                    semanticStatusCopyText = nil
                 }
             }
         }
@@ -2477,6 +2511,7 @@ struct CodeEditorView: View {
             semanticStatusMessage = CodeEditorSemanticLSP.unavailableMessage(language: language)
             semanticStatusIsError = true
             semanticStatusIsLoading = false
+            semanticStatusCopyText = nil
             return
         }
 
@@ -2494,6 +2529,7 @@ struct CodeEditorView: View {
         semanticStatusMessage = "Finding definition..."
         semanticStatusIsError = false
         semanticStatusIsLoading = true
+        semanticStatusCopyText = nil
 
         semanticLookupTask = Task {
             do {
@@ -2510,6 +2546,7 @@ struct CodeEditorView: View {
                         semanticStatusMessage = "No definition found at cursor."
                         semanticStatusIsError = false
                         semanticStatusIsLoading = false
+                        semanticStatusCopyText = nil
                         return
                     }
 
@@ -2522,9 +2559,16 @@ struct CodeEditorView: View {
                         cursorCol = definition.range.start.character + 1
                         semanticStatusMessage = "Definition selected at line \(lineNumber)."
                         semanticStatusIsError = false
+                        semanticStatusCopyText = nil
                     } else {
                         let target = URL(string: definition.uri)?.lastPathComponent ?? "another file"
-                        semanticStatusMessage = "Definition found in \(target) at line \(lineNumber); cross-file navigation is not wired yet."
+                        let columnNumber = definition.range.start.character + 1
+                        semanticStatusCopyText = Self.definitionTargetText(
+                            uri: definition.uri,
+                            line: lineNumber,
+                            column: columnNumber
+                        )
+                        semanticStatusMessage = "Definition found in \(target) at line \(lineNumber)."
                         semanticStatusIsError = false
                     }
                     semanticStatusIsLoading = false
@@ -2535,9 +2579,20 @@ struct CodeEditorView: View {
                     semanticStatusMessage = CodeEditorSemanticLSP.userFacingError(error)
                     semanticStatusIsError = true
                     semanticStatusIsLoading = false
+                    semanticStatusCopyText = nil
                 }
             }
         }
+    }
+
+    private static func definitionTargetText(uri: String, line: Int, column: Int) -> String {
+        let location: String
+        if let url = URL(string: uri), !url.path.isEmpty {
+            location = url.path
+        } else {
+            location = uri
+        }
+        return "\(location):\(line):\(column)"
     }
     
     // MARK: - Editor Settings Menu
