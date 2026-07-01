@@ -552,7 +552,7 @@ struct HTMLWorkspaceEditorView: View {
                     isRefreshingContext: isRefreshingRegenerateContext,
                     panelFill: panelFill,
                     theme: workspaceTheme,
-                    onFocusContextItem: focusRegenerateContextItem
+                    onPickContextItem: applyPreviewContextItem
                 )
                 .frame(minWidth: 190, idealWidth: 220, maxWidth: 260)
             }
@@ -941,10 +941,24 @@ struct HTMLWorkspaceEditorView: View {
         Context:
         \(boundedDroppedContext(context))
         """
+        startRegenerateWithContextDirective(directive, status: "Dropped context added")
+    }
+
+    private func applyPreviewContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
+        let directive = """
+        Use this picked read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
+        \(droppedPreviewTargetDirective())
+        Context:
+        \(boundedDroppedContext(item.dragPayload))
+        """
+        startRegenerateWithContextDirective(directive, status: "Picked context added")
+    }
+
+    private func startRegenerateWithContextDirective(_ directive: String, status: String) {
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         regenerateInstruction = current.isEmpty ? directive : current + "\n" + directive
         regenerateSheetPresented = true
-        statusText = "Dropped context added"
+        statusText = status
         beginRegenerateSurface(instructionOverride: regenerateInstruction)
     }
 

@@ -99,6 +99,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private var shouldShowPreviewContextSidebar: Bool"))
         #expect(editor.contains("HTMLWorkspaceRegenerateContextSidebar("))
         #expect(editor.contains("shouldShowPreviewContextSidebar"))
+        #expect(editor.contains("onPickContextItem: applyPreviewContextItem"))
         #expect(editor.contains("canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil"))
         #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
         #expect(editor.contains("onRefreshContext: refreshRegenerateVaultContext"))
@@ -128,6 +129,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool"))
         #expect(editor.contains("private func applyDroppedPreviewContext(_ payload: String)"))
         #expect(editor.contains("Use this dropped read-only context as a primary source"))
+        #expect(editor.contains("private func applyPreviewContextItem(_ item: HTMLWorkspaceRegenerateContextItem)"))
+        #expect(editor.contains("Use this picked read-only workspace context item as a primary source"))
+        #expect(editor.contains("private func startRegenerateWithContextDirective(_ directive: String, status: String)"))
         #expect(editor.contains("private func droppedPreviewTargetDirective() -> String"))
         #expect(editor.contains("Target: update the selected preview element/section"))
         #expect(editor.contains("Target: update the current preview surface as a whole."))
@@ -149,8 +153,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("HTMLWorkspaceRegenerateApplication.apply("))
         #expect(editor.contains("HTMLWorkspaceRegeneratePreview.candidatePackage("))
         #expect(sidebar.contains("struct HTMLWorkspaceRegenerateContextSidebar: View"))
+        #expect(sidebar.contains("let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void"))
         #expect(sidebar.contains("NSItemProvider(object: item.dragPayload as NSString)"))
-        #expect(sidebar.contains("Drag into the preview or click to focus context"))
+        #expect(sidebar.contains("Drag into the preview or click to apply context"))
         #expect(sidebar.contains("Text(\"Workspace Context\")"))
     }
 

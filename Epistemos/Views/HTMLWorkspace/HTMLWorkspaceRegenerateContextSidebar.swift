@@ -8,7 +8,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
     let isRefreshingContext: Bool
     let panelFill: Color
     let theme: EpistemosTheme
-    let onFocusContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
+    let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
 
     private var mutedText: Color {
         theme.textTertiary
@@ -74,7 +74,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
 
     private func contextButton(_ item: HTMLWorkspaceRegenerateContextItem) -> some View {
         Button {
-            onFocusContextItem(item)
+            onPickContextItem(item)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.title)
@@ -101,6 +101,6 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
         .onDrag {
             NSItemProvider(object: item.dragPayload as NSString)
         }
-        .help("Drag into the preview or click to focus context")
+        .help("Drag into the preview or click to apply context")
     }
 }
