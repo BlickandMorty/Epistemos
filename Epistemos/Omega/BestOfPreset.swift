@@ -202,6 +202,10 @@ nonisolated enum BestOfPreset {
         guard !receipt.remoteMCPServerNames.isEmpty else { return [] }
 
         let configURL = MCPUrlServerDirectory.globalConfigURL(home: home)
+        let currentEntries = MCPUrlServerDirectory.loadWritableEntries(
+            from: configURL,
+            fileManager: fileManager
+        )
         let remoteItemsByName = Dictionary(
             uniqueKeysWithValues: manifest(bundle: bundle).items
                 .filter { $0.kind == .remoteMCP }
@@ -212,6 +216,15 @@ nonisolated enum BestOfPreset {
         var stillInstalled: Set<String> = []
         for name in receipt.remoteMCPServerNames.sorted() {
             guard let item = remoteItemsByName[name] else { continue }
+            let currentEntry = currentEntries.first { $0.name == name }
+            if let currentEntry,
+               let expectedTarget = installTarget(for: item),
+               currentEntry.url != expectedTarget {
+                let message = "Preset-managed URL MCP server now points somewhere else; not removed."
+                stillInstalled.insert(name)
+                results.append(result(item, .conflict(message), message))
+                continue
+            }
             do {
                 _ = try MCPUrlServerDirectory.uninstall(
                     name: name,

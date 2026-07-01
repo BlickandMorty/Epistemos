@@ -243,6 +243,40 @@ struct BestOfPresetPlan3Tests {
         #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
     }
 
+    @Test("revert keeps receipt-owned names when the URL no longer matches the preset")
+    func revertSkipsReceiptOwnedNameWithChangedTarget() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-revert-changed-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        let config = MCPUrlServerDirectory.globalConfigURL(home: home)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        _ = await BestOfPreset.apply(
+            vaultPath: nil,
+            distribution: .coreAppStore,
+            home: home
+        )
+        _ = try MCPUrlServerDirectory.install(
+            MCPUrlServerDirectory.WritableEntry(name: "context7", url: "https://custom.example.com/mcp"),
+            to: config
+        )
+
+        let results = BestOfPreset.revertRemoteMCP(home: home)
+        let context7 = try #require(results.first { $0.item.id == "context7" })
+        if case .conflict = context7.status {
+            #expect(true)
+        } else {
+            #expect(Bool(false), "Expected conflict when preset receipt name points to a changed URL")
+        }
+
+        let servers = MCPUrlServerDirectory.discover(
+            cwd: root.appendingPathComponent("project"),
+            home: home
+        )
+        #expect(servers.first { $0.name == "context7" }?.url == "https://custom.example.com/mcp")
+        #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames == ["context7"])
+    }
+
     @Test("apply does not replace a user server with the preset name")
     func applyDoesNotOverwriteConflictingRemoteMCP() async throws {
         let root = FileManager.default.temporaryDirectory
@@ -525,6 +559,7 @@ struct BestOfPresetPlan3Tests {
             "firstExistingSymlinkComponent",
             "BestOfPresetDiagnostics.externalErrorDescription",
             "BestOfPresetDiagnostics.message",
+            "Preset-managed URL MCP server now points somewhere else; not removed.",
             "skillRepoGitHubTarget",
             "components.host?.lowercased() == \"github.com\"",
             "components.percentEncodedQuery == nil",

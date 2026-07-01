@@ -72,8 +72,9 @@ capabilities (eidos.query/vault.search/web.search/web.fetch/think/graph.query/gr
 `apply(vaultPath:distribution:)` is **idempotent + reversible**, diffing the 3 live seams: built-ins → reported
 `.alreadyEnabled` (honest — no fake surface), remoteMCP → §2 writer, skillRepo → `skill_manage install_from_github` (Pro).
 Honest per-row gating: rows above the build's distribution return `.proLocked` ("unlocks in Pro"), never silently enabled.
-`revert()` removes only the remoteMCP rows it added (built-ins are policy not state; skill-repo removal is destructive →
-manual). The bundled manifest loader and receipt persistence are conservative: regular files only, bounded JSON, and no
+`revert()` removes only the remoteMCP rows it added and whose current URL still matches the preset target (built-ins are
+policy not state; skill-repo removal is destructive → manual). The bundled manifest loader and receipt persistence are
+conservative: regular files only, bounded JSON, and no
 final symlink read/write. Apply/revert status text caps and control/whitespace-normalizes skill/tool-returned strings and
 maps external caught failures to bounded domain/code diagnostics before the per-row pills render, reusing the bounded,
 control/whitespace-normalized MCP URL diagnostic helper.
