@@ -9,6 +9,7 @@ struct MeetingNoteView: View {
     @State private var service: MeetingNoteCaptureService
     @State private var isSaving = false
     @State private var showingDiscardConfirmation = false
+    @State private var pendingStartAfterDiscardConfirmation = false
 
     init(voiceInput: LiveVoiceInputService = .shared) {
         _voiceInput = State(initialValue: voiceInput)
@@ -54,12 +55,26 @@ struct MeetingNoteView: View {
             isPresented: $showingDiscardConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Discard Transcript", role: .destructive) {
+            Button(discardConfirmationActionTitle, role: .destructive) {
+                let shouldStart = pendingStartAfterDiscardConfirmation
+                pendingStartAfterDiscardConfirmation = false
                 service.discard()
+                if shouldStart {
+                    Task {
+                        await service.start()
+                    }
+                }
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                pendingStartAfterDiscardConfirmation = false
+            }
         } message: {
             Text("This clears the current transcript without creating a meeting note.")
+        }
+        .onChange(of: showingDiscardConfirmation) { _, isPresented in
+            if !isPresented {
+                pendingStartAfterDiscardConfirmation = false
+            }
         }
     }
 
@@ -117,6 +132,7 @@ struct MeetingNoteView: View {
                 role: .secondaryGhost,
                 chromePolicy: .bareUntilPressed
             ) {
+                pendingStartAfterDiscardConfirmation = false
                 showingDiscardConfirmation = true
             }
             .disabled(!canDiscard)
@@ -169,6 +185,14 @@ struct MeetingNoteView: View {
         !isSaving && !isFinalizing && !isSaved && !service.transcriptText.isEmpty
     }
 
+    private var shouldConfirmBeforeStartingNewCapture: Bool {
+        !isSaved && !service.transcriptText.isEmpty
+    }
+
+    private var discardConfirmationActionTitle: String {
+        pendingStartAfterDiscardConfirmation ? "Discard and Start" : "Discard Transcript"
+    }
+
     private var recordingButtonTitle: String {
         if isPreparing {
             return "Preparing"
@@ -209,6 +233,9 @@ struct MeetingNoteView: View {
         guard !isPreparing else { return }
         if isRecording {
             service.stop()
+        } else if shouldConfirmBeforeStartingNewCapture {
+            pendingStartAfterDiscardConfirmation = true
+            showingDiscardConfirmation = true
         } else {
             Task {
                 await service.start()

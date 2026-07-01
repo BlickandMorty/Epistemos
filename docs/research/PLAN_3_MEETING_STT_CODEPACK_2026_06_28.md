@@ -33,7 +33,8 @@
   native capsule controls, and renders labels plus the live transcript in flat theme-token surfaces without hard
   dividers. The toolbar status label truncates long bounded diagnostics instead of expanding the row, and Save is
   disabled after a successful `.saved` state until the user starts a new capture so the same transcript cannot be saved
-  repeatedly. The saved state reports the created note title through the same bounded toolbar status path. A Settings
+  repeatedly. Starting a new capture while an unsaved stopped transcript is present now goes through the discard
+  confirmation path before clearing that transcript. The saved state reports the created note title through the same bounded toolbar status path. A Settings
   row is not required for the first pass. The landing button checks macOS 26 SpeechAnalyzer availability plus denied or
   restricted microphone authorization before opening the surface, and otherwise reports a bounded unavailable reason.
   When the window disappears, the service drains any pending final/partial text
@@ -125,8 +126,9 @@ Optional frontmatter keys:
 - Unit test proves unexpected finalize errors do not expose local filesystem paths in UI-facing state.
 - UI source guard proves the landing button opens the meeting note surface and does not touch Goose or Plan 2 editor
   surfaces.
-- UI source guard proves saved meeting transcripts cannot be saved again via the button or keyboard shortcut, and long
-  status labels cannot expand the toolbar; saved-note titles are bounded before display.
+- UI source guard proves saved meeting transcripts cannot be saved again via the button or keyboard shortcut, starting
+  over with an unsaved transcript goes through discard confirmation, and long status labels cannot expand the toolbar;
+  saved-note titles are bounded before display.
 - MAS boundary guard proves no cloud STT, Whisper, Python, subprocess, Chromium, or Kokoro path enters meeting capture.
 
 ## Delivery order
