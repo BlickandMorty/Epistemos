@@ -70,10 +70,7 @@ struct HTMLWorkspaceEditorView: View {
             if let previewRouteName, newValue.routes[previewRouteName] == nil {
                 self.previewRouteName = nil
             }
-            if let expected = pendingRegenerateExpectedContentHash,
-               expected != newValue.currentContentHash {
-                clearPendingRegeneratePreview()
-            }
+            expirePendingRegeneratePreviewIfNeeded(for: newValue)
             schedulePreviewUpdate(newValue)
         }
         .onChange(of: colorScheme) { _, _ in
@@ -1364,6 +1361,14 @@ struct HTMLWorkspaceEditorView: View {
         pendingRegenerateExpectedContentHash = nil
     }
 
+    private func expirePendingRegeneratePreviewIfNeeded(for newPackage: HTMLWorkspacePackage) {
+        guard let expected = pendingRegenerateExpectedContentHash,
+              expected != newPackage.currentContentHash else { return }
+        clearPendingRegeneratePreview()
+        regenerateErrorText = "Regenerate preview is stale because the workspace changed."
+        statusText = "Regenerate preview expired"
+    }
+
     private func copyRegeneratePrompt() {
         let instruction = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !instruction.isEmpty else {
@@ -1463,13 +1468,13 @@ struct HTMLWorkspaceEditorView: View {
                 to: package,
                 expectedContentHash: expectedHash
             )
+            clearPendingRegeneratePreview()
             package = result.package
             previewRouteName = nil
             previewPackage = result.package
             liveDOMSnapshot = nil
             selectedPane = .html
             layoutMode = .split
-            clearPendingRegeneratePreview()
             regenerateErrorText = nil
             regenerateSheetPresented = false
             statusText = "Regenerate preview applied; Revert available"
@@ -1499,13 +1504,13 @@ struct HTMLWorkspaceEditorView: View {
                 to: package,
                 expectedContentHash: expectedHash
             )
+            clearPendingRegeneratePreview()
             package = result.package
             previewRouteName = nil
             previewPackage = result.package
             liveDOMSnapshot = nil
             selectedPane = .html
             layoutMode = .split
-            clearPendingRegeneratePreview()
             regenerateErrorText = nil
             regenerateSheetPresented = false
             statusText = "Regenerate stream applied; Revert available"

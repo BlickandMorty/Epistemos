@@ -193,6 +193,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("@State private var pendingRegenerateExpectedContentHash: String?"))
         #expect(editor.contains("private var regenerateContextStatusLine: String?"))
         #expect(editor.contains("private func refreshRegenerateVaultContext()"))
+        #expect(editor.contains("private func expirePendingRegeneratePreviewIfNeeded(for newPackage: HTMLWorkspacePackage)"))
         #expect(editor.contains("private func stampPackageContentRevision()"))
         #expect(editor.contains("package.manifest.contentHash = package.currentContentHash"))
         #expect(editor.contains("stampPackageContentRevision()"))
@@ -244,6 +245,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func applyPendingRegeneratePreview()"))
         #expect(editor.contains("Regenerate preview is stale because the workspace changed."))
         #expect(editor.contains(#"statusText = "Regenerate preview expired""#))
+        #expect(editor.contains("expirePendingRegeneratePreviewIfNeeded(for: newValue)"))
+        #expect(editor.contains("clearPendingRegeneratePreview()\n            package = result.package"))
         #expect(editor.contains("pendingRegeneratePatchResponse = patchResponse"))
         #expect(editor.contains(#"statusText = "Regenerate preview ready""#))
         #expect(editor.contains(#"statusText = "Regenerate preview applied; Revert available""#))
@@ -671,7 +674,10 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         }
         #expect(restore.contains("previewRouteName = nil"))
         #expect(restore.contains("regenerateErrorText = nil"))
-        #expect(editor.contains("if let expected = pendingRegenerateExpectedContentHash,\n               expected != newValue.currentContentHash {\n                clearPendingRegeneratePreview()\n            }"))
+        #expect(editor.contains("expirePendingRegeneratePreviewIfNeeded(for: newValue)"))
+        #expect(editor.contains("guard let expected = pendingRegenerateExpectedContentHash,\n              expected != newPackage.currentContentHash else { return }"))
+        #expect(editor.contains("regenerateErrorText = \"Regenerate preview is stale because the workspace changed.\""))
+        #expect(editor.contains(#"statusText = "Regenerate preview expired""#))
     }
 
     @Test("copyable regenerate prompt includes system prompt and target hash")
