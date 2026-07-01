@@ -16,29 +16,43 @@
   the `pdf+markdown,no-subprocess` scope.
 - **Swift import [DELIVERED]:** `LiteParseImportEnvelope.decode` still accepts
   `{"ok":true,"markdown":...}` / `{"ok":false,"error":...}` while rejecting oversized engine envelopes/Markdown and
-  capping engine error strings. `LiveLiteParsePDFImporter` rejects non-PDF paths before FFI and mirrors the Rust input
-  envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB before parser dispatch. It calls
+  capping engine error strings before untrusted parsing/trimming work. `LiveLiteParsePDFImporter` rejects explicit
+  non-PDF extensions before FFI while still accepting extensionless PDF downloads by `%PDF-` magic, and mirrors the Rust
+  input envelope by rejecting symlink/non-regular paths, empty files, and PDFs over 512 MiB before parser dispatch. The
+  Swift magic read revalidates empty/oversized files after the final no-follow open. It calls
   the same symbol when `agent_coreFFI` is linked; Swift-only test hosts without that binding honestly fall back to
   `.notWired`. Swift-side Foundation/file failures are mapped to bounded domain/code diagnostics before reaching import
-  status text, so raw localized filesystem descriptions are not displayed.
+  status text, so raw localized filesystem descriptions are not displayed; raw messages are bounded before trimming and
+  ellipsis stays inside the configured cap. The sidebar status alert caps each file line, caps the total status string,
+  and reports an overflow marker instead of rendering unbounded bulk-import output.
 - **Storage coexistence [DELIVERED]:** `LiteParsePDFImportController` runs conversion and file materialization off the
   main actor, writes the parsed `.md` into `<vault>/Imported PDFs/`, copies the original `.pdf` beside it with the same
   basename, and records `source_kind=pdf` plus `source_pdf=<vault-relative path>` in `SDPage.frontMatter`. If writing the
   note fails, the copied source PDF is removed too. Reserved PDF/Markdown destination writes reopen with `O_NOFOLLOW`
   and regular-file validation so a final symlink swap cannot redirect import output after reservation. Source PDF copy
   reopens through `openValidatedPDFForReading` with no-follow, regular-file, 512 MiB, and `%PDF-` magic checks on the
-  copied file descriptor.
+  copied file descriptor. Import basename normalization starts from a bounded prefix and duplicate filename reservation
+  has a hard attempt cap.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
-  `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Absolute paths,
-  `..`, missing files, and traversal attempts are rejected. The source-PDF sheet caps outline traversal depth/node/item
-  count and caps find-query/result state so malformed PDFs cannot force unbounded UI work. Plan 2 still owns any full PDF
-  viewer; Plan 3 only owns the parse engine and storage/link contract.
+  `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Frontmatter
+  `source_pdf` is length-bounded before trimming, and absolute paths, `..`, `.`, empty path components, missing files,
+  symlink escapes, and traversal attempts are rejected. The source-PDF sheet caps outline traversal depth/node/item
+  count, outline labels, file names, annotation page/item/title traversal, and find-query/result state so malformed PDFs
+  cannot force unbounded UI work; filename ellipsis stays inside the configured cap, and original-PDF help text is
+  capped too. The sheet chrome uses a flat theme-token Find input, theme-derived separators/text colors, `ToolbarCapsuleButton`, and
+  `NativeCardButtonStyle` instead of generic dividers, rounded bordered fields, or plain buttons. Plan 2 still owns any
+  full PDF viewer; Plan 3 only owns the parse engine and storage/link contract.
+- **DONE:** Settings keys `parsePDFOnImport`/`defaultOpenForImportedPDF` and frontmatter `source_pdf`/`source_kind`
+  are present in shipped code. `source_pdf` resolution is vault-bound and traversal-safe through
+  `LiteParseSourcePDFLink`; the import and view-original triggers render through `ToolbarCapsuleButton` native chrome.
 
 ## Rust path
 `agent_core/src/liteparse.rs` is the single parser seam:
 - Inert/no-engine builds: PDF inputs return `EngineNotWired`; non-PDF inputs return `UnsupportedFormat`.
 - Preflight uses `symlink_metadata` and rejects symlink/non-regular paths, empty files, bodies over the 512 MiB cap,
-  and files without `%PDF-` magic before EdgeParse, unpdf, or the legacy liteparse lane receives the path.
+  and files without `%PDF-` magic before EdgeParse, unpdf, or the legacy liteparse lane receives the path. The Rust
+  header read reopens with `O_NOFOLLOW|O_CLOEXEC` and revalidates the opened file handle before sniffing `%PDF-`, so a
+  final-symlink swap cannot redirect the parser preflight after the metadata check.
 - MAS/default builds: EdgeParse converts to Markdown in-process. Before rendering, `doc.source_path = None` prevents
   EdgeParse's optional `pdftotext` helper path.
 - Fallback: with `parser-unpdf`, empty or failed EdgeParse output falls back to `unpdf::Unpdf::new().lenient()...`.

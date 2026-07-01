@@ -37,7 +37,8 @@ nonisolated enum LiteParseImportDiagnostics {
     }
 
     private static func sanitizedDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 16))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"
@@ -53,12 +54,13 @@ nonisolated enum LiteParseImportDiagnostics {
     }
 
     private static func bounded(_ message: String, fallback: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? fallback : trimmed
         guard value.count > maxFailureReasonCharacters else {
             return value
         }
-        return String(value.prefix(maxFailureReasonCharacters)) + "..."
+        return String(value.prefix(maxFailureReasonCharacters - 3)) + "..."
     }
 }
 
@@ -73,11 +75,12 @@ nonisolated enum LiteParseImportEnvelope {
     /// Decode the `liteparse_pdf_to_markdown` FFI JSON envelope into a typed result.
     /// Unreadable output is an honest `.failed`, never a fabricated note.
     static func decode(_ json: String) -> LiteParseImportResult {
-        guard json.count <= maxEnvelopeCharacters else {
+        let boundedJSON = String(json.prefix(maxEnvelopeCharacters + 1))
+        guard boundedJSON.count <= maxEnvelopeCharacters else {
             return .failed(envelopeTooLargeMessage)
         }
         guard
-            let data = json.data(using: .utf8),
+            let data = boundedJSON.data(using: .utf8),
             let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
             return .failed("Unreadable response from the PDF engine.")
@@ -105,7 +108,8 @@ nonisolated enum LiteParseImportEnvelope {
     }
 
     private static func boundedErrorMessage(_ error: String) -> String {
-        let trimmed = error.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(error.prefix(maxErrorMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.isEmpty ? "PDF conversion failed." : trimmed
         guard value.count > maxErrorMessageCharacters else { return value }
         return String(value.prefix(maxErrorMessageCharacters))
@@ -122,7 +126,11 @@ nonisolated enum LiteParsePDFSignature {
     static let tooLargePDFMessage = "PDF is too large to parse safely (512 MiB limit)."
 
     static func validationFailure(forPath path: String) -> LiteParseImportResult? {
-        let hasPDFExtension = path.lowercased().hasSuffix(".pdf")
+        let pathExtension = URL(fileURLWithPath: path).pathExtension
+        let hasPDFExtension = pathExtension.caseInsensitiveCompare("pdf") == .orderedSame
+        guard hasPDFExtension || pathExtension.isEmpty else {
+            return .unsupported(unsupportedPDFMessage)
+        }
         if let envelopeFailure = fileEnvelopeFailure(forPath: path, hasPDFExtension: hasPDFExtension) {
             return envelopeFailure
         }
@@ -132,6 +140,9 @@ nonisolated enum LiteParsePDFSignature {
         case .mismatch:
             return .failed(invalidPDFBodyMessage)
         case .unreadable(let message):
+            if [nonRegularPDFMessage, emptyPDFMessage, tooLargePDFMessage].contains(message) {
+                return .failed(message)
+            }
             return hasPDFExtension
                 ? .failed("Could not inspect the PDF file: \(message)")
                 : .unsupported(unsupportedPDFMessage)
@@ -183,6 +194,14 @@ nonisolated enum LiteParsePDFSignature {
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             close(fd)
             return .unreadable(nonRegularPDFMessage)
+        }
+        guard fileStatus.st_size > 0 else {
+            close(fd)
+            return .unreadable(emptyPDFMessage)
+        }
+        guard UInt64(fileStatus.st_size) <= UInt64(maxPDFBytes) else {
+            close(fd)
+            return .unreadable(tooLargePDFMessage)
         }
 
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
@@ -302,6 +321,7 @@ nonisolated enum Plan3VaultPath {
 nonisolated enum Plan3ImportFileIO {
     private static let fallbackBaseName = "Imported PDF"
     private static let maxBaseNameLength = 180
+    private static let maxReservationAttempts = 10_000
 
     /// Atomically reserves a paired `<baseName>.md` + `<baseName>.pdf`.
     static func reservePairedFileURLs(
@@ -311,7 +331,7 @@ nonisolated enum Plan3ImportFileIO {
         let safe = safeImportBaseName(baseName)
         var candidateBaseName = safe
         var counter = 2
-        while true {
+        for _ in 0..<maxReservationAttempts {
             try Task.checkCancellation()
             let noteURL = directory.appendingPathComponent("\(candidateBaseName).md")
             let pdfURL = directory.appendingPathComponent("\(candidateBaseName).pdf")
@@ -329,10 +349,12 @@ nonisolated enum Plan3ImportFileIO {
             candidateBaseName = "\(safe) \(counter)"
             counter += 1
         }
+        throw fileIOError("could not reserve import filenames", errnoCode: EEXIST)
     }
 
     static func safeImportBaseName(_ baseName: String) -> String {
-        let normalized = baseName.unicodeScalars.map { scalar in
+        let boundedBaseName = String(baseName.prefix(maxBaseNameLength + 64))
+        let normalized = boundedBaseName.unicodeScalars.map { scalar in
             CharacterSet.controlCharacters.contains(scalar) ? " " : String(scalar)
         }.joined()
         var safe = normalized

@@ -18,6 +18,18 @@ struct LiteParsePDFImportButtonTests {
         // routes every file through the controller (honest per-file status, never a fake note)
         #expect(src.contains("LiteParsePDFImportController.importPage"))
         #expect(src.contains("case .notWired"))
+        #expect(src.contains("ToolbarCapsuleButton("))
+        #expect(src.contains("role: .toolbarUtility"))
+        #expect(src.contains("chromePolicy: .bareUntilPressed"))
+        #expect(src.contains("maxStatusLines"))
+        #expect(src.contains("maxStatusMessageCharacters"))
+        #expect(src.contains("maxFileNameDisplayCharacters"))
+        #expect(src.contains("boundedStatusLine"))
+        #expect(src.contains("boundedStatusMessage"))
+        #expect(src.contains("allowOverflowMarker"))
+        #expect(src.contains("displayName(url.lastPathComponent)"))
+        #expect(!src.contains(".buttonStyle(.plain)"))
+        #expect(!src.contains(".buttonStyle(.borderless)"))
     }
 
     @Test("the button is mounted in the notes sidebar")

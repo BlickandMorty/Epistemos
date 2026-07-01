@@ -115,8 +115,24 @@ fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
             MAX_PDF_MIB
         )));
     }
-    let mut file = std::fs::File::open(pdf_path)
+    let mut file = open_pdf_for_preflight(pdf_path)?;
+    let opened_metadata = file
+        .metadata()
         .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))?;
+    if !opened_metadata.is_file() {
+        return Err(LiteParseError::Failed(
+            "PDF path is not a regular file".to_string(),
+        ));
+    }
+    if opened_metadata.len() == 0 {
+        return Err(LiteParseError::Failed("PDF file is empty".to_string()));
+    }
+    if opened_metadata.len() > MAX_PDF_BYTES {
+        return Err(LiteParseError::Failed(format!(
+            "PDF is too large to parse safely ({} MiB limit)",
+            MAX_PDF_MIB
+        )));
+    }
     let mut header = [0_u8; 5];
     std::io::Read::read_exact(&mut file, &mut header)
         .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file header: {e}")))?;
@@ -126,6 +142,23 @@ fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
         ));
     }
     Ok(())
+}
+
+#[cfg(unix)]
+fn open_pdf_for_preflight(pdf_path: &str) -> Result<std::fs::File, LiteParseError> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(pdf_path)
+        .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))
+}
+
+#[cfg(not(unix))]
+fn open_pdf_for_preflight(pdf_path: &str) -> Result<std::fs::File, LiteParseError> {
+    std::fs::File::open(pdf_path)
+        .map_err(|e| LiteParseError::Failed(format!("could not inspect PDF file: {e}")))
 }
 
 const NO_SUBSTANTIVE_TEXT_MESSAGE: &str = "\

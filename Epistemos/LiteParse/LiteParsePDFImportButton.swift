@@ -10,6 +10,11 @@ import UniformTypeIdentifiers
 // Self-contained: it reads vault/graph/model from the environment the sidebar already
 // provides.
 struct LiteParsePDFImportButton: View {
+    private static let maxStatusLines = 50
+    private static let maxStatusLineCharacters = 320
+    private static let maxStatusMessageCharacters = 8_000
+    private static let maxFileNameDisplayCharacters = 180
+
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
@@ -21,13 +26,16 @@ struct LiteParsePDFImportButton: View {
 
     var body: some View {
         if isVisible {
-            Button {
+            ToolbarCapsuleButton(
+                title: nil,
+                systemImage: "doc.badge.arrow.up",
+                role: .toolbarUtility,
+                chromePolicy: .bareUntilPressed,
+                helpText: "Import PDF → Markdown note (EdgeParse/unpdf, local — PDF only)",
+                accessibilityLabel: "Import PDF as note"
+            ) {
                 runImport()
-            } label: {
-                Image(systemName: "doc.badge.arrow.up")
             }
-            .help("Import PDF → Markdown note (EdgeParse/unpdf, local — PDF only)")
-            .accessibilityLabel("Import PDF as note")
             .alert("PDF Import", isPresented: $showingStatus) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -70,12 +78,19 @@ struct LiteParsePDFImportButton: View {
                 switch outcome {
                 case let .imported(_, title):
                     imported += 1
-                    lines.append("✓ \(title)")
+                    appendStatusLine("✓ \(Self.displayName(title, fallback: "Imported PDF"))", to: &lines)
                 case let .rejected(result):
-                    lines.append("✗ \(url.lastPathComponent): \(reason(for: result))")
+                    appendStatusLine("✗ \(Self.displayName(url.lastPathComponent)): \(reason(for: result))", to: &lines)
                 }
             }
-            statusMessage = "Imported \(imported)/\(urls.count).\n" + lines.joined(separator: "\n")
+            if urls.count > Self.maxStatusLines {
+                appendStatusLine(
+                    "... \(urls.count - Self.maxStatusLines) more files omitted from this status.",
+                    to: &lines,
+                    allowOverflowMarker: true
+                )
+            }
+            statusMessage = Self.boundedStatusMessage("Imported \(imported)/\(urls.count).\n" + lines.joined(separator: "\n"))
             showingStatus = true
         }
     }
@@ -87,5 +102,39 @@ struct LiteParsePDFImportButton: View {
         case let .unsupported(message): message
         case let .failed(message): message
         }
+    }
+
+    private func appendStatusLine(
+        _ line: String,
+        to lines: inout [String],
+        allowOverflowMarker: Bool = false
+    ) {
+        guard lines.count < Self.maxStatusLines || allowOverflowMarker else { return }
+        lines.append(Self.boundedStatusLine(line))
+    }
+
+    private static func displayName(_ raw: String, fallback: String = "PDF") -> String {
+        let bounded = String(raw.prefix(maxFileNameDisplayCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > maxFileNameDisplayCharacters else { return value }
+        return String(value.prefix(maxFileNameDisplayCharacters - 3)) + "..."
+    }
+
+    private static func boundedStatusLine(_ line: String) -> String {
+        bounded(line, limit: maxStatusLineCharacters, fallback: "PDF import status unavailable.")
+    }
+
+    private static func boundedStatusMessage(_ message: String) -> String {
+        bounded(message, limit: maxStatusMessageCharacters, fallback: "PDF import status unavailable.")
+    }
+
+    private static func bounded(_ raw: String, limit: Int, fallback: String) -> String {
+        let bounded = String(raw.prefix(limit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? fallback : trimmed
+        guard value.count > limit else { return value }
+        guard limit > 3 else { return String(value.prefix(limit)) }
+        return String(value.prefix(limit - 3)) + "..."
     }
 }

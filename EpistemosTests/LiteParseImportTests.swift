@@ -78,11 +78,18 @@ struct LiteParseImportTests {
         #expect(message.contains("PDF import failed"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=13"))
-        #expect(message.count <= LiteParseImportDiagnostics.maxFailureReasonCharacters + 3)
+        #expect(message.count <= LiteParseImportDiagnostics.maxFailureReasonCharacters)
         #expect(!message.contains(privatePath))
         #expect(!message.contains("permission denied"))
         #expect(!inspection.contains(privatePath))
         #expect(!inspection.contains("permission denied"))
+
+        let longDomain = String(repeating: "d", count: 200)
+        let longDomainMessage = LiteParseImportDiagnostics.failureMessage(
+            "PDF import failed",
+            error: NSError(domain: longDomain, code: 7)
+        )
+        #expect(longDomainMessage.contains("domain=\(String(longDomain.prefix(96)))"))
     }
 
     @Test("unreadable output is an honest failure, never a fabricated note")
@@ -116,10 +123,16 @@ struct LiteParseImportTests {
         try Data("%PDF-1.7\n".utf8).write(to: extensionlessPDF)
         let htmlNamedPDF = root.appendingPathComponent("paper.pdf")
         try Data("<html>not a paper</html>".utf8).write(to: htmlNamedPDF)
+        let explicitTextFile = root.appendingPathComponent("paper.txt")
+        try Data("%PDF-1.7\n".utf8).write(to: explicitTextFile)
 
         let importer = InertLiteParsePDFImporter()
         #expect(importer.importToMarkdown(pdfPath: extensionlessPDF.path) == .notWired)
         #expect(importer.importToMarkdown(pdfPath: htmlNamedPDF.path) == .failed(LiteParsePDFSignature.invalidPDFBodyMessage))
+        guard case .unsupported = importer.importToMarkdown(pdfPath: explicitTextFile.path) else {
+            Issue.record("an explicit non-PDF extension must stay unsupported even if the file body has PDF magic")
+            return
+        }
         guard case .unsupported = importer.importToMarkdown(pdfPath: "/docs/book.docx") else {
             Issue.record("a non-PDF must be .unsupported (never shelled out)")
             return
@@ -184,6 +197,7 @@ struct LiteParseImportTests {
     func importControllerSourcePDFContract() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParsePDFImportController.swift")
         let viewer = try loadMirroredSourceTextFile("Epistemos/LiteParse/SourcePDFViewer.swift")
+        let affordance = try loadMirroredSourceTextFile("Epistemos/LiteParse/ViewOriginalPDFAffordance.swift")
         #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
         let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
@@ -202,17 +216,60 @@ struct LiteParseImportTests {
         #expect(sharedIO.contains("O_NOFOLLOW"))
         #expect(sharedIO.contains("O_EXCL"))
         #expect(sharedIO.contains("maxPDFBytes"))
+        #expect(sharedIO.contains("pathExtension.caseInsensitiveCompare(\"pdf\")"))
         #expect(sharedIO.contains("maxMarkdownCharacters"))
         #expect(sharedIO.contains("maxEnvelopeCharacters"))
         #expect(sharedIO.contains("maxErrorMessageCharacters"))
+        #expect(sharedIO.contains("String(domain.prefix(maxDomainCharacters + 16))"))
+        #expect(sharedIO.contains("String(message.prefix(maxFailureReasonCharacters + 32))"))
+        #expect(sharedIO.contains("maxFailureReasonCharacters - 3"))
+        #expect(sharedIO.contains("let boundedJSON = String(json.prefix(maxEnvelopeCharacters + 1))"))
+        #expect(sharedIO.contains("String(error.prefix(maxErrorMessageCharacters + 32))"))
         #expect(sharedIO.contains("destinationOfSymbolicLink"))
+        #expect(sharedIO.contains("fileStatus.st_size > 0"))
+        #expect(sharedIO.contains("UInt64(fileStatus.st_size) <= UInt64(maxPDFBytes)"))
+        #expect(sharedIO.contains("[nonRegularPDFMessage, emptyPDFMessage, tooLargePDFMessage].contains(message)"))
+        #expect(sharedIO.contains("maxReservationAttempts"))
+        #expect(sharedIO.contains("String(baseName.prefix(maxBaseNameLength + 64))"))
         #expect(src.contains("Plan3VaultPath.vaultRelativePath(for: urls.pdfURL"))
         #expect(viewer.contains("maxSearchQueryLength"))
         #expect(viewer.contains("maxSearchResults"))
+        #expect(viewer.contains("maxFileNameDisplayCharacters"))
+        #expect(viewer.contains("String(searchText.prefix(Self.maxSearchQueryLength + 32))"))
+        #expect(viewer.contains("String(fileName.prefix(maxFileNameDisplayCharacters + 32))"))
+        #expect(viewer.contains("String(trimmed.prefix(maxFileNameDisplayCharacters - 3))"))
         #expect(viewer.contains("maxOutlineDepth"))
         #expect(viewer.contains("maxOutlineItems"))
         #expect(viewer.contains("maxOutlineNodes"))
+        #expect(viewer.contains("maxOutlineTitleLength"))
+        #expect(viewer.contains("max(0, outline.numberOfChildren)"))
+        #expect(viewer.contains("String(title.prefix(maxOutlineTitleLength + 32))"))
+        #expect(viewer.contains("maxAnnotationPages"))
+        #expect(viewer.contains("min(document.pageCount, maxAnnotationPages)"))
+        #expect(viewer.contains("String($0.prefix(maxAnnotationTitleLength + 32))"))
+        #expect(viewer.contains("title: displayTitle"))
         #expect(viewer.contains("visitedNodeCount"))
+        #expect(viewer.contains("@Environment(UIState.self)"))
+        #expect(viewer.contains("sourcePDFSeparator"))
+        #expect(viewer.contains("private var searchFieldBackground: Color"))
+        #expect(viewer.contains("ui.theme.surfaceVariant(.other).resolved.card.color.opacity"))
+        #expect(viewer.contains(".textFieldStyle(.plain)"))
+        #expect(viewer.contains("ToolbarCapsuleButton("))
+        #expect(viewer.contains("NativeCardButtonStyle(cornerRadius: 6)"))
+        #expect(!viewer.contains("Divider()"))
+        #expect(!viewer.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(!viewer.contains(".buttonStyle(.plain)"))
+        #expect(!viewer.contains(".foregroundStyle(.secondary)"))
+        #expect(affordance.contains("LiteParseSourcePDFLink.resolve"))
+        #expect(affordance.contains("maxRelativePathCharacters"))
+        #expect(affordance.contains("String(rawRelativePath.prefix(maxRelativePathCharacters + 1))"))
+        #expect(affordance.contains("pathParts.contains(where:"))
+        #expect(affordance.contains("ToolbarCapsuleButton("))
+        #expect(affordance.contains(#"title: "View original PDF""#))
+        #expect(affordance.contains("role: .toolbarUtility"))
+        #expect(affordance.contains("Self.displayFileName(originalPDFURL.lastPathComponent)"))
+        #expect(!affordance.contains(".buttonStyle(.plain)"))
+        #expect(!affordance.contains(".buttonStyle(.borderless)"))
     }
 
     @Test("Plan 3 EdgeParse docs describe the shipped parser state")
@@ -229,12 +286,21 @@ struct LiteParseImportTests {
         #expect(codepack.contains("off-main import materialization, paired Markdown/PDF basenames"))
         #expect(codepack.contains("512 MiB"))
         #expect(codepack.contains("bounded domain/code diagnostics"))
+        #expect(codepack.contains("raw messages are bounded before trimming"))
+        #expect(codepack.contains("ellipsis stays inside the configured cap"))
+        #expect(codepack.contains("filename ellipsis stays inside the configured cap"))
         #expect(capabilities.contains("PDF→Markdown import now has a real Plan 3 parser path"))
         #expect(capabilities.contains("test-linking condition, not the shipped MAS parser state"))
         #expect(capabilities.contains("raw localized filesystem descriptions"))
+        #expect(capabilities.contains("raw messages bounded before trimming"))
+        #expect(capabilities.contains("filename ellipsis inside configured caps"))
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(rust.contains("doc.source_path = None"))
         #expect(rust.contains("symlink_metadata"))
+        #expect(rust.contains("open_pdf_for_preflight"))
+        #expect(rust.contains("OpenOptionsExt"))
+        #expect(rust.contains("custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)"))
+        #expect(rust.contains("let opened_metadata = file"))
         #expect(rust.contains("unpdf::Unpdf::new()"))
 
         for stale in [
@@ -295,10 +361,13 @@ struct LiteParseImportTests {
             "",
             "/tmp/paper.pdf",
             "../outside.pdf",
+            "Imported PDFs/./paper.pdf",
+            "Imported PDFs//paper.pdf",
             "Imported PDFs/../../outside.pdf",
             "Imported PDFs/missing.pdf",
             "Imported PDFs/rate-limit.pdf",
             "Imported PDFs/linked-outside.pdf",
+            String(repeating: "a", count: 4_200) + ".pdf",
         ] {
             #expect(LiteParseSourcePDFLink.resolve(vaultURL: vault, relativePath: rejected) == nil)
         }
@@ -318,6 +387,10 @@ struct LiteParseImportTests {
         let empty = try Plan3ImportFileIO.reservePairedFileURLs(directory: root, baseName: ".")
         #expect(empty.noteURL.lastPathComponent == "Imported PDF.md")
         #expect(empty.pdfURL.lastPathComponent == "Imported PDF.pdf")
+
+        let longName = String(repeating: "x", count: 300)
+        #expect(Plan3ImportFileIO.safeImportBaseName(longName).count == 180)
+        #expect(Plan3ImportFileIO.safeImportBaseName("  \(longName)\n").count == 180)
     }
 
     @Test("reserved import writes reject final symlink destinations")
