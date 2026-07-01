@@ -309,7 +309,9 @@ enum HTMLWorkspacePythonDemoScaffold {
       ].join('\\n');
       runtime.run(code).then((result) => {
         output.textContent = 'Python ready: ' + String(result);
-        window.HTMLWorkspace && window.HTMLWorkspace.app && window.HTMLWorkspace.app.record('python demo completed');
+        window.HTMLWorkspace && window.HTMLWorkspace.app && window.HTMLWorkspace.app.record('python.demo.completed', {
+          result: String(result)
+        });
       }).catch((error) => {
         output.textContent = 'Python error: ' + (error && error.message ? error.message : String(error));
         console.error('HTML Workspace Python demo failed', error);

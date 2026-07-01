@@ -209,6 +209,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
         const status = "\(pythonStatus)";
         const baseURL = "\(pythonBaseURL)";
         const missingResources = \(pythonMissingResources);
+        const maxCodeLength = 20000;
         let loadPromise = null;
         function loadScript(src) {
           return new Promise((resolve, reject) => {
@@ -240,9 +241,16 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
           }
           return loadPromise;
         }
+        function boundedCode(code) {
+          const source = String(code ?? '');
+          if (source.length > maxCodeLength) {
+            throw new Error('HTML Workspace Python code is too large');
+          }
+          return source;
+        }
         async function run(code) {
           const pyodide = await load();
-          return pyodide.runPythonAsync(String(code ?? ''));
+          return pyodide.runPythonAsync(boundedCode(code));
         }
         return Object.freeze({
           enabled,
