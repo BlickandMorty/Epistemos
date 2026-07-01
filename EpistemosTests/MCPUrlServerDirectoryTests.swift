@@ -364,6 +364,23 @@ struct MCPUrlServerDirectoryTests {
         #expect(inlineDescription.hasSuffix("..."))
     }
 
+    @Test("extensions settings status bounds server display names")
+    func extensionsSettingsStatusBoundsServerDisplayNames() {
+        let oversizedName = String(
+            repeating: "s",
+            count: MCPServerSettingsStatus.maxDisplayNameCharacters + 80
+        )
+
+        let displayName = MCPServerSettingsStatus.displayName(" \n\(oversizedName)\n ", fallback: "server")
+        let fallback = MCPServerSettingsStatus.displayName(" \n\t ", fallback: "server")
+        let message = MCPServerSettingsStatus.message("Installed \(oversizedName).", fallback: "MCP server updated.")
+
+        #expect(displayName.count <= MCPServerSettingsStatus.maxDisplayNameCharacters)
+        #expect(displayName.hasSuffix("..."))
+        #expect(fallback == "server")
+        #expect(message.count <= MCPServerSettingsStatus.maxStatusMessageCharacters)
+    }
+
     @Test("extensions settings status routes MCP server failures through diagnostics")
     func extensionsSettingsStatusRoutesMCPServerFailuresThroughDiagnostics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
@@ -374,6 +391,10 @@ struct MCPUrlServerDirectoryTests {
 
         #expect(source.contains("nonisolated enum MCPServerSettingsStatus"))
         #expect(source.contains("MCPServerSettingsStatus.message(for: error"))
+        #expect(source.contains("static let maxDisplayNameCharacters"))
+        #expect(source.contains("MCPServerSettingsStatus.displayName(newServerName"))
+        #expect(source.contains("MCPServerSettingsStatus.displayName(server.name"))
+        #expect(source.contains("MCPServerSettingsStatus.displayName(entry.name"))
         #expect(source.contains("MCPUrlServerDirectory.Diagnostics.externalErrorDescription"))
         #expect(!source.contains("return .failure(error.localizedDescription)"))
         #expect(directory.contains("enum Diagnostics"))
@@ -401,7 +422,9 @@ struct MCPUrlServerDirectoryTests {
         #expect(!rustURLServers.contains(#"!key.contains('=') && !key.contains('\0')"#))
         #expect(!rustURLServers.contains(".or(entry.authorization_token)"))
         #expect(codepack.contains("MCP server settings status text"))
+        #expect(codepack.contains("success-message display names"))
         #expect(capabilities.contains("MCP server settings status text"))
+        #expect(capabilities.contains("success-message display names"))
     }
 
     @Test("uninstall removes only the named server")

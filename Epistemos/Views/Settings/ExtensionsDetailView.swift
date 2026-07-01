@@ -359,7 +359,7 @@ private struct MCPServersDetailView: View {
             url: newServerURL,
             authorizationTokenEnv: newServerAuthEnv
         )
-        let displayName = newServerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = MCPServerSettingsStatus.displayName(newServerName, fallback: "server")
         Task { @MainActor in
             let outcome = await Task.detached(priority: .utility) {
                 mcpServerOperationOutcome {
@@ -374,12 +374,13 @@ private struct MCPServersDetailView: View {
 
     private func uninstall(_ server: MCPUrlServerDirectory.ServerInfo) {
         let name = server.name
+        let displayName = MCPServerSettingsStatus.displayName(server.name, fallback: "server")
         Task { @MainActor in
             let outcome = await Task.detached(priority: .utility) {
                 mcpServerOperationOutcome {
                     try MCPUrlServerDirectory.uninstall(name: name)
                 } successMessage: {
-                    "Removed \(name)."
+                    "Removed \(displayName)."
                 }
             }.value
             applyMCPServerOperationOutcome(outcome, clearsManualForm: false)
@@ -419,7 +420,7 @@ private struct MCPServersDetailView: View {
             name: serverName(for: entry),
             url: entry.installTarget
         )
-        let displayName = entry.name
+        let displayName = MCPServerSettingsStatus.displayName(entry.name, fallback: "server")
         Task { @MainActor in
             let outcome = await Task.detached(priority: .utility) {
                 mcpServerOperationOutcome {
@@ -475,9 +476,20 @@ nonisolated private func mcpServerOperationOutcome(
 
 nonisolated enum MCPServerSettingsStatus {
     static let maxStatusMessageCharacters = MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters
+    static let maxDisplayNameCharacters = 96
 
     static func message(_ value: String, fallback: String) -> String {
         MCPUrlServerDirectory.Diagnostics.failureReason(value, fallback: fallback)
+    }
+
+    static func displayName(_ value: String, fallback: String) -> String {
+        let bounded = String(value.prefix(maxDisplayNameCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = trimmed.isEmpty ? fallback : trimmed
+        guard name.count > maxDisplayNameCharacters else {
+            return name
+        }
+        return String(name.prefix(maxDisplayNameCharacters - 3)) + "..."
     }
 
     static func message(for error: Error, fallback: String) -> String {
