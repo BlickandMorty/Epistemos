@@ -53,6 +53,8 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(previewSource.contains("appBridgeProbeScript"))
         #expect(previewSource.contains("HTMLWorkspaceApp"))
         #expect(previewSource.contains("manual probe"))
+        #expect(previewSource.contains("app.request('ping', 'manual probe'"))
+        #expect(previewSource.contains("roundtrip:"))
         #expect(!previewSource.contains("HTMLWorkspaceSafeAPI.deferredDiagnosticMessage"))
         #expect(previewSource.contains("message.name == HTMLWorkspaceSafeAPI.messageHandlerName"))
         #expect(previewSource.contains("HTMLWorkspaceConsoleBridge.enabled"))

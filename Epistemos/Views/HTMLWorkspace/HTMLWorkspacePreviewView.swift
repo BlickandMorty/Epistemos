@@ -540,8 +540,10 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         private static let appBridgeProbeScript = """
         (() => {
           const app = window.HTMLWorkspaceApp;
-          if (!app || app.enabled !== true || typeof app.ping !== 'function') { return 'missing'; }
-          return app.ping('manual probe') ? 'posted' : 'failed';
+          if (!app || app.enabled !== true || typeof app.request !== 'function') { return 'missing'; }
+          return app.request('ping', 'manual probe', { timeoutMs: 1500 })
+            .then((detail) => detail && detail.message ? 'roundtrip: ' + detail.message : 'roundtrip')
+            .catch((error) => 'failed: ' + (error && error.message ? error.message : String(error)));
         })();
         """
 
