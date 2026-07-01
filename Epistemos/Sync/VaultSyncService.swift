@@ -3895,7 +3895,8 @@ final class VaultSyncService {
         body: String = "",
         emoji: String = "",
         subfolder: String? = nil,
-        allowVaultSelectionPrompt: Bool = false
+        allowVaultSelectionPrompt: Bool = false,
+        frontMatter: [String: String] = [:]
     )
         async -> String?
     {
@@ -3923,6 +3924,9 @@ final class VaultSyncService {
         let page = SDPage(title: title, emoji: emoji)
         let failedPageId = page.id
         page.saveBody(body)
+        if !frontMatter.isEmpty {
+            page.frontMatter = frontMatter
+        }
         page.subfolder = subfolder
         page.wordCount = body.split(separator: " ").count
 

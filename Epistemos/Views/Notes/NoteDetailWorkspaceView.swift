@@ -695,6 +695,7 @@ struct NoteDetailWorkspaceView: View {
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
+    @State private var showWebClipperSheet = false
     @State private var noteMode: NoteWorkspaceMode = .edit
     @State private var showMarkEditSourceSettings = false
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
@@ -911,6 +912,11 @@ struct NoteDetailWorkspaceView: View {
         }
         .sheet(item: $sourcePDFViewerPresentation) { presentation in
             SourcePDFViewerSheet(url: presentation.url)
+        }
+        .sheet(isPresented: $showWebClipperSheet) {
+            WebClipperSheet(theme: ui.theme) { draft in
+                try await createWebClip(from: draft)
+            }
         }
         .sheet(isPresented: $showLegacyRecoverySheet) {
             if let legacyRecoveryPresentation {
@@ -2337,6 +2343,27 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
+    @MainActor
+    private func createWebClip(from draft: WebClipCaptureDraft) async throws {
+        let document = try WebClipperMarkdownBuilder.document(from: draft)
+        guard let pageId = await vaultSync.createPage(
+            title: document.title,
+            body: document.markdownBody,
+            allowVaultSelectionPrompt: true,
+            frontMatter: document.frontMatter
+        ) else {
+            throw WebClipperCreationError.vaultUnavailable
+        }
+
+        if presentation.usesGraphEmbeddedChrome {
+            graphState.openNote(pageId)
+        } else if let navState {
+            navState.push(pageId: pageId, title: document.title)
+        } else {
+            NoteWindowManager.shared.open(pageId)
+        }
+    }
+
     @discardableResult
     private func persistPageMutation(
         failureMessage: String,
@@ -2419,6 +2446,12 @@ struct NoteDetailWorkspaceView: View {
                     showAppleWritingTools()
                 } label: {
                     Label("Apple Writing Tools", systemImage: "apple.intelligence")
+                }
+
+                Button {
+                    showWebClipperSheet = true
+                } label: {
+                    Label("Clip Web Page", systemImage: "globe")
                 }
             }
 
