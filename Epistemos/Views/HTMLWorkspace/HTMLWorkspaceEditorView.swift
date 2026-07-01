@@ -1026,6 +1026,25 @@ struct HTMLWorkspaceEditorView: View {
         return "Target: update the selected preview element/section \(selector) first. Current text: \(boundedDroppedContextTarget(textPreview))"
     }
 
+    private func selectedRegenerateSurfaceContext() -> String? {
+        guard let inspection = selectedElementInspection else { return nil }
+        var lines = [
+            "selected_surface.selector: \(boundedDroppedContextTarget(inspection.selector))",
+            "selected_surface.tag: \(boundedDroppedContextTarget(inspection.tagName))",
+        ]
+        if let elementID = inspection.elementID, !elementID.isEmpty {
+            lines.append("selected_surface.id: \(boundedDroppedContextTarget(elementID))")
+        }
+        if !inspection.classes.isEmpty {
+            lines.append("selected_surface.classes: \(inspection.classes.map { boundedDroppedContextTarget($0) }.joined(separator: ", "))")
+        }
+        let textPreview = inspection.textPreview.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !textPreview.isEmpty {
+            lines.append("selected_surface.text: \(boundedDroppedContextTarget(textPreview))")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     private func boundedDroppedContextTarget(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 240 else { return trimmed }
@@ -1136,7 +1155,8 @@ struct HTMLWorkspaceEditorView: View {
         let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
             instruction: instruction,
             package: sourcePackage,
-            expectedContentHash: expectedHash
+            expectedContentHash: expectedHash,
+            selectedSurfaceContext: selectedRegenerateSurfaceContext()
         )
 
         regenerateTask?.cancel()
@@ -1235,7 +1255,8 @@ struct HTMLWorkspaceEditorView: View {
         let prompt = HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt(
             instruction: instruction,
             package: package,
-            expectedContentHash: package.currentContentHash
+            expectedContentHash: package.currentContentHash,
+            selectedSurfaceContext: selectedRegenerateSurfaceContext()
         )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)

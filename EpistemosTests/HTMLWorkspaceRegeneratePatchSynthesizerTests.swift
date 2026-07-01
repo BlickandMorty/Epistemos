@@ -158,7 +158,13 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func droppedPreviewTargetDirective() -> String"))
         #expect(editor.contains("Target: update the selected preview element/section"))
         #expect(editor.contains("Target: update the current preview surface as a whole."))
+        #expect(editor.contains("private func selectedRegenerateSurfaceContext() -> String?"))
+        #expect(editor.contains("selected_surface.selector"))
+        #expect(editor.contains("selected_surface.tag"))
+        #expect(editor.contains("selected_surface.classes"))
+        #expect(editor.contains("selected_surface.text"))
         #expect(editor.contains("beginRegenerateSurface(instructionOverride: regenerateInstruction)"))
+        #expect(editor.contains("selectedSurfaceContext: selectedRegenerateSurfaceContext()"))
         #expect(editor.contains("private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
         #expect(editor.contains("if preset.family == .vaultData"))
         #expect(editor.contains("private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
@@ -465,11 +471,44 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("do not create a route named assets"))
         #expect(prompt.contains("routes/assets/<name>"))
         #expect(prompt.contains("Turn this into a live explainer"))
+        #expect(prompt.contains("Selected preview context:"))
         #expect(prompt.contains("in-surface add-context picker/filter"))
+        #expect(prompt.contains("When selected preview context is present"))
         #expect(prompt.contains("Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance."))
         #expect(prompt.contains("_epistemos.required_context_kind"))
         #expect(prompt.contains("_epistemos.required_context_available is false"))
         #expect(prompt.contains("Do not infer captures, chats, graph links, folders, or record types from a title or query string."))
+    }
+
+    @Test("regenerate prompt includes selected preview surface context when present")
+    func regeneratePromptIncludesSelectedPreviewSurfaceContextWhenPresent() {
+        let package = HTMLWorkspacePackage.defaultPackage(title: "Selected Surface")
+        let expectedHash = contentHash(for: package)
+        let selectedContext = """
+        selected_surface.selector: section.hero
+        selected_surface.tag: section
+        selected_surface.classes: hero, featured
+        selected_surface.text: Opening statement
+        """
+
+        let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
+            instruction: "Improve selected section",
+            package: package,
+            expectedContentHash: expectedHash,
+            selectedSurfaceContext: selectedContext
+        )
+        let recovery = HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt(
+            instruction: "Improve selected section",
+            package: package,
+            expectedContentHash: expectedHash,
+            selectedSurfaceContext: selectedContext
+        )
+
+        #expect(prompt.contains("Selected preview context:"))
+        #expect(prompt.contains("selected_surface.selector: section.hero"))
+        #expect(prompt.contains("selected_surface.classes: hero, featured"))
+        #expect(prompt.contains("selected_surface.text: Opening statement"))
+        #expect(recovery.contains("selected_surface.selector: section.hero"))
     }
 
     @Test("complete streamed regenerate response can preview before final apply")

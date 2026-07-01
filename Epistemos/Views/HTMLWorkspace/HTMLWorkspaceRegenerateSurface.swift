@@ -564,6 +564,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance. Keep source_label/provenance visible in generated cards, tables, charts, and detail panes.
     When _epistemos.required_context_kind is present and _epistemos.required_context_available is false, show that required source as unavailable instead of relabeling generic vault results.
     Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; show an honest empty or stale state when records are absent.
+    When selected preview context is present, treat it as the user's intended surface target and preserve its selector relationship when practical.
     Do not infer captures, chats, graph links, folders, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
     data.json must be valid JSON.
@@ -572,7 +573,8 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     static func prompt(
         instruction: String,
         package: HTMLWorkspacePackage,
-        expectedContentHash: String
+        expectedContentHash: String,
+        selectedSurfaceContext: String? = nil
     ) -> String {
         """
         Regenerate this HTML Workspace as one complete live site.
@@ -587,6 +589,9 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
 
         Verified Epistemos context:
         \(HTMLWorkspaceRegenerateContext.promptSection(for: package))
+
+        Selected preview context:
+        \(selectedSurfaceSection(selectedSurfaceContext))
 
         Current index.html:
         ```html
@@ -619,7 +624,8 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     static func clipboardPrompt(
         instruction: String,
         package: HTMLWorkspacePackage,
-        expectedContentHash: String
+        expectedContentHash: String,
+        selectedSurfaceContext: String? = nil
     ) -> String {
         """
         System:
@@ -629,9 +635,15 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
         \(prompt(
             instruction: instruction,
             package: package,
-            expectedContentHash: expectedContentHash
+            expectedContentHash: expectedContentHash,
+            selectedSurfaceContext: selectedSurfaceContext
         ))
         """
+    }
+
+    private static func selectedSurfaceSection(_ context: String?) -> String {
+        let trimmed = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "none" : bounded(trimmed, limit: 2_000)
     }
 
     private static func bounded(_ value: String, limit: Int) -> String {
