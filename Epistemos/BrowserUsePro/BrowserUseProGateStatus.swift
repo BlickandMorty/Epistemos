@@ -209,6 +209,10 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             close(fd)
             throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest must be a regular file")
         }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest has multiple hard links")
+        }
         guard fileStatus.st_size >= 0,
               UInt64(fileStatus.st_size) <= UInt64(maxManifestBytes) else {
             close(fd)
@@ -241,14 +245,18 @@ nonisolated struct BrowserUseVendorManifest: Decodable, Equatable, Sendable {
             throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest must not be a symlink")
         }
 
-        let attributes = try fileManager.attributesOfItem(atPath: url.path)
-        guard attributes[.type] as? FileAttributeType == .typeRegular else {
+        var fileStatus = stat()
+        guard lstat(url.path, &fileStatus) == 0 else {
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest attributes unavailable")
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest must be a regular file")
         }
-        guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
-            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest size is unavailable")
+        guard fileStatus.st_nlink <= 1 else {
+            throw BrowserUseVendorManifestError.invalid("browser-use vendor manifest has multiple hard links")
         }
-        guard size <= UInt64(maxManifestBytes) else {
+        guard fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxManifestBytes) else {
             throw BrowserUseVendorManifestError.invalid(
                 "browser-use vendor manifest exceeds \(maxManifestBytes) bytes"
             )

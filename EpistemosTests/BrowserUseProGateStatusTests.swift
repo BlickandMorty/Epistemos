@@ -165,6 +165,19 @@ struct BrowserUseProGateStatusTests {
         #expect(symlinkStatus.detail.contains(symlinkManifest.path) == false)
         #expect(symlinkStatus.detail.contains(root.path) == false)
 
+        let hardlinkedManifest = root.appendingPathComponent("HARDLINK_MANIFEST.json", isDirectory: false)
+        if (try? FileManager.default.linkItem(at: outsideManifest, to: hardlinkedManifest)) != nil {
+            let hardlinkStatus = BrowserUseProGateStatus.status(
+                environment: [BrowserUseProGateStatus.flagName: "1"],
+                manifestURL: hardlinkedManifest
+            )
+            #expect(!hardlinkStatus.isActive)
+            #expect(hardlinkStatus.headline == "browser-use Pro: vendor manifest unreadable")
+            #expect(hardlinkStatus.detail.contains("multiple hard links"))
+            #expect(hardlinkStatus.detail.contains(hardlinkedManifest.path) == false)
+            #expect(hardlinkStatus.detail.contains(root.path) == false)
+        }
+
         let oversizedManifest = root.appendingPathComponent("OVERSIZED_MANIFEST.json", isDirectory: false)
         FileManager.default.createFile(atPath: oversizedManifest.path, contents: Data())
         let handle = try FileHandle(forWritingTo: oversizedManifest)
@@ -530,6 +543,7 @@ struct BrowserUseProGateStatusTests {
             "BrowserUseSymlinkPathGuard.firstSymlinkComponent",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
+            "st_nlink <= 1",
             "readToEnd()",
             "data.count <= maxManifestBytes",
             "path must not include symlink component",
@@ -587,6 +601,9 @@ struct BrowserUseProGateStatusTests {
             "private struct PackageResult",
             "package result top-level keys mismatch",
             "loadPackageResult(",
+            "st_nlink <= 1",
+            "signature manifest has multiple hard links",
+            "package result has multiple hard links",
             "packageResultProblem(",
             "Package result verified",
             "smokeSuiteEntrypoint",

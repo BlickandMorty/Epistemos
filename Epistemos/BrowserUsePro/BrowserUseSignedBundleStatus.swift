@@ -325,6 +325,10 @@ nonisolated enum BrowserUseSignedBundleStatus {
             close(fd)
             throw BrowserUseVendorManifestError.invalid("browser-use signature manifest must be a regular file")
         }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use signature manifest has multiple hard links")
+        }
         guard fileStatus.st_size >= 0,
               UInt64(fileStatus.st_size) <= UInt64(maxSignatureManifestBytes) else {
             close(fd)
@@ -372,6 +376,10 @@ nonisolated enum BrowserUseSignedBundleStatus {
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             close(fd)
             throw BrowserUseVendorManifestError.invalid("browser-use package result must be a regular file")
+        }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            throw BrowserUseVendorManifestError.invalid("browser-use package result has multiple hard links")
         }
         guard fileStatus.st_size > 0,
               UInt64(fileStatus.st_size) <= UInt64(maxPackageResultBytes) else {
