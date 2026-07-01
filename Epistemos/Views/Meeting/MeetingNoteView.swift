@@ -79,13 +79,13 @@ struct MeetingNoteView: View {
                 .help(stateLabel)
             ToolbarCapsuleButton(
                 title: recordingButtonTitle,
-                systemImage: isRecording ? "stop.circle.fill" : "mic.circle",
+                systemImage: recordingButtonSystemImage,
                 role: isRecording ? .toolbarUtility : .primaryAction,
                 chromePolicy: .alwaysSurface
             ) {
                 toggleRecording()
             }
-            .disabled(isSaving || isFinalizing)
+            .disabled(isSaving || isFinalizing || isPreparing)
             ToolbarCapsuleButton(
                 title: "Save",
                 systemImage: "square.and.arrow.down",
@@ -147,6 +147,13 @@ struct MeetingNoteView: View {
         return false
     }
 
+    private var isPreparing: Bool {
+        if case .preparing = service.state {
+            return true
+        }
+        return false
+    }
+
     private var isSaved: Bool {
         if case .saved = service.state {
             return true
@@ -163,7 +170,17 @@ struct MeetingNoteView: View {
     }
 
     private var recordingButtonTitle: String {
+        if isPreparing {
+            return "Preparing"
+        }
         isRecording ? "Stop" : "Start"
+    }
+
+    private var recordingButtonSystemImage: String {
+        if isPreparing {
+            return "hourglass.circle"
+        }
+        return isRecording ? "stop.circle.fill" : "mic.circle"
     }
 
     private var stateLabel: String {
@@ -189,6 +206,7 @@ struct MeetingNoteView: View {
     }
 
     private func toggleRecording() {
+        guard !isPreparing else { return }
         if isRecording {
             service.stop()
         } else {
