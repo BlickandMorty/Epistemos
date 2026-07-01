@@ -22,6 +22,8 @@ struct HTMLWorkspaceEditorView: View {
     @State private var regenerateSheetPresented = false
     @State private var regenerateInstruction = ""
     @State private var regenerateStreamText = ""
+    @State private var pendingRegeneratePatchResponse: String?
+    @State private var pendingRegenerateExpectedContentHash: String?
     @State private var regenerateErrorText: String?
     @State private var regenerateTask: Task<Void, Never>?
     @State private var isRegenerating = false
@@ -94,6 +96,8 @@ struct HTMLWorkspaceEditorView: View {
                 expectedContentHash: package.currentContentHash,
                 errorText: regenerateErrorText,
                 isRegenerating: isRegenerating,
+                hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil,
+                canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil,
                 onCancel: {
                     if isRegenerating {
                         regenerateTask?.cancel()
@@ -105,12 +109,15 @@ struct HTMLWorkspaceEditorView: View {
                     regenerateSheetPresented = false
                 },
                 onCopyPrompt: copyRegeneratePrompt,
+                onRunPreset: runRegeneratePreset,
                 onSubmit: beginRegenerateSurface,
+                onApplyPreview: applyPendingRegeneratePreview,
                 onPreviewStream: previewRegenerateStreamText,
                 onApplyStream: applyRegenerateStreamText,
-                onRestorePreview: restorePreviewAfterRegenerate
+                onRestorePreview: restorePreviewAfterRegenerate,
+                onRestorePreviousSurface: restorePreviousSurface
             )
-            .frame(width: 620, height: 520)
+            .frame(width: 700, height: 640)
             .preferredColorScheme(workspaceTheme.isDark ? .dark : .light)
         }
         .background(workspaceTheme.resolved.background.color)
@@ -758,16 +765,28 @@ struct HTMLWorkspaceEditorView: View {
     private func openRegenerateSheet() {
         regenerateErrorText = nil
         regenerateStreamText = ""
+        clearPendingRegeneratePreview()
         regenerateSheetPresented = true
     }
 
     private func beginRegenerateSurface() {
+        beginRegenerateSurface(instructionOverride: nil)
+    }
+
+    private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
+        regenerateInstruction = preset.instruction
+        beginRegenerateSurface(instructionOverride: preset.instruction)
+    }
+
+    private func beginRegenerateSurface(instructionOverride: String?) {
         guard !isRegenerating else { return }
-        let instruction = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceInstruction = instructionOverride ?? regenerateInstruction
+        let instruction = sourceInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !instruction.isEmpty else {
             regenerateErrorText = "Enter a regenerate request."
             return
         }
+        regenerateInstruction = instruction
 
         let sourcePackage = package
         let expectedHash = sourcePackage.currentContentHash
@@ -780,6 +799,7 @@ struct HTMLWorkspaceEditorView: View {
         regenerateTask?.cancel()
         previewUpdateTask?.cancel()
         previewUpdateTask = nil
+        clearPendingRegeneratePreview()
         previewRouteName = nil
         previewPackage = HTMLWorkspaceRegeneratePreview.loadingPackage(
             from: sourcePackage,
@@ -826,18 +846,26 @@ struct HTMLWorkspaceEditorView: View {
                     package: sourcePackage,
                     expectedContentHash: expectedHash
                 )
-                let result = try HTMLWorkspaceRegenerateApplication.apply(
+                _ = try HTMLWorkspaceRegenerateApplication.apply(
                     patchResponse,
                     to: package,
                     expectedContentHash: expectedHash
                 )
-                package = result.package
+                if let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
+                    from: response,
+                    basePackage: sourcePackage,
+                    expectedContentHash: expectedHash
+                ) {
+                    previewPackage = candidate
+                }
+                pendingRegeneratePatchResponse = patchResponse
+                pendingRegenerateExpectedContentHash = expectedHash
                 previewRouteName = nil
-                previewPackage = result.package
+                liveDOMSnapshot = nil
                 selectedPane = .html
                 layoutMode = .split
                 regenerateErrorText = nil
-                statusText = "Regenerated surface"
+                statusText = "Regenerate preview ready"
             } catch is CancellationError {
                 restorePreviewAfterRegenerate()
                 statusText = "Regenerate stopped"
@@ -847,6 +875,11 @@ struct HTMLWorkspaceEditorView: View {
                 statusText = failedStatus("Regenerate", error: error)
             }
         }
+    }
+
+    private func clearPendingRegeneratePreview() {
+        pendingRegeneratePatchResponse = nil
+        pendingRegenerateExpectedContentHash = nil
     }
 
     private func copyRegeneratePrompt() {
@@ -873,6 +906,7 @@ struct HTMLWorkspaceEditorView: View {
         previewRouteName = nil
         liveDOMSnapshot = nil
         previewPackage = package
+        clearPendingRegeneratePreview()
     }
 
     private func previewRegenerateStreamText() {
@@ -882,15 +916,36 @@ struct HTMLWorkspaceEditorView: View {
             regenerateErrorText = "No regenerate response to preview."
             return
         }
+        clearPendingRegeneratePreview()
 
-        let expectedHash = package.currentContentHash
+        let sourcePackage = package
+        let expectedHash = sourcePackage.currentContentHash
         guard let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
             from: response,
-            basePackage: package,
+            basePackage: sourcePackage,
             expectedContentHash: expectedHash
         ) else {
             regenerateErrorText = "Stream must contain a complete regenerate response for the visible workspace and current hash."
             statusText = "Regenerate preview unavailable"
+            return
+        }
+
+        do {
+            let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
+                from: response,
+                package: sourcePackage,
+                expectedContentHash: expectedHash
+            )
+            _ = try HTMLWorkspaceRegenerateApplication.apply(
+                patchResponse,
+                to: package,
+                expectedContentHash: expectedHash
+            )
+            pendingRegeneratePatchResponse = patchResponse
+            pendingRegenerateExpectedContentHash = expectedHash
+        } catch {
+            regenerateErrorText = error.localizedDescription
+            statusText = failedStatus("Regenerate preview", error: error)
             return
         }
 
@@ -902,7 +957,37 @@ struct HTMLWorkspaceEditorView: View {
         selectedPane = .html
         layoutMode = .split
         regenerateErrorText = nil
-        statusText = "Regenerate stream previewing"
+        statusText = "Regenerate preview ready"
+    }
+
+    private func applyPendingRegeneratePreview() {
+        guard !isRegenerating else { return }
+        guard let patchResponse = pendingRegeneratePatchResponse,
+              let expectedHash = pendingRegenerateExpectedContentHash else {
+            regenerateErrorText = "No regenerate preview to apply."
+            return
+        }
+
+        do {
+            let result = try HTMLWorkspaceRegenerateApplication.apply(
+                patchResponse,
+                to: package,
+                expectedContentHash: expectedHash
+            )
+            package = result.package
+            previewRouteName = nil
+            previewPackage = result.package
+            liveDOMSnapshot = nil
+            selectedPane = .html
+            layoutMode = .split
+            clearPendingRegeneratePreview()
+            regenerateErrorText = nil
+            regenerateSheetPresented = false
+            statusText = "Regenerate preview applied"
+        } catch {
+            regenerateErrorText = error.localizedDescription
+            statusText = failedStatus("Regenerate apply", error: error)
+        }
     }
 
     private func applyRegenerateStreamText() {
@@ -931,6 +1016,7 @@ struct HTMLWorkspaceEditorView: View {
             liveDOMSnapshot = nil
             selectedPane = .html
             layoutMode = .split
+            clearPendingRegeneratePreview()
             regenerateErrorText = nil
             regenerateSheetPresented = false
             statusText = "Regenerate stream applied"

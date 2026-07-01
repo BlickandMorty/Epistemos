@@ -41,11 +41,24 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("let expectedContentHash: String"))
         #expect(sheet.contains("@Binding var streamedText: String"))
         #expect(sheet.contains("@Environment(UIState.self) private var ui"))
+        #expect(sheet.contains("let hasPendingPreview: Bool"))
+        #expect(sheet.contains("let canRestorePreviousSurface: Bool"))
+        #expect(sheet.contains("let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void"))
+        #expect(sheet.contains("let onApplyPreview: () -> Void"))
+        #expect(sheet.contains("let onRestorePreviousSurface: () -> Void"))
+        #expect(sheet.contains("Label(\"Apply Preview\", systemImage: \"checkmark.circle\")"))
+        #expect(sheet.contains("Label(\"Revert\", systemImage: \"clock.arrow.circlepath\")"))
+        #expect(sheet.contains("Label(isRegenerating ? \"Streaming\" : \"Stream Preview\", systemImage: \"wand.and.sparkles\")"))
+        #expect(sheet.contains("HTMLWorkspaceRegeneratePreset.Family.allCases"))
+        #expect(sheet.contains("FlowLayout(spacing: 6)"))
+        #expect(sheet.contains("Label(\"Advanced response paste fallback\", systemImage: \"terminal\")"))
         #expect(sheet.contains("Label(\"Copy Prompt\", systemImage: \"doc.on.doc\")"))
-        #expect(sheet.contains("Label(\"Preview Stream\", systemImage: \"eye\")"))
-        #expect(sheet.contains("Label(\"Show Current\", systemImage: \"arrow.uturn.backward.circle\")"))
-        #expect(sheet.contains("Label(\"Apply Stream\", systemImage: \"checkmark.circle\")"))
-        #expect(sheet.contains("Label(isRegenerating ? \"Regenerating\" : \"Regenerate\", systemImage: \"wand.and.sparkles\")"))
+        #expect(sheet.contains("Label(\"Preview Response\", systemImage: \"eye\")"))
+        #expect(sheet.contains("Label(\"Apply Response\", systemImage: \"checkmark.circle\")"))
+        #expect(!sheet.contains("Label(\"Preview Stream\", systemImage: \"eye\")"))
+        #expect(!sheet.contains("Label(\"Show Current\", systemImage: \"arrow.uturn.backward.circle\")"))
+        #expect(!sheet.contains("Label(\"Apply Stream\", systemImage: \"checkmark.circle\")"))
+        #expect(!sheet.contains("Label(isRegenerating ? \"Regenerating\" : \"Regenerate\", systemImage: \"wand.and.sparkles\")"))
         #expect(sheet.contains("let onCopyPrompt: () -> Void"))
         #expect(sheet.contains("let onRestorePreview: () -> Void"))
         #expect(sheet.contains("TextEditor(text: $streamedText)"))
@@ -60,10 +73,23 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("workspaceID: package.manifest.id"))
         #expect(editor.contains("expectedContentHash: package.currentContentHash"))
         #expect(editor.contains("streamedText: $regenerateStreamText"))
+        #expect(editor.contains("hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil"))
+        #expect(editor.contains("canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil"))
         #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
+        #expect(editor.contains("onRunPreset: runRegeneratePreset"))
+        #expect(editor.contains("onApplyPreview: applyPendingRegeneratePreview"))
         #expect(editor.contains("onPreviewStream: previewRegenerateStreamText"))
         #expect(editor.contains("onApplyStream: applyRegenerateStreamText"))
         #expect(editor.contains("onRestorePreview: restorePreviewAfterRegenerate"))
+        #expect(editor.contains("onRestorePreviousSurface: restorePreviousSurface"))
+        #expect(editor.contains("@State private var pendingRegeneratePatchResponse: String?"))
+        #expect(editor.contains("@State private var pendingRegenerateExpectedContentHash: String?"))
+        #expect(editor.contains("private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
+        #expect(editor.contains("private func applyPendingRegeneratePreview()"))
+        #expect(editor.contains("pendingRegeneratePatchResponse = patchResponse"))
+        #expect(editor.contains(#"statusText = "Regenerate preview ready""#))
+        #expect(editor.contains(#"statusText = "Regenerate preview applied""#))
+        #expect(!editor.contains(#"statusText = "Regenerated surface""#))
         #expect(editor.contains("private func copyRegeneratePrompt()"))
         #expect(editor.contains("HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt("))
         #expect(editor.contains(#"statusText = "Regenerate prompt copied""#))
@@ -71,6 +97,29 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func applyRegenerateStreamText()"))
         #expect(editor.contains("HTMLWorkspaceRegenerateApplication.apply("))
         #expect(editor.contains("HTMLWorkspaceRegeneratePreview.candidatePackage("))
+    }
+
+    @Test("regenerate presets expose required one-click categories")
+    func regeneratePresetsExposeRequiredOneClickCategories() {
+        #expect(HTMLWorkspaceRegeneratePreset.presets(in: .layout).map(\.title) == [
+            "Dashboard",
+            "Landing page",
+            "Docs page",
+            "Single-column article",
+        ])
+        #expect(HTMLWorkspaceRegeneratePreset.presets(in: .addThing).map(\.title) == [
+            "Add chart",
+            "Add search",
+            "Add table",
+            "Add nav",
+        ])
+        #expect(HTMLWorkspaceRegeneratePreset.presets(in: .vaultData).map(\.title) == [
+            "Notes -> cards",
+            "Recent captures",
+            "Related notes",
+        ])
+        #expect(HTMLWorkspaceRegeneratePreset.all.count == 11)
+        #expect(HTMLWorkspaceRegeneratePreset.all.allSatisfy { $0.instruction.contains("Regenerate") })
     }
 
     @Test("regenerate preview package swaps reset stale route selection")

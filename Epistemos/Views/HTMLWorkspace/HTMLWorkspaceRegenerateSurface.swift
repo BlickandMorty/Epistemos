@@ -8,12 +8,19 @@ struct HTMLWorkspaceRegenerateSheet: View {
     let expectedContentHash: String
     let errorText: String?
     let isRegenerating: Bool
+    let hasPendingPreview: Bool
+    let canRestorePreviousSurface: Bool
     let onCancel: () -> Void
     let onCopyPrompt: () -> Void
+    let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void
     let onSubmit: () -> Void
+    let onApplyPreview: () -> Void
     let onPreviewStream: () -> Void
     let onApplyStream: () -> Void
     let onRestorePreview: () -> Void
+    let onRestorePreviousSurface: () -> Void
+
+    @State private var advancedFallbackVisible = false
 
     @Environment(UIState.self) private var ui
 
@@ -37,6 +44,10 @@ struct HTMLWorkspaceRegenerateSheet: View {
         theme.resolved.mutedForeground.color
     }
 
+    private var instructionIsEmpty: Bool {
+        instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
@@ -46,86 +57,264 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     .font(.headline)
                     .foregroundStyle(theme.resolved.foreground.color)
                 Spacer(minLength: 0)
+                Button(action: onRestorePreview) {
+                    Label("Current", systemImage: "eye")
+                }
+                .disabled(isRegenerating)
+                Button(action: onRestorePreviousSurface) {
+                    Label("Revert", systemImage: "clock.arrow.circlepath")
+                }
+                .disabled(isRegenerating || !canRestorePreviousSurface)
+                Button(action: onApplyPreview) {
+                    Label("Apply Preview", systemImage: "checkmark.circle")
+                }
+                .disabled(isRegenerating || !hasPendingPreview)
                 Button(action: onCancel) {
                     Label("Cancel", systemImage: "xmark.circle")
                 }
                 .keyboardShortcut(.cancelAction)
+                Button(action: onSubmit) {
+                    Label(isRegenerating ? "Streaming" : "Stream Preview", systemImage: "wand.and.sparkles")
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(isRegenerating || instructionIsEmpty)
+            }
+            .padding(14)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    TextField("Describe the rebuilt surface", text: $instruction, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(theme.resolved.foreground.color)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .lineLimit(3...6)
+                        .disabled(isRegenerating)
+
+                    HStack(spacing: 10) {
+                        Label("Target", systemImage: "scope")
+                        Text("\(workspaceID.prefix(10)) / \(expectedContentHash.prefix(10))")
+                            .font(.caption.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 0)
+                        Label(statusLabel, systemImage: statusSymbol)
+                            .foregroundStyle(hasPendingPreview ? theme.resolved.accent.color : mutedText)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(mutedText)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Presets")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(mutedText)
+                        ForEach(HTMLWorkspaceRegeneratePreset.Family.allCases, id: \.self) { family in
+                            presetSection(family)
+                        }
+                    }
+
+                    DisclosureGroup(isExpanded: $advancedFallbackVisible) {
+                        advancedFallback
+                    } label: {
+                        Label("Advanced response paste fallback", systemImage: "terminal")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(mutedText)
+                    }
+
+                    if let errorText, !errorText.isEmpty {
+                        Text(errorText)
+                            .font(.caption)
+                            .foregroundStyle(theme.error)
+                            .lineLimit(3)
+                    }
+                }
+                .padding(14)
+            }
+        }
+        .background(sheetBackground)
+    }
+
+    private var statusLabel: String {
+        if hasPendingPreview {
+            return "Preview ready"
+        }
+        if isRegenerating {
+            return "Streaming into preview"
+        }
+        return "Preview first, then apply"
+    }
+
+    private var statusSymbol: String {
+        if hasPendingPreview {
+            return "checkmark.circle.fill"
+        }
+        if isRegenerating {
+            return "dot.radiowaves.left.and.right"
+        }
+        return "eye"
+    }
+
+    private func presetSection(_ family: HTMLWorkspaceRegeneratePreset.Family) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(family.rawValue)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(mutedText)
+            FlowLayout(spacing: 6) {
+                ForEach(HTMLWorkspaceRegeneratePreset.presets(in: family)) { preset in
+                    Button {
+                        onRunPreset(preset)
+                    } label: {
+                        Label(preset.title, systemImage: preset.systemImage)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(theme.resolved.foreground.color)
+                    .disabled(isRegenerating)
+                    .help(preset.instruction)
+                }
+            }
+        }
+    }
+
+    private var advancedFallback: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
                 Button(action: onCopyPrompt) {
                     Label("Copy Prompt", systemImage: "doc.on.doc")
                 }
-                .disabled(isRegenerating || instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(isRegenerating || instructionIsEmpty)
                 Button(action: onPreviewStream) {
-                    Label("Preview Stream", systemImage: "eye")
+                    Label("Preview Response", systemImage: "eye")
                 }
                 .disabled(isRegenerating || streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button(action: onRestorePreview) {
-                    Label("Show Current", systemImage: "arrow.uturn.backward.circle")
-                }
-                .disabled(isRegenerating)
                 Button(action: onApplyStream) {
-                    Label("Apply Stream", systemImage: "checkmark.circle")
+                    Label("Apply Response", systemImage: "checkmark.circle")
                 }
                 .disabled(isRegenerating || streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button(action: onSubmit) {
-                    Label(isRegenerating ? "Regenerating" : "Regenerate", systemImage: "wand.and.sparkles")
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(isRegenerating || instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .padding(14)
+            .font(.caption)
 
-            VStack(alignment: .leading, spacing: 10) {
-                TextField("Describe the rebuilt surface", text: $instruction, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .foregroundStyle(theme.resolved.foreground.color)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .lineLimit(3...6)
-                    .disabled(isRegenerating)
-
-                HStack(spacing: 6) {
-                    Label("Target", systemImage: "scope")
-                    Text("\(workspaceID.prefix(10)) / \(expectedContentHash.prefix(10))")
-                        .font(.caption.monospaced())
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                .font(.caption)
-                .foregroundStyle(mutedText)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Stream")
-                        .font(.caption.weight(.semibold))
+            ZStack(alignment: .topLeading) {
+                if streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(isRegenerating ? "Streaming response..." : "Paste a regenerate response for offline recovery.")
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(mutedText)
-                    ZStack(alignment: .topLeading) {
-                        if streamedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text(isRegenerating ? "Starting..." : "Paste or stream a regenerate response.")
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(mutedText)
-                                .padding(12)
-                        }
-                        TextEditor(text: $streamedText)
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(theme.resolved.foreground.color)
-                            .disabled(isRegenerating)
-                            .scrollContentBackground(.hidden)
-                            .padding(4)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(streamBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .padding(12)
                 }
-
-                if let errorText, !errorText.isEmpty {
-                    Text(errorText)
-                        .font(.caption)
-                        .foregroundStyle(theme.error)
-                        .lineLimit(3)
-                }
+                TextEditor(text: $streamedText)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(theme.resolved.foreground.color)
+                    .disabled(isRegenerating)
+                    .scrollContentBackground(.hidden)
+                    .padding(4)
             }
-            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 132, maxHeight: 180)
+            .background(streamBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
-        .background(sheetBackground)
+        .padding(.top, 8)
+    }
+}
+
+nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equatable {
+    enum Family: String, CaseIterable, Hashable, Sendable {
+        case layout = "Layout"
+        case addThing = "Add-a-thing"
+        case vaultData = "Vault-data"
+    }
+
+    var id: String
+    var family: Family
+    var title: String
+    var systemImage: String
+    var instruction: String
+
+    static let all: [HTMLWorkspaceRegeneratePreset] = [
+        .init(
+            id: "layout-dashboard",
+            family: .layout,
+            title: "Dashboard",
+            systemImage: "rectangle.grid.2x2",
+            instruction: "Regenerate this workspace as a dense operational dashboard using the current content and data. Keep it interactive, theme-aware, and offline."
+        ),
+        .init(
+            id: "layout-landing-page",
+            family: .layout,
+            title: "Landing page",
+            systemImage: "sparkles.rectangle.stack",
+            instruction: "Regenerate this workspace as a focused landing page for the current subject. Use the existing material as the offer and keep the first viewport visually clear."
+        ),
+        .init(
+            id: "layout-docs-page",
+            family: .layout,
+            title: "Docs page",
+            systemImage: "doc.text",
+            instruction: "Regenerate this workspace as a documentation page with navigable sections, examples, and a clear information hierarchy from the existing content."
+        ),
+        .init(
+            id: "layout-single-column-article",
+            family: .layout,
+            title: "Single-column article",
+            systemImage: "text.alignleft",
+            instruction: "Regenerate this workspace as a polished single-column article with inline callouts and readable long-form pacing."
+        ),
+        .init(
+            id: "add-chart",
+            family: .addThing,
+            title: "Add chart",
+            systemImage: "chart.bar.xaxis",
+            instruction: "Regenerate this workspace and add an inline chart derived only from the available data or explicit content. If no numeric data exists, include an honest empty state."
+        ),
+        .init(
+            id: "add-search",
+            family: .addThing,
+            title: "Add search",
+            systemImage: "magnifyingglass",
+            instruction: "Regenerate this workspace and add local search over the visible sections and data. Keep it offline and responsive."
+        ),
+        .init(
+            id: "add-table",
+            family: .addThing,
+            title: "Add table",
+            systemImage: "tablecells",
+            instruction: "Regenerate this workspace and add a scannable table from the current content or data. Preserve source honesty if records are sparse."
+        ),
+        .init(
+            id: "add-nav",
+            family: .addThing,
+            title: "Add nav",
+            systemImage: "sidebar.left",
+            instruction: "Regenerate this workspace and add persistent navigation for sections, routes, or key entities already present in the content."
+        ),
+        .init(
+            id: "vault-notes-cards",
+            family: .vaultData,
+            title: "Notes -> cards",
+            systemImage: "rectangle.stack",
+            instruction: "Regenerate this workspace by turning available note context into cards. Use only real note data and include an honest empty state if no notes are available."
+        ),
+        .init(
+            id: "vault-recent-captures",
+            family: .vaultData,
+            title: "Recent captures",
+            systemImage: "tray.full",
+            instruction: "Regenerate this workspace around available recent captures. Use real capture metadata only and clearly show when no captures are available."
+        ),
+        .init(
+            id: "vault-related-notes",
+            family: .vaultData,
+            title: "Related notes",
+            systemImage: "link",
+            instruction: "Regenerate this workspace around related notes from available context. Do not invent relationships; show an honest empty state when context is missing."
+        ),
+    ]
+
+    static func presets(in family: Family) -> [HTMLWorkspaceRegeneratePreset] {
+        all.filter { $0.family == family }
     }
 }
 
