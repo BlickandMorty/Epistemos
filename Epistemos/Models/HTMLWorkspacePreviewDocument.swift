@@ -211,6 +211,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
         const missingResources = \(pythonMissingResources);
         const maxCodeLength = 20000;
         let loadPromise = null;
+        let runQueue = Promise.resolve();
         function loadScript(src) {
           return new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -249,8 +250,14 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
           return source;
         }
         async function run(code) {
-          const pyodide = await load();
-          return pyodide.runPythonAsync(boundedCode(code));
+          const source = boundedCode(code);
+          const execute = async () => {
+            const pyodide = await load();
+            return pyodide.runPythonAsync(source);
+          };
+          const result = runQueue.then(execute, execute);
+          runQueue = result.catch(() => {});
+          return result;
         }
         return Object.freeze({
           enabled,
