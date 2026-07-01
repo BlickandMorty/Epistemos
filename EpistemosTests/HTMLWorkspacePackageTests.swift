@@ -368,6 +368,25 @@ nonisolated struct HTMLWorkspacePackageTests {
         )
         #expect(requiredCaptureResults.map(\.pageID) == [capture.id])
 
+        let triggeredCaptureResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "captures alpha"
+        )
+        #expect(triggeredCaptureResults.map(\.pageID) == [capture.id])
+        #expect(triggeredCaptureResults.first?.contextKind == "recent_capture")
+
+        let explicitGraphResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "graph_related_note",
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "captures alpha"
+        )
+        #expect(explicitGraphResults.isEmpty)
+
         let defaultResults = HTMLWorkspaceDataFeedContextSources.results(
             for: nil,
             searchResults: [genericResult],

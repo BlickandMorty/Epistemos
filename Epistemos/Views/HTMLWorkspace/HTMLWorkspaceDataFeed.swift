@@ -201,7 +201,7 @@ enum HTMLWorkspaceDataFeedContextSources {
         query: String? = nil
     ) -> [HTMLWorkspaceDataFeedResult] {
         let requiredKind = normalized(requiredContextKind)
-        if requiredKind == "recent_capture" {
+        if requiredKind == "recent_capture" || (requiredKind.isEmpty && shouldUseRecentCaptureResults(for: query)) {
             return recentCaptureResults(modelContainer: modelContainer, limit: limit)
         }
         if requiredKind == "note" || (requiredKind.isEmpty && shouldUseNoteResults(for: query)) {
@@ -256,6 +256,26 @@ enum HTMLWorkspaceDataFeedContextSources {
                     provenance: candidate.provenance
                 )
             }
+    }
+
+    static func shouldUseRecentCaptureResults(for query: String?) -> Bool {
+        let normalizedQuery = normalized(query).lowercased()
+        guard !normalizedQuery.isEmpty else { return false }
+        if normalizedQuery.hasPrefix("capture:") || normalizedQuery.hasPrefix("captures:") {
+            return true
+        }
+        if normalizedQuery.hasPrefix("capture ") || normalizedQuery.hasPrefix("captures ")
+            || normalizedQuery.hasPrefix("recent capture ") || normalizedQuery.hasPrefix("recent captures ") {
+            return true
+        }
+        return [
+            "capture",
+            "captures",
+            "recent capture",
+            "recent captures",
+            "transcript",
+            "transcripts",
+        ].contains(normalizedQuery)
     }
 
     private struct CaptureCandidate {
