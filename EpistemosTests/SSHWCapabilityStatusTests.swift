@@ -52,7 +52,7 @@ struct SSHWCapabilityStatusTests {
         #expect(regenerate?.note.contains("generated dashboard section nav") == true)
         #expect(regenerate?.note.contains("generated data-backed context picker") == true)
         #expect(regenerate?.note.contains("scoped context-tab visible counts") == true)
-        #expect(regenerate?.note.contains("clickable vault result detail panes") == true)
+        #expect(regenerate?.note.contains("clickable tabbed vault result detail panes") == true)
         #expect(regenerate?.note.contains("awaits current in-app proof") == true)
         let python = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Python (Pyodide / WASM)" }
         #expect(python?.isLive == false)
@@ -95,7 +95,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("generated dashboard section nav"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("generated data-backed context picker"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("scoped context-tab visible counts"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("clickable vault result detail panes"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("clickable tabbed vault result detail panes"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("app bridge demo/runtime with promise requests"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("hover-highlighted DOM picker"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("focused style edits"))
