@@ -6122,6 +6122,10 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
         echo "Goose Web UI staging still contains blue/ring/outline visual leftovers." >&2
         exit 1
     fi
+    if grep -R -E "border-(b|t|l|r|x|y) border-border|border border-border" "$WORK_ROOT/ui/desktop/src/components" >/dev/null 2>&1; then
+        echo "Goose Web UI staging still contains hard border visual leftovers." >&2
+        exit 1
+    fi
     grep -q "bg-\\[var(--epistemos-accent)\\] text-white hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/button.tsx"
     grep -q "rounded-\\[8px\\] bg-background-primary/60" "$WORK_ROOT/ui/desktop/src/components/ui/input.tsx"
     grep -q "rounded-\\[11px\\] py-3 shadow-none" "$WORK_ROOT/ui/desktop/src/components/ui/card.tsx"

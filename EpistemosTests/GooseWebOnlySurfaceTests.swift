@@ -172,6 +172,10 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(reskin.contains(".goose-epistemos .goose-chat-input-card:focus-within"))
         #expect(reskin.contains("background: var(--epistemos-claude-focus) !important;"))
         #expect(reskin.contains("epistemos-native-final-flat-pixel-audit"))
+        #expect(reskin.contains("applyFinalBorderlessDriftSurfaces"))
+        #expect(reskin.contains("h-11 w-full rounded-[8px] bg-background-primary/58"))
+        #expect(reskin.contains("pointer-events-auto fixed z-50 w-[275px] overflow-hidden rounded-[12px]"))
+        #expect(reskin.contains("max-h-[300px] overflow-y-auto rounded-[12px] bg-background-secondary/44"))
         #expect(reskin.contains(".replaceAll('#0066cc', '#1d1d1f')"))
         #expect(reskin.contains(".replaceAll('#2997ff', '#ffffff')"))
         #expect(!reskin.contains("outline: 2px solid color-mix"))
@@ -182,6 +186,7 @@ struct GooseWebOnlySurfaceSourceTests {
 
         let stageScript = try loadMirroredSourceTextFile("stage-goose-web-ui.sh")
         #expect(stageScript.contains("Goose Web UI staging still contains blue/ring/outline visual leftovers."))
+        #expect(stageScript.contains("Goose Web UI staging still contains hard border visual leftovers."))
         #expect(stageScript.contains("epistemos-native-claude-pixel-contract"))
         #expect(stageScript.contains("epistemos-native-claude-desktop-lock"))
         #expect(stageScript.contains("epistemos-native-flat-source-surfaces"))

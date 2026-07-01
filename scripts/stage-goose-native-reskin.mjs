@@ -6486,6 +6486,152 @@ function applyLoadingAndErrorSurfaces() {
   write('src/components/ErrorBoundary.tsx', source);
 }
 
+function applyFinalBorderlessDriftSurfaces() {
+  let source = read('src/components/AnnouncementModal.tsx');
+  source = replaceRequired(
+    source,
+    'announcement action borderless',
+    'className="w-full h-[60px] rounded-none border-b border-border-primary bg-transparent hover:bg-background-secondary text-text-primary font-medium text-md"',
+    'className="h-11 w-full rounded-[8px] bg-background-primary/58 text-md font-medium text-text-primary transition-colors hover:bg-background-secondary/72"'
+  );
+  write('src/components/AnnouncementModal.tsx', source);
+
+  source = read('src/components/sessions/SessionViewComponents.tsx');
+  source = replaceRequired(
+    source,
+    'session view tool badge borderless',
+    "? 'bg-bgSecondary border border-border-primary'",
+    "? 'bg-background-secondary/56'"
+  );
+  write('src/components/sessions/SessionViewComponents.tsx', source);
+
+  source = read('src/components/schedule/SchedulesView.tsx');
+  source = replaceAllRequired(
+    source,
+    'schedule badge borders borderless',
+    ' border border-border-secondary',
+    ''
+  );
+  write('src/components/schedule/SchedulesView.tsx', source);
+
+  source = read('src/components/bottom_menu/BottomMenuAlertPopover.tsx');
+  source = replaceRequired(
+    source,
+    'bottom menu alert popover borderless',
+    'className="fixed w-[275px] p-0 rounded-[6px] overflow-hidden bg-app border border-border-primary z-50 shadow-none pointer-events-auto text-left"',
+    'className="pointer-events-auto fixed z-50 w-[275px] overflow-hidden rounded-[12px] bg-background-primary/92 p-0 text-left"'
+  );
+  write('src/components/bottom_menu/BottomMenuAlertPopover.tsx', source);
+
+  source = read('src/components/ImagePreview.tsx');
+  source = replaceRequired(
+    source,
+    'image preview thumbnail borderless',
+    'className={`rounded-[5px] border border-border-primary cursor-pointer hover:border-border-primary transition-all ${',
+    'className={`cursor-pointer rounded-[10px] bg-background-primary/54 transition-all hover:bg-background-secondary/56 ${'
+  );
+  write('src/components/ImagePreview.tsx', source);
+
+  source = read('src/components/extensions/ExtensionsView.tsx');
+  source = replaceRequired(
+    source,
+    'extensions header borderless',
+    'className="bg-background-primary px-6 pb-3 pt-14 border-b border-border-secondary"',
+    'className="bg-background-primary/58 px-6 pb-3 pt-14"'
+  );
+  write('src/components/extensions/ExtensionsView.tsx', source);
+
+  source = read('src/components/RecipeHeader.tsx');
+  source = replaceRequired(
+    source,
+    'recipe header borderless',
+    'className="flex items-center justify-between px-4 py-2 border-b border-border-primary"',
+    'className="flex items-center justify-between bg-background-primary/42 px-4 py-2"'
+  );
+  write('src/components/RecipeHeader.tsx', source);
+
+  source = read('src/components/MCPUIResourceRenderer.tsx');
+  source = replaceRequired(
+    source,
+    'mcp ui resource renderer borderless',
+    'className="mt-3 border border-border-secondary bg-background-secondary p-2"',
+    'className="mt-3 rounded-[12px] bg-background-secondary/56 p-2"'
+  );
+  write('src/components/MCPUIResourceRenderer.tsx', source);
+
+  source = read('src/components/parameter/ParameterInput.tsx');
+  source = replaceRequired(
+    source,
+    'parameter nested editor borderless',
+    'className="px-4 pb-4 border-t border-border-primary"',
+    'className="rounded-[12px] bg-background-primary/32 px-4 pb-4 pt-3"'
+  );
+  write('src/components/parameter/ParameterInput.tsx', source);
+
+  source = read('src/components/recipes/shared/RecipeExtensionSelector.tsx');
+  source = replaceRequired(
+    source,
+    'recipe extension selector list borderless',
+    'className="max-h-[300px] overflow-y-auto border border-borderSubtle rounded-lg"',
+    'className="max-h-[300px] overflow-y-auto rounded-[12px] bg-background-secondary/44"'
+  );
+  source = replaceRequired(
+    source,
+    'recipe extension selector row borderless',
+    'className="flex items-center justify-between px-4 py-3 hover:bg-bgSubtle transition-colors cursor-pointer border-b border-borderSubtle last:border-b-0"',
+    'className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-background-secondary/62"'
+  );
+  write('src/components/recipes/shared/RecipeExtensionSelector.tsx', source);
+
+  source = read('src/components/recipes/shared/SubRecipeEditor.tsx');
+  source = replaceRequired(
+    source,
+    'sub recipe editor value chip borderless',
+    'className="text-xs px-2 py-1 bg-background-muted border border-border-subtle rounded"',
+    'className="rounded-[8px] bg-background-secondary/60 px-2 py-1 text-xs"'
+  );
+  write('src/components/recipes/shared/SubRecipeEditor.tsx', source);
+
+  source = read('src/components/ui/RecipeWarningModal.tsx');
+  source = replaceRequired(
+    source,
+    'recipe warning dialog shell borderless',
+    "'bg-background-primary data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[6px] border border-border-primary p-6 shadow-none duration-150 sm:max-w-[80vw] max-h-[80vh] flex flex-col p-0'",
+    "'fixed left-[50%] top-[50%] z-50 flex max-h-[80vh] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden rounded-[14px] bg-background-primary/92 p-0 duration-150 data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=open]:animate-in sm:max-w-[80vw]'"
+  );
+  write('src/components/ui/RecipeWarningModal.tsx', source);
+
+  source = read('src/components/settings/mode/ModeSelectionItem.tsx');
+  source = replaceAllRequired(source, 'mode radio hard borderless', ' border border-border-secondary', '');
+  write('src/components/settings/mode/ModeSelectionItem.tsx', source);
+
+  source = read('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx');
+  source = replaceAllRequired(source, 'response style radio hard borderless', ' border border-border-secondary', '');
+  write('src/components/settings/response_styles/ResponseStyleSelectionItem.tsx', source);
+
+  source = read('src/components/settings/models/subcomponents/SwitchModelModal.tsx');
+  source = replaceAllRequired(source, 'switch model radio hard borderless', ' border border-border-secondary', '');
+  write('src/components/settings/models/subcomponents/SwitchModelModal.tsx', source);
+
+  source = read('src/components/settings/app/UpdateSection.tsx');
+  source = replaceRequired(
+    source,
+    'update section divider borderless',
+    'className="mt-6 pt-4 border-t border-borderSubtle"',
+    'className="mt-6 rounded-[12px] bg-background-primary/34 p-4"'
+  );
+  write('src/components/settings/app/UpdateSection.tsx', source);
+
+  source = read('src/components/settings/app/ExternalBackendSection.tsx');
+  source = replaceRequired(
+    source,
+    'external backend warning borderless',
+    'className="bg-background-warning border border-border-warning rounded-md p-3"',
+    'className="rounded-[12px] bg-background-warning/55 p-3"'
+  );
+  write('src/components/settings/app/ExternalBackendSection.tsx', source);
+}
+
 function applyFinalFlatPixelAudit() {
   const sourceRoot = path.join(desktopRoot, 'src');
   const files = walkFiles(
@@ -6853,6 +6999,7 @@ applyRemainingTokenDriftSurfaces();
 applyNeutralTokenDriftSurfaces();
 applyModalScrimAndElicitationSurfaces();
 applyLoadingAndErrorSurfaces();
+applyFinalBorderlessDriftSurfaces();
 applyFinalFlatPixelAudit();
 
 console.log(`Applied Goose native reskin overlay: ${desktopRoot}`);
