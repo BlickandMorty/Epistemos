@@ -270,6 +270,16 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(reskin.contains("data-epistemos-worktree-menu-item"))
         #expect(reskin.contains("data-epistemos-recent-dir-menu-item"))
 
+        let visualHarness = try loadMirroredSourceTextFile("scripts/goose-ab-visual-harness.swift")
+        #expect(visualHarness.contains("WKWebView.takeSnapshot"))
+        #expect(visualHarness.contains("bitmapImageRepForCachingDisplay"))
+        #expect(visualHarness.contains("mismatchRatio"))
+        #expect(visualHarness.contains("--max-mismatch"))
+        #expect(visualHarness.contains("native.png"))
+        #expect(visualHarness.contains("web.png"))
+        #expect(visualHarness.contains("diff.png"))
+        #expect(visualHarness.contains("control=\\(options.control.rawValue)"))
+
         let stageScript = try loadMirroredSourceTextFile("stage-goose-web-ui.sh")
         #expect(stageScript.contains("Goose Web UI staging still contains blue/ring/outline visual leftovers."))
         #expect(stageScript.contains("Goose Web UI staging still contains hard border visual leftovers."))
