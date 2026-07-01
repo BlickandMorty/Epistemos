@@ -940,7 +940,11 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
-        let directive = "Use workspace context item \"\(item.title)\" (\(item.pageID)) as a primary source; keep its provenance visible and do not invent missing details."
+        let directive = """
+        Use this focused read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
+        Context:
+        \(boundedDroppedContext(item.dragPayload))
+        """
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         if current.isEmpty {
             regenerateInstruction = directive
