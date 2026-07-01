@@ -1,6 +1,6 @@
 import Foundation
 
-struct GooseSurfaceAvailability: Equatable {
+nonisolated struct GooseSurfaceAvailability: Equatable {
     let runtimeBinary: URL?
     let webUIIndex: URL?
 

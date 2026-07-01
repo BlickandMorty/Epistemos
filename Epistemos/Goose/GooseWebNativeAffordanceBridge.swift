@@ -2480,7 +2480,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 }
 
-enum GooseNativeJSONSizeBudget {
+nonisolated enum GooseNativeJSONSizeBudget {
     static func permits(
         _ object: Any,
         maxBytes: Int,
