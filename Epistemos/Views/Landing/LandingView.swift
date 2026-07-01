@@ -41,6 +41,16 @@ struct LandingView: View {
     private static let maxLandingPDFImportStatusRows = 12
     private static let maxLandingPDFImportStatusLineCharacters = 160
 
+    /// Shared blur-fade for surfaces embedded as home pages (Meeting/arXiv/Browser/…),
+    /// matching the landing↔graph transition language.
+    private static let homePageTransition: AnyTransition = .asymmetric(
+        insertion: .modifier(
+            active: BlurFade(blur: 14, opacity: 0),
+            identity: BlurFade(blur: 0, opacity: 1)
+        ),
+        removal: .opacity
+    )
+
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(OrchestratorState.self) private var orchestrator
@@ -148,21 +158,19 @@ struct LandingView: View {
                     )
                     .zIndex(1)
             case .meeting:
-                // Meeting is an embedded home PAGE (owner: animate to a page in
-                // the home window, like the old chat) — not a utility window.
-                HomeEmbeddedPage(title: "Meeting") {
-                    MeetingNoteView()
-                }
-                .transition(
-                    .asymmetric(
-                        insertion: .modifier(
-                            active: BlurFade(blur: 14, opacity: 0),
-                            identity: BlurFade(blur: 0, opacity: 1)
-                        ),
-                        removal: .opacity
-                    )
-                )
-                .zIndex(1)
+                // Feature surfaces embedded as home PAGES (owner: animate to a
+                // page in the home window, like the old chat) — not utility windows.
+                HomeEmbeddedPage(title: "Meeting") { MeetingNoteView() }
+                    .transition(Self.homePageTransition).zIndex(1)
+            case .arxiv:
+                HomeEmbeddedPage(title: "arXiv") { ArxivSearchView() }
+                    .transition(Self.homePageTransition).zIndex(1)
+            case .browser:
+                HomeEmbeddedPage(title: "Browser") { BrowserView() }
+                    .transition(Self.homePageTransition).zIndex(1)
+            case .browserUsePro:
+                HomeEmbeddedPage(title: "Browser-Use Pro") { BrowserUseWebUIView() }
+                    .transition(Self.homePageTransition).zIndex(1)
             }
 
             // Companion dock — hidden when the embedded graph is up so it
@@ -664,7 +672,7 @@ struct LandingView: View {
         case .pdfImport:
             runLandingPDFImport()
         case .arxiv:
-            showingArxivSearch = true
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .arxiv }
         case .provenance:
             UtilityWindowManager.shared.showSettings(section: .provenance)
         case .extensions, .vaultMCP:
@@ -672,9 +680,9 @@ struct LandingView: View {
         case .voice:
             UtilityWindowManager.shared.showSettings(section: .voice)
         case .browser:
-            UtilityWindowManager.shared.show(.browser)
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .browser }
         case .browserUsePro:
-            UtilityWindowManager.shared.show(.browserUsePro)
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .browserUsePro }
         case .meetingNote:
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
                 ui.homeContent = .meeting

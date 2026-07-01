@@ -361,6 +361,9 @@ final class UIState {
         case greeting
         case graph
         case meeting
+        case arxiv
+        case browser
+        case browserUsePro
     }
 
     var homeContent: HomeContent = .greeting
