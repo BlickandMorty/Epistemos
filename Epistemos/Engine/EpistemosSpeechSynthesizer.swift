@@ -127,6 +127,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
 
     public static let shared = EpistemosSpeechSynthesizer()
 
+    nonisolated static let maxTextToSpeechInputCharacters = KokoroCoreMLSynthesizer.maxInputCharacters
+
     nonisolated static let kokoroOnlyUnavailableMessage =
         "Kokoro text-to-speech requires a checked Pro Kokoro CoreML package. Apple AVSpeech is not used as a fallback."
 
@@ -161,6 +163,42 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             return kokoroOnlyUnavailableMessage
         }
         return status.headline
+    }
+
+    nonisolated static func isTextToSpeechInputSupported(_ text: String) -> Bool {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !cleaned.isEmpty && cleaned.count <= maxTextToSpeechInputCharacters
+    }
+
+    nonisolated static func textToSpeechStatusMessage(
+        for text: String,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) -> String {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else {
+            return "Nothing to read aloud."
+        }
+        guard isTextToSpeechAvailable(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        ) else {
+            return textToSpeechStatusMessage(
+                environment: environment,
+                modelRoot: modelRoot,
+                fileManager: fileManager
+            )
+        }
+        guard cleaned.count <= maxTextToSpeechInputCharacters else {
+            return "Kokoro text-to-speech is limited to \(maxTextToSpeechInputCharacters) characters. Select a shorter passage."
+        }
+        return textToSpeechStatusMessage(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
     }
 
     // MARK: - Internals
@@ -210,13 +248,12 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     ) -> String? {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return nil }
-
-        if synthesizer.isSpeaking || synthesizer.isPaused {
-            synthesizer.stopSpeaking(at: .immediate)
+        guard cleaned.count <= Self.maxTextToSpeechInputCharacters else {
+            Self.log.info(
+                "TTS unavailable chars=\(cleaned.count, privacy: .public); text exceeds Kokoro input cap"
+            )
+            return nil
         }
-        stopKokoroPlayback()
-        inflight.removeAll()
-        state = .idle
 
         guard Self.isTextToSpeechAvailable() else {
             Self.log.info(
@@ -224,6 +261,13 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             )
             return nil
         }
+
+        if synthesizer.isSpeaking || synthesizer.isPaused {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        stopKokoroPlayback()
+        inflight.removeAll()
+        state = .idle
 
         _ = voiceIdentifier
         _ = pitch

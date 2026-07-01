@@ -33,6 +33,8 @@ struct VoiceCodepackPlan3Tests {
             "AVAudioEngine",
             "raw-vocabulary",
             "advances observable read-aloud progress",
+            "preflight empty and over-cap text",
+            "oversized text cannot flip the UI into speaking state",
             "LocalPackages/KokoroPipeline",
             "Voice settings section now shows",
             "TTS unavailable",
@@ -157,7 +159,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(readAloud.contains("NativeControlChromePolicy"))
         #expect(readAloud.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
         #expect(readAloud.contains("EpistemosSpeechSynthesizer.textToSpeechStatusMessage()"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(text)"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.textToSpeechStatusMessage(for: text)"))
         #expect(readAloud.contains("guard isTextToSpeechAvailable else { return }"))
+        #expect(readAloud.contains("guard isTextToSpeechAvailable, isTextToSpeechInputSupported else { return }"))
         #expect(readAloud.contains("ui.theme.resolved.accent.color"))
         #expect(readAloud.contains("ui.theme.resolved.foreground.color.opacity"))
         #expect(!readAloud.contains(".buttonStyle(.borderless)"))
@@ -230,6 +235,26 @@ struct VoiceCodepackPlan3Tests {
         #expect(VoiceCapturePresentationBounds.statusMessage(" \n\t ") == "Voice input failed.")
         #expect(VoiceCapturePresentationBounds.statusMessage("Voice\ninput\tready\u{0007}") == "Voice input ready")
         #expect(VoiceCaptureDiagnostics.safeDomain("NS\nCocoa\tError") == "Error")
+    }
+
+    @Test("Kokoro TTS input helpers reject empty and oversized text before playback")
+    func kokoroTTSInputHelpersRejectEmptyAndOversizedTextBeforePlayback() throws {
+        let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
+        let oversized = String(
+            repeating: "a",
+            count: EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters + 1
+        )
+
+        #expect(EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(" short text "))
+        #expect(!EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(" \n\t "))
+        #expect(!EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(oversized))
+        #expect(synth.contains("maxTextToSpeechInputCharacters = KokoroCoreMLSynthesizer.maxInputCharacters"))
+        #expect(synth.contains("guard cleaned.count <= Self.maxTextToSpeechInputCharacters else"))
+        #expect(synth.contains("text exceeds Kokoro input cap"))
+
+        let lengthGuard = try #require(synth.range(of: "guard cleaned.count <= Self.maxTextToSpeechInputCharacters else")?.lowerBound)
+        let stopPlayback = try #require(synth.range(of: "if synthesizer.isSpeaking || synthesizer.isPaused")?.lowerBound)
+        #expect(lengthGuard < stopPlayback)
     }
 
     @Test("voice diagnostics redact path-leaking external errors")

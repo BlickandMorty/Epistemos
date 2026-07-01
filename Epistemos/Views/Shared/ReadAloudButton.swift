@@ -108,6 +108,8 @@ public struct ReadAloudButton: View {
     private var contextActions: some View {
         if !isTextToSpeechAvailable {
             Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
+        } else if !isTextToSpeechInputSupported {
+            Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage(for: text))
         } else if synth.state.isActive {
             Button("Stop", systemImage: "stop.fill") { synth.stop() }
             switch synth.state {
@@ -128,13 +130,17 @@ public struct ReadAloudButton: View {
     // MARK: - Derived
 
     private var disabled: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !isTextToSpeechAvailable
+        !isTextToSpeechAvailable || !isTextToSpeechInputSupported
     }
 
     private var isActive: Bool { synth.state.isActive }
 
     private var isTextToSpeechAvailable: Bool {
         EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+    }
+
+    private var isTextToSpeechInputSupported: Bool {
+        EpistemosSpeechSynthesizer.isTextToSpeechInputSupported(text)
     }
 
     private var chromePolicy: NativeControlChromePolicy {
@@ -175,6 +181,9 @@ public struct ReadAloudButton: View {
         guard isTextToSpeechAvailable else {
             return EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
         }
+        guard isTextToSpeechInputSupported else {
+            return EpistemosSpeechSynthesizer.textToSpeechStatusMessage(for: text)
+        }
         switch synth.state {
         case .idle:     return "Read aloud"
         case .speaking: return "Pause read-aloud"
@@ -185,7 +194,7 @@ public struct ReadAloudButton: View {
     // MARK: - Action
 
     private func toggle() {
-        guard isTextToSpeechAvailable else { return }
+        guard isTextToSpeechAvailable, isTextToSpeechInputSupported else { return }
         switch synth.state {
         case .idle:
             synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch)

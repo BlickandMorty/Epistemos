@@ -66,7 +66,9 @@
   `af_heart` 256-Float32 voice embedding, and instantiates `KokoroPipeline` on demand. `KokoroCoreMLSynthesizer` tokenizes
   supported raw vocabulary characters, chunks to the manifest duration-token cap, joins synthesized 24 kHz PCM, and
   `EpistemosSpeechSynthesizer` plays it through `AVAudioEngine` while advancing observable read-aloud progress from
-  `AVAudioPlayerNode` render time. This remains native Swift/CoreML only: no model weights
+  `AVAudioPlayerNode` render time. Shared read-aloud controls now preflight empty and over-cap text against the same
+  Kokoro input envelope before starting playback, so oversized text cannot flip the UI into speaking state or interrupt
+  an active utterance just to fail in the renderer. This remains native Swift/CoreML only: no model weights
   are committed and no network downloader is added. A higher-quality phonemizer remains future polish; the live path is
   an honest raw-vocabulary Kokoro path.
 - **Local Kokoro package install/removal is real and playback-enabling:** `KokoroVoicePackageInstaller` lets Pro users choose a
@@ -160,7 +162,7 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 
 ## Verification gates
 - Unit/source tests prove `speak()` does not call `AVSpeechSynthesizer.speak`; checked Pro packages use the native Kokoro
-  path.
+  path, and oversized Kokoro TTS input is rejected before playback state or interruption.
 - Source guards prove Personal Voice access stays compatibility-only and unavailable TTS UI uses shared theme chrome
   without hardcoded system colors or ad hoc bordered/link buttons.
 - Settings source guard proves every visible Auto/Manual row has a behavior consumer or an honest unavailable state.
