@@ -78,3 +78,24 @@ items land.
 - "Too connected" borders: audit + add dividers/separation across remaining context/toolbar UI (needs owner to point at spots).
 - Landing cleanup: conservative trims.
 - Editor perf (low): 250ms snapshot setInterval + Swift poll — gate on document.hidden / no-window.
+
+## THERMO-NUCLEAR PASS — COMPLETE (autonomous, 2026-07-01)
+Ran the strict thermo-nuclear review (4 agents) over this session's changes. APPLIED (all green, committed):
+- Goose SINGLE RUNTIME (b303972da): Cmd+3 reveals the pre-warmed embedded surface; deleted GooseSurfaceWindowController
+  (+AgentSurfaceWindowController) — code-judo deletion so only one GooseWebSurfaceView/runtime can ever mount. Also mount
+  the Goose layer when navigated-to so it's never blank.
+- AIPartner NSRange UTF-16 length fixes (c3cb25177): highlight mis-clamp on multibyte/emoji text.
+
+NOT applied — deferred with reason (avoid blind regressions; the owner should verify in-app):
+- HTMLWorkspaceEditorView dead helpers (handlePreviewContextDrop chain, applyPreviewContextItem, previewContextDropOverlay,
+  shouldShowPreviewContextSidebar, etc.): confirmed UNREFERENCED, but they're INTERLEAVED with LIVE methods
+  (refreshPreviewContextShortcut is used at :129; isCurrentRegenerateContextItem/droppedPreviewTargetDirective/
+  boundedDroppedContext are shared with kept code). Blind bulk-removal risks breaking the KEPT regenerate feature — needs
+  careful per-method dependency analysis + in-app verify. Harmless dead code meanwhile.
+- Delete the 2 now-dead files + reconcile the source-mirror test HTMLWorkspaceRegeneratePatchSynthesizerTests (fails on RUN,
+  not build; owner wants minimal tests; needs a test-run to verify — can't headless).
+- Goose affordance-bridge Process()/readFile off @MainActor (~4s freeze on git/large-file affordances); animation
+  double-driver polish (withAnimation wrappers vs view-level .animation); RootView landing-toolbar over embedded pages.
+  All need in-app verification.
+
+## STATUS: core program done + green. Autonomous loop concluding (owner away). Remaining items above need in-app verify.
