@@ -1281,7 +1281,10 @@ struct GooseWebUIStagingTests {
         #expect(script.contains("epistemos-provider-engine-picker-acp-family"))
         #expect(script.contains("epistemosProviderEngineLabel(provider)"))
         #expect(script.contains("data-testid=\"epistemos-provider-engine-label\""))
+        #expect(script.contains("epistemos-provider-engine-picker-grouped"))
+        #expect(script.contains("data-epistemos-provider-engine-group"))
         #expect(script.contains("data-epistemos-provider-engine-option"))
+        #expect(script.contains("options={providerOptionGroups}"))
         // Anti-silent-drift: the five formerly-silent ACP grafts (which would revert
         // to dead-in-ACP REST endpoints if upstream reformats their anchors) must
         // hard-FAIL the build on anchor drift, like the rest of the file. Lock each

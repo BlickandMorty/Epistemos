@@ -2572,6 +2572,30 @@ if (!source.includes('type ProviderOption =')) {
   engineLabel?: string;
 };
 
+type ProviderOptionGroup = {
+  label: string;
+  options: ProviderOption[];
+};
+
+function isEpistemosEngineProvider(option: ProviderOption): boolean {
+  return option.value !== 'configure_providers' && option.engineLabel !== 'Model provider';
+}
+
+function buildEpistemosProviderOptionGroups(options: ProviderOption[]): ProviderOptionGroup[] {
+  // epistemos-provider-engine-picker-grouped: keep ACP/CLI engines visible before generic model providers.
+  const engineOptions = options.filter(isEpistemosEngineProvider);
+  const modelProviderOptions = options.filter(
+    (option) => option.value !== 'configure_providers' && !isEpistemosEngineProvider(option)
+  );
+  const actionOptions = options.filter((option) => option.value === 'configure_providers');
+
+  return [
+    engineOptions.length ? { label: 'ACP / CLI engines', options: engineOptions } : null,
+    modelProviderOptions.length ? { label: 'Model providers', options: modelProviderOptions } : null,
+    actionOptions.length ? { label: 'More', options: actionOptions } : null,
+  ].filter((group): group is ProviderOptionGroup => group !== null);
+}
+
 type SwitchModelModalProps = {`
   );
 }
@@ -2579,7 +2603,8 @@ type SwitchModelModalProps = {`
 replaceRequired(
   'provider option state type',
   `  const [providerOptions, setProviderOptions] = useState<{ value: string; label: string }[]>([]);`,
-  `  const [providerOptions, setProviderOptions] = useState<ProviderOption[]>([]);`
+  `  const [providerOptions, setProviderOptions] = useState<ProviderOption[]>([]);
+  const providerOptionGroups = buildEpistemosProviderOptionGroups(providerOptions);`
 );
 
 replaceRequired(
@@ -2606,6 +2631,18 @@ replaceRequired(
   `                  placeholder={intl.formatMessage(i18n.providerPlaceholder)}
                   isClearable`,
   `                  placeholder={intl.formatMessage(i18n.providerPlaceholder)}
+                  formatGroupLabel={(group: unknown) => {
+                    const providerGroup = group as ProviderOptionGroup;
+                    return (
+                      <span
+                        className="flex items-center justify-between gap-3 px-1 py-1 text-[10px] font-mono text-text-secondary"
+                        data-epistemos-provider-engine-group
+                      >
+                        <span>{providerGroup.label}</span>
+                        <span>{providerGroup.options.length}</span>
+                      </span>
+                    );
+                  }}
                   formatOptionLabel={(option: unknown) => {
                     const providerOption = option as ProviderOption;
                     if (providerOption.value === 'configure_providers') {
@@ -2626,12 +2663,23 @@ replaceRequired(
                     );
                   }}
                   isClearable`
+  );
+
+replaceRequired(
+  'provider select grouped options',
+  `                  options={providerOptions}`,
+  `                  options={providerOptionGroups}`
 );
 
 for (const snippet of [
   'type ProviderOption =',
+  'type ProviderOptionGroup =',
+  'buildEpistemosProviderOptionGroups(providerOptions)',
+  'epistemos-provider-engine-picker-grouped',
   'engineLabel: epistemosProviderEngineLabel(activeProvider)',
+  'data-epistemos-provider-engine-group',
   'data-epistemos-provider-engine-option',
+  'options={providerOptionGroups}',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`SwitchModelModal staged source is missing provider engine snippet: ${snippet}`);
@@ -6675,7 +6723,10 @@ JS
     grep -q "rounded-\\[12px\\] bg-background-warning/55" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "mt-1 text-sm text-text-warning" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "className=\"text-sm text-text-warning\"" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
+    grep -q "epistemos-provider-engine-picker-grouped" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
+    grep -q "data-epistemos-provider-engine-group" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "data-epistemos-provider-engine-option" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
+    grep -q "options={providerOptionGroups}" "$WORK_ROOT/ui/desktop/src/components/settings/models/subcomponents/SwitchModelModal.tsx"
     grep -q "min-h-9 rounded-\\[8px\\] px-3 py-2" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/ShortcutRecorder.tsx"
     grep -q "focus:outline-none" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/ShortcutRecorder.tsx"
     grep -q "bg-background-warning/55" "$WORK_ROOT/ui/desktop/src/components/settings/keyboard/KeyboardShortcutsSection.tsx"
