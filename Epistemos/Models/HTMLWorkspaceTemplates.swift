@@ -800,6 +800,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
           selectPinnedContext(key);
         });
         card.addEventListener('keydown', (event) => {
+          if (event.target && event.target.closest && event.target.closest('[data-unpin-context]')) { return; }
           if (event.key !== 'Enter' && event.key !== ' ') { return; }
           event.preventDefault();
           selectPinnedContext(key);

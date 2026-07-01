@@ -780,6 +780,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.scriptJS.contains("function updatePinButton(selected)"))
         #expect(package.scriptJS.contains("function renderPinnedContext(allResults)"))
         #expect(package.scriptJS.contains("function selectPinnedContext(key)"))
+        #expect(package.scriptJS.contains("event.target.closest('[data-unpin-context]')"))
         #expect(package.scriptJS.contains("function pinContextKey(key)"))
         #expect(package.scriptJS.contains("function pinSelectedContext()"))
         #expect(package.scriptJS.contains("function refreshContextDropStatus(allResults)"))
