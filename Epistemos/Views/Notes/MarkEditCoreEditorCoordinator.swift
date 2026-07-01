@@ -300,7 +300,11 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         attempt: Int
     ) {
         guard attempt < 160 else {
-            showLoadFailure(in: webView, message: "MarkEdit CoreEditor failed to load. Check CoreEditor chunks, the chunk-loader scheme, and the MarkEdit native bridge.")
+            showLoadFailure(
+                in: webView,
+                message: "MarkEdit CoreEditor failed to load. Check CoreEditor chunks, the chunk-loader scheme, and the MarkEdit native bridge.",
+                force: true
+            )
             return
         }
 
@@ -328,8 +332,12 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         }
     }
 
-    private func showLoadFailure(in webView: WKWebView, message: String) {
-        guard !isDetached, !webView.isLoading else { return }
+    private func showLoadFailure(in webView: WKWebView, message: String, force: Bool = false) {
+        // `force` lets the terminal readiness-poll failure paint even while the WebView is still
+        // "loading" (a genuinely stuck load after ~8s) — otherwise the editor is left silently
+        // blank with no diagnostic. Every other caller already pre-checks !isLoading, so their
+        // behavior is unchanged. Painting on a mid-load (but not detached) WebView is crash-safe.
+        guard !isDetached, force || !webView.isLoading else { return }
         hasLoadedEditor = false
         isApplyingFromSwift = false
         let messageData = try? JSONEncoder().encode(message)
