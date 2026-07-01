@@ -544,7 +544,8 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(source.contains("for: requiredContextKind"))
         #expect(source.contains("let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: feed.normalizedQuery)"))
         #expect(source.contains("HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind)"))
-        #expect(source.contains("HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(preset.requiredContextKind)"))
+        #expect(source.contains("requiredContextKind: preset.requiredContextKind"))
+        #expect(source.contains("attachStandaloneRegenerateContext(feed: feed, requiredContextKind: requiredContextKind)"))
         #expect(source.contains("query: feed.normalizedQuery"))
         #expect(source.contains("requiredContextKind: requiredContextKind"))
     }
