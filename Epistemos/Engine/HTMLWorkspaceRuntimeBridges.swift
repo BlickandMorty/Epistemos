@@ -300,7 +300,8 @@ nonisolated struct HTMLWorkspaceElementInspection: Equatable, Sendable {
         var styles: [String: String] = [:]
         for (key, value) in rawStyles where styles.count < 24 {
             guard let safeKey = boundedString(key, limit: 64),
-                  let safeValue = boundedString(value, limit: 160) else { continue }
+                  let safeValue = boundedString(value, limit: 160),
+                  Self.isSafeStyleDeclaration(name: safeKey, value: safeValue) else { continue }
             styles[safeKey] = safeValue
         }
         return HTMLWorkspaceElementInspection(

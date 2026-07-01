@@ -203,6 +203,7 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(bridges.contains("classesFor(node, 4).map(function(name){ return escapeIdent(name, 96); })"))
         #expect(bridges.contains("try {\n          window.webkit.messageHandlers.epistemosWorkspaceInspector.postMessage"))
         #expect(bridges.contains("} catch (e) {}"))
+        #expect(bridges.contains("Self.isSafeStyleDeclaration(name: safeKey, value: safeValue)"))
     }
 
     @Test("DOM inspector style payloads accept WebKit dictionary shapes")
@@ -221,6 +222,27 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(inspection.selector == "main#hero")
         #expect(inspection.styles["font-size"] == "16px")
         #expect(inspection.styles["background-color"] == "rgb(0, 0, 0)")
+    }
+
+    @Test("DOM inspector drops unsafe style payload values before panel state")
+    func domInspectorDropsUnsafeStylePayloadValues() throws {
+        let inspection = try #require(HTMLWorkspaceElementInspection.fromMessageBody([
+            "selector": "main#hero",
+            "tagName": "main",
+            "styles": [
+                "font-size": "16px",
+                "background-image": "url(javascript:alert(1))",
+                "width": "expression(alert(1))",
+                "color": "red; background: blue",
+                "bad key": "10px",
+            ] as [String: Any],
+        ]))
+
+        #expect(inspection.styles["font-size"] == "16px")
+        #expect(inspection.styles["background-image"] == nil)
+        #expect(inspection.styles["width"] == nil)
+        #expect(inspection.styles["color"] == nil)
+        #expect(inspection.styles["bad key"] == nil)
     }
 
     @Test("DOM inspector can promote captured styles into a validated style patch")
