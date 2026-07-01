@@ -293,6 +293,68 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(explicitChatResults.isEmpty)
     }
 
+    @MainActor
+    @Test("web clip context source emits real clipped web notes")
+    func webClipContextSourceEmitsRealClippedWebNotes() throws {
+        let schema = Schema([SDPage.self, SDBlock.self, SDChat.self, SDMessage.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+
+        let clip = SDPage(title: "Example Article")
+        clip.body = "Readable clipped web article body."
+        clip.frontMatter = [
+            "source": "web",
+            "source_kind": "web_clip",
+            "source_title": "Example Article",
+            "source-url": "https://example.com/articles/a#section",
+            "captured_at": "2026-07-01T14:00:00Z",
+        ]
+        let meeting = SDPage(title: "Meeting")
+        meeting.body = "meeting transcript"
+        meeting.frontMatter = [
+            "source": "meeting_stt",
+            "source_kind": "audio_transcript",
+        ]
+        context.insert(clip)
+        context.insert(meeting)
+        try context.save()
+
+        let clipResults = HTMLWorkspaceDataFeedContextSources.webClipResults(
+            query: "web clip example",
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(clipResults.map(\.pageID) == [clip.id])
+        #expect(clipResults.first?.contextKind == "web_clip")
+        #expect(clipResults.first?.sourceLabel == "Web clip: example.com")
+        #expect(clipResults.first?.snippet == "Readable clipped web article body.")
+        #expect(clipResults.first?.provenance.contains("WebClipperMarkdownBuilder / web / web_clip") == true)
+        #expect(clipResults.first?.provenance.contains("url:https://example.com/articles/a#section") == true)
+
+        let genericResult = SearchResult(pageId: meeting.id, title: "Generic", snippet: "generic", rank: 0.7)
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "clips example"
+        )
+        #expect(triggeredResults.map(\.pageID) == [clip.id])
+        #expect(triggeredResults.first?.contextKind == "web_clip")
+
+        let explicitChatResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "recent_chat",
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "clips example"
+        )
+        #expect(explicitChatResults.isEmpty)
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
