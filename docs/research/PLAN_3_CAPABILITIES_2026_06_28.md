@@ -259,7 +259,8 @@ server discovery mirrors that no-userinfo/query/fragment URL policy, strict env-
 `ExtensionsDetailView` (Skills · MCP Servers ·
 Connectors · browser-use). MCP server settings status text caps success/failure messages and maps external config-write
 failures to bounded domain/code diagnostics before SwiftUI display, with raw failure/domain strings bounded before
-trimming or punctuation validation. `MCPBridge.dispatch` rejects oversized JSON-RPC
+trimming or punctuation validation; write-error LocalizedError descriptions are bounded at the source before any SwiftUI
+status layer can render them. `MCPBridge.dispatch` rejects oversized JSON-RPC
 requests before policy parsing or Rust
 dispatch. `ToolTierBridge` list/execution failures remain visible but external caught errors are bounded to domain/code
 diagnostics and tool JSON error payloads are capped before surfacing, with raw message/domain strings bounded before

@@ -72,9 +72,15 @@ nonisolated enum MCPUrlServerDirectory {
             case .invalidAuthorizationTokenEnv:
                 return "Authorization token environment variable must match [A-Za-z_][A-Za-z0-9_]*."
             case .inlineTokenPresent(let name):
-                return "Cannot rewrite MCP server config while \(name) stores an inline authorization_token. Move that secret to authorization_token_env first."
+                return MCPUrlServerDirectory.Diagnostics.failureReason(
+                    "Cannot rewrite MCP server config while \(name) stores an inline authorization_token. Move that secret to authorization_token_env first.",
+                    fallback: "Cannot rewrite MCP server config while an entry stores an inline authorization_token."
+                )
             case .writeFailed(let message):
-                return "Could not write MCP server config: \(message)"
+                return MCPUrlServerDirectory.Diagnostics.failureReason(
+                    "Could not write MCP server config: \(message)",
+                    fallback: "Could not write MCP server config."
+                )
             }
         }
     }

@@ -348,6 +348,22 @@ struct MCPUrlServerDirectoryTests {
         #expect(!message.contains("failed to open"))
     }
 
+    @Test("write error descriptions are bounded at the source")
+    func writeErrorDescriptionsAreBoundedAtSource() {
+        let longMessage = String(
+            repeating: "x",
+            count: MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters + 80
+        )
+
+        let writeDescription = MCPUrlServerDirectory.WriteError.writeFailed(longMessage).errorDescription ?? ""
+        let inlineDescription = MCPUrlServerDirectory.WriteError.inlineTokenPresent(longMessage).errorDescription ?? ""
+
+        #expect(writeDescription.count <= MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters)
+        #expect(inlineDescription.count <= MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters)
+        #expect(writeDescription.hasSuffix("..."))
+        #expect(inlineDescription.hasSuffix("..."))
+    }
+
     @Test("extensions settings status routes MCP server failures through diagnostics")
     func extensionsSettingsStatusRoutesMCPServerFailuresThroughDiagnostics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
@@ -361,6 +377,9 @@ struct MCPUrlServerDirectoryTests {
         #expect(source.contains("MCPUrlServerDirectory.Diagnostics.externalErrorDescription"))
         #expect(!source.contains("return .failure(error.localizedDescription)"))
         #expect(directory.contains("enum Diagnostics"))
+        #expect(directory.contains("MCPUrlServerDirectory.Diagnostics.failureReason("))
+        #expect(directory.contains("Could not write MCP server config:"))
+        #expect(directory.contains("Cannot rewrite MCP server config while"))
         #expect(directory.contains("Diagnostics.externalErrorDescription(error, fallback: \"filesystem error\")"))
         #expect(directory.contains(".posixPermissions: 0o700"))
         #expect(directory.contains(".posixPermissions: 0o600"))

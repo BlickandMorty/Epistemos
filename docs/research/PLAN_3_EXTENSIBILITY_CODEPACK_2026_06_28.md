@@ -56,7 +56,8 @@ surface. Skills settings status text caps skill-manager messages and maps extern
 bounded domain/code diagnostics before SwiftUI display, with raw message/domain strings bounded before trim/validation.
 MCP server settings
 status text caps success/failure messages and maps external config-write failures to bounded domain/code diagnostics,
-with raw failure/domain strings bounded before trimming or punctuation validation.
+with raw failure/domain strings bounded before trimming or punctuation validation; write-error LocalizedError descriptions
+are bounded at the source before any SwiftUI status layer can render them.
 Primary MCP-server, marketplace, preset, and connector refresh actions render through `ToolbarCapsuleButton` native
 chrome instead of local plain buttons, and status text/pills use `UIState` theme tokens rather than fixed
 traffic-light colors. Repeated installed-server, registry, preset, and connector rows use a shared fixed row gap instead
