@@ -123,6 +123,10 @@ nonisolated public struct AnswerPacketStore: Sendable {
             close(fd)
             throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
         }
+        guard fileStatus.st_nlink == 1 else {
+            close(fd)
+            throw storeError("answer packet log is linked from another path", errnoCode: EMLINK)
+        }
         guard fileStatus.st_size >= 0 else {
             close(fd)
             throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
@@ -170,6 +174,10 @@ nonisolated public struct AnswerPacketStore: Sendable {
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             close(fd)
             throw storeError("answer packet log is not a regular file", errnoCode: EFTYPE)
+        }
+        guard fileStatus.st_nlink == 1 else {
+            close(fd)
+            throw storeError("answer packet log is linked from another path", errnoCode: EMLINK)
         }
         if !truncate, let appendingBytes {
             guard fileStatus.st_size >= 0 else {

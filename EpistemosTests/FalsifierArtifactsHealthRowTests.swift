@@ -46,6 +46,25 @@ struct FalsifierArtifactsHealthRowTests {
         #expect(FalsifierArtifactResultReader.jsonObject(at: result) == nil)
     }
 
+    @Test("result reader rejects hardlinked artifacts")
+    func resultReaderRejectsHardlinkedArtifacts() throws {
+        let root = try temporaryDirectory()
+        let artifact = root.appendingPathComponent("artifact", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(at: artifact, withIntermediateDirectories: true)
+        let result = artifact.appendingPathComponent("result.json")
+        let alias = root.appendingPathComponent("alias.json")
+        try #"{"overall_pass":true}"#.write(to: result, atomically: true, encoding: .utf8)
+        guard (try? FileManager.default.linkItem(at: result, to: alias)) != nil else {
+            return
+        }
+
+        #expect(FalsifierArtifactResultReader.resultData(at: result) == nil)
+        #expect(FalsifierArtifactResultReader.jsonObject(at: result) == nil)
+        #expect(FalsifierArtifactResultReader.artifactDirectories(in: root).isEmpty)
+    }
+
     @Test("artifact directory scan rejects symlinked falsifier directories")
     func artifactDirectoryScanRejectsSymlinkedFalsifierDirectories() throws {
         let root = try temporaryDirectory()
@@ -111,6 +130,7 @@ struct FalsifierArtifactsHealthRowTests {
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
             "S_IFREG",
+            "st_nlink <= 1",
             "readToEnd()",
             "data.count <= maxResultBytes"
         ] {

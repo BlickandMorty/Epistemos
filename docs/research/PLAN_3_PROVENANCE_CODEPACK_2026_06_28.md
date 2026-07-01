@@ -14,7 +14,7 @@ ACS anchors as verification evidence; `uasAddress` is stable identity metadata a
 (`SettingsSurfaceComponents.swift`). `RustProvenanceLedgerClient.summary().claimCount` + `RustCognitiveDagClient.stats().nodeCount`
 exist, `nonisolated`, return `.empty` when FFI absent, and are used by `VerifiedFloorLiveBacking`. `ChatMessage.answerPacketId`
 plus `LatestAnswerPacketSink.shared.packet(for:)` are the per-turn packet bridge. `FalsifierArtifactsHealthRow`
-shallow-enumerates a capped set of `artifacts/falsifiers/*` candidates, requires a readable bounded regular
+shallow-enumerates a capped set of `artifacts/falsifiers/*` candidates, requires a readable bounded regular single-link
 `result.json`, reads it through a no-follow regular-file envelope, and skips symlinked falsifier directories.
 
 ## Fix A — honest label gate [DELIVERED]
@@ -98,7 +98,7 @@ they reach GenUI rows, normalizes control/whitespace characters before GenUI ren
 Durable `AnswerPacketStore` persistence is append-only JSONL under Application Support, but the store treats the log as
 a bounded provenance artifact: appends reject encoded packets or projected post-append logs over 8 MiB after opening
 the final file with `O_NOFOLLOW` plus `fstat`, while compaction reads/writes and load/restore reads use the same
-regular-file validation; loads reject symlink/non-regular logs, reads/writes reject a symlinked log directory before
+regular-file and single-link validation; loads reject symlink/hardlink/non-regular logs, reads/writes reject a symlinked log directory before
 opening the file, and read/restore work is capped at 8 MiB before JSON decoding.
 Lineage display filters non-finite verification scores and clamps the displayed score into the 0...1 range; copyable
 lineage JSON encodes non-finite residency floats deterministically instead of falling back to an `encoding_failed`

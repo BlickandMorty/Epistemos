@@ -74,6 +74,10 @@ nonisolated enum FalsifierArtifactResultReader {
             close(fd)
             return nil
         }
+        guard fileStatus.st_nlink <= 1 else {
+            close(fd)
+            return nil
+        }
         guard fileStatus.st_size >= 0,
               UInt64(fileStatus.st_size) <= UInt64(maxResultBytes) else {
             close(fd)
@@ -95,11 +99,15 @@ nonisolated enum FalsifierArtifactResultReader {
     ) -> Bool {
         guard url.isFileURL,
               fileManager.isReadableFile(atPath: url.path),
-              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil,
-              let attributes = try? fileManager.attributesOfItem(atPath: url.path),
-              attributes[.type] as? FileAttributeType == .typeRegular,
-              let size = attributes[.size] as? NSNumber,
-              size.uint64Value <= UInt64(maxResultBytes) else {
+              (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) == nil else {
+            return false
+        }
+        var fileStatus = stat()
+        guard lstat(url.path, &fileStatus) == 0,
+              (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
+              fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxResultBytes) else {
             return false
         }
         return true

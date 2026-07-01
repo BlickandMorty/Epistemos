@@ -173,6 +173,39 @@ struct AnswerPacketStoreTests {
         }
     }
 
+    @Test("store rejects hardlinked persistence logs")
+    func rejectsHardlinkedPersistenceLog() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apstore-hardlink-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let outside = root.appendingPathComponent("outside.jsonl")
+        let hardlink = root.appendingPathComponent("answer_packets.jsonl")
+        try Data("outside original\n".utf8).write(to: outside)
+        guard (try? FileManager.default.linkItem(at: outside, to: hardlink)) != nil else {
+            return
+        }
+        let store = AnswerPacketStore(fileURL: hardlink)
+
+        do {
+            try store.append(packet("blocked"))
+            Issue.record("Expected hardlinked AnswerPacket log append to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("linked from another path"))
+        }
+        #expect(try String(contentsOf: outside, encoding: .utf8) == "outside original\n")
+
+        do {
+            _ = try store.loadRecent(limit: 10)
+            Issue.record("Expected hardlinked AnswerPacket log load to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("linked from another path"))
+        }
+    }
+
     @Test("store rejects non-regular persistence logs")
     func rejectsNonRegularPersistenceLog() throws {
         let root = FileManager.default.temporaryDirectory
@@ -279,6 +312,8 @@ struct AnswerPacketStoreTests {
         #expect(store.contains("O_WRONLY | O_CREAT | O_NOFOLLOW | O_CLOEXEC"))
         #expect(store.contains("readStoreFileText"))
         #expect(store.contains("destinationOfSymbolicLink"))
+        #expect(store.contains("fileStatus.st_nlink == 1"))
+        #expect(store.contains("answer packet log is linked from another path"))
         #expect(store.contains("validateStoreDirectoryPath"))
         #expect(store.contains("answer packet log directory is a symbolic link"))
         #expect(store.contains("fstat(fd"))
