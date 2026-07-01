@@ -58,7 +58,7 @@
   selected until both the checked package and real neural inference runtime are proven.
 - **Local Kokoro package install/removal is real but runtime-disabled:** `KokoroVoicePackageInstaller` lets Pro users choose a
   prepared `kokoro-82m-coreml` folder (or its parent), validates it with the existing gate, rejects symlink descendants,
-  stages it under Application Support with backup/restore finalization, and revalidates the installed package before the
+  rejects symlink-routed install roots before Application Support writes, stages it under Application Support with backup/restore finalization, and revalidates the installed package before the
   settings row reports `packageReady`; the same Pro settings row now displays the gate's manifest-derived package
   evidence and can remove the installed local package, returning the gate to missing-model status without enabling the neural runtime. There is still no committed Kokoro model asset,
   neural inference runtime, Python, subprocess, network downloader, or MAS-visible Kokoro row.

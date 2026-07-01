@@ -419,6 +419,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(installer.contains("sourceModelDirectory("))
         #expect(installer.contains("KokoroVoiceGateStatus.status("))
         #expect(installer.contains("package could not be finalized"))
+        #expect(installer.contains("rejectSymlinkedInstallRoute(modelRoot"))
+        #expect(installer.contains("install path must not include symlink component"))
+        #expect(installer.contains("firstExistingSymlinkComponent"))
+        #expect(installer.contains("isMacOSCompatibilitySymlink"))
         #expect(installer.contains("VoiceCapturePresentationBounds.statusMessage"))
         #expect(installer.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(!section.contains("Color.green"))
@@ -545,6 +549,37 @@ struct VoiceCodepackPlan3Tests {
         #expect(removed.status.state == .missingModel)
         #expect(!FileManager.default.fileExists(
             atPath: targetRoot
+                .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+                .path
+        ))
+        #else
+        #expect(true)
+        #endif
+    }
+
+    @Test("Kokoro package installer rejects symlinked install roots")
+    func kokoroPackageInstallerRejectsSymlinkedInstallRoots() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("kokoro-install-route-\(UUID().uuidString)", isDirectory: true)
+        let outside = root.appendingPathComponent("outside", isDirectory: true)
+        let linkedRoot = root.appendingPathComponent("linked-root", isDirectory: true)
+        defer { try? fm.removeItem(at: root) }
+
+        try fm.createDirectory(at: outside, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(at: linkedRoot, withDestinationURL: outside)
+
+        do {
+            _ = try KokoroVoicePackageInstaller.removeInstalledPackage(modelRoot: linkedRoot)
+            Issue.record("Expected symlinked Kokoro install root to be rejected")
+        } catch let error as KokoroVoicePackageInstaller.InstallError {
+            #expect(error.errorDescription?.contains("install path must not include symlink component linked-root") == true)
+            #expect(error.errorDescription?.contains(outside.path) == false)
+        }
+
+        #expect(!fm.fileExists(
+            atPath: outside
                 .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
                 .path
         ))

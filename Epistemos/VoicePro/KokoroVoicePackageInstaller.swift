@@ -92,6 +92,7 @@ nonisolated enum KokoroVoicePackageInstaller {
             throw InstallError.modelRootUnavailable
         }
 
+        try rejectSymlinkedInstallRoute(modelRoot, fileManager: fileManager)
         let sourceModelDirectory = try sourceModelDirectory(from: selectedURL, fileManager: fileManager)
         let sourceRoot = sourceModelDirectory.deletingLastPathComponent()
         let sourceStatus = KokoroVoiceGateStatus.status(
@@ -105,6 +106,7 @@ nonisolated enum KokoroVoicePackageInstaller {
         try rejectSymlinkDescendants(in: sourceModelDirectory, fileManager: fileManager)
 
         try fileManager.createDirectory(at: modelRoot, withIntermediateDirectories: true)
+        try rejectSymlinkedInstallRoute(modelRoot, fileManager: fileManager)
         try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: modelRoot.path)
 
         let tempRoot = modelRoot.appendingPathComponent(".kokoro-install-\(UUID().uuidString)", isDirectory: true)
@@ -175,7 +177,9 @@ nonisolated enum KokoroVoicePackageInstaller {
             throw InstallError.modelRootUnavailable
         }
 
+        try rejectSymlinkedInstallRoute(modelRoot, fileManager: fileManager)
         try fileManager.createDirectory(at: modelRoot, withIntermediateDirectories: true)
+        try rejectSymlinkedInstallRoute(modelRoot, fileManager: fileManager)
         try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: modelRoot.path)
 
         let finalModelDirectory = modelRoot.appendingPathComponent(
@@ -272,6 +276,52 @@ nonisolated enum KokoroVoicePackageInstaller {
             return true
         }
         return (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
+    }
+
+    private static func rejectSymlinkedInstallRoute(
+        _ rootURL: URL,
+        fileManager: FileManager
+    ) throws {
+        if let component = firstExistingSymlinkComponent(in: rootURL, fileManager: fileManager) {
+            throw InstallError.installFailed(
+                "install path must not include symlink component \(bounded(component.lastPathComponent))"
+            )
+        }
+    }
+
+    private static func firstExistingSymlinkComponent(
+        in url: URL,
+        fileManager: FileManager
+    ) -> URL? {
+        let standardized = url.standardizedFileURL
+        let path = standardized.path
+        let components = path.split(separator: "/", omittingEmptySubsequences: true)
+        var current = path.hasPrefix("/")
+            ? URL(fileURLWithPath: "/", isDirectory: true)
+            : URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+
+        for component in components {
+            current = current.appendingPathComponent(String(component), isDirectory: false)
+            guard !isMacOSCompatibilitySymlink(current) else {
+                continue
+            }
+            if (try? fileManager.destinationOfSymbolicLink(atPath: current.path)) != nil {
+                return current
+            }
+            if !fileManager.fileExists(atPath: current.path) {
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private static func isMacOSCompatibilitySymlink(_ url: URL) -> Bool {
+        switch url.path {
+        case "/etc", "/tmp", "/var":
+            return true
+        default:
+            return false
+        }
     }
 
     private static func relativeDiagnostic(_ url: URL, rootURL: URL) -> String {
