@@ -16,7 +16,17 @@ struct AppleNativeSharedViewsPlan3Tests {
             "isReadableRegularFileURL",
             "final class FilePreviewItem: NSObject, QLPreviewItem",
             "final class FilePreviewController: NSObject, @MainActor QLPreviewPanelDataSource, @MainActor QLPreviewPanelDelegate",
+            "nonisolated enum FilePreviewDisplayBounds",
+            "maxPreviewItems",
+            "maxTitleCharacters",
+            "String(value.prefix(maxTitleCharacters + 32))",
+            "String(trimmed.prefix(maxTitleCharacters - 3))",
+            "FilePreviewDisplayBounds.title",
+            "prefix(FilePreviewDisplayBounds.maxPreviewItems)",
             "struct FilePreviewButton",
+            "ToolbarCapsuleButton(",
+            "role: .toolbarUtility",
+            "chromePolicy: .bareUntilPressed",
             "func filePreview(_ previewURL: Binding<URL?>) -> some View",
             "QLPreviewPanel.shared()",
             "destinationOfSymbolicLink(atPath:",
@@ -35,9 +45,12 @@ struct AppleNativeSharedViewsPlan3Tests {
             "maxPointDimension",
             "maxPixelDimension",
             "maxPixelCount",
+            "maxRepresentationCount",
+            "maxRecognizedTextCharacters",
             "ImageAnalysisOverlayView",
             "ImageAnalyzer.isSupported",
             "LiveTextImageAnalysisPolicy.isEligibleForAnalysis(image)",
+            "LiveTextImageAnalysisPolicy.recognizedText(analysis.transcript)",
             "image.representations",
             "pixelsWide",
             "pixelsHigh",
@@ -45,7 +58,8 @@ struct AppleNativeSharedViewsPlan3Tests {
             "analysisTask?.cancel()",
             "onTextRecognized(transcript)",
             "overlay.trackingImageView = imageView",
-            "overlay.preferredInteractionTypes = .automatic"
+            "overlay.preferredInteractionTypes = .automatic",
+            "ui.theme.surfaceVariant(.other).resolved.mutedForeground.color"
         ] {
             #expect(liveText.contains(required), "LiveTextImageView missing expected API: \(required)")
         }
@@ -61,10 +75,22 @@ struct AppleNativeSharedViewsPlan3Tests {
             "maxThumbnailDimension",
             "maxThumbnailScale",
             "validatedSize",
-            "displaySize"
+            "displaySize",
+            "@Environment(UIState.self)",
+            "ui.theme.surfaceVariant(.other).resolved.mutedForeground.color"
         ] {
             #expect(thumbnail.contains(required), "FileThumbnail missing expected API: \(required)")
         }
+
+        for forbidden in [
+            "Button {",
+            ".buttonStyle(.plain)",
+            ".buttonStyle(.borderless)"
+        ] {
+            #expect(!preview.contains(forbidden), "FilePreview should use native toolbar chrome, not: \(forbidden)")
+        }
+        #expect(!liveText.contains(".foregroundStyle(.secondary)"))
+        #expect(!thumbnail.contains(".foregroundStyle(.secondary)"))
     }
 
     @Test("thumbnailer rejects invalid inputs before Quick Look generation")
@@ -137,6 +163,23 @@ struct AppleNativeSharedViewsPlan3Tests {
         if let oversizedPixelRep {
             oversizedPixels.addRepresentation(oversizedPixelRep)
         }
+        let tooManyRepresentations = NSImage(size: NSSize(width: 128, height: 128))
+        for _ in 0...LiveTextImageAnalysisPolicy.maxRepresentationCount {
+            if let representation = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: 8,
+                pixelsHigh: 8,
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            ) {
+                tooManyRepresentations.addRepresentation(representation)
+            }
+        }
 
         #expect(LiveTextImageAnalysisPolicy.isEligibleForAnalysis(bounded))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(nil))
@@ -144,6 +187,23 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(emptyContainer))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(oversizedPoints))
         #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(oversizedPixels))
+        #expect(!LiveTextImageAnalysisPolicy.isEligibleForAnalysis(tooManyRepresentations))
+        #expect(LiveTextImageAnalysisPolicy.recognizedText("  hello\n") == "hello")
+        #expect(
+            LiveTextImageAnalysisPolicy.recognizedText(
+                String(repeating: "x", count: LiveTextImageAnalysisPolicy.maxRecognizedTextCharacters + 32)
+            ) == String(repeating: "x", count: LiveTextImageAnalysisPolicy.maxRecognizedTextCharacters)
+        )
+    }
+
+    @Test("preview display bounds cap titles before Quick Look sees them")
+    func previewDisplayBoundsCapTitlesBeforeQuickLook() {
+        let longTitle = String(repeating: "t", count: FilePreviewDisplayBounds.maxTitleCharacters + 32)
+        let expected = String(longTitle.prefix(FilePreviewDisplayBounds.maxTitleCharacters - 3)) + "..."
+        let item = FilePreviewItem(url: URL(fileURLWithPath: "/tmp/\(longTitle).txt"), title: longTitle)
+
+        #expect(FilePreviewDisplayBounds.title("  \(longTitle)\n") == expected)
+        #expect(item.previewItemTitle == expected)
     }
 
     @Test("preview policy rejects remote directory and symlink URLs")

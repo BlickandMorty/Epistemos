@@ -89,6 +89,9 @@ struct FileAttachmentBuilderTests {
         #expect(!message.contains("/Users/jojo"))
         #expect(!message.contains("PrivateVault"))
         #expect(!message.contains("secret.md"))
+
+        let longName = String(repeating: "a", count: FileAttachmentDiagnostics.maxDisplayNameCharacters + 32) + ".pdf"
+        #expect(FileAttachmentDiagnostics.displayName("  \(longName)\n").count == FileAttachmentDiagnostics.maxDisplayNameCharacters)
     }
 
     @Test("attachment logs avoid raw file errors")
@@ -96,6 +99,9 @@ struct FileAttachmentBuilderTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatComposerKeyboard.swift")
 
         #expect(source.contains("FileAttachmentDiagnostics.logMessage"))
+        #expect(source.contains("FileAttachmentDiagnostics.displayName(url.lastPathComponent)"))
+        #expect(source.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
         #expect(!source.contains("failed to read file size for \\(url.lastPathComponent"))

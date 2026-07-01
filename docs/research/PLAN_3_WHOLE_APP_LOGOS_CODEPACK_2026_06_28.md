@@ -24,13 +24,15 @@
   store tokens or pretend a connector is connected.
 - [VERIFIED-CODE] `Epistemos/Views/Shared/IntegrationBrandMark.swift` is the
   non-model brand registry. It has no runtime logo download path and no official
-  vendor asset claims.
+  vendor asset claims. Monogram fallbacks render as flat, borderless local marks
+  backed by `UIState` theme tokens.
 - [VERIFIED-CODE] `Epistemos/Views/Settings/ExtensionsDetailView.swift` uses
   `IntegrationBrandMarkView` for installed MCP servers, marketplace rows,
   best-of preset rows, and connectors.
 - [VERIFIED-CODE] `Epistemos/Views/Settings/SkillsSettingsView.swift` uses
   `IntegrationBrandMarkView` for discovered skills, create/install skill rows,
-  and installed skills.
+  and installed skills, tinted from the active Settings theme tokens rather than
+  hierarchical system secondary styling.
 - [VERIFIED-CODE] The Plan 3 arXiv, Browser, and Meeting utility headers use
   `IntegrationBrandMarkView`.
 - [VERIFIED-CODE] The browser-use Pro Settings diagnostics surface uses the
@@ -43,6 +45,9 @@
 - [VERIFIED-CODE] Settings sidebar branded rows now use `SettingsIntegrationBrandBadge`
   and a typed `SettingsSection.sidebarBrand` mapping for Voice, Extensions, Vault,
   and Provenance while unbranded rows stay on the existing local symbol badge.
+  Sidebar row descriptions read the active settings theme muted token.
+  Settings disclosure subtitles read the active theme muted token rather than
+  hierarchical system secondary styling.
 
 ## Non-Goals And Boundaries
 
@@ -70,9 +75,10 @@ Add a non-model brand registry beside the existing provider registry:
   vault, web, graph, MCP, skills, registries, connectors, arXiv, Browser,
   meeting/STT, voice, provenance, and landing features.
 - `IntegrationBrandMarkView` renders a vetted asset when present, otherwise a
-  deterministic SF Symbol or monogram fallback.
-- Registry classifiers bound arbitrary MCP/skill/connector input before
-  normalization so oversized registry names cannot drive unbounded UI string work.
+  deterministic SF Symbol or flat monogram fallback.
+- Registry classifiers bound each arbitrary MCP/skill/connector input, including
+  source/kind/install-source fields, before joining, trimming, and normalization
+  so oversized registry names cannot drive unbounded UI string work.
 - Surface code asks the registry for a brand. It must not add local ad-hoc
   `if name contains` chains in view bodies.
 

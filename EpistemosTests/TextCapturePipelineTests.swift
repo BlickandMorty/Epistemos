@@ -987,6 +987,8 @@ struct TextCapturePipelineTests {
         #expect(traceInspector.contains("pixelPanel(theme: theme"))
         #expect(traceInspector.contains("PixelPanelTitle(text: \"Capture Trace Inspector\""))
         #expect(traceInspector.contains("TraceInspectorDiagnostics.externalLogMessage"))
+        #expect(traceInspector.contains("String(message.prefix(limit + 32))"))
+        #expect(traceInspector.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!traceInspector.contains("error.localizedDescription"))
         #expect(!traceInspector.contains("String(describing: error)"))
         #expect(!traceInspector.contains("List(viewModel.traces)"))
@@ -1051,6 +1053,8 @@ struct TextCapturePipelineTests {
         #expect(durableGuards >= 2)
         #expect(source.contains("mutation envelope was not persisted"))
         #expect(source.contains("QuickCaptureDiagnostics.statusMessage"))
+        #expect(source.contains("String(message.prefix(maxStatusMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
     }

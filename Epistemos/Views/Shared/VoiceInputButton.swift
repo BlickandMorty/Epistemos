@@ -17,14 +17,13 @@ import SwiftUI
 //                  model (text field, note body, etc.)
 //
 // The control is stateful — flips between mic / mic.fill /
-// stop.circle.fill depending on phase. Uses the system accent color
-// for the "actively recording" pip so it matches Apple's own
-// dictation UI in TextEdit / Notes.
+// stop.circle.fill depending on phase. Recording pulse color comes
+// from the active Epistemos theme so custom palettes stay coherent.
 
 @MainActor
 public struct VoiceInputButton: View {
 
-    public enum Style: Sendable {
+    public enum Style: Sendable, Equatable {
         /// Compact icon-only button; matches toolbar density.
         case icon
         /// Icon + "Dictate" / "Stop" label; matches menu rows.
@@ -63,23 +62,7 @@ public struct VoiceInputButton: View {
     }
 
     public var body: some View {
-        Button(action: toggle) {
-            switch style {
-            case .icon:
-                iconLabel.frame(width: 22, height: 22)
-            case .labeled:
-                Label(label, systemImage: glyph)
-            case .iconWithPulse:
-                ZStack {
-                    if phase == .recording {
-                        recordingPulseRing
-                    }
-                    iconLabel
-                }
-            }
-        }
-        .buttonStyle(.borderless)
-        .help(help)
+        nativeButton
         .disabled(phase == .requesting || service.isUnavailable)
         .onChange(of: service.partialTranscript) { _, newValue in
             guard ownsCapture, !newValue.isEmpty else { return }
@@ -99,10 +82,33 @@ public struct VoiceInputButton: View {
     }
 
     @ViewBuilder
-    private var iconLabel: some View {
-        Image(systemName: glyph)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(phase == .recording ? Color.accentColor : Color.primary)
+    private var nativeButton: some View {
+        switch style {
+        case .icon, .labeled:
+            toolbarButton
+        case .iconWithPulse:
+            ZStack {
+                if phase == .recording {
+                    recordingPulseRing
+                }
+                toolbarButton
+            }
+            .frame(width: 32, height: 32)
+        }
+    }
+
+    private var toolbarButton: some View {
+        ToolbarCapsuleButton(
+            title: style == .labeled ? label : nil,
+            systemImage: glyph,
+            role: controlRole,
+            isActive: phase == .recording || phase == .requesting,
+            chromePolicy: chromePolicy,
+            helpText: help,
+            accessibilityLabel: label
+        ) {
+            toggle()
+        }
     }
 
     private var glyph: String {
@@ -123,6 +129,26 @@ public struct VoiceInputButton: View {
         }
     }
 
+    private var controlRole: NativeControlRole {
+        switch phase {
+        case .recording:
+            return .primaryAction
+        case .error:
+            return .secondaryGhost
+        case .idle, .requesting:
+            return .toolbarUtility
+        }
+    }
+
+    private var chromePolicy: NativeControlChromePolicy {
+        switch style {
+        case .labeled:
+            return .alwaysSurface
+        case .icon, .iconWithPulse:
+            return phase == .idle ? .bareUntilPressed : .alwaysSurface
+        }
+    }
+
     private var help: String {
         switch phase {
         case .idle:                    return "Dictate"
@@ -136,14 +162,14 @@ public struct VoiceInputButton: View {
     private var recordingPulseRing: some View {
         if reduceMotion || ui.windowOccluded {
             Circle()
-                .stroke(Color.accentColor.opacity(0.28), lineWidth: 1.5)
+                .stroke(ui.theme.resolved.accent.color.opacity(0.28), lineWidth: 1.5)
                 .frame(width: 26, height: 26)
         } else {
             TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
                 let progress = context.date.timeIntervalSinceReferenceDate
                     .truncatingRemainder(dividingBy: 1.0)
                 Circle()
-                    .stroke(Color.accentColor.opacity(0.35), lineWidth: 1.5)
+                    .stroke(ui.theme.resolved.accent.color.opacity(0.35), lineWidth: 1.5)
                     .frame(width: 26, height: 26)
                     .scaleEffect(1.0 + progress)
                     .opacity(1.0 - progress)

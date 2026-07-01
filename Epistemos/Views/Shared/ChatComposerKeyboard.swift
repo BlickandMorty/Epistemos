@@ -116,6 +116,8 @@ enum ChatComposerInputMetrics {
 
 nonisolated enum FileAttachmentDiagnostics {
     static let maxLogMessageCharacters = 240
+    static let maxDisplayNameCharacters = 180
+    private static let maxDomainCharacters = 80
 
     static func logMessage(for error: Error, fallback: String) -> String {
         let nsError = error as NSError
@@ -126,7 +128,8 @@ nonisolated enum FileAttachmentDiagnostics {
     }
 
     static func logMessage(_ message: String, fallback: String = "File attachment operation failed") -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxLogMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return fallback }
         guard trimmed.count > maxLogMessageCharacters else { return trimmed }
 
@@ -138,15 +141,25 @@ nonisolated enum FileAttachmentDiagnostics {
         return String(trimmed[..<end]) + suffix
     }
 
+    static func displayName(_ value: String, fallback: String = "Attachment") -> String {
+        let bounded = String(value.prefix(maxDisplayNameCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let display = trimmed.isEmpty ? fallback : trimmed
+        guard display.count > maxDisplayNameCharacters else { return display }
+        let end = display.index(display.startIndex, offsetBy: maxDisplayNameCharacters - 3)
+        return String(display[..<end]) + "..."
+    }
+
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Error" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
             return "Error"
         }
-        guard trimmed.count <= 80 else {
-            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+        guard trimmed.count <= maxDomainCharacters else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: maxDomainCharacters)
             return String(trimmed[..<end])
         }
         return trimmed
@@ -390,7 +403,7 @@ enum FileAttachmentBuilder {
             }
         }
 
-        let name = url.lastPathComponent
+        let name = FileAttachmentDiagnostics.displayName(url.lastPathComponent)
         let ext = url.pathExtension.lowercased()
         let size = fileSize(for: url)
         let (type, mimeType) = classify(pathExtension: ext)
@@ -412,7 +425,7 @@ enum FileAttachmentBuilder {
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             guard let size = attributes[.size] as? Int else {
                 Log.pipeline.error(
-                    "FileAttachmentBuilder: missing file size attribute for \(url.lastPathComponent, privacy: .public)"
+                    "FileAttachmentBuilder: missing file size attribute for \(FileAttachmentDiagnostics.displayName(url.lastPathComponent), privacy: .public)"
                 )
                 return 0
             }

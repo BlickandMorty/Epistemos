@@ -5,6 +5,8 @@ nonisolated enum LiveTextImageAnalysisPolicy {
     static let maxPointDimension: CGFloat = 8_192
     static let maxPixelDimension = 8_192
     static let maxPixelCount = 48_000_000
+    static let maxRepresentationCount = 16
+    static let maxRecognizedTextCharacters = 64 * 1024
 
     static func isEligibleForAnalysis(_ image: NSImage?) -> Bool {
         guard let image,
@@ -14,6 +16,9 @@ nonisolated enum LiveTextImageAnalysisPolicy {
         }
 
         guard !image.representations.isEmpty else {
+            return false
+        }
+        guard image.representations.count <= maxRepresentationCount else {
             return false
         }
 
@@ -42,6 +47,15 @@ nonisolated enum LiveTextImageAnalysisPolicy {
 
     private static func isValidDimension(_ dimension: CGFloat) -> Bool {
         dimension.isFinite && dimension > 0 && dimension <= maxPointDimension
+    }
+
+    static func recognizedText(_ transcript: String) -> String {
+        let bounded = String(transcript.prefix(maxRecognizedTextCharacters + 1))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > maxRecognizedTextCharacters else {
+            return trimmed
+        }
+        return String(trimmed.prefix(maxRecognizedTextCharacters))
     }
 }
 
@@ -126,7 +140,7 @@ struct LiveTextImageView: NSViewRepresentable {
                             return
                         }
                         overlay.analysis = analysis
-                        let transcript = analysis.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let transcript = LiveTextImageAnalysisPolicy.recognizedText(analysis.transcript)
                         if !transcript.isEmpty {
                             self.onTextRecognized(transcript)
                         }
@@ -189,9 +203,15 @@ final class LiveTextImageContainerView: NSView {
 }
 #else
 struct LiveTextImageView: View {
+    @Environment(UIState.self) private var ui
+
     let image: NSImage?
     var imageScaling: NSImageScaling = .scaleProportionallyUpOrDown
     var onTextRecognized: (String) -> Void = { _ in }
+
+    private var fallbackTint: Color {
+        ui.theme.surfaceVariant(.other).resolved.mutedForeground.color
+    }
 
     var body: some View {
         Group {
@@ -203,7 +223,7 @@ struct LiveTextImageView: View {
                 Image(systemName: "photo")
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(fallbackTint)
             }
         }
     }

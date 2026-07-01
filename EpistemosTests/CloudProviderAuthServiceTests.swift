@@ -87,6 +87,12 @@ struct CloudProviderAuthServiceTests {
 
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
         #expect(source.contains("CloudProviderSetupDiagnostics.logMessage"))
+        #expect(source.contains("String(message.prefix(maxLogMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(source.contains("ToolbarCapsuleButton("))
+        #expect(!source.contains(".foregroundStyle(.secondary)"))
+        #expect(!source.contains("Color.secondary"))
+        #expect(!source.contains("Color.primary"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
     }

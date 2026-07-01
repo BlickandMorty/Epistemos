@@ -50,11 +50,17 @@ enum FileThumbnailer {
 }
 
 struct FileThumbnailView: View {
+    @Environment(UIState.self) private var ui
+
     let url: URL
     var size: CGSize
     var fallbackSystemImage = "doc"
 
     @State private var image: NSImage?
+
+    private var fallbackTint: Color {
+        ui.theme.surfaceVariant(.other).resolved.mutedForeground.color
+    }
 
     var body: some View {
         Group {
@@ -66,7 +72,7 @@ struct FileThumbnailView: View {
                 Image(systemName: fallbackSystemImage)
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(fallbackTint)
                     .padding(2)
             }
         }

@@ -149,7 +149,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func installedMCPServer(name: String, host: String) -> IntegrationBrand {
-        let haystack = normalized("\(name) \(host)")
+        let haystack = normalizedHaystack(name, host)
         if haystack.contains("context7") { return .context7 }
         if haystack.contains("slack") { return .slack }
         if haystack.contains("gmail") || haystack.contains("googlemail") { return .gmail }
@@ -180,10 +180,10 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
             break
         }
 
-        switch installKind {
-        case "remoteURL":
+        switch normalized(installKind) {
+        case "remoteurl":
             return .remoteMCP
-        case "skillRepo":
+        case "skillrepo":
             return .skillRepo
         default:
             return .builtinTool
@@ -191,7 +191,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func bestOfPreset(kind: String, id: String, displayName: String) -> IntegrationBrand {
-        let haystack = normalized("\(id) \(displayName)")
+        let haystack = normalizedHaystack(id, displayName)
         if haystack.contains("context7") { return .context7 }
         if haystack.contains("anthropic") && haystack.contains("skill") { return .anthropicSkills }
         if haystack.contains("vault") { return .vault }
@@ -199,10 +199,10 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         if haystack.contains("web") { return .web }
         if haystack.contains("graph") { return .graph }
 
-        switch kind {
-        case "remoteMCP":
+        switch normalized(kind) {
+        case "remotemcp":
             return .remoteMCP
-        case "skillRepo":
+        case "skillrepo":
             return .skillRepo
         default:
             return .builtinTool
@@ -210,7 +210,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func connector(id: String, displayName: String) -> IntegrationBrand {
-        let haystack = normalized("\(id) \(displayName)")
+        let haystack = normalizedHaystack(id, displayName)
         if haystack.contains("slack") { return .slack }
         if haystack.contains("gmail") || haystack.contains("googlemail") { return .gmail }
         if haystack.contains("drive") { return .googleDrive }
@@ -219,7 +219,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func skillDiscovery(source: String, identifier: String, category: String) -> IntegrationBrand {
-        let haystack = normalized("\(identifier) \(category)")
+        let haystack = normalizedHaystack(identifier, category)
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
 
@@ -234,12 +234,12 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func skillInstallSource(rawValue: String) -> IntegrationBrand {
-        switch rawValue {
+        switch normalized(rawValue) {
         case "github":
             return .github
-        case "rawURL":
+        case "rawurl":
             return .rawSkill
-        case "localPath":
+        case "localpath":
             return .localSkill
         default:
             return .skillRepo
@@ -247,7 +247,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     }
 
     static func skillInventory(identifier: String, description: String) -> IntegrationBrand {
-        let haystack = normalized("\(identifier) \(description)")
+        let haystack = normalizedHaystack(identifier, description)
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
         if haystack.contains("codex") { return .codexSkills }
@@ -262,26 +262,39 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case "extensions": .extensions
         case "vaultMCP": .vaultMCP
         case "browser": .browser
+        case "browserUsePro": .browserUse
         case "meetingNote": .meetingNote
         case "voice": .voice
         default: .generic
         }
     }
 
+    private static func normalizedHaystack(_ values: String...) -> String {
+        values.map(normalized).joined(separator: " ")
+    }
+
     private static func normalized(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let bounded = trimmed.count > maxClassifierInputCharacters
-            ? String(trimmed.prefix(maxClassifierInputCharacters))
-            : trimmed
-        return bounded.lowercased()
+        let bounded = String(value.prefix(maxClassifierInputCharacters))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.lowercased()
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: "_", with: "-")
     }
 }
 
 struct IntegrationBrandMarkView: View {
+    @Environment(UIState.self) private var ui
+
     let brand: IntegrationBrand
     var size: CGFloat = 18
+
+    private var theme: EpistemosTheme {
+        ui.theme.surfaceVariant(.other)
+    }
+
+    private var monogramBackground: Color {
+        theme.resolved.mutedForeground.color.opacity(theme.isDark ? 0.16 : 0.11)
+    }
 
     var body: some View {
         Group {
@@ -310,11 +323,7 @@ struct IntegrationBrandMarkView: View {
             .frame(width: size, height: size)
             .background {
                 RoundedRectangle(cornerRadius: min(size * 0.18, 4), style: .continuous)
-                    .fill(.quaternary)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: min(size * 0.18, 4), style: .continuous)
-                    .stroke(.tertiary.opacity(0.55), lineWidth: 0.75)
+                    .fill(monogramBackground)
             }
     }
 }

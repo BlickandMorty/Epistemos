@@ -24,7 +24,7 @@ import SwiftUI
 @MainActor
 public struct ReadAloudButton: View {
 
-    public enum Style: Sendable {
+    public enum Style: Sendable, Equatable {
         /// Compact icon-only button, matches toolbar density.
         case icon
         /// Icon + "Speak" / "Pause" / "Resume" label, matches menu rows.
@@ -40,6 +40,7 @@ public struct ReadAloudButton: View {
     public let style: Style
 
     @State private var synth = EpistemosSpeechSynthesizer.shared
+    @Environment(UIState.self) private var ui
 
     public init(
         text: String,
@@ -56,37 +57,51 @@ public struct ReadAloudButton: View {
     }
 
     public var body: some View {
-        Button(action: toggle) {
-            switch style {
-            case .icon:
-                iconLabel.frame(width: 22, height: 22)
-            case .labeled:
-                Label(label, systemImage: glyph)
-            case .iconWithProgress:
-                ZStack {
-                    Circle()
-                        .stroke(Color.secondary.opacity(0.18), lineWidth: 1.5)
-                        .frame(width: 22, height: 22)
-                    Circle()
-                        .trim(from: 0, to: synth.state.fractionComplete)
-                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: 22, height: 22)
-                        .animation(.linear(duration: 0.2), value: synth.state.fractionComplete)
-                    iconLabel
-                }
-            }
-        }
-        .buttonStyle(.borderless)
-        .help(help)
+        nativeButton
         .disabled(disabled)
         .contextMenu { contextActions }
     }
 
     @ViewBuilder
-    private var iconLabel: some View {
-        Image(systemName: glyph)
-            .font(.system(size: 13, weight: .semibold))
+    private var nativeButton: some View {
+        switch style {
+        case .icon, .labeled:
+            toolbarButton
+        case .iconWithProgress:
+            ZStack {
+                progressRing
+                toolbarButton
+            }
+            .frame(width: 32, height: 32)
+        }
+    }
+
+    private var toolbarButton: some View {
+        ToolbarCapsuleButton(
+            title: style == .labeled ? label : nil,
+            systemImage: glyph,
+            role: isActive ? .primaryAction : .toolbarUtility,
+            isActive: isActive,
+            chromePolicy: chromePolicy,
+            helpText: help,
+            accessibilityLabel: label
+        ) {
+            toggle()
+        }
+    }
+
+    private var progressRing: some View {
+        ZStack {
+            Circle()
+                .stroke(progressTrackColor, lineWidth: 1.5)
+                .frame(width: 26, height: 26)
+            Circle()
+                .trim(from: 0, to: synth.state.fractionComplete)
+                .stroke(progressColor, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 26, height: 26)
+                .animation(.linear(duration: 0.2), value: synth.state.fractionComplete)
+        }
     }
 
     @ViewBuilder
@@ -115,6 +130,23 @@ public struct ReadAloudButton: View {
     }
 
     private var isActive: Bool { synth.state.isActive }
+
+    private var chromePolicy: NativeControlChromePolicy {
+        switch style {
+        case .labeled:
+            return .alwaysSurface
+        case .icon, .iconWithProgress:
+            return isActive ? .alwaysSurface : .bareUntilPressed
+        }
+    }
+
+    private var progressTrackColor: Color {
+        ui.theme.resolved.foreground.color.opacity(ui.theme.isDark ? 0.14 : 0.10)
+    }
+
+    private var progressColor: Color {
+        ui.theme.resolved.accent.color
+    }
 
     private var glyph: String {
         switch synth.state {
@@ -168,5 +200,6 @@ public struct ReadAloudButton: View {
         )
     }
     .padding(20)
+    .environment(UIState())
 }
 #endif

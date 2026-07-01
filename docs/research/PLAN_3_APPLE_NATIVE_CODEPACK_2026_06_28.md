@@ -26,13 +26,16 @@ usage strings.
 - **DONE:** `Epistemos/Views/Shared/FilePreview.swift` provides `FilePreviewItem`, `FilePreviewController`,
   `FilePreviewButton`, `.filePreview(_:)`, and a shared URL policy that rejects remote URLs, directories, unreadable
   files, non-regular files, final symlinks, and files over 512 MiB through a descriptor-backed `O_NOFOLLOW` + `fstat`
-  envelope before Quick Look opens anything.
+  envelope before Quick Look opens anything. It also caps preview batches/titles before handing items to Quick Look,
+  with title ellipsis kept inside the configured cap.
+  The reusable preview button uses `ToolbarCapsuleButton` native chrome instead of an unstyled raw SwiftUI button.
 - **DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift` provides a VisionKit-backed Live Text overlay when
-  VisionKit is available and an honest image fallback when it is not, with a bounded image-analysis policy before
-  VisionKit receives in-memory images.
+  VisionKit is available and an honest theme-token image fallback when it is not, with a bounded image-analysis policy
+  before VisionKit receives in-memory images; recognized text returned to consumers is capped.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
   the same readable bounded regular-file URL policy, including no-follow non-regular and oversized file rejection, plus
-  finite/max dimension and scale rejection before QuickLookThumbnailing generation.
+  finite/max dimension and scale rejection before QuickLookThumbnailing generation. Thumbnail fallback icons also use
+  `UIState` theme tokens instead of raw system secondary styling.
 - **Still Plan 2:** mounting these components in editor/sidebar/PDF viewer surfaces.
 
 ## 1. DELIVERED `Epistemos/Views/Shared/FilePreview.swift`
@@ -44,6 +47,8 @@ Build a reusable QuickLook preview layer for already-granted vault URLs:
 - `FilePreviewButton`
 - `.filePreview($url)` one-shot SwiftUI modifier
 - descriptor-backed `O_NOFOLLOW` + `fstat` URL validation with a 512 MiB cap
+- capped preview batches and displayed preview titles
+- native toolbar chrome through `ToolbarCapsuleButton`
 
 The controller should drive `QLPreviewPanel` directly through `QLPreviewPanelDataSource` and
 `QLPreviewPanelDelegate`. Keep the component isolated so Plan 2 can mount it wherever its own surfaces allow.
@@ -56,6 +61,7 @@ Build a reusable VisionKit Live Text overlay for images:
 - async `ImageAnalyzer` pipeline guarded by `ImageAnalyzer.isSupported`
 - bounded `LiveTextImageAnalysisPolicy` rejection for nil, empty, zero-size, non-finite, or oversized images before
   VisionKit analysis starts
+- capped image representation count and recognized transcript text before consumer callbacks
 - task cancellation when the image changes
 - `onTextRecognized(transcript)` callback for the consumer to decide where indexing belongs
 

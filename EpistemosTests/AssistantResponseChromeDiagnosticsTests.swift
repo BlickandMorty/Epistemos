@@ -27,6 +27,9 @@ struct AssistantResponseChromeDiagnosticsTests {
         ] {
             #expect(!message.contains(forbidden))
         }
+
+        let longFileName = String(repeating: "a", count: TextExportDiagnostics.maxFileNameCharacters + 32) + ".md"
+        #expect(TextExportDiagnostics.displayFileName("  \(longFileName)\n").count == TextExportDiagnostics.maxFileNameCharacters)
     }
 
     @Test("assistant response chrome source does not expose raw export errors")
@@ -34,6 +37,9 @@ struct AssistantResponseChromeDiagnosticsTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/AssistantResponseChrome.swift")
 
         #expect(source.contains("TextExportDiagnostics.externalFailureMessage(error)"))
+        #expect(source.contains("TextExportDiagnostics.displayFileName(destination.lastPathComponent)"))
+        #expect(source.contains("String(message.prefix(maxFailureMessageCharacters + 32))"))
+        #expect(source.contains("String(domain.prefix(maxDomainCharacters + 32))"))
         #expect(!source.contains("error.localizedDescription"))
         #expect(!source.contains("String(describing: error)"))
     }

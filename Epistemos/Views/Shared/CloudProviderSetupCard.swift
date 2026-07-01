@@ -4,6 +4,7 @@ import SwiftUI
 
 nonisolated enum CloudProviderSetupDiagnostics {
     static let maxLogMessageCharacters = 240
+    private static let maxDomainCharacters = 80
 
     static func logMessage(for error: Error, fallback: String) -> String {
         let nsError = error as NSError
@@ -14,7 +15,8 @@ nonisolated enum CloudProviderSetupDiagnostics {
     }
 
     static func logMessage(_ message: String, fallback: String = "Cloud provider setup failed") -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxLogMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return fallback }
         guard trimmed.count > maxLogMessageCharacters else { return trimmed }
 
@@ -27,14 +29,15 @@ nonisolated enum CloudProviderSetupDiagnostics {
     }
 
     private static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Error" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         guard trimmed.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
             return "Error"
         }
-        guard trimmed.count <= 80 else {
-            let end = trimmed.index(trimmed.startIndex, offsetBy: 80)
+        guard trimmed.count <= maxDomainCharacters else {
+            let end = trimmed.index(trimmed.startIndex, offsetBy: maxDomainCharacters)
             return String(trimmed[..<end])
         }
         return trimmed
@@ -181,16 +184,23 @@ struct CloudProviderAccountConnectionRow: View {
                     .foregroundStyle(titleColor)
                 Text(summary.detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 8)
 
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                ToolbarCapsuleButton(
+                    title: actionTitle,
+                    systemImage: "arrow.clockwise",
+                    variant: .content,
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: actionTitle,
+                    accessibilityLabel: actionTitle,
+                    action: action
+                )
             }
         }
     }
@@ -218,7 +228,7 @@ struct CloudProviderAccountConnectionRow: View {
         case .failure:
             theme.warning
         case .disconnected:
-            Color.secondary
+            theme.resolved.mutedForeground.color
         case .checking:
             theme.resolved.accent.color
         }
@@ -231,7 +241,7 @@ struct CloudProviderAccountConnectionRow: View {
         case .failure:
             theme.warning
         case .pendingVerification, .checking, .disconnected:
-            Color.primary
+            theme.resolved.foreground.color
         }
     }
 }
@@ -261,7 +271,12 @@ struct OpenAIDeviceAuthorizationSheet: View {
     let authorization: OpenAIDeviceAuthorization
     let onDismiss: () -> Void
 
+    @Environment(UIState.self) private var ui
     @State private var copiedCode = false
+
+    private var theme: EpistemosTheme {
+        ui.theme.surfaceVariant(.other)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -270,7 +285,7 @@ struct OpenAIDeviceAuthorizationSheet: View {
 
             Text("Use this code on OpenAI's verification page. Epistemos keeps checking automatically while you finish the browser step.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.resolved.mutedForeground.color)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(authorization.userCode)
@@ -285,22 +300,43 @@ struct OpenAIDeviceAuthorizationSheet: View {
                 )
 
             HStack(spacing: 8) {
-                Button(copiedCode ? "Copied" : "Copy Code") {
+                ToolbarCapsuleButton(
+                    title: copiedCode ? "Copied" : "Copy Code",
+                    systemImage: copiedCode ? "checkmark" : "doc.on.doc",
+                    variant: .content,
+                    role: .primaryAction,
+                    chromePolicy: .alwaysSurface,
+                    helpText: copiedCode ? "Copied" : "Copy verification code",
+                    accessibilityLabel: copiedCode ? "Copied" : "Copy verification code"
+                ) {
                     copyDeviceCode()
                 }
-                .buttonStyle(.borderedProminent)
 
-                Button("Open Verification Page") {
+                ToolbarCapsuleButton(
+                    title: "Open Page",
+                    systemImage: "safari",
+                    variant: .content,
+                    role: .toolbarUtility,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Open verification page",
+                    accessibilityLabel: "Open verification page"
+                ) {
                     NSWorkspace.shared.open(authorization.verificationURL)
                 }
-                .buttonStyle(.bordered)
 
                 Spacer()
 
-                Button("Close") {
+                ToolbarCapsuleButton(
+                    title: "Close",
+                    systemImage: "xmark",
+                    variant: .content,
+                    role: .secondaryGhost,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Close",
+                    accessibilityLabel: "Close"
+                ) {
                     onDismiss()
                 }
-                .buttonStyle(.bordered)
             }
         }
         .padding(20)

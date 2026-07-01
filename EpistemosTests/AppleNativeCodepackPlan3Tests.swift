@@ -25,7 +25,10 @@ struct AppleNativeCodepackPlan3Tests {
             "FilePreviewController",
             "LiveTextImageView",
             "FileThumbnailView",
-            "Consumer Handoff"
+            "Consumer Handoff",
+            "caps preview batches/titles",
+            "title ellipsis kept inside the configured cap",
+            "recognized text returned to consumers is capped"
         ] {
             #expect(codepack.contains(required), "Missing Apple-native codepack string: \(required)")
         }
@@ -75,6 +78,7 @@ struct AppleNativeCodepackPlan3Tests {
         #expect(plan.contains("QuickLook preview (`FilePreview.swift`)"))
         #expect(plan.contains("VisionKit Live Text"))
         #expect(plan.contains("QuickLookThumbnailing (`FileThumbnail.swift`)"))
+        #expect(plan.contains("QuickLook preview titles keep\nellipsis inside configured caps"))
         #expect(plan.contains("codepacks and first implementations now exist"))
         #expect(!plan.contains("CoreML. **Greenfield (absent):** PDFKit `PDFView`, QuickLook, VisionKit Live Text, QuickLookThumbnailing, PencilKit."))
         #expect(!plan.contains("Meeting/STT note · Voice · whole-app logos** (need codepacks — owed work)."))

@@ -43,6 +43,20 @@ nonisolated enum FilePreviewURLPolicy {
     }
 }
 
+nonisolated enum FilePreviewDisplayBounds {
+    static let maxPreviewItems = 50
+    static let maxTitleCharacters = 160
+
+    static func title(_ value: String) -> String {
+        let bounded = String(value.prefix(maxTitleCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > maxTitleCharacters else {
+            return trimmed
+        }
+        return String(trimmed.prefix(maxTitleCharacters - 3)) + "..."
+    }
+}
+
 final class FilePreviewItem: NSObject, QLPreviewItem {
     let url: URL
     private let title: String?
@@ -53,7 +67,9 @@ final class FilePreviewItem: NSObject, QLPreviewItem {
     }
 
     var previewItemURL: URL? { url }
-    var previewItemTitle: String? { title ?? url.lastPathComponent }
+    var previewItemTitle: String? {
+        FilePreviewDisplayBounds.title(title ?? url.lastPathComponent)
+    }
 }
 
 @MainActor
@@ -71,11 +87,15 @@ final class FilePreviewController: NSObject, @MainActor QLPreviewPanelDataSource
     }
 
     func present(urls: [URL]) {
-        present(items: urls.map { FilePreviewItem(url: $0) })
+        present(items: urls
+            .prefix(FilePreviewDisplayBounds.maxPreviewItems)
+            .map { FilePreviewItem(url: $0) })
     }
 
     func present(items: [FilePreviewItem]) {
-        previewItems = items.filter { Self.isPreviewableURL($0.url) }
+        previewItems = items
+            .prefix(FilePreviewDisplayBounds.maxPreviewItems)
+            .filter { Self.isPreviewableURL($0.url) }
         guard !previewItems.isEmpty,
               let panel = QLPreviewPanel.shared() else {
             return
@@ -107,37 +127,36 @@ final class FilePreviewController: NSObject, @MainActor QLPreviewPanelDataSource
     }
 }
 
-struct FilePreviewButton<LabelContent: View>: View {
+struct FilePreviewButton: View {
     let url: URL
     let title: String?
-    @ViewBuilder let label: () -> LabelContent
+    var buttonTitle: String?
+    var systemImage: String
 
     init(
         url: URL,
         title: String? = nil,
-        @ViewBuilder label: @escaping () -> LabelContent
+        buttonTitle: String? = "Quick Look",
+        systemImage: String = "eye"
     ) {
         self.url = url
         self.title = title
-        self.label = label
+        self.buttonTitle = buttonTitle
+        self.systemImage = systemImage
     }
 
     var body: some View {
-        Button {
+        ToolbarCapsuleButton(
+            title: buttonTitle,
+            systemImage: systemImage,
+            role: .toolbarUtility,
+            chromePolicy: .bareUntilPressed,
+            helpText: "Quick Look",
+            accessibilityLabel: "Quick Look"
+        ) {
             FilePreviewController.shared.present(url: url, title: title)
-        } label: {
-            label()
         }
         .disabled(!FilePreviewController.isPreviewableURL(url))
-        .help("Quick Look")
-    }
-}
-
-extension FilePreviewButton where LabelContent == Label<Text, Image> {
-    init(url: URL, title: String? = nil) {
-        self.init(url: url, title: title) {
-            Label("Quick Look", systemImage: "eye")
-        }
     }
 }
 

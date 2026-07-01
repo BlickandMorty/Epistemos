@@ -21,6 +21,7 @@ import SwiftUI
 @MainActor
 public struct ModelVoicePickerSection: View {
 
+    @Environment(UIState.self) private var ui
     @Binding public var voiceIdentifier: String?
     @Binding public var rate: Double
     @Binding public var pitch: Double
@@ -28,6 +29,8 @@ public struct ModelVoicePickerSection: View {
 
     @State private var voices: [EpistemosSpeechSynthesizer.VoiceOption] = []
     @State private var qualityHint: (tier: EpistemosSpeechSynthesizer.VoiceQualityTier, message: String) = (.default, "")
+    @State private var personalVoiceAuthorization: EpistemosSpeechSynthesizer.PersonalVoiceAuthorization = .unsupported
+    @State private var isRequestingPersonalVoice = false
     @State private var synth = EpistemosSpeechSynthesizer.shared
 
     public init(
@@ -58,9 +61,9 @@ public struct ModelVoicePickerSection: View {
         ratePitchSliders
         previewControls
         qualityHintView
+        personalVoiceAccessView
         Color.clear.frame(height: 0).task {
-            voices = EpistemosSpeechSynthesizer.availableVoices(language: "en")
-            qualityHint = EpistemosSpeechSynthesizer.voiceQualityHint()
+            refreshVoicesAndHints()
         }
     }
 
@@ -86,6 +89,12 @@ public struct ModelVoicePickerSection: View {
     private var groupedByTier: [(EpistemosSpeechSynthesizer.VoiceQualityTier, [EpistemosSpeechSynthesizer.VoiceOption])] {
         // Shared grouping (no duplicated tier logic) — see EpistemosSpeechSynthesizer.
         EpistemosSpeechSynthesizer.voicesGroupedByTier(voices)
+    }
+
+    private func refreshVoicesAndHints() {
+        voices = EpistemosSpeechSynthesizer.availableVoices(language: "en")
+        qualityHint = EpistemosSpeechSynthesizer.voiceQualityHint()
+        personalVoiceAuthorization = EpistemosSpeechSynthesizer.personalVoiceAuthorization()
     }
 
     // MARK: - Rate / pitch sliders
@@ -117,19 +126,25 @@ public struct ModelVoicePickerSection: View {
     @ViewBuilder
     private var previewControls: some View {
         HStack(spacing: 12) {
-            Button {
+            ToolbarCapsuleButton(
+                title: synth.state.isActive ? "Stop" : "Preview",
+                systemImage: synth.state.isActive ? "stop.circle" : "play.circle",
+                variant: .content,
+                role: .toolbarUtility,
+                chromePolicy: .alwaysSurface,
+                helpText: synth.state.isActive ? "Stop voice preview" : "Hear voice preview",
+                accessibilityLabel: synth.state.isActive ? "Stop voice preview" : "Hear voice preview"
+            ) {
                 if synth.state.isActive { synth.stop() }
-                synth.speak(
-                    previewText,
-                    voiceIdentifier: voiceIdentifier,
-                    rate: Float(rate),
-                    pitch: Float(pitch)
-                )
-            } label: {
-                Label(synth.state.isActive ? "Stop preview" : "Hear preview",
-                      systemImage: synth.state.isActive ? "stop.circle" : "play.circle")
+                else {
+                    synth.speak(
+                        previewText,
+                        voiceIdentifier: voiceIdentifier,
+                        rate: Float(rate),
+                        pitch: Float(pitch)
+                    )
+                }
             }
-            .buttonStyle(.bordered)
 
             if case let .speaking(_, total, spoken) = synth.state, total > 0 {
                 ProgressView(value: Double(spoken), total: Double(total))
@@ -145,19 +160,54 @@ public struct ModelVoicePickerSection: View {
         if !qualityHint.message.isEmpty {
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: hintGlyph)
-                    .foregroundStyle(hintColor)
+                    .foregroundStyle(hintTint)
                     .font(.system(size: 11, weight: .semibold))
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(qualityHint.message)
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                     if qualityHint.tier != .premium {
-                        Button("Open Manage Voices…") {
+                        ToolbarCapsuleButton(
+                            title: "Manage Voices",
+                            systemImage: "gearshape",
+                            role: .secondaryGhost,
+                            helpText: "Open Manage Voices",
+                            accessibilityLabel: "Open Manage Voices"
+                        ) {
                             openManageVoices()
                         }
-                        .buttonStyle(.link)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var personalVoiceAccessView: some View {
+        if showsPersonalVoiceAccess {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: personalVoiceGlyph)
+                    .foregroundStyle(personalVoiceTint)
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(personalVoiceMessage)
                         .font(.system(size: 11))
+                        .foregroundStyle(mutedTint)
+                    if personalVoiceAuthorization == .notDetermined {
+                        ToolbarCapsuleButton(
+                            title: "Allow Personal Voice",
+                            systemImage: "person.crop.circle",
+                            role: .toolbarUtility,
+                            isActive: isRequestingPersonalVoice,
+                            chromePolicy: .alwaysSurface,
+                            helpText: "Allow Epistemos to list Personal Voices",
+                            accessibilityLabel: "Allow Epistemos to list Personal Voices"
+                        ) {
+                            requestPersonalVoiceAccess()
+                        }
+                        .disabled(isRequestingPersonalVoice)
                     }
                 }
             }
@@ -173,12 +223,64 @@ public struct ModelVoicePickerSection: View {
         }
     }
 
-    private var hintColor: Color {
+    private var hintTint: Color {
         switch qualityHint.tier {
-        case .premium:          return .green
-        case .premiumAvailable: return .accentColor
-        case .enhanced:         return .yellow
-        case .default:          return .secondary
+        case .premium:          return ui.theme.resolved.headingAccent.color
+        case .premiumAvailable: return ui.theme.resolved.accent.color
+        case .enhanced:         return ui.theme.resolved.foreground.color.opacity(0.78)
+        case .default:          return mutedTint
+        }
+    }
+
+    private var mutedTint: Color {
+        ui.theme.resolved.mutedForeground.color
+    }
+
+    private var showsPersonalVoiceAccess: Bool {
+        if #available(macOS 14.0, *) {
+            return true
+        }
+        return false
+    }
+
+    private var personalVoiceGlyph: String {
+        switch personalVoiceAuthorization {
+        case .authorized: return "person.crop.circle.badge.checkmark"
+        case .notDetermined: return "person.crop.circle.badge.questionmark"
+        case .denied: return "person.crop.circle.badge.xmark"
+        case .unsupported: return "person.crop.circle.badge.exclamationmark"
+        }
+    }
+
+    private var personalVoiceTint: Color {
+        switch personalVoiceAuthorization {
+        case .authorized: return ui.theme.resolved.headingAccent.color
+        case .notDetermined: return ui.theme.resolved.accent.color
+        case .denied, .unsupported: return mutedTint
+        }
+    }
+
+    private var personalVoiceMessage: String {
+        switch personalVoiceAuthorization {
+        case .authorized:
+            return "Personal Voice access is allowed. Created Personal Voices can appear in the voice picker."
+        case .notDetermined:
+            return "Allow Personal Voice access to list voices you created in System Settings."
+        case .denied:
+            return "Personal Voice access is denied in System Settings. Apple system voices remain available."
+        case .unsupported:
+            return "Personal Voice is not supported on this Mac. Apple system voices remain available."
+        }
+    }
+
+    private func requestPersonalVoiceAccess() {
+        guard personalVoiceAuthorization == .notDetermined else { return }
+        isRequestingPersonalVoice = true
+        Task { @MainActor in
+            let authorization = await EpistemosSpeechSynthesizer.requestPersonalVoiceAuthorization()
+            personalVoiceAuthorization = authorization
+            isRequestingPersonalVoice = false
+            refreshVoicesAndHints()
         }
     }
 
