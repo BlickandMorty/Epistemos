@@ -504,6 +504,18 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 9%, transparent);
     }
 
+    .result-card.is-section-bound {
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--epistemos-workspace-accent) 46%, transparent),
+        0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 7%, transparent);
+    }
+
+    .result-card.is-selected.is-section-bound {
+      box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--epistemos-workspace-accent) 68%, transparent),
+        0 10px 28px color-mix(in srgb, var(--epistemos-workspace-fg) 10%, transparent);
+    }
+
     .result-card:focus {
       outline: 2px solid color-mix(in srgb, var(--epistemos-workspace-accent) 62%, transparent);
       outline-offset: 2px;
@@ -687,6 +699,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const key = sectionContextKeys[sectionID];
       if (!key) { return null; }
       return allResults.find((result) => resultKey(result) === key) || null;
+    }
+
+    function sectionAugmentedResults(sectionID, results, allResults) {
+      const boundResult = sectionBoundResult(sectionID, allResults);
+      if (!boundResult) { return results; }
+      const boundKey = resultKey(boundResult);
+      return [boundResult].concat(results.filter((result) => resultKey(result) !== boundKey));
     }
 
     function detailRow(label, value) {
@@ -1028,10 +1047,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       host.replaceChildren();
 
       const boundResult = sectionBoundResult('rank-signal', allResults);
-      const boundKey = boundResult ? resultKey(boundResult) : null;
-      const chartResults = boundResult
-        ? [boundResult].concat(results.filter((result) => resultKey(result) !== boundKey))
-        : results;
+      const chartResults = sectionAugmentedResults('rank-signal', results, allResults);
 
       const ranked = chartResults
         .map(rankDatum)
@@ -1068,6 +1084,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       refreshContextDropStatus(allResults);
       renderContextTabs(allResults, meta);
       const results = sortedResults(visibleResults(allResults));
+      const displayedResults = sectionAugmentedResults('vault-results', results, allResults);
+      const resultsSectionBoundKey = sectionContextKeys['vault-results'] || null;
       const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
       const status = meta.stale ? 'Stale' : (meta.status || 'Fresh');
       const refreshed = meta.refreshed_at_ms
@@ -1082,12 +1100,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-context-requirement]', requiredContextLabel(meta));
       text('[data-context-drop-status]', contextDropStatus);
       text('[data-filter-count]', resultCountLabel(results, allResults, filter));
-      const selectedResult = activeResult(results);
-      renderContextPicker(results, selectedResult);
+      const selectedResult = activeResult(displayedResults);
+      renderContextPicker(displayedResults, selectedResult);
       updatePinButton(selectedResult);
       renderPinnedContext(allResults);
       renderResultChart(results, allResults);
-      renderResultDetail(results, allResults);
+      renderResultDetail(displayedResults, allResults);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
       if (!host) {
@@ -1095,23 +1113,31 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         return;
       }
       host.replaceChildren();
-      if (results.length === 0) {
+      if (displayedResults.length === 0) {
         host.append(HTMLWorkspace.el('p', { class: 'empty' }, filter ? 'No results match this filter.' : (meta.error || 'No matching context records yet.')));
         renderDropzoneContextBadges(allResults);
         return;
       }
 
-      results.forEach((result, index) => {
+      displayedResults.forEach((result, index) => {
         const key = resultKey(result);
+        const isSectionBound = resultsSectionBoundKey && key === resultsSectionBoundKey;
+        const cardClass = [
+          'result-card',
+          selectedResult && key === resultKey(selectedResult) ? 'is-selected' : '',
+          isSectionBound ? 'is-section-bound' : ''
+        ].filter(Boolean).join(' ');
+        const resultOrdinal = isSectionBound ? 'Dropped section source' : `#${index + 1}`;
         const card = HTMLWorkspace.el('article', {
-          class: selectedResult && key === resultKey(selectedResult) ? 'result-card is-selected' : 'result-card',
+          class: cardClass,
           'data-result-key': key,
+          'data-section-bound-result': isSectionBound ? 'true' : 'false',
           'data-rank': result.rank ?? index,
           draggable: 'true',
           role: 'button',
           tabindex: '0'
         }, [
-          HTMLWorkspace.el('small', {}, `#${index + 1} / ${result.page_id || 'vault'}`),
+          HTMLWorkspace.el('small', {}, `${resultOrdinal} / ${result.page_id || 'vault'}`),
           HTMLWorkspace.el('h2', {}, result.title || 'Untitled'),
           HTMLWorkspace.el('p', {}, result.snippet || ''),
           HTMLWorkspace.el('small', { class: 'source-label' }, `${result.source_label || 'Vault search result'} / ${result.context_kind || 'vault_record'}`)
