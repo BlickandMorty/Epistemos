@@ -2525,7 +2525,7 @@ function applyProviderModalSurfaces() {
     source,
     'custom provider delete button native',
     'className="text-text-danger hover:text-red-600 mr-auto"',
-    'className="mr-auto rounded-[8px] border-border-danger bg-background-danger/35 text-text-danger hover:bg-background-danger/65 hover:text-text-danger"'
+    'className="mr-auto rounded-[8px] bg-background-danger/35 text-text-danger hover:bg-background-danger/65 hover:text-text-danger"'
   );
   write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
 
@@ -3399,13 +3399,13 @@ function applyModelSettingsSurfaces() {
     source,
     'model bottom local overlay native',
     'className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"',
-    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/24 backdrop-blur-sm"'
+    'className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"'
   );
   source = replaceRequired(
     source,
     'model bottom local modal native',
     'className="bg-background-primary border border-border-primary rounded-[6px] shadow-none w-[480px] max-h-[80vh] flex flex-col"',
-    'className="flex max-h-[80vh] w-[480px] flex-col rounded-[14px] bg-background-primary/92 shadow-2xl"'
+    'className="flex max-h-[80vh] w-[480px] flex-col rounded-[14px] bg-background-primary/92"'
   );
   source = replaceRequired(
     source,
@@ -3444,7 +3444,7 @@ function applyModelSettingsSurfaces() {
     source,
     'switch model predefined row native',
     "className={`flex items-center justify-between text-text-primary py-2 px-2 ${\n                        selectedPredefinedModel?.name === model.name\n                          ? 'bg-background-secondary'\n                          : 'bg-background-primary hover:bg-background-secondary'\n                      } rounded-lg transition-all`}",
-    "className={`flex items-center justify-between rounded-[10px] border px-3 py-2.5 text-text-primary transition-all duration-200 ease-[var(--epistemos-control-ease)] ${\n                        selectedPredefinedModel?.name === model.name\n                          ? 'border-border-secondary bg-background-secondary/78 shadow-sm ring-[1px] ring-[var(--epistemos-accent)]/25'\n                          : 'border-transparent bg-transparent hover:border-border-secondary hover:bg-background-secondary/55'\n                      }`}"
+    "className={`flex items-center justify-between rounded-[10px] px-3 py-2.5 text-text-primary transition-colors duration-200 ease-[var(--epistemos-control-ease)] ${\n                        selectedPredefinedModel?.name === model.name\n                          ? 'bg-[var(--epistemos-accent)]/12'\n                          : 'bg-transparent hover:bg-background-secondary/55'\n                      }`}"
   );
   source = replaceRequired(
     source,
@@ -3473,7 +3473,7 @@ function applyModelSettingsSurfaces() {
     source,
     'switch model local info panel native',
     'className="rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4"',
-    'className="rounded-[12px] border border-border-secondary bg-background-secondary/60 p-4 backdrop-blur-xl"'
+    'className="rounded-[12px] bg-background-secondary/56 p-4"'
   );
   source = replaceRequired(
     source,
@@ -3491,13 +3491,13 @@ function applyModelSettingsSurfaces() {
     source,
     'switch model local settings button native',
     'className="self-start border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"',
-    'className="self-start border-border-secondary bg-background-primary/60 text-text-primary hover:border-[var(--epistemos-accent)] hover:bg-background-secondary/75"'
+    'className="self-start bg-background-primary/60 text-text-primary hover:bg-background-secondary/75"'
   );
   source = replaceAllRequired(
     source,
     'switch model warning panel native',
     'className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3',
-    'className="rounded-[12px] border border-border-warning bg-background-warning/55 p-3'
+    'className="rounded-[12px] bg-background-warning/55 p-3'
   );
   source = replaceRequired(
     source,
@@ -3527,7 +3527,7 @@ function applyModelSettingsSurfaces() {
     source,
     'switch model custom input native',
     'className="border-2 px-4 py-5"',
-    'className="bg-background-primary/70 px-4 py-5 focus:border-[var(--epistemos-accent)] focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20"'
+    'className="bg-background-primary/70 px-4 py-5 focus:bg-background-secondary/72 focus:border-transparent focus-visible:ring-0"'
   );
   source = replaceRequired(
     source,
@@ -3550,31 +3550,31 @@ function applyKeyboardSettingsSurfaces() {
     source,
     'shortcut recorder native base',
     'text-xs font-mono px-3 py-2 rounded border',
-    'min-h-9 rounded-[8px] border px-3 py-2 font-mono text-xs transition-all duration-200 ease-[var(--epistemos-control-ease)]'
+    'min-h-9 rounded-[8px] px-3 py-2 font-mono text-xs transition-colors duration-200 ease-[var(--epistemos-control-ease)]'
   );
   source = replaceRequired(
     source,
     'shortcut recorder recording state native',
     "? 'bg-background-primary ring-1'",
-    "? 'border-[var(--epistemos-accent)] bg-background-primary/70 ring-[3px] ring-[var(--epistemos-accent)]/20'"
+    "? 'bg-[var(--epistemos-accent)]/12'"
   );
   source = replaceRequired(
     source,
     'shortcut recorder conflict state native',
     "? 'bg-background-secondary border-yellow-600/50'",
-    "? 'border-border-warning bg-background-warning/55 text-text-warning'"
+    "? 'bg-background-warning/55 text-text-warning'"
   );
   source = replaceRequired(
     source,
     'shortcut recorder idle state native',
     ": 'bg-background-secondary border-border-primary cursor-pointer'",
-    ": 'border-border-secondary bg-background-secondary/60 cursor-pointer hover:border-[var(--epistemos-accent)]'"
+    ": 'bg-background-secondary/60 cursor-pointer hover:bg-background-secondary/72'"
   );
   source = replaceRequired(
     source,
     'shortcut recorder focus native',
     'focus:outline-none focus:ring-1',
-    'focus:outline-none focus:ring-[3px] focus:ring-[var(--epistemos-accent)]/20'
+    'focus:outline-none focus:ring-0'
   );
   source = replaceAllRequired(
     source,
@@ -5024,7 +5024,7 @@ function applyRecipeDetailSurfaces() {
     source,
     'recipe import invalid border token',
     'border-red-500',
-    'border-border-danger'
+    'bg-background-danger/35'
   );
   source = replaceAllRequired(
     source,
@@ -5098,22 +5098,22 @@ function applyRecipeDetailSurfaces() {
   write('src/components/recipes/RecipeActivityEditor.tsx', source);
 
   source = read('src/components/recipes/shared/RecipeNameField.tsx');
-  source = replaceAllRequired(source, 'recipe name invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe name invalid border token', 'border-red-500', 'bg-background-danger/35');
   source = replaceAllRequired(source, 'recipe name validation text token', 'text-red-500', 'text-text-danger');
   write('src/components/recipes/shared/RecipeNameField.tsx', source);
 
   source = read('src/components/recipes/shared/InstructionsEditor.tsx');
-  source = replaceAllRequired(source, 'recipe instructions invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe instructions invalid border token', 'border-red-500', 'bg-background-danger/35');
   source = replaceAllRequired(source, 'recipe instructions validation text token', 'text-red-500', 'text-text-danger');
   write('src/components/recipes/shared/InstructionsEditor.tsx', source);
 
   source = read('src/components/recipes/shared/JsonSchemaEditor.tsx');
-  source = replaceAllRequired(source, 'recipe json schema invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe json schema invalid border token', 'border-red-500', 'bg-background-danger/35');
   source = replaceAllRequired(source, 'recipe json schema validation text token', 'text-red-500', 'text-text-danger');
   write('src/components/recipes/shared/JsonSchemaEditor.tsx', source);
 
   source = read('src/components/recipes/shared/RecipeFormFields.tsx');
-  source = replaceAllRequired(source, 'recipe form invalid border token', 'border-red-500', 'border-border-danger');
+  source = replaceAllRequired(source, 'recipe form invalid border token', 'border-red-500', 'bg-background-danger/35');
   source = replaceAllRequired(source, 'recipe form validation text token', 'text-red-500', 'text-text-danger');
   source = replaceRequired(
     source,
@@ -5208,25 +5208,25 @@ function applyStatusIndicatorSurfaces() {
     source,
     'tool status success token',
     "return 'bg-green-500';",
-    "return 'border-border-success bg-background-success';"
+    "return 'bg-background-success';"
   );
   source = replaceRequired(
     source,
     'tool status error token',
     "return 'bg-red-500';",
-    "return 'border-border-danger bg-background-danger';"
+    "return 'bg-background-danger';"
   );
   source = replaceRequired(
     source,
     'tool status loading token',
     "return 'bg-yellow-500 animate-pulse';",
-    "return 'border-border-warning bg-background-warning animate-pulse';"
+    "return 'bg-background-warning animate-pulse';"
   );
   source = replaceRequired(
     source,
     'tool status pending token',
     "return 'bg-gray-400';",
-    "return 'border-border-secondary bg-background-secondary';"
+    "return 'bg-background-secondary';"
   );
   write('src/components/ToolCallStatusIndicator.tsx', source);
 
@@ -5268,25 +5268,25 @@ function applyStatusIndicatorSurfaces() {
     source,
     'grouped extension success icon token',
     'className="w-4 h-4 bg-green-500"',
-    'className="h-4 w-4 rounded-full border border-border-success bg-background-success"'
+    'className="h-4 w-4 rounded-full bg-background-success"'
   );
   source = replaceRequired(
     source,
     'grouped extension success summary icon token',
     'className="w-5 h-5 bg-green-500"',
-    'className="h-5 w-5 rounded-full border border-border-success bg-background-success"'
+    'className="h-5 w-5 rounded-full bg-background-success"'
   );
   source = replaceRequired(
     source,
     'grouped extension error icon token',
     'className="w-4 h-4 bg-red-500"',
-    'className="h-4 w-4 rounded-full border border-border-danger bg-background-danger"'
+    'className="h-4 w-4 rounded-full bg-background-danger"'
   );
   source = replaceRequired(
     source,
     'grouped extension partial summary token',
     'className="w-5 h-5 bg-yellow-500"',
-    'className="h-5 w-5 rounded-full border border-border-warning bg-background-warning"'
+    'className="h-5 w-5 rounded-full bg-background-warning"'
   );
   write('src/components/GroupedExtensionLoadingToast.tsx', source);
 
@@ -5473,7 +5473,7 @@ function applyRemainingTokenDriftSurfaces() {
     source,
     'mcp app error text token',
     'className="p-4 text-red-700 dark:text-red-300"',
-    'className="rounded-[12px] border border-border-danger bg-background-danger/55 p-4 text-text-danger"'
+    'className="rounded-[12px] bg-background-danger/55 p-4 text-text-danger"'
   );
   source = replaceRequired(
     source,
@@ -5485,7 +5485,7 @@ function applyRemainingTokenDriftSurfaces() {
     source,
     'mcp app error container token',
     "isError && 'border border-red-500 rounded-lg bg-red-50 dark:bg-red-900/20'",
-    "isError && 'rounded-[12px] border border-border-danger bg-background-danger/35'"
+    "isError && 'rounded-[12px] bg-background-danger/35'"
   );
   write('src/components/McpApps/McpAppRenderer.tsx', source);
 
@@ -5512,7 +5512,7 @@ function applyRemainingTokenDriftSurfaces() {
     source,
     'credits exhausted native warning panel',
     'className="rounded-lg border border-yellow-600/30 dark:border-yellow-500/30 bg-yellow-500/10 dark:bg-yellow-500/10 p-4 my-2"',
-    'className="my-2 rounded-[12px] border border-border-warning bg-background-warning/55 p-4"'
+    'className="my-2 rounded-[12px] bg-background-warning/55 p-4"'
   );
   source = replaceRequired(
     source,
@@ -5611,7 +5611,7 @@ function applyRemainingTokenDriftSurfaces() {
     source,
     'custom provider invalid border token',
     'border-red-500',
-    'border-border-danger'
+    'bg-background-danger/35'
   );
   write('src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx', source);
 }
