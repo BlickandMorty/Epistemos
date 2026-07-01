@@ -1486,6 +1486,9 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(updated.indexHTML.contains("data-html-workspace-chart=\"evidence-chart\""))
         #expect(updated.indexHTML.contains("Evidence Mix"))
         #expect(updated.styleCSS.contains(".html-workspace-chart"))
+        #expect(updated.styleCSS.contains("border: 0"))
+        #expect(updated.styleCSS.contains("box-shadow: 0 10px 28px"))
+        #expect(!updated.styleCSS.contains("border: 1px solid color-mix"))
         #expect(updated.scriptJS.contains("data-html-workspace-chart"))
     }
 

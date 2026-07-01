@@ -1614,9 +1614,10 @@ nonisolated public enum HTMLWorkspacePatchApplier {
       width: min(720px, 100%);
       margin: 24px auto;
       padding: 18px;
-      border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+      border: 0;
       border-radius: 8px;
       background: color-mix(in srgb, Canvas 92%, CanvasText 8%);
+      box-shadow: 0 10px 28px color-mix(in srgb, CanvasText 9%, transparent);
     }
 
     .html-workspace-chart h2 {
