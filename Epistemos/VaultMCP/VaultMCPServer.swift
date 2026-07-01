@@ -34,8 +34,8 @@ nonisolated enum VaultMCPServerDiagnostics {
         }) else {
             return "Network"
         }
-        let bounded = String(value.prefix(maxDomainCharacters))
-        return bounded.isEmpty ? "Network" : bounded
+        let safeDomain = String(value.prefix(maxDomainCharacters))
+        return safeDomain.isEmpty ? "Network" : safeDomain
     }
 }
 
