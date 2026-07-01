@@ -502,14 +502,21 @@ extension ProseEditorRepresentable2 {
             lastPersistedText = newBody
             tv.pageId = newPageId
 
-            // 6. Restore state for new page
+            // 6. Restore state for new page.
+            // CLAMP the restored selection to the (possibly shorter) new body — a page's
+            // body can shrink while it was off-screen (vault sync / restore-to-version),
+            // and setSelectedRange with a stale range raises NSRangeException and crashes
+            // the whole app. The external-sync path already clamps; this one didn't. (audit 2026-07-01)
+            let bodyLength = (tv.string as NSString).length
             if let state = pageStates[newPageId] {
-                tv.setSelectedRange(state.selection)
+                let loc = min(max(0, state.selection.location), bodyLength)
+                tv.setSelectedRange(NSRange(location: loc, length: min(state.selection.length, bodyLength - loc)))
                 scrollView?.contentView.scroll(to: NSPoint(x: 0, y: state.scrollY))
             } else if let diskState = DiskStyleCache.shared.restore(
                 pageId: newPageId, currentBodyText: newBody
             ) {
-                tv.setSelectedRange(diskState.selection)
+                let loc = min(max(0, diskState.selection.location), bodyLength)
+                tv.setSelectedRange(NSRange(location: loc, length: min(diskState.selection.length, bodyLength - loc)))
                 scrollView?.contentView.scroll(to: NSPoint(x: 0, y: diskState.scrollY))
             } else {
                 tv.setSelectedRange(NSRange(location: 0, length: 0))

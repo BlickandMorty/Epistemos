@@ -177,15 +177,14 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
               lineCount,
             };
           }
-          if (\(expectedLength) > 0 && renderedText.length === 0) {
-            return {
-              ok: false,
-              error: "CoreEditor reset completed with no rendered CodeMirror text",
-              resetResult,
-              editorLength: editorText.length,
-              lineCount,
-            };
-          }
+          // NOTE (audit 2026-07-01): do NOT fail on renderedText.length === 0.
+          // CodeMirror 6 viewport-virtualizes — it renders ZERO line DOM until the
+          // WKWebView has a layout size (offscreen / zero-height / collapsed pane /
+          // fresh mount / large doc with deferred measure). editorText being non-empty
+          // is the real success gate (checked above); the old renderedText===0 branch
+          // fired a FALSE failure -> showLoadFailure() wiped #editor with no recovery
+          // path = permanent blank/broken code editor. renderedLength stays below for
+          // diagnostics only; CM self-heals on the next resize/requestMeasure.
           return {
             ok: resetResult === true,
             resetResult,

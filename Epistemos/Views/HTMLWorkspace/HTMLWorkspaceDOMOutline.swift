@@ -59,12 +59,26 @@ nonisolated enum HTMLWorkspaceDOMOutline {
         }
     }
 
+    // Compiled ONCE (was recompiled per-attribute per-tag → O(tags) regex builds while
+    // typing = the HTML-workspace typing lag). Only "id"/"class" are ever passed; the
+    // patterns are byte-identical to the old per-call construction. (audit 2026-07-01)
+    private static let idAttributeRegex = try? NSRegularExpression(
+        pattern: #"id\s*=\s*["']([^"']+)["']"#, options: [.caseInsensitive])
+    private static let classAttributeRegex = try? NSRegularExpression(
+        pattern: #"class\s*=\s*["']([^"']+)["']"#, options: [.caseInsensitive])
+
     private static func captureAttribute(_ name: String, in attributes: String) -> String? {
-        let escapedName = NSRegularExpression.escapedPattern(for: name)
-        guard let expression = try? NSRegularExpression(
-            pattern: #"\#(escapedName)\s*=\s*["']([^"']+)["']"#,
-            options: [.caseInsensitive]
-        ) else { return nil }
+        let expression: NSRegularExpression?
+        switch name {
+        case "id": expression = idAttributeRegex
+        case "class": expression = classAttributeRegex
+        default:
+            let escapedName = NSRegularExpression.escapedPattern(for: name)
+            expression = try? NSRegularExpression(
+                pattern: #"\#(escapedName)\s*=\s*["']([^"']+)["']"#,
+                options: [.caseInsensitive])
+        }
+        guard let expression else { return nil }
         let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
         guard let match = expression.firstMatch(in: attributes, range: range),
               match.numberOfRanges > 1,
