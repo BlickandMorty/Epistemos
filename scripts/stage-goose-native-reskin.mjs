@@ -5228,6 +5228,12 @@ function applyStatusIndicatorSurfaces() {
     "return 'bg-gray-400';",
     "return 'bg-background-secondary';"
   );
+  source = replaceRequired(
+    source,
+    'tool status dot borderless surface',
+    "'absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-border-primary'",
+    "'absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full'"
+  );
   write('src/components/ToolCallStatusIndicator.tsx', source);
 
   source = read('src/components/SessionIndicators.tsx');
@@ -5414,7 +5420,7 @@ function applyFormValidationSurfaces() {
     source,
     'elicitation urgent token',
     "className={`mt-3 pt-3 border-t border-border-primary flex items-center gap-2 text-xs font-mono ${isUrgent ? 'text-red-500' : 'text-text-secondary'}`}",
-    "className={`mt-3 flex items-center gap-2 border-t border-border-secondary pt-3 text-xs font-sans ${isUrgent ? 'text-text-danger' : 'text-text-secondary'}`}"
+    "className={`mt-3 flex items-center gap-2 rounded-[8px] bg-background-secondary/44 px-2 py-1.5 text-xs font-sans ${isUrgent ? 'text-text-danger' : 'text-text-secondary'}`}"
   );
   write('src/components/ElicitationRequest.tsx', source);
 
@@ -5448,6 +5454,36 @@ function applyFormValidationSurfaces() {
     'session action long text link token',
     'className="min-w-0 rounded-sm text-left text-blue-600 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-active dark:text-blue-300 break-all"',
     'className="min-w-0 break-all rounded-[6px] text-left text-[var(--epistemos-accent)] underline-offset-2 hover:underline focus-visible:bg-[var(--epistemos-accent)]/10 focus-visible:outline-none focus-visible:ring-0"'
+  );
+  source = replaceRequired(
+    source,
+    'session action json tree indent surface',
+    'className="ml-3 border-l border-border-primary/70 pl-3"',
+    'className="ml-3 rounded-[8px] bg-background-secondary/40 px-3 py-1"'
+  );
+  source = replaceRequired(
+    source,
+    'session action header trigger surface',
+    'className="flex h-7 max-w-full items-center gap-1 rounded-md px-2.5 text-text-primary transition-colors hover:bg-background-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-active"',
+    'className="flex h-7 max-w-full items-center gap-1 rounded-[8px] px-2.5 text-text-primary transition-colors hover:bg-background-secondary/60 focus-visible:bg-background-secondary/70 focus-visible:outline-none focus-visible:ring-0"'
+  );
+  source = replaceRequired(
+    source,
+    'session action rename input borderless',
+    'className="w-full rounded-lg border border-border-primary bg-background-primary p-3 text-text-primary outline-none focus:ring-2 focus:ring-border-active"',
+    'className="w-full rounded-[10px] bg-background-primary/60 p-3 text-text-primary outline-none transition-colors focus:bg-background-secondary/72 focus:ring-0"'
+  );
+  source = replaceRequired(
+    source,
+    'session action json panel borderless',
+    'className="min-h-0 overflow-hidden rounded-lg border border-border-primary bg-background-secondary"',
+    'className="min-h-0 overflow-hidden rounded-[12px] bg-background-secondary/54"'
+  );
+  source = replaceRequired(
+    source,
+    'session action full text pre borderless',
+    'className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border-primary bg-background-secondary p-4 text-xs leading-5 text-text-primary"',
+    'className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words rounded-[12px] bg-background-secondary/54 p-4 text-xs leading-5 text-text-primary outline-none"'
   );
   write('src/components/SessionActionsHeader.tsx', source);
 }
@@ -5690,6 +5726,12 @@ function applyNeutralTokenDriftSurfaces() {
   write('src/components/schedule/CronPicker.tsx', source);
 
   source = read('src/components/McpApps/McpAppRenderer.tsx');
+  source = replaceRequired(
+    source,
+    'mcp app fullscreen header borderless',
+    'className="flex shrink-0 items-center border-b border-border-primary bg-background-primary px-3"',
+    'className="flex shrink-0 items-center bg-background-primary/70 px-3"'
+  );
   source = replaceRequired(
     source,
     'mcp app loading neutral surface',
