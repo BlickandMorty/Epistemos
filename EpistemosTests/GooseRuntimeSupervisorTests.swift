@@ -1707,8 +1707,11 @@ struct GooseWebViewBootShimTests {
         #expect(panels.contains(".lineLimit(1)"))
         #expect(panels.contains("maxElicitationInputCharacters"))
         #expect(panels.contains(".frame(maxHeight: 260)"))
-        #expect(panels.contains("controlShape.fill(theme.resolved.card.color.opacity"))
-        #expect(panels.contains(".shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)"))
+        #expect(panels.contains("panelShape.fill(panelFill)"))
+        #expect(panels.contains(".shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 18, y: 8)"))
+        #expect(!panels.contains(".ultraThinMaterial"))
+        #expect(!panels.contains(".regularMaterial"))
+        #expect(!panels.contains("radius: 7, y: 3"))
         #expect(!panels.contains("strokeBorder"))
         #expect(!panels.contains("glassBorder"))
     }

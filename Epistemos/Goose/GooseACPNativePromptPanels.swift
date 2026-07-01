@@ -60,7 +60,6 @@ struct GooseACPPermissionPanel: View {
                     .background {
                         controlShape.fill(permissionOptionFill(option.kind))
                     }
-                    .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                     .help(optionName(option))
                 }
 
@@ -74,24 +73,16 @@ struct GooseACPPermissionPanel: View {
                 .background {
                     controlShape.fill(neutralControlFill)
                 }
-                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                 .help("Cancel")
             }
         }
         .padding(14)
         .frame(width: 460, alignment: .leading)
         .background {
-            ZStack {
-                if theme.isDark {
-                    panelShape.fill(.ultraThinMaterial)
-                } else {
-                    panelShape.fill(.regularMaterial)
-                }
-                panelShape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.80 : 0.72))
-            }
+            panelShape.fill(panelFill)
         }
         .clipShape(panelShape)
-        .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 26, y: 14)
+        .shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 18, y: 8)
     }
 
     private var boundedOptions: [GooseACPPermissionOption] {
@@ -112,6 +103,10 @@ struct GooseACPPermissionPanel: View {
 
     private var neutralControlFill: Color {
         theme.resolved.card.color.opacity(theme.isDark ? 0.62 : 0.68)
+    }
+
+    private var panelFill: Color {
+        GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.92 : 0.96)
     }
 
     private func permissionOptionForeground(_ kind: GooseACPPermissionOptionKind) -> Color {
@@ -232,7 +227,6 @@ struct GooseACPElicitationPanel: View {
                 .background {
                     controlShape.fill(accentControlFill)
                 }
-                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
 
                 Button { onAction(.decline) } label: {
                     HStack(spacing: 6) {
@@ -249,7 +243,6 @@ struct GooseACPElicitationPanel: View {
                 .background {
                     controlShape.fill(dangerControlFill)
                 }
-                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
 
                 Spacer(minLength: 0)
 
@@ -263,24 +256,16 @@ struct GooseACPElicitationPanel: View {
                 .background {
                     controlShape.fill(neutralControlFill)
                 }
-                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                 .help("Cancel")
             }
         }
         .padding(14)
         .frame(width: 460, alignment: .leading)
         .background {
-            ZStack {
-                if theme.isDark {
-                    panelShape.fill(.ultraThinMaterial)
-                } else {
-                    panelShape.fill(.regularMaterial)
-                }
-                panelShape.fill(GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.80 : 0.72))
-            }
+            panelShape.fill(panelFill)
         }
         .clipShape(panelShape)
-        .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 26, y: 14)
+        .shadow(color: .black.opacity(theme.isDark ? 0.20 : 0.08), radius: 18, y: 8)
     }
 
     private var messageText: String {
@@ -331,6 +316,10 @@ struct GooseACPElicitationPanel: View {
 
     private var neutralControlFill: Color {
         theme.resolved.card.color.opacity(theme.isDark ? 0.62 : 0.68)
+    }
+
+    private var panelFill: Color {
+        GooseSurfaceStyle.background(for: theme, role: .rail).opacity(theme.isDark ? 0.92 : 0.96)
     }
 
     private func fieldLabel(_ field: GooseACPElicitationFormField) -> String {
