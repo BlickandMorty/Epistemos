@@ -444,6 +444,7 @@ struct VoiceCodepackPlan3Tests {
             "import KokoroPipeline",
             "KokoroPipeline(",
             "loadPipeline(resources: RuntimeResources)",
+            "runtimeResourceShapeProblem(",
             "readRuntimeManifestShape(at:",
             "readHNSFWeights(at:",
             "readVocabulary(at:",
@@ -451,8 +452,10 @@ struct VoiceCodepackPlan3Tests {
             "linear_weights",
             "linear_bias",
             "validateStarterVoice(at:",
+            "voice embedding must contain exactly 256 Float32 values",
             "starterVoiceEmbedding",
             "starterVoiceEmbeddingDimensions",
+            "runtime starter voice is invalid",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
             "CFBooleanGetTypeID",
@@ -1183,6 +1186,45 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
+    @Test("Kokoro Pro gate rejects runtime assets that cannot feed native playback")
+    func kokoroProGateRejectsRuntimeAssetsThatCannotFeedNativePlayback() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-runtime-shape-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let voiceURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.starterVoicePath, isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeValidKokoroPackage(at: modelDirectory)
+
+        let oversizedVoice = kokoroStarterVoiceFixtureData(
+            dimensions: KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions + 1
+        )
+        try oversizedVoice.write(to: voiceURL)
+
+        var manifest = try kokoroRuntimeManifestObject()
+        manifest["voices"] = [
+            kokoroFileObject(path: KokoroVoiceGateStatus.starterVoicePath, data: oversizedVoice),
+        ]
+        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+            .write(to: modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName))
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!status.isReady)
+        #expect(status.state == .missingModel)
+        #expect(status.detail.contains("runtime starter voice is invalid"))
+        #expect(status.detail.contains("voice embedding must contain exactly 256 Float32 values"))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #else
+        #expect(true)
+        #endif
+    }
+
     private func writeValidKokoroPackage(at modelDirectory: URL) throws {
         var packageObjects = [[String: Any]]()
         for packagePath in kokoroFixturePackagePaths() {
@@ -1308,10 +1350,12 @@ struct VoiceCodepackPlan3Tests {
         Data(#"{"linear_weights":[1,0,0,0,1,0,0,0,1],"linear_bias":0}"#.utf8)
     }
 
-    private func kokoroStarterVoiceFixtureData() -> Data {
+    private func kokoroStarterVoiceFixtureData(
+        dimensions: Int = KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions
+    ) -> Data {
         let values = [Float](
             repeating: 0.125,
-            count: KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions
+            count: dimensions
         )
         return values.withUnsafeBufferPointer { buffer in
             guard let baseAddress = buffer.baseAddress else { return Data() }

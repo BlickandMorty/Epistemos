@@ -141,6 +141,13 @@ nonisolated enum KokoroVoiceGateStatus {
            ) {
             problems.append(contentsProblem)
         }
+        if let manifest = manifestCheck.manifest,
+           problems.isEmpty,
+           let shapeProblem = KokoroCoreMLRuntimeLoader.runtimeResourceShapeProblem(
+                modelDirectoryURL: modelDirectory
+           ) {
+            problems.append(shapeProblem)
+        }
 
         guard problems.isEmpty else {
             return Status(

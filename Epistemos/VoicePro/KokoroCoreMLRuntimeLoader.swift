@@ -7,6 +7,7 @@ import KokoroPipeline
 
 nonisolated enum KokoroCoreMLRuntimeLoader {
     static let maxRuntimeAssetBytes = 2 * 1024 * 1024
+    private static let maxRuntimeProblemCharacters = 160
 
     struct HNSFWeights: Equatable, Sendable {
         let linearWeights: [Float]
@@ -127,6 +128,37 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         )
     }
 
+    static func runtimeResourceShapeProblem(modelDirectoryURL: URL) -> String? {
+        let manifestURL = modelDirectoryURL.appendingPathComponent(
+            KokoroVoiceGateStatus.manifestFileName,
+            isDirectory: false
+        )
+        let vocabularyURL = modelDirectoryURL.appendingPathComponent(
+            KokoroVoiceGateStatus.runtimeVocabPath,
+            isDirectory: false
+        )
+        let hnsfURL = modelDirectoryURL.appendingPathComponent(
+            KokoroVoiceGateStatus.runtimeHNSFWeightsPath,
+            isDirectory: false
+        )
+        let voiceURL = modelDirectoryURL.appendingPathComponent(
+            KokoroVoiceGateStatus.starterVoicePath,
+            isDirectory: false
+        )
+
+        do {
+            _ = try readRuntimeManifestShape(at: manifestURL)
+            _ = try readVocabulary(at: vocabularyURL)
+            _ = try readHNSFWeights(at: hnsfURL)
+            _ = try validateStarterVoice(at: voiceURL)
+            return nil
+        } catch let error as LoadError {
+            return boundedRuntimeProblem(runtimeResourceProblemDetail(error))
+        } catch {
+            return "runtime assets are invalid"
+        }
+    }
+
     #if canImport(KokoroPipeline)
     static func loadPipeline(resources: RuntimeResources) throws -> KokoroPipeline {
         do {
@@ -236,19 +268,18 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
             throw LoadError.invalidStarterVoice("voice embedding bytes must align to Float32")
         }
         let floatCount = byteCount / UInt64(MemoryLayout<Float>.size)
-        guard floatCount >= UInt64(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions) else {
-            throw LoadError.invalidStarterVoice("voice embedding is shorter than 256 Float32 values")
+        guard floatCount == UInt64(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions) else {
+            throw LoadError.invalidStarterVoice("voice embedding must contain exactly 256 Float32 values")
         }
 
         var values = [Float](repeating: 0, count: Int(floatCount))
         _ = values.withUnsafeMutableBytes { buffer in
             data.copyBytes(to: buffer)
         }
-        let embedding = Array(values.prefix(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions))
-        guard embedding.allSatisfy(\.isFinite) else {
+        guard values.allSatisfy(\.isFinite) else {
             throw LoadError.invalidStarterVoice("voice embedding must contain finite Float32 values")
         }
-        return embedding
+        return values
     }
 
     private static func readRuntimeAssetDataNoFollow(at url: URL, name: String) throws -> Data {
@@ -358,5 +389,37 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
     private static func runtimeDiagnostic(_ error: Error) -> String {
         let nsError = error as NSError
         return "domain=\(VoiceCaptureDiagnostics.safeDomain(nsError.domain)) code=\(nsError.code)"
+    }
+
+    private static func runtimeResourceProblemDetail(_ error: LoadError) -> String {
+        switch error {
+        case .packageNotReady(let detail):
+            return "runtime asset validation could not start: \(detail)"
+        case .runtimeNotLinked:
+            return "runtime is not linked"
+        case .runtimeAssetUnreadable(let detail):
+            return "runtime asset could not be read: \(detail)"
+        case .invalidVocabulary(let detail):
+            return "runtime vocabulary is invalid: \(detail)"
+        case .invalidHNSFWeights(let detail):
+            return "runtime HNSF weights are invalid: \(detail)"
+        case .invalidStarterVoice(let detail):
+            return "runtime starter voice is invalid: \(detail)"
+        case .pipelineLoadFailed(let detail):
+            return "runtime pipeline could not be loaded: \(detail)"
+        }
+    }
+
+    private static func boundedRuntimeProblem(_ value: String) -> String {
+        let limit = max(0, maxRuntimeProblemCharacters)
+        let bounded = String(value.prefix(limit + 1))
+        let clipped: String
+        if bounded.count > limit {
+            clipped = limit > 3 ? String(bounded.prefix(limit - 3)) + "..." : String(bounded.prefix(limit))
+        } else {
+            clipped = bounded
+        }
+        let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "runtime assets are invalid" : trimmed
     }
 }

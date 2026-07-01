@@ -50,8 +50,9 @@
   the expected repo/platform/language/token-bucket/model-package/runtime-asset/voice fields, requires JSON numeric
   fields to be finite integers, requires every manifest-declared duration token-size package plus the bucket-specific
   f0ntrain/decoder_pre/decoder_har_post packages needed by the native Swift/CoreML pipeline, caps declared per-file and
-  total package bytes before digesting any listed artifact, and verifies the listed segmented `.mlpackage`, runtime
-  vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests before reporting `packageReady`. Package-ready status
+  total package bytes before digesting any listed artifact, verifies the listed segmented `.mlpackage`, runtime
+  vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests, and parses the runtime vocab/HNSF plus exact
+  256-Float32 starter voice shape before reporting `packageReady`. Package-ready status
   carries manifest-derived package evidence (Core ML package count, voice count, runtime asset count, checked file count,
   declared bytes, and a bounded printable bundle profile) without exposing local roots.
   `isReady` is true only when the checked package can feed the linked native playback path. Status details use
@@ -61,8 +62,8 @@
 - **Native Kokoro Swift/CoreML playback is wired:** `LocalPackages/KokoroPipeline` vendors
   the upstream Swift package pinned at `052bdcd8333d4ac38d77485a5067d9a1e3397cac`, `project.yml` links the
   `KokoroPipeline` product, and `KokoroCoreMLRuntimeLoader` turns a checked local package into CoreML model/runtime URLs,
-  parses `runtime/kokoro-vocab.json` plus `runtime/hnsf_weights.json` through bounded no-follow reads, loads the
-  `af_heart` Float32 voice embedding, and instantiates `KokoroPipeline` on demand. `KokoroCoreMLSynthesizer` tokenizes
+  parses `runtime/kokoro-vocab.json` plus `runtime/hnsf_weights.json` through bounded no-follow reads, loads the exact
+  `af_heart` 256-Float32 voice embedding, and instantiates `KokoroPipeline` on demand. `KokoroCoreMLSynthesizer` tokenizes
   supported raw vocabulary characters, chunks to the manifest duration-token cap, joins synthesized 24 kHz PCM, and
   `EpistemosSpeechSynthesizer` plays it through `AVAudioEngine` while advancing observable read-aloud progress from
   `AVAudioPlayerNode` render time. This remains native Swift/CoreML only: no model weights
