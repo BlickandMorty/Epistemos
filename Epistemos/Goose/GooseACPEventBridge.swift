@@ -34,6 +34,7 @@ nonisolated enum GooseACPBridgeStatusBounds {
 final class GooseACPEventBridge {
     nonisolated static let urlHandshakeInitialRetryDelayNanoseconds: UInt64 = 180_000_000
     nonisolated static let urlHandshakeMaximumRetryDelayNanoseconds: UInt64 = 1_500_000_000
+    nonisolated static let maxPendingPromptQueue = 16
 
     enum Status: Equatable, Sendable {
         case idle
@@ -58,6 +59,8 @@ final class GooseACPEventBridge {
     private var client: GooseACPClient?
     private var eventTask: Task<Void, Never>?
     private var connectionKey: String?
+    private var queuedPermissions: [GooseACPPermissionPrompt] = []
+    private var queuedElicitations: [GooseACPElicitationPrompt] = []
     private var injectedConnectionNumber = 0
     private var unhandledDiagnosticSequence = 0
 
@@ -117,6 +120,8 @@ final class GooseACPEventBridge {
         client = nil
         pendingPermission = nil
         pendingElicitation = nil
+        queuedPermissions.removeAll()
+        queuedElicitations.removeAll()
         unhandledDiagnostics.removeAll()
         connectionKey = nil
         switch status {
@@ -134,6 +139,7 @@ final class GooseACPEventBridge {
         let response = optionID.map(GooseACPRequestPermissionResponse.selected(optionId:))
             ?? GooseACPRequestPermissionResponse.cancelled()
         sendPermissionResponse(response, for: prompt, context: "permission")
+        promoteNextPermission()
     }
 
     func acceptElicitation(promptID: String, values: [String: JSONValue]) {
@@ -210,6 +216,8 @@ final class GooseACPEventBridge {
         }
         pendingPermission = nil
         pendingElicitation = nil
+        queuedPermissions.removeAll()
+        queuedElicitations.removeAll()
         lastSessionUpdate = nil
         unhandledDiagnostics.removeAll()
         unhandledDiagnosticSequence = 0
@@ -320,18 +328,41 @@ final class GooseACPEventBridge {
               prompt.id == promptID else { return }
         pendingElicitation = nil
         sendElicitationResponse(response, for: prompt, context: "elicitation")
+        promoteNextElicitation()
     }
 
-    private func cancelPendingPermission(context: String) {
-        guard let prompt = pendingPermission else { return }
-        pendingPermission = nil
-        sendPermissionResponse(.cancelled(), for: prompt, context: context)
+    private func enqueuePermission(_ prompt: GooseACPPermissionPrompt) {
+        guard pendingPermission != nil else {
+            pendingPermission = prompt
+            return
+        }
+        guard queuedPermissions.count < Self.maxPendingPromptQueue else {
+            sendPermissionResponse(.cancelled(), for: prompt, context: "permission-queue-full")
+            return
+        }
+        queuedPermissions.append(prompt)
     }
 
-    private func cancelPendingElicitation(context: String) {
-        guard let prompt = pendingElicitation else { return }
-        pendingElicitation = nil
-        sendElicitationResponse(.cancel(), for: prompt, context: context)
+    private func promoteNextPermission() {
+        guard pendingPermission == nil, !queuedPermissions.isEmpty else { return }
+        pendingPermission = queuedPermissions.removeFirst()
+    }
+
+    private func enqueueElicitation(_ prompt: GooseACPElicitationPrompt) {
+        guard pendingElicitation != nil else {
+            pendingElicitation = prompt
+            return
+        }
+        guard queuedElicitations.count < Self.maxPendingPromptQueue else {
+            sendElicitationResponse(.cancel(), for: prompt, context: "elicitation-queue-full")
+            return
+        }
+        queuedElicitations.append(prompt)
+    }
+
+    private func promoteNextElicitation() {
+        guard pendingElicitation == nil, !queuedElicitations.isEmpty else { return }
+        pendingElicitation = queuedElicitations.removeFirst()
     }
 
     private func sendPermissionResponse(
@@ -425,11 +456,9 @@ final class GooseACPEventBridge {
         case .sessionUpdate(let notification):
             lastSessionUpdate = notification
         case .permissionRequest(let id, let request):
-            cancelPendingPermission(context: "permission-replaced")
-            pendingPermission = GooseACPPermissionPrompt(requestID: id, request: request)
+            enqueuePermission(GooseACPPermissionPrompt(requestID: id, request: request))
         case .elicitationRequest(let id, let request):
-            cancelPendingElicitation(context: "elicitation-replaced")
-            pendingElicitation = GooseACPElicitationPrompt(requestID: id, request: request)
+            enqueueElicitation(GooseACPElicitationPrompt(requestID: id, request: request))
         case .unhandledRequest(let id, let method, let params):
             appendUnhandledDiagnostic(kind: .request, method: method, params: params)
             guard let client else { return }
@@ -488,6 +517,8 @@ final class GooseACPEventBridge {
     private func fail(_ error: Error) {
         pendingPermission = nil
         pendingElicitation = nil
+        queuedPermissions.removeAll()
+        queuedElicitations.removeAll()
         status = .failed(GooseACPBridgeStatusBounds.statusMessage(for: error))
     }
 

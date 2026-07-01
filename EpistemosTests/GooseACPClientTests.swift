@@ -1287,8 +1287,8 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
-    @Test("bridge cancels an old pending permission request before replacing it")
-    func bridgeCancelsReplacedPermissionRequests() async throws {
+    @Test("bridge queues pending permission requests instead of cancelling older prompts")
+    func bridgeQueuesPermissionRequests() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
             #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
             """
@@ -1333,17 +1333,27 @@ struct GooseACPEventBridgeTests {
         let bridge = GooseACPEventBridge()
 
         bridge.connect(transport: transport, clientVersion: "test-version")
-        try await waitUntil { bridge.pendingPermission?.request.toolCall.title == "Write second" }
-        await transport.waitUntilSent(count: 2)
+        try await waitUntil { bridge.pendingPermission?.request.toolCall.title == "Write first" }
+        await transport.waitUntilSent(count: 1)
 
-        let pending = try #require(bridge.pendingPermission)
-        #expect(pending.request.toolCall.toolCallId == "tool-2")
+        let first = try #require(bridge.pendingPermission)
+        #expect(first.request.toolCall.toolCallId == "tool-1")
         let sent = await transport.sentMessages()
+        #expect(sent.count == 1)
         #expect(sent.first?.method == .initialize)
-        #expect(sent.last?.id == .string("perm-1"))
-        let result = try #require(sent.last?.raw.objectValue?["result"]?.objectValue)
+
+        bridge.resolvePermission(promptID: first.id, optionID: "once")
+        await transport.waitUntilSent(count: 2)
+        try await waitUntil { bridge.pendingPermission?.request.toolCall.title == "Write second" }
+
+        let second = try #require(bridge.pendingPermission)
+        #expect(second.request.toolCall.toolCallId == "tool-2")
+        let sentAfterResolve = await transport.sentMessages()
+        #expect(sentAfterResolve.last?.id == .string("perm-1"))
+        let result = try #require(sentAfterResolve.last?.raw.objectValue?["result"]?.objectValue)
         let outcome = try #require(result["outcome"]?.objectValue)
-        #expect(outcome["outcome"] == .string("cancelled"))
+        #expect(outcome["outcome"] == .string("selected"))
+        #expect(outcome["optionId"] == .string("once"))
         await bridge.disconnect()
     }
 
@@ -1391,8 +1401,8 @@ struct GooseACPEventBridgeTests {
         await bridge.disconnect()
     }
 
-    @Test("bridge cancels an old pending elicitation request before replacing it")
-    func bridgeCancelsReplacedElicitationRequests() async throws {
+    @Test("bridge queues pending elicitation requests instead of cancelling older prompts")
+    func bridgeQueuesElicitationRequests() async throws {
         let transport = GooseACPMemoryTransport(incoming: [
             #"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"goose","version":"dev"}}}"#,
             """
@@ -1435,15 +1445,24 @@ struct GooseACPEventBridgeTests {
         let bridge = GooseACPEventBridge()
 
         bridge.connect(transport: transport, clientVersion: "test-version")
-        try await waitUntil { bridge.pendingElicitation?.message == "Second title" }
-        await transport.waitUntilSent(count: 2)
+        try await waitUntil { bridge.pendingElicitation?.message == "First title" }
+        await transport.waitUntilSent(count: 1)
 
-        let pending = try #require(bridge.pendingElicitation)
-        #expect(pending.message == "Second title")
+        let first = try #require(bridge.pendingElicitation)
+        #expect(first.message == "First title")
         let sent = await transport.sentMessages()
+        #expect(sent.count == 1)
         #expect(sent.first?.method == .initialize)
-        #expect(sent.last?.id == .int(7))
-        #expect(sent.last?.raw.objectValue?["result"]?.objectValue?["action"] == .string("cancel"))
+
+        bridge.acceptElicitation(promptID: first.id, values: ["title": .string("Accepted")])
+        await transport.waitUntilSent(count: 2)
+        try await waitUntil { bridge.pendingElicitation?.message == "Second title" }
+
+        let second = try #require(bridge.pendingElicitation)
+        #expect(second.message == "Second title")
+        let sentAfterAccept = await transport.sentMessages()
+        #expect(sentAfterAccept.last?.id == .int(7))
+        #expect(sentAfterAccept.last?.raw.objectValue?["result"]?.objectValue?["action"] == .string("accept"))
         await bridge.disconnect()
     }
 
