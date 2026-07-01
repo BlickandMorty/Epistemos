@@ -43,6 +43,29 @@ seed the prompt. Owner-selected families:
 - Each preset press = one-click streaming regenerate → preview → apply → revertable. Presets that need vault data must use
   the opt-in vault feed and degrade honestly if the vault has nothing.
 
+## 4. THE REAL VISION — an interactive workspace built from ANY context (owner 2026-06-30)
+Regenerate is not "rewrite the page." It is **compose an interesting, INTERACTIVE space from whatever context the user
+brings** — and the generated surface stays interactive (search boxes, filters, tabs, charts, clickable cards, live
+data), not a static export.
+- **Context sources it can pull from (READ-ONLY, real, no fake):** free-text intent · the current surface/selection ·
+  a chosen note or folder · **vault** (search results + specific notes via the existing `HTMLWorkspaceDataFeed` /
+  search index) · the knowledge **graph** (related/linked notes) · recent **captures / chats / meeting notes** ·
+  provenance/claims. "Pull from other parts of the app" = wire these existing read paths into the workspace context;
+  do NOT invent new data or fabricate results — degrade honestly when a source is empty.
+- **Interactive output:** the space it builds can include working search/filter over vault data, charts bound to real
+  data, tabbed/linked cards, nav between generated routes — a live mini-app, seeded from context, reversible and
+  provenanced like everything else here. Preset buttons (§3) are shortcuts into this; free-form context is the general case.
+- Everything still flows through the SAME atomic + reversible + `.regenerate`-provenance + streaming pipeline. Vault/graph
+  reads use existing services — read-only, opt-in, honest.
+
+## ⛔ HARD GUARDRAIL — DO NOT TOUCH THE CODE EDITOR (owner 2026-06-30, "biggest issue before")
+All of this work stays in the **regenerate / preview / data-feed / preset / interactive-context** layer of the HTML
+Workspace. It must **NOT** modify, refactor, restyle, or destabilize the **code editor / Source lens** — MarkEdit /
+CoreEditor / the L3 code chrome / the HTML Workspace *source panes* (which ride the MarkEdit/CoreEditor Source lane).
+That surface was the biggest breakage source before; leave it alone. If a regenerate/workspace change would require
+touching the code-editor code paths, STOP and flag it instead of proceeding. The interactive workspace changes the
+*preview/rendered* space and its context wiring, never the code-editing engine.
+
 ## Proof bar (before calling it done)
 Cold-launch the app → open an HTML Workspace → (a) one preset from each family produces a working surface via live stream;
 (b) Apply persists; (c) Revert restores the prior surface; (d) provenance shows `.regenerate`; (e) styling is flat +
