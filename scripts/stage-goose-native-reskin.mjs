@@ -7089,6 +7089,8 @@ body,
   .select__menu,
   [data-radix-popper-content-wrapper] > *
 ) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
   background: var(--epistemos-claude-bg) !important;
   border-color: transparent !important;
   border-width: 0 !important;

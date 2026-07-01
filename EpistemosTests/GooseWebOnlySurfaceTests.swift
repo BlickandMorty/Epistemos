@@ -217,6 +217,19 @@ struct GooseWebOnlySurfaceSourceTests {
   background: transparent !important;
 }
 """))
+        #expect(desktopLock.contains("""
+.goose-epistemos :is(
+  [role='dialog'],
+  [data-slot='dialog-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='dropdown-menu-sub-content'],
+  .select__menu,
+  [data-radix-popper-content-wrapper] > *
+) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--epistemos-claude-bg) !important;
+"""))
         #expect(!desktopLock.contains("""
 .goose-epistemos :is(
   .bg-background-primary,
