@@ -164,12 +164,33 @@ public final class CommandRegistry {
         activeScope = .note
     }
 
+    public func activateNoteUtilitySurface(
+        id: ObjectIdentifier,
+        save: @escaping @MainActor () -> Void,
+        showFindReplace: @escaping @MainActor () -> Void,
+        state: @escaping @MainActor () -> EpistemosCommandSurfaceState = { EpistemosCommandSurfaceState() }
+    ) {
+        activeNoteSurfaceID = id
+        activeNoteDispatch = nil
+        activeNoteSave = save
+        activeNoteShowFindReplace = showFindReplace
+        activeNoteState = state
+        activeScope = .note
+    }
+
     public func deactivateNoteSurface(id: ObjectIdentifier) {
         guard activeNoteSurfaceID == id else { return }
         resetActiveNoteSurface()
     }
 
     public func hasActiveNoteSurface() -> Bool {
+        activeScope == .note
+            && (activeNoteDispatch != nil
+                || activeNoteSave != nil
+                || activeNoteShowFindReplace != nil)
+    }
+
+    public func hasActiveNoteEditorSurface() -> Bool {
         activeScope == .note && activeNoteDispatch != nil
     }
 

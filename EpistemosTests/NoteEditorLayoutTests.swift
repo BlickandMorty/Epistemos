@@ -365,13 +365,79 @@ struct NoteEditorLayoutTests {
         #expect(NoteWorkspaceFooterDisplay.showsShortcutHints == false)
     }
 
-    @Test("toolbar quick actions keep save and sidebar shortcuts without hover text")
-    func toolbarQuickActionsKeepShortcutsWithoutHoverText() {
-        #expect(NoteWorkspaceQuickAction.allCases == [.saveToDisk, .notesSidebar])
+    @Test("toolbar quick actions keep find save and sidebar shortcuts without hover text")
+    func toolbarQuickActionsKeepFindSaveAndSidebarShortcutsWithoutHoverText() {
+        #expect(NoteWorkspaceQuickAction.allCases == [.findInNote, .saveToDisk, .notesSidebar])
+        #expect(NoteWorkspaceQuickAction.findInNote.shortcut == "⌘F")
         #expect(NoteWorkspaceQuickAction.saveToDisk.shortcut == "⌘S")
         #expect(NoteWorkspaceQuickAction.notesSidebar.shortcut == "⌘2")
+        #expect(NoteWorkspaceQuickAction.findInNote.help == nil)
         #expect(NoteWorkspaceQuickAction.saveToDisk.help == nil)
         #expect(NoteWorkspaceQuickAction.notesSidebar.help == nil)
+    }
+
+    @Test("hidden prose shortcuts do not steal Source editor keybindings")
+    func hiddenProseShortcutsDoNotStealSourceEditorKeybindings() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("""
+            Button("") { showDiffSheet = true }
+                .keyboardShortcut("d", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+        #expect(source.contains("""
+            Button("") { togglePreviewMode() }
+                .keyboardShortcut("e", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+        #expect(source.contains("""
+            Button("") { insertMarkdown("**", "**") }
+                .keyboardShortcut("b", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+        #expect(source.contains("""
+            Button("") { insertMarkdown("*", "*") }
+                .keyboardShortcut("i", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+        #expect(source.contains("""
+            Button("") { navState?.back() }
+                .keyboardShortcut("[", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+        #expect(source.contains("""
+            .keyboardShortcut("p", modifiers: [.command, .shift])
+            .disabled(!noteCommandSurfaceIsActive)
+            .hidden()
+            """))
+        #expect(source.contains("""
+            Button("") { navState?.forward() }
+                .keyboardShortcut("]", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+        #expect(source.contains("""
+            Button("") { notesUI.isFocusMode.toggle() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            """))
+    }
+
+    @Test("Source mode hides Prose-only quick actions")
+    func sourceModeHidesProseOnlyQuickActions() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("guard noteCommandSurfaceIsActive else { return }\n            showNativeFindInterface()"))
+        #expect(source.contains("private func noteWorkspaceQuickActions(for page: SDPage) -> [NoteWorkspaceQuickAction]"))
+        #expect(source.contains("action != .findInNote || resolvedNoteMode(for: page) == .edit"))
+        #expect(source.contains("let actions = pages.first.map(noteWorkspaceQuickActions(for:)) ?? NoteWorkspaceQuickAction.allCases"))
+        #expect(source.contains("ForEach(actions, id: \\.self)"))
     }
 
     @Test("preview H1 uses the same heading scale as the note editor")
@@ -531,6 +597,14 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("Menu(\"Format\")"))
         #expect(source.contains("Label(\"Backlinks\", systemImage: \"link\")"))
         #expect(source.contains("Label(\"Apple Writing Tools\", systemImage: \"apple.intelligence\")"))
+        #expect(source.contains("private func showNativeFindInterface()"))
+        #expect(source.contains("NSTextFinder.Action.showFindInterface.rawValue"))
+        #expect(source.contains("tv.performTextFinderAction(item)"))
+        #expect(source.contains("NoteWorkspaceCommandSurfaceActivation("))
+        #expect(source.contains("activationKey: pageId"))
+        #expect(source.contains("showFind: { showNativeFindInterface() }"))
+        #expect(source.contains(#".keyboardShortcut("f", modifiers: .command)"#))
+        #expect(source.contains(".disabled(!noteCommandSurfaceIsActive)"))
         #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))

@@ -254,7 +254,8 @@ public enum CommandRegistrations {
             subtitle: subtitle,
             symbol: symbol,
             shortcut: shortcut,
-            menuPath: menuPath
+            menuPath: menuPath,
+            requiresEditorSurface: true
         ) {
             registry.dispatchActiveNote(command)
         }
@@ -268,6 +269,7 @@ public enum CommandRegistrations {
         symbol: String,
         shortcut: EpistemosCommandShortcut? = nil,
         menuPath: EpistemosCommandMenuPath,
+        requiresEditorSurface: Bool = false,
         run: @escaping @MainActor () -> Void
     ) {
         registry.register(EpistemosCommand(
@@ -279,7 +281,9 @@ public enum CommandRegistrations {
             scope: .note,
             menuPath: menuPath,
             isEnabled: {
-                registry.hasActiveNoteSurface()
+                requiresEditorSurface
+                    ? registry.hasActiveNoteEditorSurface()
+                    : registry.hasActiveNoteSurface()
             },
             run: run
         ))

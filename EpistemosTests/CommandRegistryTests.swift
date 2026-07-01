@@ -131,6 +131,47 @@ struct CommandRegistryTests {
         #expect(registry.matching(query: "bold", scope: .note).isEmpty)
     }
 
+    @Test("Note utility surfaces expose find and save without enabling Epdoc formatting")
+    func noteUtilitySurfaceExposesOnlyFindAndSaveCommands() {
+        final class SurfaceToken {}
+
+        let registry = CommandRegistry()
+        CommandRegistrations.registerEpdocCommands(in: registry)
+        let token = SurfaceToken()
+        var didSave = false
+        var didShowFind = false
+        registry.activateNoteUtilitySurface(
+            id: ObjectIdentifier(token),
+            save: { didSave = true },
+            showFindReplace: { didShowFind = true }
+        )
+
+        let commandIDs = registry.matching(query: "", scope: .note).map(\.id)
+        #expect(commandIDs.contains("epdoc.save"))
+        #expect(commandIDs.contains("epdoc.findReplace"))
+        #expect(!commandIDs.contains("epdoc.bold"))
+        #expect(!commandIDs.contains("epdoc.aiDiffAccept"))
+        #expect(registry.menuCommands(path: .file).map(\.id) == ["epdoc.save"])
+        #expect(registry.menuCommands(path: .edit).map(\.id) == ["epdoc.findReplace"])
+
+        registry.matching(query: "save note", scope: .note).first { $0.id == "epdoc.save" }?.run()
+        registry.matching(query: "find replace", scope: .note).first { $0.id == "epdoc.findReplace" }?.run()
+        #expect(didSave)
+        #expect(didShowFind)
+
+        registry.deactivateNoteSurface(id: ObjectIdentifier(token))
+        #expect(registry.matching(query: "save note", scope: .note).isEmpty)
+    }
+
+    @Test("Note utility activation refreshes when the workspace target changes")
+    func noteUtilityActivationRefreshesWhenWorkspaceTargetChanges() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteWorkspaceCommandSurfaceActivation.swift")
+
+        #expect(source.contains("let activationKey: String"))
+        #expect(source.contains(".onChange(of: activationKey)"))
+        #expect(source.contains("syncActivation(isKeyWindow: windowIsKey, surfaceIsActive: isActive)"))
+    }
+
     @Test("Cmd+K is reserved only for the command palette")
     func commandKReservedForPalette() throws {
         let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")

@@ -305,17 +305,21 @@ enum NoteWorkspaceFooterDisplay {
     static let chipVerticalPadding: CGFloat = 6
     static let footerPadding: CGFloat = 8
     static let shortcuts: [ShortcutHint] = [
+        ShortcutHint(key: "F", label: "Find in Note"),
         ShortcutHint(key: "S", label: "Save to Disk"),
         ShortcutHint(key: "2", label: "Note Sidebar"),
     ]
 }
 
 enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
+    case findInNote
     case saveToDisk
     case notesSidebar
 
     var glyph: NoteToolbarGlyph {
         switch self {
+        case .findInNote:
+            .findInNote
         case .saveToDisk:
             .saveToDisk
         case .notesSidebar:
@@ -325,6 +329,8 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
 
     var title: String {
         switch self {
+        case .findInNote:
+            "Find in Note"
         case .saveToDisk:
             "Save to Disk"
         case .notesSidebar:
@@ -334,6 +340,8 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
 
     var shortcut: String {
         switch self {
+        case .findInNote:
+            "⌘F"
         case .saveToDisk:
             "⌘S"
         case .notesSidebar:
@@ -631,6 +639,7 @@ enum NoteToolbarGlyph: Sendable {
     case backlinks
     case history
     case recovery
+    case findInNote
     case saveToDisk
     case notesSidebar
 
@@ -652,6 +661,8 @@ enum NoteToolbarGlyph: Sendable {
             "bubble.left"
         case .recovery:
             "exclamationmark.triangle"
+        case .findInNote:
+            "magnifyingglass"
         case .saveToDisk:
             "square.and.arrow.down"
         case .notesSidebar:
@@ -833,6 +844,13 @@ struct NoteDetailWorkspaceView: View {
         .toolbarBackgroundVisibility(.automatic, for: .windowToolbar)
         .environment(\.colorScheme, noteWorkspaceColorScheme)
         .background {
+            NoteWorkspaceCommandSurfaceActivation(
+                activationKey: pageId,
+                isActive: noteCommandSurfaceIsActive,
+                save: saveCurrentNoteToDisk,
+                showFind: { showNativeFindInterface() }
+            )
+
             // Hidden keyboard shortcut buttons
             Button("") {
                 Task {
@@ -851,16 +869,24 @@ struct NoteDetailWorkspaceView: View {
                 .hidden()
             Button("") { showDiffSheet = true }
                 .keyboardShortcut("d", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
             Button("") { togglePreviewMode() }
                 .keyboardShortcut("e", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
+                .hidden()
+            Button("") { showNativeFindInterface() }
+                .keyboardShortcut("f", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
 
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
             Button("") { insertMarkdown("*", "*") }
                 .keyboardShortcut("i", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
             Button("") {
                 if let page = pages.first {
@@ -873,15 +899,19 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
+            .disabled(!noteCommandSurfaceIsActive)
             .hidden()
             Button("") { navState?.back() }
                 .keyboardShortcut("[", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
             Button("") { navState?.forward() }
                 .keyboardShortcut("]", modifiers: .command)
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
             Button("") { notesUI.isFocusMode.toggle() }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(!noteCommandSurfaceIsActive)
                 .hidden()
         }
         .popover(isPresented: $showInfoPopover) {
@@ -1191,6 +1221,11 @@ struct NoteDetailWorkspaceView: View {
         return sourceEditorRoute(for: page) != nil
     }
 
+    private var noteCommandSurfaceIsActive: Bool {
+        guard let page = pages.first else { return false }
+        return resolvedNoteMode(for: page) == .edit
+    }
+
     private var noteFooter: some View {
         HStack(spacing: NoteWorkspaceFooterDisplay.chipSpacing) {
             // Code files have their own status bar — hide the word count overlay
@@ -1238,6 +1273,9 @@ struct NoteDetailWorkspaceView: View {
 
     private func performNoteWorkspaceQuickAction(_ action: NoteWorkspaceQuickAction) {
         switch action {
+        case .findInNote:
+            guard noteCommandSurfaceIsActive else { return }
+            showNativeFindInterface()
         case .saveToDisk:
             saveCurrentNoteToDisk()
         case .notesSidebar:
@@ -1255,6 +1293,20 @@ struct NoteDetailWorkspaceView: View {
 
         flushCurrentEditor()
         vaultSync.savePage(pageId: pageId)
+    }
+
+    private func noteWorkspaceQuickActions(for page: SDPage) -> [NoteWorkspaceQuickAction] {
+        NoteWorkspaceQuickAction.allCases.filter { action in
+            action != .findInNote || resolvedNoteMode(for: page) == .edit
+        }
+    }
+
+    private func showNativeFindInterface() {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
+        tv.window?.makeFirstResponder(tv)
+        let item = NSMenuItem()
+        item.tag = NSTextFinder.Action.showFindInterface.rawValue
+        tv.performTextFinderAction(item)
     }
 
     private var codeFileLineCount: Int {
@@ -2471,7 +2523,8 @@ struct NoteDetailWorkspaceView: View {
             Divider()
 
             if pages.first.map({ resolvedNoteMode(for: $0) != .preview }) ?? true {
-                ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
+                let actions = pages.first.map(noteWorkspaceQuickActions(for:)) ?? NoteWorkspaceQuickAction.allCases
+                ForEach(actions, id: \.self) { action in
                     Button(action.title) {
                         performNoteWorkspaceQuickAction(action)
                     }
