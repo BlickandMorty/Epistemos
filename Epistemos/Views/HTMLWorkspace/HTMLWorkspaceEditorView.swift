@@ -559,6 +559,7 @@ struct HTMLWorkspaceEditorView: View {
                         isRefreshingContext: isRefreshingRegenerateContext,
                         theme: workspaceTheme,
                         onOpenContextSearch: openRegenerateSheet,
+                        onRequestContextShortcut: refreshPreviewContextShortcut,
                         onPickContextItem: applyPreviewContextItem
                     )
                     .padding(12)
@@ -1026,6 +1027,15 @@ struct HTMLWorkspaceEditorView: View {
         \(boundedDroppedContext(item.dragPayload))
         """
         startRegenerateWithContextDirective(directive, status: "Picked context added")
+    }
+
+    private func refreshPreviewContextShortcut(_ shortcut: HTMLWorkspaceRegenerateContextShortcut) {
+        guard !isRegenerating else { return }
+        regenerateErrorText = nil
+        regenerateContextQuery = shortcut.query
+        regenerateContextStatusText = "Loading \(shortcut.title) context"
+        statusText = "Loading \(shortcut.title) context"
+        refreshRegenerateVaultContext()
     }
 
     private func startRegenerateWithContextDirective(_ directive: String, status: String) {

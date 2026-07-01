@@ -7,6 +7,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
     let isRefreshingContext: Bool
     let theme: EpistemosTheme
     let onOpenContextSearch: () -> Void
+    let onRequestContextShortcut: (HTMLWorkspaceRegenerateContextShortcut) -> Void
     let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
 
     private var pickerFill: Color {
@@ -25,6 +26,19 @@ struct HTMLWorkspacePreviewContextPicker: View {
                 Label("Search Context", systemImage: "magnifyingglass")
             }
             .disabled(isRefreshingContext)
+
+            Divider()
+            Section("Source Families") {
+                ForEach(HTMLWorkspaceRegenerateContextShortcut.all) { shortcut in
+                    Button {
+                        onRequestContextShortcut(shortcut)
+                    } label: {
+                        Label(shortcut.title, systemImage: shortcut.systemImage)
+                    }
+                    .disabled(isRefreshingContext)
+                    .help(shortcut.helpText)
+                }
+            }
 
             if let contextStatusText, !contextStatusText.isEmpty {
                 Divider()
