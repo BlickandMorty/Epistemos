@@ -92,7 +92,16 @@ fn reject_if_not_pdf(pdf_path: &str) -> Result<(), LiteParseError> {
     Ok(())
 }
 
+fn reject_if_not_pdf_or_extensionless(pdf_path: &str) -> Result<(), LiteParseError> {
+    if is_supported_pdf(pdf_path) || std::path::Path::new(pdf_path).extension().is_none() {
+        return Ok(());
+    }
+    let ext = pdf_path.rsplit('.').next().unwrap_or("").to_string();
+    Err(LiteParseError::UnsupportedFormat(ext))
+}
+
 fn preflight_pdf_path(pdf_path: &str) -> Result<(), LiteParseError> {
+    reject_if_not_pdf_or_extensionless(pdf_path)?;
     let metadata = match std::fs::symlink_metadata(pdf_path) {
         Ok(metadata) => metadata,
         Err(e) => {
@@ -427,6 +436,25 @@ mod tests {
                 );
             }
             other => panic!("expected non-PDF body preflight failure, got {other:?}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preflight_rejects_non_pdf_extension_even_with_pdf_magic() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the Unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("epistemos-liteparse-extension-{unique}"));
+        std::fs::create_dir_all(&dir).expect("create temp liteparse dir");
+        let renamed_pdf = dir.join("renamed.docx");
+        std::fs::write(&renamed_pdf, b"%PDF-1.7\n").expect("write renamed pdf");
+
+        match preflight_pdf_path(renamed_pdf.to_str().expect("utf-8 temp path")) {
+            Err(LiteParseError::UnsupportedFormat(ext)) => assert_eq!(ext, "docx"),
+            other => panic!("expected unsupported extension failure, got {other:?}"),
         }
 
         let _ = std::fs::remove_dir_all(&dir);
