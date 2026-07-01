@@ -1302,7 +1302,10 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         case .captureSnapshot(let name):
             try HTMLWorkspacePackage.validatePackageFileName(name)
             updated.snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: updated).utf8)
-            updated.snapshots = boundedSnapshots(updated.snapshots)
+            updated.snapshots = boundedSnapshots(
+                updated.snapshots,
+                preserving: activeReversibleSnapshotNames(in: updated)
+            )
             try HTMLWorkspacePackage.validateSnapshots(updated.snapshots)
         case .restoreSnapshot(let name):
             let previousContentHash = contentHash(for: updated)
@@ -1443,6 +1446,17 @@ nonisolated public enum HTMLWorkspacePatchApplier {
             }
         }
         return snapshots.filter { keep.contains($0.key) }
+    }
+
+    private static func activeReversibleSnapshotNames(in package: HTMLWorkspacePackage) -> Set<String> {
+        guard let name = package.manifest.generationProvenance?.reversibleSnapshotName,
+              !name.isEmpty else {
+            return []
+        }
+        return [
+            name,
+            HTMLWorkspaceSourceSnapshot.sourceName(forRenderedSnapshotName: name),
+        ]
     }
 
     private static func restorationPayload(

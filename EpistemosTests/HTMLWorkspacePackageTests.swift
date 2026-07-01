@@ -1366,6 +1366,36 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(package.snapshots["snap-23.html"] != nil)
     }
 
+    @Test("active reversible snapshot survives manual snapshot churn")
+    func activeReversibleSnapshotSurvivesManualSnapshotChurn() throws {
+        let replacement = HTMLWorkspaceDocumentReplacement(
+            title: "Generated",
+            html: "<main><h1>Generated</h1></main>",
+            css: "main { display: grid; }",
+            js: "document.body.dataset.generated = 'true';",
+            dataJSON: #"{"generated":true}"#,
+            provenanceOperation: .regenerate
+        )
+        var package = try HTMLWorkspacePatchApplier.apply(
+            .replaceDocument(replacement),
+            to: Self.samplePackage()
+        )
+        let reversibleName = try #require(package.manifest.generationProvenance?.reversibleSnapshotName)
+        let sourceName = HTMLWorkspaceSourceSnapshot.sourceName(forRenderedSnapshotName: reversibleName)
+
+        for index in 0..<24 {
+            package = try HTMLWorkspacePatchApplier.apply(.captureSnapshot(name: "manual-\(index).html"), to: package)
+        }
+
+        #expect(package.snapshots.count == HTMLWorkspacePackageLimits.maxSnapshots)
+        #expect(package.snapshots[reversibleName] != nil)
+        #expect(package.snapshots[sourceName] != nil)
+        #expect(package.manifest.generationProvenance?.reversibleSnapshotName == reversibleName)
+        let restored = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: reversibleName), to: package)
+        #expect(restored.indexHTML.contains("Interactive Doc"))
+        #expect(restored.manifest.generationProvenance?.operation == .restoreSnapshot)
+    }
+
     @Test("console error strings are bounded before package persistence")
     func consoleErrorStringsAreBoundedBeforePackagePersistence() throws {
         let hugeMessage = String(repeating: "m", count: HTMLWorkspacePackageLimits.maxConsoleErrorMessageCharacters + 1_000)
