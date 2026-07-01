@@ -48,10 +48,12 @@
   `mattmireles/kokoro-coreml` bundle assets keeps text-to-speech unavailable with no Apple AVSpeech fallback. Package
   verification rejects symlink-routed or non-regular model artifacts, requires a bounded no-follow runtime manifest with
   the expected repo/platform/language/token-bucket/model-package/runtime-asset/voice fields, requires JSON numeric
-  fields to be finite integers, caps declared per-file and total package bytes before digesting any listed artifact, and
-  verifies the listed segmented `.mlpackage`, runtime vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests
-  before reporting `packageReady`. Package-ready status carries manifest-derived package evidence (Core ML package
-  count, voice count, runtime asset count, checked file count, and declared bytes) without exposing local roots.
+  fields to be finite integers, requires every manifest-declared duration token-size package plus the bucket-specific
+  f0ntrain/decoder_pre/decoder_har_post packages needed by the native Swift/CoreML pipeline, caps declared per-file and
+  total package bytes before digesting any listed artifact, and verifies the listed segmented `.mlpackage`, runtime
+  vocab/HNSF, and `af_heart` voice file sizes plus SHA-256 digests before reporting `packageReady`. Package-ready status
+  carries manifest-derived package evidence (Core ML package count, voice count, runtime asset count, checked file count,
+  and declared bytes) without exposing local roots.
   `isReady` remains false until real neural synthesis is wired and
   selectable. Status details use bounded-before-trim model-relative diagnostics with ellipsis inside configured caps
   instead of local absolute model paths. A Pro-only

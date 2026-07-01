@@ -31,6 +31,13 @@ nonisolated enum KokoroVoiceGateStatus {
     private static let hashReadChunkBytes = 1024 * 1024
     private static let requiredDurationTokenSizes: Set<Int> = [32, 64, 128, 256, 320, 384, 512]
     private static let allowedBuckets: Set<Int> = [3, 7, 10, 15, 30]
+    private static let f0FrameCountsByBucket: [Int: Int] = [
+        3: 120,
+        7: 280,
+        10: 400,
+        15: 600,
+        30: 1_200,
+    ]
 
     enum State: String, Equatable, Sendable {
         case unavailable
@@ -269,7 +276,11 @@ nonisolated enum KokoroVoiceGateStatus {
             return ManifestCheck(manifest: nil, problem: "\(manifestFileName) \(problem)")
         }
         let modelPackages = packageParse.packages
-        if let familyProblem = modelPackageFamilyProblem(modelPackages) {
+        if let familyProblem = modelPackageFamilyProblem(
+            modelPackages,
+            durationTokenSizes: durationTokenSizes,
+            buckets: buckets
+        ) {
             return ManifestCheck(manifest: nil, problem: "\(manifestFileName) \(familyProblem)")
         }
 
@@ -428,14 +439,34 @@ nonisolated enum KokoroVoiceGateStatus {
         return (files, nil)
     }
 
-    private static func modelPackageFamilyProblem(_ packages: [ModelPackage]) -> String? {
+    private static func modelPackageFamilyProblem(
+        _ packages: [ModelPackage],
+        durationTokenSizes: Set<Int>,
+        buckets: Set<Int>
+    ) -> String? {
         let names = Set(packages.map { URL(fileURLWithPath: $0.path).lastPathComponent })
-        let hasDuration = names.contains { $0.hasPrefix("kokoro_duration_t") && $0.hasSuffix(".mlpackage") }
-        let hasF0NTrain = names.contains { $0.hasPrefix("kokoro_f0ntrain_t") && $0.hasSuffix(".mlpackage") }
-        let hasDecoderPre = names.contains { $0.hasPrefix("kokoro_decoder_pre_") && $0.hasSuffix(".mlpackage") }
-        let hasGenerator = names.contains { $0.hasPrefix("kokoro_decoder_har_post_") && $0.hasSuffix(".mlpackage") }
-        guard hasDuration, hasF0NTrain, hasDecoderPre, hasGenerator else {
-            return "model_packages must include duration, f0ntrain, decoder_pre, and decoder_har_post Core ML packages"
+        let missingDurationSizes = durationTokenSizes.sorted().filter { tokenSize in
+            !names.contains("kokoro_duration_t\(tokenSize).mlpackage")
+                && !names.contains("kokoro_duration_exact_t\(tokenSize).mlpackage")
+        }
+        if !missingDurationSizes.isEmpty {
+            return "model_packages must include duration Core ML packages for token sizes \(missingDurationSizes.map(String.init).joined(separator: ","))"
+        }
+
+        var missingBucketPackages = [String]()
+        for bucket in buckets.sorted() {
+            guard let frameCount = f0FrameCountsByBucket[bucket] else {
+                return "model_packages bucket \(bucket) has no known f0ntrain frame count"
+            }
+            let requiredNames = [
+                "kokoro_f0ntrain_t\(frameCount).mlpackage",
+                "kokoro_decoder_pre_\(bucket)s.mlpackage",
+                "kokoro_decoder_har_post_\(bucket)s.mlpackage",
+            ]
+            missingBucketPackages.append(contentsOf: requiredNames.filter { !names.contains($0) })
+        }
+        if !missingBucketPackages.isEmpty {
+            return "model_packages must include f0ntrain, decoder_pre, and decoder_har_post Core ML packages for buckets \(buckets.sorted().map(String.init).joined(separator: ",")); missing \(missingBucketPackages.joined(separator: ","))"
         }
         return nil
     }

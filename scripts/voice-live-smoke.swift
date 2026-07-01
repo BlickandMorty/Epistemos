@@ -103,8 +103,8 @@ enum VoiceLiveSmoke {
             fail("Kokoro gate did not keep the checked package distinct from runtime readiness: \(packageReady.detail)")
         }
         guard let packageEvidence = packageReady.packageEvidence,
-              packageEvidence.manifestFileCount == 11,
-              packageEvidence.modelPackageCount == 4,
+              packageEvidence.manifestFileCount == 23,
+              packageEvidence.modelPackageCount == 10,
               packageEvidence.voiceCount == 1,
               packageEvidence.runtimeAssetCount == 2,
               packageEvidence.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier,
@@ -128,7 +128,7 @@ enum VoiceLiveSmoke {
             guard installed.status.state == .packageReady, !installed.status.isReady else {
                 fail("Kokoro installer did not stage a checked package without enabling runtime: \(installed.status.detail)")
             }
-            guard installed.status.packageEvidence?.manifestFileCount == 11,
+            guard installed.status.packageEvidence?.manifestFileCount == 23,
                   installed.status.packageEvidence?.settingsSummary.contains("declared bytes") == true else {
                 fail("Kokoro installer did not return checked package evidence")
             }
@@ -225,6 +225,12 @@ enum VoiceLiveSmoke {
     static func kokoroFixturePackagePaths() -> [String] {
         [
             "coreml/kokoro_duration_t32.mlpackage",
+            "coreml/kokoro_duration_t64.mlpackage",
+            "coreml/kokoro_duration_t128.mlpackage",
+            "coreml/kokoro_duration_t256.mlpackage",
+            "coreml/kokoro_duration_t320.mlpackage",
+            "coreml/kokoro_duration_t384.mlpackage",
+            "coreml/kokoro_duration_t512.mlpackage",
             "coreml/kokoro_f0ntrain_t600.mlpackage",
             "coreml/kokoro_decoder_pre_15s.mlpackage",
             "coreml/kokoro_decoder_har_post_15s.mlpackage",

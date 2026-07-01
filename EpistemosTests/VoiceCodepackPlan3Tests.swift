@@ -361,13 +361,15 @@ struct VoiceCodepackPlan3Tests {
             "bundleCoverageProblem(",
             "declaredBundleFiles(from:",
             "modelPackageFamilyProblem(",
+            "f0FrameCountsByBucket",
             "fileDigestNoFollow",
             "regularFileSizeNoFollow",
             "totalManifestBytes",
             "bytes exceeds package size limit",
             "bytes must be a positive integer",
             "files must include \\(packageManifestFileName) and Core ML data",
-            "model_packages must include duration, f0ntrain, decoder_pre, and decoder_har_post Core ML packages",
+            "model_packages must include duration Core ML packages for token sizes",
+            "model_packages must include f0ntrain, decoder_pre, and decoder_har_post Core ML packages for buckets",
             "CFBooleanGetTypeID",
             "rounded(.towardZero)",
             "fileDigestNoFollow(at: fileURL, expectedBytes: declaredFile.bytes)",
@@ -531,10 +533,10 @@ struct VoiceCodepackPlan3Tests {
                 runtimeIdentifier: KokoroVoiceGateStatus.runtimeIdentifier,
                 hfRepositoryID: KokoroVoiceGateStatus.upstreamRepositoryID,
                 bundleProfile: "test",
-                modelPackageCount: 4,
+                modelPackageCount: 10,
                 voiceCount: 1,
                 runtimeAssetCount: 2,
-                manifestFileCount: 11,
+                manifestFileCount: 23,
                 declaredPackageBytes: 42
             )
         )
@@ -552,9 +554,9 @@ struct VoiceCodepackPlan3Tests {
 
         let evidencePresentation = KokoroVoiceProSettingsModel.presentation(for: packageReadyWithEvidence)
         #expect(evidencePresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.manifestFileName) == true)
-        #expect(evidencePresentation.packageEvidenceSummary?.contains("4 checked Core ML packages") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("10 checked Core ML packages") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("1 voice") == true)
-        #expect(evidencePresentation.packageEvidenceSummary?.contains("11 checked files") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("23 checked files") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("42 declared bytes") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("Kokoro synthesis remains unavailable") == true)
     }
@@ -585,10 +587,10 @@ struct VoiceCodepackPlan3Tests {
         #expect(result.status.packageEvidence?.manifestFileName == KokoroVoiceGateStatus.manifestFileName)
         #expect(result.status.packageEvidence?.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier)
         #expect(result.status.packageEvidence?.hfRepositoryID == KokoroVoiceGateStatus.upstreamRepositoryID)
-        #expect(result.status.packageEvidence?.modelPackageCount == 4)
+        #expect(result.status.packageEvidence?.modelPackageCount == 10)
         #expect(result.status.packageEvidence?.voiceCount == 1)
         #expect(result.status.packageEvidence?.runtimeAssetCount == 2)
-        #expect(result.status.packageEvidence?.manifestFileCount == 11)
+        #expect(result.status.packageEvidence?.manifestFileCount == 23)
         #expect((result.status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
         #expect(FileManager.default.fileExists(
             atPath: targetRoot
@@ -693,13 +695,13 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.detail.contains("segmented CoreML packages"))
         #expect(status.detail.contains(KokoroVoiceGateStatus.upstreamRepositoryID))
         #expect(status.detail.contains("Apple AVSpeech is not used as a fallback"))
-        #expect(status.packageEvidence?.modelPackageCount == 4)
+        #expect(status.packageEvidence?.modelPackageCount == 10)
         #expect(status.packageEvidence?.voiceCount == 1)
         #expect(status.packageEvidence?.runtimeAssetCount == 2)
-        #expect(status.packageEvidence?.manifestFileCount == 11)
+        #expect(status.packageEvidence?.manifestFileCount == 23)
         #expect((status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
         #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.manifestFileName) == true)
-        #expect(status.packageEvidence?.settingsSummary.contains("4 checked Core ML packages") == true)
+        #expect(status.packageEvidence?.settingsSummary.contains("10 checked Core ML packages") == true)
         #expect(status.packageEvidence?.settingsSummary.contains("declared bytes") == true)
         #expect(status.packageEvidence?.settingsSummary.contains(root.path) == false)
         #expect(status.packageEvidence?.settingsSummary.contains(modelDirectory.path) == false)
@@ -1139,6 +1141,12 @@ struct VoiceCodepackPlan3Tests {
     private func kokoroFixturePackagePaths() -> [String] {
         [
             "coreml/kokoro_duration_t32.mlpackage",
+            "coreml/kokoro_duration_t64.mlpackage",
+            "coreml/kokoro_duration_t128.mlpackage",
+            "coreml/kokoro_duration_t256.mlpackage",
+            "coreml/kokoro_duration_t320.mlpackage",
+            "coreml/kokoro_duration_t384.mlpackage",
+            "coreml/kokoro_duration_t512.mlpackage",
             "coreml/kokoro_f0ntrain_t600.mlpackage",
             "coreml/kokoro_decoder_pre_15s.mlpackage",
             "coreml/kokoro_decoder_har_post_15s.mlpackage",
