@@ -514,15 +514,13 @@ async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, 
     if let Some(expression) = expression {
         ensure_max_chars(expression, "expression", MAX_BROWSER_EVAL_CHARS)?;
     }
-    let mut console_args = Vec::new();
-    let mut error_args = Vec::new();
-    if clear {
-        console_args.push("--clear".to_string());
-        error_args.push("--clear".to_string());
-    }
 
-    let console = manager.run_existing("console", &console_args).await?;
-    let errors = manager.run_existing("errors", &error_args).await?;
+    if clear {
+        let clear_args = vec!["--clear".to_string()];
+        manager.run_existing("console", &clear_args).await?;
+    } else if expression.is_some() {
+        manager.run_existing("console", &[]).await?;
+    }
 
     let (evaluation, evaluation_truncated) = if let Some(expression) = expression {
         let raw = manager
@@ -543,16 +541,27 @@ async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, 
         (None, false)
     };
 
+    let console = manager.run_existing("console", &[]).await?;
+    let console_data = console.get("data");
     let raw_messages = console
         .get("data")
         .and_then(|data| data.get("messages"))
         .cloned()
         .unwrap_or_else(|| json!([]));
-    let raw_js_errors = errors
-        .get("data")
-        .and_then(|data| data.get("errors"))
-        .cloned()
-        .unwrap_or_else(|| json!([]));
+    let raw_js_errors = if console_data.and_then(|data| data.get("errors")).is_some() {
+        console_data
+            .and_then(|data| data.get("errors"))
+            .cloned()
+            .unwrap_or_else(|| json!([]))
+    } else {
+        manager
+            .run_existing("errors", &[])
+            .await?
+            .get("data")
+            .and_then(|data| data.get("errors"))
+            .cloned()
+            .unwrap_or_else(|| json!([]))
+    };
     let (messages, console_message_count, messages_truncated) =
         normalize_console_items(raw_messages);
     let (js_errors, js_error_count, errors_truncated) = normalize_console_items(raw_js_errors);
@@ -673,7 +682,7 @@ EOF
     printf '{"success":true,"data":{"closed":true}}\n'
     ;;
   console)
-    printf '{"success":true,"data":{"messages":[{"type":"log","text":"hello from page"}]}}\n'
+    printf '{"success":true,"data":{"messages":[{"type":"log","text":"hello from page"}],"errors":[{"message":"boom"}]}}\n'
     ;;
   errors)
     printf '{"success":true,"data":{"errors":[{"message":"boom"}]}}\n'

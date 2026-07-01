@@ -256,8 +256,9 @@ shell smoke, the real Gradio WKWebView shell/control and task-submit dry-run smo
 `agent_core/vendor/browser-use/epistemos_agent_browser.py` is the source-only Plan 3 Pro adapter contract landed for the
 existing `agent-browser --json <command>` shape. It maps `open/snapshot/click/fill/scroll/back/press/close/eval/
 screenshot` to browser-use's `skill_cli` daemon, and `task` to a bounded browser-use `Agent.run(max_steps:)` subordinate
-task loop for Goose's high-level `browser.complete_task` delegation tool. The `console/errors` commands are bounded
-compatibility stubs because the vendored `skill_cli` has no matching console/error stream actions yet; these console/errors compatibility stubs avoid browser-use runtime import until upstream exposes matching stream actions. The adapter keeps session files under
+task loop for Goose's high-level `browser.complete_task` delegation tool. The `console/errors` commands use a bounded
+page-side probe installed through `skill_cli` eval; console/error reads use a bounded page-side probe that captures
+post-install console calls, window errors, and unhandled rejections without waiting on an upstream stream API. The adapter keeps session files under
 `AGENT_BROWSER_SOCKET_DIR` via `BROWSER_USE_HOME`, lazily imports browser-use only for runtime commands, and exposes a
 no-runtime `contract` check for packaging tests. `AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME`
 after validating that it is an absolute existing directory, so direct adapter invocation cannot redirect browser-use
@@ -368,8 +369,8 @@ scroll defaults, screen capture on bad args, or no-op typing. `[VERIFIED-CODE]`
   argument validation runs before browser-use daemon startup, so malformed `open`, `snapshot`, `click`, `fill`,
   `scroll`, `press`, `eval`, and `screenshot` inputs stay JSON-bounded without importing browser-use. Rust bounds refs
   plus type text, press key, and eval expression inputs before adapter execution. Extra positional
-  arguments and unexpected console/error flags are rejected before daemon startup without echoing rejected values. The console/errors compatibility
-  stubs avoid browser-use runtime import until upstream exposes matching stream actions; they only accept optional
+  arguments and unexpected console/error flags are rejected before daemon startup without echoing rejected values. The
+  console/error reads use a bounded page-side probe, install it after navigation/action commands, and only accept optional
   `--clear`. Command arguments after `--json <command>` are preserved even when they begin with `--`. The adapter
   `fill`/`press` results and Rust `browser_type`/`browser_press` results acknowledge success and report only character
   counts; they never echo submitted text/key input back into tool output. Runtime
@@ -576,8 +577,8 @@ path is missing or non-executable. The bridge keeps the existing `browser_*` too
   Goose/Agent, or Plan 2 editor/PDF surfaces.
 - Adapter source test: `BrowserUseAdapterPlan3Tests.swift` verifies `epistemos_agent_browser.py` supports the existing
   `agent-browser --json` command set, delegates to `browser_use.skill_cli` only after runtime commands begin, keeps
-  session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, keeps console/errors compatibility stubs runtime
-  free until upstream exposes stream actions, and contains no Plan 1 Goose/Agent or Plan 2 editor/PDF/native Browser
+  session files under `AGENT_BROWSER_SOCKET_DIR`/`BROWSER_USE_HOME`, requires the bounded page-side console/error probe,
+  and contains no Plan 1 Goose/Agent or Plan 2 editor/PDF/native Browser
   references.
 - Python lock test after script execution: `browser-use`, `web-ui`, and `cdp-use` import from vendored/local paths;
   stale `browser-use==0.1.48` from web-ui is not installed.

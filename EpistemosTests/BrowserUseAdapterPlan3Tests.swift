@@ -135,9 +135,10 @@ struct BrowserUseAdapterPlan3Tests {
             "raise AdapterError(\"invalid element ref\")",
             "raise AdapterError(CONSOLE_ARGUMENT_ERROR_PREFIX)",
             "console does not accept argument",
-            "console/errors compatibility stubs avoid browser-use runtime import",
-            "return success({\"messages\": []})",
-            "return success({\"errors\": []})",
+            "CONSOLE_PROBE_SCRIPT_TEMPLATE",
+            "def browser_console(args: argparse.Namespace)",
+            "def browser_errors(args: argparse.Namespace)",
+            "normalize_console_probe_payload",
             "value.startswith(\"--json=\")",
             "add_vendor_source_path(\"browser-use\")",
             "add_vendor_source_path(\"cdp-use\")",
@@ -247,13 +248,25 @@ struct BrowserUseAdapterPlan3Tests {
         let consoleIndex = try #require(source.range(of: "if command == \"console\"")?.lowerBound)
         let errorsIndex = try #require(source.range(of: "if command == \"errors\"")?.lowerBound)
         let unsupportedIndex = try #require(source.range(of: "raise AdapterError(f\"unsupported browser-use adapter command")?.lowerBound)
-        for branch in [String(source[consoleIndex..<errorsIndex]), String(source[errorsIndex..<unsupportedIndex])] {
-            #expect(branch.contains("require_only_flags(command, args.args, {\"--clear\"})"))
-            #expect(!branch.contains("ensure_browser_daemon"))
-            #expect(!branch.contains("send_browser_use"))
-            #expect(!branch.contains("prepare_runtime_environment"))
-            #expect(!branch.contains("import_browser_use_main"))
+        let consoleBranch = String(source[consoleIndex..<errorsIndex])
+        let errorsBranch = String(source[errorsIndex..<unsupportedIndex])
+        #expect(consoleBranch.contains("return success(browser_console(args))"))
+        #expect(errorsBranch.contains("return success(browser_errors(args))"))
+        for required in [
+            "CONSOLE_PROBE_SCRIPT_TEMPLATE",
+            "MAX_CONSOLE_EVENTS",
+            "MAX_CONSOLE_TEXT_CHARS",
+            "install_console_probe(args)",
+            "def browser_console(args: argparse.Namespace)",
+            "def browser_errors(args: argparse.Namespace)",
+            "require_only_flags(command, values, {\"--clear\"})",
+            "send_browser_use(\"eval\", {\"js\": console_probe_script(action)}, args)",
+            "normalize_console_probe_payload",
+        ] {
+            #expect(source.contains(required), "Missing browser-use console probe string: \(required)")
         }
+        #expect(!source.contains("return success({\"messages\": []})"))
+        #expect(!source.contains("return success({\"errors\": []})"))
     }
 
     @Test("adapter stays inside Plan 3 browser-use vendor boundary")
@@ -267,7 +280,7 @@ struct BrowserUseAdapterPlan3Tests {
         #expect(manifest.contains("existing agent-browser JSON command contract"))
         #expect(codepack.contains("epistemos_agent_browser.py"))
         #expect(codepack.contains("adapter contract landed"))
-        #expect(codepack.contains("console/errors compatibility stubs avoid browser-use runtime import"))
+        #expect(codepack.contains("console/error reads use a bounded page-side probe"))
 
         for forbidden in [
             "Epistemos/Goose",
