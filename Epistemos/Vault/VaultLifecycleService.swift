@@ -99,11 +99,7 @@ actor VaultLifecycleService {
         }
 
         // Step 2: Load current skill content
-        let skillPath = URL(fileURLWithPath: vaultPath)
-            .appendingPathComponent("skills")
-            .appendingPathComponent(skillName)
-            .appendingPathComponent("SKILL.md")
-        guard let skillContent = try? String(contentsOf: skillPath, encoding: .utf8) else {
+        guard let skillContent = SkillVaultFileIO.readSkillMarkdown(vaultPath: vaultPath, skillName: skillName) else {
             Self.log.warning("Skill file not found: \(skillName)")
             return nil
         }
@@ -683,27 +679,14 @@ nonisolated func proposeSkillMutationHeuristic(skillContent: String, tracePatter
 }
 
 nonisolated func listRegisteredSkillsLocal(vaultPath: String) -> [SkillRegistryEntryFFI] {
-    let skillsRoot = URL(fileURLWithPath: vaultPath).appendingPathComponent("skills", isDirectory: true)
-    guard let enumerator = FileManager.default.enumerator(
-        at: skillsRoot,
-        includingPropertiesForKeys: [.isDirectoryKey],
-        options: [.skipsHiddenFiles]
-    ) else {
-        return []
-    }
-
     var entries: [SkillRegistryEntryFFI] = []
-    for case let skillURL as URL in enumerator {
-        let manifestURL = skillURL.appendingPathComponent("SKILL.md")
-        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
-            continue
-        }
-        let content: String
-        do {
-            content = try String(contentsOf: manifestURL, encoding: .utf8)
-        } catch {
+    for skillURL in SkillVaultFileIO.topLevelSkillDirectories(vaultPath: vaultPath) {
+        guard let content = SkillVaultFileIO.readSkillMarkdown(
+            vaultPath: vaultPath,
+            skillName: skillURL.lastPathComponent
+        ) else {
             VaultLifecycleService.log.warning(
-                "Skipping unreadable skill manifest at \(manifestURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "Skipping unreadable skill manifest for \(skillURL.lastPathComponent, privacy: .public)"
             )
             continue
         }

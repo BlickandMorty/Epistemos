@@ -100,6 +100,74 @@ struct SkillsKeystoneTests {
         #expect(entries.map(\.identifier) == ["valid-skill"])
     }
 
+    @Test("skill registry reads only safe top-level vault skill manifests")
+    func skillRegistryReadsOnlySafeTopLevelVaultSkillManifests() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("skill-registry-safe-read-\(UUID().uuidString)")
+        let skillsRoot = root.appendingPathComponent("skills", isDirectory: true)
+        let validSkill = skillsRoot.appendingPathComponent("valid", isDirectory: true)
+        let symlinkSkill = skillsRoot.appendingPathComponent("symlinked", isDirectory: true)
+        let hardlinkSkill = skillsRoot.appendingPathComponent("hardlinked", isDirectory: true)
+        let nestedSkill = skillsRoot
+            .appendingPathComponent("parent", isDirectory: true)
+            .appendingPathComponent("nested", isDirectory: true)
+        let outside = root.appendingPathComponent("outside", isDirectory: true)
+        let outsideSkillDirectory = outside.appendingPathComponent("outside-skill", isDirectory: true)
+        defer { try? fm.removeItem(at: root) }
+
+        for directory in [validSkill, symlinkSkill, hardlinkSkill, nestedSkill, outsideSkillDirectory] {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+
+        try Self.writeSkill(
+            name: "Valid Skill",
+            to: validSkill.appendingPathComponent("SKILL.md", isDirectory: false)
+        )
+        let outsideSkill = outsideSkillDirectory.appendingPathComponent("SKILL.md", isDirectory: false)
+        try Self.writeSkill(name: "Outside Skill", to: outsideSkill)
+        try Self.writeSkill(
+            name: "Nested Skill",
+            to: nestedSkill.appendingPathComponent("SKILL.md", isDirectory: false)
+        )
+        try fm.createSymbolicLink(
+            at: symlinkSkill.appendingPathComponent("SKILL.md", isDirectory: false),
+            withDestinationURL: outsideSkill
+        )
+        try fm.createSymbolicLink(
+            at: skillsRoot.appendingPathComponent("linked-dir", isDirectory: true),
+            withDestinationURL: outsideSkillDirectory
+        )
+        let hardlinkWasCreated = (try? fm.linkItem(
+            at: outsideSkill,
+            to: hardlinkSkill.appendingPathComponent("SKILL.md", isDirectory: false)
+        )) != nil
+
+        let registered = listRegisteredSkillsLocal(vaultPath: root.path)
+        #expect(registered.map(\.name) == ["valid"])
+        #expect(SkillVaultFileIO.readSkillMarkdown(vaultPath: root.path, skillName: "valid") != nil)
+        #expect(SkillVaultFileIO.readSkillMarkdown(vaultPath: root.path, skillName: "../outside") == nil)
+        #expect(SkillVaultFileIO.readSkillMarkdown(vaultPath: root.path, skillName: "bad/name") == nil)
+        #expect(SkillVaultFileIO.readSkillMarkdown(vaultPath: root.path, skillName: "symlinked") == nil)
+        if hardlinkWasCreated {
+            #expect(SkillVaultFileIO.readSkillMarkdown(vaultPath: root.path, skillName: "hardlinked") == nil)
+        }
+    }
+
+    @Test("skill evolution routes file access through safe skill vault IO")
+    func skillEvolutionRoutesFileAccessThroughSafeSkillVaultIO() throws {
+        let lifecycle = try loadMirroredSourceTextFile("Epistemos/Vault/VaultLifecycleService.swift")
+        let evolution = try loadMirroredSourceTextFile("Epistemos/Vault/SkillEvolutionService.swift")
+
+        #expect(lifecycle.contains("SkillVaultFileIO.readSkillMarkdown(vaultPath: vaultPath, skillName: skillName)"))
+        #expect(lifecycle.contains("SkillVaultFileIO.topLevelSkillDirectories(vaultPath: vaultPath)"))
+        #expect(evolution.contains("SkillVaultFileIO.readSkillMarkdown(vaultPath: vaultPath, skillName: skillName)"))
+        #expect(evolution.contains("SkillVaultFileIO.ensureSkillDirectory(vaultPath: vaultPath, skillName: proposal.skillName)"))
+        #expect(evolution.contains("SkillVaultFileIO.writeText(proposal.newContent"))
+        #expect(!evolution.contains("appendingPathComponent(\"skills/\\(skillName)/SKILL.md\")"))
+        #expect(!evolution.contains("appendingPathComponent(\"skills/\\(proposal.skillName)\")"))
+    }
+
     @Test("skills settings source routes status through bounded diagnostics")
     func skillsSettingsSourceRoutesStatusThroughBoundedDiagnostics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")

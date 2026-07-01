@@ -339,19 +339,7 @@ final class SkillEvolutionService {
             return nil
         }
 
-        let skillPath = (vaultPath as NSString)
-            .appendingPathComponent("skills/\(skillName)/SKILL.md")
-
-        guard FileManager.default.fileExists(atPath: skillPath) else {
-            return nil
-        }
-
-        do {
-            return try String(contentsOfFile: skillPath, encoding: .utf8)
-        } catch {
-            Logger.evolution.warning("Failed to read skill content at \(skillPath, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
+        return SkillVaultFileIO.readSkillMarkdown(vaultPath: vaultPath, skillName: skillName)
     }
 
     private func writeSkillVersion(
@@ -362,44 +350,48 @@ final class SkillEvolutionService {
             throw EvolutionError.vaultNotFound
         }
 
-        let skillDir = (vaultPath as NSString)
-            .appendingPathComponent("skills/\(proposal.skillName)")
-
+        let skillDir: URL
         do {
-            try FileManager.default.createDirectory(
-                atPath: skillDir,
-                withIntermediateDirectories: true
-            )
+            skillDir = try SkillVaultFileIO.ensureSkillDirectory(vaultPath: vaultPath, skillName: proposal.skillName)
         } catch {
             Logger.evolution.error(
-                "Failed to create skill directory at \(skillDir, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "Failed to create skill directory for \(proposal.skillName, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
             throw error
         }
 
-        let skillPath = (skillDir as NSString).appendingPathComponent("SKILL.md")
-        try proposal.newContent.write(toFile: skillPath, atomically: true, encoding: .utf8)
+        try SkillVaultFileIO.writeText(
+            proposal.newContent,
+            to: skillDir.appendingPathComponent("SKILL.md", isDirectory: false)
+        )
 
-        let versionsDir = (skillDir as NSString).appendingPathComponent("versions")
+        let versionsDir: URL
         do {
-            try FileManager.default.createDirectory(
-                atPath: versionsDir,
-                withIntermediateDirectories: true
-            )
+            versionsDir = try SkillVaultFileIO.ensureVersionsDirectory(skillDirectory: skillDir)
         } catch {
             Logger.evolution.error(
-                "Failed to create skill versions directory at \(versionsDir, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "Failed to create skill versions directory for \(proposal.skillName, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
             throw error
         }
 
-        let versionPath = (versionsDir as NSString)
-            .appendingPathComponent("\(proposal.newVersion).md")
-        try proposal.newContent.write(toFile: versionPath, atomically: true, encoding: .utf8)
+        guard let versionURL = SkillVaultFileIO.versionFileURL(
+            in: versionsDir,
+            version: proposal.newVersion,
+            pathExtension: "md"
+        ) else {
+            throw SkillVaultFileIOError.invalidPath
+        }
+        try SkillVaultFileIO.writeText(proposal.newContent, to: versionURL)
 
-        let diffPath = (versionsDir as NSString)
-            .appendingPathComponent("\(proposal.oldVersion)-\(proposal.newVersion).diff")
-        try proposal.diff.write(toFile: diffPath, atomically: true, encoding: .utf8)
+        guard let diffURL = SkillVaultFileIO.diffFileURL(
+            in: versionsDir,
+            oldVersion: proposal.oldVersion,
+            newVersion: proposal.newVersion
+        ) else {
+            throw SkillVaultFileIOError.invalidPath
+        }
+        try SkillVaultFileIO.writeText(proposal.diff, to: diffURL)
     }
 }
 
