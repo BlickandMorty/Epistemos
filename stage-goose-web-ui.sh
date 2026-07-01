@@ -6177,7 +6177,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "color: var(--color-text-inverse) !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "background-color: color-mix(in srgb, var(--epistemos-accent) 7%, var(--epistemos-glass-fill))" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "background: color-mix(in srgb, var(--epistemos-pixel-accent) 7%, var(--epistemos-claude-surface))" "$WORK_ROOT/ui/desktop/src/styles/main.css"
-    if grep -R -E "focus:ring|ring-blue|text-blue|bg-blue|border-blue|#0066cc|#2997ff|outline: 2px solid|inset 0 0 0 1px|ring-\\[3px\\]|ring-\\[var\\(--epistemos-accent\\)\\]" "$WORK_ROOT/ui/desktop/src" >/dev/null 2>&1; then
+    if grep -R -E "focus:ring|ring-blue|text-blue|bg-blue|border-blue|#0066cc|#2997ff|outline-hidden|outline: 2px solid|inset 0 0 0 1px|ring-\\[3px\\]|ring-\\[var\\(--epistemos-accent\\)\\]" "$WORK_ROOT/ui/desktop/src" >/dev/null 2>&1; then
         echo "Goose Web UI staging still contains blue/ring/outline visual leftovers." >&2
         exit 1
     fi

@@ -1495,7 +1495,7 @@ function applyDialog() {
     source,
     'dialog close button',
     `DialogPrimitive.Close className="ring-offset-background p-1 hover:bg-background-secondary rounded-[4px] focus:ring-ring data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:ring-1 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`,
-    `DialogPrimitive.Close className="p-1 hover:bg-background-secondary rounded-[8px] data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`
+    `DialogPrimitive.Close className="p-1 hover:bg-background-secondary rounded-[8px] data-[state=open]:bg-background-secondary transition-all duration-150 data-[state=open]:text-text-secondary absolute top-4 right-4 opacity-70 hover:opacity-100 focus:outline-none disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"`
   );
   source = replaceRequired(
     source,
@@ -1780,7 +1780,7 @@ function applyPrimitiveCompletionSurfaces() {
     source,
     'confirmation modal native focus ring',
     'className="focus-visible:ring-2 focus-visible:ring-background-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"',
-    'className="focus-visible:ring-[3px] focus-visible:ring-[var(--epistemos-accent)]/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background"'
+    'className="focus-visible:bg-[var(--epistemos-accent)]/10 focus-visible:outline-none"'
   );
   write('src/components/ui/ConfirmationModal.tsx', source);
 }
@@ -6374,7 +6374,7 @@ function applyModalScrimAndElicitationSurfaces() {
     source,
     'sheet close button native',
     'className="ring-offset-background focus:ring-ring data-[state=open]:bg-background-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"',
-    'className="ring-offset-background absolute top-4 right-4 rounded-[8px] p-1 opacity-70 transition-all duration-150 hover:bg-background-secondary/75 hover:opacity-100 focus:bg-background-secondary/75 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-background-secondary/75"'
+    'className="ring-offset-background absolute top-4 right-4 rounded-[8px] p-1 opacity-70 transition-all duration-150 hover:bg-background-secondary/75 hover:opacity-100 focus:bg-background-secondary/75 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-background-secondary/75"'
   );
   source = replaceRequired(
     source,
@@ -6661,6 +6661,8 @@ function applyFinalFlatPixelAudit() {
         .replace(/\sfocus(?:-visible)?:ring(?:-[^\s"'`}$]+)?/g, '')
         .replace(/\sfocus(?:-visible)?:ring-opacity-[^\s"'`}$]+/g, '')
         .replace(/\sfocus(?:-visible)?:ring-offset-[^\s"'`}$]+/g, '')
+        .replace(/\sfocus((?:-visible)?):outline-hidden/g, ' focus$1:outline-none')
+        .replace(/\soutline-hidden/g, ' outline-none')
         .replace(/\sfocus(?:-visible)?:border-(?:\[[^\s"'`}$]+\]|[^\s"'`}$]+)/g, ' focus:border-transparent')
         .replace(/\sring-blue-[^\s"'`}$]+/g, '')
         .replace(/\sring-\[3px\]/g, '')
@@ -6671,6 +6673,8 @@ function applyFinalFlatPixelAudit() {
         .replace(/\bfocus(?:-visible)?:ring(?:-[^\s"'`}$]+)?/g, '')
         .replace(/\bfocus(?:-visible)?:ring-opacity-[^\s"'`}$]+/g, '')
         .replace(/\bfocus(?:-visible)?:ring-offset-[^\s"'`}$]+/g, '')
+        .replace(/\bfocus((?:-visible)?):outline-hidden/g, 'focus$1:outline-none')
+        .replace(/\boutline-hidden/g, 'outline-none')
         .replace(/\bfocus(?:-visible)?:border-(?:\[[^\s"'`}$]+\]|[^\s"'`}$]+)/g, 'focus:border-transparent')
         .replace(/\bring-blue-[^\s"'`}$]+/g, '')
         .replace(/\bring-\[3px\]/g, '')
