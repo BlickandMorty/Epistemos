@@ -812,8 +812,8 @@ struct HTMLWorkspaceEditorView: View {
     private func refreshRegenerateVaultContext() {
         let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            regenerateContextStatusText = "Vault context query required"
-            statusText = "Vault context query required"
+            regenerateContextStatusText = "Workspace context query required"
+            statusText = "Workspace context query required"
             return
         }
 
@@ -827,8 +827,8 @@ struct HTMLWorkspaceEditorView: View {
             feed: feed,
             error: "Feed pending"
         )
-        regenerateContextStatusText = "Vault context pending"
-        statusText = "Refreshing vault context"
+        regenerateContextStatusText = "Workspace context pending"
+        statusText = "Refreshing workspace context"
 
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
@@ -856,7 +856,7 @@ struct HTMLWorkspaceEditorView: View {
             )
             guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
-            regenerateContextStatusText = "Vault context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
+            regenerateContextStatusText = "Workspace context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
             statusText = regenerateContextStatusText
         }
     }
@@ -867,12 +867,12 @@ struct HTMLWorkspaceEditorView: View {
         regenerateContextRefreshNonce &+= 1
         isRefreshingRegenerateContext = false
         package.manifest.dataFeed = nil
-        regenerateContextStatusText = "Vault context cleared"
-        statusText = "Vault context cleared"
+        regenerateContextStatusText = "Workspace context cleared"
+        statusText = "Workspace context cleared"
     }
 
     private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
-        let directive = "Use vault context item \"\(item.title)\" (\(item.pageID)) as a primary source; keep its provenance visible and do not invent missing details."
+        let directive = "Use workspace context item \"\(item.title)\" (\(item.pageID)) as a primary source; keep its provenance visible and do not invent missing details."
         let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         if current.isEmpty {
             regenerateInstruction = directive
@@ -880,7 +880,7 @@ struct HTMLWorkspaceEditorView: View {
             regenerateInstruction = current + "\n" + directive
         }
         regenerateContextStatusText = "Focused \(item.title)"
-        statusText = "Vault context item focused"
+        statusText = "Workspace context item focused"
     }
 
     private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool {
@@ -949,8 +949,8 @@ struct HTMLWorkspaceEditorView: View {
             packageTitle: package.manifest.title
         )
         guard !query.isEmpty else {
-            regenerateContextStatusText = "Vault context query required"
-            statusText = "Vault context query required"
+            regenerateContextStatusText = "Workspace context query required"
+            statusText = "Workspace context query required"
             return
         }
         let contextualInstruction = preset.instruction(contextQuery: query)
@@ -967,8 +967,8 @@ struct HTMLWorkspaceEditorView: View {
             feed: feed,
             error: "Feed pending"
         )
-        regenerateContextStatusText = "Vault context pending"
-        statusText = "Refreshing vault context"
+        regenerateContextStatusText = "Workspace context pending"
+        statusText = "Refreshing workspace context"
 
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
@@ -996,8 +996,8 @@ struct HTMLWorkspaceEditorView: View {
             )
             guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
-            regenerateContextStatusText = "Vault context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
-            statusText = "Vault context ready"
+            regenerateContextStatusText = "Workspace context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
+            statusText = "Workspace context ready"
             beginRegenerateSurface(instructionOverride: contextualInstruction)
         }
     }

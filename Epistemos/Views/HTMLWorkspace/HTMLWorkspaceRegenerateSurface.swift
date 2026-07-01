@@ -168,7 +168,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
     private var contextSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Label("Vault Context", systemImage: "tray.full")
+                Label("Workspace Context", systemImage: "tray.full")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(mutedText)
                 Spacer(minLength: 0)
@@ -180,7 +180,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
             }
 
             HStack(spacing: 8) {
-                TextField("Search vault context", text: $contextQuery)
+                TextField("Search notes, captures, chats, graph", text: $contextQuery)
                     .textFieldStyle(.plain)
                     .foregroundStyle(theme.resolved.foreground.color)
                     .padding(.horizontal, 10)
@@ -522,7 +522,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     Route names must be package-local filenames such as about.html; do not create a route named assets because site-folder export reserves routes/assets/ for mirrored package assets.
     Route pages may reference package assets with routes/assets/<name> in exported site folders and assets/<name> from the index route.
     When data.json contains an Epistemos vault_search envelope, treat it as read-only real context: build local search/filter/cards/charts/nav from those records only.
-    Include an in-surface add-context picker/filter over available data.json records when vault context is part of the request; show an honest empty or stale state when records are absent.
+    Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; show an honest empty or stale state when records are absent.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
     data.json must be valid JSON.
     """
@@ -630,7 +630,7 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     var rank: Double
 
     var dragPayload: String {
-        "Vault note: \(title) [\(pageID)]\n\(snippet)"
+        "Workspace context: \(title) [\(pageID)]\n\(snippet)"
     }
 
     static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {

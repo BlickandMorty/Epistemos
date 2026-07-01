@@ -57,8 +57,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("Label(\"Apply Preview\", systemImage: \"checkmark.circle\")"))
         #expect(sheet.contains("Label(\"Revert\", systemImage: \"clock.arrow.circlepath\")"))
         #expect(sheet.contains("Label(isRegenerating ? \"Streaming\" : \"Stream Preview\", systemImage: \"wand.and.sparkles\")"))
-        #expect(sheet.contains("Label(\"Vault Context\", systemImage: \"tray.full\")"))
-        #expect(sheet.contains("TextField(\"Search vault context\", text: $contextQuery)"))
+        #expect(sheet.contains("Label(\"Workspace Context\", systemImage: \"tray.full\")"))
+        #expect(sheet.contains("TextField(\"Search notes, captures, chats, graph\", text: $contextQuery)"))
         #expect(sheet.contains("Label(isRefreshingContext ? \"Searching\" : \"Add Context\", systemImage: \"magnifyingglass.circle\")"))
         #expect(sheet.contains("ForEach(contextItems)"))
         #expect(sheet.contains(".onDrag"))
@@ -242,7 +242,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
 
         #expect(items.map(\.pageID) == ["note-a", "note-b"])
         #expect(items.first?.title == "Alpha Note")
-        #expect(items.first?.dragPayload.contains("Vault note: Alpha Note [note-a]") == true)
+        #expect(items.first?.dragPayload.contains("Workspace context: Alpha Note [note-a]") == true)
         #expect(items.first?.dragPayload.contains("alpha snippet") == true)
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
