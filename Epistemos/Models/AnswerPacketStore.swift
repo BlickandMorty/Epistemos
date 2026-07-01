@@ -98,6 +98,7 @@ nonisolated public struct AnswerPacketStore: Sendable {
     }
 
     private func readStoreFileText() throws -> String? {
+        try validateStoreDirectoryPath()
         if (try? FileManager.default.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
             throw storeError("answer packet log is a symbolic link", errnoCode: ELOOP)
         }
@@ -147,9 +148,11 @@ nonisolated public struct AnswerPacketStore: Sendable {
         truncate: Bool,
         appendingBytes: Int? = nil
     ) throws -> FileHandle {
+        try validateStoreDirectoryPath()
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true)
+        try validateStoreDirectoryPath()
         let flags = O_WRONLY | O_CREAT | O_NOFOLLOW | O_CLOEXEC | (truncate ? O_TRUNC : O_APPEND)
         let fd = fileURL.path.withCString { path in
             open(path, flags, mode_t(0o600))
@@ -181,6 +184,13 @@ nonisolated public struct AnswerPacketStore: Sendable {
             }
         }
         return FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+    }
+
+    private func validateStoreDirectoryPath() throws {
+        let directoryURL = fileURL.deletingLastPathComponent()
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath: directoryURL.path)) != nil {
+            throw storeError("answer packet log directory is a symbolic link", errnoCode: ELOOP)
+        }
     }
 
     private func storeError(_ prefix: String, errnoCode: Int32) -> NSError {

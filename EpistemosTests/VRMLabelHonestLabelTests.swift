@@ -363,6 +363,7 @@ struct VRMLabelHonestLabelTests {
             "copyable lineage JSON remains full-fidelity",
             "non-finite residency floats deterministically",
             "O_NOFOLLOW",
+            "symlinked log directory",
             "8 MiB",
         ] {
             #expect(codepack.contains(phrase), "Provenance codepack must include \(phrase)")
@@ -379,6 +380,7 @@ struct VRMLabelHonestLabelTests {
             "full-fidelity verifiable lineage JSON",
             "encoding non-finite\n  residency floats deterministically",
             "regular-file/no-follow writes",
+            "symlinked log directories",
             "8 MiB",
             "Moat-3 (delivered)",
             "Provenance moat follow-up",

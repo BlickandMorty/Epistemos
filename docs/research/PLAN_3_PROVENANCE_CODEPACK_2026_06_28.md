@@ -98,8 +98,8 @@ projection reads in the SwiftUI init/body path.
 Durable `AnswerPacketStore` persistence is append-only JSONL under Application Support, but the store treats the log as
 a bounded provenance artifact: appends reject encoded packets or projected post-append logs over 8 MiB after opening
 the final file with `O_NOFOLLOW` plus `fstat`, while compaction reads/writes and load/restore reads use the same
-regular-file validation; loads reject symlink/non-regular logs, and read/restore work is capped at 8 MiB before JSON
-decoding.
+regular-file validation; loads reject symlink/non-regular logs, reads/writes reject a symlinked log directory before
+opening the file, and read/restore work is capped at 8 MiB before JSON decoding.
 Lineage display filters non-finite verification scores and clamps the displayed score into the 0...1 range; copyable
 lineage JSON encodes non-finite residency floats deterministically instead of falling back to an `encoding_failed`
 payload.

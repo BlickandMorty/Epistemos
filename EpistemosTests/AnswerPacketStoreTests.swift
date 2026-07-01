@@ -141,6 +141,38 @@ struct AnswerPacketStoreTests {
         } catch {}
     }
 
+    @Test("store rejects symlinked persistence log directories")
+    func rejectsSymlinkedPersistenceLogDirectory() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apstore-symlink-dir-\(UUID().uuidString)", isDirectory: true)
+        let outside = root.appendingPathComponent("outside", isDirectory: true)
+        let symlinkDirectory = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let outsideLog = outside.appendingPathComponent("answer_packets.jsonl")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try Data("outside original\n".utf8).write(to: outsideLog)
+        try FileManager.default.createSymbolicLink(at: symlinkDirectory, withDestinationURL: outside)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = AnswerPacketStore(fileURL: symlinkDirectory.appendingPathComponent("answer_packets.jsonl"))
+
+        do {
+            try store.append(packet("blocked"))
+            Issue.record("Expected symlinked AnswerPacket log directory append to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("directory is a symbolic link"))
+        }
+        #expect(try String(contentsOf: outsideLog, encoding: .utf8) == "outside original\n")
+
+        do {
+            _ = try store.loadRecent(limit: 10)
+            Issue.record("Expected symlinked AnswerPacket log directory load to be rejected")
+        } catch let error as NSError {
+            #expect(error.domain == "AnswerPacketStore")
+            #expect(error.localizedDescription.contains("directory is a symbolic link"))
+        }
+    }
+
     @Test("store rejects non-regular persistence logs")
     func rejectsNonRegularPersistenceLog() throws {
         let root = FileManager.default.temporaryDirectory
@@ -247,6 +279,8 @@ struct AnswerPacketStoreTests {
         #expect(store.contains("O_WRONLY | O_CREAT | O_NOFOLLOW | O_CLOEXEC"))
         #expect(store.contains("readStoreFileText"))
         #expect(store.contains("destinationOfSymbolicLink"))
+        #expect(store.contains("validateStoreDirectoryPath"))
+        #expect(store.contains("answer packet log directory is a symbolic link"))
         #expect(store.contains("fstat(fd"))
     }
 
