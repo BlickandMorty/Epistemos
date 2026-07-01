@@ -314,7 +314,8 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
         guard package.manifest.dataFeed != nil else { return nil }
         guard let metadata = metadata(from: package.dataJSON) else { return "Feed pending" }
         let status = metadata.stale ? "Feed stale" : "Feed fresh"
-        return "\(status): \(metadata.resultCount) / \(contextKindsText(for: metadata))"
+        let requirementSuffix = contextRequirementText(for: metadata).map { " / \($0)" } ?? ""
+        return "\(status): \(metadata.resultCount) / \(contextKindsText(for: metadata))\(requirementSuffix)"
     }
 
     @MainActor

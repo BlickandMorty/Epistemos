@@ -356,7 +356,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         package.dataJSON = rendered
         let compact = try #require(HTMLWorkspaceDataFeedStatus.compactLine(for: package))
         let detail = try #require(HTMLWorkspaceDataFeedStatus.detailLine(for: package))
-        #expect(compact == "Feed stale: 0 / vault_record")
+        #expect(compact == "Feed stale: 0 / vault_record / required: recent_capture unavailable")
         #expect(detail.contains("required: recent_capture unavailable"))
     }
 
