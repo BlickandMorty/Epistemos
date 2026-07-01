@@ -200,6 +200,7 @@ struct LiteParseImportTests {
         let affordance = try loadMirroredSourceTextFile("Epistemos/LiteParse/ViewOriginalPDFAffordance.swift")
         #expect(src.contains(#"frontMatter["source_kind"] = "pdf""#))
         #expect(src.contains(#"frontMatter["source_pdf"]"#))
+        #expect(src.contains("sourcePDFRelativePath: files.sourcePDFRelativePath"))
         let sharedIO = try loadMirroredSourceTextFile("Epistemos/LiteParse/LiteParseImport.swift")
         #expect(src.contains("Plan3ImportFileIO.copyFileContents"))
         #expect(src.contains("Plan3ImportFileIO.writeData"))
@@ -294,6 +295,7 @@ struct LiteParseImportTests {
         #expect(capabilities.contains("raw localized filesystem descriptions"))
         #expect(capabilities.contains("raw messages bounded before trimming"))
         #expect(capabilities.contains("filename ellipsis inside configured caps"))
+        #expect(capabilities.contains("import status reports the copied `source_pdf` path"))
         #expect(cargo.contains(#"mas-build = ["edgeparse-pdf", "parser-unpdf"]"#))
         #expect(rust.contains("doc.source_path = None"))
         #expect(rust.contains("symlink_metadata"))
@@ -487,7 +489,7 @@ struct LiteParseImportTests {
             importer: FakeLiteParseImporter(result: .markdown("# Parsed\n\nConverted body."))
         )
 
-        guard case .imported = outcome else {
+        guard case .imported(_, _, let outcomeSourcePDFRelative) = outcome else {
             Issue.record("Expected PDF import to create a note, got \(String(describing: outcome))")
             return
         }
@@ -496,6 +498,7 @@ struct LiteParseImportTests {
         let filePath = try #require(page.filePath)
         let noteBaseName = URL(fileURLWithPath: filePath).deletingPathExtension().lastPathComponent
         let sourcePDFRelative = try #require(page.frontMatter["source_pdf"])
+        #expect(outcomeSourcePDFRelative == sourcePDFRelative)
         let sourcePDFBaseName = vault
             .appendingPathComponent(sourcePDFRelative)
             .deletingPathExtension()

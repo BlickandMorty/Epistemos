@@ -686,9 +686,9 @@ struct LandingView: View {
                     graphState: graphState
                 )
                 switch outcome {
-                case .imported(_, let title):
+                case .imported(_, let title, let sourcePDFRelativePath):
                     imported += 1
-                    lines.append(Self.boundedLandingPDFImportStatusLine("✓ \(title)"))
+                    lines.append(Self.boundedLandingPDFImportStatusLine("✓ \(title) - Source PDF: \(sourcePDFRelativePath)"))
                 case .rejected(let result):
                     lines.append(Self.boundedLandingPDFImportStatusLine(
                         "✗ \(url.lastPathComponent): \(landingPDFImportReason(for: result))"

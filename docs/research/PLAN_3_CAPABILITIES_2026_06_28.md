@@ -96,7 +96,8 @@ test-linking condition, not the shipped MAS parser state.
    the 512 MiB cap, and missing `%PDF-` magic before the parser lane receives the path. Rust preflight also reopens the
    header read with `O_NOFOLLOW|O_CLOEXEC` and revalidates the opened handle before magic sniffing. Import materialization also
    revalidates the copied source PDF with a no-follow descriptor before streaming it into the vault; Swift magic reads
-   revalidate empty/oversized files after the final no-follow open and import filename reservation has a hard attempt cap. Swift-side
+   revalidate empty/oversized files after the final no-follow open, import status reports the copied `source_pdf` path,
+   and import filename reservation has a hard attempt cap. Swift-side
    Foundation/file failures are mapped to bounded domain/code diagnostics before import status text, avoiding raw
    localized filesystem descriptions in the PDF import UI, with raw messages bounded before trimming and ellipsis kept
    inside the configured cap.

@@ -26,6 +26,7 @@ struct LiteParsePDFImportButtonTests {
         #expect(src.contains("maxFileNameDisplayCharacters"))
         #expect(src.contains("boundedStatusLine"))
         #expect(src.contains("boundedStatusMessage"))
+        #expect(src.contains("Source PDF: \\(Self.displayName(sourcePDFRelativePath"))
         #expect(src.contains("allowOverflowMarker"))
         #expect(src.contains("displayName(url.lastPathComponent)"))
         #expect(!src.contains(".buttonStyle(.plain)"))

@@ -145,6 +145,7 @@ struct LandingFeatureButtonsPlan3Tests {
             #expect(source.contains("startAccessingSecurityScopedResource()"))
             #expect(source.contains("stopAccessingSecurityScopedResource()"))
             #expect(source.contains("let gainedSecurityScope"))
+            #expect(source.contains("Source PDF:"))
         }
     }
 

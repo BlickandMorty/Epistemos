@@ -76,9 +76,12 @@ struct LiteParsePDFImportButton: View {
                     graphState: graphState
                 )
                 switch outcome {
-                case let .imported(_, title):
+                case let .imported(_, title, sourcePDFRelativePath):
                     imported += 1
-                    appendStatusLine("✓ \(Self.displayName(title, fallback: "Imported PDF"))", to: &lines)
+                    appendStatusLine(
+                        "✓ \(Self.displayName(title, fallback: "Imported PDF")) - Source PDF: \(Self.displayName(sourcePDFRelativePath, fallback: "source PDF"))",
+                        to: &lines
+                    )
                 case let .rejected(result):
                     appendStatusLine("✗ \(Self.displayName(url.lastPathComponent)): \(reason(for: result))", to: &lines)
                 }

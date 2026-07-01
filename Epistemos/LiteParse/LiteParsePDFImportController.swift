@@ -14,7 +14,7 @@ enum LiteParsePDFImportController {
     nonisolated private static let cancelledMessage = "PDF import was cancelled."
 
     enum Outcome: Equatable {
-        case imported(pageID: String, title: String)
+        case imported(pageID: String, title: String, sourcePDFRelativePath: String)
         case rejected(LiteParseImportResult)
     }
 
@@ -78,7 +78,11 @@ enum LiteParsePDFImportController {
             try Task.checkCancellation()
             try modelContext.save()
             graphState?.needsRefresh = true
-            return .imported(pageID: page.id, title: page.title)
+            return .imported(
+                pageID: page.id,
+                title: page.title,
+                sourcePDFRelativePath: files.sourcePDFRelativePath
+            )
         } catch is CancellationError {
             modelContext.delete(page)
             removeMaterializedFiles(files)

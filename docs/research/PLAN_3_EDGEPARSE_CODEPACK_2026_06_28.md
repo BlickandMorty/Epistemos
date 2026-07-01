@@ -32,7 +32,8 @@
   and regular-file validation so a final symlink swap cannot redirect import output after reservation. Source PDF copy
   reopens through `openValidatedPDFForReading` with no-follow, regular-file, 512 MiB, and `%PDF-` magic checks on the
   copied file descriptor. Import basename normalization starts from a bounded prefix and duplicate filename reservation
-  has a hard attempt cap.
+  has a hard attempt cap. Successful imports return the copied vault-relative `source_pdf` path so sidebar and landing
+  status lines can show the exact stored source-PDF evidence.
 - **View-original contract [DELIVERED]:** `ViewOriginalPDFAffordance` shows the source PDF button only when
   `source_kind=="pdf"` and `LiteParseSourcePDFLink.resolve` resolves a file inside the current vault. Frontmatter
   `source_pdf` is length-bounded before trimming, and absolute paths, `..`, `.`, empty path components, missing files,
