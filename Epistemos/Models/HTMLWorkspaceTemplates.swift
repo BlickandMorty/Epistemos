@@ -478,6 +478,13 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return scopedResults.filter((result) => resultSearchText(result).includes(filter));
     }
 
+    function resultCountLabel(results, allResults, filter) {
+      if (selectedContextKind !== 'all' || filter) {
+        return `${results.length} visible / ${allResults.length} total`;
+      }
+      return `${allResults.length} visible`;
+    }
+
     function renderContextTabs(allResults, meta) {
       const host = HTMLWorkspace.q('[data-context-tabs]');
       if (!host) { return; }
@@ -611,7 +618,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       text('[data-feed-status]', status);
       text('[data-refresh]', refreshed);
       text('[data-provenance]', meta.provenance || 'No provenance recorded');
-      text('[data-filter-count]', filter ? `${results.length} visible / ${allResults.length} total` : `${allResults.length} visible`);
+      text('[data-filter-count]', resultCountLabel(results, allResults, filter));
       renderResultChart(results);
       const selectedResult = activeResult(results);
       renderResultDetail(results);
