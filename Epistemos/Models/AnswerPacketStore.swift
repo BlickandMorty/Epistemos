@@ -22,7 +22,7 @@ nonisolated public struct AnswerPacketStore: Sendable {
 
     /// Append one packet as a single JSON line. Creates the parent directory + file on first use.
     public func append(_ packet: AnswerPacket) throws {
-        var line = try JSONEncoder().encode(packet)
+        var line = try JSONEncoder().encode(packetWithHonestStoredLabel(packet))
         line.append(0x0A)  // '\n' — one packet per line
         guard line.count <= Self.maxLogBytes else {
             throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
@@ -38,11 +38,13 @@ nonisolated public struct AnswerPacketStore: Sendable {
         guard limit > 0,
               let raw = try readStoreFileText() else { return [] }
         let decoder = JSONDecoder()
-        let tail = raw.split(separator: "\n", omittingEmptySubsequences: true).suffix(limit)
-        let chronological = tail.compactMap { line in
-            try? decoder.decode(AnswerPacket.self, from: Data(line.utf8))
+        let chronological = raw.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
+            guard let packet = try? decoder.decode(AnswerPacket.self, from: Data(line.utf8)) else {
+                return nil
+            }
+            return packetWithHonestStoredLabel(packet)
         }
-        return chronological.reversed()
+        return chronological.suffix(limit).reversed()
     }
 
     /// Bound the log: rewrite the file to keep only the last `maxEntries` valid lines. The wiring
@@ -50,15 +52,35 @@ nonisolated public struct AnswerPacketStore: Sendable {
     public func compact(maxEntries: Int) throws {
         guard maxEntries > 0,
               let raw = try readStoreFileText() else { return }
+        let decoder = JSONDecoder()
         let lines = raw.split(separator: "\n", omittingEmptySubsequences: true)
-        guard lines.count > maxEntries else { return }
-        let kept = lines.suffix(maxEntries).joined(separator: "\n") + "\n"
-        guard kept.utf8.count <= Self.maxLogBytes else {
-            throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+        let packets = lines.compactMap { line in
+            try? decoder.decode(AnswerPacket.self, from: Data(line.utf8))
+        }
+        let keptPackets = packets.suffix(maxEntries)
+        let normalizedPackets = keptPackets.map { packetWithHonestStoredLabel($0) }
+        guard lines.count > maxEntries
+            || lines.count != packets.count
+            || Array(keptPackets) != normalizedPackets else { return }
+        var kept = Data()
+        let encoder = JSONEncoder()
+        for packet in normalizedPackets {
+            var line = try encoder.encode(packet)
+            line.append(0x0A)
+            guard kept.count <= Self.maxLogBytes - line.count else {
+                throw storeError("answer packet log exceeds the 8 MiB cap", errnoCode: EFBIG)
+            }
+            kept.append(line)
         }
         let handle = try openStoreFileForWriting(truncate: true)
         defer { try? handle.close() }
-        try handle.write(contentsOf: Data(kept.utf8))
+        try handle.write(contentsOf: kept)
+    }
+
+    private func packetWithHonestStoredLabel(_ packet: AnswerPacket) -> AnswerPacket {
+        var normalized = packet
+        normalized.uiLabel = VRMLabel.honestLabel(for: normalized) ?? .default
+        return normalized
     }
 
     private func readStoreFileText() throws -> String? {

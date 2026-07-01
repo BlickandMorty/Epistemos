@@ -16,9 +16,17 @@ struct AnswerPacketStoreTests {
         return (AnswerPacketStore(fileURL: url), { try? FileManager.default.removeItem(at: url) })
     }
 
-    private func packet(_ id: String, _ mode: AttentionMode = .unavailable) -> AnswerPacket {
+    private func packet(
+        _ id: String,
+        _ mode: AttentionMode = .unavailable,
+        uiLabel: VRMLabel = .plausibleButUnverified
+    ) -> AnswerPacket {
         AnswerPacket(
-            id: id, attentionMode: mode, witnessedStateRef: "ws-\(id)", mutationEnvelopeRef: "me-\(id)")
+            id: id,
+            uiLabel: uiLabel,
+            attentionMode: mode,
+            witnessedStateRef: "ws-\(id)",
+            mutationEnvelopeRef: "me-\(id)")
     }
 
     @Test("append + loadRecent round-trips packets most-recent-first (frozen schema survives disk)")
@@ -60,6 +68,44 @@ struct AnswerPacketStoreTests {
         try handle.close()
         try store.append(packet("good2"))
         #expect(try store.loadRecent(limit: 10).map(\.id) == ["good2", "good1"])
+    }
+
+    @Test("a corrupt tail line is skipped while backfilling the requested limit")
+    func corruptTailBackfillsFromOlderValidPackets() throws {
+        let (store, cleanup) = tempStore(); defer { cleanup() }
+        try store.append(packet("good1"))
+        try store.append(packet("good2"))
+        let handle = try FileHandle(forWritingTo: store.fileURL)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("{not valid json\n".utf8))
+        try handle.close()
+
+        #expect(try store.loadRecent(limit: 2).map(\.id) == ["good2", "good1"])
+    }
+
+    @Test("store normalizes legacy ui_label through the honest gate")
+    func storeNormalizesLegacyUILabel() throws {
+        let (store, cleanup) = tempStore(); defer { cleanup() }
+        try store.append(packet("stale-write", uiLabel: .verified))
+        #expect(try store.loadRecent(limit: 1).first?.uiLabel == .plausibleButUnverified)
+
+        let stalePackets = ["legacy-a", "legacy-b", "legacy-c"].map {
+            packet($0, uiLabel: .verified)
+        }
+        var legacyLog = Data()
+        let encoder = JSONEncoder()
+        for packet in stalePackets {
+            var line = try encoder.encode(packet)
+            line.append(0x0A)
+            legacyLog.append(line)
+        }
+        try legacyLog.write(to: store.fileURL)
+
+        #expect(try store.loadRecent(limit: 1).first?.uiLabel == .plausibleButUnverified)
+        try store.compact(maxEntries: 2)
+        let compacted = try String(contentsOf: store.fileURL, encoding: .utf8)
+        #expect(!compacted.contains(#""ui_label":"verified""#))
+        #expect(compacted.contains(#""ui_label":"plausible_but_unverified""#))
     }
 
     @Test("store rejects symlinked persistence logs")
