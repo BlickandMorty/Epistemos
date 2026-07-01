@@ -120,10 +120,18 @@ enum VoiceLiveSmoke {
         guard packageReady.state == .packageReady, !packageReady.isReady else {
             fail("Kokoro gate did not keep the checked package distinct from runtime readiness: \(packageReady.detail)")
         }
+        guard let packageEvidence = packageReady.packageEvidence,
+              packageEvidence.manifestFileCount == 2,
+              packageEvidence.modelPackageName == KokoroVoiceGateStatus.modelPackageName,
+              packageEvidence.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier,
+              packageEvidence.settingsSummary.contains("AVSpeech remains active") else {
+            fail("Kokoro gate did not expose checked package evidence without enabling runtime")
+        }
         let packageReadyPresentation = KokoroVoiceProSettingsModel.presentation(for: packageReady)
         guard packageReadyPresentation.selectedRuntime == .appleAVSpeech,
               !packageReadyPresentation.proRuntimeEnabled,
-              packageReadyPresentation.badgeTitle == "Package ready" else {
+              packageReadyPresentation.badgeTitle == "Package ready",
+              packageReadyPresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.modelPackageName) == true else {
             fail("Kokoro Pro presentation did not keep AVSpeech selected while neural inference is deferred")
         }
 
@@ -135,6 +143,10 @@ enum VoiceLiveSmoke {
             )
             guard installed.status.state == .packageReady, !installed.status.isReady else {
                 fail("Kokoro installer did not stage a checked package without enabling runtime: \(installed.status.detail)")
+            }
+            guard installed.status.packageEvidence?.manifestFileCount == 2,
+                  installed.status.packageEvidence?.settingsSummary.contains("declared bytes") == true else {
+                fail("Kokoro installer did not return checked package evidence")
             }
             let removed = try KokoroVoicePackageInstaller.removeInstalledPackage(modelRoot: installerTargetRoot)
             guard removed.status.state == .missingModel, !removed.status.isReady else {

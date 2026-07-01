@@ -443,7 +443,8 @@ Folded in as clean Plan-3 capabilities:
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
   model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
-  with ellipsis inside configured caps. A checked package reports `packageReady` while keeping
+  with ellipsis inside configured caps. A checked package reports `packageReady` with manifest-derived package evidence
+  (model package, runtime, checked file count, and declared bytes) while keeping
   runtime `isReady=false` until real synthesis is wired. Developer ID builds now show a Pro-only Voice settings
   status/runtime affordance labelled "Pro neural voice" plus a local checked-package installer/remover, while keeping
   AVSpeech selected until real neural inference is proven; no committed model asset, network downloader, neural inference

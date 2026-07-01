@@ -24,6 +24,7 @@ nonisolated enum KokoroVoiceProSettingsModel {
         let headline: String
         let detail: String
         let badgeTitle: String
+        let packageEvidenceSummary: String?
     }
 
     static func presentation(for status: KokoroVoiceGateStatus.Status) -> Presentation {
@@ -34,7 +35,8 @@ nonisolated enum KokoroVoiceProSettingsModel {
                 proRuntimeEnabled: false,
                 headline: status.headline,
                 detail: status.detail,
-                badgeTitle: "Package ready"
+                badgeTitle: "Package ready",
+                packageEvidenceSummary: status.packageEvidence?.settingsSummary
             )
         case .missingModel:
             return Presentation(
@@ -42,7 +44,8 @@ nonisolated enum KokoroVoiceProSettingsModel {
                 proRuntimeEnabled: false,
                 headline: status.headline,
                 detail: status.detail,
-                badgeTitle: "Model required"
+                badgeTitle: "Model required",
+                packageEvidenceSummary: nil
             )
         case .unavailable:
             return Presentation(
@@ -50,7 +53,8 @@ nonisolated enum KokoroVoiceProSettingsModel {
                 proRuntimeEnabled: false,
                 headline: status.headline,
                 detail: status.detail,
-                badgeTitle: "Unavailable"
+                badgeTitle: "Unavailable",
+                packageEvidenceSummary: nil
             )
         }
     }
@@ -123,6 +127,13 @@ struct KokoroVoiceProSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(mutedTint)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if let packageEvidenceSummary = presentation.packageEvidenceSummary {
+                        Text(packageEvidenceSummary)
+                            .font(.caption)
+                            .foregroundStyle(mutedTint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     if let installMessage {
                         Text(installMessage)
@@ -217,10 +228,7 @@ struct KokoroVoiceProSettingsSection: View {
                     try KokoroVoicePackageInstaller.installCheckedPackage(from: url)
                 }.value
                 status = result.status
-                installMessage = VoiceCapturePresentationBounds.statusMessage(
-                    "Installed checked Kokoro package. \(result.status.headline)",
-                    fallback: "Kokoro package installed."
-                )
+                installMessage = installedPackageMessage(for: result.status)
             } catch {
                 installMessage = KokoroVoicePackageInstaller.statusMessage(for: error)
                 status = KokoroVoiceGateStatus.status()
@@ -253,6 +261,20 @@ struct KokoroVoiceProSettingsSection: View {
                 status = KokoroVoiceGateStatus.status()
             }
         }
+    }
+
+    private func installedPackageMessage(for status: KokoroVoiceGateStatus.Status) -> String {
+        if let evidence = status.packageEvidence {
+            return VoiceCapturePresentationBounds.statusMessage(
+                "Installed checked Kokoro package. \(evidence.settingsSummary)",
+                fallback: "Kokoro package installed."
+            )
+        }
+
+        return VoiceCapturePresentationBounds.statusMessage(
+            "Installed checked Kokoro package. \(status.headline)",
+            fallback: "Kokoro package installed."
+        )
     }
 }
 

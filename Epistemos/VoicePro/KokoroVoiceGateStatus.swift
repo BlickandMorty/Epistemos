@@ -32,6 +32,21 @@ nonisolated enum KokoroVoiceGateStatus {
         let isReady: Bool
         let headline: String
         let detail: String
+        let packageEvidence: PackageEvidence? = nil
+    }
+
+    struct PackageEvidence: Equatable, Sendable {
+        let modelDirectoryName: String
+        let manifestFileName: String
+        let modelPackageName: String
+        let runtimeIdentifier: String
+        let manifestFileCount: Int
+        let declaredPackageBytes: UInt64
+
+        var settingsSummary: String {
+            let fileLabel = manifestFileCount == 1 ? "file" : "files"
+            return "\(modelPackageName): \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) package. AVSpeech remains active."
+        }
     }
 
     static func isEnabled(_ raw: String?) -> Bool {
@@ -120,11 +135,13 @@ nonisolated enum KokoroVoiceGateStatus {
             )
         }
 
+        let packageEvidence = manifestCheck.manifest.map(packageEvidence(from:))
         return Status(
             state: .packageReady,
             isReady: false,
             headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in \(modelDirectoryName), but neural inference is not wired yet. AVSpeech remains the voice runtime."
+            detail: "The checked Pro model package manifest and package file digests match in \(modelDirectoryName), but neural inference is not wired yet. AVSpeech remains the voice runtime.",
+            packageEvidence: packageEvidence
         )
         #endif
     }
@@ -152,6 +169,17 @@ nonisolated enum KokoroVoiceGateStatus {
     private enum ArtifactKind {
         case file
         case directory
+    }
+
+    private static func packageEvidence(from manifest: InstallManifest) -> PackageEvidence {
+        PackageEvidence(
+            modelDirectoryName: modelDirectoryName,
+            manifestFileName: manifestFileName,
+            modelPackageName: modelPackageName,
+            runtimeIdentifier: runtimeIdentifier,
+            manifestFileCount: manifest.files.count,
+            declaredPackageBytes: manifest.files.reduce(UInt64(0)) { $0 + $1.bytes }
+        )
     }
 
     private static func manifestProblem(

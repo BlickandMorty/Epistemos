@@ -24,6 +24,7 @@ struct VoiceCodepackPlan3Tests {
             "Personal Voice authorization is live",
             "Pro Kokoro gate is honest",
             "Local Kokoro package install/removal is real but runtime-disabled",
+            "manifest-derived package evidence",
             "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
             "Pro-only Voice settings section",
             "Pro neural voice",
@@ -82,6 +83,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("ellipsis inside configured caps"))
         #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
         #expect(capabilities.contains("local checked-package installer/remover"))
+        #expect(capabilities.contains("manifest-derived package evidence"))
         #expect(capabilities.contains("no committed model asset, network downloader, neural inference"))
         #expect(capabilities.contains("runtime, Python, subprocess, or MAS-visible Kokoro row"))
 
@@ -375,6 +377,7 @@ struct VoiceCodepackPlan3Tests {
         let wrapper = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
         let section = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift")
         let installer = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoicePackageInstaller.swift")
+        let gate = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceGateStatus.swift")
         let appleSection = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
 
         #expect(wrapper.contains("VoicePreferencesSection()"))
@@ -400,6 +403,13 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("startAccessingSecurityScopedResource()"))
         #expect(section.contains("KokoroVoicePackageInstaller.installCheckedPackage"))
         #expect(section.contains("KokoroVoicePackageInstaller.removeInstalledPackage"))
+        #expect(section.contains("packageEvidenceSummary"))
+        #expect(section.contains("installedPackageMessage(for:"))
+        #expect(section.contains("evidence.settingsSummary"))
+        #expect(gate.contains("struct PackageEvidence"))
+        #expect(gate.contains("manifestFileCount"))
+        #expect(gate.contains("declaredPackageBytes"))
+        #expect(gate.contains("manifest.files.reduce(UInt64(0))"))
         #expect(installer.contains("nonisolated enum KokoroVoicePackageInstaller"))
         #expect(installer.contains("installCheckedPackage("))
         #expect(installer.contains("removeInstalledPackage("))
@@ -434,6 +444,9 @@ struct VoiceCodepackPlan3Tests {
             "from: modelDirectory",
             "modelRoot: installerTargetRoot",
             "installed.status.state == .packageReady",
+            "packageReady.packageEvidence",
+            "installed.status.packageEvidence",
+            "packageEvidence.settingsSummary.contains(\"AVSpeech remains active\")",
             "KokoroVoicePackageInstaller.removeInstalledPackage",
             "removed.status.state == .missingModel",
             "!FileManager.default.fileExists(atPath: installedModelPath)",
@@ -458,6 +471,20 @@ struct VoiceCodepackPlan3Tests {
             headline: "Kokoro voice: model package ready, runtime deferred",
             detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but neural inference is not wired yet. AVSpeech remains the voice runtime."
         )
+        let packageReadyWithEvidence = KokoroVoiceGateStatus.Status(
+            state: .packageReady,
+            isReady: false,
+            headline: "Kokoro voice: model package ready, runtime deferred",
+            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but neural inference is not wired yet. AVSpeech remains the voice runtime.",
+            packageEvidence: KokoroVoiceGateStatus.PackageEvidence(
+                modelDirectoryName: KokoroVoiceGateStatus.modelDirectoryName,
+                manifestFileName: KokoroVoiceGateStatus.manifestFileName,
+                modelPackageName: KokoroVoiceGateStatus.modelPackageName,
+                runtimeIdentifier: KokoroVoiceGateStatus.runtimeIdentifier,
+                manifestFileCount: 2,
+                declaredPackageBytes: 42
+            )
+        )
 
         let missingPresentation = KokoroVoiceProSettingsModel.presentation(for: missing)
         #expect(missingPresentation.selectedRuntime == .appleAVSpeech)
@@ -469,6 +496,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(!packageReadyPresentation.proRuntimeEnabled)
         #expect(packageReadyPresentation.badgeTitle == "Package ready")
         #expect(packageReadyPresentation.detail.contains("neural inference is not wired yet"))
+
+        let evidencePresentation = KokoroVoiceProSettingsModel.presentation(for: packageReadyWithEvidence)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.modelPackageName) == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("2 checked files") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("42 declared bytes") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("AVSpeech remains active") == true)
     }
 
     @Test("Kokoro package installer stages checked local package without enabling runtime")
@@ -493,6 +526,12 @@ struct VoiceCodepackPlan3Tests {
 
         #expect(!result.status.isReady)
         #expect(result.status.state == .packageReady)
+        #expect(result.status.packageEvidence?.modelDirectoryName == KokoroVoiceGateStatus.modelDirectoryName)
+        #expect(result.status.packageEvidence?.manifestFileName == KokoroVoiceGateStatus.manifestFileName)
+        #expect(result.status.packageEvidence?.modelPackageName == KokoroVoiceGateStatus.modelPackageName)
+        #expect(result.status.packageEvidence?.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier)
+        #expect(result.status.packageEvidence?.manifestFileCount == 2)
+        #expect((result.status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
         #expect(FileManager.default.fileExists(
             atPath: targetRoot
                 .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
@@ -568,6 +607,12 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.detail.contains(KokoroVoiceGateStatus.modelDirectoryName))
         #expect(status.detail.contains("package file digests match"))
         #expect(status.detail.contains("AVSpeech remains the voice runtime"))
+        #expect(status.packageEvidence?.manifestFileCount == 2)
+        #expect((status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
+        #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.modelPackageName) == true)
+        #expect(status.packageEvidence?.settingsSummary.contains("declared bytes") == true)
+        #expect(status.packageEvidence?.settingsSummary.contains(root.path) == false)
+        #expect(status.packageEvidence?.settingsSummary.contains(modelDirectory.path) == false)
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #expect(status.detail.count < 240)
