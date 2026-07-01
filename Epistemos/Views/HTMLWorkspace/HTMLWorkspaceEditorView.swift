@@ -1078,7 +1078,8 @@ struct HTMLWorkspaceEditorView: View {
         package.manifest.dataFeed = feed
         package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
             feed: feed,
-            error: "Feed pending"
+            error: "Feed pending",
+            requiredContextKind: preset.requiredContextKind
         )
         regenerateContextStatusText = "Workspace context pending"
         statusText = "Refreshing workspace context"
@@ -1086,7 +1087,8 @@ struct HTMLWorkspaceEditorView: View {
         guard let vaultSync = AppBootstrap.shared?.vaultSync else {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
                 feed: feed,
-                error: "Vault feed unavailable"
+                error: "Vault feed unavailable",
+                requiredContextKind: preset.requiredContextKind
             )
             isRefreshingRegenerateContext = false
             regenerateContextTask = nil
@@ -1108,7 +1110,11 @@ struct HTMLWorkspaceEditorView: View {
                 limit: feed.effectiveLimit
             )
             guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+                feed: feed,
+                results: results,
+                requiredContextKind: preset.requiredContextKind
+            )
             regenerateContextStatusText = "Workspace context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
             statusText = "Workspace context ready"
             beginRegenerateSurface(instructionOverride: contextualInstruction)

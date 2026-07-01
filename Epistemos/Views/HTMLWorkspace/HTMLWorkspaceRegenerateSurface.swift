@@ -562,6 +562,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     Route pages may reference package assets with routes/assets/<name> in exported site folders and assets/<name> from the index route.
     When data.json contains an Epistemos vault_search envelope, treat it as read-only real context: build local search/filter/cards/charts/nav from those records only.
     Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance. Keep source_label/provenance visible in generated cards, tables, charts, and detail panes.
+    When _epistemos.required_context_kind is present and _epistemos.required_context_available is false, show that required source as unavailable instead of relabeling generic vault results.
     Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; show an honest empty or stale state when records are absent.
     Do not infer captures, chats, graph links, folders, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
@@ -782,6 +783,10 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
                 lines.append("vault_search.stale: \(metadata.stale)")
                 lines.append("vault_search.result_count: \(metadata.resultCount)")
                 lines.append("vault_search.context_kinds: \(metadata.contextKinds.isEmpty ? "none" : metadata.contextKinds.joined(separator: ", "))")
+                if let requiredKind = metadata.requiredContextKind, !requiredKind.isEmpty {
+                    lines.append("vault_search.required_context_kind: \(requiredKind)")
+                    lines.append("vault_search.required_context_available: \(metadata.requiredContextAvailable == true)")
+                }
                 lines.append("vault_search.provenance: \(metadata.provenance)")
                 if let error = metadata.error, !error.isEmpty {
                     lines.append("vault_search.error: \(bounded(error, limit: 240))")

@@ -63,6 +63,8 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
     let stale: Bool
     let status: String
     let error: String?
+    let requiredContextKind: String?
+    let requiredContextAvailable: Bool?
 
     private enum CodingKeys: String, CodingKey {
         case source
@@ -75,6 +77,8 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         case stale
         case status
         case error
+        case requiredContextKind = "required_context_kind"
+        case requiredContextAvailable = "required_context_available"
     }
 
     init(
@@ -87,7 +91,9 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         provenance: String,
         stale: Bool,
         status: String,
-        error: String?
+        error: String?,
+        requiredContextKind: String? = nil,
+        requiredContextAvailable: Bool? = nil
     ) {
         self.source = source
         self.query = query
@@ -99,6 +105,8 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         self.stale = stale
         self.status = status
         self.error = error
+        self.requiredContextKind = requiredContextKind
+        self.requiredContextAvailable = requiredContextAvailable
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +121,8 @@ nonisolated struct HTMLWorkspaceDataFeedMetadata: Codable, Equatable, Sendable {
         stale = try container.decode(Bool.self, forKey: .stale)
         status = try container.decode(String.self, forKey: .status)
         error = try container.decodeIfPresent(String.self, forKey: .error)
+        requiredContextKind = try container.decodeIfPresent(String.self, forKey: .requiredContextKind)
+        requiredContextAvailable = try container.decodeIfPresent(Bool.self, forKey: .requiredContextAvailable)
     }
 }
 
@@ -132,7 +142,8 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     static func render(
         feed: HTMLWorkspaceDataFeed,
         results: [SearchResult],
-        refreshedAt: Date = Date()
+        refreshedAt: Date = Date(),
+        requiredContextKind: String? = nil
     ) -> String {
         render(
             feed: feed,
@@ -147,14 +158,16 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             refreshedAt: refreshedAt,
             stale: false,
             status: "fresh",
-            error: nil
+            error: nil,
+            requiredContextKind: requiredContextKind
         )
     }
 
     static func render(
         feed: HTMLWorkspaceDataFeed,
         contextResults results: [HTMLWorkspaceDataFeedResult],
-        refreshedAt: Date = Date()
+        refreshedAt: Date = Date(),
+        requiredContextKind: String? = nil
     ) -> String {
         render(
             feed: feed,
@@ -162,19 +175,22 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             refreshedAt: refreshedAt,
             stale: false,
             status: "fresh",
-            error: nil
+            error: nil,
+            requiredContextKind: requiredContextKind
         )
     }
 
     static func staleRender(
         feed: HTMLWorkspaceDataFeed,
         error: String,
-        refreshedAt: Date? = nil
+        refreshedAt: Date? = nil,
+        requiredContextKind: String? = nil
     ) -> String {
         HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
             feed: feed,
             error: error,
-            refreshedAtMS: refreshedAt.map { Int64($0.timeIntervalSince1970 * 1_000) } ?? 0
+            refreshedAtMS: refreshedAt.map { Int64($0.timeIntervalSince1970 * 1_000) } ?? 0,
+            requiredContextKind: requiredContextKind
         )
     }
 
@@ -184,7 +200,8 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         refreshedAt: Date,
         stale: Bool,
         status: String,
-        error: String?
+        error: String?,
+        requiredContextKind: String?
     ) -> String {
         render(
             feed: feed,
@@ -192,7 +209,8 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             refreshedAtMS: Int64(refreshedAt.timeIntervalSince1970 * 1_000),
             stale: stale,
             status: status,
-            error: error
+            error: error,
+            requiredContextKind: requiredContextKind
         )
     }
 
@@ -202,19 +220,24 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         refreshedAtMS: Int64,
         stale: Bool,
         status: String,
-        error: String?
+        error: String?,
+        requiredContextKind: String?
     ) -> String {
+        let contextKinds = contextKinds(from: results)
+        let normalizedRequiredKind = normalizedRequiredContextKind(requiredContextKind)
         let metadata = HTMLWorkspaceDataFeedMetadata(
             source: feed.source.rawValue,
             query: feed.normalizedQuery,
             limit: feed.effectiveLimit,
             resultCount: results.count,
-            contextKinds: contextKinds(from: results),
+            contextKinds: contextKinds,
             refreshedAtMS: refreshedAtMS,
             provenance: provenance,
             stale: stale,
             status: status,
-            error: error
+            error: error,
+            requiredContextKind: normalizedRequiredKind,
+            requiredContextAvailable: normalizedRequiredKind.map { contextKinds.contains($0) }
         )
         let envelope = HTMLWorkspaceDataFeedEnvelope(
             results: results,
@@ -230,6 +253,11 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     private static func contextKinds(from results: [HTMLWorkspaceDataFeedResult]) -> [String] {
         let kinds = Set(results.map(\.contextKind).filter { !$0.isEmpty })
         return kinds.isEmpty ? ["vault_record"] : kinds.sorted()
+    }
+
+    private static func normalizedRequiredContextKind(_ requiredContextKind: String?) -> String? {
+        let trimmed = requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -264,12 +292,21 @@ nonisolated enum HTMLWorkspaceDataFeedStatus {
         }
         let age = refreshedAgeText(refreshedAtMS: metadata.refreshedAtMS)
         let errorSuffix = metadata.error.map { " / \($0)" } ?? ""
-        return "\(metadata.query) / \(age) / kinds: \(contextKindsText(for: metadata)) / \(metadata.provenance)\(errorSuffix)"
+        let requirementSuffix = contextRequirementText(for: metadata).map { " / \($0)" } ?? ""
+        return "\(metadata.query) / \(age) / kinds: \(contextKindsText(for: metadata))\(requirementSuffix) / \(metadata.provenance)\(errorSuffix)"
     }
 
     @MainActor
     private static func contextKindsText(for metadata: HTMLWorkspaceDataFeedMetadata) -> String {
         metadata.contextKinds.isEmpty ? "none" : metadata.contextKinds.joined(separator: ", ")
+    }
+
+    @MainActor
+    private static func contextRequirementText(for metadata: HTMLWorkspaceDataFeedMetadata) -> String? {
+        guard let kind = metadata.requiredContextKind, !kind.isEmpty else { return nil }
+        return metadata.requiredContextAvailable == true
+            ? "required: \(kind) available"
+            : "required: \(kind) unavailable"
     }
 
     @MainActor

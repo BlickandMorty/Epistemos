@@ -162,6 +162,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
         #expect(editor.contains("if preset.family == .vaultData"))
         #expect(editor.contains("private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
+        #expect(editor.contains("requiredContextKind: preset.requiredContextKind"))
         #expect(editor.contains("beginRegenerateSurface(instructionOverride: preset.instruction)"))
         #expect(editor.contains("private func applyPendingRegeneratePreview()"))
         #expect(editor.contains("pendingRegeneratePatchResponse = patchResponse"))
@@ -308,7 +309,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
                     rank: 0.87
                 )
             ],
-            refreshedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            requiredContextKind: "recent_capture"
         )
 
         let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
@@ -320,6 +322,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("Verified Epistemos context:"))
         #expect(prompt.contains("vault_search.query: substrate provenance"))
         #expect(prompt.contains("vault_search.context_kinds: vault_record"))
+        #expect(prompt.contains("vault_search.required_context_kind: recent_capture"))
+        #expect(prompt.contains("vault_search.required_context_available: false"))
         #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
         #expect(prompt.contains("vault_search.results:\n- record:"))
         #expect(prompt.contains("  page_id: page-1"))
@@ -462,6 +466,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("Turn this into a live explainer"))
         #expect(prompt.contains("in-surface add-context picker/filter"))
         #expect(prompt.contains("Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance."))
+        #expect(prompt.contains("_epistemos.required_context_kind"))
+        #expect(prompt.contains("_epistemos.required_context_available is false"))
         #expect(prompt.contains("Do not infer captures, chats, graph links, folders, or record types from a title or query string."))
     }
 

@@ -328,22 +328,29 @@ nonisolated public enum HTMLWorkspaceDataFeedJSONEnvelope {
     public static func staleDataJSON(
         feed: HTMLWorkspaceDataFeed,
         error: String,
-        refreshedAtMS: Int64 = 0
+        refreshedAtMS: Int64 = 0,
+        requiredContextKind: String? = nil
     ) -> String {
+        var metadata: [String: Any] = [
+            "source": feed.source.rawValue,
+            "query": feed.normalizedQuery,
+            "limit": feed.effectiveLimit,
+            "result_count": 0,
+            "context_kinds": ["vault_record"],
+            "refreshed_at_ms": refreshedAtMS,
+            "provenance": provenance,
+            "stale": true,
+            "status": "stale",
+            "error": error,
+        ]
+        let requiredKind = requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !requiredKind.isEmpty {
+            metadata["required_context_kind"] = requiredKind
+            metadata["required_context_available"] = false
+        }
         let payload: [String: Any] = [
             "results": [[String: Any]](),
-            "_epistemos": [
-                "source": feed.source.rawValue,
-                "query": feed.normalizedQuery,
-                "limit": feed.effectiveLimit,
-                "result_count": 0,
-                "context_kinds": ["vault_record"],
-                "refreshed_at_ms": refreshedAtMS,
-                "provenance": provenance,
-                "stale": true,
-                "status": "stale",
-                "error": error,
-            ] as [String: Any],
+            "_epistemos": metadata,
         ]
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
