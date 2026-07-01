@@ -4550,6 +4550,75 @@ replaceRequired(
 );
 
 replaceRequired(
+  'ACP auth retry message',
+  `  failedToLoad: {
+    id: 'authSettings.failedToLoad',
+    defaultMessage: 'Failed to load provider credentials',
+  },`,
+  `  failedToLoad: {
+    id: 'authSettings.failedToLoad',
+    defaultMessage: 'Failed to load provider credentials',
+  },
+  retry: {
+    id: 'authSettings.retry',
+    defaultMessage: 'Retry',
+  },`
+);
+
+replaceRequired(
+  'ACP auth load error state',
+  `  const [secretToDelete, setSecretToDelete] = useState<ProviderSecret | null>(null);`,
+  `  const [secretToDelete, setSecretToDelete] = useState<ProviderSecret | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);`
+);
+
+replaceRequired(
+  'ACP auth clear load error',
+  `    setLoading(true);
+    try {`,
+  `    setLoading(true);
+    setLoadError(null);
+    try {`
+);
+
+replaceRequired(
+  'ACP auth load failure stays visible',
+  `    } catch {
+      toast.error(intl.formatMessage(i18n.failedToLoad));
+      setSecrets([]);`,
+  `    } catch (error) {
+      const message = errorMessage(error, intl.formatMessage(i18n.failedToLoad));
+      toast.error(message);
+      setLoadError(message); // epistemos-acp-auth-load-error
+      setSecrets([]);`
+);
+
+replaceRequired(
+  'ACP auth load error retry UI',
+  `          ) : secrets.length === 0 ? (
+            <div className="py-6 text-sm text-text-secondary">{intl.formatMessage(i18n.empty)}</div>`,
+  `          ) : loadError ? (
+            <div
+              className="space-y-3 rounded-[10px] bg-background-danger/35 p-3 text-sm text-text-danger"
+              data-epistemos-acp-auth-load-error="true"
+            >
+              <div>{loadError}</div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="min-h-8 rounded-[8px] bg-background-primary/60 px-3 text-text-primary hover:bg-background-secondary/56"
+                onClick={loadSecrets}
+              >
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                {intl.formatMessage(i18n.retry)}
+              </Button>
+            </div>
+          ) : secrets.length === 0 ? (
+            <div className="py-6 text-sm text-text-secondary">{intl.formatMessage(i18n.empty)}</div>`
+);
+
+replaceRequired(
   'ACP provider OAuth configure',
   `      await configureProviderOauth({
         path: { name: secret.configure_provider },
@@ -4585,6 +4654,8 @@ for (const snippet of [
   'USE_ACP_CHAT',
   'listAcpProviderSecrets()',
   'authenticateAcpProviderConfig(secret.configure_provider)',
+  'epistemos-acp-auth-load-error',
+  'data-epistemos-acp-auth-load-error',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`AuthSettingsSection staged source is missing required ACP auth snippet: ${snippet}`);
@@ -7334,6 +7405,8 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "epistemos-acp-authenticate-status-cache-reset" "$WORK_ROOT/ui/desktop/src/acp/providers.ts"
     grep -q "epistemos-acp-provider-modal-custom-delete" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/ProviderConfigurationModal.tsx"
     grep -q "await listAcpProviderSecrets()" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
+    grep -q "epistemos-acp-auth-load-error" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
+    grep -q "data-epistemos-acp-auth-load-error" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "bg-background-danger/55 text-text-danger" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "rounded-\\[10px\\] px-3 py-3 transition-colors" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"
     grep -q "ep-native-badge px-2 py-0.5 text-xs" "$WORK_ROOT/ui/desktop/src/components/settings/auth/AuthSettingsSection.tsx"

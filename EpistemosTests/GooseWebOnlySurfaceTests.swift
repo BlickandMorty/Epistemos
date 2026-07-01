@@ -440,6 +440,8 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("epistemos-acp-renderer-telemetry-config"))
         #expect(stageScript.contains("readAcpProviderConfigValue(TELEMETRY_CONFIG_KEY)"))
         #expect(stageScript.contains("telemetryValue === 'true'"))
+        #expect(stageScript.contains("epistemos-acp-auth-load-error"))
+        #expect(stageScript.contains("data-epistemos-acp-auth-load-error"))
         #expect(stageScript.contains("epistemos-acp-local-feature-flags"))
         #expect(stageScript.contains("'code-mode': true"))
         #expect(stageScript.contains("'local-inference': false"))
