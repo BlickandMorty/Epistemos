@@ -4,14 +4,20 @@ import SwiftUI
 struct HTMLWorkspaceRegenerateSheet: View {
     @Binding var instruction: String
     @Binding var streamedText: String
+    @Binding var contextQuery: String
     let workspaceID: String
     let expectedContentHash: String
     let errorText: String?
+    let contextStatusText: String?
     let isRegenerating: Bool
+    let isRefreshingContext: Bool
     let hasPendingPreview: Bool
+    let hasVaultContext: Bool
     let canRestorePreviousSurface: Bool
     let onCancel: () -> Void
     let onCopyPrompt: () -> Void
+    let onRefreshContext: () -> Void
+    let onClearContext: () -> Void
     let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void
     let onSubmit: () -> Void
     let onApplyPreview: () -> Void
@@ -77,7 +83,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     Label(isRegenerating ? "Streaming" : "Stream Preview", systemImage: "wand.and.sparkles")
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(isRegenerating || instructionIsEmpty)
+                .disabled(isRegenerating || isRefreshingContext || instructionIsEmpty)
             }
             .padding(14)
 
@@ -104,6 +110,8 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     }
                     .font(.caption)
                     .foregroundStyle(mutedText)
+
+                    contextSection
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Presets")
@@ -155,6 +163,48 @@ struct HTMLWorkspaceRegenerateSheet: View {
         return "eye"
     }
 
+    private var contextSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Label("Vault Context", systemImage: "tray.full")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(mutedText)
+                Spacer(minLength: 0)
+                if hasVaultContext {
+                    Label("Attached", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField("Search vault context", text: $contextQuery)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(theme.resolved.foreground.color)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .disabled(isRegenerating || isRefreshingContext)
+                Button(action: onRefreshContext) {
+                    Label(isRefreshingContext ? "Searching" : "Add Context", systemImage: "magnifyingglass.circle")
+                }
+                .disabled(isRegenerating || isRefreshingContext || contextQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button(action: onClearContext) {
+                    Label("Clear", systemImage: "xmark.circle")
+                }
+                .disabled(isRegenerating || isRefreshingContext || !hasVaultContext)
+            }
+            .font(.caption)
+
+            if let contextStatusText, !contextStatusText.isEmpty {
+                Text(contextStatusText)
+                    .font(.caption2)
+                    .foregroundStyle(mutedText)
+                    .lineLimit(2)
+            }
+        }
+    }
+
     private func presetSection(_ family: HTMLWorkspaceRegeneratePreset.Family) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(family.rawValue)
@@ -174,7 +224,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(theme.resolved.foreground.color)
-                    .disabled(isRegenerating)
+                    .disabled(isRegenerating || isRefreshingContext)
                     .help(preset.instruction)
                 }
             }
@@ -419,6 +469,9 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
         User request:
         \(instruction)
 
+        Verified Epistemos context:
+        \(HTMLWorkspaceRegenerateContext.promptSection(for: package))
+
         Current index.html:
         ```html
         \(bounded(package.indexHTML, limit: 28_000))
@@ -492,6 +545,64 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
         return assets.keys.sorted().map { name in
             "assets/\(name)  \(assets[name]?.count ?? 0) bytes"
         }.joined(separator: "\n")
+    }
+}
+
+nonisolated enum HTMLWorkspaceRegenerateContext {
+    static func promptSection(for package: HTMLWorkspacePackage) -> String {
+        var lines: [String] = [
+            "current_surface: live HTML Workspace package sources are included below.",
+        ]
+
+        if let feed = package.manifest.dataFeed {
+            lines.append("vault_search.query: \(feed.normalizedQuery)")
+            lines.append("vault_search.limit: \(feed.effectiveLimit)")
+            if let envelope = dataFeedEnvelope(from: package.dataJSON) {
+                let metadata = envelope.epistemos
+                lines.append("vault_search.status: \(metadata.status)")
+                lines.append("vault_search.stale: \(metadata.stale)")
+                lines.append("vault_search.result_count: \(metadata.resultCount)")
+                lines.append("vault_search.provenance: \(metadata.provenance)")
+                if let error = metadata.error, !error.isEmpty {
+                    lines.append("vault_search.error: \(bounded(error, limit: 240))")
+                }
+                lines.append(contentsOf: resultLines(from: envelope.results))
+            } else {
+                lines.append("vault_search.status: unreadable data.json envelope")
+                lines.append("vault_search.results: unavailable; render an honest empty state instead of inventing notes.")
+            }
+        } else {
+            lines.append("vault_search: not attached")
+            lines.append("vault_search.results: unavailable; do not invent vault notes, graph links, captures, or chats.")
+        }
+
+        lines.append("graph/captures/chats: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
+        lines.append("grounding_rule: preserve real data provenance and avoid fabricated counts, titles, links, or relationships.")
+        return lines.joined(separator: "\n")
+    }
+
+    private static func dataFeedEnvelope(from dataJSON: String) -> HTMLWorkspaceDataFeedEnvelope? {
+        guard let data = dataJSON.data(using: .utf8) else { return nil }
+        return try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceDataFeedEnvelope.self, from: data)
+    }
+
+    private static func resultLines(from results: [HTMLWorkspaceDataFeedResult]) -> [String] {
+        guard !results.isEmpty else {
+            return ["vault_search.results: none"]
+        }
+        var lines = ["vault_search.results:"]
+        for result in results.prefix(12) {
+            lines.append("- \(bounded(result.title, limit: 120)) [\(bounded(result.pageID, limit: 80))] rank \(result.rank): \(bounded(result.snippet, limit: 240))")
+        }
+        if results.count > 12 {
+            lines.append("- omitted \(results.count - 12) additional result(s)")
+        }
+        return lines
+    }
+
+    private static func bounded(_ value: String, limit: Int) -> String {
+        guard value.count > limit else { return value }
+        return String(value.prefix(limit)) + "..."
     }
 }
 

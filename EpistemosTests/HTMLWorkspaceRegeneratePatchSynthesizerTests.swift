@@ -40,15 +40,24 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains("let workspaceID: String"))
         #expect(sheet.contains("let expectedContentHash: String"))
         #expect(sheet.contains("@Binding var streamedText: String"))
+        #expect(sheet.contains("@Binding var contextQuery: String"))
         #expect(sheet.contains("@Environment(UIState.self) private var ui"))
         #expect(sheet.contains("let hasPendingPreview: Bool"))
+        #expect(sheet.contains("let hasVaultContext: Bool"))
+        #expect(sheet.contains("let isRefreshingContext: Bool"))
+        #expect(sheet.contains("let contextStatusText: String?"))
         #expect(sheet.contains("let canRestorePreviousSurface: Bool"))
+        #expect(sheet.contains("let onRefreshContext: () -> Void"))
+        #expect(sheet.contains("let onClearContext: () -> Void"))
         #expect(sheet.contains("let onRunPreset: (HTMLWorkspaceRegeneratePreset) -> Void"))
         #expect(sheet.contains("let onApplyPreview: () -> Void"))
         #expect(sheet.contains("let onRestorePreviousSurface: () -> Void"))
         #expect(sheet.contains("Label(\"Apply Preview\", systemImage: \"checkmark.circle\")"))
         #expect(sheet.contains("Label(\"Revert\", systemImage: \"clock.arrow.circlepath\")"))
         #expect(sheet.contains("Label(isRegenerating ? \"Streaming\" : \"Stream Preview\", systemImage: \"wand.and.sparkles\")"))
+        #expect(sheet.contains("Label(\"Vault Context\", systemImage: \"tray.full\")"))
+        #expect(sheet.contains("TextField(\"Search vault context\", text: $contextQuery)"))
+        #expect(sheet.contains("Label(isRefreshingContext ? \"Searching\" : \"Add Context\", systemImage: \"magnifyingglass.circle\")"))
         #expect(sheet.contains("HTMLWorkspaceRegeneratePreset.Family.allCases"))
         #expect(sheet.contains("FlowLayout(spacing: 6)"))
         #expect(sheet.contains("Label(\"Advanced response paste fallback\", systemImage: \"terminal\")"))
@@ -73,17 +82,31 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("workspaceID: package.manifest.id"))
         #expect(editor.contains("expectedContentHash: package.currentContentHash"))
         #expect(editor.contains("streamedText: $regenerateStreamText"))
+        #expect(editor.contains("contextQuery: $regenerateContextQuery"))
+        #expect(editor.contains("contextStatusText: regenerateContextStatusLine"))
+        #expect(editor.contains("isRefreshingContext: isRefreshingRegenerateContext"))
         #expect(editor.contains("hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil"))
+        #expect(editor.contains("hasVaultContext: package.manifest.dataFeed != nil"))
         #expect(editor.contains("canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil"))
         #expect(editor.contains("onCopyPrompt: copyRegeneratePrompt"))
+        #expect(editor.contains("onRefreshContext: refreshRegenerateVaultContext"))
+        #expect(editor.contains("onClearContext: clearRegenerateVaultContext"))
         #expect(editor.contains("onRunPreset: runRegeneratePreset"))
         #expect(editor.contains("onApplyPreview: applyPendingRegeneratePreview"))
         #expect(editor.contains("onPreviewStream: previewRegenerateStreamText"))
         #expect(editor.contains("onApplyStream: applyRegenerateStreamText"))
         #expect(editor.contains("onRestorePreview: restorePreviewAfterRegenerate"))
         #expect(editor.contains("onRestorePreviousSurface: restorePreviousSurface"))
+        #expect(editor.contains("@State private var regenerateContextQuery = \"\""))
+        #expect(editor.contains("@State private var regenerateContextTask: Task<Void, Never>?"))
+        #expect(editor.contains("@State private var regenerateContextRefreshNonce = 0"))
         #expect(editor.contains("@State private var pendingRegeneratePatchResponse: String?"))
         #expect(editor.contains("@State private var pendingRegenerateExpectedContentHash: String?"))
+        #expect(editor.contains("private var regenerateContextStatusLine: String?"))
+        #expect(editor.contains("private func refreshRegenerateVaultContext()"))
+        #expect(editor.contains("VaultSyncService.searchFullAsync") || editor.contains("vaultSync.searchFullAsync"))
+        #expect(editor.contains("HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)"))
+        #expect(editor.contains("private func clearRegenerateVaultContext()"))
         #expect(editor.contains("private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
         #expect(editor.contains("private func applyPendingRegeneratePreview()"))
         #expect(editor.contains("pendingRegeneratePatchResponse = patchResponse"))
@@ -120,6 +143,45 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         ])
         #expect(HTMLWorkspaceRegeneratePreset.all.count == 11)
         #expect(HTMLWorkspaceRegeneratePreset.all.allSatisfy { $0.instruction.contains("Regenerate") })
+    }
+
+    @Test("regenerate prompt includes verified data feed context and honest degradation")
+    func regeneratePromptIncludesVerifiedDataFeedContextAndHonestDegradation() {
+        var package = HTMLWorkspacePackage.defaultPackage(title: "Context Proof")
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(
+                    pageId: "page-1",
+                    title: "Research Note",
+                    snippet: "substrate provenance witness",
+                    rank: 0.87
+                )
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
+            instruction: "Turn notes into cards",
+            package: package,
+            expectedContentHash: contentHash(for: package)
+        )
+
+        #expect(prompt.contains("Verified Epistemos context:"))
+        #expect(prompt.contains("vault_search.query: substrate provenance"))
+        #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
+        #expect(prompt.contains("- Research Note [page-1] rank 0.87: substrate provenance witness"))
+        #expect(prompt.contains("grounding_rule: preserve real data provenance"))
+
+        let emptyPrompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
+            instruction: "Use related notes",
+            package: HTMLWorkspacePackage.defaultPackage(title: "No Context"),
+            expectedContentHash: "hash"
+        )
+        #expect(emptyPrompt.contains("vault_search: not attached"))
+        #expect(emptyPrompt.contains("do not invent vault notes, graph links, captures, or chats"))
     }
 
     @Test("regenerate preview package swaps reset stale route selection")

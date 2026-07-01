@@ -22,6 +22,11 @@ struct HTMLWorkspaceEditorView: View {
     @State private var regenerateSheetPresented = false
     @State private var regenerateInstruction = ""
     @State private var regenerateStreamText = ""
+    @State private var regenerateContextQuery = ""
+    @State private var regenerateContextStatusText: String?
+    @State private var regenerateContextTask: Task<Void, Never>?
+    @State private var regenerateContextRefreshNonce = 0
+    @State private var isRefreshingRegenerateContext = false
     @State private var pendingRegeneratePatchResponse: String?
     @State private var pendingRegenerateExpectedContentHash: String?
     @State private var regenerateErrorText: String?
@@ -86,17 +91,23 @@ struct HTMLWorkspaceEditorView: View {
             previewUpdateTask = nil
             regenerateTask?.cancel()
             regenerateTask = nil
+            regenerateContextTask?.cancel()
+            regenerateContextTask = nil
             gooseRegenerator.stop()
         }
         .sheet(isPresented: $regenerateSheetPresented) {
             HTMLWorkspaceRegenerateSheet(
                 instruction: $regenerateInstruction,
                 streamedText: $regenerateStreamText,
+                contextQuery: $regenerateContextQuery,
                 workspaceID: package.manifest.id,
                 expectedContentHash: package.currentContentHash,
                 errorText: regenerateErrorText,
+                contextStatusText: regenerateContextStatusLine,
                 isRegenerating: isRegenerating,
+                isRefreshingContext: isRefreshingRegenerateContext,
                 hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil,
+                hasVaultContext: package.manifest.dataFeed != nil,
                 canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil,
                 onCancel: {
                     if isRegenerating {
@@ -109,6 +120,8 @@ struct HTMLWorkspaceEditorView: View {
                     regenerateSheetPresented = false
                 },
                 onCopyPrompt: copyRegeneratePrompt,
+                onRefreshContext: refreshRegenerateVaultContext,
+                onClearContext: clearRegenerateVaultContext,
                 onRunPreset: runRegeneratePreset,
                 onSubmit: beginRegenerateSurface,
                 onApplyPreview: applyPendingRegeneratePreview,
@@ -583,6 +596,12 @@ struct HTMLWorkspaceEditorView: View {
         return provenance.displayText(currentContentHash: contentHash)
     }
 
+    private var regenerateContextStatusLine: String? {
+        regenerateContextStatusText
+            ?? HTMLWorkspaceDataFeedStatus.detailLine(for: package)
+            ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
+    }
+
     private var selectedPaneSubtitle: String {
         selectedPane.subtitle(for: package, domSnapshot: domSnapshot)
     }
@@ -765,8 +784,77 @@ struct HTMLWorkspaceEditorView: View {
     private func openRegenerateSheet() {
         regenerateErrorText = nil
         regenerateStreamText = ""
+        if let feedQuery = package.manifest.dataFeed?.normalizedQuery, !feedQuery.isEmpty {
+            regenerateContextQuery = feedQuery
+        } else if regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            regenerateContextQuery = package.manifest.title
+        }
+        regenerateContextStatusText = HTMLWorkspaceDataFeedStatus.detailLine(for: package)
+            ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
         clearPendingRegeneratePreview()
         regenerateSheetPresented = true
+    }
+
+    private func refreshRegenerateVaultContext() {
+        let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            regenerateContextStatusText = "Vault context query required"
+            statusText = "Vault context query required"
+            return
+        }
+
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
+        regenerateContextTask?.cancel()
+        regenerateContextRefreshNonce &+= 1
+        let refreshNonce = regenerateContextRefreshNonce
+        isRefreshingRegenerateContext = true
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
+            feed: feed,
+            error: "Feed pending"
+        )
+        regenerateContextStatusText = "Vault context pending"
+        statusText = "Refreshing vault context"
+
+        guard let vaultSync = AppBootstrap.shared?.vaultSync else {
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
+                feed: feed,
+                error: "Vault feed unavailable"
+            )
+            isRefreshingRegenerateContext = false
+            regenerateContextTask = nil
+            regenerateContextStatusText = "Vault feed unavailable"
+            statusText = "Vault feed unavailable"
+            return
+        }
+
+        regenerateContextTask = Task { @MainActor in
+            defer {
+                if regenerateContextRefreshNonce == refreshNonce {
+                    isRefreshingRegenerateContext = false
+                    regenerateContextTask = nil
+                }
+            }
+
+            let results = await vaultSync.searchFullAsync(
+                query: feed.normalizedQuery,
+                limit: feed.effectiveLimit
+            )
+            guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
+            regenerateContextStatusText = "Vault context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
+            statusText = regenerateContextStatusText
+        }
+    }
+
+    private func clearRegenerateVaultContext() {
+        regenerateContextTask?.cancel()
+        regenerateContextTask = nil
+        regenerateContextRefreshNonce &+= 1
+        isRefreshingRegenerateContext = false
+        package.manifest.dataFeed = nil
+        regenerateContextStatusText = "Vault context cleared"
+        statusText = "Vault context cleared"
     }
 
     private func beginRegenerateSurface() {
