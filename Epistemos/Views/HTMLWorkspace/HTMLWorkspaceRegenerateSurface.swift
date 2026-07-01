@@ -642,7 +642,10 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     var rank: Double
 
     var dragPayload: String {
-        "Workspace context: \(title) [\(pageID)]\n\(snippet)"
+        let safeTitle = Self.bounded(title, limit: 160)
+        let safePageID = Self.bounded(pageID, limit: 120)
+        let safeSnippet = Self.bounded(snippet, limit: 800)
+        return "Workspace context: \(safeTitle) [\(safePageID)]\n\(safeSnippet)"
     }
 
     static func items(from package: HTMLWorkspacePackage, limit: Int = 12) -> [HTMLWorkspaceRegenerateContextItem] {
@@ -651,12 +654,19 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         }
         return envelope.results.prefix(limit).map {
             HTMLWorkspaceRegenerateContextItem(
-                pageID: $0.pageID,
-                title: $0.title,
-                snippet: $0.snippet,
+                pageID: bounded($0.pageID, limit: 120),
+                title: bounded($0.title, limit: 160),
+                snippet: bounded($0.snippet, limit: 360),
                 rank: $0.rank
             )
         }
+    }
+
+    private static func bounded(_ value: String, limit: Int) -> String {
+        let bounded = String(value.prefix(limit + 32))
+        guard bounded.count > limit else { return bounded }
+        guard limit > 3 else { return String(bounded.prefix(limit)) }
+        return String(bounded.prefix(limit - 3)) + "..."
     }
 }
 

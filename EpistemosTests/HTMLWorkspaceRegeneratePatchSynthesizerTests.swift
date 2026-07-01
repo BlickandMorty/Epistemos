@@ -274,6 +274,31 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
 
+    @Test("regenerate context items bound oversized UI and drag payload text")
+    func regenerateContextItemsBoundOversizedUIAndDragPayloadText() throws {
+        var package = HTMLWorkspacePackage.defaultPackage(title: "Bound Context")
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "bound context", limit: 1)
+        let oversized = String(repeating: "x", count: 1_200)
+        package.manifest.dataFeed = feed
+        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            results: [
+                SearchResult(pageId: oversized, title: oversized, snippet: oversized, rank: 1.0),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_002)
+        )
+
+        let item = try #require(HTMLWorkspaceRegenerateContextItem.items(from: package).first)
+
+        #expect(item.pageID.count == 120)
+        #expect(item.title.count == 160)
+        #expect(item.snippet.count == 360)
+        #expect(item.pageID.hasSuffix("..."))
+        #expect(item.title.hasSuffix("..."))
+        #expect(item.snippet.hasSuffix("..."))
+        #expect(item.dragPayload.count < 700)
+    }
+
     @Test("regenerate preview package swaps reset stale route selection")
     func regeneratePreviewPackageSwapsResetStaleRouteSelection() throws {
         let editor = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
