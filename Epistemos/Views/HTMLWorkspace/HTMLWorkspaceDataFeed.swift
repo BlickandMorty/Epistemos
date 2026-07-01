@@ -431,6 +431,10 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         let requiredContextAvailable = normalizedRequiredKind.map { requiredKind in
             results.contains { $0.contextKind == requiredKind }
         }
+        let feedMetadataProvenance = metadataProvenance(
+            contextKinds: contextKinds,
+            requiredContextKind: normalizedRequiredKind
+        )
         let metadata = HTMLWorkspaceDataFeedMetadata(
             source: feed.source.rawValue,
             query: feed.normalizedQuery,
@@ -438,7 +442,7 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
             resultCount: results.count,
             contextKinds: contextKinds,
             refreshedAtMS: refreshedAtMS,
-            provenance: provenance,
+            provenance: feedMetadataProvenance,
             stale: stale,
             status: status,
             error: error,
@@ -459,6 +463,24 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
     private static func normalizedRequiredContextKind(_ requiredContextKind: String?) -> String? {
         let trimmed = requiredContextKind?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func metadataProvenance(contextKinds: [String], requiredContextKind: String?) -> String {
+        let nonVaultKinds = contextKinds.filter { $0 != "vault_record" }
+        if !nonVaultKinds.isEmpty {
+            return contextSourceProvenance(for: nonVaultKinds)
+        }
+        if contextKinds.isEmpty,
+           let requiredContextKind,
+           requiredContextKind != "vault_record" {
+            return contextSourceProvenance(for: [requiredContextKind])
+        }
+        return provenance
+    }
+
+    private static func contextSourceProvenance(for contextKinds: [String]) -> String {
+        let suffix = contextKinds.joined(separator: "+")
+        return suffix.isEmpty ? provenance : "HTMLWorkspaceDataFeedContextSources.\(suffix)"
     }
 }
 

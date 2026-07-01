@@ -231,6 +231,7 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.contextKinds == ["graph_related_note", "recent_capture"])
+        #expect(metadata.provenance == "HTMLWorkspaceDataFeedContextSources.graph_related_note+recent_capture")
         #expect(metadata.requiredContextKind == "graph_related_note")
         #expect(metadata.requiredContextAvailable == true)
         #expect(metadata.resultCount == 2)
@@ -270,6 +271,7 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(rendered.contains(#""context_kind" : "vault_record""#))
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.contextKinds == ["recent_capture", "vault_record"])
+        #expect(metadata.provenance == "HTMLWorkspaceDataFeedContextSources.recent_capture")
         #expect(metadata.requiredContextAvailable == true)
 
         let envelope = try JSONDecoder().decode(HTMLWorkspaceDataFeedEnvelope.self, from: Data(rendered.utf8))
@@ -301,6 +303,7 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.contextKinds == ["vault_record"])
+        #expect(metadata.provenance == HTMLWorkspaceDataFeedJSONEnvelope.provenance)
         #expect(metadata.requiredContextKind == "recent_capture")
         #expect(metadata.requiredContextAvailable == false)
     }
@@ -322,6 +325,7 @@ nonisolated struct HTMLWorkspacePackageTests {
 
         let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
         #expect(metadata.contextKinds == [])
+        #expect(metadata.provenance == "HTMLWorkspaceDataFeedContextSources.recent_capture")
         #expect(metadata.resultCount == 0)
         #expect(metadata.requiredContextKind == "recent_capture")
         #expect(metadata.requiredContextAvailable == false)
@@ -403,6 +407,15 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(noteFallbackResults.first?.contextKind == "note")
         #expect(noteFallbackResults.first?.sourceLabel == "Note")
         #expect(noteFallbackResults.first?.provenance.contains("recent-note fallback") == true)
+
+        let noteFallbackRendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: .vaultSearch(query: "notes", limit: 5),
+            contextResults: noteFallbackResults,
+            requiredContextKind: "note"
+        )
+        let noteFallbackMetadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: noteFallbackRendered))
+        #expect(noteFallbackMetadata.contextKinds == ["note"])
+        #expect(noteFallbackMetadata.provenance == "HTMLWorkspaceDataFeedContextSources.note")
 
         let filteredNoteFallbackResults = HTMLWorkspaceDataFeedContextSources.results(
             for: "note",
