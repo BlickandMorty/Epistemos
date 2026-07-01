@@ -453,11 +453,11 @@ nonisolated public extension AcsAnchor {
         guard let value else { return true }
         guard !value.isEmpty
             && value.trimmingCharacters(in: .whitespacesAndNewlines) == value
-            && value.unicodeScalars.allSatisfy { scalar in
+            && value.unicodeScalars.allSatisfy({ scalar in
                 !CharacterSet.whitespacesAndNewlines.contains(scalar)
                     && !CharacterSet.controlCharacters.contains(scalar)
                     && scalar.value != 124
-            } else {
+            }) else {
             return false
         }
 
