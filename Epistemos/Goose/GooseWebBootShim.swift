@@ -81,6 +81,7 @@ enum GooseWebBootShim {
         "getSetting": .implementedNative,
         "setSetting": .implementedNative,
         "platform": .implementedNative,
+        "window.open": .implementedNative,
         "reactReady": .compatibilityPreserved,
         "on": .compatibilityPreserved,
         "off": .compatibilityPreserved,
@@ -483,6 +484,38 @@ enum GooseWebBootShim {
               args: boundedJSONClone(Array.isArray(args) ? args : [], maxNativeBridgePayloadBytes, 'native affordance')
             });
           };
+          const externalOpenURL = (rawURL) => {
+            if (typeof rawURL !== 'string' || rawURL.trim() === '') return null;
+            try {
+              const url = new URL(rawURL, window.location.href);
+              return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol) ? url.href : null;
+            } catch {
+              return null;
+            }
+          };
+          const forwardExternalOpen = (rawURL) => {
+            const href = externalOpenURL(rawURL);
+            if (!href) return false;
+            void postNativeAffordance('openExternal', [href]).catch((error) => {
+              console.error('Epistemos window.open bridge failed:', error);
+            });
+            return true;
+          };
+          const nativeWindowOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
+          Object.defineProperty(window, 'open', {
+            configurable: true,
+            value: (url, target, features) => {
+              if (forwardExternalOpen(url)) return null;
+              return nativeWindowOpen ? nativeWindowOpen(url, target, features) : null;
+            }
+          });
+          document.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            const anchor = target?.closest?.('a[target="_blank"][href]');
+            if (!anchor || !forwardExternalOpen(anchor.href)) return;
+            event.preventDefault();
+            event.stopPropagation();
+          }, true);
           const getSetting = async (key) => {
             const stored = await postNativeAffordance('getSetting', [key]);
             if (stored?.found) return clone(stored.value);

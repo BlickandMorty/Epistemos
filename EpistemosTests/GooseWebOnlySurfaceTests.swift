@@ -88,6 +88,14 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!webView.contains("detailsButton"))
         #expect(!webView.contains("Label(\"Manage models\""))
 
+        let bootShim = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebBootShim.swift")
+        #expect(bootShim.contains("\"window.open\": .implementedNative"))
+        #expect(bootShim.contains("const externalOpenURL ="))
+        #expect(bootShim.contains("const forwardExternalOpen ="))
+        #expect(bootShim.contains("Object.defineProperty(window, 'open'"))
+        #expect(bootShim.contains("a[target=\"_blank\"][href]"))
+        #expect(bootShim.contains("postNativeAffordance('openExternal', [href])"))
+
         let nativePrompts = try loadMirroredSourceTextFile("Epistemos/Goose/GooseACPNativePromptPanels.swift")
         #expect(nativePrompts.contains("permissionOptionFill(option.kind)"))
         #expect(nativePrompts.contains("permissionOptionForeground(option.kind)"))
