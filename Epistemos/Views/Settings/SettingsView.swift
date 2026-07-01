@@ -475,7 +475,7 @@ private struct SettingsSidebarRow: View {
                     .lineLimit(1)
                 Text(section.rowDescription)
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }

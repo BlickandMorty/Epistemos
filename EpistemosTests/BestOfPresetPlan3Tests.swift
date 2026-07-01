@@ -24,6 +24,8 @@ struct BestOfPresetPlan3Tests {
             "`VaultMCPServerSettingsRow`",
             "allowedToolNames: Set(VaultMCPCore.readToolNames)",
             "cap request bodies at 8 MiB",
+            "raw failure/domain strings bounded before",
+            "raw listener/domain and protocol diagnostic strings bounded before trim/validation",
         ] {
             #expect(capability.contains(required), "Capability doc missing shipped extensibility state: \(required)")
         }
@@ -37,6 +39,8 @@ struct BestOfPresetPlan3Tests {
             "MCPServersDetailView",
             "BrowserUseSettingsView",
             "off the SwiftUI path",
+            "raw failure/domain strings bounded before trimming or punctuation validation",
+            "raw-bounded MCP URL diagnostic helper",
         ] {
             #expect(extensibility.contains(required), "Extensibility codepack missing shipped marker: \(required)")
         }
@@ -49,9 +53,29 @@ struct BestOfPresetPlan3Tests {
             "rows = loadedRows",
             "BestOfPreset.apply(vaultPath: selectedVaultPath)",
             "BestOfPreset.revertRemoteMCP()",
+            "ToolbarCapsuleButton(",
+            "chromePolicy: .alwaysSurface",
+            "@Environment(UIState.self)",
+            "private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }",
+            "ui.theme.resolved.accent.color",
+            "ui.theme.resolved.headingAccent.color",
+            "ui.theme.resolved.mutedForeground.color",
+            "settingsFlatInputChrome(theme: theme",
+            "tint(theme: ui.theme)",
+            "extensionSettingsRowGap()",
         ] {
             #expect(extensionsView.contains(required), "ExtensionsDetailView missing off-main operation marker: \(required)")
         }
+        #expect(!extensionsView.contains(".buttonStyle(.plain)"))
+        #expect(!extensionsView.contains(".foregroundStyle(.secondary)"))
+        #expect(!extensionsView.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(!extensionsView.contains("Divider()"))
+        #expect(!extensionsView.contains("tint: .green"))
+        #expect(!extensionsView.contains("tint: .orange"))
+        #expect(!extensionsView.contains("tint: .red"))
+        #expect(!extensionsView.contains("return .green"))
+        #expect(!extensionsView.contains("return .orange"))
+        #expect(!extensionsView.contains("return .red"))
 
         for required in [
             "maxRegistryFieldLength",
@@ -71,6 +95,9 @@ struct BestOfPresetPlan3Tests {
         for required in [
             "maxConfigBytes",
             "loadConfigData",
+            "String(message.prefix(maxFailureReasonCharacters + 32))",
+            "String(domain.prefix(maxDomainCharacters + 32))",
+            "maxFailureReasonCharacters - 3",
             "destinationOfSymbolicLink",
             "attributes[.type] as? FileAttributeType == .typeRegular",
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
@@ -91,6 +118,8 @@ struct BestOfPresetPlan3Tests {
             "ChatToolTier.readOnly",
             "Direct core dispatch rejects JSON-RPC request strings over the 8 MiB cap",
             "requires a JSON-RPC 2.0 object envelope",
+            "Swift method/tool protocol diagnostics bound raw strings before trimming",
+            "bounds raw listener/domain strings before",
         ] {
             #expect(vault.contains(required), "Vault MCP codepack missing shipped marker: \(required)")
         }
@@ -221,13 +250,13 @@ struct BestOfPresetPlan3Tests {
         #expect(redacted.contains("Preset install failed."))
         #expect(redacted.contains("domain=Error"))
         #expect(redacted.contains("code=17"))
-        #expect(redacted.count <= BestOfPresetDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(redacted.count <= BestOfPresetDiagnostics.maxStatusMessageCharacters)
         #expect(!redacted.contains(privatePath))
         #expect(!redacted.contains("failed at"))
 
         let longMessage = String(repeating: "x", count: BestOfPresetDiagnostics.maxStatusMessageCharacters + 50)
         let capped = BestOfPresetDiagnostics.message(longMessage, fallback: "Skill install failed.")
-        #expect(capped.count == BestOfPresetDiagnostics.maxStatusMessageCharacters + 3)
+        #expect(capped.count == BestOfPresetDiagnostics.maxStatusMessageCharacters)
         #expect(capped.hasSuffix("..."))
     }
 

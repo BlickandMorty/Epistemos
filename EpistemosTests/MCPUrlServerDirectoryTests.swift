@@ -5,7 +5,7 @@ import Foundation
 /// P2.3 — locks the URL MCP server config parser against the Rust source of
 /// truth (`agent_core/src/mcp/url_servers.rs`). What the chat surfaces must be
 /// exactly the servers the Rust bridge forwards: https-only, name+url required,
-/// auth declared only when a token/env field is present (never the token value),
+/// auth declared only when a valid env field is present (never an inline token value),
 /// and an empty list when nothing is configured.
 @Suite("MCP URL server directory")
 struct MCPUrlServerDirectoryTests {
@@ -62,13 +62,20 @@ struct MCPUrlServerDirectoryTests {
         #expect(!servers[0].declaresAuth)
     }
 
-    @Test("an inline authorization_token also counts as declared auth")
-    func inlineTokenDeclaresAuth() {
+    @Test("inline authorization_token entries are hidden from the forwarded runtime surface")
+    func inlineTokenEntriesAreHiddenFromRuntimeSurface() {
         let servers = MCPUrlServerDirectory.parse(data("""
         [ { "name": "inline", "url": "https://t.example.com/mcp", "authorization_token": "secret" } ]
         """))
-        #expect(servers.count == 1)
-        #expect(servers[0].declaresAuth)
+        #expect(servers.isEmpty)
+    }
+
+    @Test("invalid authorization_token_env keys are hidden from the forwarded runtime surface")
+    func invalidAuthorizationTokenEnvKeysAreHiddenFromRuntimeSurface() {
+        let servers = MCPUrlServerDirectory.parse(data("""
+        [ { "name": "open", "url": "https://open.example.com/mcp", "authorization_token_env": "TOKEN-NAME" } ]
+        """))
+        #expect(servers.isEmpty)
     }
 
     @Test("malformed / empty JSON yields no servers (honest empty state, never a crash)")
@@ -177,6 +184,15 @@ struct MCPUrlServerDirectoryTests {
         #expect(raw.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("["))
         #expect(raw.contains("\"authorization_token_env\" : \"CONTEXT7_API_KEY\""))
         #expect(!raw.contains("authorization_token\""))
+
+        let configMode = try #require(
+            (try FileManager.default.attributesOfItem(atPath: config.path)[.posixPermissions] as? NSNumber)?.intValue
+        )
+        let directoryMode = try #require(
+            (try FileManager.default.attributesOfItem(atPath: config.deletingLastPathComponent().path)[.posixPermissions] as? NSNumber)?.intValue
+        )
+        #expect(configMode & 0o777 == 0o600)
+        #expect(directoryMode & 0o777 == 0o700)
     }
 
     @Test("install replaces by name without duplicating")
@@ -327,7 +343,7 @@ struct MCPUrlServerDirectoryTests {
         #expect(message.contains("filesystem error"))
         #expect(message.contains("domain=Error"))
         #expect(message.contains("code=21"))
-        #expect(message.count <= MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters + 3)
+        #expect(message.count <= MCPUrlServerDirectory.Diagnostics.maxFailureReasonCharacters)
         #expect(!message.contains(privatePath))
         #expect(!message.contains("failed to open"))
     }
@@ -336,6 +352,7 @@ struct MCPUrlServerDirectoryTests {
     func extensionsSettingsStatusRoutesMCPServerFailuresThroughDiagnostics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ExtensionsDetailView.swift")
         let directory = try loadMirroredSourceTextFile("Epistemos/Omega/MCPUrlServerDirectory.swift")
+        let rustURLServers = try loadMirroredSourceTextFile("agent_core/src/mcp/url_servers.rs")
         let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_EXTENSIBILITY_CODEPACK_2026_06_28.md")
         let capabilities = try loadMirroredSourceTextFile("docs/research/PLAN_3_CAPABILITIES_2026_06_28.md")
 
@@ -345,7 +362,25 @@ struct MCPUrlServerDirectoryTests {
         #expect(!source.contains("return .failure(error.localizedDescription)"))
         #expect(directory.contains("enum Diagnostics"))
         #expect(directory.contains("Diagnostics.externalErrorDescription(error, fallback: \"filesystem error\")"))
+        #expect(directory.contains(".posixPermissions: 0o700"))
+        #expect(directory.contains(".posixPermissions: 0o600"))
+        #expect(directory.contains("rejectConfigPathSymlinkComponents"))
+        #expect(directory.contains("firstExistingSymlinkComponent"))
+        #expect(directory.contains("config path could not be inspected safely"))
+        #expect(directory.contains("lstat"))
+        #expect(directory.contains("S_IFLNK"))
         #expect(!directory.contains("throw WriteError.writeFailed(error.localizedDescription)"))
+        #expect(rustURLServers.contains("const MAX_CONFIG_BYTES: usize = 256 * 1024"))
+        #expect(rustURLServers.contains("libc::O_NOFOLLOW"))
+        #expect(rustURLServers.contains("validated_https_url"))
+        #expect(rustURLServers.contains("reqwest::Url::parse"))
+        #expect(rustURLServers.contains("parsed.username().is_empty()"))
+        #expect(rustURLServers.contains("parsed.query().is_some()"))
+        #expect(rustURLServers.contains("is_ascii_alphabetic"))
+        #expect(rustURLServers.contains("if authorization_token_env.is_some_and(|key| !auth_env_key_allowed(key))"))
+        #expect(!rustURLServers.contains("url.starts_with(\"https://\")"))
+        #expect(!rustURLServers.contains(#"!key.contains('=') && !key.contains('\0')"#))
+        #expect(!rustURLServers.contains(".or(entry.authorization_token)"))
         #expect(codepack.contains("MCP server settings status text"))
         #expect(capabilities.contains("MCP server settings status text"))
     }
@@ -403,6 +438,36 @@ struct MCPUrlServerDirectoryTests {
         #expect(!raw.contains("context7"))
     }
 
+    @Test("load writable entries skips inline token configs")
+    func loadWritableEntriesSkipsInlineTokenConfigs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mcp-load-inline-token-\(UUID().uuidString)")
+        let config = root.appendingPathComponent("url_servers.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try data("""
+        [
+          {
+            "name": "inline",
+            "url": "https://inline.example.com/mcp",
+            "authorization_token": "do-not-load"
+          },
+          {
+            "name": "env",
+            "url": "https://env.example.com/mcp",
+            "authorization_token_env": "ENV_TOKEN"
+          }
+        ]
+        """).write(to: config)
+
+        let entries = MCPUrlServerDirectory.loadWritableEntries(from: config)
+        #expect(entries.map(\.name) == ["env"])
+    }
+
     @Test("install refuses to rewrite symlinked config files")
     func installRefusesSymlinkedConfigRewrite() throws {
         let fm = FileManager.default
@@ -431,5 +496,35 @@ struct MCPUrlServerDirectoryTests {
         let raw = try String(contentsOf: outside, encoding: .utf8)
         #expect(raw.contains("outside.example.com"))
         #expect(!raw.contains("context7"))
+    }
+
+    @Test("install refuses symlinked config directories")
+    func installRefusesSymlinkedConfigDirectories() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("mcp-symlink-directory-\(UUID().uuidString)")
+        let outside = root.appendingPathComponent("outside-config", isDirectory: true)
+        let linkedDirectory = root.appendingPathComponent("linked-config", isDirectory: true)
+        let config = linkedDirectory.appendingPathComponent("url_servers.json", isDirectory: false)
+        defer { try? fm.removeItem(at: root) }
+
+        try fm.createDirectory(at: outside, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(at: linkedDirectory, withDestinationURL: outside)
+
+        do {
+            _ = try MCPUrlServerDirectory.install(
+                MCPUrlServerDirectory.WritableEntry(
+                    name: "context7",
+                    url: "https://mcp.context7.com/mcp"
+                ),
+                to: config
+            )
+            Issue.record("Expected symlinked MCP config directory to be rejected")
+        } catch let error as MCPUrlServerDirectory.WriteError {
+            #expect(error.errorDescription?.contains("symbolic link component linked-config") == true)
+            #expect(error.errorDescription?.contains(outside.path) == false)
+        }
+
+        #expect(!fm.fileExists(atPath: outside.appendingPathComponent("url_servers.json").path))
     }
 }

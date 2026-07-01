@@ -5,16 +5,19 @@
 > `[VERIFIED-CODE]`/`[INFERRED]` tagged. (§5c vault-as-MCP-server is in its own codepack.)
 
 ## Verified seams
-- URL MCP servers: `agent_core/src/mcp/url_servers.rs:56 discover_url_mcp_servers()` reads bare-array JSON
-  `{name,url,authorization_token_env?}` HTTPS-only (`:100-120`), paths `.epistemos/mcp_url_servers.json` (project) +
-  `~/.config/mcp/url_servers.json` (global). Swift `MCPUrlServerDirectory.parse/discover/write/install/uninstall` now
-  covers both honest display and MAS-safe HTTPS config writes; it rejects inline token rewrites. Skill install:
+- URL MCP servers: `agent_core/src/mcp/url_servers.rs:56 discover_url_mcp_servers()` reads capped bare-array JSON
+  `{name,url,authorization_token_env?}` HTTPS-only (`:100-150`), paths `.epistemos/mcp_url_servers.json` (project) +
+  `~/.config/mcp/url_servers.json` (global). Runtime discovery rejects final symlink config files, malformed or
+  secret-bearing URL components, unsafe env-key shapes, and inline token values before forwarding MCP server config to
+  the provider. Swift `MCPUrlServerDirectory.parse/discover/write/install/uninstall` covers the same active display
+  surface plus MAS-safe HTTPS config writes; it rejects inline token rewrites. Skill install:
   `SkillsDetailView` → `skill_manage` (`skills.rs:741`, github/url Pro-gated `:753`, local unconditional). Surface policy
   `ToolSurfacePolicy.Distribution` (`ToolTierBridge.swift:170,207,278`). Built-ins via `OmegaToolRegistry`
   (`MCPBridge.swift:82`). MAS gate idiom `#if EPISTEMOS_APP_STORE || MAS_SANDBOX`
   (`DeploymentProfileHealthRow.swift:24`).
   Tool-tier list/execution failures now stay visible while mapping external Swift/Foundation errors to bounded
-  domain/code diagnostics and capping tool JSON error payloads before they reach UI/tool-call surfaces.
+  domain/code diagnostics and capping tool JSON error payloads before they reach UI/tool-call surfaces, with raw
+  message/domain strings bounded before trimming and ellipsis kept inside configured caps.
 
 ## 1. `Epistemos/Omega/MCPRegistryClient.swift` [DELIVERED]
 Pure `URLSession` clients for **Smithery / mcp.so / Glama / GitHub** → unified
@@ -30,10 +33,12 @@ exec, no write → MAS-safe.
 
 ## 2. `MCPUrlServerDirectory.write/install/uninstall` [DELIVERED]
 Mirrors the read contract + the Rust `entry_to_config`: HTTPS-only (`WriteError.notHTTPS`), no URL userinfo/query/fragment
-secret channels, secret-safe validation diagnostics, **name-dedupe idempotent** (re-install replaces, never duplicates),
-**token VALUE never written** (only a process-env-shaped `authorization_token_env` name), bare-array JSON to
-`~/.config/mcp/url_servers.json` (atomic write). Config reads are regular-file checked, final-symlink rejected, and
-bounded at 256 KiB before JSON decode; mutations refuse unsafe existing config files instead of treating them as missing.
+secret channels, strict process-env-shaped auth keys, inline token entries hidden from the active forwarded surface,
+secret-safe validation diagnostics, **name-dedupe idempotent** (re-install replaces, never duplicates),
+**token VALUE never written or forwarded from config** (only a process-env-shaped `authorization_token_env` name), bare-array JSON to
+`~/.config/mcp/url_servers.json` (atomic write; parent directory forced owner-only `0700`, config file forced
+owner-only `0600`). Config reads are regular-file checked, final-symlink rejected, and bounded at 256 KiB before JSON
+decode; mutations refuse unsafe existing config files instead of treating them as missing.
 `install(WritableEntry)` / `uninstall(name:)` return the new `[ServerInfo]`. Config write only → **MAS-safe**; the Rust
 side forwards via the Anthropic `mcp_servers` API param.
 
@@ -44,9 +49,18 @@ Install for `.remoteURL`, `.stdio`/`.skillRepo` shown disabled "unlocks in Pro" 
 read-only `CoworkConnectorDirectory` status) · **browser-use** (Pro diagnostics/settings). URL-server discovery,
 install/uninstall, connector refresh, Best-of manifest row loading, and Best-of apply/revert run off the SwiftUI path in
 detached utility workers. Settings now routes `.skills` to `ExtensionsDetailView()` where
-`@Environment(VaultSyncService.self)` is available. Skills settings status text caps skill-manager messages and maps
-external caught Swift/Foundation failures to bounded domain/code diagnostics before SwiftUI display. MCP server settings
-status text caps success/failure messages and maps external config-write failures to bounded domain/code diagnostics.
+`@Environment(VaultSyncService.self)` is available. Skills settings actions render through `ToolbarCapsuleButton`,
+status text/pills use `UIState` theme tokens, repeated discovery/inventory rows use a fixed row gap instead of hard
+separator rules, and Skills plus MCP URL-server/search inputs use the shared flat `SettingsFlatInputChrome` theme-token
+surface. Skills settings status text caps skill-manager messages and maps external caught Swift/Foundation failures to
+bounded domain/code diagnostics before SwiftUI display, with raw message/domain strings bounded before trim/validation.
+MCP server settings
+status text caps success/failure messages and maps external config-write failures to bounded domain/code diagnostics,
+with raw failure/domain strings bounded before trimming or punctuation validation.
+Primary MCP-server, marketplace, preset, and connector refresh actions render through `ToolbarCapsuleButton` native
+chrome instead of local plain buttons, and status text/pills use `UIState` theme tokens rather than fixed
+traffic-light colors. Repeated installed-server, registry, preset, and connector rows use a shared fixed row gap instead
+of hard separator rules so Settings chrome stays theme-owned.
 
 ## 4. `BestOfPreset.swift` + `Epistemos/Resources/best_of_preset.json` [DELIVERED]
 Manifest `{kind:.builtinTool|.skillRepo|.remoteMCP, id, displayName, why, minDistribution}` over **only-real-today**
@@ -58,8 +72,13 @@ Honest per-row gating: rows above the build's distribution return `.proLocked` (
 `revert()` removes only the remoteMCP rows it added (built-ins are policy not state; skill-repo removal is destructive →
 manual). The bundled manifest loader and receipt persistence are conservative: regular files only, bounded JSON, and no
 final symlink read/write. Apply/revert status text caps skill/tool-returned strings and maps external caught failures
-to bounded domain/code diagnostics before the per-row pills render. `BestOfPresetCard` = one-tap UI with per-row status pills; the UI invokes apply/revert from
+to bounded domain/code diagnostics before the per-row pills render, reusing the raw-bounded MCP URL diagnostic helper.
+`BestOfPresetCard` = one-tap UI with per-row status pills; the UI invokes apply/revert from
 detached utility workers so config writes do not block Settings. Install-target URLs isolated in `installTarget(for:)`.
+
+URL MCP config reads/writes also reject existing symlink components in the config directory path before reading or
+creating `mcp_url_servers.json` / `url_servers.json`, so a symlinked parent cannot redirect MAS-safe config mutations
+outside the intended config root.
 
 ## 5. MAS/Pro split
 | Capability | MAS | Pro | Gate |

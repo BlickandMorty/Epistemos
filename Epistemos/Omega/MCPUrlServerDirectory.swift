@@ -9,7 +9,7 @@ import Foundation
 /// is intentionally limited to HTTPS URL-server config entries: no stdio
 /// subprocesses, no inline token values, and no fake server rows.
 ///
-/// Tokens are never read or displayed — only whether a server declares auth.
+/// Token values are never read or displayed — only valid env-key auth is surfaced.
 nonisolated enum MCPUrlServerDirectory {
     static let maxConfigBytes = 256 * 1024
 
@@ -24,8 +24,8 @@ nonisolated enum MCPUrlServerDirectory {
     struct ServerInfo: Equatable, Identifiable, Sendable {
         let name: String
         let url: String
-        /// True when the entry declares auth (an env-var key or an inline token).
-        /// The token value itself is never surfaced.
+        /// True when the entry declares auth through a valid env-var key.
+        /// Inline token values are not treated as active runtime servers.
         let declaresAuth: Bool
 
         var id: String { name }
@@ -91,16 +91,18 @@ nonisolated enum MCPUrlServerDirectory {
         }
 
         static func failureReason(_ message: String, fallback: String) -> String {
-            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
+            let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
             let description = trimmed.isEmpty ? fallback : trimmed
             guard description.count > maxFailureReasonCharacters else {
                 return description
             }
-            return String(description.prefix(maxFailureReasonCharacters)) + "..."
+            return String(description.prefix(maxFailureReasonCharacters - 3)) + "..."
         }
 
         static func safeDomain(_ domain: String) -> String {
-            let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+            let bounded = String(domain.prefix(maxDomainCharacters + 32))
+            let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
             let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
             guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
                 return "Error"
@@ -146,16 +148,23 @@ nonisolated enum MCPUrlServerDirectory {
             guard let trimmedURL = try? validatedHTTPSURL(entry.url) else { return nil }
             let name = entry.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { return nil }
-            let declaresAuth =
-                (entry.authorization_token_env?.isEmpty == false)
-                || (entry.authorization_token?.isEmpty == false)
+            guard entry.authorization_token?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false else {
+                return nil
+            }
+            let tokenEnv = entry.authorization_token_env?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .nilIfEmpty
+            if let tokenEnv, !authEnvKeyAllowed(tokenEnv) {
+                return nil
+            }
+            let declaresAuth = tokenEnv != nil
             return ServerInfo(name: name, url: trimmedURL, declaresAuth: declaresAuth)
         }
     }
 
-    /// Load writable entries from a config file. Existing inline token values
-    /// are intentionally dropped, so any subsequent write never re-persists a
-    /// secret value.
+    /// Load writable entries from a config file. Entries with inline token
+    /// values are skipped so callers do not treat hidden legacy secrets as
+    /// active writable runtime entries.
     static func loadWritableEntries(
         from configURL: URL,
         fileManager: FileManager = .default
@@ -165,6 +174,9 @@ nonisolated enum MCPUrlServerDirectory {
             return []
         }
         return entries.compactMap { entry in
+            guard entry.authorization_token?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false else {
+                return nil
+            }
             guard let normalized = try? validatedEntry(WritableEntry(
                 name: entry.name,
                 url: entry.url,
@@ -195,9 +207,16 @@ nonisolated enum MCPUrlServerDirectory {
             )
         }
         do {
+            let configDirectory = configURL.deletingLastPathComponent()
+            try rejectConfigPathSymlinkComponents(configDirectory, fileManager: fileManager)
             try fileManager.createDirectory(
-                at: configURL.deletingLastPathComponent(),
+                at: configDirectory,
                 withIntermediateDirectories: true
+            )
+            try rejectConfigPathSymlinkComponents(configDirectory, fileManager: fileManager)
+            try fileManager.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: configDirectory.path
             )
             let data = try JSONEncoder.mcpURLServerEncoder.encode(payload)
             guard data.count <= maxConfigBytes else {
@@ -205,6 +224,7 @@ nonisolated enum MCPUrlServerDirectory {
             }
             try validateWritableConfigTarget(configURL, fileManager: fileManager)
             try data.write(to: configURL, options: [.atomic])
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
             return parse(data)
         } catch let error as WriteError {
             throw error
@@ -310,6 +330,7 @@ nonisolated enum MCPUrlServerDirectory {
         from configURL: URL,
         fileManager: FileManager = .default
     ) throws -> Data? {
+        try rejectConfigPathSymlinkComponents(configURL.deletingLastPathComponent(), fileManager: fileManager)
         if (try? fileManager.destinationOfSymbolicLink(atPath: configURL.path)) != nil {
             throw WriteError.writeFailed("existing config file is a symbolic link")
         }
@@ -386,6 +407,7 @@ nonisolated enum MCPUrlServerDirectory {
         _ configURL: URL,
         fileManager: FileManager
     ) throws {
+        try rejectConfigPathSymlinkComponents(configURL.deletingLastPathComponent(), fileManager: fileManager)
         guard fileManager.fileExists(atPath: configURL.path) else {
             if (try? fileManager.destinationOfSymbolicLink(atPath: configURL.path)) != nil {
                 throw WriteError.writeFailed("existing config file is a symbolic link")
@@ -393,6 +415,49 @@ nonisolated enum MCPUrlServerDirectory {
             return
         }
         try validateReadableConfigFile(configURL, fileManager: fileManager)
+    }
+
+    private static func rejectConfigPathSymlinkComponents(
+        _ url: URL,
+        fileManager: FileManager
+    ) throws {
+        if let component = try firstExistingSymlinkComponent(in: url, fileManager: fileManager) {
+            throw WriteError.writeFailed(
+                "config path must not include symbolic link component \(component.lastPathComponent)"
+            )
+        }
+    }
+
+    private static func firstExistingSymlinkComponent(
+        in url: URL,
+        fileManager: FileManager
+    ) throws -> URL? {
+        let standardized = url.standardizedFileURL
+        let path = standardized.path
+        let components = path.split(separator: "/", omittingEmptySubsequences: true)
+        var current = path.hasPrefix("/")
+            ? URL(fileURLWithPath: "/", isDirectory: true)
+            : URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+
+        for component in components {
+            current = current.appendingPathComponent(String(component), isDirectory: false)
+            var fileStatus = stat()
+            guard lstat(current.path, &fileStatus) == 0 else {
+                if errno == ENOENT || errno == ENOTDIR {
+                    return nil
+                }
+                throw WriteError.writeFailed("config path could not be inspected safely")
+            }
+            if (fileStatus.st_mode & S_IFMT) == S_IFLNK,
+               !isAllowedSystemSymlinkComponent(current, fileStatus: fileStatus) {
+                return current
+            }
+        }
+        return nil
+    }
+
+    private static func isAllowedSystemSymlinkComponent(_ url: URL, fileStatus: stat) -> Bool {
+        url.deletingLastPathComponent().path == "/" && fileStatus.st_uid == 0
     }
 
     private static func validatedEntry(_ entry: WritableEntry) throws -> WritableEntry {

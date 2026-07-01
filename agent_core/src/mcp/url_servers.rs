@@ -32,11 +32,15 @@
 //! [`crate::tools::registry::ToolRegistry`] instead of forwarded to the
 //! remote API.
 
-use std::path::PathBuf;
+use std::io::Read;
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::agent_loop::McpServerConfig;
+
+const MAX_CONFIG_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct UrlMcpServerEntry {
@@ -89,38 +93,95 @@ fn global_config_path() -> Option<PathBuf> {
     )
 }
 
-fn load_entries(path: &std::path::Path) -> Vec<UrlMcpServerEntry> {
-    let raw = match std::fs::read_to_string(path) {
-        Ok(data) => data,
+fn load_entries(path: &Path) -> Vec<UrlMcpServerEntry> {
+    let metadata = match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
         Err(_) => return Vec::new(),
     };
+    let file_type = metadata.file_type();
+    if file_type.is_symlink()
+        || !file_type.is_file()
+        || metadata.len() > MAX_CONFIG_BYTES as u64
+    {
+        return Vec::new();
+    }
+
+    let file = match std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut raw = String::new();
+    let mut limited = file.take(MAX_CONFIG_BYTES as u64 + 1);
+    if limited.read_to_string(&mut raw).is_err() || raw.len() > MAX_CONFIG_BYTES {
+        return Vec::new();
+    }
     serde_json::from_str::<Vec<UrlMcpServerEntry>>(&raw).unwrap_or_default()
 }
 
 fn entry_to_config(entry: UrlMcpServerEntry) -> Option<McpServerConfig> {
-    let url = entry.url.trim().to_string();
-    if !url.starts_with("https://") {
+    let name = entry.name.trim().to_string();
+    if name.is_empty() {
         return None;
     }
 
-    let authorization_token = entry
+    let url = validated_https_url(&entry.url)?;
+    if entry
+        .authorization_token
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|token| !token.is_empty())
+    {
+        return None;
+    }
+
+    let authorization_token_env = entry
         .authorization_token_env
         .as_deref()
-        .filter(|key| auth_env_key_allowed(key))
+        .map(str::trim)
+        .filter(|key| !key.is_empty());
+    if authorization_token_env.is_some_and(|key| !auth_env_key_allowed(key)) {
+        return None;
+    }
+
+    let authorization_token = authorization_token_env
         .and_then(|key| std::env::var(key).ok())
-        .or(entry.authorization_token)
         .map(|token| token.trim().to_string())
         .filter(|token| !token.is_empty());
 
     Some(McpServerConfig {
-        name: entry.name,
+        name,
         url,
         authorization_token,
     })
 }
 
+fn validated_https_url(raw: &str) -> Option<String> {
+    let url = raw.trim();
+    let parsed = reqwest::Url::parse(url).ok()?;
+    if parsed.scheme() != "https"
+        || parsed.host_str().unwrap_or_default().is_empty()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return None;
+    }
+    Some(url.to_string())
+}
+
 fn auth_env_key_allowed(key: &str) -> bool {
-    !key.is_empty() && !key.contains('=') && !key.contains('\0')
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(first) if first == '_' || first.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
 #[cfg(test)]
@@ -190,5 +251,47 @@ mod tests {
         });
 
         assert!(config.is_none());
+    }
+
+    #[test]
+    fn entry_to_config_rejects_secret_bearing_urls_and_inline_tokens() {
+        for url in [
+            "https://token@example.com/mcp",
+            "https://example.com/mcp?token=abc123",
+            "https://example.com/mcp#token=abc123",
+            "https:///mcp",
+        ] {
+            let config = entry_to_config(UrlMcpServerEntry {
+                name: "bad".to_string(),
+                url: url.to_string(),
+                authorization_token: None,
+                authorization_token_env: None,
+            });
+            assert!(config.is_none());
+        }
+
+        let inline_token_config = entry_to_config(UrlMcpServerEntry {
+            name: "inline".to_string(),
+            url: "https://example.com/mcp".to_string(),
+            authorization_token: Some("secret".to_string()),
+            authorization_token_env: None,
+        });
+        assert!(inline_token_config.is_none());
+
+        let invalid_auth_env_config = entry_to_config(UrlMcpServerEntry {
+            name: "invalid-auth-env".to_string(),
+            url: "https://example.com/mcp".to_string(),
+            authorization_token: None,
+            authorization_token_env: Some("TOKEN-NAME".to_string()),
+        });
+        assert!(invalid_auth_env_config.is_none());
+    }
+
+    #[test]
+    fn auth_env_key_shape_matches_process_env_keys() {
+        assert!(auth_env_key_allowed("_TOKEN_9"));
+        for key in ["1TOKEN", "TOKEN NAME", "TOKEN-NAME", "TOKEN\nNAME", "TØKEN"] {
+            assert!(!auth_env_key_allowed(key));
+        }
     }
 }

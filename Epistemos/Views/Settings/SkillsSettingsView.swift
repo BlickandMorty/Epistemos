@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SkillsDetailView: View {
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(UIState.self) private var ui
 
     @State private var skills: [SkillInventoryEntry] = []
     @State private var discoveredSkills: [SkillDiscoveryEntry] = []
@@ -17,6 +18,14 @@ struct SkillsDetailView: View {
     @State private var statusMessage: String?
     @State private var statusIsError = false
     @State private var discoveryPhases: [String: SkillDiscoveryActionPhase] = [:]
+
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+    private var successTint: Color { ui.theme.resolved.accent.color }
+    private var infoTint: Color { ui.theme.resolved.headingAccent.color }
+    private var warningTint: Color { ui.theme.resolved.headingAccent.color }
+    private var mutedTint: Color { ui.theme.resolved.mutedForeground.color }
+    private var tertiaryTint: Color { ui.theme.resolved.mutedForeground.color.opacity(0.78) }
+    private var statusTint: Color { statusIsError ? warningTint : successTint }
 
     var body: some View {
         ScrollView {
@@ -55,7 +64,7 @@ struct SkillsDetailView: View {
                     .font(.title2.weight(.semibold))
 
                 Text("Local skills are already a real substrate in Epistemos. This panel turns them into a discoverable operator surface with install flow, usage stats, and room for an agentskills-style marketplace without changing the backend trust boundary.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
 
                 SettingsDescriptionCard(
                     title: "Trust Boundary",
@@ -80,19 +89,25 @@ struct SkillsDetailView: View {
                     Text("Discovery")
                         .font(.headline)
                     Spacer()
-                    Button("Refresh") {
+                    ToolbarCapsuleButton(
+                        title: nil,
+                        systemImage: "arrow.clockwise",
+                        role: .toolbarUtility,
+                        chromePolicy: .bareUntilPressed,
+                        helpText: "Refresh discovered skills",
+                        accessibilityLabel: "Refresh discovered skills"
+                    ) {
                         refreshDiscovery()
                     }
                 }
 
                 TextField("Search discovered and installed skills", text: $searchQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 360)
+                    .settingsFlatInputChrome(theme: theme, maxWidth: 360)
 
                 if filteredDiscoveredSkills.isEmpty {
                     Text(discoveredSkills.isEmpty ? "No discovery sources found yet." : "No discovery matches this search.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                 } else {
                     ForEach(filteredDiscoveredSkills.prefix(18)) { skill in
                         VStack(alignment: .leading, spacing: 10) {
@@ -105,29 +120,36 @@ struct SkillsDetailView: View {
                                     ),
                                     size: 24
                                 )
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(mutedTint)
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(skill.title)
                                         .font(.subheadline.weight(.semibold))
                                     Text(skill.description)
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(mutedTint)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
-                                ChannelStatusPill(title: skill.source.title, tint: .blue)
-                                ChannelStatusPill(title: skill.category.capitalized, tint: .secondary)
+                                ChannelStatusPill(title: skill.source.title, tint: infoTint)
+                                ChannelStatusPill(title: skill.category.capitalized, tint: mutedTint)
                             }
 
                             if !skill.tags.isEmpty {
                                 Text(skill.tags.joined(separator: " • "))
                                     .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(tertiaryTint)
                             }
 
                             HStack(spacing: 10) {
-                                Button(discoveryActionLabel(for: skill)) {
+                                ToolbarCapsuleButton(
+                                    title: discoveryActionLabel(for: skill),
+                                    systemImage: discoveryActionSystemImage(for: skill),
+                                    role: .toolbarUtility,
+                                    chromePolicy: .bareUntilPressed,
+                                    helpText: "\(discoveryActionLabel(for: skill)) \(skill.title)",
+                                    accessibilityLabel: "\(discoveryActionLabel(for: skill)) \(skill.title)"
+                                ) {
                                     guard let vaultPath else { return }
                                     Task { await installDiscoveredSkill(skill, vaultPath: vaultPath) }
                                 }
@@ -135,13 +157,13 @@ struct SkillsDetailView: View {
 
                                 Text(skill.sourcePath)
                                     .font(.caption.monospaced())
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(tertiaryTint)
                                     .lineLimit(1)
                             }
                         }
 
                         if skill.id != filteredDiscoveredSkills.prefix(18).last?.id {
-                            Divider()
+                            skillSettingsRowGap()
                         }
                     }
                 }
@@ -163,32 +185,32 @@ struct SkillsDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 12) {
                     IntegrationBrandMarkView(brand: .skillRepo, size: 26)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Create Skill")
                             .font(.headline)
                         Text("Write a reusable instruction sheet straight into your vault's managed skills directory. This is the real skill substrate the local agent can follow; tool creation still needs runtime registration work.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
                     }
                     Spacer()
                     if !draft.identifier.isEmpty {
-                        ChannelStatusPill(title: draft.identifier, tint: .blue)
+                        ChannelStatusPill(title: draft.identifier, tint: infoTint)
                     }
                 }
 
                 TextField("Skill title", text: $createTitle)
-                    .textFieldStyle(.roundedBorder)
+                    .settingsFlatInputChrome(theme: theme)
 
                 TextField("Short description", text: $createDescription)
-                    .textFieldStyle(.roundedBorder)
+                    .settingsFlatInputChrome(theme: theme)
 
                 HStack(spacing: 12) {
                     TextField("Category", text: $createCategory)
-                        .textFieldStyle(.roundedBorder)
+                        .settingsFlatInputChrome(theme: theme)
                     TextField("Tags (comma separated)", text: $createTags)
-                        .textFieldStyle(.roundedBorder)
+                        .settingsFlatInputChrome(theme: theme)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -196,16 +218,19 @@ struct SkillsDetailView: View {
                         .font(.subheadline.weight(.semibold))
                     TextEditor(text: $createInstructionSheet)
                         .font(.body)
-                        .frame(minHeight: 180)
-                        .padding(8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.thinMaterial)
-                        )
+                        .scrollContentBackground(.hidden)
+                        .settingsFlatInputChrome(theme: theme, minHeight: 180)
                 }
 
                 HStack(spacing: 10) {
-                    Button("Create Skill") {
+                    ToolbarCapsuleButton(
+                        title: "Create Skill",
+                        systemImage: "plus.circle",
+                        role: .primaryAction,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Create skill",
+                        accessibilityLabel: "Create skill"
+                    ) {
                         Task { await createSkill(vaultPath: vaultPath) }
                     }
                     .disabled(
@@ -216,20 +241,20 @@ struct SkillsDetailView: View {
 
                     Text("Creates `skills/\(draft.identifier.isEmpty ? "skill-name" : draft.identifier)/SKILL.md`")
                         .font(.caption.monospaced())
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(tertiaryTint)
                         .lineLimit(1)
                 }
 
                 if !draft.tags.isEmpty {
                     Text(draft.tags.joined(separator: " • "))
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(tertiaryTint)
                 }
 
                 if let statusMessage {
                     Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(statusIsError ? .orange : .green)
+                        .foregroundStyle(statusTint)
                 }
             }
         }
@@ -244,7 +269,7 @@ struct SkillsDetailView: View {
                         brand: .skillInstallSource(rawValue: installSource.rawValue),
                         size: 24
                     )
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(mutedTint)
                     Text("Install Skill")
                         .font(.headline)
                 }
@@ -258,16 +283,23 @@ struct SkillsDetailView: View {
                 .frame(maxWidth: 360)
 
                 TextField(installSource.placeholder, text: $installURL)
-                    .textFieldStyle(.roundedBorder)
+                    .settingsFlatInputChrome(theme: theme)
 
                 if let proLockedMessage = installSource.proLockedMessage {
                     Label(proLockedMessage, systemImage: "lock.fill")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(warningTint)
                 }
 
                 HStack(spacing: 10) {
-                    Button("Install") {
+                    ToolbarCapsuleButton(
+                        title: "Install",
+                        systemImage: "square.and.arrow.down",
+                        role: .primaryAction,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Install skill",
+                        accessibilityLabel: "Install skill"
+                    ) {
                         Task { await installSkill(vaultPath: vaultPath) }
                     }
                     .disabled(
@@ -284,7 +316,7 @@ struct SkillsDetailView: View {
                 if let statusMessage {
                     Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(statusIsError ? .orange : .green)
+                        .foregroundStyle(statusTint)
                 }
             }
         }
@@ -300,22 +332,25 @@ struct SkillsDetailView: View {
                     if isLoading {
                         ProgressView().controlSize(.small)
                     }
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: nil,
+                        systemImage: "arrow.clockwise",
+                        role: .toolbarUtility,
+                        chromePolicy: .bareUntilPressed,
+                        helpText: "Refresh installed skills",
+                        accessibilityLabel: "Refresh installed skills"
+                    ) {
                         Task { await refreshSkills() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
                     }
-                    .buttonStyle(.plain)
                 }
 
                 TextField("Search skills", text: $searchQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 320)
+                    .settingsFlatInputChrome(theme: theme, maxWidth: 320)
 
                 if filteredSkills.isEmpty {
                     Text(skills.isEmpty ? "No skills registered yet." : "No skills match this search.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                 } else {
                     ForEach(filteredSkills) { skill in
                         VStack(alignment: .leading, spacing: 6) {
@@ -327,25 +362,27 @@ struct SkillsDetailView: View {
                                     ),
                                     size: 24
                                 )
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(mutedTint)
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(skill.name)
                                         .font(.subheadline.weight(.semibold))
                                     Text(skill.description)
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(mutedTint)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
-                                ChannelStatusPill(title: skill.version, tint: .secondary)
-                                ChannelStatusPill(title: "\(skill.useCount) runs", tint: .blue)
+                                ChannelStatusPill(title: skill.version, tint: mutedTint)
+                                ChannelStatusPill(title: "\(skill.useCount) runs", tint: infoTint)
                                 ChannelStatusPill(
                                     title: skill.successRateLabel,
-                                    tint: skill.successRate >= 0.8 ? .green : .orange
+                                    tint: skill.successRate >= 0.8 ? successTint : warningTint
                                 )
                             }
-                            Divider()
+                            if skill.id != filteredSkills.last?.id {
+                                skillSettingsRowGap()
+                            }
                         }
                     }
                 }
@@ -505,6 +542,20 @@ struct SkillsDetailView: View {
         }
     }
 
+    private func discoveryActionSystemImage(for skill: SkillDiscoveryEntry) -> String {
+        if isDiscoveredSkillInstalled(skill) {
+            return "checkmark.circle"
+        }
+        switch discoveryPhases[skill.id] ?? .ready {
+        case .ready:
+            return "square.and.arrow.down"
+        case .quarantined:
+            return "arrow.up.doc"
+        case .installed:
+            return "checkmark.circle"
+        }
+    }
+
     private func isDiscoveredSkillInstalled(_ skill: SkillDiscoveryEntry) -> Bool {
         let installedNames = Set(skills.map(\.name))
         return installedNames.contains(skill.identifier)
@@ -517,6 +568,11 @@ struct SkillsDetailView: View {
         createTags = ""
         createInstructionSheet = ""
     }
+
+    @ViewBuilder
+    private func skillSettingsRowGap() -> some View {
+        Color.clear.frame(height: 6)
+    }
 }
 
 nonisolated enum SkillsSettingsStatus {
@@ -525,12 +581,13 @@ nonisolated enum SkillsSettingsStatus {
     private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
 
     static func message(_ value: String, fallback: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(value.prefix(maxStatusMessageCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let message = trimmed.isEmpty ? fallback : trimmed
         guard message.count > maxStatusMessageCharacters else {
             return message
         }
-        return String(message.prefix(maxStatusMessageCharacters)) + "..."
+        return String(message.prefix(maxStatusMessageCharacters - 3)) + "..."
     }
 
     static func message(for error: Error, fallback: String) -> String {
@@ -543,7 +600,8 @@ nonisolated enum SkillsSettingsStatus {
     }
 
     static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"

@@ -51,6 +51,7 @@ private enum ExtensionsSettingsTab: String, CaseIterable, Identifiable {
 
 private struct MCPServersDetailView: View {
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(UIState.self) private var ui
 
     @State private var installedServers: [MCPUrlServerDirectory.ServerInfo] = []
     @State private var registryQuery = ""
@@ -63,6 +64,11 @@ private struct MCPServersDetailView: View {
     @State private var statusIsError = false
 
     private let registryClient = MCPRegistryClient()
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+    private var successTint: Color { ui.theme.resolved.accent.color }
+    private var infoTint: Color { ui.theme.resolved.headingAccent.color }
+    private var warningTint: Color { ui.theme.resolved.headingAccent.color }
+    private var mutedTint: Color { ui.theme.resolved.mutedForeground.color }
 
     var body: some View {
         ScrollView {
@@ -90,19 +96,22 @@ private struct MCPServersDetailView: View {
                     Text("Installed URL MCP Servers")
                         .font(.headline)
                     Spacer()
-                    Button {
+                    ToolbarCapsuleButton(
+                        title: nil,
+                        systemImage: "arrow.clockwise",
+                        role: .toolbarUtility,
+                        chromePolicy: .bareUntilPressed,
+                        helpText: "Refresh installed URL MCP servers",
+                        accessibilityLabel: "Refresh installed URL MCP servers"
+                    ) {
                         refreshInstalledServers()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
                     }
-                    .buttonStyle(.plain)
-                    .help("Refresh installed URL MCP servers")
                 }
 
                 if installedServers.isEmpty {
                     Text("No URL MCP servers are configured.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                 } else {
                     ForEach(installedServers) { server in
                         HStack(alignment: .top, spacing: 12) {
@@ -110,33 +119,36 @@ private struct MCPServersDetailView: View {
                                 brand: .installedMCPServer(name: server.name, host: server.host),
                                 size: 24
                             )
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(server.name)
                                     .font(.subheadline.weight(.semibold))
                                 Text(server.host)
                                     .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(mutedTint)
                                     .lineLimit(1)
                                     .textSelection(.enabled)
                             }
                             Spacer()
-                            ChannelStatusPill(title: "HTTPS", tint: .green)
+                            ChannelStatusPill(title: "HTTPS", tint: successTint)
                             ChannelStatusPill(
                                 title: server.declaresAuth ? "Auth env" : "No auth",
-                                tint: server.declaresAuth ? .blue : .secondary
+                                tint: server.declaresAuth ? infoTint : mutedTint
                             )
-                            Button(role: .destructive) {
+                            ToolbarCapsuleButton(
+                                title: nil,
+                                systemImage: "trash",
+                                role: .secondaryGhost,
+                                chromePolicy: .bareUntilPressed,
+                                helpText: "Remove \(server.name)",
+                                accessibilityLabel: "Remove \(server.name)"
+                            ) {
                                 uninstall(server)
-                            } label: {
-                                Image(systemName: "trash")
                             }
-                            .buttonStyle(.plain)
-                            .help("Remove \(server.name)")
                         }
                         if server.id != installedServers.last?.id {
-                            Divider()
+                            extensionSettingsRowGap()
                         }
                     }
                 }
@@ -147,7 +159,7 @@ private struct MCPServersDetailView: View {
                         systemImage: statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
                     )
                     .font(.caption)
-                    .foregroundStyle(statusIsError ? .orange : .green)
+                    .foregroundStyle(statusIsError ? warningTint : successTint)
                 }
             }
         }
@@ -161,28 +173,34 @@ private struct MCPServersDetailView: View {
                         .font(.headline)
                     Text("Remote MCP servers are written to the same JSON file the Rust bridge forwards to the provider. Token values are not stored here; use an environment-variable name when auth is needed.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                 }
 
                 HStack(spacing: 12) {
                     TextField("Name", text: $newServerName)
-                        .textFieldStyle(.roundedBorder)
+                        .settingsFlatInputChrome(theme: theme)
                     TextField("https://example.com/mcp", text: $newServerURL)
-                        .textFieldStyle(.roundedBorder)
+                        .settingsFlatInputChrome(theme: theme)
                 }
 
                 TextField("TOKEN_ENV_NAME (optional)", text: $newServerAuthEnv)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 360)
+                    .settingsFlatInputChrome(theme: theme, maxWidth: 360)
 
                 HStack(spacing: 10) {
-                    Button("Install Server") {
+                    ToolbarCapsuleButton(
+                        title: "Install Server",
+                        systemImage: "plus.circle",
+                        role: .primaryAction,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Install URL MCP server",
+                        accessibilityLabel: "Install URL MCP server"
+                    ) {
                         installManualServer()
                     }
                     .disabled(!canInstallManualServer)
 
-                    ChannelStatusPill(title: "Config write only", tint: .blue)
-                    ChannelStatusPill(title: "HTTPS required", tint: .green)
+                    ChannelStatusPill(title: "Config write only", tint: infoTint)
+                    ChannelStatusPill(title: "HTTPS required", tint: successTint)
                 }
             }
         }
@@ -197,7 +215,7 @@ private struct MCPServersDetailView: View {
                             .font(.headline)
                         Text("Search public MCP registries, then install remote HTTPS servers into the live URL-server config.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
                     }
                     Spacer()
                     if isSearchingRegistry {
@@ -207,11 +225,18 @@ private struct MCPServersDetailView: View {
 
                 HStack(spacing: 10) {
                     TextField("Search MCP servers", text: $registryQuery)
-                        .textFieldStyle(.roundedBorder)
+                        .settingsFlatInputChrome(theme: theme)
                         .onSubmit {
                             Task { await searchMarketplace() }
                         }
-                    Button("Search") {
+                    ToolbarCapsuleButton(
+                        title: "Search",
+                        systemImage: "magnifyingglass",
+                        role: .toolbarUtility,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Search MCP marketplace",
+                        accessibilityLabel: "Search MCP marketplace"
+                    ) {
                         Task { await searchMarketplace() }
                     }
                     .disabled(registryQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -220,7 +245,7 @@ private struct MCPServersDetailView: View {
                 if registryEntries.isEmpty {
                     Text("Search results appear here. Stdio and skill-repo entries are shown honestly but not installed by the App Store-safe URL path.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
                 } else {
                     ForEach(registryEntries) { entry in
                         VStack(alignment: .leading, spacing: 8) {
@@ -233,7 +258,7 @@ private struct MCPServersDetailView: View {
                                     ),
                                     size: 24
                                 )
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(mutedTint)
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(entry.name)
@@ -241,34 +266,48 @@ private struct MCPServersDetailView: View {
                                     if !entry.description.isEmpty {
                                         Text(entry.description)
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(mutedTint)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                                 Spacer()
-                                ChannelStatusPill(title: entry.source.rawValue, tint: .blue)
-                                ChannelStatusPill(title: entry.installKind.displayName, tint: .secondary)
+                                ChannelStatusPill(title: entry.source.rawValue, tint: infoTint)
+                                ChannelStatusPill(title: entry.installKind.displayName, tint: mutedTint)
                             }
 
                             HStack(spacing: 10) {
                                 if entry.installKind == .remoteURL {
-                                    Button("Install") {
+                                    ToolbarCapsuleButton(
+                                        title: "Install",
+                                        systemImage: "plus.circle",
+                                        role: .primaryAction,
+                                        chromePolicy: .alwaysSurface,
+                                        helpText: "Install \(entry.name)",
+                                        accessibilityLabel: "Install \(entry.name)"
+                                    ) {
                                         installRegistryEntry(entry)
                                     }
                                 } else {
-                                    Button(nonURLInstallLabel(for: entry)) {}
-                                        .disabled(true)
+                                    ToolbarCapsuleButton(
+                                        title: nonURLInstallLabel(for: entry),
+                                        systemImage: "lock",
+                                        role: .secondaryGhost,
+                                        chromePolicy: .bareUntilPressed,
+                                        helpText: nonURLInstallLabel(for: entry),
+                                        accessibilityLabel: nonURLInstallLabel(for: entry)
+                                    ) {}
+                                    .disabled(true)
                                 }
 
                                 Text(entry.installTarget)
                                     .font(.caption.monospaced())
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(mutedTint.opacity(0.78))
                                     .lineLimit(1)
                                     .textSelection(.enabled)
                             }
                         }
                         if entry.id != registryEntries.last?.id {
-                            Divider()
+                            extensionSettingsRowGap()
                         }
                     }
                 }
@@ -435,9 +474,13 @@ private struct BestOfPresetCard: View {
     let vaultPath: String?
     let onChange: () -> Void
 
+    @Environment(UIState.self) private var ui
     @State private var isApplying = false
     @State private var results: [BestOfPresetResult] = []
     @State private var rows: [BestOfPresetItem] = []
+    private var successTint: Color { ui.theme.resolved.accent.color }
+    private var warningTint: Color { ui.theme.resolved.headingAccent.color }
+    private var mutedTint: Color { ui.theme.resolved.mutedForeground.color }
 
     var body: some View {
         SettingsSurfaceCard {
@@ -448,7 +491,7 @@ private struct BestOfPresetCard: View {
                             .font(.headline)
                         Text("Enable the strongest already-wired tools and install the curated remote MCP entries that are safe for this build profile.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(mutedTint)
                     }
                     Spacer()
                     if isApplying {
@@ -457,12 +500,26 @@ private struct BestOfPresetCard: View {
                 }
 
                 HStack(spacing: 10) {
-                    Button("Apply Preset") {
+                    ToolbarCapsuleButton(
+                        title: "Apply Preset",
+                        systemImage: "checkmark.circle",
+                        role: .primaryAction,
+                        chromePolicy: .alwaysSurface,
+                        helpText: "Apply best-of preset",
+                        accessibilityLabel: "Apply best-of preset"
+                    ) {
                         Task { await applyPreset() }
                     }
                     .disabled(isApplying)
 
-                    Button("Revert Remote MCP") {
+                    ToolbarCapsuleButton(
+                        title: "Revert Remote MCP",
+                        systemImage: "arrow.uturn.backward",
+                        role: .secondaryGhost,
+                        chromePolicy: .bareUntilPressed,
+                        helpText: "Revert remote MCP entries installed by the preset",
+                        accessibilityLabel: "Revert remote MCP entries installed by the preset"
+                    ) {
                         revertRemoteMCP()
                     }
                     .disabled(isApplying)
@@ -478,28 +535,28 @@ private struct BestOfPresetCard: View {
                             ),
                             size: 24
                         )
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(mutedTint)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.displayName)
                                 .font(.subheadline.weight(.semibold))
                             Text(item.why)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(mutedTint)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer()
-                        ChannelStatusPill(title: item.kind.label, tint: .secondary)
+                        ChannelStatusPill(title: item.kind.label, tint: mutedTint)
                         if let result = results.first(where: { $0.item.id == item.id }) {
-                            ChannelStatusPill(title: result.status.title, tint: result.status.tint)
+                            ChannelStatusPill(title: result.status.title, tint: result.status.tint(theme: ui.theme))
                         } else if item.minDistribution == .proResearch {
-                            ChannelStatusPill(title: "Pro row", tint: .orange)
+                            ChannelStatusPill(title: "Pro row", tint: warningTint)
                         } else {
-                            ChannelStatusPill(title: "Ready", tint: .blue)
+                            ChannelStatusPill(title: "Ready", tint: successTint)
                         }
                     }
                     if item.id != rows.last?.id {
-                        Divider()
+                        extensionSettingsRowGap()
                     }
                 }
             }
@@ -554,7 +611,12 @@ private struct BestOfPresetCard: View {
 }
 
 private struct ConnectorsDetailView: View {
+    @Environment(UIState.self) private var ui
     @State private var installedServers: [MCPUrlServerDirectory.ServerInfo] = []
+
+    private var successTint: Color { ui.theme.resolved.accent.color }
+    private var infoTint: Color { ui.theme.resolved.headingAccent.color }
+    private var mutedTint: Color { ui.theme.resolved.mutedForeground.color }
 
     private var connectorStatuses: [CoworkConnectorDirectory.ConnectorStatus] {
         CoworkConnectorDirectory.statuses(servers: installedServers)
@@ -571,16 +633,19 @@ private struct ConnectorsDetailView: View {
                                     .font(.headline)
                                 Text("Connector status is derived only from URL MCP servers that are actually configured.")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(mutedTint)
                             }
                             Spacer()
-                            Button {
+                            ToolbarCapsuleButton(
+                                title: nil,
+                                systemImage: "arrow.clockwise",
+                                role: .toolbarUtility,
+                                chromePolicy: .bareUntilPressed,
+                                helpText: "Refresh connector status",
+                                accessibilityLabel: "Refresh connector status"
+                            ) {
                                 refresh()
-                            } label: {
-                                Image(systemName: "arrow.clockwise")
                             }
-                            .buttonStyle(.plain)
-                            .help("Refresh connector status")
                         }
 
                         ForEach(connectorStatuses) { status in
@@ -592,25 +657,25 @@ private struct ConnectorsDetailView: View {
                                     ),
                                     size: 24
                                 )
-                                .foregroundStyle(status.isConnected ? .green : .secondary)
+                                .foregroundStyle(status.isConnected ? successTint : mutedTint)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(status.connector.displayName)
                                         .font(.subheadline.weight(.semibold))
                                     Text(status.wiredServerName ?? "No matching URL MCP server configured.")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(mutedTint)
                                 }
                                 Spacer()
                                 ChannelStatusPill(
                                     title: status.isConnected ? "Connected" : "Not connected",
-                                    tint: status.isConnected ? .green : .secondary
+                                    tint: status.isConnected ? successTint : mutedTint
                                 )
                                 if status.declaresAuth {
-                                    ChannelStatusPill(title: "Auth env", tint: .blue)
+                                    ChannelStatusPill(title: "Auth env", tint: infoTint)
                                 }
                             }
                             if status.id != connectorStatuses.last?.id {
-                                Divider()
+                                extensionSettingsRowGap()
                             }
                         }
                     }
@@ -635,6 +700,11 @@ private struct ConnectorsDetailView: View {
     }
 }
 
+@ViewBuilder
+private func extensionSettingsRowGap() -> some View {
+    Color.clear.frame(height: 6)
+}
+
 private extension BestOfPresetItemKind {
     var label: String {
         switch self {
@@ -646,14 +716,14 @@ private extension BestOfPresetItemKind {
 }
 
 private extension BestOfPresetStatus {
-    var tint: Color {
+    func tint(theme: EpistemosTheme) -> Color {
         switch self {
         case .alreadyEnabled, .installed, .removed:
-            return .green
+            return theme.resolved.accent.color
         case .proLocked, .conflict, .unavailable:
-            return .orange
+            return theme.resolved.headingAccent.color
         case .failed:
-            return .red
+            return theme.resolved.headingAccent.color
         }
     }
 }
