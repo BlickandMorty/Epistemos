@@ -145,7 +145,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         ])
         #expect(HTMLWorkspaceRegeneratePreset.presets(in: .addThing).map(\.title) == [
             "Add chart",
-            "Add search",
+            "Add search box",
             "Add table",
             "Add nav",
         ])
@@ -250,6 +250,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("do not create a route named assets"))
         #expect(prompt.contains("routes/assets/<name>"))
         #expect(prompt.contains("Turn this into a live explainer"))
+        #expect(prompt.contains("in-surface add-context picker/filter"))
     }
 
     @Test("complete streamed regenerate response can preview before final apply")

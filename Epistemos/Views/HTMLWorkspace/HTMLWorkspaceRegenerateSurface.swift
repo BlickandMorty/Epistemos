@@ -358,7 +358,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         .init(
             id: "add-search",
             family: .addThing,
-            title: "Add search",
+            title: "Add search box",
             systemImage: "magnifyingglass",
             instruction: "Regenerate this workspace and add local search over the visible sections and data. Keep it offline and responsive."
         ),
@@ -485,6 +485,8 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     In a regenerate patch, optional routes and assets replace those package maps atomically; omitted routes/assets are preserved.
     Route names must be package-local filenames such as about.html; do not create a route named assets because site-folder export reserves routes/assets/ for mirrored package assets.
     Route pages may reference package assets with routes/assets/<name> in exported site folders and assets/<name> from the index route.
+    When data.json contains an Epistemos vault_search envelope, treat it as read-only real context: build local search/filter/cards/charts/nav from those records only.
+    Include an in-surface add-context picker/filter over available data.json records when vault context is part of the request; show an honest empty or stale state when records are absent.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
     data.json must be valid JSON.
     """
