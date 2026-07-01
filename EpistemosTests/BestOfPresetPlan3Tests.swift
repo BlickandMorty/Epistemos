@@ -423,6 +423,37 @@ struct BestOfPresetPlan3Tests {
         #expect(manifest.items.map(\.id).contains("context7"))
     }
 
+    @Test("manifest loader ignores hardlinked bundled manifests")
+    func manifestLoaderRejectsHardlinkedBundleManifest() throws {
+        let outsideRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-manifest-hardlink-outside-\(UUID().uuidString)")
+        let outsideURL = outsideRoot.appendingPathComponent("outside.json")
+        defer { try? FileManager.default.removeItem(at: outsideRoot) }
+        try FileManager.default.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
+        try """
+        {
+          "items": [
+            {
+              "kind": "remoteMCP",
+              "id": "malicious",
+              "displayName": "Malicious",
+              "why": "Hardlinked fixture",
+              "minDistribution": "coreAppStore",
+              "installTarget": "https://malicious.example.com/mcp"
+            }
+          ]
+        }
+        """.write(to: outsideURL, atomically: true, encoding: .utf8)
+
+        let fixture = try Self.makeBestOfPresetBundle(hardlinkTarget: outsideURL)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let manifest = BestOfPreset.manifest(bundle: fixture.bundle)
+
+        #expect(!manifest.items.map(\.id).contains("malicious"))
+        #expect(manifest.items.map(\.id).contains("context7"))
+    }
+
     @Test("receipt store ignores oversized receipt files")
     func receiptStoreIgnoresOversizedFiles() throws {
         let root = FileManager.default.temporaryDirectory
@@ -466,6 +497,35 @@ struct BestOfPresetPlan3Tests {
         let outside = try String(contentsOf: outsideURL, encoding: .utf8)
         #expect(outside == #"{"remoteMCPServerNames":["context7"]}"#)
         #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: receiptURL.path)) != nil)
+    }
+
+    @Test("receipt store does not read or overwrite a hardlinked receipt")
+    func receiptStoreRejectsHardlinkedReceiptPath() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-hardlink-receipt-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        let receiptURL = BestOfPresetReceiptStore.receiptURL(home: home)
+        let outsideURL = root.appendingPathComponent("outside.json")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(
+            at: receiptURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"remoteMCPServerNames":["context7"]}"#.write(to: outsideURL, atomically: true, encoding: .utf8)
+        guard (try? FileManager.default.linkItem(at: outsideURL, to: receiptURL)) != nil else {
+            return
+        }
+
+        #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
+
+        BestOfPresetReceiptStore.save(
+            BestOfPresetReceipt(remoteMCPServerNames: ["context7"]),
+            home: home
+        )
+
+        let outside = try String(contentsOf: outsideURL, encoding: .utf8)
+        #expect(outside == #"{"remoteMCPServerNames":["context7"]}"#)
     }
 
     @Test("receipt store does not write through a symlinked receipt directory")
@@ -554,7 +614,11 @@ struct BestOfPresetPlan3Tests {
             "data.count <= maxBytes",
             "data.count <= maxReceiptBytes",
             "writeReceiptDataNoFollow",
-            "open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC",
+            "fileStatus.st_nlink == 1",
+            "existingStatus.st_nlink == 1",
+            "appendingPathComponent(\".\\(url.lastPathComponent).\\(UUID().uuidString).tmp\"",
+            "open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC",
+            "rename(tempURL.path, url.path)",
             "rejectReceiptPathSymlinkComponents",
             "firstExistingSymlinkComponent",
             "BestOfPresetDiagnostics.externalErrorDescription",
@@ -573,7 +637,8 @@ struct BestOfPresetPlan3Tests {
 
     private static func makeBestOfPresetBundle(
         data: Data? = nil,
-        symlinkTarget: URL? = nil
+        symlinkTarget: URL? = nil,
+        hardlinkTarget: URL? = nil
     ) throws -> (bundle: Bundle, root: URL) {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("BestOfPresetFixture-\(UUID().uuidString).bundle", isDirectory: true)
@@ -598,6 +663,8 @@ struct BestOfPresetPlan3Tests {
         let manifestURL = resources.appendingPathComponent("best_of_preset.json")
         if let symlinkTarget {
             try FileManager.default.createSymbolicLink(at: manifestURL, withDestinationURL: symlinkTarget)
+        } else if let hardlinkTarget {
+            try FileManager.default.linkItem(at: hardlinkTarget, to: manifestURL)
         } else {
             try (data ?? Data()).write(to: manifestURL)
         }

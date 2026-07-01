@@ -28,6 +28,10 @@ private nonisolated func readBoundedRegularFileNoFollow(at url: URL, maxBytes: I
         close(fd)
         return nil
     }
+    guard fileStatus.st_nlink == 1 else {
+        close(fd)
+        return nil
+    }
     guard fileStatus.st_size >= 0,
           UInt64(fileStatus.st_size) <= UInt64(maxBytes) else {
         close(fd)
@@ -497,8 +501,25 @@ nonisolated enum BestOfPresetReceiptStore {
     }
 
     private static func writeReceiptDataNoFollow(_ data: Data, to url: URL) throws {
-        let fd = url.path.withCString { path in
-            open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        if let existingStatus = fileStatusNoFollow(url) {
+            guard (existingStatus.st_mode & S_IFMT) == S_IFREG,
+                  existingStatus.st_nlink == 1 else {
+                throw NSError(domain: "BestOfPresetReceiptStore", code: Int(EFTYPE))
+            }
+        }
+
+        let tempURL = url
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).tmp", isDirectory: false)
+        var didRename = false
+        defer {
+            if !didRename {
+                try? FileManager.default.removeItem(at: tempURL)
+            }
+        }
+
+        let fd = tempURL.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
         }
         guard fd >= 0 else {
             throw NSError(domain: "BestOfPresetReceiptStore", code: Int(errno))
@@ -514,16 +535,32 @@ nonisolated enum BestOfPresetReceiptStore {
             close(fd)
             throw NSError(domain: "BestOfPresetReceiptStore", code: Int(EFTYPE))
         }
+        guard fileStatus.st_nlink == 1 else {
+            close(fd)
+            throw NSError(domain: "BestOfPresetReceiptStore", code: Int(EFTYPE))
+        }
 
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         do {
             try handle.write(contentsOf: data)
             try handle.synchronize()
             try handle.close()
+            guard rename(tempURL.path, url.path) == 0 else {
+                throw NSError(domain: "BestOfPresetReceiptStore", code: Int(errno))
+            }
+            didRename = true
         } catch {
             try? handle.close()
             throw error
         }
+    }
+
+    private static func fileStatusNoFollow(_ url: URL) -> stat? {
+        var fileStatus = stat()
+        let result = url.path.withCString { path in
+            lstat(path, &fileStatus)
+        }
+        return result == 0 ? fileStatus : nil
     }
 
     private static func rejectReceiptPathSymlinkComponents(_ url: URL) throws {
