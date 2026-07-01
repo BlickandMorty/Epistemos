@@ -52,6 +52,16 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(relatedResults.first?.provenance.contains("Anchor Note") == true)
         #expect(relatedResults.first?.snippet == "related body from graph")
 
+        let triggeredGraphResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: anchoredSearch,
+            modelContainer: container,
+            limit: 5,
+            query: "graph related anchor"
+        )
+        #expect(triggeredGraphResults.map(\.pageID) == [related.id])
+        #expect(triggeredGraphResults.first?.contextKind == "graph_related_note")
+
         let requiredGraphResults = HTMLWorkspaceDataFeedContextSources.results(
             for: "graph_related_note",
             searchResults: [SearchResult(pageId: generic.id, title: "Generic", snippet: "generic", rank: 0.7)],

@@ -222,7 +222,7 @@ enum HTMLWorkspaceDataFeedContextSources {
         if requiredKind == "recent_chat" || (requiredKind.isEmpty && shouldUseRecentChatResults(for: query)) {
             return recentChatResults(query: query, modelContainer: modelContainer, limit: limit)
         }
-        if requiredKind == "graph_related_note" {
+        if requiredKind == "graph_related_note" || (requiredKind.isEmpty && shouldUseGraphRelatedNoteResults(for: query)) {
             return graphRelatedNoteResults(
                 searchResults: searchResults,
                 modelContainer: modelContainer,

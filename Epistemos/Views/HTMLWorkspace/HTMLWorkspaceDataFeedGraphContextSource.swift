@@ -57,6 +57,26 @@ extension HTMLWorkspaceDataFeedContextSources {
         return candidates.map(\.dataFeedResult)
     }
 
+    static func shouldUseGraphRelatedNoteResults(for query: String?) -> Bool {
+        let normalizedQuery = normalized(query).lowercased()
+        guard !normalizedQuery.isEmpty else { return false }
+        if normalizedQuery.hasPrefix("graph:") || normalizedQuery.hasPrefix("related:") {
+            return true
+        }
+        if normalizedQuery.hasPrefix("graph ") || normalizedQuery.hasPrefix("related ")
+            || normalizedQuery.hasPrefix("related note ") || normalizedQuery.hasPrefix("related notes ") {
+            return true
+        }
+        return [
+            "graph",
+            "related",
+            "related note",
+            "related notes",
+            "graph related",
+            "graph related notes",
+        ].contains(normalizedQuery)
+    }
+
     private struct GraphAnchorNode {
         var pageID: String
         var title: String
