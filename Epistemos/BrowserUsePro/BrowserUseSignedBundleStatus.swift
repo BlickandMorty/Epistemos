@@ -410,7 +410,6 @@ nonisolated enum BrowserUseSignedBundleStatus {
             return "signature payload root is missing"
         }
 
-        let resolvedRoot = payloadRootURL.standardizedFileURL.resolvingSymlinksInPath()
         var enumerationProblem: String?
         guard let enumerator = fileManager.enumerator(
             at: payloadRootURL,
@@ -440,15 +439,7 @@ nonisolated enum BrowserUseSignedBundleStatus {
             }
 
             if (try? fileManager.destinationOfSymbolicLink(atPath: fileURL.path)) != nil {
-                enumerator.skipDescendants()
-                let resolvedURL = fileURL.standardizedFileURL.resolvingSymlinksInPath()
-                guard isInside(resolvedURL, root: resolvedRoot) else {
-                    return "signature payload symlink resolves outside package at \(payloadPathDiagnostic(fileURL, relativeTo: payloadRootURL))"
-                }
-                guard fileManager.fileExists(atPath: resolvedURL.path) else {
-                    return "signature payload symlink target is missing at \(payloadPathDiagnostic(fileURL, relativeTo: payloadRootURL))"
-                }
-                continue
+                return "signature payload symlink entries are not allowed at \(payloadPathDiagnostic(fileURL, relativeTo: payloadRootURL))"
             }
 
             let values: URLResourceValues
@@ -696,12 +687,6 @@ nonisolated enum BrowserUseSignedBundleStatus {
         }
         let trimmed = clipped.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
-    }
-
-    private static func isInside(_ url: URL, root: URL) -> Bool {
-        let path = url.path
-        let rootPath = root.path
-        return path == rootPath || path.hasPrefix(rootPath + "/")
     }
 
     private static func payloadPathDiagnostic(_ url: URL, relativeTo rootURL: URL) -> String {

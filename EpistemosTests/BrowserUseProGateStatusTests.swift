@@ -399,66 +399,11 @@ struct BrowserUseProGateStatusTests {
             .appendingPathComponent("BrowserUsePro", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        try FileManager.default.createDirectory(at: payloadRoot, withIntermediateDirectories: true)
-        try Data(Self.infoPlist.utf8).write(
-            to: bundleURL
-                .appendingPathComponent("Contents", isDirectory: true)
-                .appendingPathComponent("Info.plist", isDirectory: false)
+        try writeSignedBrowserUseBundleFixture(
+            root: root,
+            bundleURL: bundleURL,
+            payloadRoot: payloadRoot
         )
-        try Data(Self.packagedManifestJSON.utf8).write(
-            to: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
-        )
-        try writeExecutableFixture(
-            payloadRoot.appendingPathComponent("epistemos_agent_browser.py", isDirectory: false)
-        )
-        try Data("env\n".utf8).write(
-            to: payloadRoot.appendingPathComponent("epistemos_browser_env.py", isDirectory: false)
-        )
-        try Data("task\n".utf8).write(
-            to: payloadRoot.appendingPathComponent("epistemos_browser_task.py", isDirectory: false)
-        )
-        try writeExecutableFixture(
-            payloadRoot.appendingPathComponent("build-pro-payload.sh", isDirectory: false)
-        )
-        try writeWebUICompatibilityFixtureFiles(in: payloadRoot)
-        try writeTextFixture(
-            "web-ui/src/webui/components/browser_use_agent_tab.py",
-            in: payloadRoot,
-            contents: "dry run hook\n"
-        )
-        try Data("{\"schema_version\":1}\n".utf8).write(
-            to: payloadRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
-        )
-        try Data("# generated lock\n".utf8).write(
-            to: payloadRoot.appendingPathComponent("requirements.lock", isDirectory: false)
-        )
-        try FileManager.default.createDirectory(
-            at: payloadRoot.appendingPathComponent("wheels", isDirectory: true),
-            withIntermediateDirectories: true
-        )
-        try writeWheelhouseFixtureFiles(
-            in: payloadRoot.appendingPathComponent("wheels", isDirectory: true)
-        )
-        try FileManager.default.createDirectory(
-            at: payloadRoot.appendingPathComponent("playwright", isDirectory: true),
-            withIntermediateDirectories: true
-        )
-        try writePlaywrightRevisionMarkers(
-            in: payloadRoot.appendingPathComponent("playwright", isDirectory: true)
-        )
-        try Data(Self.signatureManifestJSON.utf8).write(
-            to: payloadRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
-        )
-        try Data(Self.packageResultJSON.utf8).write(
-            to: root.appendingPathComponent("PACKAGE_RESULT.json", isDirectory: false)
-        )
-
-        try runProcess("/usr/bin/codesign", arguments: [
-            "--force",
-            "--sign",
-            "-",
-            bundleURL.path,
-        ])
 
         let status = BrowserUseProGateStatus.status(
             environment: [BrowserUseProGateStatus.flagName: "1"],
@@ -471,6 +416,37 @@ struct BrowserUseProGateStatusTests {
         #expect(status.detail.contains("Package result verified"))
         #expect(status.detail.contains("browser-use-pro-smoke-suite.sh"))
         #expect(status.detail.contains("native WKWebView Browser"))
+        #endif
+    }
+
+    @Test("signed BrowserUsePro payload rejects symlink entries")
+    func signedBrowserUseProPayloadRejectsSymlinkEntries() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("browser-use-signed-bundle-symlink-\(UUID().uuidString)", isDirectory: true)
+        let bundleURL = root.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
+        let payloadRoot = bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .appendingPathComponent("BrowserUsePro", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeSignedBrowserUseBundleFixture(
+            root: root,
+            bundleURL: bundleURL,
+            payloadRoot: payloadRoot,
+            includeInternalSymlink: true
+        )
+
+        let status = BrowserUseProGateStatus.status(
+            environment: [BrowserUseProGateStatus.flagName: "1"],
+            manifestURL: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+
+        #expect(!status.isActive)
+        #expect(status.headline == "browser-use Pro: signed package invalid")
+        #expect(status.detail.contains("signature payload symlink entries are not allowed"))
+        #expect(!status.detail.contains(root.path))
         #endif
     }
 
@@ -548,7 +524,7 @@ struct BrowserUseProGateStatusTests {
             "maxPayloadEnumerationEntries",
             "visitedEntryCount",
             "signature payload contains too many entries",
-            "enumerator.skipDescendants()",
+            "signature payload symlink entries are not allowed",
             "String(value.prefix(32))",
             "rawBoundedDiagnostic(",
             "maxCharacters: maxStatusMessageCharacters",
@@ -572,6 +548,80 @@ struct BrowserUseProGateStatusTests {
             #expect(!source.contains(forbidden), "browser-use Pro gate crossed a forbidden boundary: \(forbidden)")
         }
         #expect(!source.contains("error.localizedDescription"))
+    }
+
+    private func writeSignedBrowserUseBundleFixture(
+        root: URL,
+        bundleURL: URL,
+        payloadRoot: URL,
+        includeInternalSymlink: Bool = false
+    ) throws {
+        try FileManager.default.createDirectory(at: payloadRoot, withIntermediateDirectories: true)
+        try Data(Self.infoPlist.utf8).write(
+            to: bundleURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("Info.plist", isDirectory: false)
+        )
+        try Data(Self.packagedManifestJSON.utf8).write(
+            to: payloadRoot.appendingPathComponent("VENDOR_MANIFEST.json", isDirectory: false)
+        )
+        try writeExecutableFixture(
+            payloadRoot.appendingPathComponent("epistemos_agent_browser.py", isDirectory: false)
+        )
+        try Data("env\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("epistemos_browser_env.py", isDirectory: false)
+        )
+        try Data("task\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("epistemos_browser_task.py", isDirectory: false)
+        )
+        try writeExecutableFixture(
+            payloadRoot.appendingPathComponent("build-pro-payload.sh", isDirectory: false)
+        )
+        try writeWebUICompatibilityFixtureFiles(in: payloadRoot)
+        try writeTextFixture(
+            "web-ui/src/webui/components/browser_use_agent_tab.py",
+            in: payloadRoot,
+            contents: "dry run hook\n"
+        )
+        try Data("{\"schema_version\":1}\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("BUILD_MANIFEST.json", isDirectory: false)
+        )
+        try Data("# generated lock\n".utf8).write(
+            to: payloadRoot.appendingPathComponent("requirements.lock", isDirectory: false)
+        )
+        try FileManager.default.createDirectory(
+            at: payloadRoot.appendingPathComponent("wheels", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try writeWheelhouseFixtureFiles(
+            in: payloadRoot.appendingPathComponent("wheels", isDirectory: true)
+        )
+        try FileManager.default.createDirectory(
+            at: payloadRoot.appendingPathComponent("playwright", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try writePlaywrightRevisionMarkers(
+            in: payloadRoot.appendingPathComponent("playwright", isDirectory: true)
+        )
+        if includeInternalSymlink {
+            try FileManager.default.createSymbolicLink(
+                at: payloadRoot.appendingPathComponent("requirements.alias", isDirectory: false),
+                withDestinationURL: payloadRoot.appendingPathComponent("requirements.lock", isDirectory: false)
+            )
+        }
+        try Data(Self.signatureManifestJSON.utf8).write(
+            to: payloadRoot.appendingPathComponent("SIGNATURE_MANIFEST.json", isDirectory: false)
+        )
+        try Data(Self.packageResultJSON.utf8).write(
+            to: root.appendingPathComponent("PACKAGE_RESULT.json", isDirectory: false)
+        )
+
+        try runProcess("/usr/bin/codesign", arguments: [
+            "--force",
+            "--sign",
+            "-",
+            bundleURL.path,
+        ])
     }
 
     private func runProcess(_ executable: String, arguments: [String]) throws {
