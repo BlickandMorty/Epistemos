@@ -201,7 +201,7 @@ private enum BrowserUseRuntimeArtifactKind {
     case directory
 }
 
-private struct BrowserUseRuntimeArtifactRequirement {
+private nonisolated struct BrowserUseRuntimeArtifactRequirement {
     let name: String
     let url: URL
     let kind: BrowserUseRuntimeArtifactKind

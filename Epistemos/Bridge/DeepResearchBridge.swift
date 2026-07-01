@@ -57,8 +57,8 @@ enum DeepResearchServiceError: Error, LocalizedError, Sendable {
 
 enum DeepResearchRuntimeDiagnostics {
     nonisolated static let maxRuntimeErrorCharacters = 360
-    private static let maxDomainCharacters = 96
-    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
+    private nonisolated static let maxDomainCharacters = 96
+    private nonisolated static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
 
     nonisolated static func runtimeMessage(_ message: String, fallback: String = "Deep research runtime failed.") -> String {
         let bounded = String(message.prefix(maxRuntimeErrorCharacters + 32))
