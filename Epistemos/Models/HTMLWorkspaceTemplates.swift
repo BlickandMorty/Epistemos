@@ -541,6 +541,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     let selectedResultKey = null;
     let pinnedContextKeys = [];
     let contextDropStatus = '';
+    let contextDropKey = null;
     const pinnedContextLimit = 16;
     const contextDragType = 'application/x-epistemos-context-key';
     const nativeContextDragType = 'com.epistemos.workspace-context';
@@ -842,6 +843,14 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderVaultResults();
     }
 
+    function refreshContextDropStatus(allResults) {
+      if (!contextDropKey) { return; }
+      const exists = allResults.some((result) => resultKey(result) === contextDropKey);
+      if (exists) { return; }
+      contextDropKey = null;
+      contextDropStatus = 'Dropped context is no longer in the current data.json feed.';
+    }
+
     function hasContextDrag(event) {
       const types = Array.from(event.dataTransfer?.types || []);
       return types.includes(contextDragType) || types.includes(nativeContextDragType) || types.includes('text/plain');
@@ -897,10 +906,12 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const allResults = Array.isArray(data.results) ? data.results : [];
       const exists = key && allResults.some((result) => resultKey(result) === key);
       if (!exists) {
+        contextDropKey = null;
         contextDropStatus = 'Dropped context is not in the current data.json feed.';
         text('[data-context-drop-status]', contextDropStatus);
         return;
       }
+      contextDropKey = key;
       contextDropStatus = 'Context selected from current data.json feed.';
       selectedContextKind = 'all';
       selectedResultKey = key;
@@ -929,7 +940,10 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         if (event.dataTransfer) { event.dataTransfer.dropEffect = 'copy'; }
         dropzone.classList.add('is-drop-target');
       });
-      dropzone.addEventListener('dragleave', clearContextDropTargets);
+      dropzone.addEventListener('dragleave', (event) => {
+        if (event.relatedTarget && dropzone.contains(event.relatedTarget)) { return; }
+        clearContextDropTargets();
+      });
       dropzone.addEventListener('drop', (event) => {
         if (!hasContextDrag(event)) { return; }
         event.preventDefault();
@@ -986,6 +1000,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const data = HTMLWorkspace.data || {};
       const meta = data._epistemos || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
+      refreshContextDropStatus(allResults);
       renderContextTabs(allResults, meta);
       const results = sortedResults(visibleResults(allResults));
       const filter = normalized(HTMLWorkspace.q('[data-result-filter]')?.value).trim();
