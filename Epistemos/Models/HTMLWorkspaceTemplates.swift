@@ -996,6 +996,8 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       const provenance = droppedPayloadField(raw, 'Provenance');
       const hasStructuredFields = [pageID, title, contextKind, sourceLabel, provenance].some(Boolean);
       if (!hasStructuredFields) { return ''; }
+      const isNativeContextPayload = raw.includes('drop_action: regenerate_preview_context') && raw.includes('readonly: true');
+      if (!isNativeContextPayload) { return ''; }
       const matches = (actual, expected) => {
         if (!expected) { return true; }
         const actualText = String(actual || '').trim();
