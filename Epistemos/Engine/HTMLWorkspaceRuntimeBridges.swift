@@ -382,12 +382,36 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
         }
         return raw.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
       }
-      function selectorFor(node) {
+      function nthOfType(node) {
+        var index = 1;
+        var tag = node && node.tagName ? String(node.tagName).toLowerCase() : '';
+        var sibling = node ? node.previousElementSibling : null;
+        while (sibling) {
+          if (String(sibling.tagName || '').toLowerCase() === tag) { index += 1; }
+          sibling = sibling.previousElementSibling;
+        }
+        return index;
+      }
+      function selectorSegmentFor(node) {
         if (!node || !node.tagName) { return 'unknown'; }
         var tag = String(node.tagName).toLowerCase();
         if (node.id) { return tag + '#' + escapeIdent(node.id, 128); }
         var classes = classesFor(node, 4).map(function(name){ return escapeIdent(name, 96); });
-        return tag + classes.map(function(name){ return '.' + name; }).join('');
+        if (classes.length) { return tag + classes.map(function(name){ return '.' + name; }).join(''); }
+        if (tag === 'html' || tag === 'body') { return tag; }
+        return tag + ':nth-of-type(' + nthOfType(node) + ')';
+      }
+      function selectorFor(node) {
+        if (!node || !node.tagName) { return 'unknown'; }
+        var parts = [];
+        var current = node;
+        while (current && current.tagName && parts.length < 4) {
+          var segment = selectorSegmentFor(current);
+          parts.unshift(segment);
+          if (current.id || segment === 'body' || segment === 'html') { break; }
+          current = current.parentElement;
+        }
+        return parts.join(' > ') || selectorSegmentFor(node);
       }
       function textFor(node) {
         return String((node && node.textContent) || '').replace(/\\s+/g, ' ').trim().slice(0, 240);
