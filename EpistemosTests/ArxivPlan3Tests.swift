@@ -68,7 +68,7 @@ struct ArxivPlan3Tests {
             #expect(message.contains("request failed"))
             #expect(message.contains("domain=Error"))
             #expect(message.contains("code=42"))
-            #expect(message.count <= ArxivSearchDiagnostics.maxFailureReasonCharacters + 3)
+            #expect(message.count <= ArxivSearchDiagnostics.maxFailureReasonCharacters)
             #expect(!message.contains(privatePath))
             #expect(!message.contains("failed to open"))
             #expect(!error.localizedDescription.contains(privatePath))
@@ -141,11 +141,11 @@ struct ArxivPlan3Tests {
 
     @Test("search presentation caps network-fed display strings")
     func searchPresentationCapsNetworkFedDisplayStrings() {
-        #expect(ArxivSearchPresentation.title(String(repeating: "t", count: ArxivSearchPresentation.maxTitleCharacters + 32)).count == ArxivSearchPresentation.maxTitleCharacters + 3)
-        #expect(ArxivSearchPresentation.authors([String(repeating: "a", count: ArxivSearchPresentation.maxAuthorsCharacters + 32)]).count == ArxivSearchPresentation.maxAuthorsCharacters + 3)
-        #expect(ArxivSearchPresentation.summary(String(repeating: "s", count: ArxivSearchPresentation.maxSummaryCharacters + 32)).count == ArxivSearchPresentation.maxSummaryCharacters + 3)
-        #expect(ArxivSearchPresentation.metadata(String(repeating: "m", count: ArxivSearchPresentation.maxMetadataCharacters + 32)).count == ArxivSearchPresentation.maxMetadataCharacters + 3)
-        #expect(ArxivSearchPresentation.status(String(repeating: "e", count: ArxivSearchPresentation.maxStatusMessageCharacters + 32)).count == ArxivSearchPresentation.maxStatusMessageCharacters + 3)
+        #expect(ArxivSearchPresentation.title(String(repeating: "t", count: ArxivSearchPresentation.maxTitleCharacters + 32)).count == ArxivSearchPresentation.maxTitleCharacters)
+        #expect(ArxivSearchPresentation.authors([String(repeating: "a", count: ArxivSearchPresentation.maxAuthorsCharacters + 32)]).count == ArxivSearchPresentation.maxAuthorsCharacters)
+        #expect(ArxivSearchPresentation.summary(String(repeating: "s", count: ArxivSearchPresentation.maxSummaryCharacters + 32)).count == ArxivSearchPresentation.maxSummaryCharacters)
+        #expect(ArxivSearchPresentation.metadata(String(repeating: "m", count: ArxivSearchPresentation.maxMetadataCharacters + 32)).count == ArxivSearchPresentation.maxMetadataCharacters)
+        #expect(ArxivSearchPresentation.status(String(repeating: "e", count: ArxivSearchPresentation.maxStatusMessageCharacters + 32)).count == ArxivSearchPresentation.maxStatusMessageCharacters)
     }
 
     @Test("arXiv external diagnostics redact malformed domains")
@@ -246,6 +246,11 @@ struct ArxivPlan3Tests {
 
     @Test("gate defaults on and honors explicit kill switch")
     func gateStatus() {
+        #expect(ArxivPullGateStatus.isEnabled(nil))
+        #expect(ArxivPullGateStatus.isEnabled("1"))
+        #expect(ArxivPullGateStatus.isEnabled(" On "))
+        #expect(!ArxivPullGateStatus.isEnabled("0"))
+        #expect(!ArxivPullGateStatus.isEnabled(" false "))
         #expect(ArxivPullGateStatus.status(environment: [:]).isActive)
         #expect(!ArxivPullGateStatus.status(environment: [ArxivPullGateStatus.flagName: "0"]).isActive)
         #expect(ArxivPullGateStatus.status(environment: [ArxivPullGateStatus.flagName: "1"]).isActive)
@@ -268,9 +273,12 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("exceeds the 128 MiB cap"))
         #expect(codepack.contains("request/XML parser failures are reported as bounded domain/code diagnostics"))
         #expect(codepack.contains("search or ingest status"))
+        #expect(codepack.contains("raw diagnostic and\n  metadata-label strings are bounded before trimming"))
+        #expect(codepack.contains("ellipsis stays inside configured caps"))
         #expect(capabilities.contains("arXiv pull — SHIPPED (Pass 6)"))
         #expect(capabilities.contains("source_pdf` pointing at the copied PDF under `<vault>/arXiv/`"))
         #expect(capabilities.contains("capped at 128 MiB"))
+        #expect(capabilities.contains("network-fed SwiftUI display strings\n  are bounded before trimming"))
         #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
@@ -283,13 +291,33 @@ struct ArxivPlan3Tests {
         #expect(client.contains("maxAtomElementTextCharacters"))
         #expect(client.contains("maxAtomRepeatedValues"))
         #expect(client.contains("ArxivSearchDiagnostics"))
+        #expect(client.contains("String(message.prefix(maxFailureReasonCharacters + 32))"))
+        #expect(client.contains("String(domain.prefix(maxDomainCharacters + 32))"))
+        #expect(client.contains("maxFailureReasonCharacters - 3"))
         #expect(client.contains("externalErrorDescription(error, fallback: \"request failed\")"))
         #expect(!client.contains("requestFailed(error.localizedDescription)"))
         #expect(!client.contains("parser.parserError?.localizedDescription"))
         #expect(searchView.contains("ArxivSearchPresentation"))
         #expect(searchView.contains("maxStatusMessageCharacters"))
+        #expect(searchView.contains("String(value.prefix(limit + 32))"))
+        #expect(searchView.contains("String(trimmed.prefix(limit - 3))"))
         #expect(searchView.contains("ArxivSearchDiagnostics.statusMessage(for: error)"))
+        #expect(searchView.contains("ToolbarCapsuleButton("))
+        #expect(searchView.contains("@Environment(UIState.self)"))
+        #expect(searchView.contains("ui.theme.resolved.mutedForeground.color"))
+        #expect(searchView.contains("private var inputBackground: Color"))
+        #expect(searchView.contains("ui.theme.surfaceVariant(.other).resolved.card.color.opacity"))
+        #expect(searchView.contains(".textFieldStyle(.plain)"))
+        #expect(searchView.contains("private var rowGap: some View"))
+        #expect(searchView.contains("ingestActionImage(for:"))
+        #expect(searchView.contains("chromePolicy: .alwaysSurface"))
         #expect(!searchView.contains("error.localizedDescription"))
+        #expect(!searchView.contains(".foregroundStyle(.secondary)"))
+        #expect(!searchView.contains(".foregroundStyle(.tertiary)"))
+        #expect(!searchView.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(!searchView.contains(".buttonStyle(.plain)"))
+        #expect(!searchView.contains(".buttonStyle(.borderless)"))
+        #expect(!searchView.contains("Divider()"))
         #expect(ingest.contains("materializeImportedFiles"))
         #expect(ingest.contains("maxDownloadedPDFBytes"))
         #expect(ingest.contains("destinationOfSymbolicLink"))
@@ -303,6 +331,12 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("externalErrorDescription"))
         #expect(ingest.contains("ArxivSearchDiagnostics.safeDomain"))
         #expect(ingest.contains("maxFailureReasonCharacters"))
+        #expect(ingest.contains("String(message.prefix(maxFailureReasonCharacters + 32))"))
+        #expect(ingest.contains("maxFailureReasonCharacters - 3"))
+        #expect(ingest.contains("maxAuthorsLabelCharacters"))
+        #expect(ingest.contains("maxCategoriesLabelCharacters"))
+        #expect(ingest.contains("maxSourceURLCharacters"))
+        #expect(ingest.contains("String(value.prefix(limit + 32))"))
         #expect(!ingest.contains("error.localizedDescription"))
 
         for stale in [
@@ -333,6 +367,25 @@ struct ArxivPlan3Tests {
         #expect(draft.markdownBody.contains("## Abstract"))
         #expect(draft.markdownBody.contains("## Parsed Full Text"))
         #expect(draft.markdownBody.contains("Parsed text."))
+    }
+
+    @Test("draft bounds persisted metadata labels")
+    func noteDraftBoundsPersistedMetadataLabels() throws {
+        let paper = try Self.paper(
+            title: String(repeating: "T", count: ArxivNoteDraft.maxTitleCharacters + 32),
+            summary: "A bounded summary.",
+            authors: [
+                String(repeating: "A", count: ArxivNoteDraft.maxAuthorsLabelCharacters + 32),
+                "Second author",
+            ],
+            categories: [String(repeating: "cs.", count: ArxivNoteDraft.maxCategoriesLabelCharacters)]
+        )
+        let draft = ArxivNoteDraft(paper: paper, parsedMarkdown: "Parsed text.")
+
+        #expect(draft.markdownBody.contains("# \(String(repeating: "T", count: ArxivNoteDraft.maxTitleCharacters - 3))..."))
+        #expect(draft.frontMatter["authors"]?.count == ArxivNoteDraft.maxAuthorsLabelCharacters)
+        #expect(draft.frontMatter["categories"]?.count == ArxivNoteDraft.maxCategoriesLabelCharacters)
+        #expect(draft.safeBaseName.count < ArxivNoteDraft.maxTitleCharacters)
     }
 
     @Test("downloader prepares extensionless temp PDFs and rejects non-PDF bodies")

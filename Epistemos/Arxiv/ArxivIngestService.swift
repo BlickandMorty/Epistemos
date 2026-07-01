@@ -126,12 +126,13 @@ nonisolated enum ArxivIngestDiagnostics {
     static let maxFailureReasonCharacters = 360
 
     static func failureReason(_ message: String, fallback: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > maxFailureReasonCharacters else {
             return description
         }
-        return String(description.prefix(maxFailureReasonCharacters)) + "..."
+        return String(description.prefix(maxFailureReasonCharacters - 3)) + "..."
     }
 
     static func externalErrorDescription(_ error: Error, fallback: String) -> String {
@@ -367,11 +368,16 @@ private struct MaterializedImportFiles: Sendable {
 }
 
 nonisolated struct ArxivNoteDraft: Equatable, Sendable {
+    static let maxTitleCharacters = 512
+    static let maxAuthorsLabelCharacters = 2_048
+    static let maxCategoriesLabelCharacters = 512
+    static let maxSourceURLCharacters = 512
+
     let paper: ArxivPaper
     let parsedMarkdown: String
 
     var safeBaseName: String {
-        let title = paper.title
+        let title = titleLabel
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: " -")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -382,9 +388,9 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
     var markdownBody: String {
         """
-        # \(paper.title)
+        # \(titleLabel)
 
-        arXiv: [\(paper.shortID)](\(paper.id))
+        arXiv: [\(paper.shortID)](\(sourceURLLabel))
 
         Authors: \(authorsLabel)
 
@@ -392,7 +398,7 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
         Categories: \(categoriesLabel)
 
-        PDF: \(paper.pdfURL.absoluteString)
+        PDF: \(pdfURLLabel)
 
         ## Abstract
 
@@ -412,21 +418,49 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
             "authors": authorsLabel,
             "published": publishedLabel,
             "categories": categoriesLabel,
-            "url": paper.id,
+            "url": sourceURLLabel,
         ]
     }
 
+    private var titleLabel: String {
+        Self.bounded(paper.title, limit: Self.maxTitleCharacters, fallback: "Untitled arXiv paper")
+    }
+
     private var authorsLabel: String {
-        paper.authors.joined(separator: "; ")
+        Self.bounded(
+            paper.authors.joined(separator: "; "),
+            limit: Self.maxAuthorsLabelCharacters,
+            fallback: ""
+        )
     }
 
     private var categoriesLabel: String {
-        paper.categories.joined(separator: ", ")
+        Self.bounded(
+            paper.categories.joined(separator: ", "),
+            limit: Self.maxCategoriesLabelCharacters,
+            fallback: ""
+        )
     }
 
     private var publishedLabel: String {
         guard let published = paper.published else { return "" }
         return ISO8601DateFormatter.arxivIngest.string(from: published)
+    }
+
+    private var sourceURLLabel: String {
+        Self.bounded(paper.id, limit: Self.maxSourceURLCharacters, fallback: "")
+    }
+
+    private var pdfURLLabel: String {
+        Self.bounded(paper.pdfURL.absoluteString, limit: Self.maxSourceURLCharacters, fallback: "")
+    }
+
+    private static func bounded(_ value: String, limit: Int, fallback: String) -> String {
+        let bounded = String(value.prefix(limit + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? fallback : trimmed
+        guard description.count > limit else { return description }
+        return String(description.prefix(limit - 3)) + "..."
     }
 }
 

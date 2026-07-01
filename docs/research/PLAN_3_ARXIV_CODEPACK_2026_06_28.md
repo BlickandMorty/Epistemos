@@ -25,7 +25,7 @@
   (1) download the PDF into `<vault>/arXiv/` (URLSession); (2) convert via the SAME `LiteParsePDFImporter` FFI
   (off `@MainActor` via `Task.detached` — never block main); (3) create the paired PDF/Markdown files in a detached
   worker so conversion and file materialization run off `@MainActor`; (4) file-first `SDPage` with body = abstract intro
-  + parsed full text, frontmatter `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
+  + parsed full text, bounded persisted metadata/frontmatter labels `source:arxiv, arxiv_id, authors, published, categories, source_pdf` (vault-relative,
   the §1 coexistence model), `url`. The paired PDF/Markdown writes use the shared reserved-file writer, including final
   symlink rejection after reservation. Downloaded temp PDFs are also opened with `O_NOFOLLOW`, checked with `fstat`,
   and rejected before import if the temp path is a symlink, is not a regular file, exceeds the 128 MiB cap, or lacks
@@ -35,8 +35,12 @@
   → no note + a bounded reason.
 - **`Epistemos/Views/Arxiv/ArxivSearchView.swift` [DELIVERED]** — query field → results list → per-paper "Add to vault"
   (spinner/✓), reads `VaultSyncService`/`GraphState`/`modelContext` from env (like `LiteParsePDFImportButton`), and
-  caps network-fed title/author/summary/metadata/status display strings before SwiftUI render. Search and ingest status
-  failures route through the arXiv diagnostics helper instead of raw localized error descriptions.
+  caps network-fed title/author/summary/metadata/status display strings before trimming and SwiftUI render. Search and ingest status
+  failures route through the arXiv diagnostics helper instead of raw localized error descriptions; raw diagnostic and
+  metadata-label strings are bounded before trimming, and ellipsis stays inside configured caps. The sheet's
+  close/search/add controls render through shared `ToolbarCapsuleButton` chrome, the search field uses plain flat
+  theme-token input chrome instead of a rounded bordered field, brand/status/result metadata reads `UIState` theme
+  tokens, and result rows use spacing rather than hard `Divider()` rules.
 - **`Epistemos/Arxiv/ArxivPullGateStatus.swift` [DELIVERED]** — flag `EPISTEMOS_ARXIV_PULL_V0`, default active,
   explicit `0/false/no/off` kill switch. Search+metadata+download are HTTPS-only; note creation still requires real
   markdown from the local PDF importer. If the parser bridge is absent in a Swift-only host or the parser rejects the

@@ -63,16 +63,18 @@ nonisolated enum ArxivSearchDiagnostics {
     }
 
     private static func failureReason(_ message: String, fallback: String) -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxFailureReasonCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > maxFailureReasonCharacters else {
             return description
         }
-        return String(description.prefix(maxFailureReasonCharacters)) + "..."
+        return String(description.prefix(maxFailureReasonCharacters - 3)) + "..."
     }
 
     static func safeDomain(_ domain: String) -> String {
-        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
         guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
             return "Error"
@@ -83,8 +85,8 @@ nonisolated enum ArxivSearchDiagnostics {
         }) else {
             return "Error"
         }
-        let bounded = String(value.prefix(maxDomainCharacters))
-        return bounded.isEmpty ? "Error" : bounded
+        let safeDomain = String(value.prefix(maxDomainCharacters))
+        return safeDomain.isEmpty ? "Error" : safeDomain
     }
 }
 

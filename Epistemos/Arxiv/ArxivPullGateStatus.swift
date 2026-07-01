@@ -13,10 +13,7 @@ nonisolated enum ArxivPullGateStatus {
     }
 
     static func isEnabled(_ raw: String?) -> Bool {
-        guard let normalized = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
-            return false
-        }
-        return ["1", "true", "yes", "on"].contains(normalized)
+        !isDisabled(raw)
     }
 
     static func isDisabled(_ raw: String?) -> Bool {
