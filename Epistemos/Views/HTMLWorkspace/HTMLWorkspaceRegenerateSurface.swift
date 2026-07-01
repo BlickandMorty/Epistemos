@@ -402,6 +402,42 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
     static func presets(in family: Family) -> [HTMLWorkspaceRegeneratePreset] {
         all.filter { $0.family == family }
     }
+
+    func contextQuery(
+        typedQuery: String,
+        packageTitle: String
+    ) -> String {
+        let trimmedTypedQuery = typedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedTypedQuery.isEmpty else { return trimmedTypedQuery }
+
+        let title = packageTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch id {
+        case "vault-recent-captures":
+            return title.isEmpty ? "recent captures" : "recent captures \(title)"
+        case "vault-related-notes":
+            return title.isEmpty ? "related notes" : "related notes \(title)"
+        case "vault-notes-cards":
+            return title.isEmpty ? "notes" : title
+        default:
+            return title
+        }
+    }
+
+    func instruction(contextQuery: String) -> String {
+        guard family == .vaultData else { return instruction }
+        let query = bounded(contextQuery, limit: 160)
+        return """
+        \(instruction)
+        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, captures, chats, or graph-related records are present.
+        """
+    }
+
+    private func bounded(_ value: String, limit: Int) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
+        guard limit > 3 else { return String(trimmed.prefix(limit)) }
+        return String(trimmed.prefix(limit - 3)) + "..."
+    }
 }
 
 nonisolated struct HTMLWorkspaceRegenerateApplicationResult: Sendable, Equatable {

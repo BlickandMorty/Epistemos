@@ -165,6 +165,26 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(HTMLWorkspaceRegeneratePreset.all.allSatisfy { $0.instruction.contains("Regenerate") })
     }
 
+    @Test("vault data presets seed specific real context queries")
+    func vaultDataPresetsSeedSpecificRealContextQueries() throws {
+        let presets = Dictionary(
+            uniqueKeysWithValues: HTMLWorkspaceRegeneratePreset.presets(in: .vaultData).map { ($0.id, $0) }
+        )
+        let notes = try #require(presets["vault-notes-cards"])
+        let captures = try #require(presets["vault-recent-captures"])
+        let related = try #require(presets["vault-related-notes"])
+
+        #expect(notes.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "Project Atlas")
+        #expect(captures.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "recent captures Project Atlas")
+        #expect(related.contextQuery(typedQuery: "", packageTitle: "Project Atlas") == "related notes Project Atlas")
+        #expect(captures.contextQuery(typedQuery: " custom captures ", packageTitle: "Project Atlas") == "custom captures")
+
+        let instruction = captures.instruction(contextQuery: "recent captures Project Atlas")
+        #expect(instruction.contains("VaultSyncService.searchFullAsync"))
+        #expect(instruction.contains("Use only records present in data.json"))
+        #expect(instruction.contains("notes, captures, chats, or graph-related records"))
+    }
+
     @Test("regenerate prompt includes verified data feed context and honest degradation")
     func regeneratePromptIncludesVerifiedDataFeedContextAndHonestDegradation() {
         var package = HTMLWorkspacePackage.defaultPackage(title: "Context Proof")

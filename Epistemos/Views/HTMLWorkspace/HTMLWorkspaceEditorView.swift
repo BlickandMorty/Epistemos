@@ -944,17 +944,20 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
-        let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? package.manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            : regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = preset.contextQuery(
+            typedQuery: regenerateContextQuery,
+            packageTitle: package.manifest.title
+        )
         guard !query.isEmpty else {
             regenerateContextStatusText = "Vault context query required"
             statusText = "Vault context query required"
             return
         }
+        let contextualInstruction = preset.instruction(contextQuery: query)
 
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
         regenerateContextQuery = query
+        regenerateInstruction = contextualInstruction
         regenerateContextTask?.cancel()
         regenerateContextRefreshNonce &+= 1
         let refreshNonce = regenerateContextRefreshNonce
@@ -975,7 +978,7 @@ struct HTMLWorkspaceEditorView: View {
             isRefreshingRegenerateContext = false
             regenerateContextTask = nil
             regenerateContextStatusText = "Vault feed unavailable"
-            beginRegenerateSurface(instructionOverride: preset.instruction)
+            beginRegenerateSurface(instructionOverride: contextualInstruction)
             return
         }
 
@@ -995,7 +998,7 @@ struct HTMLWorkspaceEditorView: View {
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
             regenerateContextStatusText = "Vault context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
             statusText = "Vault context ready"
-            beginRegenerateSurface(instructionOverride: preset.instruction)
+            beginRegenerateSurface(instructionOverride: contextualInstruction)
         }
     }
 
