@@ -7543,7 +7543,7 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "mt-2 flex flex-wrap gap-2 bg-background-primary/24 p-4" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "rounded-\\[10px\\] bg-background-secondary/56 object-cover" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "rounded-\\[10px\\] bg-background-secondary/56 px-3 py-2" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
-    grep -q "rounded-\\[8px\\] bg-background-primary/70 text-xs font-mono" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
+    grep -q "rounded-\\[8px\\] bg-background-primary/70 text-xs font-sans font-medium" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     ! grep -q "border-t border-border-primary" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     ! grep -q "border border-border-primary min-w" "$WORK_ROOT/ui/desktop/src/components/ChatInput.tsx"
     grep -q "rounded-\\[10px\\] bg-background-secondary/60" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingGuard.tsx"
