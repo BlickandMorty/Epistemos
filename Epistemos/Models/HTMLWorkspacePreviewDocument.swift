@@ -451,7 +451,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
               pendingRequests.delete(requestId);
               reject(bridgeError('HTML Workspace app bridge request timed out'));
             }, timeoutFor(options));
-            pendingRequests.set(requestId, { resolve, reject, timer });
+            pendingRequests.set(requestId, { resolve, reject, timer, command: prepared.payload.command });
             try {
               prepared.target.postMessage(prepared.payload);
             } catch (error) {
@@ -473,6 +473,10 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
               message: typeof detail.message === 'string' ? detail.message : '',
               safeAPIVersion: Number.isFinite(Number(detail.safeAPIVersion)) ? Number(detail.safeAPIVersion) : \(safeAPIVersion)
             });
+            if (entry.command && response.command && entry.command !== response.command) {
+              entry.reject(bridgeError('HTML Workspace app bridge response command mismatch'));
+              return;
+            }
             if (detail.ok === false) {
               entry.reject(bridgeError(
                 typeof detail.error === 'string' && detail.error
