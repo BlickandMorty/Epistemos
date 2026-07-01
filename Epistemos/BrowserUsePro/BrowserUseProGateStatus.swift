@@ -806,6 +806,9 @@ nonisolated enum BrowserUseProGateStatus {
         bundle: Bundle = .main,
         fileManager: FileManager = .default
     ) -> URL? {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return nil
+        #else
         if let resourceURL = bundle.resourceURL {
             let signedBundlePayload = resourceURL
                 .appendingPathComponent(BrowserUseSignedBundleStatus.bundleName, isDirectory: true)
@@ -840,6 +843,7 @@ nonisolated enum BrowserUseProGateStatus {
             cursor = parent
         }
         return nil
+        #endif
     }
 
     static func status(

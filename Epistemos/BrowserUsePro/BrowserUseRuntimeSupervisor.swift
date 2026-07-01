@@ -60,6 +60,9 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
         filePath: String = #filePath,
         resourceRootURL: URL? = Bundle.main.resourceURL
     ) -> BrowserUseRuntimePaths? {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return nil
+        #else
         if let resourceRootURL {
             let signedBundleURL = resourceRootURL.appendingPathComponent("BrowserUsePro.bundle", isDirectory: true)
             let signedBundlePayloadRoot = signedBundleURL
@@ -108,6 +111,7 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
             cursor = parent
         }
         return nil
+        #endif
     }
 
     private static func defaultStateRoot(
