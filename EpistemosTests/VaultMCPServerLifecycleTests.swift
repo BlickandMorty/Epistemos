@@ -305,6 +305,27 @@ struct VaultMCPServerLifecycleTests {
         #expect(host.currentStatus == .running(registration))
     }
 
+    @Test("host stops the listener after start timeout")
+    @MainActor
+    func hostStopsListenerAfterStartTimeout() async throws {
+        let root = try Self.makeVaultRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let keychain = MemoryKeychain()
+        let factory = TokenFactory(["timeout-token-abcdefghijklmnopqrstuvwxyz"])
+        let host = VaultMCPHost(tokenStore: VaultMCPTokenStore(
+            load: keychain.load,
+            save: keychain.save,
+            makeToken: factory.next))
+        defer { host.stop() }
+
+        let registration = await host.start(vaultRoot: root, timeout: .nanoseconds(0))
+
+        #expect(registration == nil)
+        #expect(host.currentRegistration == nil)
+        #expect(host.currentStatus == .stopped)
+    }
+
     @Test("source guards keep server/host on the audited Plan 3 seams")
     func sourceGuardsKeepPlan3Seams() throws {
         let server = try loadMirroredSourceTextFile("Epistemos/VaultMCP/VaultMCPServer.swift")
@@ -343,6 +364,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(host.contains("if case .failed = server.status"))
         #expect(host.contains("try server.start()"))
         #expect(host.contains("catch {\n            stop()\n            return nil"))
+        #expect(host.contains("if case .running(let registration) = server.status {\n            return registration\n        }\n        stop()\n        return nil"))
         #expect(host.contains("canonicalVaultURL"))
         #expect(host.contains("canonicalVaultPath"))
         #expect(host.contains("standardizedFileURL.resolvingSymlinksInPath()"))

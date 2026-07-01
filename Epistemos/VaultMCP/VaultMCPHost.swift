@@ -50,6 +50,10 @@ final class VaultMCPHost {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
+        if case .running(let registration) = server.status {
+            return registration
+        }
+        stop()
         return nil
     }
 
