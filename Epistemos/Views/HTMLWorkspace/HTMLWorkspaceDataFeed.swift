@@ -202,6 +202,13 @@ enum HTMLWorkspaceDataFeedContextSources {
         if normalized(requiredContextKind) == "recent_capture" {
             return recentCaptureResults(modelContainer: modelContainer, limit: limit)
         }
+        if normalized(requiredContextKind) == "graph_related_note" {
+            return graphRelatedNoteResults(
+                searchResults: searchResults,
+                modelContainer: modelContainer,
+                limit: limit
+            )
+        }
         return searchResults.map(HTMLWorkspaceDataFeedResult.init(searchResult:))
     }
 
@@ -508,9 +515,15 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
                 limit: feed.effectiveLimit
             )
             guard !Task.isCancelled else { return }
+            let contextResults = HTMLWorkspaceDataFeedContextSources.results(
+                for: requiredContextKind,
+                searchResults: results,
+                modelContainer: AppBootstrap.shared?.modelContainer,
+                limit: feed.effectiveLimit
+            )
             let nextJSON = HTMLWorkspaceDataFeedRenderer.render(
                 feed: feed,
-                results: results,
+                contextResults: contextResults,
                 requiredContextKind: requiredContextKind
             )
             if package.dataJSON != nextJSON {
