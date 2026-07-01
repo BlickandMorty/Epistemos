@@ -54,6 +54,8 @@ struct HTMLWorkspaceRuntimeSmoke {
         require(HTMLWorkspaceInspectorBridge.disableScript.contains("__epistemosInspectorEnabled = false"), "disable script missing")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("current in-app proof"), "summary should disclose proof gate")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("DOM picker"), "summary should disclose inspector wiring")
+        require(HTMLWorkspaceCapabilityStatus.summary.contains("pixel-captioned presets"), "summary should disclose pixel preset styling")
+        require(HTMLWorkspaceCapabilityStatus.summary.contains("bounded context payloads"), "summary should disclose bounded context payloads")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("workspace-context grounding"), "summary should disclose workspace context grounding")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("preview-side context rail"), "summary should disclose preview context rail")
         require(HTMLWorkspaceCapabilityStatus.summary.contains("selected-preview drop targets"), "summary should disclose selected preview drop targets")
