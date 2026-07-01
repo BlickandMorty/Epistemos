@@ -44,6 +44,17 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.transcriptText == "Discuss launch and risk\n\nAssign follow-up.")
     }
 
+    @Test("cumulative final transcripts clear covered tail partials")
+    func cumulativeFinalTranscriptsClearCoveredTailPartials() {
+        let service = MeetingNoteCaptureService(voiceInput: FakeMeetingVoiceInput())
+
+        service.recordFinal("First decision")
+        service.recordPartial("Second decision")
+        service.recordFinal("First decision\n\nSecond decision")
+
+        #expect(service.transcriptText == "First decision\n\nSecond decision")
+    }
+
     @Test("transcript buffer is capped to the capture pipeline envelope")
     func transcriptBufferIsCappedToCapturePipelineEnvelope() {
         let service = MeetingNoteCaptureService(voiceInput: FakeMeetingVoiceInput())
@@ -319,6 +330,7 @@ struct MeetingNoteCaptureServiceTests {
         #expect(source.contains("runFromAudio("))
         #expect(source.contains("CaptureSourceMetadata.meetingSTT"))
         #expect(source.contains("segment(_ candidate: String, extends existing: String)"))
+        #expect(source.contains("finalSegment(_ final: String, coversPartial partial: String)"))
         #expect(source.contains("maxTranscriptCharacters"))
         #expect(source.contains("TextCapturePipeline.maxCleanedTextCharacters"))
         #expect(source.contains("boundFinalSegments"))

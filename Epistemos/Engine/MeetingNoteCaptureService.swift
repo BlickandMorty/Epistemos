@@ -201,7 +201,7 @@ final class MeetingNoteCaptureService {
             finalSegments.append(cleaned)
         }
         boundFinalSegments()
-        if partialTranscript == cleaned || Self.segment(cleaned, extends: partialTranscript) {
+        if Self.finalSegment(cleaned, coversPartial: partialTranscript) {
             partialTranscript = ""
         }
     }
@@ -351,5 +351,20 @@ final class MeetingNoteCaptureService {
             return true
         }
         return [".", ",", ";", ":", "!", "?"].contains(firstExtraCharacter)
+    }
+
+    private static func finalSegment(_ final: String, coversPartial partial: String) -> Bool {
+        let cleanedPartial = cleanedSegment(partial)
+        guard !cleanedPartial.isEmpty else { return false }
+        if final == cleanedPartial || segment(final, extends: cleanedPartial) {
+            return true
+        }
+        guard final.count > cleanedPartial.count,
+              final.hasSuffix(cleanedPartial) else {
+            return false
+        }
+        let boundaryIndex = final.index(final.endIndex, offsetBy: -cleanedPartial.count - 1)
+        let boundary = final[boundaryIndex]
+        return boundary.isWhitespace || [".", ",", ";", ":", "!", "?"].contains(boundary)
     }
 }
