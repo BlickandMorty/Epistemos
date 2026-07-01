@@ -1917,6 +1917,112 @@ for (const stale of [
 fs.writeFileSync(path, source);
 NODE
 
+DIAGNOSTICS_MODAL="$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+node - "$DIAGNOSTICS_MODAL" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`Diagnostics ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+if (!source.includes('epistemos-diagnostics-link-config')) {
+  const importAnchor = "import { getDiagnosticsReport } from '../../acp/diagnostics';";
+  const helper = `${importAnchor}
+
+const DEFAULT_DIAGNOSTICS_BUG_REPORT_URL =
+  'https://github.com/aaif-goose/goose/issues/new';
+const DEFAULT_TROUBLESHOOTING_URL = 'https://goose-docs.ai/docs/troubleshooting';
+const DEFAULT_DIAGNOSTICS_HELP_URL =
+  'https://goose-docs.ai/docs/troubleshooting/diagnostics-and-reporting/';
+
+function resolveHttpUrl(value: unknown, fallback: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const DIAGNOSTICS_BUG_REPORT_URL = resolveHttpUrl(
+  import.meta.env.VITE_EPISTEMOS_BUG_REPORT_URL,
+  DEFAULT_DIAGNOSTICS_BUG_REPORT_URL
+);
+const TROUBLESHOOTING_URL = resolveHttpUrl(
+  import.meta.env.VITE_EPISTEMOS_TROUBLESHOOTING_URL,
+  DEFAULT_TROUBLESHOOTING_URL
+);
+const DIAGNOSTICS_HELP_URL = resolveHttpUrl(
+  import.meta.env.VITE_EPISTEMOS_DIAGNOSTICS_HELP_URL,
+  DEFAULT_DIAGNOSTICS_HELP_URL
+);
+
+function diagnosticsIssueUrl(body: string): string {
+  const url = new URL(DIAGNOSTICS_BUG_REPORT_URL);
+  url.searchParams.set('template', 'bug_report.md');
+  url.searchParams.set('body', body);
+  url.searchParams.set('labels', 'bug');
+  return url.toString(); // epistemos-diagnostics-link-config
+}`;
+  replaceRequired('URL helper insertion', importAnchor, helper);
+
+  replaceRequired(
+    'troubleshooting URL body',
+    `💡 Before filing, please check common issues:
+https://goose-docs.ai/docs/troubleshooting
+
+📦 To help us debug faster, attach your **diagnostics JSON report** if possible.
+👉 How to capture it: https://goose-docs.ai/docs/troubleshooting/diagnostics-and-reporting/`,
+    `💡 Before filing, please check common issues:
+\${TROUBLESHOOTING_URL}
+
+📦 To help us debug faster, attach your **diagnostics JSON report** if possible.
+👉 How to capture it: \${DIAGNOSTICS_HELP_URL}`
+  );
+
+  replaceRequired(
+    'bug report URL open',
+    `      const params = new URLSearchParams({
+        template: 'bug_report.md',
+        body: body,
+        labels: 'bug',
+      });
+
+      window.open(\`https://github.com/aaif-goose/goose/issues/new?\${params.toString()}\`, '_blank');`,
+    `      window.open(diagnosticsIssueUrl(body), '_blank');`
+  );
+}
+
+for (const snippet of [
+  'epistemos-diagnostics-link-config',
+  'VITE_EPISTEMOS_BUG_REPORT_URL',
+  'VITE_EPISTEMOS_TROUBLESHOOTING_URL',
+  'VITE_EPISTEMOS_DIAGNOSTICS_HELP_URL',
+  'window.open(diagnosticsIssueUrl(body),',
+  '${TROUBLESHOOTING_URL}',
+  '${DIAGNOSTICS_HELP_URL}',
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`Diagnostics staged source is missing required snippet: ${snippet}`);
+  }
+}
+if (source.includes('window.open(`https://github.com/aaif-goose/goose/issues/new?${params.toString()}`')) {
+  throw new Error('Diagnostics staged source still opens hardcoded Goose issue URL.');
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 SKILLS_VIEW="$WORK_ROOT/ui/desktop/src/components/skills/SkillsView.tsx"
 node - "$SKILLS_VIEW" <<'NODE'
 const fs = require('fs');
@@ -7396,6 +7502,12 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "rounded-\\[14px\\] bg-background-primary/92" "$WORK_ROOT/ui/desktop/src/components/ui/BaseModal.tsx"
     grep -q "fixed inset-0 z-50 flex items-center justify-center bg-black/20" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
     grep -q "bg-\\[var(--epistemos-accent)\\] text-text-inverse hover:bg-\\[var(--epistemos-accent)\\]/90" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    grep -q "epistemos-diagnostics-link-config" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    grep -q "VITE_EPISTEMOS_BUG_REPORT_URL" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    grep -q "VITE_EPISTEMOS_TROUBLESHOOTING_URL" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    grep -q "VITE_EPISTEMOS_DIAGNOSTICS_HELP_URL" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    grep -q "window.open(diagnosticsIssueUrl(body), '_blank')" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
+    ! grep -q "window.open(\`https://github.com/aaif-goose/goose/issues/new?\${params.toString()}\`" "$WORK_ROOT/ui/desktop/src/components/ui/Diagnostics.tsx"
     grep -q "bg-background-warning/55 text-text-warning" "$WORK_ROOT/ui/desktop/src/components/alerts/AlertBox.tsx"
     grep -q "mt-2 flex items-center text-text-secondary" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/subcomponents/SecureStorageNotice.tsx"
     grep -q "group-hover:text-text-primary" "$WORK_ROOT/ui/desktop/src/components/settings/providers/modal/subcomponents/forms/CustomProviderForm.tsx"
