@@ -197,12 +197,17 @@ enum HTMLWorkspaceDataFeedContextSources {
         for requiredContextKind: String?,
         searchResults: [SearchResult],
         modelContainer: ModelContainer?,
-        limit: Int
+        limit: Int,
+        query: String? = nil
     ) -> [HTMLWorkspaceDataFeedResult] {
-        if normalized(requiredContextKind) == "recent_capture" {
+        let requiredKind = normalized(requiredContextKind)
+        if requiredKind == "recent_capture" {
             return recentCaptureResults(modelContainer: modelContainer, limit: limit)
         }
-        if normalized(requiredContextKind) == "graph_related_note" {
+        if requiredKind == "recent_chat" || (requiredKind.isEmpty && shouldUseRecentChatResults(for: query)) {
+            return recentChatResults(query: query, modelContainer: modelContainer, limit: limit)
+        }
+        if requiredKind == "graph_related_note" {
             return graphRelatedNoteResults(
                 searchResults: searchResults,
                 modelContainer: modelContainer,
@@ -519,7 +524,8 @@ struct HTMLWorkspaceDataFeedBinder: ViewModifier {
                 for: requiredContextKind,
                 searchResults: results,
                 modelContainer: AppBootstrap.shared?.modelContainer,
-                limit: feed.effectiveLimit
+                limit: feed.effectiveLimit,
+                query: feed.normalizedQuery
             )
             let nextJSON = HTMLWorkspaceDataFeedRenderer.render(
                 feed: feed,

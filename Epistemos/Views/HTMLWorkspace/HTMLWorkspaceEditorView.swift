@@ -923,8 +923,15 @@ struct HTMLWorkspaceEditorView: View {
                 limit: feed.effectiveLimit
             )
             guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, results: results)
-            regenerateContextStatusText = "Workspace context attached: \(results.count) \(results.count == 1 ? "result" : "results")"
+            let contextResults = HTMLWorkspaceDataFeedContextSources.results(
+                for: nil,
+                searchResults: results,
+                modelContainer: AppBootstrap.shared?.modelContainer,
+                limit: feed.effectiveLimit,
+                query: feed.normalizedQuery
+            )
+            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(feed: feed, contextResults: contextResults)
+            regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
             statusText = regenerateContextStatusText
         }
     }
@@ -1134,7 +1141,8 @@ struct HTMLWorkspaceEditorView: View {
                 for: preset.requiredContextKind,
                 searchResults: results,
                 modelContainer: AppBootstrap.shared?.modelContainer,
-                limit: feed.effectiveLimit
+                limit: feed.effectiveLimit,
+                query: feed.normalizedQuery
             )
             package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
                 feed: feed,

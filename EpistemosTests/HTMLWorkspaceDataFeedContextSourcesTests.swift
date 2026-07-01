@@ -70,12 +70,76 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(defaultResults.first?.contextKind == "vault_record")
     }
 
+    @MainActor
+    @Test("recent chat context source uses real persisted chat messages")
+    func recentChatContextSourceUsesRealPersistedChatMessages() throws {
+        let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self, SDChat.self, SDMessage.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+
+        let chat = SDChat(title: "Project Alpha Chat", chatType: "notes")
+        chat.updatedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let userMessage = SDMessage(role: "user", content: "What changed in alpha?")
+        let assistantMessage = SDMessage(role: "assistant", content: "Alpha decision recap from the real chat.")
+        userMessage.chat = chat
+        assistantMessage.chat = chat
+        context.insert(chat)
+        context.insert(userMessage)
+        context.insert(assistantMessage)
+        try context.save()
+
+        let directResults = HTMLWorkspaceDataFeedContextSources.recentChatResults(
+            query: "chat: alpha",
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(directResults.map(\.pageID) == [chat.id])
+        #expect(directResults.first?.contextKind == "recent_chat")
+        #expect(directResults.first?.sourceLabel == "Recent chat")
+        #expect(directResults.first?.snippet == "Alpha decision recap from the real chat.")
+        #expect(directResults.first?.provenance.contains("SDChat / notes") == true)
+
+        let genericResult = SearchResult(pageId: "note-a", title: "Generic", snippet: "generic", rank: 0.7)
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "recent chats alpha"
+        )
+        #expect(triggeredResults.map(\.pageID) == [chat.id])
+        #expect(triggeredResults.first?.contextKind == "recent_chat")
+
+        let explicitGraphResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "graph_related_note",
+            searchResults: [genericResult],
+            modelContainer: container,
+            limit: 5,
+            query: "recent chats alpha"
+        )
+        #expect(explicitGraphResults.isEmpty)
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
 
         #expect(source.contains("let contextResults = HTMLWorkspaceDataFeedContextSources.results("))
         #expect(source.contains("for: requiredContextKind"))
+        #expect(source.contains("query: feed.normalizedQuery"))
         #expect(source.contains("contextResults: contextResults"))
+    }
+
+    @Test("freeform regenerate context refresh uses explicit context providers")
+    func freeformRegenerateContextRefreshUsesExplicitContextProviders() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+
+        #expect(source.contains("let contextResults = HTMLWorkspaceDataFeedContextSources.results("))
+        #expect(source.contains("for: nil"))
+        #expect(source.contains("query: feed.normalizedQuery"))
+        #expect(source.contains("HTMLWorkspaceDataFeedRenderer.render(feed: feed, contextResults: contextResults)"))
     }
 }
