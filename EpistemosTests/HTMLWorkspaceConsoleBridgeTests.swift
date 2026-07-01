@@ -342,6 +342,8 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(previewDocument.contains("missingResources,"))
         #expect(previewDocument.contains("const maxCodeLength = 20000"))
         #expect(previewDocument.contains("let runQueue = Promise.resolve()"))
+        #expect(previewDocument.contains("script.onerror = () => {"))
+        #expect(previewDocument.contains("script.remove();"))
         #expect(previewDocument.contains("function boundedCode(code)"))
         #expect(previewDocument.contains("throw new Error('HTML Workspace Python code is too large')"))
         #expect(previewDocument.contains("const source = boundedCode(code);"))

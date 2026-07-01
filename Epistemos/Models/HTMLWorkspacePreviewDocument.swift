@@ -218,7 +218,10 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             script.src = src;
             script.async = true;
             script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load Pyodide script: ' + src));
+            script.onerror = () => {
+              script.remove();
+              reject(new Error('Failed to load Pyodide script: ' + src));
+            };
             document.head.appendChild(script);
           });
         }
