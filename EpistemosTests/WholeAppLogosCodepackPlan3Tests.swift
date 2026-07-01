@@ -67,6 +67,7 @@ struct WholeAppLogosCodepackPlan3Tests {
             "static func skillInventory",
             "static func landingFeature",
             "private static func isBrowserUse",
+            "private static func isHuggingFace",
             "maxClassifierInputCharacters",
             "normalizedHaystack",
             "boundedClassifierInput",
@@ -207,14 +208,18 @@ struct WholeAppLogosCodepackPlan3Tests {
         #expect(IntegrationBrand.bestOfPreset(kind: "SKILLREPO", id: "plain", displayName: "Plain") == .skillRepo)
         #expect(IntegrationBrand.bestOfPreset(kind: "skillRepo", id: "browser-use", displayName: "Browser Use") == .browserUse)
         #expect(IntegrationBrand.connector(id: "google-drive", displayName: "Drive") == .googleDrive)
+        #expect(IntegrationBrand.connector(id: "hugging-face", displayName: "Hub") == .huggingFace)
         #expect(IntegrationBrand.skillDiscovery(source: "codex", identifier: "docs", category: "research") == .codexSkills)
         #expect(IntegrationBrand.skillDiscovery(source: "github", identifier: "browser-use", category: "automation") == .browserUse)
         #expect(IntegrationBrand.skillDiscovery(source: "browser-use", identifier: "docs", category: "automation") == .browserUse)
+        #expect(IntegrationBrand.skillDiscovery(source: "hugging-face", identifier: "hf-cli", category: "models") == .huggingFace)
         #expect(IntegrationBrand.skillInstallSource(rawValue: "localPath") == .localSkill)
         #expect(IntegrationBrand.skillInstallSource(rawValue: "LOCALPATH") == .localSkill)
         #expect(IntegrationBrand.skillInventory(identifier: "github-helper", description: "GitHub tools") == .github)
         #expect(IntegrationBrand.skillInventory(identifier: "browseruse-helper", description: "Chromium automation") == .browserUse)
+        #expect(IntegrationBrand.skillInventory(identifier: "hf-hub-helper", description: "Hugging Face tools") == .huggingFace)
         #expect(IntegrationBrand.mcpRegistry(source: "github", installKind: "skillRepo", name: "browser-use") == .browserUse)
+        #expect(IntegrationBrand.mcpRegistry(source: "smithery", installKind: "remoteURL", name: "huggingface") == .huggingFace)
         #expect(IntegrationBrand.connector(id: "s\nlack", displayName: "") == .slack)
 
         let longTail = String(repeating: "x", count: IntegrationBrand.maxClassifierInputCharacters + 64)

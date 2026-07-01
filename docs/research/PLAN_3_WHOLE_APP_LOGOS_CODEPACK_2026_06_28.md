@@ -40,6 +40,8 @@
   Browser tab. Marketplace, preset, and skill rows that mention browser-use now
   resolve to the browser-use Pro brand instead of a generic GitHub/skill mark,
   preserving the native Browser versus Chromium robot boundary.
+- [VERIFIED-CODE] Hugging Face MCP/connector/skill names resolve to a local
+  `HF` monogram brand mark, with no official asset claim or runtime logo fetch.
 - [VERIFIED-CODE] `LandingFeatureButton` exposes an `integrationBrand` mapping
   for every Plan 3 landing feature button, and `LandingFeatureButtonTile` passes
   that mapping into `PixelLandingCommandTile` so each Plan 3 landing shortcut

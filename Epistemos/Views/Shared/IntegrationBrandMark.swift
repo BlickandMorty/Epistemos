@@ -26,6 +26,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     case slack
     case gmail
     case googleDrive
+    case huggingFace
     case notion
     case pdfImport
     case arxiv
@@ -61,6 +62,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .slack: "Slack"
         case .gmail: "Gmail"
         case .googleDrive: "Google Drive"
+        case .huggingFace: "Hugging Face"
         case .notion: "Notion"
         case .pdfImport: "PDF Import"
         case .arxiv: "arXiv"
@@ -102,6 +104,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .slack: "number"
         case .gmail: "envelope"
         case .googleDrive: "externaldrive"
+        case .huggingFace: "face.smiling"
         case .notion: "doc.text"
         case .pdfImport: "doc.richtext"
         case .arxiv: "doc.text.magnifyingglass"
@@ -131,6 +134,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         case .slack: "SL"
         case .gmail: "GM"
         case .googleDrive: "GD"
+        case .huggingFace: "HF"
         case .notion: "NT"
         default:
             String(displayName.prefix(2)).uppercased()
@@ -141,7 +145,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         switch self {
         case .context7, .anthropicSkills, .smithery, .mcpSO, .glama, .github,
              .bundledSkills, .codexSkills, .localSkill, .rawSkill,
-             .slack, .gmail, .googleDrive, .notion:
+             .slack, .gmail, .googleDrive, .huggingFace, .notion:
             return true
         default:
             return false
@@ -156,6 +160,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         if haystack.contains("google-drive") || haystack.contains("gdrive") || haystack.contains("drive") {
             return .googleDrive
         }
+        if isHuggingFace(haystack) { return .huggingFace }
         if haystack.contains("notion") { return .notion }
         if haystack.contains("github") { return .github }
         return .remoteMCP
@@ -198,6 +203,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         if isBrowserUse(haystack) { return .browserUse }
         if haystack.contains("context7") { return .context7 }
         if haystack.contains("anthropic") && haystack.contains("skill") { return .anthropicSkills }
+        if isHuggingFace(haystack) { return .huggingFace }
         if haystack.contains("vault") { return .vault }
         if haystack.contains("eidos") { return .eidos }
         if haystack.contains("web") { return .web }
@@ -218,6 +224,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         if haystack.contains("slack") { return .slack }
         if haystack.contains("gmail") || haystack.contains("googlemail") { return .gmail }
         if haystack.contains("drive") { return .googleDrive }
+        if isHuggingFace(haystack) { return .huggingFace }
         if haystack.contains("notion") { return .notion }
         return .remoteMCP
     }
@@ -225,6 +232,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     static func skillDiscovery(source: String, identifier: String, category: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, category)
         if isBrowserUse(normalizedHaystack(source, identifier, category)) { return .browserUse }
+        if isHuggingFace(normalizedHaystack(source, identifier, category)) { return .huggingFace }
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
 
@@ -254,6 +262,7 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
     static func skillInventory(identifier: String, description: String) -> IntegrationBrand {
         let haystack = normalizedHaystack(identifier, description)
         if isBrowserUse(haystack) { return .browserUse }
+        if isHuggingFace(haystack) { return .huggingFace }
         if haystack.contains("anthropic") { return .anthropicSkills }
         if haystack.contains("github") { return .github }
         if haystack.contains("codex") { return .codexSkills }
@@ -283,6 +292,13 @@ nonisolated enum IntegrationBrand: String, CaseIterable, Sendable, Equatable {
         haystack.contains("browser-use")
             || haystack.contains("browseruse")
             || haystack.contains("browser use")
+    }
+
+    private static func isHuggingFace(_ haystack: String) -> Bool {
+        haystack.contains("hugging-face")
+            || haystack.contains("huggingface")
+            || haystack.contains("hugging face")
+            || haystack.contains("hf-hub")
     }
 
     private static func normalized(_ value: String) -> String {
