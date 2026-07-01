@@ -36,6 +36,7 @@ struct AppleNativeSharedViewsPlan3Tests {
             "open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)",
             "fstat(fd",
             "S_IFREG",
+            "st_nlink <= 1",
             "st_size"
         ] {
             #expect(preview.contains(required), "FilePreview missing expected API: \(required)")
@@ -238,6 +239,26 @@ struct AppleNativeSharedViewsPlan3Tests {
         #expect(!FilePreviewController.isPreviewableURL(URL(string: "https://example.com/paper.pdf")!))
         #expect(!FilePreviewController.isPreviewableURL(directory))
         #expect(!FilePreviewController.isPreviewableURL(symlink))
+    }
+
+    @Test("preview policy rejects hardlinked file URLs")
+    func previewPolicyRejectsHardlinkedFileURLs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apple-native-preview-hardlink-\(UUID().uuidString)", isDirectory: true)
+        let original = root.appendingPathComponent("Original.md", isDirectory: false)
+        let hardlink = root.appendingPathComponent("Hardlink.md", isDirectory: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try "note".write(to: original, atomically: true, encoding: .utf8)
+        do {
+            try FileManager.default.linkItem(at: original, to: hardlink)
+        } catch {
+            try? FileManager.default.removeItem(at: root)
+            return
+        }
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        #expect(!FilePreviewController.isPreviewableURL(original))
+        #expect(!FilePreviewController.isPreviewableURL(hardlink))
     }
 
     @Test("preview policy rejects non-regular file URLs")

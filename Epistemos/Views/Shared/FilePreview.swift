@@ -35,6 +35,9 @@ nonisolated enum FilePreviewURLPolicy {
         guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
             return false
         }
+        guard fileStatus.st_nlink <= 1 else {
+            return false
+        }
         guard fileStatus.st_size >= 0,
               UInt64(fileStatus.st_size) <= UInt64(maxPreviewFileBytes) else {
             return false

@@ -25,7 +25,7 @@ usage strings.
 
 - **DONE:** `Epistemos/Views/Shared/FilePreview.swift` provides `FilePreviewItem`, `FilePreviewController`,
   `FilePreviewButton`, `.filePreview(_:)`, and a shared URL policy that rejects remote URLs, directories, unreadable
-  files, non-regular files, final symlinks, and files over 512 MiB through a descriptor-backed `O_NOFOLLOW` + `fstat`
+  files, non-regular files, final symlinks, multi-hardlink files, and files over 512 MiB through a descriptor-backed `O_NOFOLLOW` + `fstat`
   envelope before Quick Look opens anything. It also caps preview batches/titles before handing items to Quick Look,
   with title ellipsis kept inside the configured cap and titles control/whitespace-normalized before display.
   The reusable preview button uses `ToolbarCapsuleButton` native chrome instead of an unstyled raw SwiftUI button.
@@ -47,7 +47,7 @@ Build a reusable QuickLook preview layer for already-granted vault URLs:
 - `@MainActor FilePreviewController`
 - `FilePreviewButton`
 - `.filePreview($url)` one-shot SwiftUI modifier
-- descriptor-backed `O_NOFOLLOW` + `fstat` URL validation with a 512 MiB cap
+- descriptor-backed `O_NOFOLLOW` + `fstat` URL validation with a 512 MiB cap and multi-hardlink rejection
 - capped preview batches and displayed preview titles
 - native toolbar chrome through `ToolbarCapsuleButton`
 
