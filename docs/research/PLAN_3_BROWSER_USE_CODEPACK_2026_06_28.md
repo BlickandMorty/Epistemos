@@ -237,6 +237,8 @@ redaction helper instead of `absoluteString`, shares that redaction path with ru
 maps Web UI settings-load and runtime-start failures through bounded browser-use diagnostics instead of raw localized
 external errors,
 offers a native clear-state control that stops the Pro shell, detaches the embedded WKWebView, and then removes only the browser-use named WKWebsiteDataStore with one bounded teardown-race retry,
+stores that clear-state task for cancellation on teardown, and clears stale blocked-navigation/start messages when stop
+or readiness invalidation detaches the shell,
 injects the current Epistemos palette into Gradio as transparent-over-glass, flat/borderless controls with soft
 theme-derived shadows and focus glows instead of hard outlines, replaces the document-start theme script on palette
 changes instead of stacking stale startup scripts,

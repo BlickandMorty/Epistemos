@@ -65,6 +65,8 @@ struct BrowserUseWebUIView: View {
     @State private var lastError: String?
     @State private var webViewIdentity = UUID()
     @State private var isClearingWebState = false
+    @State private var clearStateTask: Task<Void, Never>?
+    @State private var clearStateRequestID = UUID()
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     init(
@@ -206,6 +208,9 @@ struct BrowserUseWebUIView: View {
         if isClearingWebState {
             return "Clearing browser-use Pro Web UI state."
         }
+        if isStarting {
+            return "Starting browser-use Pro Web UI."
+        }
         if let loadedURL {
             return BrowserUseLoopbackGuard.redactedDescription(for: loadedURL)
         }
@@ -263,6 +268,7 @@ struct BrowserUseWebUIView: View {
             readinessTask = nil
             readinessWorker = nil
             if !readiness.isReady {
+                lastError = nil
                 cancelStartAttempt()
                 supervisor?.stop()
                 detachLoopbackWebView()
@@ -352,6 +358,11 @@ struct BrowserUseWebUIView: View {
         readinessWorker = nil
         readinessRequestID = UUID()
         cancelStartAttempt()
+        clearStateTask?.cancel()
+        clearStateTask = nil
+        clearStateRequestID = UUID()
+        isClearingWebState = false
+        lastError = nil
         supervisor?.stop()
         detachLoopbackWebView()
     }
@@ -368,14 +379,25 @@ struct BrowserUseWebUIView: View {
     private func clearWebUIState() {
         guard !isClearingWebState else { return }
         stopRuntime()
+        let requestID = UUID()
+        clearStateRequestID = requestID
         isClearingWebState = true
         lastError = nil
 
-        Task { @MainActor in
+        clearStateTask = Task { @MainActor in
+            defer {
+                guard clearStateRequestID == requestID else { return }
+                isClearingWebState = false
+                clearStateTask = nil
+            }
             await Task.yield()
+            guard !Task.isCancelled, clearStateRequestID == requestID else { return }
             do {
                 try await BrowserUseLoopbackWebView.removeWebsiteDataStore()
+                guard !Task.isCancelled, clearStateRequestID == requestID else { return }
                 lastError = "Cleared browser-use Pro Web UI state."
+            } catch is CancellationError {
+                return
             } catch {
                 let message = BrowserUseDiagnostics.statusMessage(
                     for: error,
@@ -383,7 +405,6 @@ struct BrowserUseWebUIView: View {
                 )
                 lastError = "Could not clear browser-use Pro Web UI state: \(message)"
             }
-            isClearingWebState = false
         }
     }
 
