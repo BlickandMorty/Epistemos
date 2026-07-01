@@ -120,6 +120,7 @@ struct LiveTextImageView: NSViewRepresentable {
 
             overlay.analysis = nil
             analysisTask = Task { [weak self, weak overlay] in
+                let analyzedImage = image
                 let analyzer = ImageAnalyzer()
                 let configuration = ImageAnalyzer.Configuration([.text])
 
@@ -131,8 +132,10 @@ struct LiveTextImageView: NSViewRepresentable {
                     )
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
-                        guard let self,
-                              let overlay else {
+                        guard !Task.isCancelled,
+                              let self,
+                              let overlay,
+                              self.currentImage === analyzedImage else {
                             return
                         }
                         overlay.analysis = analysis
