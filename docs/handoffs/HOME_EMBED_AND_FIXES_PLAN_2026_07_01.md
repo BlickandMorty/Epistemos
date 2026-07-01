@@ -30,9 +30,18 @@ on navigation). Minimalist where possible; cut broken/messy excess.
 ## C. Landing cleanup
 - [ ] Simplify the landing page — cleaner, fewer feature tiles that route into the embedded pages.
 
-## D. Reduce messiness
-- [ ] HTML-Workspace over-complexity (kept in the notes window, but trim the excess to the minimalist intent).
+## D. Reduce messiness / HTML Workspace
+- [ ] **Simplify HTML Workspace back toward its older, simpler form** (owner: "not working like it used to; we
+      complexified it too much"). Cut the excess/regression back to near the original, BUT keep some integrated parts
+      still accessible. Identify what broke vs. the older behavior; propose specific cuts before ripping features.
+- [ ] **Fix "too connected" visuals** (owner): parts have NO borders/separation between certain buttons / words /
+      tools (e.g. the context parts) — they blend together. Add clear borders/spacing/dividers so elements read as
+      distinct. Applies to the workspace toolbar/context UI (and audit other surfaces for the same blend).
 - [ ] Other over-built surfaces.
+
+## G. Goose instant-feel (owner, high priority)
+- [x] Pre-warm + keep-alive so nav is instant, not a cold-load hang           — commit 01d5a84ec
+- [ ] If still laggy after owner test: shared app-lifetime Goose host, re-parented on nav (cannot reload).
 
 ## E. Already-landed fixes (this program)
 - [x] Model-selection honors the user's chosen model (agent_core slug)          — 7f161c3f0
