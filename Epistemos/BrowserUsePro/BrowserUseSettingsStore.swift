@@ -452,6 +452,8 @@ nonisolated enum BrowserUseSecretBinding: String, CaseIterable, Sendable, Hashab
 }
 
 nonisolated struct BrowserUseSecretStore: Sendable {
+    static let maxSecretValueBytes = 4096
+
     private let loadValue: @Sendable (String) -> String?
     private let saveValue: @Sendable (String, String) -> Bool
     private let deleteValue: @Sendable (String) -> Void
@@ -468,10 +470,10 @@ nonisolated struct BrowserUseSecretStore: Sendable {
 
     func load(_ binding: BrowserUseSecretBinding) -> String? {
         guard let value = loadValue(binding.keychainKey),
-              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+              let sanitized = Self.sanitizedSecretValue(value) else {
             return nil
         }
-        return value
+        return sanitized
     }
 
     @discardableResult
@@ -480,11 +482,24 @@ nonisolated struct BrowserUseSecretStore: Sendable {
             delete(binding)
             return true
         }
+        guard Self.sanitizedSecretValue(value) != nil else {
+            return false
+        }
         return saveValue(value, binding.keychainKey)
     }
 
     func delete(_ binding: BrowserUseSecretBinding) {
         deleteValue(binding.keychainKey)
+    }
+
+    private static func sanitizedSecretValue(_ value: String) -> String? {
+        guard value.utf8.count <= maxSecretValueBytes,
+              value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+              value.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }),
+              !value.isEmpty else {
+            return nil
+        }
+        return value
     }
 }
 

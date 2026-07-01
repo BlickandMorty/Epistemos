@@ -43,6 +43,37 @@ struct BrowserUseSettingsStoreTests {
         #expect(dictionary["BROWSER_USE_PROXY_PASSWORD"] == nil)
     }
 
+    @Test("secret store rejects unsafe Keychain values before environment rendering")
+    func secretStoreRejectsUnsafeKeychainValuesBeforeEnvironmentRendering() {
+        let secrets = [
+            BrowserUseSecretBinding.openAIAPIKey.keychainKey: "sk-live\nINJECTED=1",
+            BrowserUseSecretBinding.anthropicAPIKey.keychainKey: String(
+                repeating: "x",
+                count: BrowserUseSecretStore.maxSecretValueBytes + 1
+            ),
+            BrowserUseSecretBinding.googleAPIKey.keychainKey: " sk-padded ",
+            BrowserUseSecretBinding.vncPassword.keychainKey: "vnc secret",
+        ]
+        let store = BrowserUseSecretStore(loadValue: { secrets[$0] })
+        let dictionary = BrowserUseEnvironmentRenderer.dictionary(settings: .default, secretStore: store)
+
+        #expect(dictionary["OPENAI_API_KEY"] == nil)
+        #expect(dictionary["ANTHROPIC_API_KEY"] == nil)
+        #expect(dictionary["GOOGLE_API_KEY"] == nil)
+        #expect(dictionary["VNC_PASSWORD"] == "vnc secret")
+
+        let harness = SecretHarness()
+        let writableStore = BrowserUseSecretStore(
+            loadValue: { harness.load($0) },
+            saveValue: { value, key in harness.save(value, for: key) },
+            deleteValue: { harness.delete($0) }
+        )
+        #expect(!writableStore.save("sk-live\nINJECTED=1", for: .openAIAPIKey))
+        #expect(!writableStore.save(" sk-padded ", for: .googleAPIKey))
+        #expect(harness.savedValue(for: BrowserUseSecretBinding.openAIAPIKey.keychainKey) == nil)
+        #expect(harness.savedValue(for: BrowserUseSecretBinding.googleAPIKey.keychainKey) == nil)
+    }
+
     @Test("renderer escapes CRLF in quoted environment values")
     func rendererEscapesCRLFInQuotedEnvironmentValues() {
         let environment = BrowserUseEnvironmentRenderer.render([
@@ -364,6 +395,8 @@ struct BrowserUseSettingsStoreTests {
             "fstat(fd",
             "readToEnd()",
             "data.count <= Self.maxSettingsBytes",
+            "maxSecretValueBytes",
+            "sanitizedSecretValue",
         ] {
             #expect(source.contains(required), "Missing browser-use settings read marker: \(required)")
         }
