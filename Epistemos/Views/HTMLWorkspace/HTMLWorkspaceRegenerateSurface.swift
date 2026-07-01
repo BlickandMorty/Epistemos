@@ -346,7 +346,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
             family: .layout,
             title: "Dashboard",
             systemImage: "rectangle.grid.2x2",
-            instruction: "Regenerate this workspace as a dense operational dashboard using the current content and data. Keep it interactive, theme-aware, and offline."
+            instruction: "Regenerate this workspace as a dense operational dashboard using the current content and data. When data.json provides records, include working local search/filter, context-kind tabs, or charts bound only to those real records. Keep it interactive, theme-aware, and offline."
         ),
         .init(
             id: "layout-landing-page",
@@ -360,7 +360,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
             family: .layout,
             title: "Docs page",
             systemImage: "doc.text",
-            instruction: "Regenerate this workspace as a documentation page with navigable sections, examples, and a clear information hierarchy from the existing content."
+            instruction: "Regenerate this workspace as a documentation page with working section navigation, examples, and a clear information hierarchy from the existing content."
         ),
         .init(
             id: "layout-single-column-article",
@@ -374,49 +374,49 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
             family: .addThing,
             title: "Add chart",
             systemImage: "chart.bar.xaxis",
-            instruction: "Preserve the current surface and add an inline chart derived only from the available data or explicit content. Do not wipe existing sections; inject the chart where it fits. If no numeric data exists, include an honest empty state."
+            instruction: "Preserve the current surface and add an inline chart derived only from available data.json records or explicit content. Do not wipe existing sections; inject the chart where it fits. Prefer real rank, metric, or count fields, keep source_label/provenance visible near the chart, and include an honest empty state if no numeric data exists."
         ),
         .init(
             id: "add-search",
             family: .addThing,
             title: "Add search box",
             systemImage: "magnifyingglass",
-            instruction: "Preserve the current surface and add local search over the visible sections and data. Do not wipe existing sections; inject the search controls where they fit. Keep it offline and responsive."
+            instruction: "Preserve the current surface and add working local search over the visible sections and data.json records. Do not wipe existing sections; inject the search controls where they fit. Search title, snippet, page_id, source_label, context_kind, and provenance when records are present. Keep it offline and responsive."
         ),
         .init(
             id: "add-table",
             family: .addThing,
             title: "Add table",
             systemImage: "tablecells",
-            instruction: "Preserve the current surface and add a scannable table from the current content or data. Do not wipe existing sections; inject the table where it fits. Preserve source honesty if records are sparse."
+            instruction: "Preserve the current surface and add a scannable table from the current content or data.json records. Do not wipe existing sections; inject the table where it fits. When records are present, expose real page_id, title, snippet, rank, context_kind, source_label, and provenance fields; preserve source honesty if records are sparse."
         ),
         .init(
             id: "add-nav",
             family: .addThing,
             title: "Add nav",
             systemImage: "sidebar.left",
-            instruction: "Preserve the current surface and add persistent navigation for sections, routes, or key entities already present in the content. Do not wipe existing sections; inject the nav where it fits."
+            instruction: "Preserve the current surface and add persistent navigation for sections, routes, data.json context_kind groups, or key entities already present in the content. Do not wipe existing sections; inject the nav where it fits and avoid dead links."
         ),
         .init(
             id: "vault-notes-cards",
             family: .vaultData,
             title: "Notes -> cards",
             systemImage: "rectangle.stack",
-            instruction: "Regenerate this workspace by turning available note context into cards. Use only real note data and include an honest empty state if no notes are available."
+            instruction: "Regenerate this workspace by turning available note context into cards with working local filter/tabs over data.json records. Use only real note data and include an honest empty state if no notes are available."
         ),
         .init(
             id: "vault-recent-captures",
             family: .vaultData,
             title: "Recent captures",
             systemImage: "tray.full",
-            instruction: "Regenerate this workspace around available recent captures. Use real capture metadata only and clearly show when no captures are available."
+            instruction: "Regenerate this workspace around available recent captures with working local filter/tabs over data.json records. Use real capture metadata only and clearly show when no captures are available."
         ),
         .init(
             id: "vault-related-notes",
             family: .vaultData,
             title: "Related notes",
             systemImage: "link",
-            instruction: "Regenerate this workspace around related notes from available context. Do not invent relationships; show an honest empty state when context is missing."
+            instruction: "Regenerate this workspace around related notes from available context with working local filter/tabs over data.json records. Do not invent relationships; show an honest empty state when context is missing."
         ),
     ]
 
@@ -449,7 +449,7 @@ nonisolated struct HTMLWorkspaceRegeneratePreset: Identifiable, Sendable, Equata
         let query = bounded(contextQuery, limit: 160)
         return """
         \(instruction)
-        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, captures, chats, or graph-related records are present.
+        Attached context query: "\(query)" via VaultSyncService.searchFullAsync. Use only records present in data.json, keep source provenance visible, and render an honest empty state when no matching notes, captures, chats, or graph-related records are present. Prefer working local search/filter, context-kind tabs, cards, tables, or charts when records are present; bind them to data.json only.
         """
     }
 

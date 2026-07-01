@@ -232,6 +232,30 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(addThingInstructions.allSatisfy { $0.contains("inject") })
     }
 
+    @Test("interactive presets bind controls to real data json records")
+    func interactivePresetsBindControlsToRealDataJSONRecords() throws {
+        let presets = Dictionary(
+            uniqueKeysWithValues: HTMLWorkspaceRegeneratePreset.all.map { ($0.id, $0) }
+        )
+        let dashboard = try #require(presets["layout-dashboard"])
+        let chart = try #require(presets["add-chart"])
+        let search = try #require(presets["add-search"])
+        let table = try #require(presets["add-table"])
+        let nav = try #require(presets["add-nav"])
+        let notes = try #require(presets["vault-notes-cards"])
+
+        #expect(dashboard.instruction.contains("data.json provides records"))
+        #expect(dashboard.instruction.contains("working local search/filter"))
+        #expect(dashboard.instruction.contains("context-kind tabs"))
+        #expect(chart.instruction.contains("available data.json records"))
+        #expect(chart.instruction.contains("real rank, metric, or count fields"))
+        #expect(chart.instruction.contains("source_label/provenance visible"))
+        #expect(search.instruction.contains("title, snippet, page_id, source_label, context_kind, and provenance"))
+        #expect(table.instruction.contains("page_id, title, snippet, rank, context_kind, source_label, and provenance"))
+        #expect(nav.instruction.contains("data.json context_kind groups"))
+        #expect(notes.instruction.contains("working local filter/tabs over data.json records"))
+    }
+
     @Test("vault data presets seed specific real context queries")
     func vaultDataPresetsSeedSpecificRealContextQueries() throws {
         let presets = Dictionary(
@@ -250,6 +274,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(instruction.contains("VaultSyncService.searchFullAsync"))
         #expect(instruction.contains("Use only records present in data.json"))
         #expect(instruction.contains("notes, captures, chats, or graph-related records"))
+        #expect(instruction.contains("working local search/filter"))
+        #expect(instruction.contains("context-kind tabs"))
+        #expect(instruction.contains("bind them to data.json only"))
     }
 
     @Test("regenerate prompt includes verified data feed context and honest degradation")
