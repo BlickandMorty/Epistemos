@@ -215,6 +215,26 @@ struct MCPRegistryClientTests {
                   "html_url": "https://github.com/owner/fragment#token=abc123"
                 },
                 {
+                  "full_name": "owner/issues",
+                  "description": "Nested path",
+                  "html_url": "https://github.com/owner/issues/issues"
+                },
+                {
+                  "full_name": "owner/encoded",
+                  "description": "Encoded slash",
+                  "html_url": "https://github.com/owner%2Fencoded/repo"
+                },
+                {
+                  "full_name": "settings/tokens",
+                  "description": "Not a repository",
+                  "html_url": "https://github.com/settings/tokens"
+                },
+                {
+                  "full_name": "owner/trailing",
+                  "description": "Trailing slash",
+                  "html_url": "https://github.com/owner/trailing/"
+                },
+                {
                   "full_name": "owner/plain",
                   "description": "Plain",
                   "html_url": "https://github.com/owner/plain"
@@ -232,8 +252,56 @@ struct MCPRegistryClientTests {
         }
 
         let entries = await client.searchGitHub(query: "docs")
-        #expect(entries.map(\.name) == ["owner/plain"])
-        #expect(entries.first?.installTarget == "https://github.com/owner/plain")
+        #expect(entries.map(\.name) == ["owner/trailing", "owner/plain"])
+        #expect(entries.map(\.installTarget) == [
+            "https://github.com/owner/trailing",
+            "https://github.com/owner/plain",
+        ])
+    }
+
+    @Test("registry repo fields accept only canonical GitHub repository URLs")
+    func searchRegistryFiltersNonRepositoryGitHubTargets() async throws {
+        let client = MCPRegistryClient { request in
+            let url = try #require(request.url)
+            let body = """
+            {
+              "servers": [
+                {
+                  "name": "Repo",
+                  "repository": "https://github.com/owner/repo"
+                },
+                {
+                  "name": "Nested",
+                  "repository": "https://github.com/owner/repo/tree/main"
+                },
+                {
+                  "name": "Query",
+                  "repository": "https://github.com/owner/repo?token=abc123"
+                },
+                {
+                  "name": "EncodedSlash",
+                  "repository": "https://github.com/owner%2Frepo/skills"
+                },
+                {
+                  "name": "BadOwner",
+                  "repository": "https://github.com/-owner/repo"
+                }
+              ]
+            }
+            """
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )
+            return (Data(body.utf8), try #require(response))
+        }
+
+        let entries = await client.searchSmithery(query: "docs")
+        #expect(entries.map(\.name) == ["Repo"])
+        #expect(entries.first?.installKind == .skillRepo)
+        #expect(entries.first?.installTarget == "https://github.com/owner/repo")
     }
 
     @Test("registry homepage URLs reject unsafe channels")

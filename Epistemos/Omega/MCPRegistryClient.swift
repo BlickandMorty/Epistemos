@@ -342,11 +342,73 @@ nonisolated struct MCPRegistryClient: Sendable {
               components.user == nil,
               components.password == nil,
               components.percentEncodedQuery == nil,
-              components.percentEncodedFragment == nil,
-              components.path.split(separator: "/").count >= 2 else {
+              components.percentEncodedFragment == nil else {
             return nil
         }
-        return trimmed
+        var path = components.percentEncodedPath
+        if path.count > 1, path.hasSuffix("/") {
+            path.removeLast()
+        }
+        let pathSegments = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard pathSegments.count == 3,
+              pathSegments.first == "",
+              let owner = pathSegments.dropFirst().first,
+              let repo = pathSegments.last,
+              githubOwnerAllowed(owner),
+              githubRepoAllowed(repo) else {
+            return nil
+        }
+        return "https://github.com/\(owner)/\(repo)"
+    }
+
+    private static func githubOwnerAllowed(_ owner: Substring) -> Bool {
+        let reservedOwners: Set<String> = [
+            "codespaces",
+            "collections",
+            "events",
+            "explore",
+            "features",
+            "issues",
+            "login",
+            "marketplace",
+            "new",
+            "notifications",
+            "orgs",
+            "pricing",
+            "pulls",
+            "settings",
+            "sponsors",
+            "topics",
+        ]
+        let lowered = owner.lowercased()
+        guard !owner.isEmpty,
+              owner.count <= 39,
+              owner.first != "-",
+              owner.last != "-",
+              !reservedOwners.contains(lowered) else {
+            return false
+        }
+        return owner.unicodeScalars.allSatisfy { scalar in
+            asciiAlphanumeric(scalar) || scalar == "-"
+        }
+    }
+
+    private static func githubRepoAllowed(_ repo: Substring) -> Bool {
+        guard !repo.isEmpty,
+              repo.count <= 100,
+              repo != ".",
+              repo != ".." else {
+            return false
+        }
+        return repo.unicodeScalars.allSatisfy { scalar in
+            asciiAlphanumeric(scalar) || scalar == "." || scalar == "_" || scalar == "-"
+        }
+    }
+
+    private static func asciiAlphanumeric(_ scalar: Unicode.Scalar) -> Bool {
+        (65...90).contains(Int(scalar.value))
+            || (97...122).contains(Int(scalar.value))
+            || (48...57).contains(Int(scalar.value))
     }
 
     private static func homepageURL(_ value: String?) -> String? {
