@@ -2088,6 +2088,51 @@ function applyChatSurfaces() {
   );
   write('src/components/ChatInputCard.tsx', source);
 
+  source = read('src/components/ChatInput.tsx');
+  source = replaceRequired(
+    source,
+    'chat input queue wrapper borderless',
+    'className="border-b border-border-primary"',
+    'className="bg-background-primary/24"'
+  );
+  source = replaceRequired(
+    source,
+    'chat input recording badge borderless',
+    'className="absolute right-2 -bottom-2 bg-background-primary px-2 py-1 text-xs whitespace-nowrap shadow-none border border-border-primary"',
+    'className="absolute -bottom-2 right-2 whitespace-nowrap rounded-[8px] bg-background-secondary/72 px-2 py-1 text-xs"'
+  );
+  source = replaceRequired(
+    source,
+    'chat input attachments tray borderless',
+    'className="flex flex-wrap gap-2 p-4 mt-2 border-t border-border-primary"',
+    'className="mt-2 flex flex-wrap gap-2 bg-background-primary/24 p-4"'
+  );
+  source = replaceRequired(
+    source,
+    'chat input pasted image preview borderless',
+    "className={`w-full h-full object-cover border ${img.error ? 'border-border-danger' : 'border-border-primary'}`}",
+    "className={`h-full w-full rounded-[10px] bg-background-secondary/56 object-cover ${img.error ? 'opacity-70' : 'opacity-100'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'chat input dropped image preview borderless',
+    "className={`w-full h-full object-cover border ${file.error ? 'border-border-danger' : 'border-border-primary'}`}",
+    "className={`h-full w-full rounded-[10px] bg-background-secondary/56 object-cover ${file.error ? 'opacity-70' : 'opacity-100'}`}"
+  );
+  source = replaceRequired(
+    source,
+    'chat input file chip borderless',
+    'className="flex items-center gap-2 px-3 py-2 bg-bgSubtle border border-border-primary min-w-[120px] max-w-[200px]"',
+    'className="flex min-w-[120px] max-w-[200px] items-center gap-2 rounded-[10px] bg-background-secondary/56 px-3 py-2"'
+  );
+  source = replaceRequired(
+    source,
+    'chat input file type badge borderless',
+    'className="flex-shrink-0 w-8 h-8 bg-background-primary border border-border-primary flex items-center justify-center text-xs font-mono text-text-secondary"',
+    'className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] bg-background-primary/70 text-xs font-mono text-text-secondary"'
+  );
+  write('src/components/ChatInput.tsx', source);
+
   source = read('src/components/Hub.tsx');
   source = replaceRequired(
     source,
@@ -5582,6 +5627,90 @@ function applyRemainingTokenDriftSurfaces() {
     'message queue active dot token',
     'className="w-2 h-2 bg-blue-500 animate-pulse"',
     'className="ep-native-loading-dot is-active"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue compact header borderless',
+    'className="flex items-center justify-between px-4 py-2.5 bg-background border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-all duration-200"',
+    'className="flex cursor-pointer items-center justify-between rounded-[12px] bg-background-primary/42 px-4 py-2.5 transition-all duration-200 hover:bg-background-secondary/46"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue count badge borderless',
+    'className="flex items-center gap-1 text-[10px] font-mono uppercase text-muted-foreground bg-background-secondary border border-border-primary px-2 py-1 rounded-[3px]"',
+    'className="flex items-center gap-1 rounded-[8px] bg-background-secondary/60 px-2 py-1 text-[10px] font-sans uppercase text-muted-foreground"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue compact paused banner borderless',
+    'className="px-4 py-1.5 bg-amber-50/60 dark:bg-amber-900/20 border-b border-amber-200/30 dark:border-amber-800/30"',
+    'className="mt-1 rounded-[10px] bg-background-warning/35 px-4 py-1.5"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue compact paused text token',
+    'className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300"',
+    'className="flex items-center gap-2 text-xs text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue expanded header borderless',
+    'className="flex items-center justify-between px-4 py-3 bg-background border-b border-border/30"',
+    'className="flex items-center justify-between rounded-[12px] bg-background-primary/42 px-4 py-3"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue expanded paused banner borderless',
+    'className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20 border-b border-amber-200/50 dark:border-amber-800/50"',
+    'className="mt-1 rounded-[10px] bg-background-warning/35 px-4 py-2"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue expanded paused text token',
+    'className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200"',
+    'className="flex items-center gap-2 text-sm text-text-warning"'
+  );
+  source = replaceRequired(
+    source,
+    'message queue bubble base borderless',
+    'rounded-[6px] px-3 py-2 border transition-colors duration-150',
+    'rounded-[10px] px-3 py-2 transition-colors duration-150'
+  );
+  source = replaceRequired(
+    source,
+    'message queue dragged bubble borderless',
+    "'bg-background-secondary border-primary opacity-70'",
+    "'bg-background-secondary/72 opacity-70'"
+  );
+  source = replaceRequired(
+    source,
+    'message queue dragover bubble borderless',
+    "'bg-background-secondary border-primary'",
+    "'bg-background-secondary/72'"
+  );
+  source = replaceRequired(
+    source,
+    'message queue hover bubble borderless',
+    "'bg-background-secondary border-border-primary'",
+    "'bg-background-secondary/64'"
+  );
+  source = replaceRequired(
+    source,
+    'message queue idle bubble borderless',
+    "'bg-background-primary hover:bg-background-secondary border-border-primary'",
+    "'bg-background-primary/54 hover:bg-background-secondary/56'"
+  );
+  source = replaceRequired(
+    source,
+    'message queue order chip borderless',
+    "'bg-background-secondary text-text-muted border border-border-primary'",
+    "'bg-background-secondary/60 text-text-muted'"
+  );
+  source = replaceRequired(
+    source,
+    'message queue edit textarea borderless',
+    'className="w-full text-sm bg-background-primary border border-border-primary rounded-[6px] px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-border-primary"',
+    'className="w-full resize-none rounded-[8px] bg-background-primary/60 px-2 py-1 text-sm outline-none transition-colors focus:bg-background-secondary/72 focus:ring-0"'
   );
   source = replaceRequired(
     source,
