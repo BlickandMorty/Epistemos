@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import WebKit
 
@@ -39,6 +40,8 @@ struct GooseWebSurfaceView: View {
     @State private var runtimeRetryTask: Task<Void, Never>?
     @State private var runtimeRetryAttempt = 0
     @State private var webUILoadTask: Task<Void, Never>?
+    // Coalesces live custom-palette edits (color-picker drags) into a single CSS re-inject.
+    @State private var themeReinjectTask: Task<Void, Never>?
     @State private var webUIRenderOverlayStatus: String?
     @State private var webUIRenderProbeLastResult: String?
     // Review H1/H3: the supervisor reaching .running and the bridge finishing provider-sync are both
@@ -104,6 +107,13 @@ struct GooseWebSurfaceView: View {
         .onChange(of: theme) { _, newTheme in
             applyNativeTheme(newTheme)
         }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .epistemosCustomThemeDidChange)
+                .receive(on: RunLoop.main)
+        ) { _ in
+            scheduleCustomThemeReinject()
+        }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
         }
@@ -116,6 +126,8 @@ struct GooseWebSurfaceView: View {
             runtimeRetryTask = nil
             webUILoadTask?.cancel()
             webUILoadTask = nil
+            themeReinjectTask?.cancel()
+            themeReinjectTask = nil
             supervisor.stop()
             gooseUIServer?.stop()
             surfaceStarted = false
@@ -502,6 +514,19 @@ struct GooseWebSurfaceView: View {
     private func applyNativeTheme(_ theme: EpistemosTheme) {
         Task { @MainActor in
             _ = try? await page.callJavaScript(Self.nativeThemeUpdateScript(theme: theme))
+        }
+    }
+
+    /// A live custom-palette edit bumps AppCustomTheme's revision but never changes the `theme`
+    /// enum, so `onChange(of: theme)` can't observe it. Re-inject the surface CSS — which reads the
+    /// now-fresh `theme.resolved` custom colors — coalescing rapid color-picker drags into one
+    /// update so the running WebView re-tints live and stays cheap.
+    private func scheduleCustomThemeReinject() {
+        themeReinjectTask?.cancel()
+        themeReinjectTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 40_000_000)
+            if Task.isCancelled { return }
+            applyNativeTheme(theme)
         }
     }
 

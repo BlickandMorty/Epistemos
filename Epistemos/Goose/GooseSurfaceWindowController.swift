@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -112,6 +113,15 @@ private struct GooseSurfaceHostedRootView: View {
             }
             .onChange(of: theme) { _, newTheme in
                 onThemeChange(newTheme)
+            }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .epistemosCustomThemeDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                // Re-tint the native window in lock-step with the WebView when the custom palette
+                // changes: the `theme` enum is unchanged, so onChange(of:) alone can't fire here.
+                onThemeChange(uiState.theme)
             }
     }
 }
