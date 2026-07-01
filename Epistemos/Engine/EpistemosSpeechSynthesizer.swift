@@ -5,8 +5,10 @@ import OSLog
 // MARK: - EpistemosSpeechSynthesizer
 //
 // Wave 9.1 — Apple-native TTS via AVSpeechSynthesizer.
-// Wave 9.1.b — premium-voice catalogue + interactive playback controls
-// (pause / resume / stop, live progress).
+// Wave 9.1.b — premium-voice catalogue + interactive playback controls.
+// Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. Until a
+// native Kokoro synthesis engine is wired, speak() honestly refuses playback
+// instead of falling back to Apple's basic AVSpeech voice.
 //
 // Per the W9 verdict (docs/WAVE_9_POLISH_AND_NATIVE.md): of the eight
 // Apple-native ML / capture frameworks Epistemos already integrates,
@@ -127,6 +129,40 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
 
     public static let shared = EpistemosSpeechSynthesizer()
 
+    nonisolated static let kokoroOnlyUnavailableMessage =
+        "Kokoro text-to-speech is unavailable until the native synthesis engine is wired. Apple AVSpeech is not used as a fallback."
+
+    private nonisolated static let nativeKokoroSynthesisEngineLinked = false
+
+    nonisolated static func isTextToSpeechAvailable(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) -> Bool {
+        nativeKokoroSynthesisEngineLinked
+            && KokoroVoiceGateStatus.status(
+                environment: environment,
+                modelRoot: modelRoot,
+                fileManager: fileManager
+            ).isReady
+    }
+
+    nonisolated static func textToSpeechStatusMessage(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) -> String {
+        let status = KokoroVoiceGateStatus.status(
+            environment: environment,
+            modelRoot: modelRoot,
+            fileManager: fileManager
+        )
+        guard nativeKokoroSynthesisEngineLinked, status.isReady else {
+            return kokoroOnlyUnavailableMessage
+        }
+        return status.headline
+    }
+
     // MARK: - Internals
 
     private static let log = Logger(
@@ -146,9 +182,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
 
     // MARK: - Speak API
 
-    /// Speak `text` using the best available voice for the user. If a
-    /// previous utterance is still in flight it is interrupted at the
-    /// current word boundary (per Apple's `.word` boundary contract).
+    /// Speak `text` only when the Kokoro synthesis path is live. The legacy
+    /// AVSpeech helpers remain for catalogue/picker compatibility, but they
+    /// are not used as the shipped voice fallback.
     @discardableResult
     public func speak(
         _ text: String,
@@ -163,27 +199,12 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         if synthesizer.isSpeaking || synthesizer.isPaused {
             synthesizer.stopSpeaking(at: .immediate)
         }
-
-        let utterance = Self.makeUtterance(
-            text: cleaned,
-            rate: rate,
-            pitch: pitch,
-            prosody: prosody
-        )
-        utterance.voice = Self.resolveVoice(identifier: voiceIdentifier)
-        let id = UUID().uuidString
-        inflight[id] = utterance
-        state = .speaking(
-            utteranceId: id,
-            charactersTotal: cleaned.count,
-            charactersSpoken: 0
-        )
-        synthesizer.speak(utterance)
-        let voiceLabel = utterance.voice?.identifier ?? "system-default"
+        inflight.removeAll()
+        state = .idle
         Self.log.info(
-            "Speak chars=\(cleaned.count, privacy: .public) voice=\(voiceLabel, privacy: .public) id=\(id, privacy: .public)"
+            "TTS unavailable chars=\(cleaned.count, privacy: .public); Kokoro-only synthesis is not wired and AVSpeech fallback is disabled"
         )
-        return id
+        return nil
     }
 
     public func pause() {

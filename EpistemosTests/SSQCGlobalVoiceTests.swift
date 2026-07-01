@@ -3,11 +3,9 @@ import Foundation
 
 @testable import Epistemos
 
-// SS-QC (owner 2026-06-20): a GLOBAL default voice that applies across EVERY TTS surface, set via a
-// voice picker in Settings, plus an honest quality hint ("premium sounds basic" = no Premium voice
-// is downloaded → System Settings → Spoken Content → Manage Voices) and a Personal Voice access
-// request hook. This guards the functional core (resolution + persistence) headless; the picker UI
-// + audio are owner-verified (non-blocking).
+// SS-QC (owner 2026-06-20) originally added Apple voice selection. Plan 3 owner update
+// 2026-06-30 makes shipped TTS Kokoro-only, so the old resolution helpers are retained
+// for compatibility but the visible picker and playback path must be gated unavailable.
 @Suite("SS-QC — global default voice")
 struct SSQCGlobalVoiceTests {
 
@@ -37,20 +35,22 @@ struct SSQCGlobalVoiceTests {
         #expect(EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier(defaults: defaults) == nil)
     }
 
-    @Test("resolveVoice consults the global default + Settings mounts the picker with the honest hint")
+    @Test("Settings mounts a Kokoro-only unavailable picker instead of Apple voice fallback")
     func wiring() throws {
         let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
-        // resolveVoice uses the global default (not only the per-call identifier / preferredVoice).
-        #expect(synth.contains("globalDefault: globalDefaultVoiceIdentifier()"))
-        // The picker is mounted in Settings and persists the choice.
+        #expect(synth.contains("kokoroOnlyUnavailableMessage"))
+        #expect(synth.contains("nativeKokoroSynthesisEngineLinked"))
+        #expect(synth.contains("KokoroVoiceGateStatus.status("))
+        #expect(!synth.contains("synthesizer.speak(utterance)"))
+
         let section = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
         #expect(section.contains("ModelVoicePickerSection("))
         #expect(section.contains("EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)"))
-        // The picker content surfaces the honest premium-download hint (so "sounds basic" is explained).
+
         let picker = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ModelVoicePickerSection.swift")
-        #expect(picker.contains("voiceQualityHint()"))
-        #expect(picker.contains("personalVoiceAccessView"))
-        #expect(picker.contains("requestPersonalVoiceAccess()"))
+        #expect(picker.contains("unavailableTextToSpeechView"))
+        #expect(picker.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
+        #expect(picker.contains("EpistemosSpeechSynthesizer.textToSpeechStatusMessage()"))
         #expect(picker.contains("ToolbarCapsuleButton("))
     }
 
@@ -149,11 +149,12 @@ struct SSQCGlobalVoiceTests {
         )
     }
 
-    @Test("Quick Capture surfaces the voice picker at point of use + persists to the global default")
+    @Test("Quick Capture no longer surfaces the Apple voice picker")
     func quickCaptureMountsVoicePicker() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
-        // A point-of-use picker over the shared grouped voices, persisting to the global default.
-        #expect(src.contains("EpistemosSpeechSynthesizer.voicesGroupedByTier(captureVoices)"))
-        #expect(src.contains("EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)"))
+        #expect(!src.contains("captureVoices"))
+        #expect(!src.contains("EpistemosSpeechSynthesizer.voicesGroupedByTier(captureVoices)"))
+        #expect(!src.contains("EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)"))
+        #expect(src.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
     }
 }

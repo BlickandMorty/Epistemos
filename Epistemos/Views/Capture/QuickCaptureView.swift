@@ -88,11 +88,6 @@ struct QuickCaptureView: View {
     // sentence is read once, never repeatedly). Only active when the pref is .auto.
     @State private var readBackTask: Task<Void, Never>?
     @State private var lastSpokenSentence = ""
-    // SS-QC (owner 2026-06-20): point-of-use voice picker. The chosen voice is the GLOBAL default
-    // (applies to read-back here + every TTS surface). Voices load lazily from the OS catalogue.
-    @State private var captureVoiceIdentifier: String? = EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier()
-    @State private var captureVoices: [EpistemosSpeechSynthesizer.VoiceOption] = []
-
     private var theme: EpistemosTheme { ui.theme }
 
     /// Cheap client-side preview of what the AFM @Generable extraction
@@ -371,62 +366,10 @@ struct QuickCaptureView: View {
                 .buttonStyle(.plain)
                 .disabled(isProcessing || isTranscribing)
 
-                // SS-QC (owner 2026-06-20): voice picker AT POINT OF USE — choose the read-aloud
-                // voice right here on the capture surface, not only in Settings. Bound to the
-                // GLOBAL default voice, so the choice applies to this read-back AND every other TTS
-                // surface. Grouped Premium > Enhanced > Default; "System default" clears it.
-                Menu {
-                    // SS-QC voice honesty (owner 2026-06-20: "tried the premium Apple-native voices"
-                    // but none was downloaded). Surface the SAME honest availability hint Settings
-                    // shows — so when no Premium/Enhanced voice is installed, the picker tells the user
-                    // exactly how to get one (System Settings → Spoken Content → Manage Voices) instead
-                    // of silently offering "Premium (download required)" with no path.
-                    Text(EpistemosSpeechSynthesizer.voiceQualityHint().message)
-                    Divider()
-                    Picker("Voice", selection: $captureVoiceIdentifier) {
-                        Text("System default").tag(nil as String?)
-                        ForEach(
-                            EpistemosSpeechSynthesizer.voicesGroupedByTier(captureVoices),
-                            id: \.0
-                        ) { tier, options in
-                            Section(tier.label) {
-                                ForEach(options) { option in
-                                    Text("\(option.displayName) — \(option.language)")
-                                        .tag(Optional(option.identifier))
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "person.wave.2")
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background {
-                            Rectangle()
-                                .fill(PixelPanelBackground.actionSurface(for: theme).opacity(0.84))
-                        }
-                        .overlay {
-                            Rectangle()
-                                .stroke(theme.border.opacity(theme.isDark ? 0.24 : 0.34), lineWidth: 1)
-                        }
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help("Choose the read-aloud voice (applies everywhere)")
-                .onChange(of: captureVoiceIdentifier) { _, newValue in
-                    EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier(newValue)
-                }
-                .task {
-                    if captureVoices.isEmpty {
-                        captureVoices = EpistemosSpeechSynthesizer.availableVoices(language: "en")
-                    }
-                }
-
-                // SS-QC (D): manual TTS read-back of the captured text. Reuses the shared AVSpeech
-                // synth via ReadAloudButton (auto-disables when empty; the live progress halo shows
-                // how much has been read). It speaks with the point-of-use / global default voice
-                // picked above. Honest note: "model voice" today is an AVSpeech persona — no
-                // neural/MLX TTS exists yet (cross-ref SS-Q).
+                // Plan 3 owner update 2026-06-30: TTS is Kokoro-only. The
+                // read-aloud affordance remains visible but disabled until
+                // native Kokoro synthesis is wired; no Apple voice picker or
+                // AVSpeech fallback is surfaced here.
                 ReadAloudButton(text: captureText, style: .iconWithProgress)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -592,6 +535,7 @@ struct QuickCaptureView: View {
     /// (never re-speak the same sentence) keep it calm — never a stutter of half-typed fragments.
     private func scheduleQuickCaptureReadBack(for text: String) {
         guard VoicePreferences.shared.quickCaptureReadBack == .auto else { return }
+        guard EpistemosSpeechSynthesizer.isTextToSpeechAvailable() else { return }
         readBackTask?.cancel()
         readBackTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(750))

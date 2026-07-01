@@ -19,19 +19,20 @@ struct VoiceCodepackPlan3Tests {
             "Live macOS 26 STT is surfaced",
             "bounded domain/code diagnostics",
             "raw status/domain strings bounded before trimming or punctuation validation",
-            "Preferred voice floor is quality-first",
-            "SSML/prosody fallback exists",
+            "Kokoro-only TTS is honestly unavailable until the native engine is wired",
+            "Legacy Apple voice code is unwired from the shipped TTS path",
             "Personal Voice authorization is live",
             "Pro Kokoro gate is honest",
             "Local Kokoro package install/removal is real but runtime-disabled",
             "manifest-derived package evidence",
             "bounded-before-trim model-relative diagnostics with ellipsis inside configured caps",
-            "Pro-only Voice settings section",
-            "Pro neural voice",
+            "Voice settings section now shows",
+            "TTS unavailable",
+            "Kokoro neural voice",
             "Readiness rejects symlink-routed or non-regular model artifacts",
             "Pro Kokoro gate, settings presentation, and checked package install/removal",
             "failed replacement install rolls back to the previous package",
-            "[DONE] Patch the AVSpeech preferred voice floor",
+            "[DONE] Gate shipped TTS as Kokoro-only",
             "[DONE] Wire or remove `agentResponseTTS`",
             "[DONE] Add `LiveVoiceInputService`",
             "[DONE] Rewire `VoiceInputButton`",
@@ -73,7 +74,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("## Delivered MAS-safe fixes"))
         #expect(plan.contains("## Pro Kokoro lane `[STATUS GATE DELIVERED; RUNTIME DEFERRED]`"))
         #expect(plan.contains("## Delivery order"))
-        #expect(capabilities.contains("Voice — SHIPPED (Pass 8)"))
+        #expect(capabilities.contains("Voice — STT SHIPPED; TTS KOKORO-ONLY GATED (Pass 8)"))
+        #expect(capabilities.contains("Kokoro-only read-aloud availability"))
         #expect(capabilities.contains("domain/code-redacted status/error text"))
         #expect(capabilities.contains("raw status/domain strings bounded before trimming"))
         #expect(capabilities.contains("status ellipsis kept inside the configured cap"))
@@ -83,6 +85,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("bounded-before-trim model-relative status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
         #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
+        #expect(capabilities.contains("no Apple AVSpeech fallback"))
         #expect(capabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("manifest-derived package evidence"))
         #expect(capabilities.contains("no committed model asset, network downloader, neural inference"))
@@ -91,6 +94,8 @@ struct VoiceCodepackPlan3Tests {
         for stale in [
             "Research/code in a later pass",
             "Kokoro-82M Pro voice + SSML",
+            "Apple AVSpeech TTS wrapper",
+            "AVSpeech selected until real neural inference is proven",
         ] where capabilities.contains(stale) {
             Issue.record("Plan 3 capabilities still contains stale Voice phrase: \(stale)")
         }
@@ -103,8 +108,9 @@ struct VoiceCodepackPlan3Tests {
         for required in [
             "Do not edit `Epistemos/Goose/*`",
             "Do not build Plan 2 editor features here",
-            "Apple Speech/AVSpeech are the MAS defaults",
-            "Whisper/Kokoro are Pro options",
+            "Apple Speech remains the native STT lane",
+            "Kokoro is the only shipped TTS lane",
+            "do not ship AVSpeech/basic system voice as read-aloud/TTS fallback",
             "Do not add Python/subprocess inference on the MAS path"
         ] {
             #expect(plan.contains(required), "Missing voice boundary: \(required)")
@@ -135,6 +141,9 @@ struct VoiceCodepackPlan3Tests {
         #expect(readAloud.contains("@Environment(UIState.self)"))
         #expect(readAloud.contains("ToolbarCapsuleButton("))
         #expect(readAloud.contains("NativeControlChromePolicy"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
+        #expect(readAloud.contains("EpistemosSpeechSynthesizer.textToSpeechStatusMessage()"))
+        #expect(readAloud.contains("guard isTextToSpeechAvailable else { return }"))
         #expect(readAloud.contains("ui.theme.resolved.accent.color"))
         #expect(readAloud.contains("ui.theme.resolved.foreground.color.opacity"))
         #expect(!readAloud.contains(".buttonStyle(.borderless)"))
@@ -293,7 +302,7 @@ struct VoiceCodepackPlan3Tests {
 
         for file in files {
             let source = try loadMirroredSourceTextFile(file)
-            for forbidden in ["Kokoro", "Whisper", "Process(", "NSTask", "Python", "Chromium"] {
+            for forbidden in ["Whisper", "Process(", "NSTask", "Python", "Chromium"] {
                 #expect(!source.contains(forbidden), "\(file) crossed voice MAS boundary: \(forbidden)")
             }
         }
@@ -354,7 +363,7 @@ struct VoiceCodepackPlan3Tests {
             "size mismatch",
             "digest mismatch",
             "package file digests match",
-            "AVSpeech remains the voice runtime",
+            "Apple AVSpeech is not used as a fallback",
             "Runtime readiness, not merely model-package readiness",
             "var packageEvidence: PackageEvidence? = nil",
             "Kokoro voice: model package ready, runtime deferred"
@@ -388,10 +397,11 @@ struct VoiceCodepackPlan3Tests {
         #expect(!appleSection.contains("Kokoro"))
 
         #expect(section.contains("KokoroVoiceGateStatus.status()"))
-        #expect(section.contains("case kokoroProNeural"))
+        #expect(section.contains("case kokoroNeural"))
         #expect(section.contains("case .packageReady"))
-        #expect(section.contains("return \"Pro neural voice\""))
-        #expect(section.contains("selectedRuntime: .appleAVSpeech"))
+        #expect(section.contains("return \"Kokoro neural voice\""))
+        #expect(section.contains("return \"TTS unavailable\""))
+        #expect(section.contains("selectedRuntime: .textToSpeechUnavailable"))
         #expect(section.contains("detail: status.detail"))
         #expect(section.contains(".disabled(!presentation.proRuntimeEnabled)"))
         #expect(section.contains("@Environment(UIState.self)"))
@@ -455,7 +465,7 @@ struct VoiceCodepackPlan3Tests {
             "installed.status.state == .packageReady",
             "packageReady.packageEvidence",
             "installed.status.packageEvidence",
-            "packageEvidence.settingsSummary.contains(\"AVSpeech remains active\")",
+            "packageEvidence.settingsSummary.contains(\"Kokoro synthesis remains unavailable\")",
             "KokoroVoicePackageInstaller.removeInstalledPackage",
             "removed.status.state == .missingModel",
             "!FileManager.default.fileExists(atPath: installedModelPath)",
@@ -472,19 +482,19 @@ struct VoiceCodepackPlan3Tests {
             state: .missingModel,
             isReady: false,
             headline: "Kokoro voice: model package missing",
-            detail: "Expected kokoro-82m-coreml. AVSpeech remains the voice runtime."
+            detail: "Expected kokoro-82m-coreml. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
         )
         let packageReady = KokoroVoiceGateStatus.Status(
             state: .packageReady,
             isReady: false,
             headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but neural inference is not wired yet. AVSpeech remains the voice runtime."
+            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
         )
         let packageReadyWithEvidence = KokoroVoiceGateStatus.Status(
             state: .packageReady,
             isReady: false,
             headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but neural inference is not wired yet. AVSpeech remains the voice runtime.",
+            detail: "The checked Pro model package manifest and package file digests match in kokoro-82m-coreml, but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: KokoroVoiceGateStatus.PackageEvidence(
                 modelDirectoryName: KokoroVoiceGateStatus.modelDirectoryName,
                 manifestFileName: KokoroVoiceGateStatus.manifestFileName,
@@ -496,21 +506,21 @@ struct VoiceCodepackPlan3Tests {
         )
 
         let missingPresentation = KokoroVoiceProSettingsModel.presentation(for: missing)
-        #expect(missingPresentation.selectedRuntime == .appleAVSpeech)
+        #expect(missingPresentation.selectedRuntime == .textToSpeechUnavailable)
         #expect(!missingPresentation.proRuntimeEnabled)
         #expect(missingPresentation.badgeTitle == "Model required")
 
         let packageReadyPresentation = KokoroVoiceProSettingsModel.presentation(for: packageReady)
-        #expect(packageReadyPresentation.selectedRuntime == .appleAVSpeech)
+        #expect(packageReadyPresentation.selectedRuntime == .textToSpeechUnavailable)
         #expect(!packageReadyPresentation.proRuntimeEnabled)
         #expect(packageReadyPresentation.badgeTitle == "Package ready")
-        #expect(packageReadyPresentation.detail.contains("neural inference is not wired yet"))
+        #expect(packageReadyPresentation.detail.contains("native Kokoro synthesis is not wired yet"))
 
         let evidencePresentation = KokoroVoiceProSettingsModel.presentation(for: packageReadyWithEvidence)
         #expect(evidencePresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.modelPackageName) == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("2 checked files") == true)
         #expect(evidencePresentation.packageEvidenceSummary?.contains("42 declared bytes") == true)
-        #expect(evidencePresentation.packageEvidenceSummary?.contains("AVSpeech remains active") == true)
+        #expect(evidencePresentation.packageEvidenceSummary?.contains("Kokoro synthesis remains unavailable") == true)
     }
 
     @Test("Kokoro package installer stages checked local package without enabling runtime")
@@ -646,7 +656,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(status.headline.contains("runtime deferred"))
         #expect(status.detail.contains(KokoroVoiceGateStatus.modelDirectoryName))
         #expect(status.detail.contains("package file digests match"))
-        #expect(status.detail.contains("AVSpeech remains the voice runtime"))
+        #expect(status.detail.contains("Apple AVSpeech is not used as a fallback"))
         #expect(status.packageEvidence?.manifestFileCount == 2)
         #expect((status.packageEvidence?.declaredPackageBytes ?? 0) > 0)
         #expect(status.packageEvidence?.settingsSummary.contains(KokoroVoiceGateStatus.modelPackageName) == true)

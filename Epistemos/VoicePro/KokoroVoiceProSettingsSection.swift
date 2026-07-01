@@ -3,17 +3,17 @@ import SwiftUI
 
 nonisolated enum KokoroVoiceProSettingsModel {
     enum RuntimeChoice: String, CaseIterable, Identifiable, Sendable {
-        case appleAVSpeech
-        case kokoroProNeural
+        case textToSpeechUnavailable
+        case kokoroNeural
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
-            case .appleAVSpeech:
-                return "Apple AVSpeech"
-            case .kokoroProNeural:
-                return "Pro neural voice"
+            case .textToSpeechUnavailable:
+                return "TTS unavailable"
+            case .kokoroNeural:
+                return "Kokoro neural voice"
             }
         }
     }
@@ -31,7 +31,7 @@ nonisolated enum KokoroVoiceProSettingsModel {
         switch status.state {
         case .packageReady:
             return Presentation(
-                selectedRuntime: .appleAVSpeech,
+                selectedRuntime: .textToSpeechUnavailable,
                 proRuntimeEnabled: false,
                 headline: status.headline,
                 detail: status.detail,
@@ -40,7 +40,7 @@ nonisolated enum KokoroVoiceProSettingsModel {
             )
         case .missingModel:
             return Presentation(
-                selectedRuntime: .appleAVSpeech,
+                selectedRuntime: .textToSpeechUnavailable,
                 proRuntimeEnabled: false,
                 headline: status.headline,
                 detail: status.detail,
@@ -49,7 +49,7 @@ nonisolated enum KokoroVoiceProSettingsModel {
             )
         case .unavailable:
             return Presentation(
-                selectedRuntime: .appleAVSpeech,
+                selectedRuntime: .textToSpeechUnavailable,
                 proRuntimeEnabled: false,
                 headline: status.headline,
                 detail: status.detail,

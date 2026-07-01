@@ -3,11 +3,9 @@ import Foundation
 
 @testable import Epistemos
 
-// SS-QC (D) (owner 2026-06-20): manual TTS read-back in Quick Capture. The owner asked to "add the
-// model text-to-speech... read back to you automatically or manually." This slice adds the MANUAL
-// control (the canonical doc's recommended first step — small, self-contained, no TK2/routing
-// touch), reusing the shipped ReadAloudButton + EpistemosSpeechSynthesizer. Honest: "model voice"
-// today is an AVSpeech persona, not neural TTS (cross-ref SS-Q). Auto-on-type is the follow-on.
+// SS-QC (D) (owner 2026-06-20): manual TTS read-back in Quick Capture.
+// Plan 3 owner update 2026-06-30: the button stays mounted, but playback is
+// Kokoro-only and honestly disabled until native synthesis is wired.
 @Suite("SS-QC quick-capture TTS read-back (manual)")
 struct SSQCQuickCaptureReadBackTests {
 
@@ -53,11 +51,13 @@ struct SSQCQuickCaptureReadBackTests {
         #expect(src.contains("d.set(VoiceDecisionMode.manual.rawValue, forKey: VoicePreferenceKeys.quickCaptureReadBack)"))
     }
 
-    // The view debounces + dedups + gates on the pref, and stops speech on close.
+    // The view debounces + dedups + gates on the pref and the Kokoro-only TTS gate,
+    // and stops any transient speech state on close.
     @Test("QuickCaptureView wires debounced, deduped auto read-back gated on the pref")
     func autoReadBackWired() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
         #expect(src.contains("VoicePreferences.shared.quickCaptureReadBack == .auto"))
+        #expect(src.contains("EpistemosSpeechSynthesizer.isTextToSpeechAvailable()"))
         #expect(src.contains("Task.sleep(for: .milliseconds(750))"))
         #expect(src.contains("sentence != lastSpokenSentence"))
         #expect(src.contains("EpistemosSpeechSynthesizer.shared.stop()"))

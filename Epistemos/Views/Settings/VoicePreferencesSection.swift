@@ -21,8 +21,8 @@ public struct VoicePreferencesSection: View {
     @Environment(UIState.self) private var ui
     @State private var prefs = VoicePreferences.shared
     @State private var expanded: Set<String> = []
-    // SS-QC (owner 2026-06-20): the global default voice (persisted via EpistemosSpeechSynthesizer)
-    // + preview-only rate/pitch for the picker's "Hear preview" control.
+    // Legacy Apple-voice picker state is kept inert while shipped TTS is Kokoro-only.
+    // Preview rate/pitch remain parked here for the future native Kokoro control.
     @State private var globalVoiceIdentifier: String? = EpistemosSpeechSynthesizer.globalDefaultVoiceIdentifier()
     @State private var voicePreviewRate: Double = 0.5
     @State private var voicePreviewPitch: Double = 1.0
@@ -62,11 +62,9 @@ public struct VoicePreferencesSection: View {
             )
         }
 
-        // SS-QC (owner 2026-06-20): the global default voice + the HONEST quality hint. The picker
-        // (its own Section, quality-grouped Premium > Enhanced > Default) surfaces voiceQualityHint()
-        // — so when TTS "sounds basic" the user is told it's because no Premium voice is downloaded,
-        // and how to get one (System Settings → Spoken Content → Manage Voices). The chosen voice
-        // becomes the default for EVERY TTS surface (resolveVoice consults it).
+        // Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. This section now shows an
+        // honest unavailable state until native Kokoro synthesis is wired; it does not surface
+        // Apple's basic AVSpeech voice as a fallback.
         ModelVoicePickerSection(
             voiceIdentifier: $globalVoiceIdentifier,
             rate: $voicePreviewRate,
@@ -115,11 +113,12 @@ public struct VoicePreferencesSection: View {
                         title: "Preview",
                         systemImage: "play.circle",
                         role: .toolbarUtility,
-                        helpText: "Preview voice behavior",
-                        accessibilityLabel: "Preview voice behavior"
+                        helpText: voicePreviewHelpText,
+                        accessibilityLabel: voicePreviewHelpText
                     ) {
                         EpistemosSpeechSynthesizer.shared.speak(preview)
                     }
+                    .disabled(!EpistemosSpeechSynthesizer.isTextToSpeechAvailable())
                 }
                 Spacer()
             }
@@ -145,6 +144,12 @@ public struct VoicePreferencesSection: View {
         } else {
             expanded.insert(key)
         }
+    }
+
+    private var voicePreviewHelpText: String {
+        EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+            ? "Preview voice behavior"
+            : EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
     }
 
     private var rationaleBackground: Color {

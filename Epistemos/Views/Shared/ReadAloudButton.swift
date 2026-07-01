@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - ReadAloudButton
 //
 // Wave 9.1 — drop-in SwiftUI control any view can use to expose
-// AVSpeechSynthesizer-backed read-aloud for a piece of text.
+// Kokoro-only read-aloud control for a piece of text.
 // Wave 9.1.b — per-model voice + interactive playback (pause /
 // resume / stop, live progress).
 //
@@ -106,7 +106,9 @@ public struct ReadAloudButton: View {
 
     @ViewBuilder
     private var contextActions: some View {
-        if synth.state.isActive {
+        if !isTextToSpeechAvailable {
+            Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
+        } else if synth.state.isActive {
             Button("Stop", systemImage: "stop.fill") { synth.stop() }
             switch synth.state {
             case .speaking:
@@ -126,10 +128,14 @@ public struct ReadAloudButton: View {
     // MARK: - Derived
 
     private var disabled: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !isTextToSpeechAvailable
     }
 
     private var isActive: Bool { synth.state.isActive }
+
+    private var isTextToSpeechAvailable: Bool {
+        EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+    }
 
     private var chromePolicy: NativeControlChromePolicy {
         switch style {
@@ -157,6 +163,7 @@ public struct ReadAloudButton: View {
     }
 
     private var label: String {
+        guard isTextToSpeechAvailable else { return "TTS unavailable" }
         switch synth.state {
         case .idle:     return "Speak"
         case .speaking: return "Pause"
@@ -165,6 +172,9 @@ public struct ReadAloudButton: View {
     }
 
     private var help: String {
+        guard isTextToSpeechAvailable else {
+            return EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+        }
         switch synth.state {
         case .idle:     return "Read aloud"
         case .speaking: return "Pause read-aloud"
@@ -175,6 +185,7 @@ public struct ReadAloudButton: View {
     // MARK: - Action
 
     private func toggle() {
+        guard isTextToSpeechAvailable else { return }
         switch synth.state {
         case .idle:
             synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch)

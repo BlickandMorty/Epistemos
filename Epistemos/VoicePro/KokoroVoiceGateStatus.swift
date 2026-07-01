@@ -45,7 +45,7 @@ nonisolated enum KokoroVoiceGateStatus {
 
         var settingsSummary: String {
             let fileLabel = manifestFileCount == 1 ? "file" : "files"
-            return "\(modelPackageName): \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) package. AVSpeech remains active."
+            return "\(modelPackageName): \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) package. Kokoro synthesis remains unavailable until the native engine is wired."
         }
     }
 
@@ -71,7 +71,7 @@ nonisolated enum KokoroVoiceGateStatus {
             state: .unavailable,
             isReady: false,
             headline: "Kokoro voice: unavailable in App Store build",
-            detail: "The App Store build uses Apple AVSpeech voices only. Kokoro is a Pro-only neural voice lane and no model runtime is launched."
+            detail: "Text-to-speech is Kokoro-only. The App Store build has no shipped TTS until native Kokoro synthesis is wired; Apple AVSpeech is not used as a fallback."
         )
         #else
         guard isEnabled(environment[flagName]) else {
@@ -79,7 +79,7 @@ nonisolated enum KokoroVoiceGateStatus {
                 state: .unavailable,
                 isReady: false,
                 headline: "Kokoro voice: off",
-                detail: "Set \(flagName)=1 in a Pro build after installing the checked model package. Off means AVSpeech remains the voice runtime."
+                detail: "Set \(flagName)=1 in a Pro build after installing the checked model package. Off means text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 
@@ -88,7 +88,7 @@ nonisolated enum KokoroVoiceGateStatus {
                 state: .missingModel,
                 isReady: false,
                 headline: "Kokoro voice: model location unavailable",
-                detail: "Application Support could not be resolved. AVSpeech remains the voice runtime."
+                detail: "Application Support could not be resolved. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 
@@ -131,7 +131,7 @@ nonisolated enum KokoroVoiceGateStatus {
                 state: .missingModel,
                 isReady: false,
                 headline: "Kokoro voice: model package missing",
-                detail: "Expected \(modelDirectoryName), but \(problems.joined(separator: ", ")). AVSpeech remains the voice runtime."
+                detail: "Expected \(modelDirectoryName), but \(problems.joined(separator: ", ")). Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback."
             )
         }
 
@@ -140,7 +140,7 @@ nonisolated enum KokoroVoiceGateStatus {
             state: .packageReady,
             isReady: false,
             headline: "Kokoro voice: model package ready, runtime deferred",
-            detail: "The checked Pro model package manifest and package file digests match in \(modelDirectoryName), but neural inference is not wired yet. AVSpeech remains the voice runtime.",
+            detail: "The checked Pro model package manifest and package file digests match in \(modelDirectoryName), but native Kokoro synthesis is not wired yet. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: packageEvidence
         )
         #endif

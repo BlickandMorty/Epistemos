@@ -1,18 +1,17 @@
 # Plan 3 — Voice codepack (shipped code, Pass 8)
 
-> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §11`. Scope: Apple-native voice polish first, then Pro neural voice.
+> Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §11`. Scope: Apple-native STT plus Kokoro-only TTS gating.
 > This codepack is grounded in current source and supersedes older broad voice notes where they conflict. Plan 3 owns
 > voice engines/settings/shared controls; Plan 2 editor surfaces are integration consumers only.
 
 ## Shipped state `[VERIFIED-CODE]`
-- **TTS is real and MAS-safe:** `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` wraps `AVSpeechSynthesizer` as
-  `@MainActor @Observable`, supports speak/pause/resume/stop, per-range progress, voice catalogue, global default voice
-  identifier, and honest `voiceQualityHint()`. `ReadAloudButton` renders the shared TTS control through native capsule
-  chrome and theme-derived progress colors.
-- **Voice picker is real:** `VoicePreferencesSection` mounts `ModelVoicePickerSection`, persists the global default via
-  `EpistemosSpeechSynthesizer.setGlobalDefaultVoiceIdentifier`, and surfaces the premium-download hint. Its Why/Preview
-  actions render through shared `ToolbarCapsuleButton` chrome, and rationale text uses theme-derived muted foreground
-  plus surface tint instead of local borderless/raw secondary styling.
+- **Kokoro-only TTS is honestly unavailable until the native engine is wired:** `EpistemosSpeechSynthesizer.speak()`
+  refuses playback while `KokoroVoiceGateStatus.isReady == false` and the native Kokoro synthesis engine is not linked.
+  It does not call `AVSpeechSynthesizer.speak` as a silent fallback. `ReadAloudButton` remains visible through native
+  capsule chrome but disables itself with the same Kokoro-only unavailable status.
+- **Legacy Apple voice code is unwired from the shipped TTS path:** the AVSpeech catalogue, global default identifier,
+  Personal Voice helpers, and voice-quality hints remain in code only for compatibility and future migration. Shipped
+  read-aloud/TTS surfaces do not expose an Apple voice picker or use AVSpeech as the playback path.
 - **Visible auto toggles are consumer-backed:** `VoicePreferences.shared.noteReadAloud == .auto` is consumed by
   `ProseEditorView`; `quickCaptureReadBack == .auto` is consumed by `QuickCaptureView`; `dictationAutoStop == .auto`
   is consumed by `MeetingNoteCaptureService` as a 2-second auto-stop after final silence.
@@ -37,25 +36,24 @@
   configured cap.
 - **Reusable mic API has no inert auto-stop flag:** `VoiceInputButton` is manual by design; surfaces that support
   automatic silence-stop own the policy at their capture-service boundary.
-- **Preferred voice floor is quality-first:** `preferredVoice()` now resolves installed voices by Premium > Enhanced >
-  Default and uses locale only as a tie-breaker; the language constructor is not the normal floor.
-- **SSML/prosody fallback exists:** `speak(..., prosody:)` builds an SSML utterance when possible and falls back to a
-  plain utterance while preserving rate/pitch clamping.
-- **Personal Voice authorization is live:** `EpistemosSpeechSynthesizer` wraps
+- **Legacy Apple voice compatibility helpers stay source-guarded:** `preferredVoice()` resolves installed voices by
+  Premium > Enhanced > Default, `speak(..., prosody:)` still has an SSML/plain utterance builder for any future migration,
+  and those helpers are not wired into shipped playback while Kokoro synthesis is unavailable.
+- **Personal Voice authorization is live but not a shipped TTS fallback:** `EpistemosSpeechSynthesizer` wraps
   `AVSpeechSynthesizer.personalVoiceAuthorizationStatus` and `requestPersonalVoiceAuthorization` behind a macOS 14+
-  availability gate. `ModelVoicePickerSection` exposes a native capsule affordance to request access, refreshes the voice
-  catalogue after authorization, and keeps the picker on theme-derived tints instead of hardcoded system colors.
+  availability gate. `ModelVoicePickerSection` exposes an unavailable TTS state until Kokoro synthesis is live and keeps
+  any hidden legacy picker affordances on theme-derived tints instead of hardcoded system colors.
 - **Pro Kokoro gate is honest:** `KokoroVoiceGateStatus` exists as a status-only gate. MAS returns unavailable, Pro
-  requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps AVSpeech as the
-  runtime. Package verification rejects symlink-routed or non-regular model artifacts, requires a bounded no-follow install
+  requires `EPISTEMOS_KOKORO_VOICE_PRO_V0=1`, and missing `manifest.json`/`Kokoro82M.mlpackage` keeps text-to-speech
+  unavailable with no Apple AVSpeech fallback. Package verification rejects symlink-routed or non-regular model artifacts, requires a bounded no-follow install
   manifest with the expected schema/model/runtime/package fields, requires JSON numeric fields to be finite integers,
   caps declared per-file and total package bytes before digesting any listed artifact, and verifies the listed `.mlpackage` file sizes plus SHA-256 digests before reporting
   `packageReady`. Package-ready status carries manifest-derived package evidence (model package, runtime, checked
   file count, and declared bytes) without exposing local roots. `isReady` remains false until real neural synthesis is wired and
   selectable. Status details use bounded-before-trim model-relative diagnostics with ellipsis inside configured caps
   instead of local absolute model paths. A Pro-only
-  Voice settings section now shows the `Apple AVSpeech` / `Pro neural voice` runtime affordance and keeps AVSpeech
-  selected until both the checked package and real neural inference runtime are proven.
+  Voice settings section now shows the `TTS unavailable` / `Kokoro neural voice` runtime affordance and keeps TTS
+  unavailable until both the checked package and real native Kokoro synthesis runtime are proven.
 - **Local Kokoro package install/removal is real but runtime-disabled:** `KokoroVoicePackageInstaller` lets Pro users choose a
   prepared `kokoro-82m-coreml` folder (or its parent), validates it with the existing gate, rejects symlink descendants,
   rejects symlink-routed install roots before Application Support writes, stages it under Application Support with backup/restore finalization, revalidates the installed package before the
@@ -67,13 +65,13 @@
   runtime-disabled `packageReady` presentation without enabling neural inference.
 
 ## Delivered MAS-safe fixes
-1. **Fix the preferred voice floor.** `[DONE]` `preferredVoice()` is identifier-first over installed voices:
-   Premium > Enhanced > Default, with current locale only as a tie-breaker.
-2. **Add SSML/prosody fallback path.** `[DONE]` `speak(..., prosody:)` tries
-   `AVSpeechUtterance(ssmlRepresentation:)`, falls back to `AVSpeechUtterance(string:)`, and preserves clamped
-   rate/pitch.
-3. **Add Personal Voice authorization.** `[DONE]` The shared voice picker can request Personal Voice access on macOS 14+,
-   then refresh the AVSpeech voice catalogue so user-created voices can appear when Apple grants access.
+1. **Gate shipped TTS as Kokoro-only.** `[DONE]` `EpistemosSpeechSynthesizer.speak()` returns no playback while Kokoro
+   synthesis is unavailable, disables read-aloud controls through `isTextToSpeechAvailable()`, and does not use AVSpeech
+   as the fallback path.
+2. **Keep legacy Apple voice helpers compatibility-only.** `[DONE]` AVSpeech voice catalogue, preferred-voice,
+   SSML/prosody, and Personal Voice helpers remain guarded for compatibility but are unwired from shipped playback.
+3. **Remove visible Apple voice selection from Quick Capture.** `[DONE]` Quick Capture keeps the shared read-aloud
+   affordance but no longer surfaces a point-of-use Apple voice picker.
 4. **Make `agentResponseTTS` honest.** `[DONE]` The Settings row is hidden until an assistant-stream completion
    consumer exists.
 5. **Make the mic honest while STT is disabled.** `[DONE]` `VoiceInputButton` no longer points at the removed composer
@@ -92,22 +90,24 @@ Meeting/lecture note should get its own codepack, but Voice provides the reusabl
 Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - `[DONE]` Add `Epistemos/VoicePro/KokoroVoiceGateStatus.swift` with `.unavailable/.missingModel/.packageReady`;
   package-ready still keeps `isReady=false` until synthesis works.
-- `[DONE]` Add a Pro-only Voice settings status/runtime affordance that says "Pro neural voice" but falls back to
-  AVSpeech by disabling the Pro lane until the checked package gate and real neural inference runtime are both proven.
+- `[DONE]` Add a Pro-only Voice settings status/runtime affordance that says "TTS unavailable" until the checked package
+  gate and real Kokoro native synthesis runtime are both proven. The disabled target runtime is "Kokoro neural voice";
+  there is no Apple AVSpeech fallback lane.
 - `[DONE]` Add a Pro-only local checked-package installer/remover so a prepared package can reach `packageReady` and be
   cleared again without adding a network downloader or neural runtime.
 - Store model assets outside MAS target resources; never commit model weights.
 - Integrate through the existing model download manager only after that manager is proven healthy.
-- The Pro runtime row must continue saying "Pro neural voice" and fall back to AVSpeech instantly when missing or when
-  package readiness exists without a proven inference runtime.
+- The Pro runtime row must continue saying "TTS unavailable" until a checked package and proven Kokoro synthesis runtime
+  exist; package readiness without synthesis must not enable playback.
 - Do not add Python/subprocess inference on the MAS path.
 
 ## Shipped files / source guards
-- `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — preferred voice floor + utterance builder/SSML fallback.
-- `Epistemos/Views/Shared/ReadAloudButton.swift` — shared AVSpeech control on native capsule chrome with theme-derived
-  progress drawing.
-- `Epistemos/Views/Shared/ModelVoicePickerSection.swift` — global voice picker, Premium/Enhanced install hint, and
-  macOS 14+ Personal Voice authorization affordance on shared native capsule chrome.
+- `Epistemos/Engine/EpistemosSpeechSynthesizer.swift` — Kokoro-only TTS availability gate; legacy AVSpeech helpers remain
+  compatibility-only and are not the shipped playback path.
+- `Epistemos/Views/Shared/ReadAloudButton.swift` — shared Kokoro-only read-aloud control on native capsule chrome with
+  theme-derived progress drawing and honest unavailable state.
+- `Epistemos/Views/Shared/ModelVoicePickerSection.swift` — unavailable Kokoro-only TTS state plus hidden legacy Apple
+  voice compatibility helpers.
 - `Epistemos/Engine/VoicePreferences.swift` — keep keys, but only expose keys with consumers.
 - `Epistemos/Views/Settings/VoicePreferencesSection.swift` — remove or honestly gate `agentResponseTTS` until wired, and
   keep visible rationale/preview controls on shared native chrome.
@@ -115,10 +115,10 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
   finite/clamped model download progress, and capped user-facing status/error text.
 - `Epistemos/Views/Shared/VoiceInputButton.swift` — consume the live facade, present disabled honesty, and use shared
   native toolbar chrome.
-- `Epistemos/Views/Settings/VoiceSettingsDetailView.swift` — composes Apple voice controls with the Pro-only Kokoro
-  status/runtime affordance outside the MAS-safe Apple picker.
-- `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only "Pro neural voice" row backed by the gate status,
-  with theme-derived badge tints, manifest-derived package evidence, and shared native capsule install/remove/refresh chrome.
+- `Epistemos/Views/Settings/VoiceSettingsDetailView.swift` — composes visible voice preferences with the Pro-only Kokoro
+  status/runtime affordance.
+- `Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift` — Pro-only `TTS unavailable` / `Kokoro neural voice` row backed
+  by the gate status, with theme-derived badge tints, manifest-derived package evidence, and shared native capsule install/remove/refresh chrome.
 - `Epistemos/VoicePro/KokoroVoicePackageInstaller.swift` — Pro-only local checked-package installer/remover with symlink
   descendant rejection, staged copy, failed-finalization rollback, gate-backed removal, and bounded status diagnostics.
 - `scripts/voice-live-smoke.swift` — bounded operator smoke for transcript/status helpers plus the Pro Kokoro gate,
@@ -130,25 +130,26 @@ Kokoro-82M is Pro-only until packaging and model-download gates are proven:
 - Do not edit `Epistemos/Goose/*` or `Epistemos/Agent/*`.
 - Do not build Plan 2 editor features here. If `noteReadAloud` needs an editor consumer, Plan 2 owns the editor mount;
   Plan 3 owns the voice service contract and honest Settings row.
-- Do not add cloud STT/TTS as the default. Apple Speech/AVSpeech are the MAS defaults; Whisper/Kokoro are Pro options.
+- Do not add cloud STT/TTS as the default. Apple Speech remains the native STT lane. Kokoro is the only shipped TTS lane;
+  do not ship AVSpeech/basic system voice as read-aloud/TTS fallback.
 - Do not surface a "Premium" or "neural" label unless the selected voice/runtime proves that capability.
 
 ## Verification gates
-- Unit/source tests prove `preferredVoice` no longer depends on `AVSpeechSynthesisVoice(language:)` as the normal floor.
-- Source guards prove Personal Voice access uses Apple's macOS 14+ AVSpeech authorization API and refreshes the shared
-  voice picker without hardcoded system colors or ad hoc bordered/link buttons.
+- Unit/source tests prove `speak()` does not call `AVSpeechSynthesizer.speak` while Kokoro synthesis is unavailable.
+- Source guards prove Personal Voice access stays compatibility-only and unavailable TTS UI uses shared theme chrome
+  without hardcoded system colors or ad hoc bordered/link buttons.
 - Settings source guard proves every visible Auto/Manual row has a behavior consumer or an honest unavailable state.
 - STT source guard proves `VoiceInputButton` no longer routes only to the removed `ComposerVoiceInputService` stub and
   does not regress to ad hoc borderless/raw accent chrome.
 - STT facade tests prove partial/final transcript helpers stay inside the capture pipeline text envelope before callbacks.
 - macOS 26 compile guard proves `EpistemosSpeechAnalyzer` remains `@available(macOS 26.0, *)`.
 - Kokoro gate tests prove malformed, symlink-routed, non-regular, placeholder, digest-mismatched, or
-  oversized/invalid-manifest model artifacts keep AVSpeech as the runtime without exposing local model roots in UI-facing
-  status details.
+  oversized/invalid-manifest model artifacts keep TTS unavailable with no AVSpeech fallback and without exposing local
+  model roots in UI-facing status details.
 - MAS boundary guard proves no Kokoro weights, Python, subprocess, or Chromium-like runtime enters the App Store target.
 
 ## Delivery order
-1. [DONE] Patch the AVSpeech preferred voice floor and add tests.
+1. [DONE] Gate shipped TTS as Kokoro-only and add tests.
 2. [DONE] Wire or remove `agentResponseTTS`; add a source guard so it cannot regress to a visible no-op.
 3. [DONE] Add `LiveVoiceInputService` over `EpistemosSpeechAnalyzer`.
 4. [DONE] Rewire `VoiceInputButton` to live STT or hide/disable it honestly where unsupported.

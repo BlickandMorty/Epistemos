@@ -4,9 +4,9 @@ import SwiftUI
 
 // MARK: - ModelVoicePickerSection
 //
-// Wave 9.1.b — voice picker. Drop into a settings surface to let the user
-// pick the AVSpeechSynthesisVoice that will be used when responses are read
-// aloud, plus rate / pitch sliders + a "Hear preview" button.
+// Wave 9.1.b — voice picker. Plan 3 now ships TTS as Kokoro-only, so this
+// surface renders an honest unavailable state until native Kokoro synthesis
+// exists instead of presenting Apple voices as a fallback runtime.
 //
 // The picker is grouped by quality tier (Premium > Enhanced >
 // Default) and language, so the user can see at a glance which
@@ -57,13 +57,34 @@ public struct ModelVoicePickerSection: View {
     /// should prefer the default `body`.
     @ViewBuilder
     public var inlineBody: some View {
-        picker
-        ratePitchSliders
-        previewControls
-        qualityHintView
-        personalVoiceAccessView
-        Color.clear.frame(height: 0).task {
-            refreshVoicesAndHints()
+        if isTextToSpeechAvailable {
+            picker
+            ratePitchSliders
+            previewControls
+            qualityHintView
+            personalVoiceAccessView
+            Color.clear.frame(height: 0).task {
+                refreshVoicesAndHints()
+            }
+        } else {
+            unavailableTextToSpeechView
+        }
+    }
+
+    private var isTextToSpeechAvailable: Bool {
+        EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+    }
+
+    private var unavailableTextToSpeechView: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "lock.shield")
+                .foregroundStyle(mutedTint)
+                .font(.system(size: 12, weight: .semibold))
+                .padding(.top, 2)
+            Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
+                .font(.system(size: 11))
+                .foregroundStyle(mutedTint)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -267,9 +288,9 @@ public struct ModelVoicePickerSection: View {
         case .notDetermined:
             return "Allow Personal Voice access to list voices you created in System Settings."
         case .denied:
-            return "Personal Voice access is denied in System Settings. Apple system voices remain available."
+            return "Personal Voice access is denied in System Settings. Kokoro remains the only shipped TTS lane."
         case .unsupported:
-            return "Personal Voice is not supported on this Mac. Apple system voices remain available."
+            return "Personal Voice is not supported on this Mac. Kokoro remains the only shipped TTS lane."
         }
     }
 

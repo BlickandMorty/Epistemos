@@ -438,21 +438,23 @@ Scope recovery is complete; do not re-open Plan 2 editor work inside Plan 3.
 
 ## 11. Recovered additions (owner-confirmed 2026-06-28)
 Folded in as clean Plan-3 capabilities:
-- **Voice — SHIPPED (Pass 8):** Apple AVSpeech TTS wrapper, quality-first preferred voice resolution, global voice
-  picker, premium-download hint, macOS 14+ Personal Voice authorization affordance, SSML/prosody fallback,
-  consumer-backed Auto/Manual toggles, and live Apple STT facade through `LiveVoiceInputService` are wired with
+- **Voice — STT SHIPPED; TTS KOKORO-ONLY GATED (Pass 8):** live Apple STT facade through `LiveVoiceInputService`,
+  consumer-backed Auto/Manual toggles, Kokoro-only read-aloud availability, and legacy Apple voice compatibility helpers
+  are wired with
   partial/final transcript output capped to the capture pipeline envelope and finite/clamped download progress plus
   capped, domain/code-redacted status/error text for UI display, with raw status/domain strings bounded before trimming
-  and status ellipsis kept inside the configured cap.
+  and status ellipsis kept inside the configured cap. `EpistemosSpeechSynthesizer.speak()` refuses playback while the
+  native Kokoro synthesis engine is not linked, and read-aloud/Quick Capture/Settings controls surface TTS unavailable
+  instead of silently falling back to AVSpeech.
   `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
   status-gated and rejects symlink-routed, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
   model artifacts with integer declared package byte caps and bounded-before-trim model-relative status diagnostics
   with ellipsis inside configured caps. A checked package reports `packageReady` with manifest-derived package evidence
   (model package, runtime, checked file count, and declared bytes) while keeping
   runtime `isReady=false` until real synthesis is wired. Developer ID builds now show a Pro-only Voice settings
-  status/runtime affordance labelled "Pro neural voice" plus a local checked-package installer/remover, while keeping
-  AVSpeech selected until real neural inference is proven; no committed model asset, network downloader, neural inference
-  runtime, Python, subprocess, or MAS-visible Kokoro row enters the App Store path.
+  status/runtime affordance labelled `TTS unavailable` / `Kokoro neural voice` plus a local checked-package
+  installer/remover; no Apple AVSpeech fallback, committed model asset, network downloader, neural inference runtime,
+  Python, subprocess, or MAS-visible Kokoro row enters the App Store path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
   Meeting, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo downloads or official-logo claims. Classifier input for arbitrary MCP/skill/connector names is bounded before
