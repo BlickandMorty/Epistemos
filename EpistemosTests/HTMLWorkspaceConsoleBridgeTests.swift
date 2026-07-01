@@ -486,6 +486,7 @@ struct HTMLWorkspaceSafeAPIBridgeTests {
         #expect(previewDocument.contains("if (detail.ok === false)"))
         #expect(previewDocument.contains("entry.reject(bridgeError("))
         #expect(previewDocument.contains("pendingRequests.set(requestId, { resolve, reject, timer, command: prepared.payload.command });"))
+        #expect(previewDocument.contains("if (!response.command || entry.command !== response.command)"))
         #expect(previewDocument.contains("HTML Workspace app bridge response command mismatch"))
         #expect(previewDocument.contains("entry.resolve(response);"))
         #expect(editor.contains(#"Button("Test Runtime Bridges""#))

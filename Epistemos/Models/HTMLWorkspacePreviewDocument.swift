@@ -473,7 +473,7 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
               message: typeof detail.message === 'string' ? detail.message : '',
               safeAPIVersion: Number.isFinite(Number(detail.safeAPIVersion)) ? Number(detail.safeAPIVersion) : \(safeAPIVersion)
             });
-            if (entry.command && response.command && entry.command !== response.command) {
+            if (!response.command || entry.command !== response.command) {
               entry.reject(bridgeError('HTML Workspace app bridge response command mismatch'));
               return;
             }

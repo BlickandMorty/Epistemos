@@ -32,7 +32,7 @@ struct SSHWCapabilityStatusTests {
         #expect(appBridge?.isLive == false)
         #expect(appBridge?.note.contains("Sandbox-gated") == true)
         #expect(appBridge?.note.contains("response event") == true)
-        #expect(appBridge?.note.contains("command-matched correlated response events") == true)
+        #expect(appBridge?.note.contains("required command-matched correlated response events") == true)
         #expect(appBridge?.note.contains("promise request helper") == true)
         #expect(appBridge?.note.contains("insertable demo scaffold") == true)
         #expect(appBridge?.note.contains("awaits current in-app proof") == true)
