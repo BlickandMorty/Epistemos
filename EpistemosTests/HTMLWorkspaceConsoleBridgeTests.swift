@@ -488,6 +488,8 @@ struct HTMLWorkspaceSafeAPIBridgeTests {
         #expect(previewDocument.contains("pendingRequests.set(requestId, { resolve, reject, timer, command: prepared.payload.command });"))
         #expect(previewDocument.contains("if (!response.command || entry.command !== response.command)"))
         #expect(previewDocument.contains("HTML Workspace app bridge response command mismatch"))
+        #expect(previewDocument.contains("ok: detail.ok !== false"))
+        #expect(previewDocument.contains("error: typeof detail.error === 'string' ? detail.error : null"))
         #expect(previewDocument.contains("entry.resolve(response);"))
         #expect(editor.contains(#"Button("Test Runtime Bridges""#))
         #expect(editor.contains("private func testRuntimeBridgeProbes()"))

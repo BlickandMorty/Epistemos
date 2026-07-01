@@ -470,6 +470,8 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
             const response = Object.freeze({
               command: typeof detail.command === 'string' ? detail.command : null,
               requestId,
+              ok: detail.ok !== false,
+              error: typeof detail.error === 'string' ? detail.error : null,
               message: typeof detail.message === 'string' ? detail.message : '',
               safeAPIVersion: Number.isFinite(Number(detail.safeAPIVersion)) ? Number(detail.safeAPIVersion) : \(safeAPIVersion)
             });
