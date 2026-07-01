@@ -476,7 +476,7 @@ struct VoiceCodepackPlan3Tests {
         }
     }
 
-    @Test("Kokoro Pro settings presentation falls back to Apple voice while gate is missing")
+    @Test("Kokoro Pro settings presentation keeps TTS unavailable while gate is missing")
     func kokoroProSettingsPresentationFallsBackWhileMissing() {
         let missing = KokoroVoiceGateStatus.Status(
             state: .missingModel,
