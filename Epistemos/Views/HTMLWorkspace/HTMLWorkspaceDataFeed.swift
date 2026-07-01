@@ -151,6 +151,21 @@ nonisolated enum HTMLWorkspaceDataFeedRenderer {
         )
     }
 
+    static func render(
+        feed: HTMLWorkspaceDataFeed,
+        contextResults results: [HTMLWorkspaceDataFeedResult],
+        refreshedAt: Date = Date()
+    ) -> String {
+        render(
+            feed: feed,
+            results: results,
+            refreshedAt: refreshedAt,
+            stale: false,
+            status: "fresh",
+            error: nil
+        )
+    }
+
     static func staleRender(
         feed: HTMLWorkspaceDataFeed,
         error: String,

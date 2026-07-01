@@ -157,6 +157,45 @@ nonisolated struct HTMLWorkspacePackageTests {
         #expect(detail.contains("VaultSyncService.searchFullAsync"))
     }
 
+    @Test("HTMLWorkspace data feed renderer preserves explicit context result metadata")
+    func dataFeedRendererPreservesExplicitContextResultMetadata() throws {
+        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "mixed context", limit: 4)
+        let rendered = HTMLWorkspaceDataFeedRenderer.render(
+            feed: feed,
+            contextResults: [
+                HTMLWorkspaceDataFeedResult(
+                    pageID: "capture-1",
+                    title: "Capture",
+                    snippet: "captured text",
+                    rank: 0.91,
+                    contextKind: "recent_capture",
+                    sourceLabel: "Recent capture",
+                    provenance: "CaptureStore"
+                ),
+                HTMLWorkspaceDataFeedResult(
+                    pageID: "graph-1",
+                    title: "Graph neighbor",
+                    snippet: "related note",
+                    rank: 0.72,
+                    contextKind: "graph_related_note",
+                    sourceLabel: "Graph related note",
+                    provenance: "GraphState"
+                ),
+            ],
+            refreshedAt: Date(timeIntervalSince1970: 1_700_000_003)
+        )
+
+        #expect(rendered.contains(#""context_kind" : "recent_capture""#))
+        #expect(rendered.contains(#""context_kind" : "graph_related_note""#))
+        #expect(rendered.contains(#""source_label" : "Recent capture""#))
+        #expect(rendered.contains(#""provenance" : "GraphState""#))
+
+        let metadata = try #require(HTMLWorkspaceDataFeedStatus.metadata(from: rendered))
+        #expect(metadata.contextKinds == ["graph_related_note", "recent_capture"])
+        #expect(metadata.resultCount == 2)
+        #expect(!metadata.stale)
+    }
+
     @Test("HTMLWorkspace stale data feed render does not pretend a failed feed refreshed")
     func staleDataFeedRenderDoesNotPretendToRefresh() throws {
         let feed = HTMLWorkspaceDataFeed.vaultSearch(query: "substrate provenance", limit: 2)
