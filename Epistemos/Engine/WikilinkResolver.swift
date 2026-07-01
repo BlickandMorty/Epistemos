@@ -140,6 +140,42 @@ enum WikilinkResolver {
         return normalized.isEmpty ? nil : normalized
     }
 
+    nonisolated static func displayTitle(forDestination raw: String) -> String? {
+        let withoutAlias = raw.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? raw
+        let withoutBlock = withoutAlias.split(separator: "^", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? withoutAlias
+        let withoutHeading = withoutBlock.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? withoutBlock
+        let decoded = withoutHeading.removingPercentEncoding ?? withoutHeading
+        let normalized = decoded
+            .replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !normalized.isEmpty else { return nil }
+
+        let baseName = URL(fileURLWithPath: normalized)
+            .deletingPathExtension()
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return baseName.isEmpty ? normalized : baseName
+    }
+
+    nonisolated static func localHeadingTitle(forDestination raw: String) -> String? {
+        let withoutAlias = raw.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? raw
+        let trimmed = withoutAlias.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("#") else { return nil }
+        let heading = String(trimmed.dropFirst())
+        let decoded = heading.removingPercentEncoding ?? heading
+        let normalized = decoded.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
+    }
+
     nonisolated static func destinationMatches(_ destination: String, targetKeys: Set<String>) -> Bool {
         lookupKeys(forDestination: destination).contains { targetKeys.contains($0) }
     }
@@ -204,6 +240,12 @@ enum WikilinkResolver {
             text = text.replacingOccurrences(of: "//", with: "/")
         }
         text = text.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        while text.hasPrefix("./") {
+            text.removeFirst(2)
+        }
+        while text.contains("/./") {
+            text = text.replacingOccurrences(of: "/./", with: "/")
+        }
 
         let lower = text.lowercased()
         if lower.hasSuffix(".md") {

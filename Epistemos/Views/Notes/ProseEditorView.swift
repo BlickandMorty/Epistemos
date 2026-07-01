@@ -434,21 +434,29 @@ struct ProseEditorView: View {
 
     private func handleWikilinkClick(_ title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        if let localHeading = WikilinkResolver.localHeadingTitle(forDestination: trimmed) {
+            scrollToLocalWikilinkHeading(localHeading)
+            return
+        }
 
-        switch existingPageForWikilink(title: trimmed) {
+        guard !trimmed.isEmpty,
+              let destination = WikilinkResolver.canonicalDestination(trimmed),
+              let displayTitle = WikilinkResolver.displayTitle(forDestination: trimmed)
+        else { return }
+
+        switch existingPageForWikilink(destination: destination, displayTitle: displayTitle) {
         case .found(let existing):
             navigateToPage(existing)
         case .notFound:
             Task {
                 if let newId = await vaultSync.createPage(
-                    title: trimmed,
+                    title: displayTitle,
                     allowVaultSelectionPrompt: true
                 ) {
                     if navigationContext == .graph {
                         graphState.openNote(newId)
                     } else if let navState {
-                        navState.push(pageId: newId, title: trimmed)
+                        navState.push(pageId: newId, title: displayTitle)
                     } else {
                         NoteWindowManager.shared.open(pageId: newId)
                     }
@@ -457,6 +465,35 @@ struct ProseEditorView: View {
         case .failed:
             return
         }
+    }
+
+    private func scrollToLocalWikilinkHeading(_ headingTitle: String) {
+        let normalizedHeading = normalizedLocalWikilinkHeading(headingTitle)
+        guard !normalizedHeading.isEmpty else { return }
+
+        let headings = TOCParser.parse(bodyText)
+        guard let target = headings.first(where: {
+            $0.kind == .heading
+                && normalizedLocalWikilinkHeading($0.title) == normalizedHeading
+        }) else {
+            return
+        }
+
+        NotificationCenter.default.post(
+            name: ProseTextView2.scrollToOffsetNotification,
+            object: nil,
+            userInfo: [
+                "pageId": page.id,
+                "charOffset": target.charOffset,
+            ]
+        )
+    }
+
+    private func normalizedLocalWikilinkHeading(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .lowercased()
     }
 
     /// Navigate to an existing page — in-place via navState if available, new tab otherwise.
@@ -523,18 +560,18 @@ struct ProseEditorView: View {
         case failed
     }
 
-    private func existingPageForWikilink(title: String) -> WikilinkLookupResult {
+    private func existingPageForWikilink(destination: String, displayTitle: String) -> WikilinkLookupResult {
         do {
             // Fast exact-title path for common local notes.
             let exactDescriptor = FetchDescriptor<SDPage>(
-                predicate: #Predicate<SDPage> { $0.title == title }
+                predicate: #Predicate<SDPage> { $0.title == displayTitle }
             )
             if let existing = try modelContext.fetch(exactDescriptor).first {
                 return .found(existing)
             }
 
             let allPages = try modelContext.fetch(FetchDescriptor<SDPage>())
-            let targetKeys = WikilinkResolver.lookupKeys(forDestination: title)
+            let targetKeys = WikilinkResolver.lookupKeys(forDestination: destination)
             var lookup: [String: SDPage] = [:]
             var ambiguous = Set<String>()
             for page in allPages {
@@ -559,7 +596,7 @@ struct ProseEditorView: View {
             return .notFound
         } catch {
             Self.log.error(
-                "ProseEditorView: failed to fetch wikilink target \(title, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "ProseEditorView: failed to fetch wikilink target \(displayTitle, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
             return .failed
         }

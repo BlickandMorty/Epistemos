@@ -2254,12 +2254,21 @@ struct NoteDetailWorkspaceView: View {
 
     private func navigateToWikilink(title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        if let localHeading = WikilinkResolver.localHeadingTitle(forDestination: trimmed) {
+            scrollToLocalWikilinkHeading(localHeading)
+            return
+        }
+
+        guard !trimmed.isEmpty,
+              let destination = WikilinkResolver.canonicalDestination(trimmed),
+              let displayTitle = WikilinkResolver.displayTitle(forDestination: trimmed)
+        else { return }
 
         let exactDesc = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.title == trimmed }
+            predicate: #Predicate<SDPage> { $0.title == displayTitle }
         )
-        let lowered = trimmed.lowercased()
+        let targetKeys = WikilinkResolver.lookupKeys(forDestination: destination)
+        let loweredDisplayTitle = displayTitle.lowercased()
         let exactMatch: SDPage?
         do {
             exactMatch = try modelContext.fetch(exactDesc).first
@@ -2269,11 +2278,15 @@ struct NoteDetailWorkspaceView: View {
             )
             exactMatch = nil
         }
-        let existing: SDPage? = exactMatch ?? {
+        let existing: SDPage? = {
             let allDesc = FetchDescriptor<SDPage>()
             do {
                 let pages = try modelContext.fetch(allDesc)
-                return pages.first(where: { $0.title.lowercased() == lowered })
+                return pageMatchingWikilinkDestination(targetKeys: targetKeys, pages: pages)
+                    ?? exactMatch
+                    ?? pages.first(where: { page in
+                        page.title.lowercased() == loweredDisplayTitle
+                    })
             } catch {
                 Log.notes.error(
                     "NoteDetailWorkspaceView: failed to fetch wikilink target pages: \(error.localizedDescription, privacy: .public)"
@@ -2293,19 +2306,61 @@ struct NoteDetailWorkspaceView: View {
         } else {
             Task {
                 if let newId = await vaultSync.createPage(
-                    title: trimmed,
+                    title: displayTitle,
                     allowVaultSelectionPrompt: true
                 ) {
                     if presentation.usesGraphEmbeddedChrome {
                         graphState.openNote(newId)
                     } else if let navState {
-                        navState.push(pageId: newId, title: trimmed)
+                        navState.push(pageId: newId, title: displayTitle)
                     } else {
                         NoteWindowManager.shared.open(pageId: newId)
                     }
                 }
             }
         }
+    }
+
+    private func pageMatchingWikilinkDestination(targetKeys: [String], pages: [SDPage]) -> SDPage? {
+        let pageKeys = pages.map { page in
+            (
+                page: page,
+                keys: Set(WikilinkResolver.lookupKeysForPage(
+                    title: page.title,
+                    filePath: page.filePath,
+                    vaultRelativePath: page.vaultRelativeNotePath
+                ))
+            )
+        }
+
+        for key in targetKeys {
+            if let match = pageKeys.first(where: { $0.keys.contains(key) }) {
+                return match.page
+            }
+        }
+        return nil
+    }
+
+    private func scrollToLocalWikilinkHeading(_ headingTitle: String) {
+        let normalizedHeading = normalizedLocalWikilinkHeading(headingTitle)
+        guard !normalizedHeading.isEmpty else { return }
+
+        let body = pages.first.map(displayBody(for:)) ?? persistedBody
+        let headings = tocItems.isEmpty ? TOCParser.parse(body) : tocItems
+        guard let target = headings.first(where: {
+            $0.kind == .heading
+                && normalizedLocalWikilinkHeading($0.title) == normalizedHeading
+        }) else {
+            return
+        }
+        scrollEditorTo(charOffset: target.charOffset)
+    }
+
+    private func normalizedLocalWikilinkHeading(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .lowercased()
     }
 
     private func performGreetingTransition(
