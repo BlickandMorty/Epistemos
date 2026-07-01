@@ -386,9 +386,10 @@ struct BrowserUseWebUIView: View {
 
         clearStateTask = Task { @MainActor in
             defer {
-                guard clearStateRequestID == requestID else { return }
-                isClearingWebState = false
-                clearStateTask = nil
+                if clearStateRequestID == requestID {
+                    isClearingWebState = false
+                    clearStateTask = nil
+                }
             }
             await Task.yield()
             guard !Task.isCancelled, clearStateRequestID == requestID else { return }

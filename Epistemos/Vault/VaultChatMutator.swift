@@ -459,8 +459,8 @@ private actor VaultMutationIO {
             attributes: nil
         )
 
-        let relativePath = targetVault.relativeMemoryPath
-        let fileURL = repositoryRootURL.appendingPathComponent(relativePath, isDirectory: false)
+        let relativeMemoryPath = targetVault.relativeMemoryPath
+        let fileURL = repositoryRootURL.appendingPathComponent(relativeMemoryPath, isDirectory: false)
         let verifiedRelativePath = try relativePath(for: fileURL, in: repositoryRootURL)
         let before = try stagedMemoryBodyIfPresent(at: fileURL, targetVault: targetVault)
         let proposal = proposeMutation(message: message, original: before, targetVault: targetVault)
