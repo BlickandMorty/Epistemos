@@ -1843,7 +1843,13 @@ final class ProseTextView2: NSTextView {
     // MARK: - Navigation
 
     func scrollToCharacterOffset(_ offset: Int) {
-        let range = NSRange(location: offset, length: 0)
+        // Clamp to the current UTF-16 length — a stale offset (TOC / heading / wikilink
+        // navigation, or cursor-restore right on open) past the end raises NSRangeException
+        // and takes down the whole app. The page-swap restore was already clamped; this
+        // sibling navigation path was not. (prose-open-crash trace 2026-07-01)
+        let length = (string as NSString).length
+        let safe = max(0, min(offset, length))
+        let range = NSRange(location: safe, length: 0)
         scrollRangeToVisible(range)
         setSelectedRange(range)
     }
