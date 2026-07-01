@@ -784,9 +784,6 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return [Self.jsonResponse(id: id, result: result)]
         case "session/prompt":
             let run = makePromptRun(id: id, params: params)
-            if let consentError = thirdPartyAIConsentDenialResponse(id: id) {
-                return [consentError]
-            }
             beginPromptRun(run, on: box)
             return [
                 Self.jsonNotification(
@@ -1171,6 +1168,14 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             guard let self else { return }
             var outputUTF8Bytes = 0
             do {
+                guard self.ensureThirdPartyAIConsentForPrompt(run, on: box) else {
+                    self.finishPromptRun(
+                        run,
+                        on: box,
+                        errorMessage: "Third-party AI consent is required before MAS Goose can send this prompt."
+                    )
+                    return
+                }
                 let providerName = self.providerNameForAgentCore()
                 let stream = runnerBox.runner.streamGooseMASAgentCoreRun(
                     sessionID: run.sessionID,
@@ -1379,28 +1384,29 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             .first { !$0.isEmpty } ?? NSHomeDirectory()
     }
 
-    private func thirdPartyAIConsentDenialResponse(id: Any?) -> String? {
+    private func ensureThirdPartyAIConsentForPrompt(_ run: PromptRun, on box: WebSocketConnectionBox) -> Bool {
         #if EPISTEMOS_APP_STORE
         guard selectedProviderRequiresThirdPartyAIConsent(),
               !selectedProviderHasThirdPartyAIConsent() else {
-            return nil
+            return true
         }
-        let providerID = selectedProviderIDForConsent() ?? "unknown"
-        return Self.jsonError(
-            id: id,
-            code: -32043,
-            message: "Third-party AI consent is required before MAS Goose can send this prompt.",
-            data: [
-                "providerId": providerID,
-                "policyProfile": catalog.policyProfile,
-                "appReviewGuideline": "5.1.2(i)",
-                "consentReadMethod": "_goose/unstable/epistemos/third-party-ai-consent/read",
-                "consentSaveMethod": "_goose/unstable/epistemos/third-party-ai-consent/save",
-            ]
+        guard let providerID = selectedProviderIDForConsent() else { return false }
+        let providerName = selectedProviderForConsent()?.providerName ?? providerID
+        let approved = requestThirdPartyAIConsent(
+            providerID: providerID,
+            providerName: providerName,
+            sessionID: run.sessionID,
+            on: box
         )
+        guard approved else { return false }
+        var granted = thirdPartyAIConsentProviderIDs()
+        granted.insert(providerID)
+        saveThirdPartyAIConsentProviderIDs(granted)
+        return true
         #else
-        _ = id
-        return nil
+        _ = run
+        _ = box
+        return true
         #endif
     }
 
@@ -1437,6 +1443,61 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             .map { String($0.prefix(GooseACPProtocolBounds.maxInventoryIDCharacters)) }
             .sorted()
         UserDefaults.standard.set(bounded, forKey: Self.thirdPartyAIConsentDefaultsKey)
+    }
+
+    private func requestThirdPartyAIConsent(
+        providerID: String,
+        providerName: String,
+        sessionID: String,
+        on box: WebSocketConnectionBox
+    ) -> Bool {
+        let requestID = "mas_ai_consent_\(UUID().uuidString.lowercased())"
+        let pending = PendingPermissionResponse()
+        pendingPermissionsLock.lock()
+        pendingPermissions[requestID] = pending
+        pendingPermissionsLock.unlock()
+
+        sendJSONMessages([
+            Self.jsonRequest(
+                id: requestID,
+                method: "session/request_permission",
+                params: [
+                    "sessionId": sessionID,
+                    "toolCall": [
+                        "toolCallId": requestID,
+                        "title": "Allow \(providerName) to process Goose prompts and selected vault context?",
+                        "kind": "other",
+                        "status": "pending",
+                        "_meta": [
+                            "goose": [
+                                "providerId": providerID,
+                                "providerName": providerName,
+                                "appReviewGuideline": "5.1.2(i)",
+                                "thirdPartyAIConsent": true,
+                            ],
+                        ],
+                    ],
+                    "options": [
+                        [
+                            "optionId": "allow_provider",
+                            "name": "Allow \(providerName)",
+                            "kind": "allow_once",
+                        ],
+                        [
+                            "optionId": "reject_provider",
+                            "name": "Deny",
+                            "kind": "reject_once",
+                        ],
+                    ],
+                ]
+            ),
+        ], on: box)
+
+        let approved = pending.wait(timeout: Self.permissionResponseTimeoutSeconds)
+        pendingPermissionsLock.lock()
+        pendingPermissions.removeValue(forKey: requestID)
+        pendingPermissionsLock.unlock()
+        return approved
     }
 
     private func requestAgentCorePermission(

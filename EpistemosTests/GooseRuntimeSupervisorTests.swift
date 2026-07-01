@@ -84,16 +84,18 @@ struct GooseRuntimeSupervisorTests {
     @Test("MAS in-process prompt path gates third-party AI consent before agent_core")
     func masInProcessPromptPathGatesThirdPartyAIConsentBeforeAgentCore() throws {
         let server = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
-        let promptCase = try #require(server.range(of: #"case "session/prompt":"#))
-        let beginRun = try #require(server.range(of: "beginPromptRun(run, on: box)", range: promptCase.upperBound..<server.endIndex))
-        let consentGate = try #require(server.range(of: "thirdPartyAIConsentDenialResponse(id: id)", range: promptCase.upperBound..<beginRun.lowerBound))
+        let beginRun = try #require(server.range(of: "private func beginPromptRun"))
+        let agentCoreRun = try #require(server.range(of: "streamGooseMASAgentCoreRun(", range: beginRun.upperBound..<server.endIndex))
+        let consentGate = try #require(server.range(of: "ensureThirdPartyAIConsentForPrompt(run, on: box)", range: beginRun.upperBound..<agentCoreRun.lowerBound))
 
-        #expect(consentGate.lowerBound < beginRun.lowerBound)
+        #expect(consentGate.lowerBound < agentCoreRun.lowerBound)
+        #expect(server.contains("requestThirdPartyAIConsent("))
+        #expect(server.contains("Allow \\(providerName) to process Goose prompts and selected vault context?"))
         #expect(server.contains(#""_goose/unstable/epistemos/third-party-ai-consent/read""#))
         #expect(server.contains(#""_goose/unstable/epistemos/third-party-ai-consent/save""#))
         #expect(server.contains(#""_goose/unstable/epistemos/third-party-ai-consent/revoke""#))
         #expect(server.contains("Third-party AI consent is required before MAS Goose can send this prompt."))
-        #expect(server.contains("AppReviewGuideline") || server.contains(#""appReviewGuideline": "5.1.2(i)""#))
+        #expect(server.contains(#""appReviewGuideline": "5.1.2(i)""#))
         #expect(server.contains("#if EPISTEMOS_APP_STORE"))
     }
 
