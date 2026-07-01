@@ -513,10 +513,9 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
     @MainActor
     @Test("standalone context source classifier separates local reads from vault search reads")
     func standaloneContextSourceClassifierSeparatesLocalReadsFromVaultSearchReads() {
-        for kind in ["recent_capture", "pdf_note", "folder_note", "meeting_note", "web_clip", "recent_chat", "provenance_claim"] {
+        for kind in ["recent_capture", "note", "pdf_note", "folder_note", "meeting_note", "web_clip", "recent_chat", "provenance_claim"] {
             #expect(HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(kind))
         }
-        #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("note"))
         #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource("graph_related_note"))
         #expect(!HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(nil))
     }
