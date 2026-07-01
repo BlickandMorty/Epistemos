@@ -148,15 +148,14 @@ final class GooseACPEventBridge {
         respondToElicitation(promptID: promptID, response: .cancel())
     }
 
-    // MARK: - Live read/mutate passthrough (native-route data source — Step 3 per-route migration)
+    // MARK: - Live Goose Web UI ACP passthrough
 
-    /// The native SwiftUI routes (the Models picker first) read/write through the SAME live ACP
-    /// connection the WebView uses — never a second spawn, never a Swift-hardcoded roster (GOLDEN
-    /// RULE: every provider/model comes from live enumeration). These forward to the live
-    /// `GooseACPClient`; they THROW `notConnected` when the bridge has no live client so the view
-    /// renders an honest empty/error state instead of a silent fallback.
-    /// The Models-picker provider source: available providers (built-in + configured) each with
-    /// their models inline. One call, no per-provider live enumeration that could hang.
+    /// Goose's reskinned web routes read/write through the SAME live ACP connection the WebView
+    /// uses — never a second spawn, never a Swift-hardcoded roster (GOLDEN RULE: every
+    /// provider/model comes from live enumeration). These forward to the live `GooseACPClient`;
+    /// they THROW `notConnected` when the bridge has no live client so the web route renders an
+    /// honest empty/error state instead of a silent fallback. Available providers include built-in
+    /// and configured entries with their models inline.
     func liveProviderInventory(timeout: Duration? = nil) async throws -> [GooseACPProviderInventoryEntry] {
         guard let client else { throw GooseACPBridgeError.notConnected }
         return try await client.listGooseProviderInventory(timeout: timeout)
