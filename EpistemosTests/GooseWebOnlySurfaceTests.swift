@@ -398,6 +398,35 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!support.contains("epistemos.goose.nativeRoutes"))
 
     }
+
+    @Test("landing exposes Goose web-only surface through the existing frame launch path")
+    func landingExposesGooseWebOnlyEntry() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let healthRow = try loadMirroredSourceTextFile("Epistemos/Views/Settings/GooseSurfaceHealthRow.swift")
+
+        #expect(landing.contains("title: \"goose\""))
+        #expect(landing.contains("shortcut: \"\\u{2318}3\""))
+        #expect(landing.contains("glyph: .agent"))
+        #expect(landing.contains("action: openEpistemosGoose"))
+        #expect(landing.contains("private func openEpistemosGoose()"))
+        #expect(landing.contains("GooseSurfaceAvailability.current()"))
+        #expect(landing.contains("availability.unavailableMessage"))
+        #expect(landing.contains("GooseSurfaceWindowController.shared.open()"))
+        #expect(landing.contains("AgentSurfaceWindowController.shared.open()"))
+        #expect(landing.contains("AgentSurface.isEnabled()"))
+        #expect(!landing.contains("AgentNavigationRailView("))
+        #expect(!landing.contains("GooseNativeModelsView("))
+
+        #expect(settings.contains("GooseSurfaceHealthRow()"))
+        #expect(healthRow.contains("GooseSurfaceAvailability.current()"))
+        #expect(healthRow.contains("AgentSurface.isEnabled()"))
+        #expect(healthRow.contains("native rounded frame only"))
+        #expect(healthRow.contains("Goose WebView owns navigation and routes"))
+        #expect(!healthRow.contains("Button("))
+        #expect(!healthRow.contains("AgentNavigationRailView("))
+        #expect(!healthRow.contains("GooseNativeModelsView("))
+    }
 }
 
 @Suite("Goose provider/defaults ACP data-source parity", .serialized)

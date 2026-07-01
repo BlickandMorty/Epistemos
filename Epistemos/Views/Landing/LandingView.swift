@@ -523,6 +523,15 @@ struct LandingView: View {
                 action: { showLandingInlineCommand(.quickCapture) }
             )
             PixelLandingCommandTile(
+                title: "goose",
+                shortcut: "\u{2318}3",
+                glyph: .agent,
+                theme: theme,
+                accent: theme.resolved.accent.color,
+                haptic: .agent,
+                action: openEpistemosGoose
+            )
+            PixelLandingCommandTile(
                 title: "workspaces",
                 shortcut: "^\u{2318}W",
                 glyph: .workspace,
@@ -1310,6 +1319,27 @@ struct LandingView: View {
         } catch {
             NSApplication.shared.presentError(error)
         }
+    }
+
+    private func openEpistemosGoose() {
+        let availability = GooseSurfaceAvailability.current()
+        guard availability.isReady else {
+            let message = availability.unavailableMessage.isEmpty
+                ? "Epistemos Goose is unavailable."
+                : availability.unavailableMessage
+            ui.showToast(message, type: .warning)
+            return
+        }
+
+        #if EPISTEMOS_APP_STORE
+        GooseSurfaceWindowController.shared.open()
+        #else
+        if AgentSurface.isEnabled() {
+            AgentSurfaceWindowController.shared.open()
+        } else {
+            GooseSurfaceWindowController.shared.open()
+        }
+        #endif
     }
 
     private func createAndOpenCodeFile(_ request: CodeFileCreationRequest) {

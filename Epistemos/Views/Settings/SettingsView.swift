@@ -865,6 +865,8 @@ private struct GeneralDetailView: View {
                 KnowledgeCoreRuntimeHealthRow()
                 KnowledgeCoreOutlinePreview()
                 GraphEventVisibilityRow()
+                // Plan 1 Goose: read-only surface availability only. Goose WebView owns nav/routes.
+                GooseSurfaceHealthRow()
                 // SS-HW (owner 2026-06-20): honest HTML Workspace status — works as a renderer/editor
                 // + agent-patch surface, but app-bridge/live-DOM/console/Python/regenerate are deferred.
                 // The owner: "idk if its marked as such." Now it is. Read-only; no dead controls.
