@@ -70,6 +70,10 @@ struct HTMLWorkspaceEditorView: View {
             if let previewRouteName, newValue.routes[previewRouteName] == nil {
                 self.previewRouteName = nil
             }
+            if let expected = pendingRegenerateExpectedContentHash,
+               expected != newValue.currentContentHash {
+                clearPendingRegeneratePreview()
+            }
             schedulePreviewUpdate(newValue)
         }
         .onChange(of: colorScheme) { _, _ in
@@ -107,7 +111,7 @@ struct HTMLWorkspaceEditorView: View {
                 contextStatusText: regenerateContextStatusLine,
                 isRegenerating: isRegenerating,
                 isRefreshingContext: isRefreshingRegenerateContext,
-                hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil,
+                hasPendingPreview: canApplyPendingRegeneratePreview,
                 hasVaultContext: package.manifest.dataFeed != nil,
                 contextItems: regenerateContextItems,
                 canRestorePreviousSurface: package.manifest.generationProvenance?.reversibleSnapshotName != nil,
@@ -680,6 +684,11 @@ struct HTMLWorkspaceEditorView: View {
 
     private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem] {
         HTMLWorkspaceRegenerateContextItem.items(from: package)
+    }
+
+    private var canApplyPendingRegeneratePreview: Bool {
+        pendingRegeneratePatchResponse != nil
+            && pendingRegenerateExpectedContentHash == package.currentContentHash
     }
 
     private var shouldShowPreviewContextSidebar: Bool {
@@ -1412,6 +1421,12 @@ struct HTMLWorkspaceEditorView: View {
         guard let patchResponse = pendingRegeneratePatchResponse,
               let expectedHash = pendingRegenerateExpectedContentHash else {
             regenerateErrorText = "No regenerate preview to apply."
+            return
+        }
+        guard expectedHash == package.currentContentHash else {
+            clearPendingRegeneratePreview()
+            regenerateErrorText = "Regenerate preview is stale because the workspace changed."
+            statusText = "Regenerate preview expired"
             return
         }
 

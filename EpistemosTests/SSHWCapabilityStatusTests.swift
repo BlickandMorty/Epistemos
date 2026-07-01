@@ -39,6 +39,7 @@ struct SSHWCapabilityStatusTests {
         let regenerate = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "Full-surface regenerate" }
         #expect(regenerate?.isLive == false)
         #expect(regenerate?.note.contains("one-click stream-to-preview/apply") == true)
+        #expect(regenerate?.note.contains("hash-matched preview apply gating") == true)
         #expect(regenerate?.note.contains("visible revert") == true)
         #expect(regenerate?.note.contains("revert snapshot preserved through snapshot churn") == true)
         #expect(regenerate?.note.contains("pixel-captioned presets") == true)
@@ -108,6 +109,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("live DOM outline"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("current in-app proof"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Full regenerate stream-to-preview/apply/revert UX"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("hash-matched preview apply gating"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("revert snapshot preserved through snapshot churn"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("pixel-captioned presets"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("workspace-context grounding"))

@@ -134,10 +134,12 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("contextQuery: $regenerateContextQuery"))
         #expect(editor.contains("contextStatusText: regenerateContextStatusLine"))
         #expect(editor.contains("isRefreshingContext: isRefreshingRegenerateContext"))
-        #expect(editor.contains("hasPendingPreview: pendingRegeneratePatchResponse != nil && pendingRegenerateExpectedContentHash != nil"))
+        #expect(editor.contains("hasPendingPreview: canApplyPendingRegeneratePreview"))
         #expect(editor.contains("hasVaultContext: package.manifest.dataFeed != nil"))
         #expect(editor.contains("contextItems: regenerateContextItems"))
         #expect(editor.contains("private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem]"))
+        #expect(editor.contains("private var canApplyPendingRegeneratePreview: Bool"))
+        #expect(editor.contains("pendingRegenerateExpectedContentHash == package.currentContentHash"))
         #expect(editor.contains("private var shouldShowPreviewContextSidebar: Bool"))
         #expect(editor.contains("HTMLWorkspaceRegenerateContextSidebar("))
         #expect(editor.contains("HTMLWorkspacePreviewContextPicker("))
@@ -214,6 +216,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("contextResults: contextResults"))
         #expect(editor.contains("beginRegenerateSurface(instructionOverride: preset.instruction)"))
         #expect(editor.contains("private func applyPendingRegeneratePreview()"))
+        #expect(editor.contains("Regenerate preview is stale because the workspace changed."))
+        #expect(editor.contains(#"statusText = "Regenerate preview expired""#))
         #expect(editor.contains("pendingRegeneratePatchResponse = patchResponse"))
         #expect(editor.contains(#"statusText = "Regenerate preview ready""#))
         #expect(editor.contains(#"statusText = "Regenerate preview applied; Revert available""#))
@@ -632,6 +636,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         for body in [refresh, clearContext, preset, configureFeed, clearFeed, restore] {
             #expect(body.contains("clearPendingRegeneratePreview()"))
         }
+        #expect(editor.contains("if let expected = pendingRegenerateExpectedContentHash,\n               expected != newValue.currentContentHash {\n                clearPendingRegeneratePreview()\n            }"))
     }
 
     @Test("copyable regenerate prompt includes system prompt and target hash")
