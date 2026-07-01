@@ -345,9 +345,14 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(items.first?.provenanceDescriptor == "via VaultSyncService.searchFullAsync")
         #expect(items.first?.systemImage == "doc.text")
         #expect(items.first?.dragPayload.contains("Workspace context: Alpha Note [note-a]") == true)
+        #expect(items.first?.dragPayload.contains("page_id: note-a") == true)
+        #expect(items.first?.dragPayload.contains("title: Alpha Note") == true)
+        #expect(items.first?.dragPayload.contains("context_kind: vault_record") == true)
+        #expect(items.first?.dragPayload.contains("source_label: Vault search result") == true)
+        #expect(items.first?.dragPayload.contains("rank: 0.9000") == true)
         #expect(items.first?.dragPayload.contains("Source: Vault search result / vault_record") == true)
         #expect(items.first?.dragPayload.contains("Provenance: VaultSyncService.searchFullAsync") == true)
-        #expect(items.first?.dragPayload.contains("alpha snippet") == true)
+        #expect(items.first?.dragPayload.contains("snippet: alpha snippet") == true)
         #expect(HTMLWorkspaceRegenerateContextItem.items(from: .defaultPackage()).isEmpty)
     }
 
@@ -373,7 +378,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(item.pageID.hasSuffix("..."))
         #expect(item.title.hasSuffix("..."))
         #expect(item.snippet.hasSuffix("..."))
-        #expect(item.dragPayload.count < 920)
+        #expect(item.dragPayload.count < 1_080)
     }
 
     @Test("regenerate context items pick icons from explicit context kind only")

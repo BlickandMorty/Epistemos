@@ -679,11 +679,17 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         let safeSource = Self.bounded(sourceLabel, limit: 120)
         let safeProvenance = Self.bounded(provenance, limit: 160)
         let safeSnippet = Self.bounded(snippet, limit: 560)
+        let safeRank = String(format: "%.4f", rank)
         return """
         Workspace context: \(safeTitle) [\(safePageID)]
+        page_id: \(safePageID)
+        title: \(safeTitle)
+        context_kind: \(safeKind)
+        source_label: \(safeSource)
+        rank: \(safeRank)
         Source: \(safeSource) / \(safeKind)
         Provenance: \(safeProvenance)
-        \(safeSnippet)
+        snippet: \(safeSnippet)
         """
     }
 
