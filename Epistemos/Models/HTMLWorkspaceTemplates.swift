@@ -93,17 +93,17 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         <button type="button" data-pin-context>Pin source</button>
         <span data-filter-count>0 visible</span>
       </section>
-      <section id="pinned-context" class="pinned-context" data-pinned-context data-context-dropzone aria-label="Pinned context sources">
+      <section id="pinned-context" class="pinned-context" data-pinned-context data-context-dropzone data-context-section="Pinned" aria-label="Pinned context sources">
         <p class="empty">No pinned sources yet.</p>
       </section>
       <section id="context-feed" class="context-tabs" data-context-tabs aria-label="Context kind tabs"></section>
-      <section id="rank-signal" class="feed-chart" data-result-chart data-context-dropzone aria-label="Result rank chart">
+      <section id="rank-signal" class="feed-chart" data-result-chart data-context-dropzone data-context-section="Rank chart" aria-label="Result rank chart">
         <p class="empty">Waiting for ranked results.</p>
       </section>
-      <section id="selected-source" class="result-detail" data-result-detail data-context-dropzone aria-label="Selected result detail">
+      <section id="selected-source" class="result-detail" data-result-detail data-context-dropzone data-context-section="Detail" aria-label="Selected result detail">
         <p class="empty">Select a result to inspect its source.</p>
       </section>
-      <section id="vault-results" class="results" data-vault-results data-context-dropzone aria-live="polite"></section>
+      <section id="vault-results" class="results" data-vault-results data-context-dropzone data-context-section="Results" aria-live="polite"></section>
     </main>
     """
 
@@ -375,6 +375,14 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       box-shadow: 0 12px 30px color-mix(in srgb, var(--epistemos-workspace-accent) 18%, transparent);
     }
 
+    .section-context-badge {
+      margin: 0;
+      color: var(--epistemos-workspace-muted);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
     .pinned-card {
       display: grid;
       gap: 6px;
@@ -540,6 +548,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
     let selectedContextKind = 'all';
     let selectedResultKey = null;
     let pinnedContextKeys = [];
+    let sectionContextKeys = {};
     let contextDropStatus = '';
     let contextDropKey = null;
     const pinnedContextLimit = 16;
@@ -844,12 +853,31 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderVaultResults();
     }
 
+    function dropzoneContextID(dropzone) {
+      return String(dropzone?.id || dropzone?.getAttribute('data-context-section') || 'workspace-section').trim();
+    }
+
+    function dropzoneContextLabel(dropzone) {
+      return String(dropzone?.getAttribute('data-context-section') || dropzone?.getAttribute('aria-label') || dropzoneContextID(dropzone)).trim();
+    }
+
+    function bindDropzoneContext(dropzone, key) {
+      if (!dropzone || !key) { return; }
+      sectionContextKeys[dropzoneContextID(dropzone)] = key;
+      dropzone.dataset.contextKey = key;
+    }
+
     function refreshContextDropStatus(allResults) {
-      if (!contextDropKey) { return; }
-      const exists = allResults.some((result) => resultKey(result) === contextDropKey);
-      if (exists) { return; }
-      contextDropKey = null;
-      contextDropStatus = 'Dropped context is no longer in the current data.json feed.';
+      const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
+      if (contextDropKey && !byKey.has(contextDropKey)) {
+        contextDropKey = null;
+        contextDropStatus = 'Dropped context is no longer in the current data.json feed.';
+      }
+      Object.keys(sectionContextKeys).forEach((sectionID) => {
+        if (byKey.has(sectionContextKeys[sectionID])) { return; }
+        delete sectionContextKeys[sectionID];
+        contextDropStatus = `Dropped context for ${sectionID} is no longer in the current data.json feed.`;
+      });
     }
 
     function hasContextDrag(event) {
@@ -902,7 +930,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       return matched ? resultKey(matched) : '';
     }
 
-    function pinDroppedContextKey(key) {
+    function pinDroppedContextKey(key, dropzone = null) {
       const data = HTMLWorkspace.data || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
       const exists = key && allResults.some((result) => resultKey(result) === key);
@@ -913,18 +941,21 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         return;
       }
       contextDropKey = key;
-      contextDropStatus = 'Context selected from current data.json feed.';
+      contextDropStatus = dropzone
+        ? `Context selected for ${dropzoneContextLabel(dropzone)} from current data.json feed.`
+        : 'Context selected from current data.json feed.';
       selectedContextKind = 'all';
       selectedResultKey = key;
       pinContextKey(key);
+      bindDropzoneContext(dropzone, key);
       renderVaultResults();
     }
 
-    function pinDroppedContextPayload(payload) {
+    function pinDroppedContextPayload(payload, dropzone = null) {
       const data = HTMLWorkspace.data || {};
       const allResults = Array.isArray(data.results) ? data.results : [];
       const key = contextKeyFromDroppedPayload(payload, allResults);
-      pinDroppedContextKey(key);
+      pinDroppedContextKey(key, dropzone);
     }
 
     function clearContextDropTargets() {
@@ -950,7 +981,24 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         event.preventDefault();
         const payload = droppedContextPayload(event);
         clearContextDropTargets();
-        pinDroppedContextPayload(payload);
+        pinDroppedContextPayload(payload, dropzone);
+      });
+    }
+
+    function renderDropzoneContextBadges(allResults) {
+      const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
+      document.querySelectorAll('[data-context-dropzone]').forEach((dropzone) => {
+        dropzone.querySelectorAll('[data-section-context-badge]').forEach((node) => node.remove());
+        const sectionID = dropzoneContextID(dropzone);
+        const key = sectionContextKeys[sectionID];
+        const result = key ? byKey.get(key) : null;
+        dropzone.toggleAttribute('data-context-bound', !!result);
+        if (!result) { return; }
+        const badge = HTMLWorkspace.el('p', {
+          class: 'section-context-badge',
+          'data-section-context-badge': ''
+        }, `Section context: ${result.title || result.page_id || 'Untitled'} / ${result.source_label || 'Vault search result'} / ${resultContextKind(result)}`);
+        dropzone.prepend(badge);
       });
     }
 
@@ -1026,10 +1074,14 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       renderResultDetail(results);
 
       const host = HTMLWorkspace.q('[data-vault-results]');
-      if (!host) { return; }
+      if (!host) {
+        renderDropzoneContextBadges(allResults);
+        return;
+      }
       host.replaceChildren();
       if (results.length === 0) {
         host.append(HTMLWorkspace.el('p', { class: 'empty' }, filter ? 'No results match this filter.' : (meta.error || 'No matching context records yet.')));
+        renderDropzoneContextBadges(allResults);
         return;
       }
 
@@ -1066,6 +1118,7 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
         });
         host.append(card);
       });
+      renderDropzoneContextBadges(allResults);
     }
 
     renderVaultResults();
