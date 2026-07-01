@@ -54,9 +54,9 @@ enum VoiceLiveSmoke {
             fail("Kokoro gate did not stay off without the Pro flag")
         }
         let offPresentation = KokoroVoiceProSettingsModel.presentation(for: off)
-        guard offPresentation.selectedRuntime == .appleAVSpeech,
+        guard offPresentation.selectedRuntime == .textToSpeechUnavailable,
               !offPresentation.proRuntimeEnabled else {
-            fail("Kokoro Pro presentation did not fall back while the Pro flag was off")
+            fail("Kokoro Pro presentation did not keep TTS unavailable while the Pro flag was off")
         }
 
         let missing = KokoroVoiceGateStatus.status(
@@ -67,10 +67,10 @@ enum VoiceLiveSmoke {
             fail("Kokoro gate did not report missing model for an empty root")
         }
         let missingPresentation = KokoroVoiceProSettingsModel.presentation(for: missing)
-        guard missingPresentation.selectedRuntime == .appleAVSpeech,
+        guard missingPresentation.selectedRuntime == .textToSpeechUnavailable,
               !missingPresentation.proRuntimeEnabled,
               missingPresentation.badgeTitle == "Model required" else {
-            fail("Kokoro Pro presentation did not fall back while the model was missing")
+            fail("Kokoro Pro presentation did not keep TTS unavailable while the model was missing")
         }
 
         do {
@@ -124,15 +124,15 @@ enum VoiceLiveSmoke {
               packageEvidence.manifestFileCount == 2,
               packageEvidence.modelPackageName == KokoroVoiceGateStatus.modelPackageName,
               packageEvidence.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier,
-              packageEvidence.settingsSummary.contains("AVSpeech remains active") else {
+              packageEvidence.settingsSummary.contains("Kokoro synthesis remains unavailable") else {
             fail("Kokoro gate did not expose checked package evidence without enabling runtime")
         }
         let packageReadyPresentation = KokoroVoiceProSettingsModel.presentation(for: packageReady)
-        guard packageReadyPresentation.selectedRuntime == .appleAVSpeech,
+        guard packageReadyPresentation.selectedRuntime == .textToSpeechUnavailable,
               !packageReadyPresentation.proRuntimeEnabled,
               packageReadyPresentation.badgeTitle == "Package ready",
               packageReadyPresentation.packageEvidenceSummary?.contains(KokoroVoiceGateStatus.modelPackageName) == true else {
-            fail("Kokoro Pro presentation did not keep AVSpeech selected while neural inference is deferred")
+            fail("Kokoro Pro presentation did not keep TTS unavailable while neural inference is deferred")
         }
 
         let installerTargetRoot = root.appendingPathComponent("InstallerTarget", isDirectory: true)
