@@ -57,21 +57,40 @@ enum DeepResearchServiceError: Error, LocalizedError, Sendable {
 
 enum DeepResearchRuntimeDiagnostics {
     nonisolated static let maxRuntimeErrorCharacters = 360
+    private static let maxDomainCharacters = 96
+    private static let domainAllowedPunctuation = CharacterSet(charactersIn: "._-")
 
     nonisolated static func runtimeMessage(_ message: String, fallback: String = "Deep research runtime failed.") -> String {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bounded = String(message.prefix(maxRuntimeErrorCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmed.isEmpty ? fallback : trimmed
         guard description.count > maxRuntimeErrorCharacters else {
             return description
         }
-        return String(description.prefix(maxRuntimeErrorCharacters)) + "..."
+        return String(description.prefix(maxRuntimeErrorCharacters - 3)) + "..."
     }
 
     nonisolated static func externalErrorDescription(_ error: Error) -> String {
         let nsError = error as NSError
-        let domain = nsError.domain.trimmingCharacters(in: .whitespacesAndNewlines)
-        let label = domain.isEmpty ? "Error" : domain
-        return runtimeMessage("Deep research runtime failed (\(label) \(nsError.code)).")
+        let domain = safeDomain(nsError.domain)
+        return runtimeMessage("Deep research runtime failed (domain=\(domain) code=\(nsError.code)).")
+    }
+
+    private static func safeDomain(_ domain: String) -> String {
+        let bounded = String(domain.prefix(maxDomainCharacters + 32))
+        let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLikeCharacters = CharacterSet(charactersIn: "/\\:")
+        guard trimmed.rangeOfCharacter(from: pathLikeCharacters) == nil else {
+            return "Error"
+        }
+        let value = trimmed.isEmpty ? "Error" : trimmed
+        guard value.unicodeScalars.allSatisfy({ scalar in
+            CharacterSet.alphanumerics.contains(scalar) || domainAllowedPunctuation.contains(scalar)
+        }) else {
+            return "Error"
+        }
+        let result = String(value.prefix(maxDomainCharacters))
+        return result.isEmpty ? "Error" : result
     }
 }
 
