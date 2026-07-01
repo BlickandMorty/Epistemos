@@ -27,7 +27,7 @@ usage strings.
   `FilePreviewButton`, `.filePreview(_:)`, and a shared URL policy that rejects remote URLs, directories, unreadable
   files, non-regular files, final symlinks, and files over 512 MiB through a descriptor-backed `O_NOFOLLOW` + `fstat`
   envelope before Quick Look opens anything. It also caps preview batches/titles before handing items to Quick Look,
-  with title ellipsis kept inside the configured cap.
+  with title ellipsis kept inside the configured cap and titles control/whitespace-normalized before display.
   The reusable preview button uses `ToolbarCapsuleButton` native chrome instead of an unstyled raw SwiftUI button.
 - **DONE:** `Epistemos/Views/Shared/LiveTextImageView.swift` provides a VisionKit-backed Live Text overlay when
   VisionKit is available and an honest theme-token image fallback when it is not, with a bounded image-analysis policy

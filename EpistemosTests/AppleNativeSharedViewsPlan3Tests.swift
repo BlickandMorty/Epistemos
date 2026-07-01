@@ -20,6 +20,8 @@ struct AppleNativeSharedViewsPlan3Tests {
             "maxPreviewItems",
             "maxTitleCharacters",
             "String(value.prefix(maxTitleCharacters + 32))",
+            "normalizedDisplayText(bounded)",
+            "CharacterSet.controlCharacters",
             "String(trimmed.prefix(maxTitleCharacters - 3))",
             "FilePreviewDisplayBounds.title",
             "prefix(FilePreviewDisplayBounds.maxPreviewItems)",
@@ -216,6 +218,7 @@ struct AppleNativeSharedViewsPlan3Tests {
         let item = FilePreviewItem(url: URL(fileURLWithPath: "/tmp/\(longTitle).txt"), title: longTitle)
 
         #expect(FilePreviewDisplayBounds.title("  \(longTitle)\n") == expected)
+        #expect(FilePreviewDisplayBounds.title("Quick\nLook\tTitle\u{0007}") == "Quick Look Title")
         #expect(item.previewItemTitle == expected)
     }
 

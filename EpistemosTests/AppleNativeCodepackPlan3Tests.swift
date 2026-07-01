@@ -28,6 +28,7 @@ struct AppleNativeCodepackPlan3Tests {
             "Consumer Handoff",
             "caps preview batches/titles",
             "title ellipsis kept inside the configured cap",
+            "control/whitespace-normalized",
             "recognized text returned to consumers is capped"
         ] {
             #expect(codepack.contains(required), "Missing Apple-native codepack string: \(required)")
