@@ -610,7 +610,7 @@ final class AIPartnerService {
             let matchCount = keywords.filter { lineLower.contains($0) && $0.count > 2 }.count
             if matchCount >= 1 {
                 let position = positionFromLineColumn(line: index + 1, column: 1)
-                return NSRange(location: position, length: line.count)
+                return NSRange(location: position, length: (line as NSString).length)
             }
         }
         

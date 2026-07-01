@@ -82,7 +82,7 @@ final class GhostTextRenderer {
         color: NSColor,
         label: String?
     ) {
-        let effectiveRange = NSIntersectionRange(range, NSRange(location: 0, length: textView.string.count))
+        let effectiveRange = NSIntersectionRange(range, NSRange(location: 0, length: (textView.string as NSString).length))
         guard effectiveRange.length > 0 else { return }
 
         // Create a custom background highlight
