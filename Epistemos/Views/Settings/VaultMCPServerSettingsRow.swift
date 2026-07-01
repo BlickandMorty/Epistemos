@@ -228,13 +228,18 @@ struct VaultMCPServerSettingsRow: View {
     }
 
     private func copyClientConfig() {
-        guard let registration else { return }
+        guard let registration,
+              let clientConfigJSON = Self.clientConfigJSON(for: registration) else {
+            statusMessage = "The MCP client config is not ready."
+            return
+        }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(Self.clientConfigJSON(for: registration), forType: .string)
+        NSPasteboard.general.setString(clientConfigJSON, forType: .string)
         didCopyConfig = true
     }
 
-    static func clientConfigJSON(for registration: WorkNativeMCPRegistration) -> String {
+    static func clientConfigJSON(for registration: WorkNativeMCPRegistration) -> String? {
+        guard registration.isTrustedLoopbackMCP else { return nil }
         let object: [String: Any] = [
             "type": "http",
             "url": registration.url,
@@ -242,7 +247,7 @@ struct VaultMCPServerSettingsRow: View {
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]),
               let string = String(data: data, encoding: .utf8) else {
-            return #"{"type":"http","url":"\#(registration.url)","headers":{"Authorization":"Bearer \#(registration.token)"}}"#
+            return nil
         }
         return string
     }

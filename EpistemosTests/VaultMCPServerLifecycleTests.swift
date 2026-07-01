@@ -182,6 +182,27 @@ struct VaultMCPServerLifecycleTests {
         #expect(data.isEmpty)
     }
 
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+    @Test("client config JSON validates trusted loopback registration before copying")
+    func clientConfigJSONValidatesTrustedLoopbackRegistration() throws {
+        let validRegistration = WorkNativeMCPRegistration(
+            url: "http://127.0.0.1:5511/mcp",
+            token: "safe-token_123")
+        let configJSON = try #require(VaultMCPServerSettingsRow.clientConfigJSON(for: validRegistration))
+        let config = try Self.jsonObject(Data(configJSON.utf8))
+        let headers = try #require(config["headers"] as? [String: String])
+
+        #expect(config["type"] as? String == "http")
+        #expect(config["url"] as? String == validRegistration.url)
+        #expect(headers["Authorization"] == "Bearer safe-token_123")
+
+        let secretBearingRegistration = WorkNativeMCPRegistration(
+            url: "http://127.0.0.1:5511/mcp?token=secret",
+            token: #"unsafe"token"#)
+        #expect(VaultMCPServerSettingsRow.clientConfigJSON(for: secretBearingRegistration) == nil)
+    }
+    #endif
+
     @Test("server failure diagnostics do not expose raw localized paths")
     func serverFailureDiagnosticsDoNotExposeRawLocalizedPaths() {
         let privatePath = "/Users/example/private-vault/mcp.sock"
@@ -326,6 +347,9 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("isPendingOperationCurrent(for: vaultPath)"))
         #expect(row.contains("completePendingOperation(for: vaultPath)"))
         #expect(row.contains("failureStatusMessage()"))
+        #expect(row.contains("guard registration.isTrustedLoopbackMCP else { return nil }"))
+        #expect(row.contains("let clientConfigJSON = Self.clientConfigJSON(for: registration)"))
+        #expect(row.contains(#"return nil"#))
         #expect(row.contains("case .failed(let message)"))
         #expect(row.contains(".task(id: vaultRoot.map(Self.canonicalVaultPath))"))
         #expect(row.contains("VaultMCPTokenStore.masked"))
@@ -339,6 +363,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("ui.theme.resolved.accent.color"))
         #expect(row.contains(#""type": "http""#))
         #expect(row.contains("Authorization"))
+        #expect(!row.contains(#"Bearer \#(registration.token)"#))
         #expect(!row.contains("@AppStorage"))
         #expect(!row.contains("Button(\"Rotate\")"))
         #expect(!row.contains("Button(didCopyConfig"))

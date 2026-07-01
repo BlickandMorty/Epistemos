@@ -279,7 +279,7 @@ failures mapped to bounded domain/code diagnostics before display.
 **5c — Vault-as-MCP-server (the moat, outward-facing).** Shipped: `VaultMCPCore` (read-only tools/resources allowlist),
 `VaultMCPServer` (loopback `/mcp`, reuses `WorkNativeMCPServer` auth/framing helpers), `VaultMCPTokenStore` (persistent
 Keychain bearer + rotate), `VaultMCPHost` (off-by-default lifecycle), `VaultMCPServerSettingsRow` (masked token +
-copy client config), and the Rust resource-dispatch parity adapter. The host uses `ChatToolTier.readOnly` plus
+trusted-loopback-validated structured JSON client config copy), and the Rust resource-dispatch parity adapter. The host uses `ChatToolTier.readOnly` plus
 `allowedToolNames: Set(VaultMCPCore.readToolNames)` while the core rejects writes before executor dispatch. Core
 JSON-RPC handling and the loopback HTTP server both cap request bodies at 8 MiB before JSON parsing/dispatch; the core
 also requires a JSON-RPC 2.0 object envelope, caps echoed string request IDs and protocol error diagnostics, and rejects

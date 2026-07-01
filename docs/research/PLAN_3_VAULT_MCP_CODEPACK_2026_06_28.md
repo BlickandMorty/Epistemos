@@ -72,8 +72,10 @@ so retrying from Settings creates a fresh loopback listener rather than reusing 
 ## 5. `VaultMCPServerSettingsRow.swift` [DELIVERED]
 Toggle start/stop; shows `http://127.0.0.1:<port>/mcp` + masked token + **Rotate** + **"Copy MCP client config"** →
 `{"type":"http","url":…,"headers":{"Authorization":"Bearer …"}}` (the shape Claude Desktop/Cursor expect, same as the
-in-repo OpenCode config writer). Surfaces "Running (vault empty)" honestly. Async start/rotate completions are gated
-by the active canonical vault path so a stale task cannot present a registration after the connected vault changes.
+in-repo OpenCode config writer). The copy helper validates the registration is a trusted loopback MCP endpoint and uses
+structured JSON serialization only, returning no config rather than hand-interpolating URL/token fallback JSON. Surfaces
+"Running (vault empty)" honestly. Async start/rotate completions are gated by the active canonical vault path so a stale
+task cannot present a registration after the connected vault changes.
 Settings actions use `ToolbarCapsuleButton`, and status text/dots use `UIState` theme tokens rather than hard-coded
 traffic-light colors. Start/rotate failure text surfaces the server's bounded diagnostic message when one exists.
 
