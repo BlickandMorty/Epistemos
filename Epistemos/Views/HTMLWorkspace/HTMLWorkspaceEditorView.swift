@@ -1075,7 +1075,7 @@ struct HTMLWorkspaceEditorView: View {
         return nil
     }
 
-    private static func previewContextPayload(from item: Any?) -> String? {
+    nonisolated private static func previewContextPayload(from item: Any?) -> String? {
         if let string = item as? String {
             return string
         }
