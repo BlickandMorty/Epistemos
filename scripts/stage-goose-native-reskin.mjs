@@ -6754,7 +6754,6 @@ body,
 
 .goose-epistemos :is(
   .bg-background-primary,
-  .bg-background-tertiary,
   .bg-background-default
 ) {
   background: transparent !important;

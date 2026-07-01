@@ -6173,6 +6173,14 @@ if [ "${EPISTEMOS_GOOSE_UI_VALIDATE_ONLY:-0}" = "1" ]; then
     grep -q "border-right-width: 0 !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "background: var(--epistemos-claude-focus) !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q ".goose-epistemos .bg-background-tertiary" "$WORK_ROOT/ui/desktop/src/styles/main.css"
+    node - "$WORK_ROOT/ui/desktop/src/styles/main.css" <<'JS'
+const fs = require('node:fs');
+const source = fs.readFileSync(process.argv[2], 'utf8');
+if (/\.goose-epistemos\s+:is\(\s*\.bg-background-primary,\s*\.bg-background-tertiary,\s*\.bg-background-default\s*\)\s*\{\s*background:\s*transparent\s*!important/.test(source)) {
+  console.error('Goose Web UI final flat lock zeroes active bg-background-tertiary rows.');
+  process.exit(1);
+}
+JS
     grep -F -q "[class~='bg-[var(--epistemos-accent)]']" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "color: var(--color-text-inverse) !important" "$WORK_ROOT/ui/desktop/src/styles/main.css"
     grep -q "background-color: color-mix(in srgb, var(--epistemos-accent) 7%, var(--epistemos-glass-fill))" "$WORK_ROOT/ui/desktop/src/styles/main.css"

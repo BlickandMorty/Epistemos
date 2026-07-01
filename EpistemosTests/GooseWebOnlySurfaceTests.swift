@@ -162,6 +162,24 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(reskin.contains("min-h-0 overflow-hidden rounded-[12px] bg-background-secondary/54"))
         #expect(reskin.contains("flex shrink-0 items-center bg-background-primary/70 px-3"))
         #expect(reskin.contains(".goose-epistemos .bg-background-tertiary"))
+        let desktopLock = try #require(reskin.components(separatedBy: "Epistemos Claude desktop lock").last)
+        #expect(desktopLock.contains("""
+.goose-epistemos :is(
+  .bg-background-primary,
+  .bg-background-default
+) {
+  background: transparent !important;
+}
+"""))
+        #expect(!desktopLock.contains("""
+.goose-epistemos :is(
+  .bg-background-primary,
+  .bg-background-tertiary,
+  .bg-background-default
+) {
+  background: transparent !important;
+}
+"""))
         #expect(reskin.contains("[class~='bg-[var(--epistemos-accent)]']"))
         #expect(reskin.contains("color: var(--color-text-inverse) !important;"))
         #expect(reskin.contains(".ep-display"))
@@ -210,6 +228,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("--epistemos-claude-composer-shadow:"))
         #expect(stageScript.contains("box-shadow: var(--epistemos-claude-composer-shadow) !important;"))
         #expect(stageScript.contains(".goose-epistemos .bg-background-tertiary"))
+        #expect(stageScript.contains("Goose Web UI final flat lock zeroes active bg-background-tertiary rows."))
         #expect(stageScript.contains("[class~='bg-[var(--epistemos-accent)]']"))
         #expect(stageScript.contains("color: var(--color-text-inverse) !important;"))
         #expect(stageScript.contains("bg-background-secondary/70"))
