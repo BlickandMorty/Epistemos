@@ -103,6 +103,14 @@ struct LandingView: View {
         return activeLandingInlineCommand?.minStageHeight ?? 220
     }
 
+    /// Whether to mount + PRE-WARM the persistent embedded Goose surface. Only when
+    /// Goose is actually staged/ready, so we never warm a missing runtime. Mounting it
+    /// (hidden) while on the landing page is the warm-up; it stays alive across nav so
+    /// pressing Goose is instant instead of a cold-load hang.
+    private var gooseSurfacePrewarmEnabled: Bool {
+        GooseSurfaceAvailability.current().isReady
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -171,6 +179,28 @@ struct LandingView: View {
             case .browserUsePro:
                 HomeEmbeddedPage(title: "Browser-Use Pro") { BrowserUseWebUIView() }
                     .transition(Self.homePageTransition).zIndex(1)
+            case .goose:
+                // Rendered by the persistent pre-warmed Goose layer below (kept
+                // alive so navigation is instant). This case only holds the slot.
+                Color.clear.zIndex(1)
+            }
+
+            // Persistent, PRE-WARMED Goose surface (owner: "load fully at app start,
+            // ready, no hang"). Mounted ONCE whenever Goose is staged so its runtime
+            // stays warm across navigations; hidden until homeContent == .goose. It
+            // warms in the background while the user is still on the landing page.
+            if gooseSurfacePrewarmEnabled {
+                HomeEmbeddedPage(title: "Goose") {
+                    if AgentSurface.isEnabled() {
+                        AgentSurfaceRootView(theme: ui.theme)
+                    } else {
+                        GooseWebSurfaceView(theme: ui.theme)
+                    }
+                }
+                .opacity(ui.homeContent == .goose ? 1 : 0)
+                .allowsHitTesting(ui.homeContent == .goose)
+                .zIndex(ui.homeContent == .goose ? 5 : -3)
+                .animation(.spring(response: 0.4, dampingFraction: 0.86), value: ui.homeContent)
             }
 
             // Companion dock — hidden when the embedded graph is up so it
@@ -1358,15 +1388,12 @@ struct LandingView: View {
             return
         }
 
-        #if EPISTEMOS_APP_STORE
-        GooseSurfaceWindowController.shared.open()
-        #else
-        if AgentSurface.isEnabled() {
-            AgentSurfaceWindowController.shared.open()
-        } else {
-            GooseSurfaceWindowController.shared.open()
+        // Owner: Goose animates to a PAGE in the home window (like the old chat),
+        // not a separate window. The .goose branch in the home-content router hosts
+        // AgentSurfaceRootView / GooseWebSurfaceView per AgentSurface.isEnabled().
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+            ui.homeContent = .goose
         }
-        #endif
     }
 
     private func createAndOpenCodeFile(_ request: CodeFileCreationRequest) {

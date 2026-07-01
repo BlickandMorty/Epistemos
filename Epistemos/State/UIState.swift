@@ -364,6 +364,7 @@ final class UIState {
         case arxiv
         case browser
         case browserUsePro
+        case goose
     }
 
     var homeContent: HomeContent = .greeting
