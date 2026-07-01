@@ -60,9 +60,9 @@ BFS dumping snippets); and ZERO anti-fingerprinting (no UA spoofing, no canvas/W
   `HTMLWorkspacePDFExporter.swift:35`, `HTMLWorkspacePreviewView.swift:27`) — no persistent cookies/cache/
   IndexedDB/localStorage. SSRF guard + secret-free errors (`web.rs:404-419` `describe_web_request_error`, test
   `:1103`). Proxy passthrough — `browser.rs` CLI spawn allowlists `HTTP_PROXY/HTTPS_PROXY/NO_PROXY` via
-  `harden_cli_subprocess_extending` (`:541-556`) — corporate-proxy reach, NOT an Obscura proxy-chain.
-- **ABSENT (Obscura-style):** no `customUserAgent`/UA spoofing (only honest `Epistemos/1.0`), **no
-  `WKContentRuleList`** ad/tracker blocking (grep empty — WebKit's native content-blocker + ITP unused), no
+  `harden_cli_subprocess_extending` (`:541-556`) — corporate-proxy reach, NOT an Obscura proxy-chain. The human
+  Tier-1 Browser now installs a local `WKContentRuleList` tracker/ad blocker with host-anchored request URL filters.
+- **ABSENT (Obscura-style):** no `customUserAgent`/UA spoofing (only honest app defaults), no
   canvas/WebGL/font spoofing, no `navigator.webdriver`/platform overrides, no proxy *chains*. All the Obscura
   `stealth` feature (`BrowserOptions{stealth}` addendum `:168-185,487,542`) — future Pro work.
 
@@ -72,16 +72,16 @@ BFS dumping snippets); and ZERO anti-fingerprinting (no UA spoofing, no canvas/W
   `PageSnapshot`/`AxNode`. **Agentic layer on top:** reuse `web_crawl`'s `VecDeque` frontier (`web.rs:775`) +
   an LLM extract-to-schema head (grammar-bound `LocalToolGrammar`) + relevance-ranked link selection. In-process,
   no entitlements, MAS-clean.
-- **Obscura privacy (MAS-safe subset):** WKWebView hardening already real (`nonPersistent()`); the NEW MAS-safe
-  adds are WebKit-native + entitlement-free — **`WKContentRuleList`** (compiled JSON ad/tracker block rules),
-  `customUserAgent` override, ITP (on by default). Clean-room WebKit APIs, NOT the Obscura crate.
+- **Obscura privacy (MAS-safe subset):** WKWebView hardening already real (`nonPersistent()`); the delivered
+  MAS-safe add is WebKit-native + entitlement-free — **`WKContentRuleList`** compiled JSON ad/tracker block rules
+  on the human Browser. Clean-room WebKit APIs, NOT the Obscura crate; UA/canvas/WebGL spoofing remains absent.
 - **Pro path:** `ObscuraBrowserEngine` (`mod.rs:319`) = Obscura `stealth` (canvas/WebGL/navigator evasion) +
   `deno_core` V8 user-JS + CDP + proxy chains — per-call ephemeral V8 isolate, V8 entitlement, `#[cfg(pro-build)]`,
   all `Profile::ProOnly`.
 
 ## Honest gating
 - **MAS-safe:** `web.fetch/extract/crawl` (already AppStoreSafe); future in-process `WebKitBrowserEngine` scrape
-  + `WKContentRuleList` tracker-block + `nonPersistent()` + UA override. New tools must join
+  + `nonPersistent()`. The human Browser's `WKContentRuleList` tracker-block is already delivered. New tools must join
   `coreAppStoreAllowedToolNames` (SS-J: `ToolTierBridge.swift:194-235`).
 - **Pro-only:** Obscura `deno_core`/V8 stealth engine, anti-fingerprint spoofing, CDP, proxy chains, the
   existing `agent-browser` CLI — all `#[cfg(pro-build)]`/`Profile::ProOnly`.
@@ -90,9 +90,9 @@ BFS dumping snippets); and ZERO anti-fingerprinting (no UA spoofing, no canvas/W
   logic import.
 
 ## Ordered plan
-1. **[S]** `WKContentRuleList` MAS-safe tracker/ad blocker + `customUserAgent` override on the WKWebView hosts
-   (extends the existing `nonPersistent()` posture; pure WebKit, no entitlement) — first honest "Obscura-lite
-   privacy" win.
+1. **[S — DELIVERED/PARTIAL]** `WKContentRuleList` MAS-safe tracker/ad blocker on the human Browser
+   (extends the existing `nonPersistent()` posture; pure WebKit, no entitlement). `customUserAgent` spoofing is not
+   built and remains outside the MAS-safe honesty claim.
 2. **[M]** **Agentic scraper** = `web_crawl`'s frontier (`web.rs:775`) + LLM extract-to-schema head
    (grammar-bound `LocalToolGrammar`) + goal-relevance link ranking; register once, AppStoreSafe, add to
    `coreAppStoreAllowedToolNames`. Clean-room firecrawl/crawl4ai "extract to JSON schema."

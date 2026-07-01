@@ -81,9 +81,41 @@ struct BrowserPlan3Tests {
         let blocker = try loadMirroredSourceTextFile("Epistemos/Engine/BrowserTrackerContentBlocker.swift")
         #expect(blocker.contains("WKContentRuleListStore"))
         #expect(blocker.contains("compileContentRuleList"))
+        #expect(blocker.contains("urlFilter(forBlockedDomainPattern:"))
+        #expect(blocker.contains("normalizedDomainSuffix"))
         #expect(blocker.contains("*doubleclick.net"))
         #expect(blocker.contains("*google-analytics.com"))
+        #expect(!blocker.contains(#""if-domain""#))
         #expect(!blocker.contains("customUserAgent"))
+    }
+
+    @Test("content blocker rules match tracker request URLs, not only page domains")
+    func contentBlockerRulesMatchRequestURLs() throws {
+        let doubleClickFilter = try #require(
+            BrowserTrackerContentBlocker.urlFilter(forBlockedDomainPattern: "*doubleclick.net")
+        )
+        let doubleClickRegex = try NSRegularExpression(pattern: doubleClickFilter)
+
+        #expect(Self.matches(doubleClickRegex, "https://doubleclick.net/activity"))
+        #expect(Self.matches(doubleClickRegex, "https://ad.doubleclick.net/activity"))
+        #expect(Self.matches(doubleClickRegex, "http://stats.ad.doubleclick.net/pixel.gif"))
+        #expect(!Self.matches(doubleClickRegex, "https://notdoubleclick.net/activity"))
+        #expect(!Self.matches(doubleClickRegex, "https://doubleclick.net.evil.example/activity"))
+        #expect(!Self.matches(doubleClickRegex, "https://doubleclick.net@evil.example/activity"))
+        #expect(BrowserTrackerContentBlocker.urlFilter(forBlockedDomainPattern: "*bad_domain.test") == nil)
+
+        let rulesData = Data(BrowserTrackerContentBlocker.ruleListJSON.utf8)
+        let rules = try #require(try JSONSerialization.jsonObject(with: rulesData) as? [[String: Any]])
+        #expect(rules.count == BrowserTrackerContentBlocker.blockedDomainPatterns.count)
+
+        for rule in rules {
+            let trigger = try #require(rule["trigger"] as? [String: Any])
+            let action = try #require(rule["action"] as? [String: Any])
+            let urlFilter = try #require(trigger["url-filter"] as? String)
+            #expect(urlFilter.hasPrefix("^https?://"))
+            #expect(trigger["if-domain"] == nil)
+            #expect(action["type"] as? String == "block")
+        }
     }
 
     @Test("navigation cancellation is not surfaced as a browser error")
@@ -181,6 +213,7 @@ struct BrowserPlan3Tests {
             "BrowserWebView",
             "Browser file contract [DELIVERED]",
             "new-window navigations are reloaded from a sanitized URL-only request",
+            "host-anchored request URL filters",
             "ellipsis kept inside the configured display caps",
             "Summon — `UtilityPanel.browser` + ⌘⇧B [DELIVERED]",
             "UtilityWindowManager.shared.show(.browser)",
@@ -206,5 +239,10 @@ struct BrowserPlan3Tests {
             #expect(!codepack.contains(forbidden), "Browser Tier-1 codepack kept stale Obscura string: \(forbidden)")
             #expect(!plan.contains(forbidden), "Plan 3 capability doc kept stale Browser Tier-1 string: \(forbidden)")
         }
+    }
+
+    private static func matches(_ regex: NSRegularExpression, _ value: String) -> Bool {
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        return regex.firstMatch(in: value, range: range) != nil
     }
 }

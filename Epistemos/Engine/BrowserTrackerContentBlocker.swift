@@ -23,11 +23,11 @@ nonisolated enum BrowserTrackerContentBlocker {
     ]
 
     static var ruleListJSON: String {
-        let rules = blockedDomainPatterns.map { domain in
+        let rules = blockedDomainPatterns.compactMap { domain -> [String: Any]? in
+            guard let urlFilter = urlFilter(forBlockedDomainPattern: domain) else { return nil }
             [
                 "trigger": [
-                    "url-filter": ".*",
-                    "if-domain": [domain],
+                    "url-filter": urlFilter,
                 ],
                 "action": [
                     "type": "block",
@@ -40,6 +40,37 @@ nonisolated enum BrowserTrackerContentBlocker {
             return "[]"
         }
         return json
+    }
+
+    static func urlFilter(forBlockedDomainPattern pattern: String) -> String? {
+        guard let suffix = normalizedDomainSuffix(pattern) else { return nil }
+        let escaped = NSRegularExpression.escapedPattern(for: suffix)
+        return #"^https?://([^/?#@]+\.)*"# + escaped + #"([/:?#]|$)"#
+    }
+
+    private static func normalizedDomainSuffix(_ pattern: String) -> String? {
+        var suffix = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        while suffix.hasPrefix("*") || suffix.hasPrefix(".") {
+            suffix.removeFirst()
+        }
+        suffix = suffix.lowercased()
+        guard suffix.contains("."),
+              suffix.count <= 253,
+              !suffix.hasPrefix("."),
+              !suffix.hasSuffix(".") else {
+            return nil
+        }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-"))
+        guard suffix.unicodeScalars.allSatisfy({ allowed.contains($0) }),
+              suffix.split(separator: ".").allSatisfy({ label in
+                  !label.isEmpty
+                      && label.count <= 63
+                      && !label.hasPrefix("-")
+                      && !label.hasSuffix("-")
+              }) else {
+            return nil
+        }
+        return suffix
     }
 
     @MainActor
