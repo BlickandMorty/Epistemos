@@ -317,6 +317,8 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(previewDocument.contains("function boundedCode(code)"))
         #expect(previewDocument.contains("throw new Error('HTML Workspace Python code is too large')"))
         #expect(previewDocument.contains("const source = boundedCode(code);"))
+        #expect(previewDocument.contains("return await loadPromise;"))
+        #expect(previewDocument.contains("loadPromise = null;"))
         #expect(previewDocument.contains("const result = runQueue.then(execute, execute);"))
         #expect(previewDocument.contains("runQueue = result.catch(() => {});"))
         #expect(previewDocument.contains("pyodide.runPythonAsync(source)"))

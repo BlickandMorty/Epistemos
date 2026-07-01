@@ -240,7 +240,12 @@ nonisolated enum HTMLWorkspacePreviewRuntime {
               return window.loadPyodide({ indexURL: baseURL });
             })();
           }
-          return loadPromise;
+          try {
+            return await loadPromise;
+          } catch (error) {
+            loadPromise = null;
+            throw error;
+          }
         }
         function boundedCode(code) {
           const source = String(code ?? '');
