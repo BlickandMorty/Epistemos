@@ -9,7 +9,13 @@ extension HTMLWorkspaceDataFeedContextSources {
         limit: Int
     ) -> [HTMLWorkspaceDataFeedResult] {
         let effectiveLimit = HTMLWorkspaceDataFeed.clampedLimit(limit)
-        let boundedResults = Array(searchResults.prefix(effectiveLimit))
+        // Dedup by pageId before bounding so two search hits for the same page cannot emit two
+        // context items sharing one contextID (which trips a SwiftUI duplicate-ForEach-id warning
+        // and can drop/misrender a row). Folder/graph sources already dedup this way; note did not.
+        var seenPageIDs = Set<String>()
+        let boundedResults = Array(
+            searchResults.filter { seenPageIDs.insert($0.pageId).inserted }.prefix(effectiveLimit)
+        )
         guard !boundedResults.isEmpty else {
             return recentNoteResults(query: query, modelContainer: modelContainer, limit: effectiveLimit)
         }
