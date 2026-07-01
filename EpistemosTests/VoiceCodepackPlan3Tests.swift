@@ -768,6 +768,66 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
+    @Test("Kokoro Pro gate rejects control characters in package manifest paths")
+    func kokoroProGateRejectsControlCharactersInPackageManifestPaths() throws {
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kokoro-gate-control-path-\(UUID().uuidString)", isDirectory: true)
+        let modelDirectory = root.appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+        let manifestURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.manifestFileName)
+        let packageURL = modelDirectory.appendingPathComponent(KokoroVoiceGateStatus.modelPackageName, isDirectory: true)
+        let packageManifestURL = packageURL.appendingPathComponent(KokoroVoiceGateStatus.packageManifestFileName)
+        let payloadURL = packageURL
+            .appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent("com.apple.CoreML", isDirectory: true)
+            .appendingPathComponent("model\nname.mlmodel", isDirectory: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let packageManifest = Data(#"{"fileFormatVersion":"1.0.0"}"#.utf8)
+        let payload = Data("fixture kokoro payload\n".utf8)
+        try FileManager.default.createDirectory(
+            at: payloadURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try packageManifest.write(to: packageManifestURL)
+        try payload.write(to: payloadURL)
+
+        let manifest: [String: Any] = [
+            "schemaVersion": KokoroVoiceGateStatus.manifestSchemaVersion,
+            "modelId": KokoroVoiceGateStatus.modelIdentifier,
+            "runtime": KokoroVoiceGateStatus.runtimeIdentifier,
+            "modelPackageName": KokoroVoiceGateStatus.modelPackageName,
+            "files": [
+                [
+                    "path": KokoroVoiceGateStatus.packageManifestFileName,
+                    "bytes": packageManifest.count,
+                    "sha256": sha256Hex(packageManifest),
+                ],
+                [
+                    "path": "Data/com.apple.CoreML/model\nname.mlmodel",
+                    "bytes": payload.count,
+                    "sha256": sha256Hex(payload),
+                ],
+            ],
+        ]
+        try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+            .write(to: manifestURL)
+
+        let status = KokoroVoiceGateStatus.status(
+            environment: [KokoroVoiceGateStatus.flagName: "1"],
+            modelRoot: root
+        )
+
+        #expect(!status.isReady)
+        #expect(status.state == .missingModel)
+        #expect(status.detail.contains("files[1].path must be a package-relative file"))
+        #expect(status.detail.contains(root.path) == false)
+        #expect(status.detail.contains(modelDirectory.path) == false)
+        #else
+        #expect(true)
+        #endif
+    }
+
     @Test("Kokoro Pro gate rejects placeholder manifests and empty packages")
     func kokoroProGateRejectsPlaceholderManifestsAndEmptyPackages() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)

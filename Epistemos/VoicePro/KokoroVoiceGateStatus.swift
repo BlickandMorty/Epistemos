@@ -567,6 +567,7 @@ nonisolated enum KokoroVoiceGateStatus {
     private static func isSafePackageRelativePath(_ path: String) -> Bool {
         guard !path.isEmpty,
               path.count <= maxPackageFilePathLength,
+              path.rangeOfCharacter(from: .controlCharacters) == nil,
               !path.hasPrefix("/"),
               !path.hasSuffix("/") else {
             return false
