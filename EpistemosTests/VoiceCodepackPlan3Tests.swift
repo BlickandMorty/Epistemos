@@ -485,7 +485,7 @@ struct VoiceCodepackPlan3Tests {
             "linear_weights",
             "linear_bias",
             "validateStarterVoice(at:",
-            "voice embedding must contain exactly 256 Float32 values",
+            "voice embedding must be a positive multiple of 256 Float32 values",
             "VoiceCapturePresentationBounds.normalizedDisplayText(clipped)",
             "starterVoiceEmbedding",
             "starterVoiceEmbeddingDimensions",
@@ -1354,7 +1354,7 @@ struct VoiceCodepackPlan3Tests {
         #expect(!status.isReady)
         #expect(status.state == .missingModel)
         #expect(status.detail.contains("runtime starter voice is invalid"))
-        #expect(status.detail.contains("voice embedding must contain exactly 256 Float32 values"))
+        #expect(status.detail.contains("voice embedding must be a positive multiple of 256 Float32 values"))
         #expect(status.detail.contains(root.path) == false)
         #expect(status.detail.contains(modelDirectory.path) == false)
         #else

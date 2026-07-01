@@ -68,11 +68,18 @@ nonisolated enum KokoroCoreMLSynthesizer {
         let clampedSpeed = Self.clampedSpeed(speed)
 
         let segments = try chunks.map { chunk in
+            // Kokoro selects the reference style vector by phoneme-sequence
+            // length. chunk.inputIDs is [0] + phonemeIDs + [0], so the phoneme
+            // count is inputIDs.count - 2.
+            let refS = Self.referenceStyleVector(
+                from: resources.starterVoiceEmbedding,
+                phonemeCount: chunk.inputIDs.count - 2
+            )
             do {
                 return try pipeline.synthesize(
                     inputIds: chunk.inputIDs,
                     attentionMask: chunk.attentionMask,
-                    refS: resources.starterVoiceEmbedding,
+                    refS: refS,
                     speed: clampedSpeed
                 ).audio
             } catch {
@@ -246,6 +253,21 @@ nonisolated enum KokoroCoreMLSynthesizer {
     private static func clampedSpeed(_ speed: Float) -> Float {
         guard speed.isFinite else { return 1.0 }
         return min(1.6, max(0.6, speed))
+    }
+
+    /// Select the 256-float reference style vector for a chunk from the full
+    /// Kokoro voice tensor (shape [rows, 256]). Standard Kokoro indexes the
+    /// style row by phoneme-sequence length; the row is clamped into range so a
+    /// single-row (legacy 256-float) embedding also works unchanged.
+    static func referenceStyleVector(from voiceEmbedding: [Float], phonemeCount: Int) -> [Float] {
+        let dimensions = KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions
+        guard dimensions > 0, voiceEmbedding.count >= dimensions else {
+            return voiceEmbedding
+        }
+        let rowCount = voiceEmbedding.count / dimensions
+        let row = min(max(phonemeCount, 0), rowCount - 1)
+        let start = row * dimensions
+        return Array(voiceEmbedding[start ..< start + dimensions])
     }
 
     private static func runtimeDiagnostic(_ error: Error) -> String {

@@ -268,8 +268,16 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
             throw LoadError.invalidStarterVoice("voice embedding bytes must align to Float32")
         }
         let floatCount = byteCount / UInt64(MemoryLayout<Float>.size)
-        guard floatCount == UInt64(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions) else {
-            throw LoadError.invalidStarterVoice("voice embedding must contain exactly 256 Float32 values")
+        // Kokoro voice packs ship the full per-length style tensor of shape
+        // [rows, 256] (one 256-float reference vector per input length), so the
+        // embedding is any positive whole number of 256-float rows. The single
+        // 256-float refS handed to the pipeline is sliced per chunk at synthesis
+        // time (see KokoroCoreMLSynthesizer.referenceStyleVector).
+        let embeddingDimensions = UInt64(KokoroVoiceGateStatus.starterVoiceEmbeddingDimensions)
+        guard embeddingDimensions > 0,
+              floatCount >= embeddingDimensions,
+              floatCount % embeddingDimensions == 0 else {
+            throw LoadError.invalidStarterVoice("voice embedding must be a positive multiple of \(embeddingDimensions) Float32 values")
         }
 
         var values = [Float](repeating: 0, count: Int(floatCount))
