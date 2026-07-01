@@ -60,9 +60,7 @@ struct GooseACPPermissionPanel: View {
                     .background {
                         controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
                     }
-                    .overlay {
-                        controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
-                    }
+                    .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                     .help(optionName(option))
                 }
 
@@ -76,9 +74,7 @@ struct GooseACPPermissionPanel: View {
                 .background {
                     controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
                 }
-                .overlay {
-                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
-                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                 .help("Cancel")
             }
         }
@@ -95,7 +91,6 @@ struct GooseACPPermissionPanel: View {
             }
         }
         .clipShape(panelShape)
-        .overlay(panelShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.50 : 0.66), lineWidth: 0.7))
         .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 26, y: 14)
     }
 
@@ -221,9 +216,7 @@ struct GooseACPElicitationPanel: View {
                 .background {
                     controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
                 }
-                .overlay {
-                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
-                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
 
                 Button { onAction(.decline) } label: {
                     HStack(spacing: 6) {
@@ -240,9 +233,7 @@ struct GooseACPElicitationPanel: View {
                 .background {
                     controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
                 }
-                .overlay {
-                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
-                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
 
                 Spacer(minLength: 0)
 
@@ -256,9 +247,7 @@ struct GooseACPElicitationPanel: View {
                 .background {
                     controlShape.fill(theme.resolved.card.color.opacity(theme.isDark ? 0.68 : 0.74))
                 }
-                .overlay {
-                    controlShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.58), lineWidth: 0.7)
-                }
+                .shadow(color: .black.opacity(theme.isDark ? 0.10 : 0.05), radius: 7, y: 3)
                 .help("Cancel")
             }
         }
@@ -275,7 +264,6 @@ struct GooseACPElicitationPanel: View {
             }
         }
         .clipShape(panelShape)
-        .overlay(panelShape.strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.50 : 0.66), lineWidth: 0.7))
         .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 26, y: 14)
     }
 
@@ -310,10 +298,6 @@ struct GooseACPElicitationPanel: View {
                     .background {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(theme.resolved.chatSurface.color.opacity(theme.isDark ? 0.70 : 0.76))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.40 : 0.56), lineWidth: 0.7)
                     }
             }
         }
