@@ -110,13 +110,25 @@ nonisolated enum VaultCrashRecorder {
         }
     }
 
-    fileprivate static func writeFatalSignal(_: Int32) {
+    fileprivate static func writeFatalSignal(_ signalNumber: Int32) {
         guard let path = signalLogPathCString else { return }
         let fd = open(path, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
         guard fd >= 0 else { return }
         defer { close(fd) }
 
-        let message: StaticString = "Epistemos fatal signal captured\n"
+        // Async-signal-safe: select a compile-time StaticString per signal (no allocation, no
+        // integer formatting, no locks) so the log distinguishes e.g. SIGSEGV from SIGABRT — the
+        // previous fixed line made every fatal crash byte-identical and unattributable.
+        let message: StaticString
+        switch signalNumber {
+        case SIGABRT: message = "Epistemos fatal signal: SIGABRT\n"
+        case SIGBUS: message = "Epistemos fatal signal: SIGBUS\n"
+        case SIGFPE: message = "Epistemos fatal signal: SIGFPE\n"
+        case SIGILL: message = "Epistemos fatal signal: SIGILL\n"
+        case SIGSEGV: message = "Epistemos fatal signal: SIGSEGV\n"
+        case SIGTRAP: message = "Epistemos fatal signal: SIGTRAP\n"
+        default: message = "Epistemos fatal signal captured\n"
+        }
         message.withUTF8Buffer { buffer in
             if let baseAddress = buffer.baseAddress {
                 _ = write(fd, baseAddress, buffer.count)
