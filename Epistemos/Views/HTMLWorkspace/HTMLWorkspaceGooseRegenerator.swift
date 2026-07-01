@@ -6,6 +6,9 @@ final class HTMLWorkspaceGooseRegenerator {
     private static let preferredPortRange = 3294...3394
     private static let runtimeWaitAttempts = 700
     private static let runtimeWaitNanoseconds: UInt64 = 100_000_000
+    /// Wall-clock backstop for a single generation turn. The readiness loop only bounds startup;
+    /// without this a stalled Goose turn would hang the regenerate until the user manually cancels.
+    private static let generationTimeoutNanoseconds: UInt64 = 240_000_000_000
 
     private let supervisor = GooseRuntimeSupervisor()
     private let secretKey = GooseRuntimeSupervisor.randomSecretKey()
@@ -26,7 +29,10 @@ final class HTMLWorkspaceGooseRegenerator {
         prompt: String,
         workspaceURL: URL?
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        // Bounded per the CLAUDE.md streaming canon. Chunks are ordered document text that must
+        // not be silently dropped, so a full buffer surfaces `.chunkDropped` loudly (see `handle`)
+        // instead of handing back a corrupted regenerated document.
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             let task = Task { @MainActor [weak self] in
                 guard let self else {
                     continuation.finish()
@@ -61,19 +67,28 @@ final class HTMLWorkspaceGooseRegenerator {
                     )
 
                     let eventTask = Task { [sessionID = session.sessionId] in
-                        while !Task.isCancelled {
-                            let event = try await client.receiveEvent()
-                            try await Self.handle(
-                                event,
-                                sessionID: sessionID,
-                                client: client,
-                                continuation: continuation
-                            )
+                        do {
+                            while !Task.isCancelled {
+                                let event = try await client.receiveEvent()
+                                try await Self.handle(
+                                    event,
+                                    sessionID: sessionID,
+                                    client: client,
+                                    continuation: continuation
+                                )
+                            }
+                        } catch is CancellationError {
+                            // Expected teardown once the prompt turn completes or the view closes.
+                        } catch {
+                            // Surface a real transport/decode fault instead of silently truncating
+                            // the stream into a spurious "missing block" failure downstream.
+                            continuation.finish(throwing: error)
                         }
                     }
                     defer { eventTask.cancel() }
 
-                    let response = try await client.prompt(
+                    let response = try await Self.runPromptWithTimeout(
+                        client: client,
                         sessionId: session.sessionId,
                         text: Self.composedPrompt(systemPrompt: systemPrompt, prompt: prompt)
                     )
@@ -124,6 +139,30 @@ final class HTMLWorkspaceGooseRegenerator {
         throw HTMLWorkspaceGooseRegeneratorError.runtimeUnavailable("Goose did not become ready for HTML Workspace regenerate.")
     }
 
+    /// Races the prompt turn against a wall-clock backstop so a stalled runtime cannot hang the
+    /// regenerate indefinitely. Whichever finishes first wins; the loser is cancelled. A hung
+    /// prompt is unblocked when the caller's `defer` closes the client.
+    private static func runPromptWithTimeout(
+        client: GooseACPClient,
+        sessionId: String,
+        text: String
+    ) async throws -> GooseACPPromptResponse {
+        try await withThrowingTaskGroup(of: GooseACPPromptResponse.self) { group in
+            group.addTask {
+                try await client.prompt(sessionId: sessionId, text: text)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: generationTimeoutNanoseconds)
+                throw HTMLWorkspaceGooseRegeneratorError.generationTimedOut
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else {
+                throw HTMLWorkspaceGooseRegeneratorError.generationTimedOut
+            }
+            return result
+        }
+    }
+
     private static func handle(
         _ event: GooseACPClientEvent,
         sessionID: String,
@@ -136,7 +175,18 @@ final class HTMLWorkspaceGooseRegenerator {
             switch notification.update {
             case .agentMessageChunk(let chunk):
                 if case .text(let text) = chunk.content, !text.isEmpty {
-                    continuation.yield(text)
+                    switch continuation.yield(text) {
+                    case .terminated:
+                        // Consumer went away (view torn down / cancelled) — stop cleanly.
+                        throw CancellationError()
+                    case .dropped:
+                        // Ordered text dropped by backpressure; fail loud rather than corrupt.
+                        throw HTMLWorkspaceGooseRegeneratorError.chunkDropped
+                    case .enqueued:
+                        break
+                    @unknown default:
+                        break
+                    }
                 }
             default:
                 break
@@ -209,6 +259,8 @@ nonisolated enum HTMLWorkspaceGooseRegeneratorError: LocalizedError, Equatable {
     case missingACPURL
     case runtimeUnavailable(String)
     case nonTerminalStop(String)
+    case generationTimedOut
+    case chunkDropped
 
     var errorDescription: String? {
         switch self {
@@ -218,6 +270,10 @@ nonisolated enum HTMLWorkspaceGooseRegeneratorError: LocalizedError, Equatable {
             "Goose regenerate runtime unavailable: \(message)"
         case .nonTerminalStop(let stopReason):
             "Goose stopped before completing regenerate: \(stopReason)"
+        case .generationTimedOut:
+            "Goose regenerate timed out before completing. Try again."
+        case .chunkDropped:
+            "Goose regenerate output was dropped mid-stream. Try again."
         }
     }
 }

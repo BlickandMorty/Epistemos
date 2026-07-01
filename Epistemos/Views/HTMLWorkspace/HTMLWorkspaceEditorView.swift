@@ -1357,7 +1357,14 @@ struct HTMLWorkspaceEditorView: View {
                     guard !Task.isCancelled else { throw CancellationError() }
                     response += chunk
                     regenerateStreamText = response
-                    if let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
+                    // Re-synthesizing a candidate is expensive (whole-response fenced-block scan +
+                    // JSON decode + package content hash) and runs on @MainActor. A new candidate
+                    // can only appear once a fenced block closes, which is exactly when a ``` marker
+                    // arrives — so gate the reparse on that instead of running it on every chunk
+                    // (previously O(n^2) over the stream). The post-stream parse below stays
+                    // authoritative, so a split-fence chunk at worst delays one live-preview tick.
+                    if chunk.contains("```"),
+                       let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
                         from: response,
                         basePackage: sourcePackage,
                         expectedContentHash: expectedHash
