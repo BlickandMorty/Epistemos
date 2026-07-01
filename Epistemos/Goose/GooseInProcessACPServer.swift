@@ -854,12 +854,20 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         case "_goose/unstable/config/extensions/list",
              "_goose/unstable/extensions/list":
             return [Self.jsonResponse(id: id, result: catalog.extensionsResult())]
-        case "_goose/unstable/sources/list",
-             "_goose/unstable/recipes/list",
-             "_goose/unstable/skills/list":
-            return [Self.jsonResponse(id: id, result: emptySourcesResult())]
+        case "_goose/unstable/skills/list":
+            return [Self.jsonResponse(id: id, result: skillsListResult())]
+        case "_goose/unstable/recipes/list":
+            return [Self.jsonResponse(id: id, result: boundedSourcesResult(
+                capability: "recipes",
+                reason: "user recipes are gated in the App Store build (self-contained per App Review 2.5.2); available in Epistemos Pro."
+            ))]
+        case "_goose/unstable/sources/list":
+            return [Self.jsonResponse(id: id, result: boundedSourcesResult(
+                capability: "sources",
+                reason: "user-added extension sources are gated in the App Store build (self-contained per App Review 2.5.2); available in Epistemos Pro."
+            ))]
         case "_goose/unstable/schedules/list":
-            return [Self.jsonResponse(id: id, result: emptySchedulesResult())]
+            return [Self.jsonResponse(id: id, result: boundedSchedulesResult())]
         default:
             if Self.isProGated(method: method) {
                 return [
@@ -1068,20 +1076,58 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         ]
     }
 
-    private func emptySourcesResult() -> [String: Any] {
-        [
-            "sources": [],
-            "items": [],
-            "entries": [],
+    /// LIVE skills enumeration — skills are procedural-memory data (inert; they only
+    /// call already-embedded tools), so they are App-Store-legal and NOT bounded.
+    /// Mirrors the proven `#if canImport(agent_coreFFI)` path used by SkillsSettingsView.
+    private func skillsListResult() -> [String: Any] {
+        let vaultPath = vaultPathForAgentCore()
+        #if canImport(agent_coreFFI)
+        let skills = listRegisteredSkills(vaultPath: vaultPath)
+        #else
+        let skills = listRegisteredSkillsLocal(vaultPath: vaultPath)
+        #endif
+        let entries: [[String: Any]] = skills.map { skill in
+            [
+                "id": skill.name,
+                "name": skill.name,
+                "description": skill.description,
+                "version": skill.version,
+                "useCount": Int(skill.useCount),
+                "successRate": skill.successRate,
+                "source": "epistemos",
+            ]
+        }
+        return [
+            "skills": entries,
+            "items": entries,
+            "entries": entries,
             "_meta": catalog.metadata(),
         ]
     }
 
-    private func emptySchedulesResult() -> [String: Any] {
+    /// An HONEST bounded-on-MAS list result. The capability is intentionally absent in
+    /// the sandboxed App Store build (self-containment, Guideline 2.5.2); the arrays stay
+    /// empty because it is bounded, but the result SAYS so explicitly — never a silent stub.
+    private func boundedSourcesResult(capability: String, reason: String) -> [String: Any] {
+        [
+            "sources": [],
+            "items": [],
+            "entries": [],
+            "bounded": true,
+            "boundedReason": "bounded on MAS: \(reason)",
+            "boundedCapability": capability,
+            "_meta": catalog.metadata(),
+        ]
+    }
+
+    private func boundedSchedulesResult() -> [String: Any] {
         [
             "jobs": [],
             "schedules": [],
             "items": [],
+            "bounded": true,
+            "boundedReason": "bounded on MAS: scheduling is a Pro capability; the App Store build runs no scheduler (self-contained per App Review 2.5.2).",
+            "boundedCapability": "schedules",
             "_meta": catalog.metadata(),
         ]
     }
