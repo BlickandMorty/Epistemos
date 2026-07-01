@@ -926,15 +926,30 @@ nonisolated public enum HTMLWorkspaceVaultSearchDashboardTemplate {
       dropzone.dataset.contextKey = key;
     }
 
+    function forgetContextKey(key) {
+      if (!key) { return; }
+      if (selectedResultKey === key) {
+        selectedResultKey = null;
+      }
+      for (let index = pinnedContextKeys.length - 1; index >= 0; index -= 1) {
+        if (pinnedContextKeys[index] === key) {
+          pinnedContextKeys.splice(index, 1);
+        }
+      }
+    }
+
     function refreshContextDropStatus(allResults) {
       const byKey = new Map(allResults.map((result) => [resultKey(result), result]));
       if (contextDropKey && !byKey.has(contextDropKey)) {
+        forgetContextKey(contextDropKey);
         contextDropKey = null;
         contextDropStatus = 'Dropped context is no longer in the current data.json feed.';
       }
       Object.keys(sectionContextKeys).forEach((sectionID) => {
-        if (byKey.has(sectionContextKeys[sectionID])) { return; }
+        const staleKey = sectionContextKeys[sectionID];
+        if (byKey.has(staleKey)) { return; }
         const sectionLabel = sectionContextLabels[sectionID] || sectionID;
+        forgetContextKey(staleKey);
         delete sectionContextKeys[sectionID];
         delete sectionContextLabels[sectionID];
         contextDropStatus = `Dropped context for ${sectionLabel} is no longer in the current data.json feed.`;
