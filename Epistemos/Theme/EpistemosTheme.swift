@@ -1480,7 +1480,7 @@ extension Notification.Name {
     /// Posted when the custom theme palette changes (any color-slot write or a reset). Lets
     /// surfaces that re-tint imperatively — the Goose WebView + its native window — refresh live,
     /// since a custom-palette edit never changes the `EpistemosTheme` enum value they observe.
-    static let epistemosCustomThemeDidChange = Notification.Name("epistemos.customTheme.didChange")
+    nonisolated static let epistemosCustomThemeDidChange = Notification.Name("epistemos.customTheme.didChange")
 }
 
 enum AppCustomTheme: Sendable {
