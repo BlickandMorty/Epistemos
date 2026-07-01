@@ -270,7 +270,7 @@ nonisolated struct HTMLWorkspaceElementInspection: Equatable, Sendable {
     func styleRulePatch(property: String, value: String) -> HTMLWorkspaceStyleRulePatch? {
         let trimmedProperty = property.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedProperty.isEmpty, !trimmedValue.isEmpty else { return nil }
+        guard Self.isSafeStyleDeclaration(name: trimmedProperty, value: trimmedValue) else { return nil }
         return HTMLWorkspaceStyleRulePatch(
             selector: selector,
             declarations: [trimmedProperty: trimmedValue]
@@ -355,7 +355,26 @@ nonisolated struct HTMLWorkspaceElementInspection: Equatable, Sendable {
         default:
             break
         }
-        return trimmed
+        return isSafeStyleDeclaration(name: property, value: trimmed) ? trimmed : nil
+    }
+
+    private static func isSafeStyleDeclaration(name: String, value: String) -> Bool {
+        let property = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !property.isEmpty,
+              property == name,
+              property.range(of: #"^[A-Za-z-]+$"#, options: .regularExpression) != nil,
+              !value.isEmpty,
+              !value.contains("{"),
+              !value.contains("}"),
+              !value.contains(";"),
+              !value.contains("<"),
+              value.count <= 512 else {
+            return false
+        }
+        let lowercasedValue = value.lowercased()
+        return !lowercasedValue.contains("javascript:")
+            && !lowercasedValue.contains("expression(")
+            && !lowercasedValue.contains("@import")
     }
 }
 

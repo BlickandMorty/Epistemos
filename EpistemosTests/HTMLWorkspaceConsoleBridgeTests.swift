@@ -259,6 +259,10 @@ struct HTMLWorkspaceConsoleBridgeTests {
         #expect(patch.declarations == ["color": "rebeccapurple"])
         #expect(inspection.styleRulePatch(property: "", value: "red") == nil)
         #expect(inspection.styleRulePatch(property: "color", value: " ") == nil)
+        #expect(inspection.styleRulePatch(property: " color ", value: "red") == nil)
+        #expect(inspection.styleRulePatch(property: "background-image", value: "url(javascript:alert(1))") == nil)
+        #expect(inspection.styleRulePatch(property: "width", value: "expression(alert(1))") == nil)
+        #expect(inspection.styleRulePatch(property: "color", value: "@import url(evil.css)") == nil)
     }
 
     @Test("Python demo scaffold enables the runtime and adds editable source panes")

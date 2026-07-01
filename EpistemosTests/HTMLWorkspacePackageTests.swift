@@ -1359,6 +1359,33 @@ nonisolated struct HTMLWorkspacePackageTests {
                 to: package
             )
         }
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try HTMLWorkspacePatchApplier.apply(
+                .updateStyleRule(HTMLWorkspaceStyleRulePatch(
+                    selector: ".panel",
+                    declarations: ["background-image": "url(javascript:alert(1))"]
+                )),
+                to: package
+            )
+        }
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try HTMLWorkspacePatchApplier.apply(
+                .updateStyleRule(HTMLWorkspaceStyleRulePatch(
+                    selector: ".panel",
+                    declarations: ["width": "expression(alert(1))"]
+                )),
+                to: package
+            )
+        }
+        #expect(throws: HTMLWorkspacePackageError.self) {
+            _ = try HTMLWorkspacePatchApplier.apply(
+                .updateStyleRule(HTMLWorkspaceStyleRulePatch(
+                    selector: ".panel",
+                    declarations: ["color": "@import url(evil.css)"]
+                )),
+                to: package
+            )
+        }
     }
 
     @Test("console errors and snapshots remain bounded")

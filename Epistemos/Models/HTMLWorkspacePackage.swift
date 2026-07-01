@@ -1407,10 +1407,14 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         guard validProperty, property == name else {
             throw HTMLWorkspacePackageError.invalidStyleRule(reason: "property")
         }
+        let lowercasedValue = value.lowercased()
         guard !value.contains("{"),
               !value.contains("}"),
               !value.contains(";"),
               !value.contains("<"),
+              !lowercasedValue.contains("javascript:"),
+              !lowercasedValue.contains("expression("),
+              !lowercasedValue.contains("@import"),
               value.count <= 512 else {
             throw HTMLWorkspacePackageError.invalidStyleRule(reason: "value")
         }
