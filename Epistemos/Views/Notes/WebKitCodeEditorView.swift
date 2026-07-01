@@ -95,9 +95,12 @@ struct WebKitCodeEditorView: NSViewRepresentable {
 
         private var hasLoadedEditor = false
         private var pendingState: WebKitCodeEditorState?
+        private var pendingSelectionRequest: WebKitCodeEditorSelectionRequest?
         private var lastAppliedState: WebKitCodeEditorState?
         private var lastSelectionRequestID: UUID?
         private var isApplyingFromSwift = false
+        private var isDetached = false
+        private var loadGeneration = 0
 
         init(
             text: Binding<String>,
@@ -112,6 +115,14 @@ struct WebKitCodeEditorView: NSViewRepresentable {
         }
 
         func loadEditor(into webView: WKWebView) {
+            isDetached = false
+            loadGeneration += 1
+            hasLoadedEditor = false
+            pendingState = nil
+            pendingSelectionRequest = nil
+            lastAppliedState = nil
+            lastSelectionRequestID = nil
+            isApplyingFromSwift = false
             if let url = URL(string: "\(epdocEditorURLScheme):///code-editor.html") {
                 webView.load(URLRequest(url: url))
             } else {
@@ -120,17 +131,20 @@ struct WebKitCodeEditorView: NSViewRepresentable {
         }
 
         func detach(from webView: WKWebView) {
-            webView.stopLoading()
+            isDetached = true
+            loadGeneration += 1
+            hasLoadedEditor = false
+            pendingState = nil
+            pendingSelectionRequest = nil
+            isApplyingFromSwift = false
             webView.navigationDelegate = nil
             webView.configuration.userContentController.removeScriptMessageHandler(
                 forName: WebKitCodeEditorBridge.messageHandlerName
             )
+            webView.stopLoading()
             self.webView = nil
-            hasLoadedEditor = false
-            pendingState = nil
             lastAppliedState = nil
             lastSelectionRequestID = nil
-            isApplyingFromSwift = false
         }
 
         func update(
@@ -143,6 +157,7 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             showLineNumbers: Bool,
             selectionRequest: WebKitCodeEditorSelectionRequest?
         ) {
+            guard !isDetached else { return }
             let palette = WebKitCodeEditorPalette(theme: theme)
             let state = WebKitCodeEditorState(
                 text: text,
@@ -161,42 +176,114 @@ struct WebKitCodeEditorView: NSViewRepresentable {
                 wrapLines: wrapLines,
                 showLineNumbers: showLineNumbers
             )
-            if hasLoadedEditor {
+            if hasLoadedEditor, !webView.isLoading {
                 apply(state: state, to: webView)
                 apply(selectionRequest: selectionRequest, to: webView)
             } else {
                 pendingState = state
+                pendingSelectionRequest = selectionRequest
             }
         }
 
         private func apply(state: WebKitCodeEditorState, to webView: WKWebView) {
+            guard !isDetached, hasLoadedEditor, !webView.isLoading else {
+                pendingState = state
+                return
+            }
             guard state != lastAppliedState else { return }
-            lastAppliedState = state
             guard let json = state.jsonString else { return }
+            let generation = loadGeneration
+            let previousState = lastAppliedState
             isApplyingFromSwift = true
-            webView.evaluateJavaScript("window.epistemosCodeEditor.setState(\(json));") { [weak self] _, _ in
-                self?.isApplyingFromSwift = false
+            let script = """
+            (() => {
+              if (!window.epistemosCodeEditor?.setState) { return false; }
+              window.epistemosCodeEditor.setState(\(json));
+              return true;
+            })();
+            """
+            webView.evaluateJavaScript(script) { [weak self] result, error in
+                guard let self,
+                      generation == self.loadGeneration,
+                      !self.isDetached else { return }
+                self.isApplyingFromSwift = false
+                if error == nil, result as? Bool == true {
+                    self.lastAppliedState = state
+                } else {
+                    self.lastAppliedState = previousState
+                    self.pendingState = state
+                }
             }
         }
 
         private func apply(selectionRequest: WebKitCodeEditorSelectionRequest?, to webView: WKWebView) {
+            guard !isDetached, hasLoadedEditor, !webView.isLoading else {
+                pendingSelectionRequest = selectionRequest
+                return
+            }
             guard let selectionRequest,
                   selectionRequest.id != lastSelectionRequestID else { return }
-            lastSelectionRequestID = selectionRequest.id
             let location = max(0, selectionRequest.range.location)
             let length = max(0, selectionRequest.range.length)
-            webView.evaluateJavaScript("window.epistemosCodeEditor.selectRange(\(location), \(length));")
+            let generation = loadGeneration
+            let script = """
+            (() => {
+              if (!window.epistemosCodeEditor?.selectRange) { return false; }
+              window.epistemosCodeEditor.selectRange(\(location), \(length));
+              return true;
+            })();
+            """
+            webView.evaluateJavaScript(script) { [weak self] result, error in
+                guard let self,
+                      generation == self.loadGeneration,
+                      !self.isDetached else { return }
+                if error == nil, result as? Bool == true {
+                    self.lastSelectionRequestID = selectionRequest.id
+                } else {
+                    self.pendingSelectionRequest = selectionRequest
+                }
+            }
+        }
+
+        private func flushPendingState(in webView: WKWebView) {
+            guard !isDetached, !webView.isLoading else { return }
+            if let pendingState {
+                self.pendingState = nil
+                apply(state: pendingState, to: webView)
+            }
+            if let pendingSelectionRequest {
+                self.pendingSelectionRequest = nil
+                apply(selectionRequest: pendingSelectionRequest, to: webView)
+            }
         }
 
         func webView(
             _ webView: WKWebView,
             didFinish navigation: WKNavigation!
         ) {
+            guard !isDetached else { return }
             hasLoadedEditor = true
-            if let pendingState {
-                apply(state: pendingState, to: webView)
-                self.pendingState = nil
-            }
+            flushPendingState(in: webView)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFail navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            guard !isDetached else { return }
+            hasLoadedEditor = false
+            isApplyingFromSwift = false
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFailProvisionalNavigation navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            guard !isDetached else { return }
+            hasLoadedEditor = false
+            isApplyingFromSwift = false
         }
 
         func webView(
@@ -204,6 +291,10 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
+            guard !isDetached else {
+                decisionHandler(.cancel)
+                return
+            }
             let scheme = navigationAction.request.url?.scheme
             if scheme == "about" || scheme == epdocEditorURLScheme {
                 decisionHandler(.allow)
@@ -216,21 +307,17 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            guard message.name == WebKitCodeEditorBridge.messageHandlerName,
+            guard !isDetached,
+                  message.name == WebKitCodeEditorBridge.messageHandlerName,
                   message.frameInfo.isMainFrame,
                   let payload = message.body as? [String: Any],
                   let kind = payload["kind"] as? String else { return }
 
             switch kind {
             case "ready":
-                if let webView {
+                if let webView, !webView.isLoading {
                     hasLoadedEditor = true
-                    let state = pendingState ?? lastAppliedState
-                    pendingState = nil
-                    if let state {
-                        lastAppliedState = nil
-                        apply(state: state, to: webView)
-                    }
+                    flushPendingState(in: webView)
                 }
             case "change":
                 guard !isApplyingFromSwift,

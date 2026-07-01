@@ -51,4 +51,80 @@ struct DarkLightCrashTests {
         #expect(src.contains("finishPreviewNavigation(in: webView, didLoadPage: true)"))
         #expect(!src.contains("webView.loadHTMLString(rendered, baseURL: HTMLWorkspacePreviewURL.baseURL)"))
     }
+
+    @Test("legacy code editor invalidates callbacks before stopping WKWebView loads")
+    func legacyCodeEditorTeardownIsCallbackAndLoadGated() throws {
+        let src = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/WebKitCodeEditorView.swift"
+        )
+        let detach = try Self.extractFunction(
+            signature: "func detach(from webView: WKWebView)",
+            from: src
+        )
+
+        #expect(src.contains("private var isDetached = false"))
+        #expect(src.contains("private var loadGeneration = 0"))
+        #expect(src.contains("private var pendingSelectionRequest: WebKitCodeEditorSelectionRequest?"))
+
+        #expect(detach.contains("isDetached = true"))
+        #expect(Self.offset(of: "isDetached = true", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
+        #expect(Self.offset(of: "webView.navigationDelegate = nil", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
+        #expect(Self.offset(of: "removeScriptMessageHandler", in: detach) < Self.offset(of: "webView.stopLoading()", in: detach))
+
+        #expect(src.contains("guard !isDetached else { return }"))
+        #expect(src.contains("if hasLoadedEditor, !webView.isLoading"))
+        #expect(src.contains("guard !isDetached, hasLoadedEditor, !webView.isLoading else"))
+        #expect(src.contains("generation == self.loadGeneration"))
+        #expect(src.contains("!self.isDetached else { return }"))
+        #expect(src.contains("self.lastAppliedState = previousState"))
+        #expect(src.contains("pendingSelectionRequest = selectionRequest"))
+        #expect(src.contains("""
+            guard !isDetached else {
+                decisionHandler(.cancel)
+                return
+            }
+            """))
+    }
+
+    private static func extractFunction(signature: String, from source: String) throws -> String {
+        guard let nameRange = source.range(of: signature) else {
+            throw DarkLightCrashTestError.missingFunction(signature)
+        }
+        guard let openBrace = source[nameRange.upperBound...].firstIndex(of: "{") else {
+            throw DarkLightCrashTestError.missingFunction(signature)
+        }
+
+        var depth = 0
+        var index = openBrace
+        while index < source.endIndex {
+            let character = source[index]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return String(source[openBrace...index])
+                }
+            }
+            index = source.index(after: index)
+        }
+
+        throw DarkLightCrashTestError.missingFunction(signature)
+    }
+
+    private static func offset(of needle: String, in haystack: String) -> Int {
+        guard let range = haystack.range(of: needle) else { return Int.max }
+        return haystack.distance(from: haystack.startIndex, to: range.lowerBound)
+    }
+}
+
+private enum DarkLightCrashTestError: Error, CustomStringConvertible {
+    case missingFunction(String)
+
+    var description: String {
+        switch self {
+        case .missingFunction(let name):
+            return "Missing dark/light crash guard function: \(name)"
+        }
+    }
 }
