@@ -574,6 +574,7 @@ struct HTMLWorkspaceEditorView: View {
                     isRefreshingContext: isRefreshingRegenerateContext,
                     panelFill: panelFill,
                     theme: workspaceTheme,
+                    onRequestContextShortcut: refreshPreviewContextShortcut,
                     onPickContextItem: applyPreviewContextItem
                 )
                 .frame(minWidth: 190, idealWidth: 220, maxWidth: 260)
@@ -682,7 +683,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var shouldShowPreviewContextSidebar: Bool {
-        regenerateSheetPresented || package.manifest.dataFeed != nil
+        layoutMode == .preview || regenerateSheetPresented || package.manifest.dataFeed != nil
     }
 
     private var selectedPaneSubtitle: String {

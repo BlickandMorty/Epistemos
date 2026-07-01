@@ -8,6 +8,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
     let isRefreshingContext: Bool
     let panelFill: Color
     let theme: EpistemosTheme
+    let onRequestContextShortcut: (HTMLWorkspaceRegenerateContextShortcut) -> Void
     let onPickContextItem: (HTMLWorkspaceRegenerateContextItem) -> Void
 
     private var mutedText: Color {
@@ -50,6 +51,8 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
                     .truncationMode(.middle)
             }
 
+            sourceShortcutGrid
+
             if contextItems.isEmpty {
                 emptyState
             } else {
@@ -67,6 +70,27 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
         }
         .padding(10)
         .background(panelFill)
+    }
+
+    private var sourceShortcutGrid: some View {
+        FlowLayout(spacing: 6) {
+            ForEach(HTMLWorkspaceRegenerateContextShortcut.all) { shortcut in
+                Button {
+                    onRequestContextShortcut(shortcut)
+                } label: {
+                    Label(shortcut.title, systemImage: shortcut.systemImage)
+                        .font(pixelMicroFont)
+                        .lineLimit(1)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 5)
+                        .background(itemFill, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.resolved.foreground.color)
+                .disabled(isRegenerating || isRefreshingContext)
+                .help(shortcut.helpText)
+            }
+        }
     }
 
     private var emptyState: some View {
