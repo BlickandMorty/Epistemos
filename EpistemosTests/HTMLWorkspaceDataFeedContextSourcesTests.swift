@@ -240,6 +240,59 @@ nonisolated struct HTMLWorkspaceDataFeedContextSourcesTests {
         #expect(explicitChatResults.isEmpty)
     }
 
+    @MainActor
+    @Test("note context source upgrades vault search hits into source-labelled notes")
+    func noteContextSourceUpgradesVaultSearchHitsIntoSourceLabelledNotes() throws {
+        let schema = Schema([SDPage.self, SDBlock.self, SDChat.self, SDMessage.self])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(isStoredInMemoryOnly: true)]
+        )
+        let context = ModelContext(container)
+
+        let note = SDPage(title: "Alpha Note")
+        note.summary = "short alpha summary"
+        note.body = "long alpha note body"
+        context.insert(note)
+        try context.save()
+
+        let searchResults = [
+            SearchResult(pageId: note.id, title: "Search Alpha", snippet: "search snippet", rank: 0.9),
+            SearchResult(pageId: "search-only-note", title: "Search Only", snippet: "search-only snippet", rank: 0.8),
+        ]
+        let noteResults = HTMLWorkspaceDataFeedContextSources.noteResults(
+            query: "note: alpha",
+            searchResults: searchResults,
+            modelContainer: container,
+            limit: 5
+        )
+        #expect(noteResults.map(\.pageID) == [note.id, "search-only-note"])
+        #expect(noteResults.first?.title == "Alpha Note")
+        #expect(noteResults.first?.snippet == "short alpha summary")
+        #expect(noteResults.first?.contextKind == "note")
+        #expect(noteResults.first?.sourceLabel == "Note")
+        #expect(noteResults.first?.provenance.contains("SDPage / query:note: alpha") == true)
+        #expect(noteResults.last?.snippet == "search-only snippet")
+
+        let triggeredResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: nil,
+            searchResults: searchResults,
+            modelContainer: container,
+            limit: 5,
+            query: "notes alpha"
+        )
+        #expect(triggeredResults.first?.contextKind == "note")
+
+        let explicitChatResults = HTMLWorkspaceDataFeedContextSources.results(
+            for: "recent_chat",
+            searchResults: searchResults,
+            modelContainer: container,
+            limit: 5,
+            query: "notes alpha"
+        )
+        #expect(explicitChatResults.isEmpty)
+    }
+
     @Test("data feed refreshes use explicit context source providers")
     func dataFeedRefreshesUseExplicitContextSourceProviders() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceDataFeed.swift")
