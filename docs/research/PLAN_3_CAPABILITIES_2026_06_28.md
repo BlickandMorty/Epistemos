@@ -203,8 +203,9 @@ _(Historical ColBERT research removed — it contradicted the CUT. See git histo
   the honest gate for Rust-produced packets; `VRMLabelView` renders only `honestLabel(for:)` and never reads raw
   `packet.uiLabel`; `ChatMessageVRMLabelView` hydrates packets through `LatestAnswerPacketSink`; the hover-lineage card
   bounds runtime-fed metadata, claim text, and displayed claim count before SwiftUI render, before trimming and keeps
-  ellipsis inside configured caps; `VRMLineageExport`
-  copies deterministic full-fidelity verifiable lineage JSON from the hover card without Rust writes. Durable `AnswerPacketStore`
+  ellipsis inside configured caps, filters non-finite verification scores before display, and `VRMLineageExport`
+  copies deterministic full-fidelity verifiable lineage JSON from the hover card without Rust writes, encoding non-finite
+  residency floats deterministically instead of returning `encoding_failed`. Durable `AnswerPacketStore`
   JSONL uses regular-file/no-follow reads and writes, rejects append lines or projected post-append logs over 8 MiB,
   and caps read/restore decoding at 8 MiB.
 - `VerifiedFloorChipStrip` green now requires `productionWired && falsifierPassed && artifactSatisfied &&

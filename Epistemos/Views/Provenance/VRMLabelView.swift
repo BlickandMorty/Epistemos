@@ -124,6 +124,14 @@ nonisolated enum VRMLineageDisplayBounds {
         Array(claims.prefix(maxDisplayedClaims))
     }
 
+    static func verificationScore(_ signals: [ResidencySignal]) -> Float? {
+        signals
+            .map(\.verificationScore)
+            .filter(\.isFinite)
+            .map { min(1, max(0, $0)) }
+            .max()
+    }
+
     private static func capped(_ value: String, limit: Int) -> String {
         let bounded = String(value.prefix(limit + 32))
         let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -187,7 +195,7 @@ nonisolated struct VRMLineageExport: Codable, Equatable, Sendable {
             tierLabel: tierLabel,
             acceptedAtMs: acceptedAt.map(Self.millisecondsSinceEpoch),
             generatedAtMs: packet.activeClaims.map(\.createdAtMs).max(),
-            verificationScore: packet.residencySignals.map(\.verificationScore).max(),
+            verificationScore: VRMLineageDisplayBounds.verificationScore(packet.residencySignals),
             claims: packet.activeClaims,
             residencySignals: packet.residencySignals,
             attentionMode: packet.attentionMode,
@@ -201,6 +209,11 @@ nonisolated struct VRMLineageExport: Codable, Equatable, Sendable {
     func encodedJSONString() -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.nonConformingFloatEncodingStrategy = .convertToString(
+            positiveInfinity: "Infinity",
+            negativeInfinity: "-Infinity",
+            nan: "NaN"
+        )
         guard let data = try? encoder.encode(self),
               let string = String(data: data, encoding: .utf8) else {
             return #"{"schema":"epistemos.vrm_lineage.v1","error":"encoding_failed"}"#
@@ -235,7 +248,7 @@ private struct VRMLineageCard: View {
     }
 
     private var verificationScore: Float? {
-        packet.residencySignals.map(\.verificationScore).max()
+        VRMLineageDisplayBounds.verificationScore(packet.residencySignals)
     }
 
     private var displayedClaims: [Claim] {

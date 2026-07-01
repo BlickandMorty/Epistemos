@@ -179,6 +179,9 @@ struct VRMLabelHonestLabelTests {
         #expect(source.contains("VRMLineageDisplayBounds"))
         #expect(source.contains("maxDisplayedClaims"))
         #expect(source.contains("displayedClaims"))
+        #expect(source.contains("verificationScore(_ signals: [ResidencySignal])"))
+        #expect(source.contains(".filter(\\.isFinite)"))
+        #expect(source.contains("encoder.nonConformingFloatEncodingStrategy"))
         #expect(source.contains("String(value.prefix(limit + 32))"))
         #expect(source.contains("String(trimmed.prefix(limit - 3)) + \"...\""))
         #expect(source.contains("ClaimLineageRow(claim: claim, packetID: packet.id)"))
@@ -221,6 +224,35 @@ struct VRMLabelHonestLabelTests {
         #expect(VRMLineageDisplayBounds.metadata(longMetadata).count == VRMLineageDisplayBounds.maxMetadataCharacters)
         #expect(VRMLineageDisplayBounds.claimText(longClaim).count == VRMLineageDisplayBounds.maxClaimTextCharacters)
         #expect(VRMLineageDisplayBounds.displayedClaims(claims).count == VRMLineageDisplayBounds.maxDisplayedClaims)
+        #expect(VRMLineageDisplayBounds.verificationScore([
+            .neutral,
+            ResidencySignal(
+                safetyRisk: 0,
+                privacy: 0,
+                verificationScore: .nan,
+                repeatCount: 0,
+                gain: 0,
+                forgetting: 0
+            ),
+            ResidencySignal(
+                safetyRisk: 0,
+                privacy: 0,
+                verificationScore: 1.25,
+                repeatCount: 0,
+                gain: 0,
+                forgetting: 0
+            ),
+        ]) == 1)
+        #expect(VRMLineageDisplayBounds.verificationScore([
+            ResidencySignal(
+                safetyRisk: 0,
+                privacy: 0,
+                verificationScore: .nan,
+                repeatCount: 0,
+                gain: 0,
+                forgetting: 0
+            ),
+        ]) == nil)
         #expect(
             VRMLineageDisplayBounds.displayedClaims(claims).last?.text ==
                 "claim \(VRMLineageDisplayBounds.maxDisplayedClaims - 1)"
@@ -262,6 +294,36 @@ struct VRMLabelHonestLabelTests {
         #expect(json.contains("\"packet_id\""))
     }
 
+    @Test("lineage export encodes non-finite residency floats deterministically")
+    func lineageExportEncodesNonFiniteResidencyFloats() throws {
+        let packet = Self.packet(
+            claims: [Self.claim(kind: .empirical, status: .active, acsAnchored: true)],
+            residencySignals: [
+                ResidencySignal(
+                    safetyRisk: .infinity,
+                    privacy: -.infinity,
+                    verificationScore: .nan,
+                    repeatCount: 0,
+                    gain: .nan,
+                    forgetting: 0
+                )
+            ]
+        )
+        let export = try #require(VRMLineageExport.make(
+            packet: packet,
+            modelLabel: "test-model",
+            tierLabel: "dynamic",
+            acceptedAt: nil
+        ))
+        let json = export.encodedJSONString()
+
+        #expect(!json.contains("encoding_failed"))
+        #expect(json.contains(#""Infinity""#))
+        #expect(json.contains(#""-Infinity""#))
+        #expect(json.contains(#""NaN""#))
+        #expect(export.verificationScore == nil)
+    }
+
     @Test("lineage export renders nothing for unclaimed packets")
     func lineageExportRequiresHonestVisibleLabel() {
         let export = VRMLineageExport.make(
@@ -297,7 +359,9 @@ struct VRMLabelHonestLabelTests {
             "message.createdAt",
             "hover-lineage card bounds runtime-fed metadata",
             "before trimming and keeps ellipsis inside configured caps",
+            "non-finite verification scores",
             "copyable lineage JSON remains full-fidelity",
+            "non-finite residency floats deterministically",
             "O_NOFOLLOW",
             "8 MiB",
         ] {
@@ -311,7 +375,9 @@ struct VRMLabelHonestLabelTests {
             "`VRMLineageExport`",
             "hover-lineage card",
             "before trimming and keeps ellipsis inside configured caps",
+            "filters non-finite verification scores before display",
             "full-fidelity verifiable lineage JSON",
+            "encoding non-finite\n  residency floats deterministically",
             "regular-file/no-follow writes",
             "8 MiB",
             "Moat-3 (delivered)",
@@ -335,12 +401,13 @@ struct VRMLabelHonestLabelTests {
     private static func packet(
         id: String = "pkt-test",
         claims: [Claim],
+        residencySignals: [ResidencySignal] = [.neutral],
         storedLabel: VRMLabel = .plausibleButUnverified
     ) -> AnswerPacket {
         AnswerPacket(
             id: id,
             claims: claims,
-            residencySignals: [.neutral],
+            residencySignals: residencySignals,
             uiLabel: storedLabel,
             witnessedStateRef: "stop:end_turn;in:1;out:1",
             mutationEnvelopeRef: id
