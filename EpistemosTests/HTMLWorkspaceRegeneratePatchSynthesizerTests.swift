@@ -470,6 +470,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("  snippet: substrate provenance witness"))
         #expect(prompt.contains("record_display_rule: show each attached record's source_label, context_kind, and provenance"))
         #expect(prompt.contains("grounding_rule: preserve real data provenance"))
+        #expect(prompt.contains("fake_data_rule: do not create demo, sample, placeholder, mock, or synthetic records"))
 
         let emptyPrompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
             instruction: "Use related notes",
@@ -708,6 +709,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("Each data.json result carries page_id, title, snippet, rank, context_kind, source_label, and provenance."))
         #expect(prompt.contains("_epistemos.required_context_kind"))
         #expect(prompt.contains("_epistemos.required_context_available is false"))
+        #expect(prompt.contains("Never create demo, sample, placeholder, mock, or synthetic data records."))
         #expect(prompt.contains("Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string."))
     }
 

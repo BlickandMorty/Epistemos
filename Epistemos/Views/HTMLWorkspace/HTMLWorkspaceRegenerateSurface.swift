@@ -620,6 +620,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
     Include an in-surface add-context picker/filter over available data.json records when workspace context is part of the request; picking a record should visibly add/pin that real record into the workspace, and absent records must show an honest empty or stale state.
     When rendering context-backed sections, make section-level context drop zones that only select/pin records already present in data.json or matching native Epistemos context payloads; unmatched drops must show an honest unavailable status instead of silently fabricating or accepting arbitrary text.
     When selected preview context is present, treat it as the user's intended surface target and preserve its selector relationship when practical.
+    Never create demo, sample, placeholder, mock, or synthetic data records. If real data is missing, render a clear empty/unavailable state instead.
     Do not infer captures, chats, graph links, folders, provenance claims, or record types from a title or query string. If a source family is not explicit in data.json, label it unavailable instead of inventing it.
     Keep behavior local/offline. Do not use network calls, storage APIs, app bridge APIs, inline event handlers, or javascript: URLs.
     data.json must be valid JSON.
@@ -929,6 +930,7 @@ nonisolated enum HTMLWorkspaceRegenerateContext {
         lines.append("notes/PDFs/folders/captures/meeting-notes/web-clips/chats/graph/provenance-claims: use only explicit records present in data.json or the current surface; otherwise show an honest empty state.")
         lines.append("record_display_rule: show each attached record's source_label, context_kind, and provenance when rendering context-derived UI.")
         lines.append("grounding_rule: preserve real data provenance and avoid fabricated counts, titles, links, or relationships.")
+        lines.append("fake_data_rule: do not create demo, sample, placeholder, mock, or synthetic records; show empty/unavailable states when real records are missing.")
         return lines.joined(separator: "\n")
     }
 
