@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HTMLWorkspaceRegenerateSheet: View {
     @Binding var instruction: String
@@ -274,7 +275,7 @@ struct HTMLWorkspaceRegenerateSheet: View {
                             .foregroundStyle(theme.resolved.foreground.color)
                             .disabled(isRegenerating || isRefreshingContext)
                             .onDrag {
-                                NSItemProvider(object: item.dragPayload as NSString)
+                                item.dragItemProvider()
                             }
                             .help(item.dragPayload)
                         }
@@ -748,6 +749,16 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         HTMLWorkspaceRegenerateContextPresentation.systemImage(for: contextKind)
     }
 
+    static let previewDropUTType = UTType(exportedAs: "com.epistemos.workspace-context", conformingTo: .plainText)
+
+    static var previewDropUTTypes: [UTType] {
+        [previewDropUTType, .plainText]
+    }
+
+    static var previewDropTypeIdentifiers: [String] {
+        previewDropUTTypes.map(\.identifier)
+    }
+
     var dragPayload: String {
         let safeTitle = Self.bounded(title, limit: 160)
         let safePageID = Self.bounded(pageID, limit: 120)
@@ -770,6 +781,17 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         Provenance: \(safeProvenance)
         snippet: \(safeSnippet)
         """
+    }
+
+    func dragItemProvider() -> NSItemProvider {
+        let payload = dragPayload
+        let provider = NSItemProvider(object: payload as NSString)
+        let data = Data(payload.utf8)
+        provider.registerDataRepresentation(forTypeIdentifier: Self.previewDropUTType.identifier, visibility: .all) { completion in
+            completion(data, nil)
+            return nil
+        }
+        return provider
     }
 
     static func verifiedPreviewDropPayload(from payload: String) -> String? {

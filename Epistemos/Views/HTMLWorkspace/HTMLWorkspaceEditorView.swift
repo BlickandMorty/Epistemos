@@ -548,7 +548,11 @@ struct HTMLWorkspaceEditorView: View {
                     )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
-                    .onDrop(of: [UTType.plainText], isTargeted: $isPreviewContextDropTargeted, perform: handlePreviewContextDrop)
+                    .onDrop(
+                        of: HTMLWorkspaceRegenerateContextItem.previewDropUTTypes,
+                        isTargeted: $isPreviewContextDropTargeted,
+                        perform: handlePreviewContextDrop
+                    )
 
                     if isPreviewContextDropTargeted {
                         previewContextDropOverlay
@@ -996,27 +1000,40 @@ struct HTMLWorkspaceEditorView: View {
 
     private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool {
         guard !isRegenerating,
-              let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) else {
+              let dropProvider = previewContextDropProvider(from: providers) else {
             return false
         }
 
-        provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
-            let payload: String?
-            if let string = item as? String {
-                payload = string
-            } else if let string = item as? NSString {
-                payload = string as String
-            } else if let data = item as? Data {
-                payload = String(data: data, encoding: .utf8)
-            } else {
-                payload = nil
-            }
+        dropProvider.provider.loadItem(forTypeIdentifier: dropProvider.typeIdentifier, options: nil) { item, _ in
+            let payload = Self.previewContextPayload(from: item)
             guard let payload else { return }
             Task { @MainActor in
                 applyDroppedPreviewContext(payload)
             }
         }
         return true
+    }
+
+    private func previewContextDropProvider(from providers: [NSItemProvider]) -> (provider: NSItemProvider, typeIdentifier: String)? {
+        for typeIdentifier in HTMLWorkspaceRegenerateContextItem.previewDropTypeIdentifiers {
+            if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(typeIdentifier) }) {
+                return (provider, typeIdentifier)
+            }
+        }
+        return nil
+    }
+
+    private static func previewContextPayload(from item: Any?) -> String? {
+        if let string = item as? String {
+            return string
+        }
+        if let string = item as? NSString {
+            return string as String
+        }
+        if let data = item as? Data {
+            return String(data: data, encoding: .utf8)
+        }
+        return nil
     }
 
     private func applyDroppedPreviewContext(_ payload: String) {

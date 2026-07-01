@@ -144,7 +144,7 @@ struct HTMLWorkspaceRegenerateContextSidebar: View {
         .buttonStyle(.plain)
         .disabled(isRegenerating || isRefreshingContext)
         .onDrag {
-            NSItemProvider(object: item.dragPayload as NSString)
+            item.dragItemProvider()
         }
         .help("Drag into the preview or click to apply context")
     }
