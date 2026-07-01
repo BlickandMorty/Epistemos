@@ -52,6 +52,7 @@ struct SSHWCapabilityStatusTests {
         #expect(python?.note.contains("awaits current in-app proof") == true)
         let domPicker = HTMLWorkspaceCapabilityStatus.capabilities.first { $0.name == "DOM picker / style inspector" }
         #expect(domPicker?.isLive == false)
+        #expect(domPicker?.note.contains("hover-highlighted picker") == true)
         #expect(domPicker?.note.contains("escaped selector copy") == true)
         #expect(domPicker?.note.contains("focused style edits") == true)
         #expect(domPicker?.note.contains("awaits current in-app proof") == true)
@@ -77,7 +78,7 @@ struct SSHWCapabilityStatusTests {
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("bounded context payloads"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("in-preview context picker"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("app bridge demo/runtime with promise requests"))
-        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("DOM picker"))
+        #expect(HTMLWorkspaceCapabilityStatus.summary.contains("hover-highlighted DOM picker"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("focused style edits"))
         #expect(HTMLWorkspaceCapabilityStatus.summary.contains("Pyodide"))
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/HTMLWorkspaceCapabilityStatus.swift")

@@ -535,6 +535,7 @@ struct HTMLWorkspaceEditorView: View {
                         isElementInspectorEnabled: inspectorVisible,
                         onElementInspection: { inspection in
                             selectedElementInspection = inspection
+                            statusText = "Selected \(boundedInspectorSelectorStatus(inspection.selector))"
                         },
                         appBridgeProbeNonce: appBridgeProbeNonce,
                         consoleProbeNonce: consoleProbeNonce,
@@ -992,6 +993,12 @@ struct HTMLWorkspaceEditorView: View {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 240 else { return trimmed }
         return String(trimmed.prefix(237)) + "..."
+    }
+
+    private func boundedInspectorSelectorStatus(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 96 else { return trimmed }
+        return String(trimmed.prefix(93)) + "..."
     }
 
     private func boundedDroppedContext(_ value: String) -> String {

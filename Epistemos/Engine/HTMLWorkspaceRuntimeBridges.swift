@@ -278,6 +278,11 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
 
     static let disableScript = """
     window.__epistemosInspectorEnabled = false;
+    document.documentElement.removeAttribute('data-epistemos-inspector-active');
+    if (window.__epistemosInspectorHover) {
+      window.__epistemosInspectorHover.removeAttribute('data-epistemos-inspector-hover');
+      window.__epistemosInspectorHover = null;
+    }
     if (window.__epistemosInspectorSelected) {
       window.__epistemosInspectorSelected.removeAttribute('data-epistemos-inspected');
       window.__epistemosInspectorSelected = null;
@@ -288,14 +293,16 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
     (function(){
       if (window.__epistemosInspectorInstalled) {
         window.__epistemosInspectorEnabled = true;
+        document.documentElement.setAttribute('data-epistemos-inspector-active', 'true');
         return;
       }
       window.__epistemosInspectorInstalled = true;
       window.__epistemosInspectorEnabled = true;
+      document.documentElement.setAttribute('data-epistemos-inspector-active', 'true');
       if (!document.getElementById('epistemos-inspector-highlight-style')) {
         var highlightStyle = document.createElement('style');
         highlightStyle.id = 'epistemos-inspector-highlight-style';
-        highlightStyle.textContent = '[data-epistemos-inspected="true"] { box-shadow: 0 0 0 2px var(--epistemos-workspace-accent), 0 0 0 6px color-mix(in srgb, var(--epistemos-workspace-accent) 22%, transparent) !important; }';
+        highlightStyle.textContent = 'html[data-epistemos-inspector-active="true"], html[data-epistemos-inspector-active="true"] * { cursor: crosshair !important; } [data-epistemos-inspector-hover="true"] { box-shadow: 0 0 0 1px var(--epistemos-workspace-accent), 0 0 0 4px color-mix(in srgb, var(--epistemos-workspace-accent) 16%, transparent) !important; } [data-epistemos-inspected="true"] { box-shadow: 0 0 0 2px var(--epistemos-workspace-accent), 0 0 0 6px color-mix(in srgb, var(--epistemos-workspace-accent) 22%, transparent) !important; }';
         document.head.appendChild(highlightStyle);
       }
       function bounded(value, limit) {
@@ -327,9 +334,28 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
         if (window.__epistemosInspectorSelected && window.__epistemosInspectorSelected !== node) {
           window.__epistemosInspectorSelected.removeAttribute('data-epistemos-inspected');
         }
+        if (window.__epistemosInspectorHover) {
+          window.__epistemosInspectorHover.removeAttribute('data-epistemos-inspector-hover');
+          window.__epistemosInspectorHover = null;
+        }
         window.__epistemosInspectorSelected = node;
         if (node && node.setAttribute) {
           node.setAttribute('data-epistemos-inspected', 'true');
+        }
+      }
+      function markHovered(node) {
+        if (window.__epistemosInspectorHover && window.__epistemosInspectorHover !== node) {
+          window.__epistemosInspectorHover.removeAttribute('data-epistemos-inspector-hover');
+        }
+        window.__epistemosInspectorHover = node;
+        if (node && node.setAttribute && node !== window.__epistemosInspectorSelected) {
+          node.setAttribute('data-epistemos-inspector-hover', 'true');
+        }
+      }
+      function clearHovered(node) {
+        if (node && node === window.__epistemosInspectorHover) {
+          node.removeAttribute('data-epistemos-inspector-hover');
+          window.__epistemosInspectorHover = null;
         }
       }
       function post(node) {
@@ -350,6 +376,14 @@ nonisolated enum HTMLWorkspaceInspectorBridge {
         } catch (e) {}
       }
       window.__epistemosInspectElement = post;
+      document.addEventListener('mouseover', function(event) {
+        if (!window.__epistemosInspectorEnabled) { return; }
+        markHovered(event.target);
+      }, true);
+      document.addEventListener('mouseout', function(event) {
+        if (!window.__epistemosInspectorEnabled) { return; }
+        clearHovered(event.target);
+      }, true);
       document.addEventListener('click', function(event) {
         if (!window.__epistemosInspectorEnabled) { return; }
         event.preventDefault();
