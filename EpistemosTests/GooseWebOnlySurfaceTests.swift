@@ -440,6 +440,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(stageScript.contains("ep-pixel flex items-center gap-1"))
         #expect(stageScript.contains("handleAttachGitDiff"))
         #expect(stageScript.contains("readGitDiff(currentWorkingDir)"))
+        #expect(stageScript.contains("Git status:"))
         #expect(stageScript.contains("Attach git diff"))
         #expect(stageScript.contains("epistemos-acp-session-mode-setting"))
         #expect(stageScript.contains("saveAcpSessionMode(sessionId, newMode)"))

@@ -32,6 +32,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeDirectoryListEntries = 5_000
     nonisolated static let maxGitWorktreeEntries = 10
     nonisolated static let maxGitWorktreeListBytes = 4 * 1024 * 1024
+    nonisolated static let maxGitStatusBytes = 64 * 1024
     nonisolated static let maxGitDiffBytes = 256 * 1024
     nonisolated static let maxGitWorktreePathCharacters = 4_096
     nonisolated static let maxNativeAffordanceNameCharacters = 96
@@ -894,10 +895,18 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
 
     private func readGitDiff(_ path: String) -> [String: Any] {
         let expandedPath = Self.standardizedPath(expandTilde(path))
-        func result(ok: Bool, diff: String = "", truncated: Bool = false, error: String? = nil) -> [String: Any] {
+        func result(
+            ok: Bool,
+            status: String? = nil,
+            diff: String = "",
+            truncated: Bool = false,
+            error: String? = nil
+        ) -> [String: Any] {
             let errorValue: Any = error.map { $0 as Any } ?? NSNull()
+            let statusValue: Any = status.map { $0 as Any } ?? NSNull()
             [
                 "ok": ok,
+                "status": statusValue,
                 "diff": diff,
                 "truncated": truncated,
                 "path": expandedPath,
@@ -976,7 +985,57 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         guard !diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return result(ok: false, error: "No tracked changes to attach.")
         }
-        return result(ok: true, diff: diff, truncated: truncated)
+        let status = readGitStatus(expandedPath, git: git)
+        return result(ok: true, status: status, diff: diff, truncated: truncated)
+    }
+
+    private func readGitStatus(_ path: String, git: String) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
+        process.arguments = [
+            "-c", "core.fsmonitor=false",
+            "-c", "protocol.allow=never",
+            "-C", path,
+            "status",
+            "--short",
+            "--branch",
+            "--untracked-files=no",
+        ]
+        process.environment = gitProcessEnvironment(git: git)
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+
+        let stdoutHandle = stdout.fileHandleForReading
+        let drainBox = GooseAffordanceDataBox()
+        let drainDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            drainBox.store(Self.readBoundedPipeData(
+                stdoutHandle,
+                maxBytes: Self.maxGitStatusBytes
+            ))
+            drainDone.signal()
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in semaphore.signal() }
+
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        if semaphore.wait(timeout: .now() + 2) == .timedOut {
+            process.terminate()
+            return nil
+        }
+        _ = drainDone.wait(timeout: .now() + 1)
+        guard process.terminationStatus == 0 else { return nil }
+
+        let outputData = drainBox.load()
+        guard outputData.count <= Self.maxGitStatusBytes else { return nil }
+        let status = String(data: outputData, encoding: .utf8) ?? ""
+        let trimmedStatus = status.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedStatus.isEmpty ? nil : trimmedStatus
     }
 
     nonisolated static func boundedGitWorktreePath(_ path: String) -> String? {

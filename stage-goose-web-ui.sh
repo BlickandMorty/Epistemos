@@ -5453,6 +5453,7 @@ source = source.replace(
       const nativeElectron = window.electron as typeof window.electron & {
         readGitDiff?: (path: string) => Promise<{
           ok?: boolean;
+          status?: string | null;
           diff?: string;
           truncated?: boolean;
           path?: string | null;
@@ -5477,7 +5478,9 @@ source = source.replace(
       }
       const diffPath = result?.path || currentWorkingDir;
       const suffix = result?.truncated ? ' (truncated)' : '';
-      const contextText = 'Git diff for ' + diffPath + suffix + ':\\n\`\`\`diff\\n' + rawDiff + '\\n\`\`\`';
+      const statusText = typeof result?.status === 'string' ? result.status.trim() : '';
+      const statusBlock = statusText ? 'Git status:\\n\`\`\`text\\n' + statusText + '\\n\`\`\`\\n\\n' : '';
+      const contextText = 'Git diff for ' + diffPath + suffix + ':\\n' + statusBlock + '\`\`\`diff\\n' + rawDiff + '\\n\`\`\`';
       const prefix = displayValue.trimEnd();
       const nextValue = prefix ? prefix + '\\n\\n' + contextText : contextText;
       setDisplayValue(nextValue);
@@ -5591,6 +5594,7 @@ for (const snippet of [
   'Attach Epistemos context',
   'handleAttachGitDiff',
   'readGitDiff(currentWorkingDir)',
+  'Git status:',
   'Attach git diff',
   'BookOpen',
 ]) {
