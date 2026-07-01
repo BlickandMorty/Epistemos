@@ -26,16 +26,19 @@ nonisolated enum HTMLWorkspaceRegeneratePreview {
 
     static func loadingPackage(
         from package: HTMLWorkspacePackage,
-        instruction: String
+        instruction: String,
+        selectedSurfaceContext: String? = nil
     ) -> HTMLWorkspacePackage {
         let request = boundedInstruction(instruction)
-        let dataJSON = dataJSON(for: request)
+        let selectedTarget = selectedSurfacePreview(selectedSurfaceContext)
+        let dataJSON = dataJSON(for: request, selectedSurfaceContext: selectedTarget)
         let indexHTML = """
         <main class="regenerate-preview" data-regenerate-preview>
           <section class="regenerate-preview__panel" aria-live="polite">
             <p class="regenerate-preview__eyebrow">Regenerating surface</p>
             <h1>Building the replacement site</h1>
             <p class="regenerate-preview__request">\(escapeHTML(request))</p>
+            \(targetHTML(for: selectedTarget))
             <div class="regenerate-preview__meter" aria-hidden="true">
               <span></span>
               <span></span>
@@ -94,6 +97,19 @@ nonisolated enum HTMLWorkspaceRegeneratePreview {
           color: color-mix(in srgb, var(--epistemos-workspace-fg, CanvasText) 72%, transparent);
         }
 
+        .regenerate-preview__target {
+          margin: 0;
+          max-width: 72ch;
+          padding: 10px 12px;
+          box-shadow: inset 3px 0 0 var(--epistemos-workspace-accent, LinkText);
+          background: color-mix(in srgb, var(--epistemos-workspace-card, Canvas) 88%, var(--epistemos-workspace-accent, LinkText) 12%);
+          color: var(--epistemos-workspace-fg, CanvasText);
+          font-family: var(--epistemos-workspace-heading-font, ui-monospace, SFMono-Regular, Menlo, monospace);
+          font-size: 0.82rem;
+          line-height: 1.35;
+          white-space: pre-wrap;
+        }
+
         .regenerate-preview__meter {
           display: flex;
           gap: 8px;
@@ -140,6 +156,22 @@ nonisolated enum HTMLWorkspaceRegeneratePreview {
             scriptJS: "",
             dataJSON: dataJSON
         )
+    }
+
+    private static func selectedSurfacePreview(_ context: String?) -> String? {
+        let trimmed = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return nil }
+        let bounded = String(trimmed.prefix(320 + 32))
+        guard bounded.count > 320 else { return bounded }
+        return String(bounded.prefix(317)) + "..."
+    }
+
+    private static func targetHTML(for selectedSurfaceContext: String?) -> String {
+        guard let selectedSurfaceContext, !selectedSurfaceContext.isEmpty else { return "" }
+        return """
+        <p class="regenerate-preview__target" data-regenerate-preview-target>Targeting selected preview section
+        \(escapeHTML(selectedSurfaceContext))</p>
+        """
     }
 
     private static func package(
@@ -196,11 +228,14 @@ nonisolated enum HTMLWorkspaceRegeneratePreview {
         return String(trimmed.prefix(240 - 3)) + "..."
     }
 
-    private static func dataJSON(for request: String) -> String {
-        let payload = [
+    private static func dataJSON(for request: String, selectedSurfaceContext: String?) -> String {
+        var payload = [
             "status": "regenerating",
             "request": request,
         ]
+        if let selectedSurfaceContext, !selectedSurfaceContext.isEmpty {
+            payload["selected_surface_context"] = selectedSurfaceContext
+        }
         guard let data = try? JSONEncoder.epdocCanonical.encode(payload),
               let json = String(data: data, encoding: .utf8) else {
             return #"{"status":"regenerating"}"#

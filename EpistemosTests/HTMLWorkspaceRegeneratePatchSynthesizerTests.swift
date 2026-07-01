@@ -32,6 +32,24 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(package.indexHTML != loading.indexHTML)
     }
 
+    @Test("regenerate loading preview carries selected preview target")
+    func regenerateLoadingPreviewCarriesSelectedPreviewTarget() {
+        let package = HTMLWorkspacePackage.defaultPackage(title: "Target Proof")
+        let loading = HTMLWorkspaceRegeneratePreview.loadingPackage(
+            from: package,
+            instruction: "Use dropped context",
+            selectedSurfaceContext: "selected_surface.selector: section.hero\nselected_surface.text: Hello <b>world</b>"
+        )
+
+        #expect(loading.indexHTML.contains("data-regenerate-preview-target"))
+        #expect(loading.indexHTML.contains("Targeting selected preview section"))
+        #expect(loading.indexHTML.contains("selected_surface.selector: section.hero"))
+        #expect(loading.indexHTML.contains("Hello &lt;b&gt;world&lt;/b&gt;"))
+        #expect(loading.styleCSS.contains(".regenerate-preview__target"))
+        #expect(loading.styleCSS.contains("box-shadow: inset 3px 0 0 var(--epistemos-workspace-accent"))
+        #expect(loading.dataJSON.contains(#""selected_surface_context":"selected_surface.selector: section.hero\nselected_surface.text: Hello <b>world</b>""#))
+    }
+
     @Test("regenerate sheet exposes target workspace and hash before replace")
     func regenerateSheetExposesTargetWorkspaceAndHashBeforeReplace() throws {
         let sheet = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceRegenerateSurface.swift")
@@ -187,6 +205,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(editor.contains("selected_surface.text"))
         #expect(editor.contains("beginRegenerateSurface(instructionOverride: regenerateInstruction)"))
         #expect(editor.contains("selectedSurfaceContext: selectedRegenerateSurfaceContext()"))
+        #expect(editor.contains("HTMLWorkspaceRegeneratePreview.loadingPackage(\n            from: sourcePackage,\n            instruction: instruction,\n            selectedSurfaceContext: selectedRegenerateSurfaceContext()\n        )"))
         #expect(editor.contains("private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))
         #expect(editor.contains("if preset.family == .vaultData"))
         #expect(editor.contains("private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset)"))

@@ -1248,7 +1248,8 @@ struct HTMLWorkspaceEditorView: View {
         previewRouteName = nil
         previewPackage = HTMLWorkspaceRegeneratePreview.loadingPackage(
             from: sourcePackage,
-            instruction: instruction
+            instruction: instruction,
+            selectedSurfaceContext: selectedRegenerateSurfaceContext()
         )
         liveDOMSnapshot = nil
         layoutMode = .split
