@@ -389,6 +389,37 @@ struct BestOfPresetPlan3Tests {
         #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: receiptURL.path)) != nil)
     }
 
+    @Test("receipt store does not write through a symlinked receipt directory")
+    func receiptStoreRejectsSymlinkedReceiptDirectory() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("best-of-symlink-receipt-dir-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        let realMCPDirectory = root.appendingPathComponent("outside-mcp", isDirectory: true)
+        let mcpDirectory = home
+            .appendingPathComponent(".config", isDirectory: true)
+            .appendingPathComponent("mcp", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try FileManager.default.createDirectory(
+            at: mcpDirectory.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(at: realMCPDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: mcpDirectory, withDestinationURL: realMCPDirectory)
+
+        BestOfPresetReceiptStore.save(
+            BestOfPresetReceipt(remoteMCPServerNames: ["context7"]),
+            home: home
+        )
+
+        #expect(BestOfPresetReceiptStore.load(home: home).remoteMCPServerNames.isEmpty)
+        #expect(!FileManager.default.fileExists(
+            atPath: realMCPDirectory
+                .appendingPathComponent("epistemos_best_of_preset_receipt.json", isDirectory: false)
+                .path
+        ))
+    }
+
     @Test("receipt store source keeps bounded non-symlink file contract")
     func receiptStoreSourceGuard() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Omega/BestOfPreset.swift")
@@ -405,6 +436,10 @@ struct BestOfPresetPlan3Tests {
             "readBoundedRegularFileNoFollow(at: url, maxBytes: maxReceiptBytes)",
             "data.count <= maxBytes",
             "data.count <= maxReceiptBytes",
+            "writeReceiptDataNoFollow",
+            "open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC",
+            "rejectReceiptPathSymlinkComponents",
+            "firstExistingSymlinkComponent",
             "BestOfPresetDiagnostics.externalErrorDescription",
             "BestOfPresetDiagnostics.message",
         ] {

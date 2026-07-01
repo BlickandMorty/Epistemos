@@ -437,22 +437,89 @@ nonisolated enum BestOfPresetReceiptStore {
     static func save(_ receipt: BestOfPresetReceipt, home: URL) {
         let url = receiptURL(home: home)
         do {
-            guard !isSymbolicLink(url) else { return }
+            try rejectReceiptPathSymlinkComponents(url.deletingLastPathComponent())
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
+            try rejectReceiptPathSymlinkComponents(url.deletingLastPathComponent())
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: url.deletingLastPathComponent().path
+            )
             let data = try JSONEncoder.bestOfPresetEncoder.encode(receipt)
             guard data.count <= maxReceiptBytes else { return }
-            try data.write(to: url, options: [.atomic])
+            try writeReceiptDataNoFollow(data, to: url)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
             // Receipt persistence should not make the install path fail; a
             // missing receipt only makes later revert conservative.
         }
     }
 
-    private static func isSymbolicLink(_ url: URL) -> Bool {
-        (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) != nil
+    private static func writeReceiptDataNoFollow(_ data: Data, to url: URL) throws {
+        let fd = url.path.withCString { path in
+            open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        }
+        guard fd >= 0 else {
+            throw NSError(domain: "BestOfPresetReceiptStore", code: Int(errno))
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            let capturedErrno = errno
+            close(fd)
+            throw NSError(domain: "BestOfPresetReceiptStore", code: Int(capturedErrno))
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG else {
+            close(fd)
+            throw NSError(domain: "BestOfPresetReceiptStore", code: Int(EFTYPE))
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        do {
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+    }
+
+    private static func rejectReceiptPathSymlinkComponents(_ url: URL) throws {
+        if try firstExistingSymlinkComponent(in: url) != nil {
+            throw NSError(domain: "BestOfPresetReceiptStore", code: Int(ELOOP))
+        }
+    }
+
+    private static func firstExistingSymlinkComponent(in url: URL) throws -> URL? {
+        let standardized = url.standardizedFileURL
+        let path = standardized.path
+        let components = path.split(separator: "/", omittingEmptySubsequences: true)
+        var current = path.hasPrefix("/")
+            ? URL(fileURLWithPath: "/", isDirectory: true)
+            : URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+
+        for component in components {
+            current = current.appendingPathComponent(String(component), isDirectory: false)
+            var fileStatus = stat()
+            guard lstat(current.path, &fileStatus) == 0 else {
+                if errno == ENOENT || errno == ENOTDIR {
+                    return nil
+                }
+                throw NSError(domain: "BestOfPresetReceiptStore", code: Int(errno))
+            }
+            if (fileStatus.st_mode & S_IFMT) == S_IFLNK,
+               !isAllowedSystemSymlinkComponent(current, fileStatus: fileStatus) {
+                return current
+            }
+        }
+        return nil
+    }
+
+    private static func isAllowedSystemSymlinkComponent(_ url: URL, fileStatus: stat) -> Bool {
+        url.deletingLastPathComponent().path == "/" && fileStatus.st_uid == 0
     }
 }
 
