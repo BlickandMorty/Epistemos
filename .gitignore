@@ -86,3 +86,6 @@ Epistemos/Resources/opencode-runtime/
 .epcache/
 .epistemos/
 *.htmlworkspace/
+
+# Reference-only third-party clones (never committed)
+.research-clones/
