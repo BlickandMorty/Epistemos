@@ -677,7 +677,7 @@ enum HTMLWorkspaceRegeneratePromptBuilder {
 }
 
 nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, Equatable {
-    var id: String { pageID }
+    var id: String { contextID }
     var pageID: String
     var title: String
     var snippet: String
@@ -685,6 +685,10 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
     var contextKind: String
     var sourceLabel: String
     var provenance: String
+
+    var contextID: String {
+        "context_kind:\(Self.inlineIDPart(contextKind))|source:\(Self.inlineIDPart(sourceLabel))|page_id:\(Self.inlineIDPart(pageID))"
+    }
 
     var contextDescriptor: String {
         "\(sourceLabel) / \(contextKind)"
@@ -713,9 +717,13 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         let safeKind = Self.bounded(contextKind, limit: 80)
         let safeSource = Self.bounded(sourceLabel, limit: 120)
         let safeProvenance = Self.bounded(provenance, limit: 160)
+        let safeContextID = Self.bounded(contextID, limit: 220)
         let safeSnippet = Self.bounded(snippet, limit: 560)
         return """
         Workspace context: \(safeTitle) [\(safePageID)]
+        context_id: \(safeContextID)
+        drop_action: regenerate_preview_context
+        readonly: true
         page_id: \(safePageID)
         title: \(safeTitle)
         context_kind: \(safeKind)
@@ -752,9 +760,11 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         let safeKind = Self.bounded(contextKind, limit: 80)
         let safeSource = Self.bounded(sourceLabel, limit: 120)
         let safeProvenance = Self.bounded(provenance, limit: 160)
+        let safeContextID = Self.bounded(contextID, limit: 220)
         let safeSnippet = Self.bounded(snippet, limit: 240)
         return [
             "- record:",
+            "  context_id: \(safeContextID)",
             "  page_id: \(safePageID)",
             "  title: \(safeTitle)",
             "  context_kind: \(safeKind)",
@@ -777,6 +787,10 @@ nonisolated struct HTMLWorkspaceRegenerateContextItem: Identifiable, Sendable, E
         guard bounded.count > limit else { return bounded }
         guard limit > 3 else { return String(bounded.prefix(limit)) }
         return String(bounded.prefix(limit - 3)) + "..."
+    }
+
+    private static func inlineIDPart(_ value: String) -> String {
+        value.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
     }
 }
 

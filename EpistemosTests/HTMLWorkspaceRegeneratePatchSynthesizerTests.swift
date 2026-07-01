@@ -75,6 +75,10 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(sheet.contains(".onDrag"))
         #expect(sheet.contains("NSItemProvider(object: item.dragPayload as NSString)"))
         #expect(sheet.contains("nonisolated struct HTMLWorkspaceRegenerateContextItem"))
+        #expect(sheet.contains("var contextID: String"))
+        #expect(sheet.contains("context_id: \\(safeContextID)"))
+        #expect(sheet.contains("drop_action: regenerate_preview_context"))
+        #expect(sheet.contains("readonly: true"))
         #expect(sheet.contains("HTMLWorkspaceRegeneratePreset.Family.allCases"))
         #expect(sheet.contains("FlowLayout(spacing: 6)"))
         #expect(sheet.contains("Label(\"Recovery response fallback\", systemImage: \"terminal\")"))
@@ -333,6 +337,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(prompt.contains("vault_search.required_context_available: false"))
         #expect(prompt.contains("vault_search.provenance: VaultSyncService.searchFullAsync"))
         #expect(prompt.contains("vault_search.results:\n- record:"))
+        #expect(prompt.contains("  context_id: context_kind:vault_record|source:Vault search result|page_id:page-1"))
         #expect(prompt.contains("  page_id: page-1"))
         #expect(prompt.contains("  title: Research Note"))
         #expect(prompt.contains("  context_kind: vault_record"))
@@ -369,6 +374,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         let items = HTMLWorkspaceRegenerateContextItem.items(from: package)
 
         #expect(items.map(\.pageID) == ["note-a", "note-b"])
+        #expect(items.first?.id == "context_kind:vault_record|source:Vault search result|page_id:note-a")
+        #expect(items.first?.contextID == "context_kind:vault_record|source:Vault search result|page_id:note-a")
         #expect(items.first?.title == "Alpha Note")
         #expect(items.first?.contextKind == "vault_record")
         #expect(items.first?.sourceLabel == "Vault search result")
@@ -378,6 +385,9 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(items.first?.rankDescriptor == "rank 0.9000")
         #expect(items.first?.systemImage == "doc.text")
         #expect(items.first?.dragPayload.contains("Workspace context: Alpha Note [note-a]") == true)
+        #expect(items.first?.dragPayload.contains("context_id: context_kind:vault_record|source:Vault search result|page_id:note-a") == true)
+        #expect(items.first?.dragPayload.contains("drop_action: regenerate_preview_context") == true)
+        #expect(items.first?.dragPayload.contains("readonly: true") == true)
         #expect(items.first?.dragPayload.contains("page_id: note-a") == true)
         #expect(items.first?.dragPayload.contains("title: Alpha Note") == true)
         #expect(items.first?.dragPayload.contains("context_kind: vault_record") == true)
@@ -426,7 +436,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
             provenance: "CaptureStore"
         )
         let graph = HTMLWorkspaceRegenerateContextItem(
-            pageID: "graph-1",
+            pageID: "capture-1",
             title: "Graph",
             snippet: "related text",
             rank: 1,
@@ -437,6 +447,8 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
 
         #expect(capture.systemImage == "tray.full")
         #expect(graph.systemImage == "point.3.connected.trianglepath.dotted")
+        #expect(capture.pageID == graph.pageID)
+        #expect(capture.id != graph.id)
         #expect(capture.contextDescriptor == "Recent capture / recent_capture")
         #expect(graph.provenanceDescriptor == "via GraphState")
     }
