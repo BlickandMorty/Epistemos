@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import OSLog
 
 nonisolated enum SkillDiscoverySource: String, Sendable {
@@ -35,6 +36,7 @@ nonisolated struct SkillDiscoveryEntry: Identifiable, Hashable, Sendable {
 
 nonisolated enum SkillDiscoveryCatalog {
     private static let log = Logger(subsystem: "com.epistemos", category: "SkillDiscovery")
+    static let maxSkillFileBytes = 1024 * 1024
 
     static func discoverSkillEntries(
         inRoots roots: [SkillDiscoveryRoot]? = nil,
@@ -196,8 +198,8 @@ nonisolated enum SkillDiscoveryCatalog {
         skillURL: URL,
         source: SkillDiscoverySource
     ) -> SkillDiscoveryEntry? {
-        guard let content = try? String(contentsOf: skillURL, encoding: .utf8) else {
-            log.warning("Skipping unreadable skill file at \(skillURL.path, privacy: .public)")
+        guard let content = safeSkillFileContent(skillURL) else {
+            log.warning("Skipping unreadable skill file at \(skillURL.path, privacy: .private)")
             return nil
         }
         let frontmatter = parseFrontmatter(content)
@@ -220,6 +222,69 @@ nonisolated enum SkillDiscoveryCatalog {
             source: source,
             sourcePath: skillURL.deletingLastPathComponent().path
         )
+    }
+
+    private static func safeSkillFileContent(_ skillURL: URL) -> String? {
+        guard firstExistingSymlinkComponent(in: skillURL.deletingLastPathComponent()) == nil else {
+            return nil
+        }
+
+        let fd = skillURL.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else {
+            return nil
+        }
+
+        var fileStatus = stat()
+        guard fstat(fd, &fileStatus) == 0 else {
+            close(fd)
+            return nil
+        }
+        guard (fileStatus.st_mode & S_IFMT) == S_IFREG,
+              fileStatus.st_nlink <= 1,
+              fileStatus.st_size >= 0,
+              UInt64(fileStatus.st_size) <= UInt64(maxSkillFileBytes) else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              data.count <= maxSkillFileBytes else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func firstExistingSymlinkComponent(in url: URL) -> URL? {
+        let standardized = url.standardizedFileURL
+        let path = standardized.path
+        let components = path.split(separator: "/", omittingEmptySubsequences: true)
+        var current = path.hasPrefix("/")
+            ? URL(fileURLWithPath: "/", isDirectory: true)
+            : URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+
+        for component in components {
+            current = current.appendingPathComponent(String(component), isDirectory: false)
+            var fileStatus = stat()
+            guard lstat(current.path, &fileStatus) == 0 else {
+                if errno == ENOENT || errno == ENOTDIR {
+                    return nil
+                }
+                return current
+            }
+            if (fileStatus.st_mode & S_IFMT) == S_IFLNK,
+               !isAllowedSystemSymlinkComponent(current, fileStatus: fileStatus) {
+                return current
+            }
+        }
+        return nil
+    }
+
+    private static func isAllowedSystemSymlinkComponent(_ url: URL, fileStatus: stat) -> Bool {
+        url.deletingLastPathComponent().path == "/" && fileStatus.st_uid == 0
     }
 
     private static func normalizedIdentifier(_ rawValue: String) -> String {

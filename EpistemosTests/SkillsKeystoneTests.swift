@@ -57,6 +57,49 @@ struct SkillsKeystoneTests {
         )
     }
 
+    @Test("skill discovery reads only single-link regular SKILL.md files")
+    func skillDiscoveryReadsOnlySingleLinkRegularSkillFiles() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("skill-discovery-safe-read-\(UUID().uuidString)")
+        let skillsRoot = root.appendingPathComponent("skills", isDirectory: true)
+        let validSkill = skillsRoot.appendingPathComponent("valid", isDirectory: true)
+        let symlinkSkill = skillsRoot.appendingPathComponent("symlinked", isDirectory: true)
+        let hardlinkSkill = skillsRoot.appendingPathComponent("hardlinked", isDirectory: true)
+        let outside = root.appendingPathComponent("outside", isDirectory: true)
+        defer { try? fm.removeItem(at: root) }
+
+        for directory in [validSkill, symlinkSkill, hardlinkSkill, outside] {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+
+        try Self.writeSkill(
+            name: "Valid Skill",
+            to: validSkill.appendingPathComponent("SKILL.md", isDirectory: false)
+        )
+        let outsideSkill = outside.appendingPathComponent("SKILL.md", isDirectory: false)
+        try Self.writeSkill(name: "Outside Skill", to: outsideSkill)
+        try fm.createSymbolicLink(
+            at: symlinkSkill.appendingPathComponent("SKILL.md", isDirectory: false),
+            withDestinationURL: outsideSkill
+        )
+        do {
+            try fm.linkItem(
+                at: outsideSkill,
+                to: hardlinkSkill.appendingPathComponent("SKILL.md", isDirectory: false)
+            )
+        } catch {
+            return
+        }
+
+        let entries = SkillDiscoveryCatalog.discoverSkillEntries(
+            inRoots: [SkillDiscoveryRoot(url: skillsRoot, source: .codex)],
+            forceRefresh: true
+        )
+
+        #expect(entries.map(\.identifier) == ["valid-skill"])
+    }
+
     @Test("skills settings source routes status through bounded diagnostics")
     func skillsSettingsSourceRoutesStatusThroughBoundedDiagnostics() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
@@ -103,5 +146,15 @@ struct SkillsKeystoneTests {
         #expect(codepack.contains("raw message/domain strings bounded and control/whitespace-normalized before trim/validation"))
         #expect(capabilities.contains("Skills settings status text"))
         #expect(capabilities.contains("raw message/domain\nstrings bounded and control/whitespace-normalized before trim/validation"))
+    }
+
+    private static func writeSkill(name: String, to url: URL) throws {
+        try Data("""
+        ---
+        name: \(name)
+        description: Test skill.
+        ---
+        # \(name)
+        """.utf8).write(to: url)
     }
 }
