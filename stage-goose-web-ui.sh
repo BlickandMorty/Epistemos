@@ -1781,6 +1781,142 @@ for (const snippet of [
 fs.writeFileSync(path, source);
 NODE
 
+LAUNCHER_VIEW="$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
+node - "$LAUNCHER_VIEW" <<'NODE'
+const fs = require('fs');
+const path = process.argv[2];
+let source = fs.readFileSync(path, 'utf8');
+
+function replaceRequired(label, pattern, replacement) {
+  const next = source.replace(pattern, replacement);
+  if (next === source) {
+    throw new Error(`LauncherView ${label} replacement not applied`);
+  }
+  source = next;
+}
+
+if (!source.includes('epistemos-goose-only-launcher')) {
+  source = source.replace("import type { LauncherSurface } from '../utils/launcherSurface';\n", '');
+  replaceRequired(
+    'single Goose label message',
+    `  chatLabel: {
+    id: 'launcher.chatLabel',
+    defaultMessage: 'Chat',
+  },
+  actLabel: {
+    id: 'launcher.actLabel',
+    defaultMessage: 'Act',
+  },
+  workLabel: {
+    id: 'launcher.workLabel',
+    defaultMessage: 'Work',
+  },`,
+    `  gooseLabel: {
+    id: 'launcher.gooseLabel',
+    defaultMessage: 'Goose',
+  },`
+  );
+  replaceRequired(
+    'surface array removal',
+    `const surfaces: Array<{ key: LauncherSurface; label: keyof typeof messages }> = [
+  { key: 'act', label: 'actLabel' },
+  { key: 'work', label: 'workLabel' },
+  { key: 'chat', label: 'chatLabel' },
+];
+
+`,
+    ''
+  );
+  replaceRequired(
+    'selected surface state removal',
+    `  const [selectedSurface, setSelectedSurface] = useState<LauncherSurface>('act');
+  const [isLaunching, setIsLaunching] = useState(false);`,
+    `  const [isLaunching, setIsLaunching] = useState(false);`
+  );
+  replaceRequired(
+    'selected label source',
+    `  const selected = surfaces.find((surface) => surface.key === selectedSurface) ?? surfaces[0];
+  const selectedLabel = intl.formatMessage(messages[selected.label]);`,
+    `  const selectedLabel = intl.formatMessage(messages.gooseLabel); // epistemos-goose-only-launcher`
+  );
+  replaceRequired(
+    'surface launch option removal',
+    `        dir: getInitialWorkingDir(),
+        surface: selectedSurface,`,
+    `        dir: getInitialWorkingDir(),`
+  );
+  replaceRequired(
+    'arrow key surface cycling removal',
+    `
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const currentIndex = surfaces.findIndex((surface) => surface.key === selectedSurface);
+      const offset = e.key === 'ArrowRight' ? 1 : -1;
+      const nextIndex = (currentIndex + offset + surfaces.length) % surfaces.length;
+      setSelectedSurface(surfaces[nextIndex].key);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }`,
+    ''
+  );
+  replaceRequired(
+    'segmented surface selector removal',
+    `        <div
+          className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1 rounded-[10px] bg-background-secondary/56 p-1"
+          role="radiogroup"
+          aria-label="Surface"
+        >
+          {surfaces.map((surface) => {
+            const isSelected = selectedSurface === surface.key;
+            return (
+              <button
+                key={surface.key}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => {
+                  setSelectedSurface(surface.key);
+                  requestAnimationFrame(() => inputRef.current?.focus());
+                }}
+                className={\`h-8 min-w-16 rounded-[7px] px-3 font-sans text-xs transition-colors duration-200 ease-[var(--epistemos-control-ease)] \${
+                  isSelected
+                    ? 'bg-background-primary/78 text-text-primary'
+                    : 'text-text-secondary hover:bg-background-secondary hover:text-text-primary'
+                }\`}
+              >
+                {intl.formatMessage(messages[surface.label])}
+              </button>
+            );
+          })}
+        </div>
+
+`,
+    ''
+  );
+}
+
+for (const snippet of [
+  'epistemos-goose-only-launcher',
+  "messages.gooseLabel",
+  "window.electron.createChatWindow({",
+]) {
+  if (!source.includes(snippet)) {
+    throw new Error(`LauncherView staged source is missing required Goose-only snippet: ${snippet}`);
+  }
+}
+for (const stale of [
+  "selectedSurface",
+  "surfaces.map",
+  "launcher.actLabel",
+  "launcher.workLabel",
+]) {
+  if (source.includes(stale)) {
+    throw new Error(`LauncherView staged source still contains stale multi-surface snippet: ${stale}`);
+  }
+}
+
+fs.writeFileSync(path, source);
+NODE
+
 PROVIDER_SETTINGS_PAGE="$WORK_ROOT/ui/desktop/src/components/settings/providers/ProviderSettingsPage.tsx"
 node - "$PROVIDER_SETTINGS_PAGE" <<'NODE'
 const fs = require('fs');
@@ -7323,6 +7459,10 @@ JS
     grep -q "className=\"goose-epistemos relative w-screen h-screen overflow-hidden bg-transparent flex flex-col\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "className=\"w-screen h-screen bg-transparent\"" "$WORK_ROOT/ui/desktop/src/App.tsx"
     grep -q "relative flex h-full w-full flex-col overflow-hidden bg-transparent" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
+    grep -q "epistemos-goose-only-launcher" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
+    ! grep -q "launcher.actLabel" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
+    ! grep -q "launcher.workLabel" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
+    ! grep -q "selectedSurface" "$WORK_ROOT/ui/desktop/src/components/LauncherView.tsx"
     grep -q "className=\"h-screen w-full bg-transparent" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingGuard.tsx"
     grep -q "rounded-\\[12px\\] bg-background-success/55" "$WORK_ROOT/ui/desktop/src/components/onboarding/OnboardingSuccess.tsx"
     grep -q "rounded-\\[10px\\] bg-background-primary/54 p-3" "$WORK_ROOT/ui/desktop/src/components/onboarding/LocalModelPicker.tsx"
