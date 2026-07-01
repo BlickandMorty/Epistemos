@@ -26,7 +26,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
             } label: {
                 Label("Search Context", systemImage: "magnifyingglass")
             }
-            .disabled(isRefreshingContext)
+            .disabled(isRegenerating || isRefreshingContext)
 
             if !targetText.isEmpty {
                 Text(targetText)
@@ -40,7 +40,7 @@ struct HTMLWorkspacePreviewContextPicker: View {
                     } label: {
                         Label(shortcut.title, systemImage: shortcut.systemImage)
                     }
-                    .disabled(isRefreshingContext)
+                    .disabled(isRegenerating || isRefreshingContext)
                     .help(shortcut.helpText)
                 }
             }

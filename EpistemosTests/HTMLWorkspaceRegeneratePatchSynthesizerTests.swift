@@ -303,6 +303,7 @@ nonisolated struct HTMLWorkspaceRegeneratePatchSynthesizerTests {
         #expect(picker.contains("Menu {"))
         #expect(picker.contains("Label(\"Add Context\", systemImage: \"plus.square.on.square\")"))
         #expect(picker.contains("Label(\"Search Context\", systemImage: \"magnifyingglass\")"))
+        #expect(picker.contains(".disabled(isRegenerating || isRefreshingContext)"))
         #expect(picker.contains("Label(\"No context attached\", systemImage: \"tray\")"))
         #expect(picker.contains("let onOpenContextSearch: () -> Void"))
         #expect(picker.contains("onOpenContextSearch()"))
