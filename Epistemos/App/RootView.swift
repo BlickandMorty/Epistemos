@@ -226,6 +226,9 @@ struct RootView: View {
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
+            // The goose surface owns its own chrome — the floating settings/
+            // greeting pill must not ride over the WebView (owner 2026-07-02).
+            && ui.homeContent != .goose
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {

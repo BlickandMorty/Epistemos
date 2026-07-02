@@ -374,6 +374,7 @@ extension GooseWebSurfaceView {
              recolor the whole ported ontology. */
           --ep-accent: \(uiAccent) !important;
           --ep-surface-window: \(background) !important;
+          --ep-surface-sidebar: \(cssColor(resolved.background, isDark: isDark)) !important;
           --ep-surface-card: \(surfaceStrong) !important;
           --ep-surface-muted: \(mutedSurface) !important;
           --ep-text-primary: \(foreground) !important;

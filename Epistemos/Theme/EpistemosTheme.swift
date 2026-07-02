@@ -591,7 +591,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     /// Notes-matching H2/H3 typography. Classic keeps Ember Tan's
-    /// point sizes (31 / 19) but uses its MatrixTypeDisplay-Bold face;
+    /// point sizes (27 / 17) but uses its MatrixTypeDisplay-Bold face;
     /// Ember Tan keeps ChonkyPixels. Regular notes, embedded graph-note
     /// previews, and overlay graph-note previews share one rhythm.
     nonisolated func notesMatchingHeadingSpec(
@@ -600,7 +600,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         guard (AppCustomTheme.isActive || [.classic, .ember].contains(themePair)), (2...3).contains(level) else {
             return nil
         }
-        let size: CGFloat = level == 2 ? 31 : 19
+        let size: CGFloat = level == 2 ? 27 : 17
         let weight: Font.Weight = level == 2 ? .heavy : .semibold
         return NotesMatchingHeadingSpec(
             fontName: headingFontName(level: level),
@@ -864,27 +864,25 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 nsBackground: .hex(0x000000)
             )
         case .oledSoft:
-            // RCA finalization 2026-05-13 / tuned 2026-05-24:
-            // near-OLED dark grey
-            // palette for non-hero Classic-dark surfaces (Notes,
-            // Settings, Graph chrome). Background lifts from
-            // 0x000000 to 0x08080A so embedded surfaces don't
-            // punch a hole; muted + card layers nudge up a couple
-            // of stops to keep separation visible. Foreground +
-            // accents inherit from OLED so the typographic feel
-            // stays continuous.
+            // RCA finalization 2026-05-13 / tuned 2026-05-24 / darkened
+            // 2026-07-02 (owner): Classic-dark read too light on the goose
+            // surface, where the inset panel derives from
+            // floatingSurfaceTint — drop the elevated layers a few stops
+            // (dark, not pure black) and let the window backdrop go true
+            // OLED so the sidebar zone is black. Foreground + accents
+            // inherit from OLED so the typographic feel stays continuous.
             return ResolvedTheme(
                 isDark: true,
                 isPlatinum: false,
                 usesNativeWindowBlur: false,
-                background: .hex(0x08080A),
+                background: .hex(0x000000),
                 foregroundHex: 0xDADADE,
                 accent: .hex(0xDADADE),
                 headingAccentHex: 0xF4F4F4,
                 markdownHeadingAccentHex: 0xF4F4F4,
                 preferredMarkdownLinkHex: nil,
                 uiAccent: .hex(0xDADADE),
-                muted: .hex(0x151517),
+                muted: .hex(0x101012),
                 mutedForegroundHex: 0x9A9AA0,
                 assistantBubbleForegroundHex: 0xDADADE,
                 assistantBubbleBackgroundHex: nil,
@@ -894,12 +892,12 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 glassBg: Token.rgba(18.0 / 255.0, 18.0 / 255.0, 21.0 / 255.0, 0.84),
                 glassBorder: Token.rgba(58.0 / 255.0, 58.0 / 255.0, 62.0 / 255.0, 0.32),
                 glassHover: Token.rgba(28.0 / 255.0, 28.0 / 255.0, 32.0 / 255.0, 0.72),
-                floatingSurfaceTint: .hex(0x25252A),
+                floatingSurfaceTint: .hex(0x121214),
                 navPillBg: Token.rgba(12.0 / 255.0, 12.0 / 255.0, 15.0 / 255.0, 0.86),
                 navBubbleActiveBg: Token.rgba(24.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0, 0.72),
                 navBubbleActiveText: .hex(0xDADADE, opacity: 0.92),
                 navBubbleInactiveText: Token.rgba(180.0 / 255.0, 180.0 / 255.0, 184.0 / 255.0, 0.92),
-                card: Token.rgba(22.0 / 255.0, 22.0 / 255.0, 26.0 / 255.0, 0.92),
+                card: Token.rgba(16.0 / 255.0, 16.0 / 255.0, 19.0 / 255.0, 0.92),
                 chatSurface: .hex(0x08080A),
                 userBubbleBg: .hex(0x2B2B31),
                 userBubbleText: .hex(0xDADADE, opacity: 0.88),
