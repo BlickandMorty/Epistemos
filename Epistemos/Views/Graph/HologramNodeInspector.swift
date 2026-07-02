@@ -88,6 +88,15 @@ struct HologramNodeInspector: View {
         graphSurfacePresentation.isEmbeddedHome ? 20 : 21
     }
 
+    private let graphInspectorPreviewBodyFontSize: CGFloat = 13
+
+    private func graphInspectorPreviewFont(
+        size: CGFloat,
+        weight: Font.Weight = .regular
+    ) -> Font {
+        ClaudeAppTypography.assistantFont(size: size, weight: weight)
+    }
+
     private func inspectorContent(_ node: GraphNodeRecord) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             compactHeader(node)
@@ -564,224 +573,18 @@ struct HologramNodeInspector: View {
 
     @ViewBuilder
     private func formattedLine(_ line: String) -> some View {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed.hasPrefix("#### ") {
-            previewMarkdownText(
-                markdown: String(trimmed.dropFirst(5)),
-                font: .system(size: 14, weight: .semibold),
-                color: .primary,
-                rippleEnabled: false
-            )
-                .padding(.top, 4)
-        } else if trimmed.hasPrefix("### ") {
-            previewHeadingText(
-                text: String(trimmed.dropFirst(4)),
-                role: .h3
-            )
-                .padding(.top, 6)
-        } else if trimmed.hasPrefix("## ") {
-            previewHeadingText(
-                text: String(trimmed.dropFirst(3)),
-                role: .h2
-            )
-                .padding(.top, 8)
-        } else if trimmed.hasPrefix("# ") {
-            previewHeadingText(
-                text: String(trimmed.dropFirst(2)),
-                role: .h1
-            )
-                .padding(.top, 10)
-        } else if trimmed.hasPrefix("- [ ] ") {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "square")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-                previewMarkdownText(
-                    markdown: String(trimmed.dropFirst(6)),
-                    font: .system(size: 13),
-                    color: .primary,
-                    rippleEnabled: false
-                )
-            }
-        } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "checkmark.square.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                previewMarkdownText(
-                    markdown: String(trimmed.dropFirst(6)),
-                    font: .system(size: 13),
-                    color: .primary,
-                    rippleEnabled: false
-                )
-                    .strikethrough(true, color: .secondary)
-            }
-        } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("•")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                previewMarkdownText(
-                    markdown: String(trimmed.dropFirst(2)),
-                    font: .system(size: 13),
-                    color: .primary,
-                    rippleEnabled: false
-                )
-            }
-        } else if let match = trimmed.wholeMatch(of: /^(\d+)\.\s+(.+)$/) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(match.1).")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20, alignment: .trailing)
-                previewMarkdownText(
-                    markdown: String(match.2),
-                    font: .system(size: 13),
-                    color: .primary,
-                    rippleEnabled: false
-                )
-            }
-        } else if trimmed.hasPrefix("> ") {
-            previewMarkdownText(
-                markdown: String(trimmed.dropFirst(2)),
-                font: .system(size: 13).italic(),
-                color: .secondary,
-                rippleEnabled: false
-            )
-                .padding(.leading, 12)
-                .overlay(alignment: .leading) {
-                    Rectangle()
-                        .fill(.tertiary)
-                        .frame(width: 3)
-                }
-        } else if trimmed.hasPrefix("```") {
-            Text(trimmed)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(.secondary)
-        } else if trimmed == "---" || trimmed == "***" || trimmed == "___" {
-            Divider().padding(.vertical, 4)
-        } else if trimmed.isEmpty {
+        if line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Spacer().frame(height: 4)
         } else {
-            panelPreviewMarkdownText(
-                markdown: trimmed,
-                color: .primary,
-                rippleEnabled: false
-            )
+            rawMarkdownLineText(line)
         }
     }
 
-    private func panelPreviewMarkdownText(
-        markdown: String,
-        color: Color,
-        rippleEnabled: Bool = true
-    ) -> some View {
-        Text(inlineMarkdown(markdown))
-            .font(AppDisplayTypography.panelFont(size: 14, theme: theme))
+    private func rawMarkdownLineText(_ line: String, color: Color = .primary) -> some View {
+        Text(verbatim: line)
+            .font(graphInspectorPreviewFont(size: graphInspectorPreviewBodyFontSize))
             .foregroundStyle(color)
-            .asciiRippleOverlay(
-                text: MarkdownRippleTextExtractor.displayText(from: markdown),
-                font: AppDisplayTypography.panelFont(size: 14, theme: theme),
-                color: color,
-                enabled: rippleEnabled
-            )
-    }
-
-    private func previewMarkdownText(
-        markdown: String,
-        font: Font,
-        color: Color,
-        rippleEnabled: Bool = true
-    ) -> some View {
-        Text(inlineMarkdown(markdown))
-            .font(font)
-            .foregroundStyle(color)
-            .asciiRippleOverlay(
-                text: MarkdownRippleTextExtractor.displayText(from: markdown),
-                font: font,
-                color: color,
-                enabled: rippleEnabled
-            )
-    }
-
-    @ViewBuilder
-    private func previewHeadingText(
-        text: String,
-        role: AppHeadingRole
-    ) -> some View {
-        let level = headingLevel(for: role)
-        let notesSpec = theme.notesMatchingHeadingSpec(level: level)
-        let font = graphPreviewHeadingFont(
-            role: role,
-            level: level,
-            notesSpec: notesSpec
-        )
-        let displayText = theme.boxedLabelText(
-            MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
-        )
-        let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
-        if AppDisplayTypography.usesPlatinumGlyphFallback(theme: theme, level: level, allowDisplayFont: notesSpec == nil) {
-            Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
-                displayText,
-                size: role.fontSize,
-                weight: level == 1 ? .heavy : .semibold,
-                isDark: theme.isDark
-            ))
-            .foregroundStyle(color)
-            .asciiRippleOverlay(
-                text: MarkdownRippleTextExtractor.displayText(from: displayText),
-                font: font,
-                color: color,
-                enabled: false
-            )
-        } else {
-            previewMarkdownText(
-                markdown: displayText,
-                font: font,
-                color: color,
-                rippleEnabled: false
-            )
-        }
-    }
-
-    private func graphPreviewHeadingFont(
-        role: AppHeadingRole,
-        level: Int,
-        notesSpec: NotesMatchingHeadingSpec?
-    ) -> Font {
-        if let notesSpec {
-            return Font.custom(
-                notesSpec.fontName,
-                size: AppDisplayTypography.displayFontSize(
-                    for: notesSpec.size * theme.headingSizeMultiplier(level: level),
-                    isDark: theme.isDark
-                )
-            )
-            .weight(notesSpec.weight)
-        }
-        let weight: Font.Weight = level == 1 ? .heavy : .semibold
-        return AppDisplayTypography.headingFont(
-            size: role.fontSize,
-            weight: weight,
-            theme: theme,
-            level: level
-        )
-    }
-
-    private func headingLevel(for role: AppHeadingRole) -> Int {
-        switch role {
-        case .h1: 1
-        case .h2: 2
-        case .h3: 3
-        default: 1
-        }
-    }
-
-    private func inlineMarkdown(_ text: String) -> AttributedString {
-        (try? AttributedString(
-            markdown: text,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        )) ?? AttributedString(text)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

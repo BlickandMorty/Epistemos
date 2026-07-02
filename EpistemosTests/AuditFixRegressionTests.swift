@@ -226,12 +226,17 @@ struct AuditFixRegressionTests {
 
     @Test("model profile creation sheet avoids retired Hermes local labels")
     func modelProfileCreationSheetAvoidsRetiredHermesLabels() throws {
-        let source = try loadAuditSource("Epistemos/Views/ModelProfiles/ModelProfileCreationSheet.swift")
+        let source = try loadAuditSource("Epistemos/State/InferenceState.swift")
+        let displayNames = try auditSourceSlice(
+            source,
+            from: "var displayName: String {",
+            to: "var compactDisplayName: String {"
+        )
 
-        #expect(!source.contains("Hermes 3 8B"))
-        #expect(!source.contains("Gemma 4 4B"))
-        #expect(source.contains("Qwen 3 4B"))
-        #expect(source.contains("Bonsai 4B"))
+        #expect(!displayNames.contains("Hermes 3 8B"))
+        #expect(!displayNames.contains("\"Gemma 4 4B\""))
+        #expect(displayNames.contains("\"Qwen 3 4B\""))
+        #expect(displayNames.contains("\"Ternary Bonsai 4B\""))
     }
 
     @Test("release archive no longer strips linked agent dylibs or disables agent services")
@@ -350,6 +355,13 @@ struct AuditFixRegressionTests {
 
 private func loadAuditSource(_ relativePath: String) throws -> String {
     try loadMirroredSourceTextFile(relativePath)
+}
+
+private func auditSourceSlice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
+    let start = try #require(source.range(of: startMarker))
+    let tail = source[start.lowerBound...]
+    let end = try #require(tail.range(of: endMarker))
+    return String(tail[..<end.lowerBound])
 }
 
 @MainActor

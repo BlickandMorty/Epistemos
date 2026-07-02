@@ -1434,6 +1434,8 @@ struct CodeEditorView: View {
     let filePath: String?  // Optional: for code-to-graph linking
     let onTextSnapshot: ((String) -> Void)?
     let onContentChange: ((String) -> Void)?
+    let allowsMarkEditWindowToolbar: Bool
+    let externalSelectionRequest: CoreEditorSelectionRequest?
     /// SS-GC (owner 2026-06-20): when the code editor is mounted inside the embedded
     /// home-graph surface, its top bar must paint the GRAPH backdrop so it isn't a white
     /// card slab against the darker landing surround. nil = the standalone / notes /
@@ -1464,6 +1466,7 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.wrapLines") private var wrapLines = false
     // Minimap removed — outline navigator replaces it
     @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
+    @AppStorage("codeEditor.invisiblesDefaultReset.20260702") private var didResetInvisiblesDefault = false
     // Keep the code surface at the native-editor scale by default. The
     // CoreEditor owns rendering now, but code notes should still feel like
     // a Mac code editor rather than a compact web preview panel.
@@ -1520,6 +1523,8 @@ struct CodeEditorView: View {
         filePath: String? = nil,
         onTextSnapshot: ((String) -> Void)? = nil,
         onContentChange: ((String) -> Void)? = nil,
+        allowsMarkEditWindowToolbar: Bool = true,
+        externalSelectionRequest: CoreEditorSelectionRequest? = nil,
         themeOverride: EpistemosTheme? = nil
     ) {
         self.initialContent = content
@@ -1527,6 +1532,8 @@ struct CodeEditorView: View {
         self.filePath = filePath
         self.onTextSnapshot = onTextSnapshot
         self.onContentChange = onContentChange
+        self.allowsMarkEditWindowToolbar = allowsMarkEditWindowToolbar
+        self.externalSelectionRequest = externalSelectionRequest
         self.themeOverride = themeOverride
         _text = State(initialValue: content)
         _totalLines = State(initialValue: CodeEditorLineMetrics.lineCount(content))
@@ -1553,6 +1560,7 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
+                resetInvisiblesDefaultIfNeeded()
                 _ = ensureContentDebouncer()
                 showSemanticSidebar = false
                 livePreviewText = text
@@ -1678,7 +1686,8 @@ struct CodeEditorView: View {
                 useSpaces: useSpaces,
                 tabWidth: tabWidth,
                 filePath: filePath,
-                selectionRequest: coreEditorSelectionRequest
+                selectionRequest: externalSelectionRequest ?? coreEditorSelectionRequest,
+                allowsMarkEditWindowToolbar: allowsMarkEditWindowToolbar
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: codeEditorTheme))
@@ -1719,20 +1728,7 @@ struct CodeEditorView: View {
 
     private var codeEditorTopBar: some View {
         HStack(spacing: 10) {
-            CodeFileIconView(filePath: filePath, language: language, theme: codeEditorTheme)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(codeEditorDisplayName)
-                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(codeEditorTheme.resolved.foreground.color)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text("\(CodeLanguage.displayName(for: language)) · \(totalLines) lines")
-                    .font(.system(size: 10.5, weight: .regular, design: .monospaced))
-                    .foregroundStyle(codeEditorTheme.resolved.mutedForeground.color.opacity(0.85))
-            }
-
-            Spacer(minLength: 12)
+            CodeFileIdentityChip(filePath: filePath, language: language, theme: codeEditorTheme)
 
             Text("Ln \(cursorLine), Col \(cursorCol)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -1744,6 +1740,8 @@ struct CodeEditorView: View {
                     codeEditorTheme.resolved.foreground.color.opacity(codeEditorTheme.isDark ? 0.07 : 0.045),
                     in: Capsule()
                 )
+
+            Spacer(minLength: 12)
 
             Button {
                 withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
@@ -1851,7 +1849,13 @@ struct CodeEditorView: View {
         }
         return URL(fileURLWithPath: filePath).lastPathComponent
     }
-    
+
+    private func resetInvisiblesDefaultIfNeeded() {
+        guard !didResetInvisiblesDefault else { return }
+        showInvisibles = false
+        didResetInvisiblesDefault = true
+    }
+
     private func goToLine(line: Int) {
         cursorLine = line
         navigateToLine(line)
@@ -2012,7 +2016,7 @@ struct CodeEditorView: View {
                 showInvisibles: showInvisibles,
                 useSpaces: useSpaces,
                 tabWidth: tabWidth,
-                selectionRequest: coreEditorSelectionRequest
+                selectionRequest: externalSelectionRequest ?? coreEditorSelectionRequest
             )
         }
     }
@@ -2846,10 +2850,7 @@ struct CodeInspectorPreview: NSViewRepresentable {
 
         let fontSize: CGFloat = 12
         textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        textView.textColor = theme.isDark ? .white : NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1)
-        textView.backgroundColor = theme.isDark
-            ? NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)
-            : NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
+        CodeEditorTextViewTheme.apply(theme, to: textView)
         textView.textContainerInset = NSSize(width: 12, height: 12)
         CodeEditorScrollConfigurator.allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
 
@@ -2864,6 +2865,7 @@ struct CodeInspectorPreview: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let tv = context.coordinator.textView else { return }
+        CodeEditorTextViewTheme.apply(theme, to: tv)
         if tv.string != content {
             tv.string = content
             applySyntaxHighlighting(to: tv)
@@ -3218,11 +3220,7 @@ struct CodeInspectorEditor: NSViewRepresentable {
 
         let fontSize: CGFloat = 12
         textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        textView.textColor = theme.isDark ? .white : NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1)
-        textView.backgroundColor = theme.isDark
-            ? NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)
-            : NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
-        textView.insertionPointColor = theme.isDark ? .white : .black
+        CodeEditorTextViewTheme.apply(theme, to: textView)
         textView.textContainerInset = NSSize(width: 12, height: 12)
         CodeEditorScrollConfigurator.allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
 
@@ -3244,7 +3242,12 @@ struct CodeInspectorEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        // Avoid feedback loop
+        guard let textView = context.coordinator.textView else { return }
+        CodeEditorTextViewTheme.apply(theme, to: textView)
+        if textView.string != text {
+            textView.string = text
+            CodeSyntaxHighlighter.apply(to: textView, language: language, theme: theme)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -4721,20 +4724,28 @@ private extension String {
     }
 }
 
+private enum CodeEditorTextViewTheme {
+    static func apply(_ theme: EpistemosTheme, to textView: NSTextView) {
+        let surfaceTheme = theme.surfaceVariant(.other)
+        let background = MarkdownPreviewSurfaceStyle
+            .solidFlatBackgroundNSColor(for: surfaceTheme)
+            .withAlphaComponent(1.0)
+        textView.textColor = surfaceTheme.resolved.foreground.nsColor
+        textView.backgroundColor = background
+        textView.insertionPointColor = surfaceTheme.resolved.accent.nsColor
+        textView.selectedTextAttributes = [
+            .backgroundColor: surfaceTheme.resolved.accent.nsColor.withAlphaComponent(surfaceTheme.isDark ? 0.30 : 0.22),
+            .foregroundColor: surfaceTheme.resolved.foreground.nsColor,
+        ]
+    }
+}
+
 private extension NSColor {
     var codePreviewCSSColor: String {
-        codePreviewCSSColor(opacity: nil)
+        EpistemosWebThemeCSS.color(self)
     }
 
     func codePreviewCSSColor(opacity overrideOpacity: CGFloat?) -> String {
-        let color = usingColorSpace(.sRGB) ?? self
-        let red = Int((color.redComponent * 255).rounded())
-        let green = Int((color.greenComponent * 255).rounded())
-        let blue = Int((color.blueComponent * 255).rounded())
-        let alpha = overrideOpacity ?? color.alphaComponent
-        if alpha >= 0.999 {
-            return String(format: "#%02X%02X%02X", red, green, blue)
-        }
-        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
+        EpistemosWebThemeCSS.color(self, opacity: overrideOpacity)
     }
 }

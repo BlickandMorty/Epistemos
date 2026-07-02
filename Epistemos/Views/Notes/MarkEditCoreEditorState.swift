@@ -5,6 +5,7 @@ struct MarkEditCoreEditorState: Equatable {
     let text: String
     let mode: MarkEditCoreEditorMode
     let themeName: String
+    let themePalette: MarkEditCoreEditorThemePalette
     let fontFace: WebFontFace
     let fontSize: Double
     let lineHeight: Double
@@ -59,6 +60,7 @@ struct MarkEditCoreEditorState: Equatable {
             text: nextText,
             mode: mode,
             themeName: themeName,
+            themePalette: themePalette,
             fontFace: fontFace,
             fontSize: fontSize,
             lineHeight: lineHeight,
@@ -70,11 +72,15 @@ struct MarkEditCoreEditorState: Equatable {
         )
     }
 
-    func replacingThemeName(_ nextThemeName: String) -> MarkEditCoreEditorState {
+    func replacingTheme(
+        name nextThemeName: String,
+        palette nextThemePalette: MarkEditCoreEditorThemePalette
+    ) -> MarkEditCoreEditorState {
         MarkEditCoreEditorState(
             text: text,
             mode: mode,
             themeName: nextThemeName,
+            themePalette: nextThemePalette,
             fontFace: fontFace,
             fontSize: fontSize,
             lineHeight: lineHeight,

@@ -225,8 +225,12 @@ enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     }
 
     private static func counts(for source: String) -> String {
-        let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
-        return "\(lines) lines / \(source.count) chars"
+        agentTokenEstimateText(for: source)
+    }
+
+    static func agentTokenEstimateText(for source: String) -> String {
+        let tokens = max(1, Int((Double(source.utf8.count) / 4.0).rounded(.up)))
+        return "≈\(tokens.formatted()) agent tokens"
     }
 }
 
@@ -579,7 +583,10 @@ struct HTMLWorkspaceToolbarIconButtonStyle: ButtonStyle {
         configuration.label
             .font(.system(size: 12.5, weight: .semibold))
             .foregroundStyle(theme.resolved.accent.color)
-            .frame(width: 32, height: 30)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(minWidth: 34, minHeight: 30)
             .contentShape(Rectangle())
             .background {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)

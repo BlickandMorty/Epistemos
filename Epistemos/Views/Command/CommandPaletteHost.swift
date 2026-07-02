@@ -60,6 +60,7 @@ struct CommandWindowKeyObserver: NSViewRepresentable {
     final class ObserverView: NSView {
         var onChange: @MainActor (Bool) -> Void = { _ in }
         private var observedWindow: NSWindow?
+        private var lastPublishedKeyWindow: Bool?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -73,7 +74,16 @@ struct CommandWindowKeyObserver: NSViewRepresentable {
 
         func publishCurrentState() {
             installObserversIfNeeded()
-            onChange(window?.isKeyWindow == true)
+            let isKeyWindow = window?.isKeyWindow == true
+            guard lastPublishedKeyWindow != isKeyWindow else { return }
+            lastPublishedKeyWindow = isKeyWindow
+            deliver(isKeyWindow)
+        }
+
+        private func deliver(_ isKeyWindow: Bool) {
+            Task { @MainActor [onChange] in
+                onChange(isKeyWindow)
+            }
         }
 
         private func installObserversIfNeeded() {
@@ -111,7 +121,8 @@ struct CommandWindowKeyObserver: NSViewRepresentable {
         }
 
         @objc private func windowWillClose(_ notification: Notification) {
-            onChange(false)
+            lastPublishedKeyWindow = false
+            deliver(false)
         }
     }
 }

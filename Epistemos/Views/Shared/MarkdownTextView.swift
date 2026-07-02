@@ -11,9 +11,15 @@ import SwiftUI
 // The note editor uses the dedicated TextKit 2 editing stack.
 
 enum MarkdownHeadingDisplay {
-    private static let h1FullSizeCharacterLimit = 24
-    private static let h1MediumSizeCharacterLimit = 44
-    private static let h1LongSizeCharacterLimit = 72
+    private nonisolated static let h1FullSizeCharacterLimit = 24
+    private nonisolated static let h1MediumSizeCharacterLimit = 44
+    private nonisolated static let h1LongSizeCharacterLimit = 72
+    private nonisolated static let h2FullSizeCharacterLimit = 36
+    private nonisolated static let h2MediumSizeCharacterLimit = 64
+    private nonisolated static let h2LongSizeCharacterLimit = 96
+    private nonisolated static let h3FullSizeCharacterLimit = 44
+    private nonisolated static let h3MediumSizeCharacterLimit = 72
+    private nonisolated static let h3LongSizeCharacterLimit = 110
 
     nonisolated static func noteHeadingBaseSize(
         for level: Int,
@@ -22,13 +28,13 @@ enum MarkdownHeadingDisplay {
         let resolvedBaseFontSize = baseFontSize ?? MarkdownEditorStyle.noteBaseFontSize
         switch level {
         case 1:
-            return resolvedBaseFontSize + 39
+            return resolvedBaseFontSize + 37
         case 2:
-            return resolvedBaseFontSize + 13
+            return resolvedBaseFontSize + 12
         case 3:
-            return resolvedBaseFontSize + 4
-        case 4:
             return resolvedBaseFontSize + 2
+        case 4:
+            return resolvedBaseFontSize + 1
         default:
             return max(resolvedBaseFontSize, 9)
         }
@@ -63,7 +69,7 @@ enum MarkdownHeadingDisplay {
             for: level,
             text: text,
             baseSize: noteHeadingBaseSize(for: level, baseFontSize: resolvedBaseFontSize),
-            nextLevelSize: noteHeadingBaseSize(for: 2, baseFontSize: resolvedBaseFontSize)
+            nextLevelSize: noteHeadingNextLevelSize(for: level, baseFontSize: resolvedBaseFontSize)
         )
     }
 
@@ -73,18 +79,28 @@ enum MarkdownHeadingDisplay {
         theme: EpistemosTheme,
         baseFontSize: CGFloat? = nil
     ) -> CGFloat {
-        let rawFontSize = noteHeadingFontSize(for: level, text: text, baseFontSize: baseFontSize)
+        let resolvedBaseFontSize = baseFontSize ?? MarkdownEditorStyle.noteBaseFontSize
+        let rawFontSize = noteHeadingFontSize(for: level, text: text, baseFontSize: resolvedBaseFontSize)
         guard (1...3).contains(level) else { return rawFontSize }
 
-        let scaledFontSize =
-            (theme.notesMatchingHeadingSpec(level: level)?.size ?? rawFontSize)
-            * theme.headingSizeMultiplier(level: level)
-        guard level == 1 else { return scaledFontSize }
+        let baseSize = themedNoteHeadingBaseSize(
+            for: level,
+            theme: theme,
+            baseFontSize: resolvedBaseFontSize
+        )
+        let nextLevelSize = themedNoteHeadingBaseSize(
+            for: level + 1,
+            theme: theme,
+            baseFontSize: resolvedBaseFontSize
+        )
+        let adaptiveFontSize = fontSize(
+            for: level,
+            text: text,
+            baseSize: baseSize,
+            nextLevelSize: nextLevelSize
+        )
+        guard level == 1 else { return adaptiveFontSize }
 
-        let h2RawFontSize = noteHeadingBaseSize(for: 2, baseFontSize: baseFontSize)
-        let h2ScaledFontSize =
-            (theme.notesMatchingHeadingSpec(level: 2)?.size ?? h2RawFontSize)
-            * theme.headingSizeMultiplier(level: 2)
         let characterCount = normalizedHeadingText(text, level: level).count
         let hierarchyOffset: CGFloat = switch characterCount {
         case ...h1FullSizeCharacterLimit:
@@ -96,7 +112,7 @@ enum MarkdownHeadingDisplay {
         default:
             1
         }
-        return max(scaledFontSize, h2ScaledFontSize + hierarchyOffset)
+        return max(adaptiveFontSize, nextLevelSize + hierarchyOffset)
     }
 
     nonisolated static func foregroundHex(for theme: EpistemosTheme, level: Int) -> UInt32 {
@@ -113,21 +129,25 @@ enum MarkdownHeadingDisplay {
         baseSize: CGFloat,
         nextLevelSize: CGFloat
     ) -> CGFloat {
-        guard level == 1 else { return baseSize }
+        guard (1...3).contains(level) else { return baseSize }
 
-        let minimumSize = min(baseSize, max(nextLevelSize + 2, floor(baseSize * 0.74)))
+        let minimumSize = min(
+            baseSize,
+            max(nextLevelSize + hierarchyFloorOffset(for: level), floor(baseSize * minimumRatio(for: level)))
+        )
         let availableDrop = max(0, baseSize - minimumSize)
         guard availableDrop > 0 else { return baseSize }
         let characterCount = normalizedHeadingText(text, level: level).count
-        let mediumDrop = max(2, (availableDrop * 0.35).rounded())
+        let limits = characterLimits(for: level)
+        let mediumDrop = max(level == 3 ? 1 : 2, (availableDrop * 0.35).rounded())
         let longDrop = max(mediumDrop + 1, (availableDrop * 0.7).rounded())
 
         switch characterCount {
-        case ...h1FullSizeCharacterLimit:
+        case ...limits.full:
             return baseSize
-        case ...h1MediumSizeCharacterLimit:
+        case ...limits.medium:
             return max(baseSize - mediumDrop, minimumSize)
-        case ...h1LongSizeCharacterLimit:
+        case ...limits.long:
             return max(baseSize - longDrop, minimumSize)
         default:
             return minimumSize
@@ -283,6 +303,68 @@ enum MarkdownHeadingDisplay {
         let prefix = String(repeating: "#", count: level) + " "
         guard trimmed.hasPrefix(prefix) else { return Substring(trimmed) }
         return trimmed.dropFirst(prefix.count)
+    }
+
+    private nonisolated static func noteHeadingNextLevelSize(
+        for level: Int,
+        baseFontSize: CGFloat
+    ) -> CGFloat {
+        switch level {
+        case 1:
+            return noteHeadingBaseSize(for: 2, baseFontSize: baseFontSize)
+        case 2:
+            return noteHeadingBaseSize(for: 3, baseFontSize: baseFontSize)
+        case 3:
+            return baseFontSize
+        default:
+            return max(baseFontSize, 9)
+        }
+    }
+
+    private nonisolated static func themedNoteHeadingBaseSize(
+        for level: Int,
+        theme: EpistemosTheme,
+        baseFontSize: CGFloat
+    ) -> CGFloat {
+        guard (1...3).contains(level) else {
+            return noteHeadingNextLevelSize(for: level - 1, baseFontSize: baseFontSize)
+        }
+        return (theme.notesMatchingHeadingSpec(level: level)?.size
+            ?? noteHeadingBaseSize(for: level, baseFontSize: baseFontSize))
+            * theme.headingSizeMultiplier(level: level)
+    }
+
+    private nonisolated static func characterLimits(
+        for level: Int
+    ) -> (full: Int, medium: Int, long: Int) {
+        switch level {
+        case 2:
+            return (h2FullSizeCharacterLimit, h2MediumSizeCharacterLimit, h2LongSizeCharacterLimit)
+        case 3:
+            return (h3FullSizeCharacterLimit, h3MediumSizeCharacterLimit, h3LongSizeCharacterLimit)
+        default:
+            return (h1FullSizeCharacterLimit, h1MediumSizeCharacterLimit, h1LongSizeCharacterLimit)
+        }
+    }
+
+    private nonisolated static func minimumRatio(for level: Int) -> CGFloat {
+        switch level {
+        case 2:
+            return 0.78
+        case 3:
+            return 0.88
+        default:
+            return 0.74
+        }
+    }
+
+    private nonisolated static func hierarchyFloorOffset(for level: Int) -> CGFloat {
+        switch level {
+        case 1, 2:
+            return 2
+        default:
+            return 0
+        }
     }
 }
 

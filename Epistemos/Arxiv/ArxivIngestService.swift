@@ -463,7 +463,7 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
     private var authorsLabel: String {
         Self.bounded(
-            paper.authors.joined(separator: "; "),
+            Self.normalizedListLabel(paper.authors, separator: "; "),
             limit: Self.maxAuthorsLabelCharacters,
             fallback: ""
         )
@@ -471,7 +471,7 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 
     private var categoriesLabel: String {
         Self.bounded(
-            paper.categories.joined(separator: ", "),
+            Self.normalizedListLabel(paper.categories, separator: ", "),
             limit: Self.maxCategoriesLabelCharacters,
             fallback: ""
         )
@@ -498,6 +498,16 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
         guard description.count > limit else { return description }
         return (String(description.prefix(limit - 3)) + "...")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedListLabel(_ values: [String], separator: String) -> String {
+        values
+            .map {
+                ArxivSearchDiagnostics.normalizedDisplayText($0)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            .filter { !$0.isEmpty }
+            .joined(separator: separator)
     }
 }
 

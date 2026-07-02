@@ -300,7 +300,10 @@ struct NoteWindowManagerTests {
 
     @Test("Utility panels include notes, omega, and a detached settings window")
     func utilityPanelsIncludeDetachedSettingsWindow() {
-        #expect(UtilityPanel.allCases == [.notes, .omega, .settings])
+        #expect(UtilityPanel.allCases.contains(.notes))
+        #expect(UtilityPanel.allCases.contains(.omega))
+        #expect(UtilityPanel.allCases.contains(.settings))
+        #expect(UtilityPanel.statusBarPanels == [.notes, .settings])
         #expect(UtilityPanel.notes.title == "Notes")
         #expect(UtilityPanel.settings.title == "Settings")
         #expect(UtilityPanel.settings.icon == "gearshape")
@@ -505,9 +508,18 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumVioletDark) == 0)
     }
 
-    @Test("Preview mode stays on the TK2 stack and leaves markdown unchanged")
-    func previewModeUsesMatchingStack() {
-        #expect(NotePreviewDisplay.renderedMarkdown("## Sub Heading\n### Third Level\nBody") == "## Sub Heading\n### Third Level\nBody")
+    @Test("Preview mode feeds markdown directly without an identity render wrapper")
+    func previewModeFeedsMarkdownDirectly() throws {
+        let workspaceSource = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
+        )
+        let previewSource = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/NotePreviewSurfaceView.swift"
+        )
+
+        #expect(workspaceSource.contains("AdaptiveNotePreviewView2(\n            content: body,"))
+        #expect(!workspaceSource.contains("NotePreviewDisplay.renderedMarkdown"))
+        #expect(!previewSource.contains("enum NotePreviewDisplay"))
     }
 
     @Test("Table-heavy notes keep a wider single-page preview and compact editor column")

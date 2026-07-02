@@ -1,43 +1,45 @@
 import Testing
 import Foundation
 
-/// P5.H A1 (EML-2, visible determinism) — locks that the route-fusion health
-/// surface reads the SAME function the ConfidenceRouter consults
-/// (`emlRouteFusionEnabled`), so the row can never claim a fusion the router
-/// isn't applying. The flag truth table itself is locked in EmlRouteFusionTests.
+/// P5.H A1 (EML-2, visible determinism) — the retired route-fusion row must not
+/// reappear as a dead local-vs-cloud router claim. The surviving EML surface is
+/// the opt-in vault rerank status, pinned by EmlRerankGateStatusTests.
 @Suite("EML route fusion health row")
 struct EmlRouteFusionHealthRowTests {
 
-    @Test("the row reads the router's own flag function (single source of truth)")
-    func rowReadsRouterFlag() throws {
-        let src = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/EmlRouteFusionHealthRow.swift"
+    @Test("the retired route-fusion row stays absent")
+    func retiredRouteFusionRowStaysAbsent() throws {
+        let root = try sourceMirrorRootURL()
+        let retiredRow = root.appendingPathComponent(
+            "Epistemos/Views/Settings/EmlRouteFusionHealthRow.swift",
+            isDirectory: false
         )
-        // It must consult the router's emlRouteFusionEnabled(), not a private
-        // re-read of the env var — keeps the surface honest to the runtime.
-        #expect(src.contains("ConfidenceRouter.emlRouteFusionEnabled()"))
-        #expect(src.contains("EPISTEMOS_EML_ROUTE_V1"))
+
+        #expect(!FileManager.default.fileExists(atPath: retiredRow.path))
     }
 
-    @Test("the row honestly states the primitive is NOT yet live")
-    func rowIsHonestAboutNotLive() throws {
-        let src = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/EmlRouteFusionHealthRow.swift"
+    @Test("the remaining EML row is rerank-only and opt-in")
+    func remainingEMLRowIsRerankOnlyAndOptIn() throws {
+        let row = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/EmlRerankGateHealthRow.swift"
         )
-        // ConfidenceRouter.route() is legacy/uncalled; the row must NOT claim a
-        // live routing behavior. It says "armed (not yet live)" / "not yet
-        // wired", and names the real live seam (TriageService).
-        #expect(src.contains("not yet live") || src.contains("not yet wired") || src.contains("NOT yet wired"))
-        #expect(src.contains("TriageService"))
-        // It must NOT claim local-vs-cloud routing actively fuses (the dead path).
-        #expect(!src.contains("Local-vs-cloud routing fuses"))
+        let status = try loadMirroredSourceTextFile(
+            "Epistemos/Engine/EmlRerankGateStatus.swift"
+        )
+
+        #expect(row.contains("EmlRerankGateStatus.status()"))
+        #expect(status.contains("EPISTEMOS_EML_RERANK_V1"))
+        #expect(status.contains("Off by default for zero behavior change until promoted."))
+        #expect(!row.contains("Local-vs-cloud routing fuses"))
+        #expect(!status.contains("Local-vs-cloud routing fuses"))
     }
 
-    @Test("the row is surfaced in the Substrate Health panel")
-    func rowIsSurfaced() throws {
+    @Test("the retired row is not surfaced in the simplified foundation panel")
+    func retiredRowIsNotSurfaced() throws {
         let src = try loadMirroredSourceTextFile(
             "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
         )
-        #expect(src.contains("EmlRouteFusionHealthRow()"))
+        #expect(!src.contains("EmlRouteFusionHealthRow()"))
+        #expect(!src.contains("EmlObservatoryHealthRow()"))
     }
 }

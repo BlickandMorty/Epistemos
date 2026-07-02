@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "june-audit-harness",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "/private/tmp/claude-501/-Users-jojo-Downloads-Epistemos/414f93ce-266c-40f1-b39c-2ba7ee6346a8/scratchpad/june-audit-harness/serve.mjs"
+      ],
+      "port": 8931
+    }
+  ]
+}

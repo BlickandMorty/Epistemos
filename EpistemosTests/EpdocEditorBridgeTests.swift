@@ -302,6 +302,25 @@ nonisolated struct EpdocEditorBridgeTests {
     }
 
     @MainActor
+    @Test("chrome controller turns the frontmatter command into durable metadata intent")
+    func chromeControllerReportsFrontmatterMetadataIntent() {
+        let controller = EpdocEditorChromeController()
+        var commands: [EpdocEditorCommand] = []
+        var frontmatterRequests = 0
+
+        controller.onEnsureFrontmatterMetadata = {
+            frontmatterRequests += 1
+        }
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.dispatch(.runCommand(name: "insertEpdocFrontmatter", argsJSON: Data("[]".utf8)))
+
+        #expect(frontmatterRequests == 1)
+        #expect(commands == [.runCommand(name: "insertEpdocFrontmatter", argsJSON: Data("[]".utf8))])
+    }
+
+    @MainActor
     @Test("chrome controller computes status counters from loaded document JSON before JS emits updates")
     func chromeControllerComputesInitialStatusFromLoadedJSON() {
         let controller = EpdocEditorChromeController()
@@ -701,6 +720,7 @@ nonisolated struct EpdocEditorBridgeTests {
     @Test(".epdoc H1-H3 typography tracks the native prose editor display scale")
     func epdocHeadingsTrackNativeProseDisplayScale() throws {
         let css = try loadMirroredSourceTextFile("js-editor/src/editor.css")
+        let editorSource = try loadMirroredSourceTextFile("js-editor/src/index.ts")
         let webpack = try loadMirroredSourceTextFile("js-editor/webpack.config.js")
         let bridge = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocEditorBridge.swift")
 
@@ -729,12 +749,15 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(bridge.contains("AppDisplayTypography.displayFontOptions.map"))
         #expect(bridge.contains("EpdocEditorAssetResolver.bundledFontAsset(relativePath: url.path)"))
         #expect(!bridge.contains("basis33"))
-        #expect(css.contains("--epdoc-h1-size: 59px;"),
-                "Prose H1 is scaled up for Coral's smaller apparent size.")
-        #expect(css.contains("--epdoc-h2-size: 31px;"),
-                "Prose H2 is also display typography in the active light/dark face.")
-        #expect(css.contains("--epdoc-h3-size: 19px;"),
+        #expect(css.contains("--epdoc-h1-size: 52px;"),
+                "Prose H1 should stay large but no longer dominate the whole viewport.")
+        #expect(css.contains("--epdoc-h2-size: 27px;"),
+                "Prose H2 is display typography but should sit clearly below H1.")
+        #expect(css.contains("--epdoc-h3-size: 17px;"),
                 "Prose H3 stays in the display face while H4/H5 remain regular body typography.")
+        #expect(css.contains(#"[data-epdoc-heading-size="medium"]"#))
+        #expect(editorSource.contains("syncAdaptiveHeadingSizes"))
+        #expect(editorSource.contains("data-epdoc-heading-size"))
         #expect(css.contains(#"--epdoc-display-font: "MatrixTypeDisplay""#))
         #expect(css.contains(#"--epdoc-h2-font: "ChonkyPixels""#))
         #expect(css.contains(#"--epdoc-h3-font: "ChonkyPixels""#))

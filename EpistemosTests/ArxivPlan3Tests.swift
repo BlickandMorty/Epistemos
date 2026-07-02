@@ -343,7 +343,8 @@ struct ArxivPlan3Tests {
         #expect(codepack.contains("requested HTTPS host/path/query"))
         #expect(codepack.contains("search or ingest status"))
         #expect(codepack.contains("sheet status reports that copied PDF"))
-        #expect(codepack.contains("sheet disappearance cancels live work and immediately clears busy indicators"))
+        #expect(codepack.contains("Sheet disappearance cancels live work"))
+        #expect(codepack.contains("immediately clears busy indicators"))
         #expect(codepack.contains("abstract body text is bounded before the note write"))
         #expect(codepack.contains("imported outcome's\n  vault-relative `source_pdf` matches"))
         #expect(codepack.contains("raw diagnostic and\n  metadata-label strings are bounded, control/whitespace-normalized"))
@@ -354,7 +355,8 @@ struct ArxivPlan3Tests {
         #expect(capabilities.contains("capped at 128 MiB"))
         #expect(capabilities.contains("network-fed SwiftUI display strings are bounded and\n  control/whitespace-normalized before display"))
         #expect(capabilities.contains("abstract text written into the note body is bounded"))
-        #expect(capabilities.contains("request/parser/status failures are mapped to bounded domain/code diagnostics"))
+        #expect(capabilities.contains("request/parser/status failures are mapped to bounded"))
+        #expect(capabilities.contains("domain/code diagnostics"))
         #expect(capabilities.contains("requested HTTPS\n  host/path/query"))
         #expect(landing.contains(".sheet(isPresented: $showingArxivSearch)"))
         #expect(landing.contains("ArxivSearchView()"))
@@ -416,7 +418,8 @@ struct ArxivPlan3Tests {
         #expect(ingest.contains("try validateDownloadedPDF(pdfURL)"))
         #expect(ingest.contains("try validateDownloadedPDF(pdfURL)\n            return pdfURL"))
         #expect(!ingest.contains("try FileManager.default.moveItem(at: fileURL, to: pdfURL)\n            return pdfURL"))
-        #expect(ingest.contains("Task.detached(priority: .userInitiated)"))
+        #expect(ingest.contains("priority: TaskPriority = .userInitiated"))
+        #expect(ingest.contains("Task.detached(priority: priority)"))
         #expect(ingest.contains("Plan3ImportFileIO.reservePairedFileURLs"))
         #expect(ingest.contains("Plan3ImportFileIO.writeData"))
         #expect(ingest.contains("ArxivIngestDiagnostics"))
@@ -636,7 +639,7 @@ struct ArxivPlan3Tests {
         let vault = root.appendingPathComponent("Vault")
         let sourcePDF = root.appendingPathComponent("download.pdf")
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Self.writeFakePDF(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -685,7 +688,7 @@ struct ArxivPlan3Tests {
         let baseName = ArxivNoteDraft(paper: paper, parsedMarkdown: "").safeBaseName
         try FileManager.default.createDirectory(at: importDir, withIntermediateDirectories: true)
         try Data("existing imported note".utf8).write(to: importDir.appendingPathComponent("\(baseName).md"))
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Self.writeFakePDF(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -732,7 +735,7 @@ struct ArxivPlan3Tests {
         let sourcePDF = root.appendingPathComponent("download.pdf")
         let importDir = vault.appendingPathComponent(ArxivIngestService.importDirectory, isDirectory: true)
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Self.writeFakePDF(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -798,7 +801,7 @@ struct ArxivPlan3Tests {
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: importLink, withDestinationURL: outside)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Self.writeFakePDF(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -829,7 +832,7 @@ struct ArxivPlan3Tests {
         let vault = root.appendingPathComponent("Vault")
         let sourcePDF = root.appendingPathComponent("download.pdf")
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Self.writeFakePDF(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -859,7 +862,7 @@ struct ArxivPlan3Tests {
         let vault = root.appendingPathComponent("Vault")
         let sourcePDF = root.appendingPathComponent("download.pdf")
         try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
-        try Data("%PDF fake".utf8).write(to: sourcePDF)
+        try Self.writeFakePDF(to: sourcePDF)
         defer { try? FileManager.default.removeItem(at: root) }
 
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
@@ -965,10 +968,20 @@ struct ArxivPlan3Tests {
             title: title,
             authors: authors,
             summary: summary,
-            published: try #require(ISO8601DateFormatter.arxivIngest.date(from: "2024-01-03T12:34:56Z")),
+            published: try fixtureDate("2024-01-03T12:34:56Z"),
             pdfURL: try #require(URL(string: "https://arxiv.org/pdf/2401.12345v2")),
             categories: categories
         )
+    }
+
+    private static func fixtureDate(_ value: String) throws -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return try #require(formatter.date(from: value))
+    }
+
+    private static func writeFakePDF(to url: URL) throws {
+        try Data("%PDF- fake".utf8).write(to: url)
     }
 
     private nonisolated static let atomFixture = """

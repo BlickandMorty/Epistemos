@@ -244,6 +244,38 @@ struct EpdocDocumentTests {
         #expect(doc.isDocumentEdited)
     }
 
+    @Test("frontmatter action updates durable manifest metadata")
+    func frontmatterActionUpdatesManifestMetadata() throws {
+        let doc = EpdocDocument()
+        let manifest = doc.package.manifest
+        doc.package.manifest = EpdocManifest(
+            id: manifest.id,
+            kind: manifest.kind,
+            schemaVersion: manifest.schemaVersion,
+            createdAt: 1_700_000_000_000,
+            updatedAt: manifest.updatedAt,
+            title: manifest.title,
+            contentHash: manifest.contentHash,
+            provenance: manifest.provenance,
+            metadata: ["status": "review"]
+        )
+
+        doc.ensureFrontmatterMetadata()
+
+        let metadata = try #require(doc.package.manifest.metadata)
+        #expect(metadata["status"] == "review")
+        #expect(metadata["tags"] == "[]")
+        #expect(metadata["created"] == "2023-11-14")
+        #expect(metadata["frontmatter"] == "true")
+        #expect(metadata["frontmatter_updated_at"] != nil)
+        #expect(doc.isDocumentEdited)
+
+        let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
+        let decoded = try EpdocPackage(fileWrapper: wrapper)
+        #expect(decoded.manifest.metadata?["status"] == "review")
+        #expect(decoded.manifest.metadata?["frontmatter"] == "true")
+    }
+
     @Test("storeImageAsset writes package-local media without bloating contentJSON")
     func storeImageAssetWritesPackageLocalMedia() throws {
         let doc = EpdocDocument()

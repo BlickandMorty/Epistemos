@@ -3,18 +3,38 @@ import Testing
 
 @Suite("MarkEdit L3-CHROME mode split guards (Plan 2)")
 nonisolated struct MarkEditChromeModeSplitTests {
-    @Test("Note workspace exposes Edit/Prose, Preview, and Source as explicit markdown modes")
+    @Test("Note workspace exposes Prose, Document, Preview, and Source as explicit markdown modes")
     func noteWorkspaceExposesExplicitMarkdownModes() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let modePicker = try Self.extractFunction(
+            signature: "private func noteModePicker(for page: SDPage) -> some View",
+            from: source
+        )
 
         #expect(source.contains(#""Edit/Prose""#))
+        #expect(source.contains(#""Document""#))
         #expect(source.contains(#""Preview""#))
         #expect(source.contains(#""Source""#))
-        #expect(source.contains("return sourceFileRoute(for: page) == nil\n                ? [.edit, .preview]\n                : [.edit, .preview, .source]"))
-        #expect(source.contains(".frame(width: modes.count >= 3 ? 306 : 214)"))
-        #expect(source.contains(#".accessibilityLabel("Note view mode")"#))
-        #expect(source.contains(#""Switch between Edit/Prose, Preview, and Source""#))
-        #expect(source.contains("setNoteMode($0, for: page)"))
+        #expect(source.contains("modes: sourceRoute == nil ? [.edit, .document, .preview] : [.edit, .document, .preview, .source]"))
+        #expect(modePicker.contains("ForEach(modes, id: \\.self)"))
+        #expect(modePicker.contains("surfaceModeToolbarButton("))
+        #expect(!modePicker.contains("Picker("))
+        #expect(!modePicker.contains(".pickerStyle(.segmented)"))
+        #expect(!modePicker.contains(".frame(width: modes.count"))
+        #expect(source.contains(#".accessibilityLabel(mode.label)"#))
+        #expect(source.contains(#""Switch between Prose, Document, Preview, and Source""#))
+        #expect(modePicker.contains("setNoteMode(mode, for: page, options: options)"))
+    }
+
+    @Test("Note workspace reuses mode routing instead of recomputing Source paths during toolbar render")
+    func noteWorkspaceReusesModeRoutingForToolbarAndSourceMount() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("private struct NoteModeOptions"))
+        #expect(source.contains("private func noteModeOptions(for page: SDPage) -> NoteModeOptions"))
+        #expect(source.contains("let options = noteModeOptions(for: page)"))
+        #expect(source.contains("private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute? {\n        let options = noteModeOptions(for: page)"))
+        #expect(!source.contains("return sourceFileRoute(for: page) == nil\n                ? [.edit, .preview]\n                : [.edit, .preview, .source]"))
     }
 
     @Test("CodeEditorView selects markdown chrome, default code chrome, and legacy v1 fallback")
@@ -38,23 +58,38 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(codeSurface.contains("MarkEditCodeEditorRepresentable("))
         #expect(codeSurface.contains("WebKitCodeEditorView("))
         #expect(!codeSurface.contains("SourceEditor("))
-        #expect(codeChrome.contains("""
-            HStack(spacing: 0) {
-                editorWithSearch
-                outlineNavigator
-                if CodeEditorReleasePolicy.semanticSidebarEnabled {
-                    semanticSidebar
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            """))
+        #expect(codeChrome.contains("HStack(spacing: 0)"))
+        #expect(codeChrome.contains("editorWithSearch"))
+        #expect(codeChrome.contains("outlineNavigator"))
+        #expect(codeChrome.contains("if CodeEditorReleasePolicy.semanticSidebarEnabled"))
+        #expect(codeChrome.contains("semanticSidebar"))
+        #expect(codeChrome.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"))
         #expect(codeChrome.contains(".padding(.bottom, 12)\n        }\n        .frame(maxWidth: .infinity, maxHeight: .infinity)"))
 
         #expect(source.contains("showLivePreview.toggle()"))
         #expect(livePreview.contains("HTMLWorkspacePreviewView("))
         #expect(livePreview.contains("livePreviewPackage"))
-        #expect(source.contains("CodeFileIconView(filePath: filePath, language: language, theme: codeEditorTheme)"))
-        #expect(iconSource.contains("NSWorkspace.shared.icon(forFile: filePath)"))
+        #expect(iconSource.contains("struct CodeFileIdentityChip: View"))
+        #expect(iconSource.contains("static func identity(forFilePath filePath: String?, language: String) -> CodeFileIdentity"))
+        #expect(!iconSource.contains("NSWorkspace.shared.icon(forFile: filePath)"))
+        #expect(!iconSource.contains("UTType(filenameExtension: pathExtension)"))
+        #expect(!iconSource.contains("NSWorkspace.shared.icon(for: contentType)"))
+        #expect(iconSource.contains(#"case "swift":"#))
+        #expect(iconSource.contains(#"symbolName: "swift""#))
+        #expect(iconSource.contains(#"case "rust":"#))
+        #expect(iconSource.contains(#"displayName: "Rust""#))
+    }
+
+    @Test("CodeEditorView top controls show file-kind icon without duplicating the file title")
+    func codeEditorTopControlsShowFileKindIconWithoutDuplicatingTheFileTitle() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let topBar = try Self.extractBlock(named: "codeEditorTopBar", from: source)
+
+        #expect(topBar.contains(#"Text("Ln \(cursorLine), Col \(cursorCol)")"#))
+        #expect(topBar.contains("CodeFileIdentityChip(filePath: filePath, language: language, theme: codeEditorTheme)"))
+        #expect(topBar.contains("showLivePreview.toggle()"))
+        #expect(topBar.contains("showSearchBar.toggle()"))
+        #expect(!topBar.contains("Text(codeEditorDisplayName)"))
     }
 
     @Test("Code live preview updates the existing WKWebView instead of rebuilding on text edits")
@@ -115,16 +150,38 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("removeScriptMessageHandler(\n            forName: MarkEditCoreEditorBridge.nativeMessageHandlerName,\n            contentWorld: .page"))
         #expect(source.contains("callAsyncJavaScript(script, in: nil, in: .page)"))
         #expect(!source.contains("(async () => {"))
-        #expect(source.contains("bootstrapEditorAfterNativeLoadNotification()"))
+        #expect(source.contains("beginCoreEditorReadyCheckAfterNativeLoadNotification()"))
         #expect(source.contains(#"methodName == "notifyWindowDidLoad""#))
-        #expect(source.contains(#"const text = typeof config.text === "string" ? config.text : "";"#))
         #expect(source.contains("documentChanged: true"))
+        #expect(!source.contains("MarkEdit CoreEditor bootstrap reset failed"))
+        #expect(!source.contains(#"const text = typeof config.text === "string" ? config.text : "";"#))
         #expect(source.contains("private static func nativeBridgeReply(moduleName: String?, methodName: String?) -> Any?"))
         #expect(source.contains(#"case ("api", "getPasteboardItems"):"#))
         #expect(source.contains(#"case ("foundationModels", "availability"):"#))
         #expect(source.contains("setTimeout(finish, 100)"))
-        #expect(source.contains("CoreEditor reset completed with no rendered CodeMirror text"))
+        #expect(source.contains("CoreEditor reset completed with empty editor text"))
         #expect(source.contains("resetFailureMessage(result: scriptResult, error: scriptError)"))
+    }
+
+    @Test("Embedded Source preview widgets render through an Epistemos bridge instead of no-op native preview")
+    func embeddedSourcePreviewWidgetsRenderThroughEpistemosBridge() throws {
+        let coordinator = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+        let previewModule = try Self.loadRepoTextFile("LocalPackages/MarkEdit/CoreEditor/src/modules/preview/index.ts")
+        let previewCSS = try Self.loadRepoTextFile("LocalPackages/MarkEdit/CoreEditor/src/modules/preview/index.css")
+
+        #expect(coordinator.contains(#"case ("preview", "show"):"#),
+                "The embedded CoreEditor bridge must explicitly handle MarkEdit's preview.show call.")
+        #expect(coordinator.contains(#"{"handledBy":"epistemos-embedded-source"}"#),
+                "The preview bridge reply should prove the click was handled instead of silently no-oping.")
+        #expect(previewModule.contains("showEmbeddedPreview("),
+                "Markdown Source preview widgets should have an embedded fallback when native preview is unavailable.")
+        #expect(previewModule.contains("renderTablePreview("),
+                "Source-mode table preview should render a readable table instead of only showing pipe text.")
+        #expect(previewModule.contains("renderFallbackPreview("),
+                "Math/diagram preview clicks should still surface visible content when their native renderer is absent.")
+        #expect(previewModule.contains("className = 'cm-md-embeddedPreview'"))
+        #expect(previewCSS.contains(".cm-md-embeddedPreview table"))
+        #expect(previewCSS.contains(".cm-md-embeddedPreviewClose"))
     }
 
     @Test("MarkEdit markdown chrome applies reset state only after async success")
@@ -172,12 +229,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
         #expect(source.contains("!self.isDetached else { return }"))
         #expect(source.contains("pendingSelectionRequest = selectionRequest"))
         #expect(source.contains("self.lastSelectionRequestID = selectionRequest.id"))
-        #expect(source.contains("""
-            guard !isDetached else {
-                decisionHandler(.cancel)
-                return
-            }
-            """))
+        #expect(detach.contains("webView.navigationDelegate = nil"))
     }
 
     @Test("CoreEditor chunk loader rejects traversal and non-chunk hosts")
@@ -204,7 +256,7 @@ nonisolated struct MarkEditChromeModeSplitTests {
 
         #expect(source.contains("CORE_EDITOR_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/CoreEditor\""))
         #expect(source.contains("CORE_EDITOR_BUNDLE_DIR=\"$RESOURCES_DIR/CoreEditor\""))
-        #expect(source.contains("CORE_EDITOR_CHUNKS_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/chunks\""))
+        #expect(source.contains("CORE_EDITOR_CHUNKS_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/CoreEditor/chunks\""))
         #expect(source.contains("CORE_EDITOR_CHUNKS_BUNDLE_DIR=\"$RESOURCES_DIR/chunks\""))
         #expect(source.contains("rsync -a --delete \"$CORE_EDITOR_SOURCE_DIR/\" \"$CORE_EDITOR_BUNDLE_DIR/\""))
         #expect(source.contains("rsync -a --delete \"$CORE_EDITOR_CHUNKS_SOURCE_DIR/\" \"$CORE_EDITOR_CHUNKS_BUNDLE_DIR/\""))
@@ -215,6 +267,10 @@ nonisolated struct MarkEditChromeModeSplitTests {
         try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
             + "\n"
             + loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
+    }
+
+    private static func loadRepoTextFile(_ relativePath: String) throws -> String {
+        try loadMirroredSourceTextFile(relativePath)
     }
 
     private static func extractBlock(named name: String, from source: String) throws -> String {

@@ -99,20 +99,22 @@ struct HomeGraphEmbeddedView: View {
             //    metal canvas. Same isolation as HologramOverlay.
             embeddedWorkspaceRoute
 
-            // 4. Search sidebar — left edge, top-aligned.
-            HStack(alignment: .top, spacing: 0) {
-                HologramSearchSidebar(
-                    inspectorState: inspectorState,
-                    modelContext: modelContext,
-                    onRevealNode: { nodeId in
-                        revealEmbeddedNode(nodeId)
-                    }
-                )
-                .padding(.leading, 16)
-                .padding(.top, 16)
-                Spacer(minLength: 0)
+            // 4. Search sidebar — canvas-only graph chrome.
+            if graphState.currentRoute.isCanvas {
+                HStack(alignment: .top, spacing: 0) {
+                    HologramSearchSidebar(
+                        inspectorState: inspectorState,
+                        modelContext: modelContext,
+                        onRevealNode: { nodeId in
+                            revealEmbeddedNode(nodeId)
+                        }
+                    )
+                    .padding(.leading, 16)
+                    .padding(.top, 16)
+                    Spacer(minLength: 0)
+                }
+                .allowsHitTesting(true)
             }
-            .allowsHitTesting(true)
 
             // 5. Inspector — attached to the selected node, using the same
             //    compact inspector body as the floating graph.

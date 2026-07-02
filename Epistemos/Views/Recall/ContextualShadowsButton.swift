@@ -11,11 +11,16 @@ import SwiftUI
 // attention from the primary composer affordances.
 
 struct ContextualShadowsButton: View {
+    @Environment(UIState.self) private var ui
     @Environment(ContextualShadowsState.self) private var state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var scopeKind: RecallContextKind?
     var scopeID: String?
+
+    private var theme: EpistemosTheme {
+        ui.theme
+    }
 
     private var payload: ContextualShadowsState.RecallPayload {
         state.payload(kind: scopeKind, originDocId: scopeID)
@@ -27,23 +32,23 @@ struct ContextualShadowsButton: View {
                 Button {
                     state.openPanel(kind: scopeKind, originDocId: scopeID)
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         Image(systemName: payload.errorMessage == nil ? "sparkles" : "exclamationmark.triangle")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                        Text("IR")
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                            .monospacedDigit()
                         if payload.errorMessage == nil {
                             Text(payload.isSearching ? "..." : "\(payload.results.count)")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 12.5, weight: .bold, design: .monospaced))
                                 .monospacedDigit()
                         }
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .foregroundStyle(payload.errorMessage == nil ? Color(nsColor: .tertiaryLabelColor) : Color.orange)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.4))
-                    )
-                    .contentShape(Capsule(style: .continuous))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .foregroundStyle(payload.errorMessage == nil ? theme.textPrimary : Color.orange)
+                    .background { recallChipBackground }
+                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .help(helpText)
@@ -74,5 +79,23 @@ struct ContextualShadowsButton: View {
             return "Show contextual shadows error"
         }
         return "Show \(payload.results.count) related items from your vault"
+    }
+
+    private var recallChipBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        return shape
+            .fill(.regularMaterial)
+            .overlay {
+                shape.fill(theme.card.opacity(theme.isDark ? 0.74 : 0.9))
+            }
+            .overlay {
+                shape.strokeBorder(
+                    payload.errorMessage == nil
+                        ? theme.resolved.accent.color.opacity(theme.isDark ? 0.5 : 0.34)
+                        : Color.orange.opacity(0.5),
+                    lineWidth: 1
+                )
+            }
+            .shadow(color: .black.opacity(theme.isDark ? 0.22 : 0.12), radius: 10, x: 0, y: 6)
     }
 }

@@ -402,7 +402,7 @@ struct VaultMCPServerLifecycleTests {
         #expect(row.contains("ui.theme.resolved.accent.color"))
         #expect(row.contains(#""type": "http""#))
         #expect(row.contains("Authorization"))
-        #expect(!row.contains(#"Bearer \#(registration.token)"#))
+        #expect(!row.contains(##"Bearer \#(registration.token)"##))
         #expect(!row.contains("@AppStorage"))
         #expect(!row.contains("Button(\"Rotate\")"))
         #expect(!row.contains("Button(didCopyConfig"))

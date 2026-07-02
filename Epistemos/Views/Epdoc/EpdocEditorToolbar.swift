@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 //
 // Hybrid render decision (W7.17.a in the plan):
 //   - SwiftUI for the chrome (this file): top toolbar, right inspector,
-//     left outliner, command palette, complexity meter, thought-attached
+//     left outliner, command palette, agent token counter, thought-attached
 //     badge — all benefit from native macOS Material-3 polish, free
 //     dark mode, accessibility, opulent feel.
 //   - Tiptap WKWebView for the caret-glued tools: slash menu,

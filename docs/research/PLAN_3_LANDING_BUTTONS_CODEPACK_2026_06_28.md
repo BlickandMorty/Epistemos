@@ -11,9 +11,9 @@
   e.g. "notes"→`UtilityWindowManager.shared.show(.notes)` `:540`, "graph"→toggle `:578`). Capped `maxWidth:900`.
 - Tile component `PixelLandingCommandTile` (`PixelSurfaceComponents.swift:668`); glyphs `PixelGlyphKind` (`:80-108`);
   haptics `HomeCommandHapticStyle` (`TypewriterMarkdown.swift:58-68`).
-- **Existing Plan 3 summon mechanisms to reuse (no new windowing):** `UtilityWindowManager.shared.show(_:)` (`:219`,
-  panels `.settings/.browser/.meetingNote`), `UtilityWindowManager.shared.showSettings(section:)`,
-  `ArxivSearchView()` via the landing sheet, and `LiteParsePDFImportController.importPage` through the landing PDF import flow. Settings deep-links:
+- **Existing Plan 3 summon mechanisms to reuse:** embedded home surfaces through `ui.homeContent`
+  (`.arxiv`/`.browser`/`.browserUsePro`/`.meeting`), `UtilityWindowManager.shared.showSettings(section:)`,
+  and `LiteParsePDFImportController.importPage` through the landing PDF import flow. Settings deep-links:
   `SettingsSection.provenance` (`SettingsView.swift:101`→`ProvenanceConsoleView` `:331`), `.skills` Pro-gated (`:114`).
   Do not route landing feature buttons through Goose or Work window controllers; those are outside Plan 3 ownership.
 - Honest gating is **compile-time**: `#if EPISTEMOS_APP_STORE || MAS_SANDBOX` (`DeploymentProfileHealthRow.swift:24`,
@@ -35,11 +35,12 @@
   placed in `greetingContent` above `landingPixelCommands` (`:425`).
 - **`performFeatureButton(_:)`** single dispatch — honest gate first (`guard isAvailableInThisBuild else {
   presentLandingFeatureStatus(feature.unavailableMessage); return }`), then summon the VERIFIED Plan 3 entry point:
-  `.browser`→`UtilityWindowManager.shared.show(.browser)`, `.meetingNote`→`UtilityWindowManager.shared.show(.meetingNote)`,
+  `.browser`→`ui.homeContent = .browser`, `.browserUsePro`→`ui.homeContent = .browserUsePro`,
+  `.meetingNote`→`ui.homeContent = .meeting`,
   `.provenance`→`UtilityWindowManager.shared.showSettings(section: .provenance)`,
   `.extensions/.vaultMCP`→`UtilityWindowManager.shared.showSettings(section: .skills)`,
-  `.voice`→`UtilityWindowManager.shared.showSettings(section: .voice)`, `.arxiv`→`showingArxivSearch = true`,
-  `.pdfImport`→`runLandingPDFImport()` (lift `LiteParsePDFImportButton.runImport()` body — env already present in `LandingView`).
+  `.voice`→`UtilityWindowManager.shared.showSettings(section: .voice)`, `.arxiv`→`ui.homeContent = .arxiv`,
+  `.pdfImport`→`runLandingPDFImport()` (lift `LiteParseImportButton.runImport()` body — env already present in `LandingView`).
   Landing feature alerts cap PDF import result row count, per-row text, and final alert text before display, so bulk imports cannot flood the home surface.
   Feature unavailable/help text is bounded and control/whitespace-normalized, then shown in tooltips and alerts with ellipsis kept inside configured caps.
 
@@ -50,5 +51,5 @@
 - **MAS-safe + no clash:** pure UI; every action summons an already-shipping surface; `.vaultMCP` is MAS-gated and
   `.browserUsePro` is signed-Pro-gated (lock pill + bounded status alert when unavailable). Reusing the pixel tile
   inherits theme-token accents + hover motion automatically.
-- **Browser button → Browser:** points at the in-app WKWebView Browser utility panel. The browser-use Chromium robot
+- **Browser button → Browser:** points at the in-app WKWebView Browser home surface. The browser-use Chromium robot
   remains Pro-only and separate from this human-driven WebKit tab.

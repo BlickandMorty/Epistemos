@@ -105,7 +105,7 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("owner-only browser daemon/socket/screenshot directories"))
         #expect(codepack.contains("owner-only session/screenshot directories"))
         #expect(codepack.contains("AGENT_BROWSER_SOCKET_DIR` overrides any ambient `BROWSER_USE_HOME` after validating"))
-        #expect(codepack.contains("session names are capped at 64 safe characters"))
+        #expect(codepack.contains("Session names are capped at 64 safe characters"))
         #expect(codepack.contains("adapter argument errors remain generic and JSON-bounded before runtime import"))
         #expect(codepack.contains("Loaded proxy and endpoint environment URLs are validated before runtime import"))
         #expect(codepack.contains("allowed browser-use Pro environment values are capped to 4 KiB"))
@@ -181,8 +181,8 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(codepack.contains("kept with ellipsis inside configured caps before display"))
         #expect(codepack.contains("same bounded diagnostics helper as the gate"))
         #expect(codepack.contains("rejects non-executable Python, file/directory artifact shape mismatches"))
-        #expect(codepack.contains("uses ad-hoc\n  signed `BrowserUsePro.bundle` fixtures for ready-path launch planning"))
-        #expect(codepack.contains("lets the signed-payload\n  gate reject symlink escapes before runtime launch planning"))
+        #expect(codepack.contains("uses ad-hoc signed `BrowserUsePro.bundle` fixtures for ready-path launch planning"))
+        #expect(codepack.contains("lets the signed-payload gate reject symlink escapes before runtime launch planning"))
         #expect(codepack.contains("rejects final symlinks plus symlink components in parent paths"))
         #expect(codepack.contains("rejecting symlinked env directories/files and symlinked parent components"))
         #expect(codepack.contains("removes that exact generated `.env` again through a no-follow descriptor/`fstat` exact-content check"))
@@ -300,7 +300,7 @@ struct BrowserUseCodepackPlan3Tests {
             "Settings Contract",
             "BrowserUseSettings.default",
             "BrowserUseSecretBinding.allCases.count",
-            "defaults.nonSecretEnvironmentPairs.count",
+            "BrowserUseEnvironmentRenderer.dictionary(settings.nonSecretEnvironmentPairs).count",
             "Env renderer",
             "Keychain secrets",
             "BrowserUseDiagnostics.statusMessage(for: error",
@@ -445,8 +445,8 @@ struct BrowserUseCodepackPlan3Tests {
             "browser debugging host must be localhost",
             "browser CDP URL must point at localhost",
             "browser CDP URL must not include username or password credentials",
-            "OPENAI_ENDPOINT must not include username or password credentials",
-            "BROWSER_USE_CLOUD_API_URL must not include a URL query",
+            "\\(name) must not include username or password credentials",
+            "\\(name) must not include a URL query",
             "browser-use proxy server must not include username or password credentials",
         ] {
             #expect(store.contains(required), "Missing browser-use settings contract string: \(required)")
@@ -704,7 +704,17 @@ struct BrowserUseCodepackPlan3Tests {
         let wheelhouse = try #require(packaging["wheelhouse"] as? [String: Any])
         let playwrightChromium = try #require(packaging["playwright_chromium"] as? [String: Any])
         #expect(agentBrowserAdapter["status"] as? String == "landed")
-        #expect(agentBrowserAdapter["expected_path"] as? String == "epistemos_agent_browser.py")
+        let adapterPaths = try #require(agentBrowserAdapter["expected_paths"] as? [String])
+        #expect(adapterPaths == [
+            "epistemos_agent_browser.py",
+            "epistemos_browser_env.py",
+            "epistemos_browser_task.py",
+        ])
+        for relativePath in adapterPaths {
+            #expect(FileManager.default.fileExists(
+                atPath: try Self.sourceURL("agent_core/vendor/browser-use/\(relativePath)").path
+            ))
+        }
         #expect(webUIRuntimeCompatibility["status"] as? String == "landed")
         let compatibilityPaths = try #require(webUIRuntimeCompatibility["expected_paths"] as? [String])
         #expect(compatibilityPaths.count == 10)
@@ -729,8 +739,10 @@ struct BrowserUseCodepackPlan3Tests {
         #expect(buildManifest["expected_path"] as? String == "BUILD_MANIFEST.json")
         #expect(requirementsLock["status"] as? String == "generated")
         #expect(wheelhouse["status"] as? String == "staged")
+        #expect(wheelhouse["expected_path"] as? String == "wheels")
         #expect(wheelhouse["file_count"] as? Int == 177)
         #expect(playwrightChromium["status"] as? String == "staged")
+        #expect(playwrightChromium["expected_path"] as? String == "playwright")
         #expect(playwrightChromium["chromium_revision"] as? String == "1223")
         #expect(playwrightChromium["headless_shell_revision"] as? String == "1223")
         #expect(playwrightChromium["ffmpeg_revision"] as? String == "1011")

@@ -1,47 +1,46 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 struct HTMLWorkspaceEditorView: View {
     @Binding var package: HTMLWorkspacePackage
     let theme: EpistemosTheme?
     let externalRevision: Int
     @Environment(\.colorScheme) private var colorScheme
-    @State private var gooseRegenerator = HTMLWorkspaceGooseRegenerator()
-    @State private var previewPackage: HTMLWorkspacePackage
-    @State private var selectedPane: HTMLWorkspaceSourcePane = .html
-    @State private var selectedRouteName: String?
-    @State private var previewRouteName: String?
-    @State private var layoutMode: HTMLWorkspaceLayoutMode = .split
-    @State private var previewUpdateTask: Task<Void, Never>?
-    @State private var consoleExpanded = false
+    @State var gooseRegenerator = HTMLWorkspaceGooseRegenerator()
+    @State var previewPackage: HTMLWorkspacePackage
+    @State var selectedPane: HTMLWorkspaceSourcePane = .html
+    @State var selectedRouteName: String?
+    @State var previewRouteName: String?
+    @State var layoutMode: HTMLWorkspaceLayoutMode = .split
+    @State var previewUpdateTask: Task<Void, Never>?
+    @State var consoleExpanded = false
     @State private var inspectorVisible = false
-    @State private var isExportingPDF = false
-    @State private var statusText: String?
-    @State private var liveDOMSnapshot: HTMLWorkspaceDOMSnapshot?
-    @State private var selectedElementInspection: HTMLWorkspaceElementInspection?
-    @State private var isPreviewContextDropTargeted = false
-    @State private var regenerateSheetPresented = false
-    @State private var regenerateInstruction = ""
-    @State private var regenerateStreamText = ""
-    @State private var regenerateContextQuery = ""
-    @State private var regenerateContextStatusText: String?
-    @State private var regenerateContextTask: Task<Void, Never>?
-    @State private var regenerateContextRefreshNonce = 0
-    @State private var isRefreshingRegenerateContext = false
-    @State private var pendingRegeneratePatchResponse: String?
-    @State private var pendingRegenerateExpectedContentHash: String?
-    @State private var regenerateErrorText: String?
-    @State private var regenerateTask: Task<Void, Never>?
-    @State private var isRegenerating = false
+    @State var isExportingPDF = false
+    @State var statusText: String?
+    @State var liveDOMSnapshot: HTMLWorkspaceDOMSnapshot?
+    @State var selectedElementInspection: HTMLWorkspaceElementInspection?
+    @State var regenerateSheetPresented = false
+    @State var regenerateInstruction = ""
+    @State var regenerateStreamText = ""
+    @State var regenerateContextQuery = ""
+    @State var regenerateContextStatusText: String?
+    @State var regenerateContextTask: Task<Void, Never>?
+    @State var regenerateContextRefreshNonce = 0
+    @State var isRefreshingRegenerateContext = false
+    @State var pendingRegeneratePatchResponse: String?
+    @State var pendingRegenerateExpectedContentHash: String?
+    @State var regenerateErrorText: String?
+    @State var regenerateTask: Task<Void, Never>?
+    @State var isRegenerating = false
     @State private var sourceCursorLine = 1
     @State private var sourceCursorColumn = 1
     @State private var sourceTotalLines = 1
-    @State private var appBridgeProbeNonce = 0
-    @State private var consoleProbeNonce = 0
-    @State private var pythonProbeNonce = 0
+    @State var appBridgeProbeNonce = 0
+    @State var consoleProbeNonce = 0
+    @State var pythonProbeNonce = 0
 
     @AppStorage("codeEditor.wrapLines") private var sourceWrapLines = false
     @AppStorage("codeEditor.showInvisibles") private var sourceShowInvisibles = false
+    @AppStorage("codeEditor.invisiblesDefaultReset.20260702") private var didResetInvisiblesDefault = false
     @AppStorage("codeEditor.fontSize") private var sourceFontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var sourceUseSpaces = true
     @AppStorage("codeEditor.tabWidth") private var sourceTabWidth = 4
@@ -87,6 +86,9 @@ struct HTMLWorkspaceEditorView: View {
             if !visible {
                 selectedElementInspection = nil
             }
+        }
+        .onAppear {
+            resetInvisiblesDefaultIfNeeded()
         }
         .onDisappear {
             previewUpdateTask?.cancel()
@@ -136,7 +138,7 @@ struct HTMLWorkspaceEditorView: View {
                 onRestorePreview: restorePreviewAfterRegenerate,
                 onRestorePreviousSurface: restorePreviousSurface
             )
-            .frame(width: 700, height: 640)
+            .frame(width: 680, height: 560)
             .preferredColorScheme(workspaceTheme.isDark ? .dark : .light)
         }
         .background(workspaceTheme.resolved.background.color)
@@ -189,7 +191,7 @@ struct HTMLWorkspaceEditorView: View {
             } label: {
                 Label("Save", systemImage: "square.and.arrow.down")
             }
-            .labelStyle(.iconOnly)
+            .labelStyle(.titleAndIcon)
             .help("Save")
 
             Button {
@@ -197,111 +199,92 @@ struct HTMLWorkspaceEditorView: View {
             } label: {
                 Label("Regenerate", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles")
             }
-            .labelStyle(.iconOnly)
+            .labelStyle(.titleAndIcon)
             .disabled(isRegenerating)
             .help("Regenerate surface")
 
-            if restoreSnapshotName != nil {
-                Button {
-                    restorePreviousSurface()
-                } label: {
-                    Label("Revert Surface", systemImage: "clock.arrow.circlepath")
-                }
-                .labelStyle(.iconOnly)
-                .disabled(isRegenerating)
-                .help(restorePreviousSurfaceHelpText)
-            }
-
-            Button {
-                self.setAppBridgeEnabled(!package.manifest.sandboxPolicy.allowAppBridge)
-            } label: {
-                Label(
-                    package.manifest.sandboxPolicy.allowAppBridge ? "Disable App Bridge" : "Enable App Bridge",
-                    systemImage: package.manifest.sandboxPolicy.allowAppBridge
-                        ? "point.3.connected.trianglepath.dotted"
-                        : "point.3.filled.connected.trianglepath.dotted"
-                )
-            }
-            .labelStyle(.iconOnly)
-            .help(package.manifest.sandboxPolicy.allowAppBridge ? "Disable app bridge" : "Enable app bridge")
-
-            Button {
-                self.setPythonRuntimeEnabled(!package.manifest.sandboxPolicy.allowPythonRuntime)
-            } label: {
-                Label(
-                    package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python" : "Enable Python",
-                    systemImage: package.manifest.sandboxPolicy.allowPythonRuntime
-                        ? "chevron.left.forwardslash.chevron.right"
-                        : "chevron.left.forwardslash.chevron.right"
-                )
-            }
-            .labelStyle(.iconOnly)
-            .help(package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python runtime" : "Enable Python runtime")
-
             Menu {
-                Button("Regenerate Surface", systemImage: isRegenerating ? "hourglass" : "wand.and.sparkles") {
-                    openRegenerateSheet()
+                Section("Surface") {
+                    Button("Restore Previous Surface", systemImage: "arrow.uturn.backward.circle", action: restorePreviousSurface)
+                        .disabled(restoreSnapshotName == nil || isRegenerating)
+                        .help(restorePreviousSurfaceHelpText)
+                    Button("Capture Snapshot", systemImage: "camera.viewfinder") {
+                        captureSnapshot()
+                    }
                 }
-                .disabled(isRegenerating)
-                Button("Restore Previous Surface", systemImage: "arrow.uturn.backward.circle", action: restorePreviousSurface)
-                .disabled(restoreSnapshotName == nil || isRegenerating)
-                .help(restorePreviousSurfaceHelpText)
-                Divider()
-                Button("Import HTML", systemImage: "tray.and.arrow.down") {
-                    importHTML()
+                Section("Files") {
+                    Button("Import HTML", systemImage: "tray.and.arrow.down") {
+                        importHTML()
+                    }
+                    Button("Export HTML", systemImage: "square.and.arrow.up") {
+                        exportHTML()
+                    }
+                    Button("Export Site Folder", systemImage: "folder") {
+                        exportSiteFolder()
+                    }
+                    Button("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext") {
+                        exportPDF()
+                    }
+                    .disabled(isExportingPDF)
                 }
-                Button("Export HTML", systemImage: "square.and.arrow.up") {
-                    exportHTML()
-                }
-                Button("Export Site Folder", systemImage: "folder") {
-                    exportSiteFolder()
-                }
-                Button("Capture Snapshot", systemImage: "camera.viewfinder") {
-                    captureSnapshot()
-                }
-                Button("Add Route", systemImage: "map") {
-                    addRoute()
-                }
-                .disabled(isRegenerating)
-                Button("Remove Route", systemImage: "map.fill") {
-                    removeRoute()
-                }
-                .disabled(package.routes.isEmpty || isRegenerating)
-                Button("Add Asset", systemImage: "plus.square.on.square") {
-                    addAsset()
-                }
-                .disabled(isRegenerating)
-                Button("Remove Asset", systemImage: "shippingbox.fill") {
-                    removeAsset()
-                }
-                .disabled(package.assets.isEmpty || isRegenerating)
-                Button("Test Runtime Bridges", systemImage: "stethoscope", action: testRuntimeBridgeProbes)
+                Section("Package") {
+                    Button("Add Route", systemImage: "map") {
+                        addRoute()
+                    }
                     .disabled(isRegenerating)
-                Button("Test App Bridge", systemImage: "point.3.connected.trianglepath", action: testAppBridge)
-                .disabled(!package.manifest.sandboxPolicy.allowAppBridge || isRegenerating)
-                Button("Insert App Bridge Demo", systemImage: "point.3.connected.trianglepath", action: insertAppBridgeDemo)
-                .disabled(isRegenerating)
-                Button("Test Console Capture", systemImage: "terminal", action: testConsoleCapture).disabled(isRegenerating)
-                Button("Test Python Runtime", systemImage: "chevron.left.forwardslash.chevron.right", action: testPythonRuntime)
-                .disabled(!package.manifest.sandboxPolicy.allowPythonRuntime || isRegenerating)
-                Button("Insert Python Demo", systemImage: "chevron.left.forwardslash.chevron.right", action: insertPythonDemo)
-                .disabled(isRegenerating)
-                Button("Export PDF", systemImage: isExportingPDF ? "hourglass" : "doc.richtext") {
-                    exportPDF()
+                    Button("Remove Route", systemImage: "map.fill") {
+                        removeRoute()
+                    }
+                    .disabled(package.routes.isEmpty || isRegenerating)
+                    Button("Add Asset", systemImage: "plus.square.on.square") {
+                        addAsset()
+                    }
+                    .disabled(isRegenerating)
+                    Button("Remove Asset", systemImage: "shippingbox.fill") {
+                        removeAsset()
+                    }
+                    .disabled(package.assets.isEmpty || isRegenerating)
                 }
-                .disabled(isExportingPDF)
+                Section("Runtime") {
+                    Button(
+                        package.manifest.sandboxPolicy.allowAppBridge ? "Disable App Bridge" : "Enable App Bridge",
+                        systemImage: package.manifest.sandboxPolicy.allowAppBridge
+                            ? "point.3.connected.trianglepath.dotted"
+                            : "point.3.filled.connected.trianglepath.dotted"
+                    ) {
+                        self.setAppBridgeEnabled(!package.manifest.sandboxPolicy.allowAppBridge)
+                    }
+                    Button(
+                        package.manifest.sandboxPolicy.allowPythonRuntime ? "Disable Python Runtime" : "Enable Python Runtime",
+                        systemImage: "chevron.left.forwardslash.chevron.right"
+                    ) {
+                        self.setPythonRuntimeEnabled(!package.manifest.sandboxPolicy.allowPythonRuntime)
+                    }
+                    Button("Test Runtime Bridges", systemImage: "stethoscope", action: testRuntimeBridgeProbes)
+                        .disabled(isRegenerating)
+                    Button("Test App Bridge", systemImage: "point.3.connected.trianglepath", action: testAppBridge)
+                        .disabled(!package.manifest.sandboxPolicy.allowAppBridge || isRegenerating)
+                    Button("Insert App Bridge Demo", systemImage: "point.3.connected.trianglepath", action: insertAppBridgeDemo)
+                        .disabled(isRegenerating)
+                    Button("Test Console Capture", systemImage: "terminal", action: testConsoleCapture)
+                        .disabled(isRegenerating)
+                    Button("Test Python Runtime", systemImage: "chevron.left.forwardslash.chevron.right", action: testPythonRuntime)
+                        .disabled(!package.manifest.sandboxPolicy.allowPythonRuntime || isRegenerating)
+                    Button("Insert Python Demo", systemImage: "chevron.left.forwardslash.chevron.right", action: insertPythonDemo)
+                        .disabled(isRegenerating)
+                }
             } label: {
-                Label("Artifacts", systemImage: "shippingbox.and.arrow.backward")
+                Label("Tools", systemImage: "slider.horizontal.3")
             }
-            .labelStyle(.iconOnly)
-            .help("Import, export, snapshot, and PDF")
+            .labelStyle(.titleAndIcon)
+            .help("Workspace tools")
 
             Button {
                 consoleExpanded.toggle()
             } label: {
                 Label("Console", systemImage: consoleExpanded ? "terminal.fill" : "terminal")
             }
-            .labelStyle(.iconOnly)
+            .labelStyle(.titleAndIcon)
             .help("Console")
 
             Button {
@@ -309,7 +292,7 @@ struct HTMLWorkspaceEditorView: View {
             } label: {
                 Label("Inspector", systemImage: "sidebar.right")
             }
-            .labelStyle(.iconOnly)
+            .labelStyle(.titleAndIcon)
             .help("Inspector")
         }
         .padding(.horizontal, 12)
@@ -548,13 +531,9 @@ struct HTMLWorkspaceEditorView: View {
                     )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
-                    // Bold-cut (owner 2026-07-01): removed the floating in-preview context
-                    // picker, the drag drop-zones, and the drop overlay. The single
-                    // Add-Context surface is now the Regenerate sheet's context field.
                 }
             }
 
-            // Bold-cut (owner 2026-07-01): removed the preview context sidebar.
             if inspectorVisible {
                 inspectorPanel
                     .frame(minWidth: 210, idealWidth: 250, maxWidth: 310)
@@ -605,32 +584,6 @@ struct HTMLWorkspaceEditorView: View {
         )
     }
 
-    private var previewContextDropOverlay: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Drop context to regenerate", systemImage: "plus.square.on.square")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(workspaceTheme.resolved.foreground.color)
-            Text(previewContextDropTargetText)
-                .font(.caption2)
-                .foregroundStyle(workspaceTheme.textTertiary)
-                .lineLimit(2)
-                .truncationMode(.middle)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(panelFill, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .shadow(color: .black.opacity(workspaceTheme.isDark ? 0.24 : 0.10), radius: 12, y: 4)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .allowsHitTesting(false)
-    }
-
-    private var previewContextDropTargetText: String {
-        guard let inspection = selectedElementInspection else {
-            return "Target: current preview surface"
-        }
-        return "Target: \(boundedInspectorSelectorStatus(inspection.selector))"
-    }
-
     private var bridgeStatusText: String {
         package.manifest.sandboxPolicy.allowAppBridge ? "Bridge enabled" : "No bridge"
     }
@@ -647,39 +600,6 @@ struct HTMLWorkspaceEditorView: View {
         return provenance.displayText(currentContentHash: contentHash)
     }
 
-    private var regenerateContextStatusLine: String? {
-        regenerateContextStatusText
-            ?? HTMLWorkspaceDataFeedStatus.detailLine(for: package)
-            ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
-    }
-
-    private var restoreSnapshotName: String? {
-        let name = package.manifest.generationProvenance?.reversibleSnapshotName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let name, !name.isEmpty else { return nil }
-        guard package.snapshots[name] != nil else { return nil }
-        return name
-    }
-
-    private var restorePreviousSurfaceHelpText: String {
-        guard let restoreSnapshotName else {
-            return "No named restore snapshot available"
-        }
-        return "Revert to snapshot \(restoreSnapshotName)"
-    }
-
-    private var regenerateContextItems: [HTMLWorkspaceRegenerateContextItem] {
-        HTMLWorkspaceRegenerateContextItem.items(from: package)
-    }
-
-    private var canApplyPendingRegeneratePreview: Bool {
-        pendingRegeneratePatchResponse != nil
-            && pendingRegenerateExpectedContentHash == package.currentContentHash
-    }
-
-    private var shouldShowPreviewContextSidebar: Bool {
-        layoutMode == .preview || regenerateSheetPresented || package.manifest.dataFeed != nil
-    }
-
     private var selectedPaneSubtitle: String {
         selectedPane.subtitle(for: package, domSnapshot: domSnapshot)
     }
@@ -688,7 +608,7 @@ struct HTMLWorkspaceEditorView: View {
         selectedPane.metricText(for: package, domSnapshot: domSnapshot)
     }
 
-    private var sortedRouteNames: [String] {
+    var sortedRouteNames: [String] {
         package.routes.keys.sorted()
     }
 
@@ -718,7 +638,7 @@ struct HTMLWorkspaceEditorView: View {
         )
     }
 
-    private var domOutlineText: String {
+    var domOutlineText: String {
         domSnapshot.outline
     }
 
@@ -734,7 +654,7 @@ struct HTMLWorkspaceEditorView: View {
         liveDOMSnapshot ?? HTMLWorkspaceDOMOutline.snapshot(for: package.indexHTML)
     }
 
-    private var assetManifestText: String {
+    var assetManifestText: String {
         guard !package.assets.isEmpty || !package.snapshots.isEmpty else {
             return "No assets or snapshots"
         }
@@ -752,15 +672,14 @@ struct HTMLWorkspaceEditorView: View {
         return (assetRows + routeAssetRows + snapshotRows).joined(separator: "\n")
     }
 
-    private var routeManifestText: String {
+    var routeManifestText: String {
         guard !package.routes.isEmpty else {
             return "No routes"
         }
         return package.routes
             .sorted { $0.key < $1.key }
             .map { name, html in
-                let lines = max(1, html.split(separator: "\n", omittingEmptySubsequences: false).count)
-                return "routes/\(name)  \(lines) lines / \(Data(html.utf8).count) bytes"
+                "routes/\(name)  \(HTMLWorkspaceSourcePane.agentTokenEstimateText(for: html))"
             }
             .joined(separator: "\n")
     }
@@ -775,12 +694,18 @@ struct HTMLWorkspaceEditorView: View {
         }
     }
 
-    private var contentHash: String {
+    var contentHash: String {
         package.currentContentHash
     }
 
-    private var previewTheme: HTMLWorkspacePreviewTheme {
+    var previewTheme: HTMLWorkspacePreviewTheme {
         workspaceTheme.isDark ? .dark : .light
+    }
+
+    private func resetInvisiblesDefaultIfNeeded() {
+        guard !didResetInvisiblesDefault else { return }
+        sourceShowInvisibles = false
+        didResetInvisiblesDefault = true
     }
 
     private var workspaceTheme: EpistemosTheme {
@@ -817,15 +742,6 @@ struct HTMLWorkspaceEditorView: View {
         HTMLWorkspacePreviewIdentity.viewIdentity(for: previewPackage)
     }
 
-    private func saveDocument() {
-        if let document = currentHTMLWorkspaceDocument() {
-            document.save(nil)
-        } else {
-            NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil)
-        }
-        statusText = "Save requested"
-    }
-
     private func setAppBridgeEnabled(_ enabled: Bool) {
         guard package.manifest.sandboxPolicy.allowAppBridge != enabled else { return }
         var updated = package
@@ -859,687 +775,6 @@ struct HTMLWorkspaceEditorView: View {
         }
     }
 
-    private func openRegenerateSheet() {
-        regenerateErrorText = nil
-        regenerateStreamText = ""
-        if let feedQuery = package.manifest.dataFeed?.normalizedQuery, !feedQuery.isEmpty {
-            regenerateContextQuery = feedQuery
-        } else if regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            regenerateContextQuery = package.manifest.title
-        }
-        regenerateContextStatusText = HTMLWorkspaceDataFeedStatus.detailLine(for: package)
-            ?? HTMLWorkspaceDataFeedStatus.compactLine(for: package)
-        clearPendingRegeneratePreview()
-        regenerateSheetPresented = true
-    }
-
-    private func refreshRegenerateVaultContext() {
-        let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else {
-            regenerateContextStatusText = "Workspace context query required"
-            statusText = "Workspace context query required"
-            return
-        }
-
-        let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: query)
-        attachRegenerateVaultContext(
-            query: query,
-            requiredContextKind: requiredContextKind
-        )
-    }
-
-    private func attachRegenerateVaultContext(
-        query: String,
-        requiredContextKind: String?,
-        readyStatus: String? = nil,
-        continueAfterAttach: (@MainActor () -> Void)? = nil
-    ) {
-        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
-        regenerateContextQuery = feed.normalizedQuery
-        regenerateContextTask?.cancel()
-        clearPendingRegeneratePreview()
-        regenerateContextRefreshNonce &+= 1
-        let refreshNonce = regenerateContextRefreshNonce
-        isRefreshingRegenerateContext = true
-        package.manifest.dataFeed = feed
-        package.dataJSON = HTMLWorkspaceDataFeedJSONEnvelope.staleDataJSON(
-            feed: feed,
-            error: "Feed pending",
-            requiredContextKind: requiredContextKind
-        )
-        stampPackageContentRevision()
-        regenerateContextStatusText = "Workspace context pending"
-        statusText = "Refreshing workspace context"
-
-        if HTMLWorkspaceDataFeedContextSources.usesStandaloneContextSource(requiredContextKind) {
-            let attachedStatus = attachStandaloneRegenerateContext(feed: feed, requiredContextKind: requiredContextKind)
-            regenerateContextStatusText = attachedStatus
-            statusText = readyStatus ?? attachedStatus
-            continueAfterAttach?()
-            return
-        }
-
-        guard let vaultSync = AppBootstrap.shared?.vaultSync else {
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.staleRender(
-                feed: feed,
-                error: "Vault feed unavailable",
-                requiredContextKind: requiredContextKind
-            )
-            stampPackageContentRevision()
-            isRefreshingRegenerateContext = false
-            regenerateContextTask = nil
-            regenerateContextStatusText = "Vault feed unavailable"
-            statusText = "Vault feed unavailable"
-            continueAfterAttach?()
-            return
-        }
-
-        regenerateContextTask = Task { @MainActor in
-            defer {
-                if regenerateContextRefreshNonce == refreshNonce {
-                    isRefreshingRegenerateContext = false
-                    regenerateContextTask = nil
-                }
-            }
-
-            let results = await vaultSync.searchFullAsync(
-                query: feed.normalizedQuery,
-                limit: feed.effectiveLimit
-            )
-            guard !Task.isCancelled, regenerateContextRefreshNonce == refreshNonce else { return }
-            let contextResults = HTMLWorkspaceDataFeedContextSources.results(
-                for: requiredContextKind,
-                searchResults: results,
-                modelContainer: AppBootstrap.shared?.modelContainer,
-                limit: feed.effectiveLimit,
-                query: feed.normalizedQuery
-            )
-            package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
-                feed: feed,
-                contextResults: contextResults,
-                requiredContextKind: requiredContextKind
-            )
-            stampPackageContentRevision()
-            regenerateContextStatusText = "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
-            statusText = readyStatus ?? regenerateContextStatusText
-            continueAfterAttach?()
-        }
-    }
-
-    private func clearRegenerateVaultContext() {
-        regenerateContextTask?.cancel()
-        regenerateContextTask = nil
-        regenerateContextRefreshNonce &+= 1
-        isRefreshingRegenerateContext = false
-        clearPendingRegeneratePreview()
-        package.manifest.dataFeed = nil
-        package.dataJSON = HTMLWorkspaceDataFeedStatus.clearedDataJSON(from: package.dataJSON)
-        stampPackageContentRevision()
-        regenerateContextStatusText = "Workspace context cleared"
-        statusText = "Workspace context cleared"
-    }
-
-    private func focusRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
-        guard !isRegenerating,
-              !isRefreshingRegenerateContext,
-              isCurrentRegenerateContextItem(item) else {
-            regenerateErrorText = nil
-            statusText = "Pick a current Epistemos workspace context item"
-            return
-        }
-        regenerateErrorText = nil
-        let directive = """
-        Use this focused read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
-        \(droppedPreviewTargetDirective())
-        Context:
-        \(boundedDroppedContext(item.dragPayload))
-        """
-        let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        if current.isEmpty {
-            regenerateInstruction = directive
-        } else if !current.contains(item.contextID) {
-            regenerateInstruction = current + "\n" + directive
-        }
-        regenerateContextStatusText = "Focused \(item.title)"
-        statusText = "Workspace context item focused"
-    }
-
-    private func handlePreviewContextDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard !isRegenerating else {
-            regenerateErrorText = nil
-            statusText = "Finish the current regenerate before dropping context"
-            return false
-        }
-        guard !isRefreshingRegenerateContext else {
-            regenerateErrorText = nil
-            statusText = "Finish loading context before dropping context"
-            return false
-        }
-        guard let dropProvider = previewContextDropProvider(from: providers) else {
-            regenerateErrorText = nil
-            statusText = "Drop a current Epistemos workspace context item"
-            return false
-        }
-
-        dropProvider.provider.loadItem(forTypeIdentifier: dropProvider.typeIdentifier, options: nil) { item, _ in
-            let payload = Self.previewContextPayload(from: item)
-            guard let payload else { return }
-            Task { @MainActor in
-                applyDroppedPreviewContext(payload)
-            }
-        }
-        return true
-    }
-
-    private func previewContextDropProvider(from providers: [NSItemProvider]) -> (provider: NSItemProvider, typeIdentifier: String)? {
-        for typeIdentifier in HTMLWorkspaceRegenerateContextItem.previewDropTypeIdentifiers {
-            if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(typeIdentifier) }) {
-                return (provider, typeIdentifier)
-            }
-        }
-        return nil
-    }
-
-    nonisolated private static func previewContextPayload(from item: Any?) -> String? {
-        if let string = item as? String {
-            return string
-        }
-        if let string = item as? NSString {
-            return string as String
-        }
-        if let data = item as? Data {
-            return String(data: data, encoding: .utf8)
-        }
-        return nil
-    }
-
-    private func applyDroppedPreviewContext(_ payload: String) {
-        guard !isRegenerating else {
-            regenerateErrorText = nil
-            statusText = "Finish the current regenerate before dropping context"
-            return
-        }
-        guard !isRefreshingRegenerateContext else {
-            regenerateErrorText = nil
-            statusText = "Finish loading context before dropping context"
-            return
-        }
-        guard let context = HTMLWorkspaceRegenerateContextItem.verifiedPreviewDropPayload(from: payload, matching: package) else {
-            regenerateErrorText = nil
-            statusText = "Drop a current Epistemos workspace context item"
-            return
-        }
-        let directive = """
-        Use this dropped read-only context as a primary source; keep provenance visible and do not invent missing details.
-        \(droppedPreviewTargetDirective())
-        Context:
-        \(boundedDroppedContext(context))
-        """
-        startRegenerateWithContextDirective(directive, status: "Dropped context added")
-    }
-
-    private func applyPreviewContextItem(_ item: HTMLWorkspaceRegenerateContextItem) {
-        guard !isRegenerating,
-              !isRefreshingRegenerateContext,
-              isCurrentRegenerateContextItem(item) else {
-            regenerateErrorText = nil
-            statusText = "Pick a current Epistemos workspace context item"
-            return
-        }
-        let directive = """
-        Use this picked read-only workspace context item as a primary source; keep provenance visible and do not invent missing details.
-        \(droppedPreviewTargetDirective())
-        Context:
-        \(boundedDroppedContext(item.dragPayload))
-        """
-        startRegenerateWithContextDirective(directive, status: "Picked context added")
-    }
-
-    private func isCurrentRegenerateContextItem(_ item: HTMLWorkspaceRegenerateContextItem) -> Bool {
-        regenerateContextItems.contains { $0.contextID == item.contextID }
-    }
-
-    private func refreshPreviewContextShortcut(_ shortcut: HTMLWorkspaceRegenerateContextShortcut) {
-        guard !isRegenerating else { return }
-        regenerateErrorText = nil
-        regenerateContextQuery = shortcut.query
-        regenerateContextStatusText = "Loading \(shortcut.title) context"
-        statusText = "Loading \(shortcut.title) context"
-        refreshRegenerateVaultContext()
-    }
-
-    private func startRegenerateWithContextDirective(_ directive: String, status: String) {
-        regenerateErrorText = nil
-        let current = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        regenerateInstruction = current.isEmpty ? directive : current + "\n" + directive
-        regenerateSheetPresented = true
-        regenerateContextStatusText = status
-        statusText = status
-        beginRegenerateSurface(instructionOverride: regenerateInstruction)
-    }
-
-    private func droppedPreviewTargetDirective() -> String {
-        guard let inspection = selectedElementInspection else {
-            return "Target: update the current preview surface as a whole."
-        }
-
-        let selector = boundedDroppedContextTarget(inspection.selector)
-        let textPreview = inspection.textPreview.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !textPreview.isEmpty else {
-            return "Target: update the selected preview element/section \(selector) first."
-        }
-        return "Target: update the selected preview element/section \(selector) first. Current text: \(boundedDroppedContextTarget(textPreview))"
-    }
-
-    private func selectedRegenerateSurfaceContext() -> String? {
-        guard let inspection = selectedElementInspection else { return nil }
-        var lines = [
-            "selected_surface.selector: \(boundedDroppedContextTarget(inspection.selector))",
-            "selected_surface.tag: \(boundedDroppedContextTarget(inspection.tagName))",
-        ]
-        if let elementID = inspection.elementID, !elementID.isEmpty {
-            lines.append("selected_surface.id: \(boundedDroppedContextTarget(elementID))")
-        }
-        if !inspection.classes.isEmpty {
-            lines.append("selected_surface.classes: \(inspection.classes.map { boundedDroppedContextTarget($0) }.joined(separator: ", "))")
-        }
-        let textPreview = inspection.textPreview.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !textPreview.isEmpty {
-            lines.append("selected_surface.text: \(boundedDroppedContextTarget(textPreview))")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private func boundedDroppedContextTarget(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 240 else { return trimmed }
-        return String(trimmed.prefix(237)) + "..."
-    }
-
-    private func boundedInspectorSelectorStatus(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 96 else { return trimmed }
-        return String(trimmed.prefix(93)) + "..."
-    }
-
-    private func boundedDroppedContext(_ value: String) -> String {
-        guard value.count > 1_200 else { return value }
-        return String(value.prefix(1_200)) + "\n[truncated]"
-    }
-
-    private func beginRegenerateSurface() {
-        beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: nil)
-    }
-
-    private func runRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
-        regenerateInstruction = preset.instruction
-        if preset.family == .vaultData {
-            runVaultDataRegeneratePreset(preset)
-            return
-        }
-        beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: preset.instruction)
-    }
-
-    private func runVaultDataRegeneratePreset(_ preset: HTMLWorkspaceRegeneratePreset) {
-        let query = preset.contextQuery(
-            typedQuery: regenerateContextQuery,
-            packageTitle: package.manifest.title
-        )
-        guard !query.isEmpty else {
-            regenerateContextStatusText = "Workspace context query required"
-            statusText = "Workspace context query required"
-            return
-        }
-        let contextualInstruction = preset.instruction(contextQuery: query)
-
-        regenerateContextQuery = query
-        regenerateInstruction = contextualInstruction
-        attachRegenerateVaultContext(
-            query: query,
-            requiredContextKind: preset.requiredContextKind,
-            readyStatus: "Workspace context ready"
-        ) {
-            beginRegenerateSurface(instructionOverride: contextualInstruction)
-        }
-    }
-
-    private func attachStandaloneRegenerateContext(
-        feed: HTMLWorkspaceDataFeed,
-        requiredContextKind: String?
-    ) -> String {
-        let contextResults = HTMLWorkspaceDataFeedContextSources.results(
-            for: requiredContextKind,
-            searchResults: [],
-            modelContainer: AppBootstrap.shared?.modelContainer,
-            limit: feed.effectiveLimit,
-            query: feed.normalizedQuery
-        )
-        package.dataJSON = HTMLWorkspaceDataFeedRenderer.render(
-            feed: feed,
-            contextResults: contextResults,
-            requiredContextKind: requiredContextKind
-        )
-        stampPackageContentRevision()
-        isRefreshingRegenerateContext = false
-        regenerateContextTask = nil
-        return "Workspace context attached: \(contextResults.count) \(contextResults.count == 1 ? "result" : "results")"
-    }
-
-    private func beginRegenerateSurfaceAttachingContextIfNeeded(instructionOverride: String?) {
-        guard !isRegenerating else { return }
-        let sourceInstruction = instructionOverride ?? regenerateInstruction
-        let instruction = sourceInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !instruction.isEmpty else {
-            beginRegenerateSurface(instructionOverride: instructionOverride)
-            return
-        }
-
-        let query = regenerateContextQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        let requiredContextKind = HTMLWorkspaceDataFeedContextSources.requiredContextKind(forFreeformQuery: query)
-        guard shouldAttachRegenerateContextBeforeStreaming(query: query, requiredContextKind: requiredContextKind) else {
-            beginRegenerateSurface(instructionOverride: instructionOverride)
-            return
-        }
-
-        attachRegenerateVaultContext(
-            query: query,
-            requiredContextKind: requiredContextKind,
-            readyStatus: "Workspace context ready"
-        ) {
-            beginRegenerateSurface(instructionOverride: instructionOverride)
-        }
-    }
-
-    private func shouldAttachRegenerateContextBeforeStreaming(
-        query: String,
-        requiredContextKind: String?
-    ) -> Bool {
-        guard !query.isEmpty else { return false }
-        let feed = HTMLWorkspaceDataFeed.vaultSearch(query: query, limit: HTMLWorkspaceDataFeed.defaultLimit)
-        guard let currentFeed = package.manifest.dataFeed,
-              currentFeed.source == feed.source,
-              currentFeed.normalizedQuery == feed.normalizedQuery,
-              currentFeed.effectiveLimit == feed.effectiveLimit,
-              let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON, matching: currentFeed) else {
-            return true
-        }
-        guard envelope.epistemos.stale == false else {
-            return true
-        }
-        return (envelope.epistemos.requiredContextKind ?? "") != (requiredContextKind ?? "")
-    }
-
-    private func beginRegenerateSurface(instructionOverride: String?) {
-        guard !isRegenerating else { return }
-        let sourceInstruction = instructionOverride ?? regenerateInstruction
-        let instruction = sourceInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !instruction.isEmpty else {
-            regenerateErrorText = "Enter a regenerate request."
-            return
-        }
-        regenerateInstruction = instruction
-
-        let sourcePackage = package
-        let expectedHash = sourcePackage.currentContentHash
-        let prompt = HTMLWorkspaceRegeneratePromptBuilder.prompt(
-            instruction: instruction,
-            package: sourcePackage,
-            expectedContentHash: expectedHash,
-            selectedSurfaceContext: selectedRegenerateSurfaceContext()
-        )
-
-        regenerateTask?.cancel()
-        previewUpdateTask?.cancel()
-        previewUpdateTask = nil
-        clearPendingRegeneratePreview()
-        previewRouteName = nil
-        previewPackage = HTMLWorkspaceRegeneratePreview.loadingPackage(
-            from: sourcePackage,
-            instruction: instruction,
-            selectedSurfaceContext: selectedRegenerateSurfaceContext()
-        )
-        liveDOMSnapshot = nil
-        layoutMode = .split
-        regenerateStreamText = ""
-        regenerateErrorText = nil
-        isRegenerating = true
-        statusText = "Regenerating surface"
-
-        regenerateTask = Task { @MainActor in
-            defer {
-                isRegenerating = false
-                regenerateTask = nil
-            }
-            do {
-                var response = ""
-                var previewCandidateHash: String?
-                let workspaceURL = currentHTMLWorkspaceDocument()?.fileURL
-                for try await chunk in gooseRegenerator.streamRegeneration(
-                    systemPrompt: HTMLWorkspaceRegeneratePromptBuilder.systemPrompt,
-                    prompt: prompt,
-                    workspaceURL: workspaceURL
-                ) {
-                    guard !Task.isCancelled else { throw CancellationError() }
-                    response += chunk
-                    regenerateStreamText = response
-                    // Re-synthesizing a candidate is expensive (whole-response fenced-block scan +
-                    // JSON decode + package content hash) and runs on @MainActor. A new candidate
-                    // can only appear once a fenced block closes, which is exactly when a ``` marker
-                    // arrives — so gate the reparse on that instead of running it on every chunk
-                    // (previously O(n^2) over the stream). The post-stream parse below stays
-                    // authoritative, so a split-fence chunk at worst delays one live-preview tick.
-                    if chunk.contains("```"),
-                       let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
-                        from: response,
-                        basePackage: sourcePackage,
-                        expectedContentHash: expectedHash
-                    ),
-                       candidate.manifest.contentHash != previewCandidateHash {
-                        previewCandidateHash = candidate.manifest.contentHash
-                        previewPackage = candidate
-                        liveDOMSnapshot = nil
-                    }
-                }
-
-                let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
-                    from: response,
-                    package: sourcePackage,
-                    expectedContentHash: expectedHash
-                )
-                _ = try HTMLWorkspaceRegenerateApplication.apply(
-                    patchResponse,
-                    to: package,
-                    expectedContentHash: expectedHash
-                )
-                if let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
-                    from: response,
-                    basePackage: sourcePackage,
-                    expectedContentHash: expectedHash
-                ) {
-                    previewPackage = candidate
-                }
-                pendingRegeneratePatchResponse = patchResponse
-                pendingRegenerateExpectedContentHash = expectedHash
-                previewRouteName = nil
-                liveDOMSnapshot = nil
-                selectedPane = .html
-                layoutMode = .split
-                regenerateErrorText = nil
-                statusText = "Regenerate preview ready"
-            } catch is CancellationError {
-                restorePreviewAfterRegenerate()
-                statusText = "Regenerate stopped"
-            } catch {
-                restorePreviewAfterRegenerate()
-                regenerateErrorText = error.localizedDescription
-                statusText = failedStatus("Regenerate", error: error)
-            }
-        }
-    }
-
-    private func clearPendingRegeneratePreview() {
-        pendingRegeneratePatchResponse = nil
-        pendingRegenerateExpectedContentHash = nil
-    }
-
-    private func expirePendingRegeneratePreviewIfNeeded(for newPackage: HTMLWorkspacePackage) {
-        guard let expected = pendingRegenerateExpectedContentHash,
-              expected != newPackage.currentContentHash else { return }
-        clearPendingRegeneratePreview()
-        regenerateErrorText = "Regenerate preview is stale because the workspace changed."
-        statusText = "Regenerate preview expired"
-    }
-
-    private func copyRegeneratePrompt() {
-        let instruction = regenerateInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !instruction.isEmpty else {
-            regenerateErrorText = "Enter a regenerate request."
-            return
-        }
-
-        let prompt = HTMLWorkspaceRegeneratePromptBuilder.clipboardPrompt(
-            instruction: instruction,
-            package: package,
-            expectedContentHash: package.currentContentHash,
-            selectedSurfaceContext: selectedRegenerateSurfaceContext()
-        )
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(prompt, forType: .string)
-        regenerateErrorText = nil
-        statusText = "Regenerate recovery prompt copied"
-    }
-
-    private func restorePreviewAfterRegenerate() {
-        previewUpdateTask?.cancel()
-        previewUpdateTask = nil
-        previewRouteName = nil
-        liveDOMSnapshot = nil
-        previewPackage = package
-        clearPendingRegeneratePreview()
-    }
-
-    private func previewRegenerateStreamText() {
-        guard !isRegenerating else { return }
-        let response = regenerateStreamText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !response.isEmpty else {
-            regenerateErrorText = "No regenerate response to preview."
-            return
-        }
-        clearPendingRegeneratePreview()
-
-        let sourcePackage = package
-        let expectedHash = sourcePackage.currentContentHash
-        guard let candidate = HTMLWorkspaceRegeneratePreview.candidatePackage(
-            from: response,
-            basePackage: sourcePackage,
-            expectedContentHash: expectedHash
-        ) else {
-            regenerateErrorText = "Stream must contain a complete regenerate response for the visible workspace and current hash."
-            statusText = "Regenerate preview unavailable"
-            return
-        }
-
-        do {
-            let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
-                from: response,
-                package: sourcePackage,
-                expectedContentHash: expectedHash
-            )
-            _ = try HTMLWorkspaceRegenerateApplication.apply(
-                patchResponse,
-                to: package,
-                expectedContentHash: expectedHash
-            )
-            pendingRegeneratePatchResponse = patchResponse
-            pendingRegenerateExpectedContentHash = expectedHash
-        } catch {
-            regenerateErrorText = error.localizedDescription
-            statusText = failedStatus("Regenerate preview", error: error)
-            return
-        }
-
-        previewUpdateTask?.cancel()
-        previewUpdateTask = nil
-        previewRouteName = nil
-        previewPackage = candidate
-        liveDOMSnapshot = nil
-        selectedPane = .html
-        layoutMode = .split
-        regenerateErrorText = nil
-        statusText = "Regenerate preview ready"
-    }
-
-    private func applyPendingRegeneratePreview() {
-        guard !isRegenerating else { return }
-        guard let patchResponse = pendingRegeneratePatchResponse,
-              let expectedHash = pendingRegenerateExpectedContentHash else {
-            regenerateErrorText = "No regenerate preview to apply."
-            return
-        }
-        guard expectedHash == package.currentContentHash else {
-            clearPendingRegeneratePreview()
-            regenerateErrorText = "Regenerate preview is stale because the workspace changed."
-            statusText = "Regenerate preview expired"
-            return
-        }
-
-        do {
-            let result = try HTMLWorkspaceRegenerateApplication.apply(
-                patchResponse,
-                to: package,
-                expectedContentHash: expectedHash
-            )
-            clearPendingRegeneratePreview()
-            package = result.package
-            previewRouteName = nil
-            previewPackage = result.package
-            liveDOMSnapshot = nil
-            selectedPane = .html
-            layoutMode = .split
-            regenerateErrorText = nil
-            regenerateSheetPresented = false
-            statusText = "Regenerate preview applied; Revert available"
-        } catch {
-            regenerateErrorText = error.localizedDescription
-            statusText = failedStatus("Regenerate apply", error: error)
-        }
-    }
-
-    private func applyRegenerateStreamText() {
-        guard !isRegenerating else { return }
-        let response = regenerateStreamText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !response.isEmpty else {
-            regenerateErrorText = "No regenerate response to apply."
-            return
-        }
-
-        let expectedHash = package.currentContentHash
-        do {
-            let patchResponse = try HTMLWorkspaceRegeneratePatchSynthesizer.patchResponse(
-                from: response,
-                package: package,
-                expectedContentHash: expectedHash
-            )
-            let result = try HTMLWorkspaceRegenerateApplication.apply(
-                patchResponse,
-                to: package,
-                expectedContentHash: expectedHash
-            )
-            clearPendingRegeneratePreview()
-            package = result.package
-            previewRouteName = nil
-            previewPackage = result.package
-            liveDOMSnapshot = nil
-            selectedPane = .html
-            layoutMode = .split
-            regenerateErrorText = nil
-            regenerateSheetPresented = false
-            statusText = "Regenerate stream applied; Revert available"
-        } catch {
-            regenerateErrorText = error.localizedDescription
-            statusText = failedStatus("Regenerate apply", error: error)
-        }
-    }
 
     private func copyPatchContext(for pane: HTMLWorkspaceSourcePane) {
         let surface = documentSurface(for: pane)
@@ -1638,7 +873,7 @@ struct HTMLWorkspaceEditorView: View {
         selectedPane = .data
     }
 
-    private func stampPackageContentRevision() {
+    func stampPackageContentRevision() {
         package.manifest.updatedAt = Int64(Date().timeIntervalSince1970 * 1_000)
         package.manifest.contentHash = package.currentContentHash
     }
@@ -1746,453 +981,6 @@ struct HTMLWorkspaceEditorView: View {
         } catch {
             statusText = failedStatus("Style patch", error: error)
         }
-    }
-
-    private func captureSnapshot() {
-        let name = "snapshot-\(Int(Date().timeIntervalSince1970)).html"
-        do {
-            package = try HTMLWorkspacePatchApplier.apply(.captureSnapshot(name: name), to: package)
-            statusText = "Snapshot saved"
-        } catch {
-            statusText = failedStatus("Snapshot", error: error)
-        }
-    }
-
-    private func addRoute() {
-        let nameField = NSTextField(string: "about.html")
-        nameField.placeholderString = "about.html"
-
-        let htmlTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: 420, height: 160))
-        htmlTextView.isRichText = false
-        htmlTextView.isAutomaticQuoteSubstitutionEnabled = false
-        htmlTextView.isAutomaticDashSubstitutionEnabled = false
-        htmlTextView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        htmlTextView.string = """
-        <main>
-          <h1>New Route</h1>
-        </main>
-        """
-
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 420, height: 160))
-        scrollView.borderType = .noBorder
-        scrollView.hasVerticalScroller = true
-        scrollView.documentView = htmlTextView
-
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 8
-        stack.addArrangedSubview(NSTextField(labelWithString: "Route name"))
-        stack.addArrangedSubview(nameField)
-        stack.addArrangedSubview(NSTextField(labelWithString: "HTML"))
-        stack.addArrangedSubview(scrollView)
-        stack.setFrameSize(NSSize(width: 420, height: 230))
-        nameField.frame.size.width = 420
-
-        let alert = NSAlert()
-        alert.messageText = "Add Route"
-        alert.informativeText = "Create or replace a package-local routes/<name> HTML page."
-        alert.addButton(withTitle: "Add")
-        alert.addButton(withTitle: "Cancel")
-        alert.accessoryView = stack
-
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            statusText = "Route unchanged"
-            return
-        }
-
-        let name = normalizedRouteName(nameField.stringValue)
-        let html = htmlTextView.string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !html.isEmpty else {
-            statusText = "Route name and HTML required"
-            return
-        }
-
-        do {
-            package = try HTMLWorkspacePatchApplier.apply(.setRoute(name: name, html: html), to: package)
-            previewPackage = package
-            liveDOMSnapshot = nil
-            selectedRouteName = name
-            previewRouteName = name
-            selectedPane = .routes
-            layoutMode = .split
-            statusText = "Route \(name) saved"
-        } catch {
-            statusText = failedStatus("Route", error: error)
-        }
-    }
-
-    private func removeRoute() {
-        let routeNames = package.routes.keys.sorted()
-        guard !routeNames.isEmpty else {
-            statusText = "No routes to remove"
-            return
-        }
-
-        let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 28), pullsDown: false)
-        popUp.addItems(withTitles: routeNames)
-
-        let alert = NSAlert()
-        alert.messageText = "Remove Route"
-        alert.informativeText = "Remove a package-local route from routes/."
-        alert.addButton(withTitle: "Remove")
-        alert.addButton(withTitle: "Cancel")
-        alert.accessoryView = popUp
-
-        guard alert.runModal() == .alertFirstButtonReturn,
-              let name = popUp.selectedItem?.title,
-              !name.isEmpty else {
-            statusText = "Route unchanged"
-            return
-        }
-
-        do {
-            package = try HTMLWorkspacePatchApplier.apply(.removeRoute(name: name), to: package)
-            previewPackage = package
-            liveDOMSnapshot = nil
-            selectedRouteName = sortedRouteNames.first
-            if previewRouteName == name {
-                previewRouteName = nil
-            }
-            selectedPane = .routes
-            layoutMode = .split
-            statusText = "Route \(name) removed"
-        } catch {
-            statusText = failedStatus("Route", error: error)
-        }
-    }
-
-    private func normalizedRouteName(_ rawName: String) -> String {
-        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              URL(fileURLWithPath: trimmed).pathExtension.isEmpty else {
-            return trimmed
-        }
-        return trimmed + ".html"
-    }
-
-    private func addAsset() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else {
-            statusText = "Asset unchanged"
-            return
-        }
-
-        do {
-            let data = try Data(contentsOf: url)
-            let name = url.lastPathComponent
-            package = try HTMLWorkspacePatchApplier.apply(
-                .addAsset(HTMLWorkspaceAsset(name: name, data: data)),
-                to: package
-            )
-            previewPackage = package
-            liveDOMSnapshot = nil
-            selectedPane = .assets
-            layoutMode = .split
-            statusText = "Asset \(name) added"
-        } catch {
-            statusText = failedStatus("Asset", error: error)
-        }
-    }
-
-    private func removeAsset() {
-        let assetNames = package.assets.keys.sorted()
-        guard !assetNames.isEmpty else {
-            statusText = "No assets to remove"
-            return
-        }
-
-        let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 28), pullsDown: false)
-        popUp.addItems(withTitles: assetNames)
-
-        let alert = NSAlert()
-        alert.messageText = "Remove Asset"
-        alert.informativeText = "Remove a package-local asset from assets/."
-        alert.addButton(withTitle: "Remove")
-        alert.addButton(withTitle: "Cancel")
-        alert.accessoryView = popUp
-
-        guard alert.runModal() == .alertFirstButtonReturn,
-              let name = popUp.selectedItem?.title,
-              !name.isEmpty else {
-            statusText = "Asset unchanged"
-            return
-        }
-
-        do {
-            package = try HTMLWorkspacePatchApplier.apply(.removeAsset(name: name), to: package)
-            previewPackage = package
-            liveDOMSnapshot = nil
-            selectedPane = .assets
-            layoutMode = .split
-            statusText = "Asset \(name) removed"
-        } catch {
-            statusText = failedStatus("Asset", error: error)
-        }
-    }
-
-    private func restorePreviousSurface() {
-        guard let name = restoreSnapshotName else {
-            statusText = "No restore snapshot"
-            return
-        }
-        do {
-            clearPendingRegeneratePreview()
-            package = try HTMLWorkspacePatchApplier.apply(.restoreSnapshot(name: name), to: package)
-            previewRouteName = nil
-            previewPackage = package
-            liveDOMSnapshot = nil
-            selectedPane = .html
-            layoutMode = .split
-            regenerateErrorText = nil
-            statusText = "Previous surface restored from \(name)"
-        } catch {
-            statusText = failedStatus("Restore", error: error)
-        }
-    }
-
-    private func testAppBridge() {
-        guard package.manifest.sandboxPolicy.allowAppBridge else {
-            statusText = "App bridge disabled"
-            return
-        }
-        consoleExpanded = true
-        layoutMode = .split
-        appBridgeProbeNonce &+= 1
-        statusText = "App bridge probe requested"
-    }
-
-    private func testConsoleCapture() {
-        consoleExpanded = true
-        layoutMode = .split
-        consoleProbeNonce &+= 1
-        statusText = "Console capture probe requested"
-    }
-
-    private func testPythonRuntime() {
-        guard package.manifest.sandboxPolicy.allowPythonRuntime else {
-            statusText = "Python runtime disabled"
-            return
-        }
-        consoleExpanded = true
-        layoutMode = .split
-        pythonProbeNonce &+= 1
-        statusText = HTMLWorkspacePythonRuntime.isAvailable
-            ? "Python runtime probe requested"
-            : "Python runtime probe requested; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
-    }
-
-    private func testRuntimeBridgeProbes() {
-        consoleExpanded = true
-        layoutMode = .split
-        appBridgeProbeNonce &+= 1
-        consoleProbeNonce &+= 1
-        pythonProbeNonce &+= 1
-        statusText = "Runtime bridge probes requested"
-    }
-
-    private func insertAppBridgeDemo() {
-        do {
-            let updated = try HTMLWorkspaceAppBridgeDemoScaffold.apply(to: package)
-            package = updated
-            previewPackage = updated
-            selectedPane = .js
-            layoutMode = .split
-            consoleExpanded = true
-            statusText = "App bridge demo inserted"
-        } catch {
-            statusText = failedStatus("App bridge demo", error: error)
-        }
-    }
-
-    private func insertPythonDemo() {
-        do {
-            let updated = try HTMLWorkspacePythonDemoScaffold.apply(to: package)
-            package = updated
-            previewPackage = updated
-            selectedPane = .js
-            layoutMode = .split
-            consoleExpanded = true
-            statusText = HTMLWorkspacePythonRuntime.isAvailable
-                ? "Python demo inserted"
-                : "Python demo inserted; \(HTMLWorkspacePythonRuntime.availabilityStatusText)"
-        } catch {
-            statusText = failedStatus("Python demo", error: error)
-        }
-    }
-
-    private func importHTML() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.html]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else {
-            statusText = "Import cancelled"
-            return
-        }
-        do {
-            let source = try String(contentsOf: url, encoding: .utf8)
-            let imported = HTMLWorkspaceHTMLImporter.importSources(from: source)
-            package.indexHTML = imported.html
-            if !imported.css.isEmpty {
-                package.styleCSS = imported.css
-            }
-            if !imported.js.isEmpty {
-                package.scriptJS = imported.js
-            }
-            if !imported.dataJSON.isEmpty {
-                package.dataJSON = imported.dataJSON
-            }
-            if package.manifest.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                package.manifest.title == "Untitled HTML Workspace" {
-                package.manifest.title = url.deletingPathExtension().lastPathComponent
-            }
-            statusText = "HTML imported"
-        } catch {
-            statusText = failedStatus("Import", error: error)
-        }
-    }
-
-    private func exportHTML() {
-        guard let destination = chooseHTMLDestination() else {
-            statusText = "HTML export cancelled"
-            return
-        }
-        do {
-            let html = HTMLWorkspacePreviewDocument.render(
-                package: package,
-                theme: previewTheme,
-                resourceMode: .inlinePackageAssets
-            )
-            try Data(html.utf8).write(to: destination, options: [.atomic])
-            statusText = package.routes.isEmpty ? "HTML saved" : "HTML saved (index route only)"
-        } catch {
-            statusText = failedStatus("HTML export", error: error)
-        }
-    }
-
-    private func exportSiteFolder() {
-        guard let destination = chooseSiteFolderDestination() else {
-            statusText = "Site export cancelled"
-            return
-        }
-        do {
-            let summary = try HTMLWorkspaceSiteFolderExporter.export(
-                package: package,
-                theme: previewTheme,
-                to: destination
-            )
-            statusText = summary.statusText
-        } catch {
-            statusText = failedStatus("Site export", error: error)
-        }
-    }
-
-    private func exportPDF() {
-        guard !isExportingPDF else { return }
-        guard let destination = choosePDFDestination() else {
-            statusText = "PDF export cancelled"
-            return
-        }
-        isExportingPDF = true
-        statusText = "Exporting PDF"
-        let exportPackage = package
-        Task { @MainActor in
-            defer { isExportingPDF = false }
-            do {
-                let data = try await HTMLWorkspacePDFExporter.export(package: exportPackage, theme: previewTheme)
-                try data.write(to: destination, options: [.atomic])
-                statusText = exportPackage.routes.isEmpty ? "PDF saved" : "PDF saved (index route only)"
-            } catch {
-                statusText = failedStatus("PDF export", error: error)
-            }
-        }
-    }
-
-    private func failedStatus(_ action: String, error: Error) -> String {
-        let detail = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !detail.isEmpty else { return "\(action) failed" }
-        return "\(action) failed: \(detail)"
-    }
-
-    private var selectedPaneSourceSnippet: String {
-        sourceSnippet(for: selectedPane)
-    }
-
-    private func documentSurface(for pane: HTMLWorkspaceSourcePane) -> DocumentSurface {
-        DocumentSurface(
-            id: package.manifest.id,
-            kind: .htmlWorkspace,
-            title: package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title,
-            fileURL: currentHTMLWorkspaceDocument()?.fileURL,
-            currentSelection: sourceRange(for: pane),
-            capabilities: [.read, .write, .patch, .exportHTML, .exportPDF, .importContent, .preview],
-            contentHash: contentHash
-        )
-    }
-
-    private func sourceSnippet(for pane: HTMLWorkspaceSourcePane) -> String {
-        let source = sourceText(for: pane)
-        guard source.count > 4_000 else { return source }
-        return String(source.prefix(4_000))
-    }
-
-    private func sourceRange(for pane: HTMLWorkspaceSourcePane) -> DocumentSourceRange {
-        DocumentSourceRange.fullDocumentRange(for: sourceText(for: pane))
-    }
-
-    private func sourceText(for pane: HTMLWorkspaceSourcePane) -> String {
-        switch pane {
-        case .html: package.indexHTML
-        case .css: package.styleCSS
-        case .js: package.scriptJS
-        case .data: package.dataJSON
-        case .routes: routeManifestText
-        case .dom: domOutlineText
-        case .assets: assetManifestText
-        }
-    }
-
-    private func choosePDFDestination() -> URL? {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
-        panel.canCreateDirectories = true
-        panel.isExtensionHidden = false
-        panel.nameFieldStringValue = "\(safeFileName(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title)).pdf"
-        return panel.runModal() == .OK ? panel.url : nil
-    }
-
-    private func chooseHTMLDestination() -> URL? {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.html]
-        panel.canCreateDirectories = true
-        panel.isExtensionHidden = false
-        panel.nameFieldStringValue = "\(safeFileName(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title)).html"
-        return panel.runModal() == .OK ? panel.url : nil
-    }
-
-    private func chooseSiteFolderDestination() -> URL? {
-        let panel = NSSavePanel()
-        panel.canCreateDirectories = true
-        panel.nameFieldStringValue = "\(safeFileName(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title))-site"
-        return panel.runModal() == .OK ? panel.url : nil
-    }
-
-    private func safeFileName(_ value: String) -> String {
-        let invalid = CharacterSet(charactersIn: "/:\\?%*|\"<>")
-        let cleaned = value
-            .components(separatedBy: invalid)
-            .joined(separator: "-")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "HTML Workspace" : cleaned
-    }
-
-    private func currentHTMLWorkspaceDocument() -> HTMLWorkspaceDocument? {
-        let documents = NSDocumentController.shared.documents.compactMap { $0 as? HTMLWorkspaceDocument }
-        return documents.first { $0.package.manifest.id == package.manifest.id }
-            ?? NSDocumentController.shared.currentDocument as? HTMLWorkspaceDocument
     }
 
     private func schedulePreviewUpdate(_ newPackage: HTMLWorkspacePackage) {

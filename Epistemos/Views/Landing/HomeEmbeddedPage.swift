@@ -18,11 +18,16 @@ struct HomeEmbeddedPage<Content: View>: View {
             .overlay(alignment: .topLeading) { backChip }
     }
 
+    @ViewBuilder
     private var backChip: some View {
+        if title != "Goose" {
+            legacyBackChipButton
+        }
+    }
+
+    private var legacyBackChipButton: some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                ui.homeContent = .greeting
-            }
+            goHome()
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "chevron.left")
@@ -39,5 +44,11 @@ struct HomeEmbeddedPage<Content: View>: View {
         .padding(.top, 12)
         .accessibilityLabel("Back to Home")
         .help("Back to Home (\(title))")
+    }
+
+    private func goHome() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+            ui.homeContent = .greeting
+        }
     }
 }

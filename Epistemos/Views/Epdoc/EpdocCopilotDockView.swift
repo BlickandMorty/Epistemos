@@ -114,20 +114,17 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
 @MainActor
 public struct EpdocCopilotDockView: View {
     public let wordCount: Int
-    public let complexity: Double
     public let dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void
     public let freeformAgentEnabled: Bool
     public let aiDiffDraft: EpdocAIDiffReviewDraft?
 
     public init(
         wordCount: Int,
-        complexity: Double,
         dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void,
         freeformAgentEnabled: Bool = false,
         aiDiffDraft: EpdocAIDiffReviewDraft? = nil
     ) {
         self.wordCount = wordCount
-        self.complexity = complexity
         self.dispatch = dispatch
         self.freeformAgentEnabled = freeformAgentEnabled
         self.aiDiffDraft = aiDiffDraft
@@ -144,7 +141,7 @@ public struct EpdocCopilotDockView: View {
 
     private var quickActions: some View {
         HStack(spacing: 7) {
-            ForEach([EpdocCopilotTransform.visualMap, .frontmatter]) { transform in
+            ForEach([EpdocCopilotTransform.frontmatter]) { transform in
                 dockButton(
                     title: transform.title,
                     symbol: transform.symbol,
@@ -233,7 +230,6 @@ public struct EpdocCopilotDockView: View {
 #Preview("Epdoc Copilot Dock") {
     EpdocCopilotDockView(
         wordCount: 420,
-        complexity: 0.38,
         dispatch: { _ in }
     )
     .padding()

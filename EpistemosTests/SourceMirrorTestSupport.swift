@@ -71,6 +71,15 @@ nonisolated func loadMirroredSourceTextFile(_ relativePath: String) throws -> St
     String(decoding: try loadMirroredSourceDataFile(relativePath), as: UTF8.self)
 }
 
+nonisolated func loadHTMLWorkspaceEditorSourceBundle() throws -> String {
+    try [
+        "Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift",
+        "Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorPackageActions.swift",
+    ]
+    .map(loadMirroredSourceTextFile)
+    .joined(separator: "\n")
+}
+
 nonisolated private func regularMirroredSourceFileURL(for relativePath: String) throws -> URL {
     let url = try sourceMirrorURL(for: relativePath)
     var isDirectory = ObjCBool(false)

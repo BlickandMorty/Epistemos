@@ -101,33 +101,29 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         // the live CoreEditor config bridge and advance lastAppliedState's
         // themeName so the equality guard below doesn't also fire a redundant
         // resetEditor for a theme-only delta.
-        if let last = lastAppliedState, state.themeName != last.themeName {
-            applyTheme(themeName: state.themeName, to: webView)
-            lastAppliedState = last.replacingThemeName(state.themeName)
+        if let last = lastAppliedState,
+           state.themeName != last.themeName || state.themePalette != last.themePalette {
+            applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)
+            lastAppliedState = last.replacingTheme(
+                name: state.themeName,
+                palette: state.themePalette
+            )
         }
 
         guard state != lastAppliedState else { return }
         resetEditor(to: state, in: webView, documentChanged: false)
     }
 
-    private func applyTheme(themeName: String, to webView: WKWebView) {
+    private func applyTheme(
+        themeName: String,
+        palette: MarkEditCoreEditorThemePalette,
+        to webView: WKWebView
+    ) {
         guard !isDetached, hasLoadedEditor, !webView.isLoading else { return }
-        let encodedName = (try? JSONEncoder().encode(themeName))
-            .flatMap { String(data: $0, encoding: .utf8) }
-            ?? "\"\(themeName)\""
-        let script = """
-        (() => {
-          if (typeof window.webModules !== 'object' || !window.webModules?.config?.setTheme) {
-            return false;
-          }
-          try {
-            window.webModules.config.setTheme({ name: \(encodedName) });
-            return true;
-          } catch (error) {
-            return false;
-          }
-        })();
-        """
+        guard let script = MarkEditCoreEditorThemeOverlay.script(
+            themeName: themeName,
+            palette: palette
+        ) else { return }
         webView.evaluateJavaScript(script)
     }
 
@@ -223,6 +219,9 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             }
             if let report = scriptResult as? [String: Any],
                report["ok"] as? Bool == true {
+                if let webView {
+                    self.applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)
+                }
                 self.lastAppliedState = state
                 if let webView {
                     self.flushPendingState(in: webView)
@@ -357,6 +356,7 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         pendingState = nil
         loadingState = nil
         if let state {
+            applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)
             resetEditor(to: state, in: webView, documentChanged: true)
         } else {
             flushPendingState(in: webView)
@@ -512,63 +512,19 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
         let methodName = payload["methodName"] as? String
 
         if moduleName == "core", methodName == "notifyWindowDidLoad" {
-            bootstrapEditorAfterNativeLoadNotification()
+            beginCoreEditorReadyCheckAfterNativeLoadNotification()
         }
 
         replyHandler(Self.nativeBridgeReply(moduleName: moduleName, methodName: methodName), nil)
     }
 
-    private func bootstrapEditorAfterNativeLoadNotification() {
+    private func beginCoreEditorReadyCheckAfterNativeLoadNotification() {
         guard !isDetached,
               bootstrapResetGeneration != loadGeneration,
               let webView else { return }
 
         bootstrapResetGeneration = loadGeneration
-        let generation = loadGeneration
-        let script = """
-        if (!window.webModules?.core?.resetEditor) {
-          return { ok: false, error: "CoreEditor resetEditor bridge is missing after native load" };
-        }
-        const config = window.config || window.MarkEdit?.editorConfig || {};
-        const text = typeof config.text === "string" ? config.text : "";
-        const resetResult = await window.webModules.core.resetEditor({
-          text,
-          selectionRange: null,
-          documentChanged: true,
-        });
-        return {
-          ok: resetResult === true,
-          resetResult,
-          editorLength: window.webModules?.core?.getEditorText?.()?.length ?? 0,
-          renderedLength: document.querySelector(".cm-content")?.textContent?.length ?? 0,
-        };
-        """
-        webView.callAsyncJavaScript(script, in: nil, in: .page) { [weak self, weak webView] result in
-            guard let self,
-                  generation == self.loadGeneration,
-                  !self.isDetached else { return }
-
-            switch result {
-            case .success(let report as [String: Any]) where report["ok"] as? Bool == true:
-                if let webView, !webView.isLoading {
-                    self.waitForCoreEditorReady(in: webView, generation: generation)
-                }
-            case .success(let report):
-                if let webView, !webView.isLoading {
-                    self.showLoadFailure(
-                        in: webView,
-                        message: "MarkEdit CoreEditor bootstrap reset failed: \(report)"
-                    )
-                }
-            case .failure(let error):
-                if let webView, !webView.isLoading {
-                    self.showLoadFailure(
-                        in: webView,
-                        message: "MarkEdit CoreEditor bootstrap reset failed: \(error.localizedDescription)"
-                    )
-                }
-            }
-        }
+        waitForCoreEditorReady(in: webView, generation: loadGeneration)
     }
 
     private static func nativeBridgeReply(moduleName: String?, methodName: String?) -> Any? {
@@ -593,6 +549,8 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             return false
         case ("foundationModels", "respondTo"):
             return #"{"content":"","error":"Foundation Models are unavailable in the embedded Source editor."}"#
+        case ("preview", "show"):
+            return #"{"handledBy":"epistemos-embedded-source"}"#
         case ("translation", "translate"):
             return #"{"error":"Translation is unavailable in the embedded Source editor."}"#
         case ("tokenizer", "tokenize"):

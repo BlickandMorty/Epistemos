@@ -401,7 +401,7 @@ struct BrowserUseRuntimeSupervisorTests {
             at: paths.vendorRoot.appendingPathComponent(missingRelativePath, isDirectory: false)
         )
         let narrowedManifest = vendorManifestJSON(packaged: true).replacingOccurrences(
-            of: "                \"\(missingRelativePath)\",\n",
+            of: "\"\(missingRelativePath)\",\n",
             with: ""
         )
         try Data(narrowedManifest.utf8).write(to: paths.vendorManifestURL)
@@ -1044,12 +1044,12 @@ struct BrowserUseRuntimeSupervisorTests {
             },
             "wheelhouse": {
               "status": "\(wheelhouseStatus)",
-              "expected_path": "wheels/",
+              "expected_path": "wheels",
               "file_count": 177
             },
             "playwright_chromium": {
               "status": "\(chromiumStatus)",
-              "expected_path": "playwright/",
+              "expected_path": "playwright",
               "chromium_revision": "1223",
               "headless_shell_revision": "1223",
               "ffmpeg_revision": "1011"

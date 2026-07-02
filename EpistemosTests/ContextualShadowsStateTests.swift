@@ -228,6 +228,9 @@ struct ContextualShadowsStateTests {
         #expect(state.currentResults.map(\.id).contains("shadow-note-1"))
         #expect(state.currentResults.map(\.id).contains("shadow-chat-1"))
         #expect(state.currentResults.allSatisfy { $0.source == "stub-shadow" })
+        #expect(state.hasPanelPayload)
+        #expect(!state.isPanelVisible)
+        state.openPanel()
         #expect(state.isPanelVisible)
     }
 
@@ -344,11 +347,13 @@ struct ContextualShadowsStateTests {
         #expect(state.currentResults.isEmpty)
         #expect(state.lastErrorMessage == "Search backend unavailable. Try reopening the vault.")
         #expect(state.hasPanelPayload)
+        #expect(!state.isPanelVisible)
+        state.openPanel()
         #expect(state.isPanelVisible)
     }
 
     @MainActor
-    @Test("empty Shadow results fall back to app vault search and auto-surface")
+    @Test("empty Shadow results fall back to app vault search and light the recall button")
     func emptyShadowFallsBackToAppVaultSearch() async throws {
         let state = ContextualShadowsState(isEnabledOverride: true)
         let recall = InstantRecallService()
@@ -386,6 +391,9 @@ struct ContextualShadowsStateTests {
         #expect(state.currentResults.first?.id == "vault-note-autobiography")
         #expect(state.currentResults.first?.title == "My Autobiography")
         #expect(state.currentResults.first?.source == "vault-search")
+        #expect(state.hasPanelPayload)
+        #expect(!state.isPanelVisible)
+        state.openPanel()
         #expect(state.isPanelVisible)
     }
 
@@ -605,6 +613,10 @@ struct ContextualShadowsStateTests {
         #expect(proseBridge.contains("state.requestRecall("))
         #expect(proseBridge.contains("searchIndexService: searchIndexService"))
         #expect(proseBridge.contains("contextualRecallText(fallback: snapshotText)"))
+        #expect(!proseBridge.contains("HaloButton("),
+                "Note pages should use the scoped Contextual Shadows chip, not the legacy clipped Halo search button.")
+        #expect(!proseBridge.contains("ShadowPanelContent("),
+                "Note recall should not mount the old detached Halo panel on top of the native recall panel.")
         #expect(!proseBridge.contains("trailingContext"),
                 "Note recall should not include text after the cursor; trailing note context can dominate the active sentence.")
     }
@@ -646,7 +658,10 @@ struct ContextualShadowsStateTests {
                 "Any typing surface should search both note and chat Shadow domains so Halo suggestions are not surface-fragmented.")
         #expect(stateSource.contains("publishPayload(")
                 && stateSource.contains("isVisible: !hits.isEmpty"),
-                "Contextual Shadows must auto-surface when a live typing query produces hits.")
+                "Contextual Shadows must publish payloads when a live typing query produces hits.")
+        #expect(stateSource.contains("isPanelVisible = isVisible && isPanelVisible")
+                && stateSource.contains("scopedPanelVisibility[scopeKey] = isVisible && scopeWasOpen"),
+                "Contextual Shadows must light the recall affordance without auto-opening the panel mid-typing.")
         #expect(stateSource.contains("recallQuery(from: snapshot.text)"),
                 "Contextual Shadows must query from the active typed sentence/topic, not the whole note body.")
         #expect(stateSource.contains("rankedUniqueHits("),
@@ -667,6 +682,22 @@ struct ContextualShadowsStateTests {
         #expect(panelSource.contains("hit.source"))
         #expect(panelSource.contains("Shadow backend unavailable"))
         #expect(buttonSource.contains("payload.hasPanelPayload"))
+    }
+
+    @Test("Contextual Shadows recall chrome is visible but native-feeling")
+    func contextualShadowsRecallChromeIsVisibleButNativeFeeling() throws {
+        let panelSource = try repoText("Epistemos/Views/Recall/ContextualShadowsPanel.swift")
+        let buttonSource = try repoText("Epistemos/Views/Recall/ContextualShadowsButton.swift")
+
+        #expect(buttonSource.contains("@Environment(UIState.self)"))
+        #expect(buttonSource.contains("Text(\"IR\")"))
+        #expect(buttonSource.contains(".font(.system(size: 14, weight: .bold, design: .rounded))"))
+        #expect(buttonSource.contains(".font(.system(size: 12.5, weight: .bold, design: .monospaced))"))
+        #expect(buttonSource.contains("recallChipBackground"))
+        #expect(!buttonSource.contains("magnifyingglass"))
+        #expect(panelSource.contains("RoundedRectangle(cornerRadius: 14, style: .continuous)"))
+        #expect(panelSource.contains(".scale(scale: 0.97, anchor: .bottomTrailing).combined(with: .opacity)"))
+        #expect(!panelSource.contains("Rectangle()\n                        .fill(theme.resolved.accent.color"))
     }
 
     @Test("AppBootstrap ignores stale Shadow backend init during vault switches")

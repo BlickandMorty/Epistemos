@@ -12,8 +12,7 @@ Usage: browser-use-pro-loopback-smoke.sh [--repo-root PATH] [--port PORT] [--tim
 
 Verifies the staged or signed browser-use Pro payload can boot the vendored
 web-ui.py on 127.0.0.1 and answer an HTTP loopback request. This is a server
-smoke harness; it does not load the Epistemos WKWebView shell or submit an
-agent task.
+smoke harness; it does not load the Epistemos WKWebView shell or submit an agent task.
 USAGE
 }
 

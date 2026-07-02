@@ -57,11 +57,11 @@ nonisolated struct MarkEditCoreEditorBuildTests {
                 repoFileExists("Epistemos/Resources/CoreEditor/\(reference)"),
                 "Missing CoreEditor resource: \(reference)"
             )
-            #expect(
-                repoFileExists("Epistemos/Resources/\(reference)"),
-                "Missing fallback chunk resource: \(reference)"
-            )
         }
+
+        let bundler = try loadMirroredSourceTextFile("bundle-app-runtime-assets.sh")
+        #expect(bundler.contains("CORE_EDITOR_CHUNKS_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/CoreEditor/chunks\""))
+        #expect(bundler.contains("CORE_EDITOR_CHUNKS_BUNDLE_DIR=\"$RESOURCES_DIR/chunks\""))
     }
 
     private static func chunkReferences(in html: String) -> [String] {

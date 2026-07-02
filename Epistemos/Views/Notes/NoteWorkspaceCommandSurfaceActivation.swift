@@ -41,7 +41,6 @@ struct NoteWorkspaceCommandSurfaceActivation: View {
     }
 
     private func activate() {
-        CommandRegistrations.registerEpdocCommands()
         CommandRegistry.shared.activateNoteUtilitySurface(
             id: ObjectIdentifier(token),
             save: save,

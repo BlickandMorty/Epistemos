@@ -675,8 +675,8 @@ struct ThemePairTests {
         #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == emberTan.notesMatchingHeadingSpec(level: 2)?.size)
         #expect(classic.notesMatchingHeadingSpec(level: 3)?.fontName == "MatrixTypeDisplay-Bold")
         #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == emberTan.notesMatchingHeadingSpec(level: 3)?.size)
-        #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == 31)
-        #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == 19)
+        #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == 27)
+        #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == 17)
     }
 
     @Test("Platinum retires the Matrix Dots demo face from active text")
@@ -787,8 +787,8 @@ struct ThemePairTests {
         #expect(source.contains("theme == .oled || theme == .oledSoft"))
     }
 
-    @Test("Markdown H1 sizing eases down for longer titles without collapsing into H2")
-    func markdownH1AdaptiveSizing() {
+    @Test("Markdown heading sizing eases down for longer titles without collapsing levels")
+    func markdownHeadingAdaptiveSizing() {
         let shortSize = MarkdownHeadingDisplay.fontSize(
             for: 1,
             text: "All Things Must Go",
@@ -814,6 +814,31 @@ struct ThemePairTests {
         #expect(shortSize - mediumSize >= 2)
         #expect(shortSize - longSize >= 3)
         #expect(longSize > AppHeadingRole.h2.fontSize)
+
+        let h2Short = MarkdownHeadingDisplay.fontSize(
+            for: 2,
+            text: "Decision discipline",
+            baseSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2),
+            nextLevelSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3)
+        )
+        let h2Long = MarkdownHeadingDisplay.fontSize(
+            for: 2,
+            text: "Decision discipline across source, prose, document, preview, and graph inspector surfaces",
+            baseSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2),
+            nextLevelSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3)
+        )
+        let h3Long = MarkdownHeadingDisplay.fontSize(
+            for: 3,
+            text: "Implementation notes for a long heading that should not shout over the body",
+            baseSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3),
+            nextLevelSize: MarkdownEditorStyle.noteBaseFontSize
+        )
+
+        #expect(h2Short == MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2))
+        #expect(h2Long < h2Short)
+        #expect(h2Long > MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3))
+        #expect(h3Long < MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3))
+        #expect(h3Long >= MarkdownEditorStyle.noteBaseFontSize)
     }
 
     @Test("Markdown heading display uppercases H1 through H3 only")

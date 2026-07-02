@@ -5,34 +5,31 @@ import Foundation
 /// P7.6 — locks the Chat/Act depth model + its honest gating. Act must only be
 /// offered when an agent route genuinely exists (`.agent` in the available
 /// modes), and the Chat/Act ↔ operatingMode mapping must preserve the tier.
+/// Native local chat/agent surfaces were pruned on 2026-06-26, so local model
+/// IDs must not be described as runnable Act routes.
 @Suite("Cowork Chat/Act depth")
 struct CoworkChatModeTests {
 
-    @Test("Act is available iff .agent is in the available modes — LOCAL-FIRST, never faked")
+    @Test("Act is available iff .agent is in the available modes — never faked")
     func actAvailabilityGate() {
         // A surface with no agent route (Fast/Think/Code only, no .agent) → Act is
-        // honestly NOT available (not faked, not cloud-forced).
+        // honestly NOT available.
         #expect(!CoworkChatMode.actAvailable(in: [.fast, .thinking, .pro]))
         #expect(!CoworkChatMode.actAvailable(in: [.fast]))
         #expect(!CoworkChatMode.actAvailable(in: []))
-        // An agent route present → Act available. `.agent` comes from a LOCAL
-        // agent-capable model (e.g. Qwen) with ZERO cloud, OR from a cloud model —
-        // the predicate is local-first, not cloud-gated.
+        // An agent route present → Act available. The predicate follows the
+        // resolved capabilities list; it does not invent an agent route itself.
         #expect(CoworkChatMode.actAvailable(in: [.fast, .agent]))
         #expect(CoworkChatMode.actAvailable(in: [.fast, .thinking, .pro, .agent]))
     }
 
-    @Test("the Act-unavailable reason is local-first honest — never implies cloud is required")
+    @Test("the Act-unavailable reason matches the current cloud-backed Act route")
     func actUnavailableReasonIsLocalFirst() {
         let reason = CoworkChatMode.actUnavailableReason
-        // Mentions the LOCAL on-device path.
-        #expect(reason.localizedCaseInsensitiveContains("local"))
-        #expect(
-            reason.localizedCaseInsensitiveContains("on-device")
-                || reason.localizedCaseInsensitiveContains("zero cloud")
-        )
-        // Must NOT imply cloud is the only/required path (the old misleading copy).
-        #expect(!reason.localizedCaseInsensitiveContains("connect a cloud model to enable"))
+        #expect(reason.localizedCaseInsensitiveContains("cloud"))
+        #expect(reason.localizedCaseInsensitiveContains("connect"))
+        #expect(!reason.localizedCaseInsensitiveContains("qwen"))
+        #expect(!reason.localizedCaseInsensitiveContains("zero cloud"))
     }
 
     @Test("current depth: .agent is Act, every tier is Chat")
@@ -54,19 +51,25 @@ struct CoworkChatModeTests {
     }
 
     @MainActor
-    @Test("Act runs LOCALLY on a local agent-capable model with ZERO cloud — never a silent cloud/GPT route")
-    func actRunsLocallyWithZeroCloud() {
-        let inference = InferenceState()
+    @Test("local Qwen selection normalizes away after native local pruning")
+    func localQwenDoesNotFakeActWithZeroCloud() {
+        let inference = InferenceState(
+            keychainLoad: { _ in nil },
+            skipCloudCredentialBootstrapOnLaunch: true
+        )
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
-        // No cloud configured → no auto-route. The local agent-capable model puts
-        // `.agent` in the available modes, so Act is available with ZERO cloud.
-        #expect(inference.availableOperatingModes.contains(.agent))
-        #expect(CoworkChatMode.actAvailable(in: inference.availableOperatingModes))
-        // And Act RESOLVES LOCAL — the owner's #1 rule: never a silent cloud/GPT route.
+
+        #expect(LocalTextModelID.qwen3_4B4Bit.agentToolTier == .fullAgent)
+        #expect(!LocalTextModelID.qwen3_4B4Bit.canRunLocalAgentLoop)
+        #expect(inference.effectiveLocalAgentTextModelID == nil)
+        #expect(inference.preferredChatModelSelection == .cloud(.openAIGPT54))
+        #expect(!inference.isChatSurfaceRuntimeReady(for: .agent))
+
         let actSelection = inference.effectiveChatSurfaceSelection(for: .agent)
-        let actIsLocal: Bool
-        if case .localMLX = actSelection { actIsLocal = true } else { actIsLocal = false }
-        #expect(actIsLocal)
+        if case .localMLX = actSelection {
+            Issue.record("native-local-pruned Act resolved to a local model")
+        }
     }
 }

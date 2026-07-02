@@ -441,19 +441,11 @@ private struct WebKitCodeEditorPalette {
 
 private extension NSColor {
     var cssColorString: String {
-        cssColorString(opacity: nil)
+        EpistemosWebThemeCSS.color(self)
     }
 
     func cssColorString(opacity overrideOpacity: CGFloat?) -> String {
-        let color = usingColorSpace(.sRGB) ?? self
-        let red = Int((color.redComponent * 255).rounded())
-        let green = Int((color.greenComponent * 255).rounded())
-        let blue = Int((color.blueComponent * 255).rounded())
-        let alpha = overrideOpacity ?? color.alphaComponent
-        if alpha >= 0.999 {
-            return String(format: "#%02X%02X%02X", red, green, blue)
-        }
-        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
+        EpistemosWebThemeCSS.color(self, opacity: overrideOpacity)
     }
 
     func editorSidebarTint(isDark: Bool) -> NSColor {

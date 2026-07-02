@@ -91,26 +91,22 @@ final class ProseTextView2: NSTextView {
 
     // MARK: - Reparse debounce (Master Fusion Plan §C.4)
     //
-    // RCA4-P1-002 — the per-keystroke reparse is bounded by fast Rust
-    // FFI + tokenCache (RCA2-P2-009 fix-pass). For typical notes
-    // (<10k lines) the current synchronous path is performant. For
-    // long notes / 100KB pastes / heavy typing bursts, the §C.4
-    // optimization path adds a 50-150ms debounce window so a typing
-    // storm collapses into a single reparse at the end.
+    // RCA4-P1-002 — reparsing is a full-document Rust FFI pass plus
+    // TextKit invalidation. Keep it coalesced by default so typing bursts
+    // do not synchronously repeat that work on every keystroke.
     //
-    // Implementation discipline (preserves V1 UX):
-    // - Default `reparseDebounceWindow = 0` (current behavior — every
-    //   keystroke triggers immediate reparse via the Rust FFI).
+    // Implementation discipline:
+    // - Default `reparseDebounceWindow` comes from NoteEditorPerformancePolicy.
     // - When window > 0, didChangeText() arms a DispatchWorkItem that
     //   fires once after the window expires; intermediate keystrokes
     //   cancel + re-arm. The final reparseAndInvalidate() call is
     //   identical to the synchronous path.
-    // - The window is a per-instance setter so a future operator-
-    //   profiling pass can flip the default for long-doc instances.
+    // - Setting the window to 0 remains the explicit synchronous override
+    //   for focused tests and controlled one-shot repairs.
     //
-    // Source-guard test: `LocalReparseDebounceTests` pins both the
-    // default-zero and the debounce-coalesces-bursts invariants.
-    nonisolated(unsafe) var reparseDebounceWindow: TimeInterval = 0
+    // Source-guard test: `LocalReparseDebounceTests` pins the default
+    // coalescing window and the explicit synchronous override.
+    nonisolated(unsafe) var reparseDebounceWindow: TimeInterval = NoteEditorPerformancePolicy.proseReparseDebounceWindow
     private var pendingDebouncedReparse: DispatchWorkItem?
     private let scrollVisibleLineRangeCoalescer = ScrollWorkCoalescer(
         delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
@@ -2381,6 +2377,7 @@ final class RenderedTableOverlayManager2 {
 }
 
 enum NoteEditorPerformancePolicy {
+    nonisolated static let proseReparseDebounceWindow: TimeInterval = 0.08
     static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(120)
     static let scrollOverlayRefreshDelay: Duration = .milliseconds(40)
     static let scrollWorkCoalescingDelay: Duration = .milliseconds(16)

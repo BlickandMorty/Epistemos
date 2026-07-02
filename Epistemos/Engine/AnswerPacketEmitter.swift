@@ -47,13 +47,13 @@ import os
 /// `StreamingDelegate.onComplete` callback (which is `nonisolated`) can
 /// hop in via `Task { await AnswerPacketEmitter.shared.emit(...) }`.
 public actor AnswerPacketEmitter {
-    public static let shared = AnswerPacketEmitter()
+    public static let shared = AnswerPacketEmitter(store: AnswerPacketEmitter.defaultStore())
 
     #if DEBUG
     /// Test-only: a fresh, non-shared emitter so instance methods (e.g. `restoreFromPersistence`) can
     /// be exercised hermetically without polluting `shared`'s ring. Excluded from release builds; the
     /// singleton `shared` remains the one production instance.
-    static func makeForTesting() -> AnswerPacketEmitter { AnswerPacketEmitter() }
+    static func makeForTesting() -> AnswerPacketEmitter { AnswerPacketEmitter(store: nil) }
     #endif
 
     private static let log = Logger(
@@ -85,15 +85,16 @@ public actor AnswerPacketEmitter {
     private var bucketCounts: [InterruptBucket: Int] = [:]
     private var claimKindCounts: [ClaimKind: Int] = [:]
 
-    /// SUBSTRATE Phase 2: durable persistence sink (additive). Lazily resolves to an app-support
-    /// JSONL log on first emit; tests + the future launch wiring override it via
-    /// `configurePersistence`. `nil` = persistence disabled (the in-memory ring still works).
-    private lazy var store: AnswerPacketStore? = Self.defaultStore()
+    /// SUBSTRATE Phase 2: durable persistence sink (additive). The shared emitter points at the
+    /// app-support JSONL log; tests + the future launch wiring override it via `configurePersistence`.
+    /// `nil` = persistence disabled (the in-memory ring still works).
+    private var store: AnswerPacketStore?
     /// Compact the on-disk log every N emits, keeping the last `persistMaxEntries`.
     private static let persistCompactInterval = 200
     private static let persistMaxEntries = 500
 
-    private init() {
+    private init(store: AnswerPacketStore?) {
+        self.store = store
         ring.reserveCapacity(Self.maxRingSize)
     }
 

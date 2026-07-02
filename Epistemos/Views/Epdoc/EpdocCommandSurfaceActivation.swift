@@ -20,7 +20,6 @@ struct EpdocCommandSurfaceActivation: View {
     }
 
     private func activate() {
-        CommandRegistrations.registerEpdocCommands()
         CommandRegistry.shared.activateNoteSurface(
             id: ObjectIdentifier(controller),
             dispatch: { [weak controller] command in

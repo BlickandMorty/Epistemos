@@ -51,6 +51,7 @@ struct ProseEditorView: View {
     @State private var bodyText: String = ""
     /// Snapshot of the last body persisted to disk. Avoids disk reads on every keystroke.
     @State private var lastPersistedBody: String = ""
+    @State private var loadedBodyPageId: String?
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
     // noteReadAloud (owner 2026-06-20): one-shot guard so an opened note is auto-read at most once
@@ -69,9 +70,12 @@ struct ProseEditorView: View {
         self.initialBodyOverride = initialBodyOverride
         self.navigationContext = navigationContext
         self.themeOverride = themeOverride
-        let snapshot = Self.initialBodySnapshot(for: page, preferredBody: initialBodyOverride)
-        _bodyText = State(initialValue: snapshot.bodyText)
-        _lastPersistedBody = State(initialValue: snapshot.lastPersistedBody)
+        if let initialBodyOverride {
+            let body = Self.stripOrphanedInlineAIResponse(in: initialBodyOverride, page: page)
+            _bodyText = State(initialValue: body)
+            _lastPersistedBody = State(initialValue: body)
+            _loadedBodyPageId = State(initialValue: page.id)
+        }
     }
 
     static func initialBodySnapshot(for page: SDPage) -> (bodyText: String, lastPersistedBody: String) {
@@ -79,7 +83,7 @@ struct ProseEditorView: View {
     }
 
     static func initialBodySnapshot(for page: SDPage, preferredBody: String? = nil) -> (bodyText: String, lastPersistedBody: String) {
-        let body = currentBody(for: page, preferredBody: preferredBody)
+        let body = stripOrphanedInlineAIResponse(in: preferredBody ?? page.body, page: page)
         return (body, body)
     }
 
@@ -95,17 +99,54 @@ struct ProseEditorView: View {
         _ = EpistemosSpeechSynthesizer.shared.speak(MarkdownRippleTextExtractor.displayText(from: body))
     }
 
-    private static func currentBody(for page: SDPage, preferredBody: String? = nil) -> String {
-        let rawBody = preferredBody ?? NoteWindowManager.shared.currentBody(for: page.id)
-        return stripOrphanedInlineAIResponse(in: rawBody, page: page)
+    private static func stripOrphanedInlineAIResponse(in body: String, page: SDPage) -> String {
+        stripOrphanedInlineAIResponse(in: body, pageId: page.id, pageTitle: page.title)
     }
 
-    private static func stripOrphanedInlineAIResponse(in body: String, page: SDPage) -> String {
+    private static func stripOrphanedInlineAIResponse(in body: String, pageId: String, pageTitle: String) -> String {
         guard let dividerRange = LegacyInlineNoteResponse.dividerRange(in: body) else { return body }
-        let title = page.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedTitle = title.isEmpty ? page.id : title
+        let title = pageTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = title.isEmpty ? pageId : title
         log.warning("Found orphaned AI divider in note \(resolvedTitle, privacy: .public) — stripping")
         return String(body[..<dividerRange.lowerBound])
+    }
+
+    private func loadBodyIfNeeded(force: Bool) async {
+        let pageId = page.id
+        let pageTitle = page.title
+        let fallbackBody = page.body
+        guard force || loadedBodyPageId != pageId else { return }
+
+        let rawBody: String
+        let shouldPersistInlineRepair: Bool
+        if let initialBodyOverride {
+            rawBody = initialBodyOverride
+            shouldPersistInlineRepair = false
+        } else if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
+            rawBody = liveBody
+            shouldPersistInlineRepair = false
+        } else {
+            let loadedBody = await Task.detached(priority: .userInitiated) {
+                NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
+            }.value
+            rawBody = loadedBody.isEmpty ? fallbackBody : loadedBody
+            shouldPersistInlineRepair = true
+        }
+
+        guard !Task.isCancelled, page.id == pageId else { return }
+        let sanitizedBody = Self.stripOrphanedInlineAIResponse(
+            in: rawBody,
+            pageId: pageId,
+            pageTitle: pageTitle
+        )
+        bodyText = sanitizedBody
+        lastPersistedBody = sanitizedBody
+        loadedBodyPageId = pageId
+        syncBlocks(body: sanitizedBody)
+        maybeAutoReadAloudOnOpen(noteId: pageId, body: sanitizedBody)
+        if shouldPersistInlineRepair {
+            persistOrphanedInlineAIRepair(rawBody: rawBody, sanitizedBody: sanitizedBody)
+        }
     }
 
     static func syncedNoteTitle(from body: String) -> String? {
@@ -235,39 +276,48 @@ struct ProseEditorView: View {
             }
         }
 
-        ProseEditorRepresentable2(
-            text: $bodyText,
-            pageId: page.id,
-            pageBody: bodyText,
-            isFocused: isFocused,
-            theme: themeOverride ?? ui.theme,
-            themeSyncKey: ui.appearanceSyncKey,
-            isEditable: isEditable,
-            isFocusMode: notesUI.isFocusMode,
-            modelContext: modelContext,
-            onWikilinkClick: handleWikilinkClick,
-            onBlockRefClick: handleBlockRefClick,
-            onPageFlush: flush,
-            graphState: graphState,
-            outlineFoldMode: notesUI.outlineFoldMode,
-            usesTransparentEditorBackground: navigationContext == .graph
-        )
-        .onAppear {
-            repairOrphanedInlineAIResponseIfNeeded()
-            syncBlocks(body: bodyText)
-            maybeAutoReadAloudOnOpen(noteId: page.id, body: bodyText)
+        Group {
+            if loadedBodyPageId == page.id {
+                ProseEditorRepresentable2(
+                    text: $bodyText,
+                    pageId: page.id,
+                    pageBody: bodyText,
+                    isFocused: isFocused,
+                    theme: themeOverride ?? ui.theme,
+                    themeSyncKey: ui.appearanceSyncKey,
+                    isEditable: isEditable,
+                    isFocusMode: notesUI.isFocusMode,
+                    modelContext: modelContext,
+                    onWikilinkClick: handleWikilinkClick,
+                    onBlockRefClick: handleBlockRefClick,
+                    onPageFlush: flush,
+                    graphState: graphState,
+                    outlineFoldMode: notesUI.outlineFoldMode,
+                    usesTransparentEditorBackground: navigationContext == .graph
+                )
+                .onAppear {
+                    syncBlocks(body: bodyText)
+                    maybeAutoReadAloudOnOpen(noteId: page.id, body: bodyText)
+                }
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task(id: page.id) {
+            await loadBodyIfNeeded(force: false)
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
             saveTask?.cancel()
-            let body = Self.currentBody(for: page)
-            bodyText = body
-            lastPersistedBody = body
-            repairOrphanedInlineAIResponseIfNeeded()
-            syncBlocks(body: body)
-            maybeAutoReadAloudOnOpen(noteId: page.id, body: body)
+            loadedBodyPageId = nil
+            Task { @MainActor in
+                await loadBodyIfNeeded(force: true)
+            }
         }
         .onChange(of: bodyText) { _, newValue in
+            guard loadedBodyPageId == page.id else { return }
             guard newValue != lastPersistedBody else { return }
             debouncedSave(newValue)
         }
@@ -280,10 +330,10 @@ struct ProseEditorView: View {
             guard let changedId = notification.userInfo?["pageId"] as? String,
                   changedId == page.id else { return }
             saveTask?.cancel()
-            let fresh = Self.currentBody(for: page)
-            bodyText = fresh
-            lastPersistedBody = fresh
-            repairOrphanedInlineAIResponseIfNeeded()
+            loadedBodyPageId = nil
+            Task { @MainActor in
+                await loadBodyIfNeeded(force: true)
+            }
         }
         // Flush in-memory edits to disk when another editor is about to read our body
         // (e.g. transclusion edit on one of our blocks from a different note).
@@ -306,6 +356,7 @@ struct ProseEditorView: View {
 
     private func flushIfNeeded() {
         saveTask?.cancel()
+        guard loadedBodyPageId == page.id else { return }
         if lastPersistedBody != bodyText {
             let pageId = page.id
             let currentBody = bodyText
@@ -329,6 +380,7 @@ struct ProseEditorView: View {
 
     private func stagePendingBodyForReadIfNeeded() {
         saveTask?.cancel()
+        guard loadedBodyPageId == page.id else { return }
         guard lastPersistedBody != bodyText else { return }
         let pageId = page.id
         let currentBody = bodyText
@@ -338,12 +390,8 @@ struct ProseEditorView: View {
         lastPersistedBody = currentBody
     }
 
-    private func repairOrphanedInlineAIResponseIfNeeded() {
-        guard NoteWindowManager.shared.editorBody(for: page.id) == nil else { return }
-        let persistedBody = NoteFileStorage.readBody(pageId: page.id, mapped: false, fast: true)
-        let sanitizedBody = Self.stripOrphanedInlineAIResponse(in: persistedBody, page: page)
-        guard sanitizedBody != persistedBody else { return }
-
+    private func persistOrphanedInlineAIRepair(rawBody: String, sanitizedBody: String) {
+        guard sanitizedBody != rawBody else { return }
         let pageId = page.id
         guard Self.stageBodyWrite(pageId: pageId, currentBody: sanitizedBody, reason: "inline AI repair") else {
             return

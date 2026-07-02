@@ -3,33 +3,34 @@ import Testing
 
 @Suite("Epdoc visibility source guards")
 nonisolated struct EpdocVisibilitySourceGuardTests {
-    @Test("File menu exposes New Document through the native epdoc document controller path")
-    func fileMenuExposesNewDocument() throws {
+    @Test("File menu uses one Markdown note creation chooser")
+    func fileMenuUsesOneMarkdownNoteCreationChooser() throws {
         let appSource = try Self.loadSourceText("Epistemos/App/EpistemosApp.swift")
-        let controllerSource = try Self.loadSourceText("Epistemos/App/EpistemosDocumentController.swift")
+        let coordinatorSource = try Self.loadSourceText("Epistemos/Views/Notes/NoteCreationCoordinator.swift")
 
-        #expect(appSource.contains("Button(\"New Document\")"),
-                "The replaced File > New group must expose a visible .epdoc creation path.")
-        #expect(appSource.contains("createEpdocDocument()"),
-                "New Document should route through one dedicated command helper, not duplicate AppKit plumbing inline.")
-        #expect(appSource.contains("createUntitledEpdocDocument(in: vaultSync.vaultURL)"),
-                "File > New Document should save into the active vault just like the sidebar and landing shortcuts.")
-        #expect(controllerSource.contains("makeUntitledDocument(ofType: \"com.epistemos.epdoc\")"),
-                "The command must force the canonical .epdoc UTI instead of relying on AppKit's default type choice.")
-        #expect(controllerSource.contains("document.makeWindowControllers()"))
-        #expect(controllerSource.contains("document.showWindows()"))
+        #expect(appSource.contains("Button(\"New Note\")"),
+                "File > New should expose one note command instead of separate prose/document storage commands.")
+        #expect(appSource.contains("NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)"),
+                "The File menu should route through the shared Prose/Document chooser.")
+        #expect(!appSource.contains("Button(\"New Document\")"),
+                "Document is now an initial Markdown surface choice, not a second File > New item.")
+        #expect(coordinatorSource.contains("case prose"))
+        #expect(coordinatorSource.contains("case document"))
+        #expect(coordinatorSource.contains("chooseSurface()"))
     }
 
-    @Test("Landing exposes a visible New Doc shortcut for epdoc creation")
-    func landingExposesNewDocShortcut() throws {
+    @Test("Landing exposes one visible Markdown create shortcut")
+    func landingExposesOneVisibleMarkdownCreateShortcut() throws {
         let source = try Self.loadSourceText("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(source.contains("title: \"new doc\""),
-                "Landing must project .epdoc creation visibly instead of hiding it only in File > New.")
-        #expect(source.contains("createAndOpenDocument()"),
-                "Landing New Doc action should route through one command helper.")
-        #expect(source.contains(".keyboardShortcut(\"n\", modifiers: [.command, .option])"),
-                "Landing should honor the native ⌥⌘N New Document shortcut.")
+        #expect(source.contains("title: \"new note\""),
+                "Landing should keep one obvious note creation entry point.")
+        #expect(source.contains("NoteCreationCoordinator.createAndOpen("),
+                "Landing creation should use the shared Prose/Document chooser.")
+        #expect(!source.contains("title: \"new doc\""),
+                "Landing must not advertise Document as a separate storage object.")
+        #expect(!source.contains("createAndOpenDocument()"),
+                "The old standalone .epdoc creation shortcut should not remain on the landing page.")
     }
 
     @Test("Home commands trigger expressive haptics")
@@ -41,27 +42,78 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         #expect(pixels.contains("let haptic: HomeCommandHapticStyle"))
         #expect(pixels.contains("HapticHelper.homeCommand(haptic)"),
                 "Home command presses should pulse through the shared haptic helper, not each tile inventing its own AppKit feedback.")
-        #expect(landing.contains("haptic: .search"))
-        #expect(landing.contains("haptic: .document"))
+        #expect(landing.contains("haptic: .capture"))
+        #expect(landing.contains("haptic: .newNote"))
         #expect(haptics.contains("enum HomeCommandHapticStyle"))
     }
 
-    @Test("Notes sidebar exposes New Document and saved epdocs in the creation/action surface")
-    func notesSidebarExposesNewDocumentAction() throws {
+    @Test("Notes sidebar exposes one create action while saved epdocs remain visible")
+    func notesSidebarExposesOneCreateActionWhileSavedEpdocsRemainVisible() throws {
         let source = try Self.loadSourceText("Epistemos/Views/Notes/NotesSidebar.swift")
 
-        #expect(source.contains("let onNewDocument: () -> Void"),
-                "EditorActionsBar needs a dedicated .epdoc creation callback, not a note-only surface.")
-        #expect(source.contains("icon: \"doc.badge.plus\"")
-                && source.contains("\"Select Vault to Create Document\"")
-                && source.contains("\"New Document (.epdoc)\""),
-                "Notes sidebar bottom bar must visibly expose .epdoc creation when connected and an honest vault-selection prompt when disconnected.")
-        #expect(source.contains("NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)"),
-                "Notes sidebar should create .epdoc files directly in the active vault when one is selected.")
+        #expect(source.contains("let onNewPage: () -> Void"),
+                "EditorActionsBar should keep one note creation callback.")
+        #expect(source.contains("NoteCreationCoordinator.createAndOpen("),
+                "Sidebar creation should use the shared Prose/Document chooser.")
+        #expect(!source.contains("let onNewDocument: () -> Void"),
+                "The sidebar should not carry a second document creation callback.")
+        #expect(!source.contains("\"New Document (.epdoc)\""),
+                "Document is an opening surface for Markdown notes, not a separate bottom-bar button.")
         #expect(source.contains("cachedDocumentItems"),
                 "Saved .epdoc packages must be visible from the sidebar, not only creatable.")
         #expect(source.contains("DocumentsSection("),
                 "Sidebar needs a first-class Documents section for saved .epdoc packages.")
+    }
+
+    @Test("Note windows expose Document as a Markdown-backed peer mode")
+    func noteWindowsExposeDocumentAsMarkdownBackedPeerMode() throws {
+        let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let surface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+
+        #expect(workspace.contains("case document"),
+                "Document should be a note workspace mode beside Prose/Preview/Source.")
+        #expect(workspace.contains("MarkdownDocumentSurface("),
+                "Document mode should mount the rich Epdoc surface over the note body.")
+        #expect(workspace.contains("saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)"),
+                "Document edits must write back through the Markdown note pipeline.")
+        #expect(surface.contains("EpdocEditorChromeView(")
+                && surface.contains("controller: coordinator.controller"),
+                "The Markdown Document surface should reuse the existing Epdoc editor chrome.")
+        #expect(surface.contains("markdownSource: markdown"),
+                "The Document surface must seed from the current Markdown body, not empty package JSON.")
+    }
+
+    @Test("Epdoc chrome exposes projection info in the toolbar")
+    func epdocChromeExposesProjectionInfoInToolbar() throws {
+        let source = try Self.loadSourceText("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+        let surface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+
+        #expect(source.contains("onShowProjectionInfo"),
+                "The shared Epdoc chrome should expose a host-overridable projection info action.")
+        #expect(source.contains("Label(\"Projection Info\", systemImage: \"info.circle\")"),
+                "The toolbar needs an explicit info affordance for how the projection works.")
+        #expect(surface.contains("MarkdownDocumentProjectionInfoPresenter.present()"),
+                "Markdown-backed note mode should explain that Document is another .md surface.")
+    }
+
+    @Test("Markdown Document mode keeps the note surface switcher visible")
+    func markdownDocumentModeKeepsSurfaceSwitcherVisible() throws {
+        let workspace = try Self.loadSourceText("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let surface = try Self.loadSourceText("Epistemos/Views/Notes/MarkdownDocumentSurface.swift")
+        let chrome = try Self.loadSourceText("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+
+        #expect(surface.contains("let surfaceToolbarAccessory: AnyView?"),
+                "Markdown-backed Document mode should accept a compact note-surface switcher accessory.")
+        #expect(surface.contains("surfaceToolbarAccessory: surfaceToolbarAccessory"),
+                "The Markdown Document surface must pass the note-surface switcher into Epdoc chrome.")
+        #expect(chrome.contains("surfaceToolbarAccessory"),
+                "Epdoc chrome needs a host-provided surface slot so Document mode can keep the surface switcher visible.")
+        #expect(chrome.contains(".overlay(alignment: .topTrailing)"),
+                "The Document-mode switcher must not depend on macOS toolbar overflow layout.")
+        #expect(workspace.contains("markdownDocumentSurfaceToolbarAccessory(for: page)"),
+                "The note workspace should inject the same compact Prose/Document/Preview/Source buttons into Document mode.")
+        #expect(workspace.contains("!isMarkdownDocumentSurfaceModeActive"),
+                "The parent note toolbar should not duplicate the switcher while Document mode owns the visible copy.")
     }
 
     @Test("Epdoc windows reuse the native prose-note tab group")

@@ -1141,8 +1141,8 @@ struct AuditHardeningRegressionTests {
         #expect(vaultSync.contains("static func selectVaultFolderForImmediateUse("))
         #expect(vaultSync.contains("static func connectSelectedVaultAsync("))
 
-        #expect(app.contains("createPage(title: \"Untitled\", allowVaultSelectionPrompt: true)"))
-        #expect(landing.contains("createPage(title: \"New Note\", allowVaultSelectionPrompt: true)"))
+        #expect(app.contains("NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)"))
+        #expect(landing.contains("NoteCreationCoordinator.createAndOpen("))
         #expect(wordProcessor.contains("createPage( title: title, allowVaultSelectionPrompt: true )"))
         #expect(journal.contains("createPage( title: journalTitle, allowVaultSelectionPrompt: true )"))
     }

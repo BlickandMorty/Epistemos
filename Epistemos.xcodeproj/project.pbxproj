@@ -12,56 +12,59 @@
 		063FBBFF8F084AFDD50D87BA /* EpistemosSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4713439484B07EC2D84E457 /* EpistemosSidecar.swift */; };
 		08F333D4BF84ADD28C3B3873 /* CognitiveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169A8DC98B20151778A8196C /* CognitiveIntents.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
-		0C5366D178FA4AA37B07FBC7 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 1387824EA0DAA6D702EFD7BA /* AppKitExtensions */; };
+		0C5366D178FA4AA37B07FBC7 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = B13F202AC1BF0231DEF14824 /* AppKitControls */; };
+		149EE7731805C0B0CD8AB0EF /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 152E3DBC8E6BBCFBA8489486 /* TextCompletion */; };
 		14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */ = {isa = PBXBuildFile; productRef = 48BA6B15F3E86D3F10699011 /* AXorcist */; };
 		1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FA1346421A48DF0E99CA1280 /* GRDB */; };
 		1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */; };
-		1F6C25A17E7934B000E8B6FF /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 6E17340F4F4FFCF08C0E672D /* Statistics */; };
-		20C7276D2435E3F4E16C195A /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = B13F202AC1BF0231DEF14824 /* AppKitControls */; };
-		249B4E89B585641244080171 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
+		1F6C25A17E7934B000E8B6FF /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = C38C0526B12EAEB10976C5B1 /* SettingsUI */; };
+		20C7276D2435E3F4E16C195A /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9F7E743E103DA1BED82C903 /* MarkEditKit */; };
+		226F765E554D4FB43B088278 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
+		249B4E89B585641244080171 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */; };
-		301862415C67ECCA61078688 /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
+		301862415C67ECCA61078688 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
 		30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 538CE08807F3177D13D01160 /* VMLXHuggingFace */; };
 		3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 		3BDE702EBE7513A75F05E85F /* VMLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */; };
-		3D23A5C1D009CE91D4E42985 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
-		3D4942A386C554B19DB941FE /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = C38C0526B12EAEB10976C5B1 /* SettingsUI */; };
+		3D23A5C1D009CE91D4E42985 /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
+		3D4942A386C554B19DB941FE /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = 992412F140C574B1E0283AEA /* Previewer */; };
 		3F21FFDC8F385A6DEC3412FF /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
 		46243D23E5333064943D5310 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		47EC22FDE2094C0AD988091C /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0A2D551363AE61A7F5B1B898 /* GRDB */; };
 		4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
-		54FEAA196B99035E42E8B0B6 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
+		54FEAA196B99035E42E8B0B6 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
 		5B1557CE7B5BE6FA4FD1DCC2 /* SidecarCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA1101E0D8741618C93599C /* SidecarCache.swift */; };
-		5BD2F1107633AD6B41B0C58B /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
-		5CBEBB6A03FDBD156286FB7C /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 970856BAED7F66F3D3CAEF36 /* TextBundle */; };
+		5BD2F1107633AD6B41B0C58B /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
+		5CBEBB6A03FDBD156286FB7C /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 6E17340F4F4FFCF08C0E672D /* Statistics */; };
 		5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		61C8116B784756491A5EC96D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
-		65469464345B2215552A655D /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
-		6B99BA67FAE58757352A15B7 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 152E3DBC8E6BBCFBA8489486 /* TextCompletion */; };
+		65469464345B2215552A655D /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
+		6807228E4B5A4998F227E8EA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
+		6B99BA67FAE58757352A15B7 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 970856BAED7F66F3D3CAEF36 /* TextBundle */; };
 		6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */; };
-		74959B01F628EBAA2FBB4B29 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
+		74959B01F628EBAA2FBB4B29 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
 		7BA33DAD72F26B5969AF58A4 /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */; };
-		7E04502E94924A57934605BE /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
+		7E04502E94924A57934605BE /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
 		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */; };
 		81716E83E67308AE0E10312D /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = D22E3A58030016B71ABF4392 /* Grape */; };
 		836B564E870EDF34873B3A58 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 910D0543E7FCC403D8235BC8 /* MLXNN */; };
-		83C58597C91DDDB52684C5AA /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = DF6711EF9A00AF3A68ED8143 /* FileDrop */; };
-		8AB7C1B0CD7A76FC5E9D1AB6 /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = 992412F140C574B1E0283AEA /* Previewer */; };
-		9292AF4A39B39412A3ECF79E /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
+		83C58597C91DDDB52684C5AA /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 1387824EA0DAA6D702EFD7BA /* AppKitExtensions */; };
+		8AB7C1B0CD7A76FC5E9D1AB6 /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = D8818F7A8F2FF6B520C10B42 /* FontPicker */; };
+		9292AF4A39B39412A3ECF79E /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
 		9306CA2B6D16680A144B5317 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 335D46D689DC43CC5B86CBE9 /* MLXLMCommon */; };
-		95AA3894CE199C5C626B7EF8 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
-		96A9F4DDD32CF7F954327D2C /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
+		95AA3894CE199C5C626B7EF8 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
+		96A9F4DDD32CF7F954327D2C /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
-		A105AB197896C116C097EB9E /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9F7E743E103DA1BED82C903 /* MarkEditKit */; };
+		A105AB197896C116C097EB9E /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = A5223DF8B66054B397B8063A /* MarkEditCore */; };
 		A4EADC574B8E36EB1327DA66 /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C0F23953DF52141112B079EB /* GGUFRuntimeBridge */; };
 		A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = B1EB8622EB43550A22C16D72 /* VMLXTokenizers */; };
-		A9CF38DAF4867513C3D4E99C /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = D8818F7A8F2FF6B520C10B42 /* FontPicker */; };
-		AE1D502E41AEB5C7A7D1C8E0 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = B8E0559AD19EF2A9B70D952C /* FileVersion */; };
+		A9CF38DAF4867513C3D4E99C /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = B8E0559AD19EF2A9B70D952C /* FileVersion */; };
+		AE1D502E41AEB5C7A7D1C8E0 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = DF6711EF9A00AF3A68ED8143 /* FileDrop */; };
 		B131CB2C4E4E857765F2366F /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 135D935B56D44B67D290BC44 /* SwiftTerm */; };
 		B6058CDDBAC6D239758DE0BE /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = ACAC129448E9C89398D377EA /* MLXLLM */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
@@ -69,7 +72,7 @@
 		BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */; };
 		BFE34268D83FB96D10840B4D /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 3DB8D6F40492AA0EBD6805FA /* MLXNN */; };
 		C18BD6A1E86E5CE754EC3C02 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = B919CFE16BDE19DE0CD70F2E /* MLX */; };
-		D78DB160002E1ADAA6A29A47 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = A5223DF8B66054B397B8063A /* MarkEditCore */; };
+		D78DB160002E1ADAA6A29A47 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 43820B4F7DE581D5047F0349 /* KokoroPipeline */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		DF83A55045962D57B510A3AE /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 6C5604E44D34114D4C65A436 /* MLXOptimizers */; };
@@ -78,10 +81,11 @@
 		E5F98A62361C1EBB82523B92 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
 		E70B453353C9AB5E24A29DFA /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 10AF46C8B7755E4D5270CE5D /* MLX */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
-		F179F5290BD109FC06F77403 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
+		F179F5290BD109FC06F77403 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
 		F17AA91C0BB197EE4008CED8 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
 		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
 		F4FD9C1FBB3D7E66B93DD4B4 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */; };
+		F528A98E7E5ECBD7455DEF81 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
 		F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */; };
 		F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 /* End PBXBuildFile section */
@@ -101,14 +105,16 @@
 		0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EpistemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		0C22103FC04EC48867600235 /* MarkEditCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MarkEditCore; path = LocalPackages/MarkEdit/MarkEditCore; sourceTree = SOURCE_ROOT; };
+		13D3E6E9629BE150EEFC32BE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		169A8DC98B20151778A8196C /* CognitiveIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitiveIntents.swift; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		5714802E4CF5F19C54626435 /* QuarantineArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuarantineArchive.swift; sourceTree = "<group>"; };
-		57F63CBF79B9214731AD2154 /* Epistemos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Epistemos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Epistemos-AppStore.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTelemetryClassifier.swift; sourceTree = "<group>"; };
+		5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KokoroPipeline; path = LocalPackages/KokoroPipeline; sourceTree = SOURCE_ROOT; };
 		672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GGUFRuntimeBridge; path = LocalPackages/GGUFRuntimeBridge; sourceTree = SOURCE_ROOT; };
 		689A6C418AA4456CEBAE5A31 /* Modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Modules; path = LocalPackages/MarkEdit/MarkEditMac/Modules; sourceTree = SOURCE_ROOT; };
 		757586A90674D2FF8AC3ACF8 /* vmlx-swift */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "vmlx-swift"; path = "LocalPackages/vmlx-swift"; sourceTree = SOURCE_ROOT; };
@@ -128,56 +134,33 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		28ED660DDD0AE43C1E151F78 /* Exceptions for "build-rust/swift-bindings" folder in "Epistemos-AppStore" target */ = {
+		28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				agent_coreFFI,
+				agent_coreFFI.h,
+				agent_coreFFI.modulemap,
+				epistemos_coreFFI,
+				epistemos_coreFFI.h,
+				epistemos_coreFFI.modulemap,
 				omega_ax.swift,
+				omega_axFFI,
+				omega_axFFI.h,
+				omega_axFFI.modulemap,
+				omega_mcpFFI,
+				omega_mcpFFI.h,
+				omega_mcpFFI.modulemap,
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */ = {
+		37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
 				Omega/Knowledge/ODIATraceGenerator.swift,
 				Omega/Knowledge/TraceDataMixer.swift,
-				"Resources/chunks/clike-B9uivgTg.js",
-				"Resources/chunks/cmake-BQqOBYOt.js",
-				"Resources/chunks/commonlisp-DBKNyK5s.js",
-				"Resources/chunks/css-BnMrqG3P.js",
-				"Resources/chunks/diff-DbItnlRl.js",
-				"Resources/chunks/dockerfile-ZL4hHokT.js",
-				"Resources/chunks/groovy-D9Dt4D0W.js",
-				"Resources/chunks/haskell-Cw1EW3IL.js",
-				"Resources/chunks/http-DBlCnlav.js",
-				"Resources/chunks/index-BBqA1xV8.js",
-				"Resources/chunks/index-BcG3bm5e.js",
-				"Resources/chunks/index-Bime-4by.js",
-				"Resources/chunks/index-BxOMz--h.js",
-				"Resources/chunks/index-CK0TYpfg.js",
-				"Resources/chunks/index-DEUseMGR.js",
-				"Resources/chunks/index-DMWwmBJ8.css",
-				"Resources/chunks/index-DnjDLf4p.js",
-				"Resources/chunks/index-fCzPJW4k.js",
-				"Resources/chunks/index-mR0spefG.js",
-				"Resources/chunks/index-ONGdmU6K.js",
-				"Resources/chunks/index-Z7WmqI2a.js",
-				"Resources/chunks/julia-DuME0IfC.js",
-				"Resources/chunks/lua-VAEuO923.js",
-				"Resources/chunks/mathematica-DTrFuWx2.js",
-				"Resources/chunks/mllike-CXdrOF99.js",
-				"Resources/chunks/nginx-DdIZxoE0.js",
-				"Resources/chunks/pascal--L3eBynH.js",
-				"Resources/chunks/perl-CdXCOZ3F.js",
-				"Resources/chunks/powershell-CFHJl5sT.js",
-				"Resources/chunks/r-B6wPVr8A.js",
-				"Resources/chunks/ruby-B2Rjki9n.js",
-				"Resources/chunks/scheme-C41bIUwD.js",
-				"Resources/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
-				"Resources/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
-				"Resources/chunks/shell-CjFT_Tl9.js",
-				"Resources/chunks/swift-BzpIVaGY.js",
-				"Resources/chunks/toml-Bm5Em-hy.js",
+				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
+				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/clike-B9uivgTg.js",
 				"Resources/CoreEditor/chunks/cmake-BQqOBYOt.js",
 				"Resources/CoreEditor/chunks/commonlisp-DBKNyK5s.js",
@@ -187,18 +170,18 @@
 				"Resources/CoreEditor/chunks/groovy-D9Dt4D0W.js",
 				"Resources/CoreEditor/chunks/haskell-Cw1EW3IL.js",
 				"Resources/CoreEditor/chunks/http-DBlCnlav.js",
-				"Resources/CoreEditor/chunks/index-BBqA1xV8.js",
-				"Resources/CoreEditor/chunks/index-BcG3bm5e.js",
-				"Resources/CoreEditor/chunks/index-Bime-4by.js",
-				"Resources/CoreEditor/chunks/index-BxOMz--h.js",
-				"Resources/CoreEditor/chunks/index-CK0TYpfg.js",
-				"Resources/CoreEditor/chunks/index-DEUseMGR.js",
-				"Resources/CoreEditor/chunks/index-DMWwmBJ8.css",
-				"Resources/CoreEditor/chunks/index-DnjDLf4p.js",
-				"Resources/CoreEditor/chunks/index-fCzPJW4k.js",
-				"Resources/CoreEditor/chunks/index-mR0spefG.js",
-				"Resources/CoreEditor/chunks/index-ONGdmU6K.js",
-				"Resources/CoreEditor/chunks/index-Z7WmqI2a.js",
+				"Resources/CoreEditor/chunks/index-2N30lIXC.js",
+				"Resources/CoreEditor/chunks/index-B50JxE-E.js",
+				"Resources/CoreEditor/chunks/index-BfnDPdgd.js",
+				"Resources/CoreEditor/chunks/index-C1S7G-Og.js",
+				"Resources/CoreEditor/chunks/index-CLl0Ir8W.js",
+				"Resources/CoreEditor/chunks/index-CgZ5Hp05.js",
+				"Resources/CoreEditor/chunks/index-DNtsdCEH.js",
+				"Resources/CoreEditor/chunks/index-DQ4WRUcj.js",
+				"Resources/CoreEditor/chunks/index-DhwZXjO_.js",
+				"Resources/CoreEditor/chunks/index-gi9nrXxG.js",
+				"Resources/CoreEditor/chunks/index-lteqA7Av.js",
+				"Resources/CoreEditor/chunks/index-o5-7ktni.css",
 				"Resources/CoreEditor/chunks/julia-DuME0IfC.js",
 				"Resources/CoreEditor/chunks/lua-VAEuO923.js",
 				"Resources/CoreEditor/chunks/mathematica-DTrFuWx2.js",
@@ -210,8 +193,6 @@
 				"Resources/CoreEditor/chunks/r-B6wPVr8A.js",
 				"Resources/CoreEditor/chunks/ruby-B2Rjki9n.js",
 				"Resources/CoreEditor/chunks/scheme-C41bIUwD.js",
-				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
-				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/shell-CjFT_Tl9.js",
 				"Resources/CoreEditor/chunks/swift-BzpIVaGY.js",
 				"Resources/CoreEditor/chunks/toml-Bm5Em-hy.js",
@@ -219,21 +200,23 @@
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		45C30E899114488A41C98903 /* Exceptions for "EpistemosWidgets" folder in "EpistemosWidgets" target */ = {
+		45C30E899114488A41C98903 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */;
 		};
-		596B3837891BA2E479B46AAC /* Exceptions for "LocalPackages/MarkEdit/MarkEditMac/Sources" folder in "Epistemos-AppStore" target */ = {
+		596B3837891BA2E479B46AAC /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Scripting/EditorDocument+Scripting.swift",
 				"Scripting/NSColor+Scripting.swift",
+				Shortcuts/Extensions,
 				"Shortcuts/Extensions/AppIntent+Extension.swift",
 				Shortcuts/IntentError.swift,
 				Shortcuts/IntentProvider.swift,
+				Shortcuts/Intents,
 				Shortcuts/Intents/CreateNewDocumentIntent.swift,
 				Shortcuts/Intents/EvaluateJavaScriptIntent.swift,
 				Shortcuts/Intents/GetFileContentIntent.swift,
@@ -243,49 +226,32 @@
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		C9E21D3C4068DC6525ACFB75 /* Exceptions for "Epistemos" folder in "Epistemos" target */ = {
+		6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				agent_coreFFI,
+				agent_coreFFI.h,
+				agent_coreFFI.modulemap,
+				epistemos_coreFFI,
+				epistemos_coreFFI.h,
+				epistemos_coreFFI.modulemap,
+				omega_axFFI,
+				omega_axFFI.h,
+				omega_axFFI.modulemap,
+				omega_mcpFFI,
+				omega_mcpFFI.h,
+				omega_mcpFFI.modulemap,
+			);
+			target = 973D4C8C4633FC9F5CEF0985 /* Epistemos */;
+		};
+		C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
 				Omega/Knowledge/ODIATraceGenerator.swift,
 				Omega/Knowledge/TraceDataMixer.swift,
-				"Resources/chunks/clike-B9uivgTg.js",
-				"Resources/chunks/cmake-BQqOBYOt.js",
-				"Resources/chunks/commonlisp-DBKNyK5s.js",
-				"Resources/chunks/css-BnMrqG3P.js",
-				"Resources/chunks/diff-DbItnlRl.js",
-				"Resources/chunks/dockerfile-ZL4hHokT.js",
-				"Resources/chunks/groovy-D9Dt4D0W.js",
-				"Resources/chunks/haskell-Cw1EW3IL.js",
-				"Resources/chunks/http-DBlCnlav.js",
-				"Resources/chunks/index-BBqA1xV8.js",
-				"Resources/chunks/index-BcG3bm5e.js",
-				"Resources/chunks/index-Bime-4by.js",
-				"Resources/chunks/index-BxOMz--h.js",
-				"Resources/chunks/index-CK0TYpfg.js",
-				"Resources/chunks/index-DEUseMGR.js",
-				"Resources/chunks/index-DMWwmBJ8.css",
-				"Resources/chunks/index-DnjDLf4p.js",
-				"Resources/chunks/index-fCzPJW4k.js",
-				"Resources/chunks/index-mR0spefG.js",
-				"Resources/chunks/index-ONGdmU6K.js",
-				"Resources/chunks/index-Z7WmqI2a.js",
-				"Resources/chunks/julia-DuME0IfC.js",
-				"Resources/chunks/lua-VAEuO923.js",
-				"Resources/chunks/mathematica-DTrFuWx2.js",
-				"Resources/chunks/mllike-CXdrOF99.js",
-				"Resources/chunks/nginx-DdIZxoE0.js",
-				"Resources/chunks/pascal--L3eBynH.js",
-				"Resources/chunks/perl-CdXCOZ3F.js",
-				"Resources/chunks/powershell-CFHJl5sT.js",
-				"Resources/chunks/r-B6wPVr8A.js",
-				"Resources/chunks/ruby-B2Rjki9n.js",
-				"Resources/chunks/scheme-C41bIUwD.js",
-				"Resources/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
-				"Resources/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
-				"Resources/chunks/shell-CjFT_Tl9.js",
-				"Resources/chunks/swift-BzpIVaGY.js",
-				"Resources/chunks/toml-Bm5Em-hy.js",
+				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
+				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/clike-B9uivgTg.js",
 				"Resources/CoreEditor/chunks/cmake-BQqOBYOt.js",
 				"Resources/CoreEditor/chunks/commonlisp-DBKNyK5s.js",
@@ -295,18 +261,18 @@
 				"Resources/CoreEditor/chunks/groovy-D9Dt4D0W.js",
 				"Resources/CoreEditor/chunks/haskell-Cw1EW3IL.js",
 				"Resources/CoreEditor/chunks/http-DBlCnlav.js",
-				"Resources/CoreEditor/chunks/index-BBqA1xV8.js",
-				"Resources/CoreEditor/chunks/index-BcG3bm5e.js",
-				"Resources/CoreEditor/chunks/index-Bime-4by.js",
-				"Resources/CoreEditor/chunks/index-BxOMz--h.js",
-				"Resources/CoreEditor/chunks/index-CK0TYpfg.js",
-				"Resources/CoreEditor/chunks/index-DEUseMGR.js",
-				"Resources/CoreEditor/chunks/index-DMWwmBJ8.css",
-				"Resources/CoreEditor/chunks/index-DnjDLf4p.js",
-				"Resources/CoreEditor/chunks/index-fCzPJW4k.js",
-				"Resources/CoreEditor/chunks/index-mR0spefG.js",
-				"Resources/CoreEditor/chunks/index-ONGdmU6K.js",
-				"Resources/CoreEditor/chunks/index-Z7WmqI2a.js",
+				"Resources/CoreEditor/chunks/index-2N30lIXC.js",
+				"Resources/CoreEditor/chunks/index-B50JxE-E.js",
+				"Resources/CoreEditor/chunks/index-BfnDPdgd.js",
+				"Resources/CoreEditor/chunks/index-C1S7G-Og.js",
+				"Resources/CoreEditor/chunks/index-CLl0Ir8W.js",
+				"Resources/CoreEditor/chunks/index-CgZ5Hp05.js",
+				"Resources/CoreEditor/chunks/index-DNtsdCEH.js",
+				"Resources/CoreEditor/chunks/index-DQ4WRUcj.js",
+				"Resources/CoreEditor/chunks/index-DhwZXjO_.js",
+				"Resources/CoreEditor/chunks/index-gi9nrXxG.js",
+				"Resources/CoreEditor/chunks/index-lteqA7Av.js",
+				"Resources/CoreEditor/chunks/index-o5-7ktni.css",
 				"Resources/CoreEditor/chunks/julia-DuME0IfC.js",
 				"Resources/CoreEditor/chunks/lua-VAEuO923.js",
 				"Resources/CoreEditor/chunks/mathematica-DTrFuWx2.js",
@@ -318,8 +284,6 @@
 				"Resources/CoreEditor/chunks/r-B6wPVr8A.js",
 				"Resources/CoreEditor/chunks/ruby-B2Rjki9n.js",
 				"Resources/CoreEditor/chunks/scheme-C41bIUwD.js",
-				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
-				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/shell-CjFT_Tl9.js",
 				"Resources/CoreEditor/chunks/swift-BzpIVaGY.js",
 				"Resources/CoreEditor/chunks/toml-Bm5Em-hy.js",
@@ -327,14 +291,16 @@
 			);
 			target = 973D4C8C4633FC9F5CEF0985 /* Epistemos */;
 		};
-		FE63281A93C9EC2639E676E0 /* Exceptions for "LocalPackages/MarkEdit/MarkEditMac/Sources" folder in "Epistemos" target */ = {
+		FE63281A93C9EC2639E676E0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Scripting/EditorDocument+Scripting.swift",
 				"Scripting/NSColor+Scripting.swift",
+				Shortcuts/Extensions,
 				"Shortcuts/Extensions/AppIntent+Extension.swift",
 				Shortcuts/IntentError.swift,
 				Shortcuts/IntentProvider.swift,
+				Shortcuts/Intents,
 				Shortcuts/Intents/CreateNewDocumentIntent.swift,
 				Shortcuts/Intents/EvaluateJavaScriptIntent.swift,
 				Shortcuts/Intents/GetFileContentIntent.swift,
@@ -349,43 +315,28 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		16352B1B20A1DA1DA6055D05 /* EpistemosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
 		};
 		48195CB9B8649331A9DD3F18 /* EpistemosWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				45C30E899114488A41C98903 /* Exceptions for "EpistemosWidgets" folder in "EpistemosWidgets" target */,
+				45C30E899114488A41C98903 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
 			);
 			path = EpistemosWidgets;
 			sourceTree = "<group>";
 		};
-		61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				FE63281A93C9EC2639E676E0 /* Exceptions for "LocalPackages/MarkEdit/MarkEditMac/Sources" folder in "Epistemos" target */,
-				596B3837891BA2E479B46AAC /* Exceptions for "LocalPackages/MarkEdit/MarkEditMac/Sources" folder in "Epistemos-AppStore" target */,
-			);
-			path = LocalPackages/MarkEdit/MarkEditMac/Sources;
-			sourceTree = "<group>";
-		};
-		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				28ED660DDD0AE43C1E151F78 /* Exceptions for "build-rust/swift-bindings" folder in "Epistemos-AppStore" target */,
-			);
-			path = "build-rust/swift-bindings";
-			sourceTree = "<group>";
-		};
-		DC577E252B5002D94779881E /* Epistemos */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C9E21D3C4068DC6525ACFB75 /* Exceptions for "Epistemos" folder in "Epistemos" target */,
-				37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */,
-			);
-			path = Epistemos;
-			sourceTree = "<group>";
-		};
+		61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (FE63281A93C9EC2639E676E0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 596B3837891BA2E479B46AAC /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = LocalPackages/MarkEdit/MarkEditMac/Sources; sourceTree = "<group>"; };
+		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = "build-rust/swift-bindings"; sourceTree = "<group>"; };
+		DC577E252B5002D94779881E /* Epistemos */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Epistemos; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -407,23 +358,25 @@
 				A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */,
 				B131CB2C4E4E857765F2366F /* SwiftTerm in Frameworks */,
 				A4EADC574B8E36EB1327DA66 /* GGUFRuntimeBridge in Frameworks */,
-				D78DB160002E1ADAA6A29A47 /* MarkEditCore in Frameworks */,
-				A105AB197896C116C097EB9E /* MarkEditKit in Frameworks */,
-				20C7276D2435E3F4E16C195A /* AppKitControls in Frameworks */,
-				0C5366D178FA4AA37B07FBC7 /* AppKitExtensions in Frameworks */,
-				83C58597C91DDDB52684C5AA /* FileDrop in Frameworks */,
-				AE1D502E41AEB5C7A7D1C8E0 /* FileVersion in Frameworks */,
-				A9CF38DAF4867513C3D4E99C /* FontPicker in Frameworks */,
-				8AB7C1B0CD7A76FC5E9D1AB6 /* Previewer in Frameworks */,
-				3D4942A386C554B19DB941FE /* SettingsUI in Frameworks */,
-				1F6C25A17E7934B000E8B6FF /* Statistics in Frameworks */,
-				5CBEBB6A03FDBD156286FB7C /* TextBundle in Frameworks */,
-				6B99BA67FAE58757352A15B7 /* TextCompletion in Frameworks */,
+				D78DB160002E1ADAA6A29A47 /* KokoroPipeline in Frameworks */,
+				A105AB197896C116C097EB9E /* MarkEditCore in Frameworks */,
+				20C7276D2435E3F4E16C195A /* MarkEditKit in Frameworks */,
+				0C5366D178FA4AA37B07FBC7 /* AppKitControls in Frameworks */,
+				83C58597C91DDDB52684C5AA /* AppKitExtensions in Frameworks */,
+				AE1D502E41AEB5C7A7D1C8E0 /* FileDrop in Frameworks */,
+				A9CF38DAF4867513C3D4E99C /* FileVersion in Frameworks */,
+				8AB7C1B0CD7A76FC5E9D1AB6 /* FontPicker in Frameworks */,
+				3D4942A386C554B19DB941FE /* Previewer in Frameworks */,
+				1F6C25A17E7934B000E8B6FF /* SettingsUI in Frameworks */,
+				5CBEBB6A03FDBD156286FB7C /* Statistics in Frameworks */,
+				6B99BA67FAE58757352A15B7 /* TextBundle in Frameworks */,
+				149EE7731805C0B0CD8AB0EF /* TextCompletion in Frameworks */,
 				0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */,
 				61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */,
 				DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */,
 				001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */,
 				ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */,
+				6807228E4B5A4998F227E8EA /* Security.framework in Frameworks */,
 				61C8116B784756491A5EC96D /* Network.framework in Frameworks */,
 				DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */,
 				F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */,
@@ -455,23 +408,25 @@
 				BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */,
 				30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */,
 				F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */,
-				F179F5290BD109FC06F77403 /* MarkEditCore in Frameworks */,
-				7E04502E94924A57934605BE /* MarkEditKit in Frameworks */,
-				5BD2F1107633AD6B41B0C58B /* AppKitControls in Frameworks */,
-				54FEAA196B99035E42E8B0B6 /* AppKitExtensions in Frameworks */,
-				74959B01F628EBAA2FBB4B29 /* FileDrop in Frameworks */,
-				249B4E89B585641244080171 /* FileVersion in Frameworks */,
-				301862415C67ECCA61078688 /* FontPicker in Frameworks */,
-				9292AF4A39B39412A3ECF79E /* Previewer in Frameworks */,
-				65469464345B2215552A655D /* SettingsUI in Frameworks */,
-				96A9F4DDD32CF7F954327D2C /* Statistics in Frameworks */,
-				3D23A5C1D009CE91D4E42985 /* TextBundle in Frameworks */,
-				95AA3894CE199C5C626B7EF8 /* TextCompletion in Frameworks */,
+				F179F5290BD109FC06F77403 /* KokoroPipeline in Frameworks */,
+				7E04502E94924A57934605BE /* MarkEditCore in Frameworks */,
+				5BD2F1107633AD6B41B0C58B /* MarkEditKit in Frameworks */,
+				54FEAA196B99035E42E8B0B6 /* AppKitControls in Frameworks */,
+				74959B01F628EBAA2FBB4B29 /* AppKitExtensions in Frameworks */,
+				249B4E89B585641244080171 /* FileDrop in Frameworks */,
+				301862415C67ECCA61078688 /* FileVersion in Frameworks */,
+				9292AF4A39B39412A3ECF79E /* FontPicker in Frameworks */,
+				65469464345B2215552A655D /* Previewer in Frameworks */,
+				96A9F4DDD32CF7F954327D2C /* SettingsUI in Frameworks */,
+				3D23A5C1D009CE91D4E42985 /* Statistics in Frameworks */,
+				95AA3894CE199C5C626B7EF8 /* TextBundle in Frameworks */,
+				F528A98E7E5ECBD7455DEF81 /* TextCompletion in Frameworks */,
 				0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */,
 				2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */,
 				14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */,
 				A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */,
 				5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */,
+				226F765E554D4FB43B088278 /* Security.framework in Frameworks */,
 				4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */,
 				46243D23E5333064943D5310 /* AppIntents.framework in Frameworks */,
 				3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */,
@@ -484,7 +439,7 @@
 		21C2583A1AFD8B5552357491 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				57F63CBF79B9214731AD2154 /* Epistemos.app */,
+				57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */,
 				C76D402546734270F3EE1008 /* Epistemos.app */,
 				0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */,
 				BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */,
@@ -542,6 +497,7 @@
 				50D490633F871E55934A5C90 /* CryptoKit.framework */,
 				20B80048C5E5CB20ACE0CF6C /* Foundation.framework */,
 				C5467DC782039DA54397330A /* Network.framework */,
+				13D3E6E9629BE150EEFC32BE /* Security.framework */,
 				E9964F6D56D0A9A72ED41455 /* SwiftData.framework */,
 				0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */,
 				3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */,
@@ -553,6 +509,7 @@
 			isa = PBXGroup;
 			children = (
 				672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */,
+				5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */,
 				0C22103FC04EC48867600235 /* MarkEditCore */,
 				FC737BC198BF4E5BEADB7BC8 /* MarkEditKit */,
 				689A6C418AA4456CEBAE5A31 /* Modules */,
@@ -625,9 +582,9 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				DC577E252B5002D94779881E /* Epistemos */,
 				61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */,
 				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
-				DC577E252B5002D94779881E /* Epistemos */,
 			);
 			name = Epistemos;
 			packageProductDependencies = (
@@ -645,6 +602,7 @@
 				B1EB8622EB43550A22C16D72 /* VMLXTokenizers */,
 				135D935B56D44B67D290BC44 /* SwiftTerm */,
 				C0F23953DF52141112B079EB /* GGUFRuntimeBridge */,
+				43820B4F7DE581D5047F0349 /* KokoroPipeline */,
 				A5223DF8B66054B397B8063A /* MarkEditCore */,
 				E9F7E743E103DA1BED82C903 /* MarkEditKit */,
 				B13F202AC1BF0231DEF14824 /* AppKitControls */,
@@ -678,9 +636,9 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				DC577E252B5002D94779881E /* Epistemos */,
 				61CCCFA46A1E2E88C5B9386D /* LocalPackages/MarkEdit/MarkEditMac/Sources */,
 				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
-				DC577E252B5002D94779881E /* Epistemos */,
 			);
 			name = "Epistemos-AppStore";
 			packageProductDependencies = (
@@ -695,6 +653,7 @@
 				45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */,
 				538CE08807F3177D13D01160 /* VMLXHuggingFace */,
 				D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */,
+				50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */,
 				B5565EA54F11316CA03FCE0A /* MarkEditCore */,
 				3FF61CC7613816DCD256501A /* MarkEditKit */,
 				929E3F8673D5E6BA76C7D611 /* AppKitControls */,
@@ -709,7 +668,7 @@
 				88BCB3EA6698A7750855E06F /* TextCompletion */,
 			);
 			productName = "Epistemos-AppStore";
-			productReference = 57F63CBF79B9214731AD2154 /* Epistemos.app */;
+			productReference = 57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -753,6 +712,7 @@
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
 				7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */,
+				9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */,
 				364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */,
 				B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */,
 				C613EEA98847AB76DEFBB315 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditMac/Modules" */,
@@ -989,17 +949,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1019,7 +969,9 @@
 				DEVELOPMENT_TEAM = 3BNL2669SL;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../../../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
 				PRODUCT_NAME = EpistemosWidgets;
@@ -1140,17 +1092,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1171,7 +1113,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../../../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../../../../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
 				PRODUCT_NAME = EpistemosWidgets;
@@ -1201,18 +1145,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lomega_ax",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1227,7 +1160,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "Epistemos/Epistemos-Debug.entitlements";
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -1241,18 +1174,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lomega_ax",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1424,6 +1346,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/GGUFRuntimeBridge;
 		};
+		9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = LocalPackages/KokoroPipeline;
+		};
 		B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/MarkEdit/MarkEditKit;
@@ -1511,6 +1437,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = SettingsUI;
 		};
+		43820B4F7DE581D5047F0349 /* KokoroPipeline */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KokoroPipeline;
+		};
 		45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXHuggingFace;
@@ -1519,6 +1449,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */;
 			productName = AXorcist;
+		};
+		50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KokoroPipeline;
 		};
 		51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;

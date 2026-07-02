@@ -285,6 +285,21 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         updateChangeCount(.changeDone)
     }
 
+    /// Ensure the visible Epdoc frontmatter affordance also updates the
+    /// durable package manifest. Markdown write-through serializes these
+    /// keys as `_epdoc_metadata_*`, so the `.epdoc` package and its `.md`
+    /// projection stay aligned.
+    public func ensureFrontmatterMetadata() {
+        let manifest = package.manifest
+        var metadata = manifest.metadata ?? [:]
+        metadata["status"] = metadata["status"] ?? "draft"
+        metadata["tags"] = metadata["tags"] ?? "[]"
+        metadata["created"] = metadata["created"] ?? Self.frontmatterDateString(milliseconds: manifest.createdAt)
+        metadata["frontmatter"] = "true"
+        metadata["frontmatter_updated_at"] = String(Int64(Date().timeIntervalSince1970 * 1000))
+        updateManifest(metadata: metadata)
+    }
+
     @MainActor
     private func markdownWriteThroughRequest(
         markdownSnapshot: String?,
@@ -485,6 +500,13 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
 
     /// Update the document title + dirty-mark.
     public func setTitle(_ title: String) {
+        updateManifest(title: title)
+    }
+
+    private func updateManifest(
+        title: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
         let manifest = package.manifest
         package.manifest = EpdocManifest(
             id: manifest.id,
@@ -492,12 +514,26 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             schemaVersion: manifest.schemaVersion,
             createdAt: manifest.createdAt,
             updatedAt: manifest.updatedAt,
-            title: title,
+            title: title ?? manifest.title,
             contentHash: manifest.contentHash,
             provenance: manifest.provenance,
-            metadata: manifest.metadata
+            metadata: metadata ?? manifest.metadata
         )
         updateChangeCount(.changeDone)
+    }
+
+    private nonisolated static func frontmatterDateString(milliseconds: Int64) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(milliseconds) / 1_000.0)
+        let components = Calendar(identifier: .gregorian).dateComponents(
+            in: TimeZone(secondsFromGMT: 0)!,
+            from: date
+        )
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 1970,
+            components.month ?? 1,
+            components.day ?? 1
+        )
     }
 
     // MARK: - Window presentation
@@ -554,6 +590,16 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                     markdownSnapshot: chromeController?.latestMarkdownSnapshot,
                     contentJSON: self.package.contentJSON,
                     widthMode: mode
+                )
+                Self.enqueueMarkdownWriteThroughIfNeeded(request)
+            }
+            chromeController.onEnsureFrontmatterMetadata = { [weak self, weak chromeController] in
+                guard let self else { return }
+                self.ensureFrontmatterMetadata()
+                let request = self.markdownWriteThroughRequest(
+                    markdownSnapshot: chromeController?.latestMarkdownSnapshot,
+                    contentJSON: self.package.contentJSON,
+                    widthMode: chromeController?.canonicalWidthMode
                 )
                 Self.enqueueMarkdownWriteThroughIfNeeded(request)
             }

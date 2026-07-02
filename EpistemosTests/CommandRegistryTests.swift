@@ -172,6 +172,36 @@ struct CommandRegistryTests {
         #expect(source.contains("syncActivation(isKeyWindow: windowIsKey, surfaceIsActive: isActive)"))
     }
 
+    @Test("Key-window observer publishes only real state changes")
+    func keyWindowObserverPublishesOnlyRealStateChanges() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Command/CommandPaletteHost.swift")
+
+        #expect(source.contains("lastPublishedKeyWindow"))
+        #expect(source.contains("guard lastPublishedKeyWindow != isKeyWindow else { return }"))
+    }
+
+    @Test("Key-window observer defers callbacks outside SwiftUI updateNSView")
+    func keyWindowObserverDefersCallbacksOutsideUpdateNSView() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Command/CommandPaletteHost.swift")
+
+        #expect(source.contains("private func deliver(_ isKeyWindow: Bool)"))
+        #expect(source.contains("Task { @MainActor [onChange] in"))
+        #expect(!source.contains("onChange(isKeyWindow)\n        }"))
+    }
+
+    @Test("Epdoc command catalog is registered once outside activation hot paths")
+    func epdocCommandCatalogIsRegisteredOutsideActivationHotPaths() throws {
+        let registrySource = try loadMirroredSourceTextFile("Epistemos/Engine/CommandRegistry.swift")
+        let registrationsSource = try loadMirroredSourceTextFile("Epistemos/Engine/CommandRegistrations.swift")
+        let workspaceActivation = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteWorkspaceCommandSurfaceActivation.swift")
+        let editorActivation = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocCommandSurfaceActivation.swift")
+
+        #expect(registrySource.contains("func containsCommand(id: String) -> Bool"))
+        #expect(registrationsSource.contains("guard !registry.containsCommand(id: \"epdoc.save\") else { return }"))
+        #expect(!workspaceActivation.contains("private func activate() {\n        CommandRegistrations.registerEpdocCommands()"))
+        #expect(!editorActivation.contains("private func activate() {\n        CommandRegistrations.registerEpdocCommands()"))
+    }
+
     @Test("Cmd+K is reserved only for the command palette")
     func commandKReservedForPalette() throws {
         let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")

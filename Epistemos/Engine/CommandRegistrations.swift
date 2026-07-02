@@ -3,6 +3,8 @@ import Foundation
 @MainActor
 public enum CommandRegistrations {
     public static func registerEpdocCommands(in registry: CommandRegistry = .shared) {
+        guard !registry.containsCommand(id: "epdoc.save") else { return }
+
         registerNoteCommand(
             registry,
             id: "epdoc.save",

@@ -1,3 +1,8 @@
+---
+id: 09FAF8C3-829B-4E0D-976F-B462D6665F25
+title: SS-CHATPICKER_P0_INSTALLED_MODELS_NOT_CLICKABLE_2026_06_21
+---
+
 # SS-CHATPICKER P0 — "other models installed but they still won't let me click them" (owner 2026-06-21)
 
 Owner (verbatim, 2026-06-21): **"i also have other models installed but they still wont let me click them"**
@@ -48,7 +53,7 @@ The chat runtime picker is built from a FIXED lineup, NOT from the user's instal
    InlineRuntimePickerPanel. Witnessed via the pure-logic test + (optionally) computer-use; UI pixel is non-blocking.
 
 ## SCOPE / SAFETY
-Additive: widen the picker's option source to honor the installed+advertised set; keep the foundation lineup as the
+Additive: widen the picker's option source to honor the installed+advertised set; keep the foundation lineup as the 
 ordered default. No change to default RESOLUTION (already proven). No vault writes. Regression guard: with NO
 advertised customization + only lineup models installed, `options(...)` returns byte-identical rows to today (prove
 in a test). In scope (`EpistemosRuntimePicker.swift`, `InlineRuntimePickerPanel.swift`, ModelStack assembler glue);

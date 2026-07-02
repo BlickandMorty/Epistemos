@@ -8,7 +8,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CORE_EDITOR_DIR="${ROOT_DIR}/LocalPackages/MarkEdit/CoreEditor"
 DEST="${ROOT_DIR}/Epistemos/Resources/CoreEditor"
-ROOT_CHUNKS_DEST="${ROOT_DIR}/Epistemos/Resources/chunks"
 
 NODE_PATH_PREFIXES=(
     "$HOME/.volta/bin"
@@ -89,19 +88,17 @@ fi
 
 mkdir -p "$DEST"
 rsync -a --delete dist/ "$DEST/"
-mkdir -p "$ROOT_CHUNKS_DEST"
-rsync -a --delete dist/chunks/ "$ROOT_CHUNKS_DEST/"
 
 if [ ! -f "$DEST/index.html" ]; then
     echo "build-coreeditor-bundle.sh: staged bundle missing $DEST/index.html"
     exit 7
 fi
 
-if [ ! -d "$ROOT_CHUNKS_DEST" ]; then
-    echo "build-coreeditor-bundle.sh: staged bundle missing $ROOT_CHUNKS_DEST"
+if [ ! -d "$DEST/chunks" ]; then
+    echo "build-coreeditor-bundle.sh: staged bundle missing $DEST/chunks"
     exit 8
 fi
 
 if [ "${CI:-}" = "1" ]; then
-    echo "build-coreeditor-bundle.sh: CI mode - bundle staged successfully ($(du -sh "$DEST" | cut -f1), root chunks $(du -sh "$ROOT_CHUNKS_DEST" | cut -f1))"
+    echo "build-coreeditor-bundle.sh: CI mode - bundle staged successfully ($(du -sh "$DEST" | cut -f1))"
 fi

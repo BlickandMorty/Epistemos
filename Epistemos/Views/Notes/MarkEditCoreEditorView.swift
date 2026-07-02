@@ -70,18 +70,28 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var tabWidth: Int
     var filePath: String?
     var selectionRequest: CoreEditorSelectionRequest?
+    var allowsMarkEditWindowToolbar: Bool = true
 
     var body: some View {
         #if canImport(MarkEditKit)
-        MarkEditVerbatimMarkdownChromeRepresentable(
-            text: $text,
-            cursorLine: $cursorLine,
-            cursorColumn: $cursorColumn,
-            totalLines: $totalLines,
-            theme: theme,
-            filePath: filePath
-        )
+        if allowsMarkEditWindowToolbar {
+            MarkEditVerbatimMarkdownChromeRepresentable(
+                text: $text,
+                cursorLine: $cursorLine,
+                cursorColumn: $cursorColumn,
+                totalLines: $totalLines,
+                theme: theme,
+                filePath: filePath
+            )
+        } else {
+            coreEditorRepresentable
+        }
         #else
+        coreEditorRepresentable
+        #endif
+    }
+
+    private var coreEditorRepresentable: some View {
         MarkEditCoreEditorRepresentable(
             mode: .markdownChrome,
             text: $text,
@@ -97,7 +107,6 @@ struct MarkEditMarkdownEditorRepresentable: View {
             tabWidth: tabWidth,
             selectionRequest: selectionRequest
         )
-        #endif
     }
 }
 
@@ -162,6 +171,7 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
     private var isApplyingFromSwift = false
     private var applyTask: Task<Void, Never>?
     private var applyGeneration = 0
+    private var lineCountTask: Task<Void, Never>?
     private var pollingTask: Task<Void, Never>?
     private var chromeTask: Task<Void, Never>?
     private var themeTask: Task<Void, Never>?
@@ -210,6 +220,8 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         }
         applyTask?.cancel()
         applyTask = nil
+        lineCountTask?.cancel()
+        lineCountTask = nil
         pollingTask?.cancel()
         pollingTask = nil
         chromeTask?.cancel()
@@ -260,7 +272,10 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         guard force || lastAppliedTheme != theme else { return }
         lastAppliedTheme = theme
         let nextTheme = AppTheme.epistemosSourceTheme(for: theme)
-        let backgroundColor = theme.resolved.background.nsColor
+        let palette = MarkEditCoreEditorThemePalette.current(theme: theme)
+        let backgroundColor = MarkdownPreviewSurfaceStyle
+            .solidFlatBackgroundNSColor(for: theme)
+            .withAlphaComponent(1.0)
         themeTask?.cancel()
         themeTask = Task { @MainActor [weak self, weak viewController] in
             guard let viewController else { return }
@@ -268,6 +283,9 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
             guard !Task.isCancelled else { return }
             viewController.webBackgroundColor = backgroundColor
             viewController.setTheme(nextTheme, animated: false)
+            if let script = MarkEditCoreEditorThemeOverlay.script(themeName: nil, palette: palette) {
+                viewController.webView.evaluateJavaScript(script, completionHandler: nil)
+            }
             self?.themeTask = nil
         }
     }
@@ -281,7 +299,7 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         let generation = applyGeneration
         applyTask?.cancel()
         applyingText = nextText
-        updateLineCount(for: nextText)
+        scheduleLineCountUpdate(for: nextText)
         document?.stringValue = nextText
         isApplyingFromSwift = true
         applyTask = Task { @MainActor [weak self, weak viewController] in
@@ -343,10 +361,20 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
         text.wrappedValue = nextText
         document?.stringValue = nextText
         lastAppliedText = nextText
-        updateLineCount(for: nextText)
+        updateLineCountNow(for: nextText)
     }
 
-    private func updateLineCount(for text: String) {
+    private func scheduleLineCountUpdate(for text: String) {
+        lineCountTask?.cancel()
+        lineCountTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self, !Task.isCancelled else { return }
+            self.updateLineCountNow(for: text)
+            self.lineCountTask = nil
+        }
+    }
+
+    private func updateLineCountNow(for text: String) {
         totalLines.wrappedValue = CodeEditorLineMetrics.lineCount(text)
         cursorLine.wrappedValue = min(max(1, cursorLine.wrappedValue), totalLines.wrappedValue)
         cursorColumn.wrappedValue = max(1, cursorColumn.wrappedValue)
@@ -524,6 +552,7 @@ private struct MarkEditCoreEditorRepresentable: NSViewRepresentable {
             text: text,
             mode: mode,
             themeName: sourceDefaults.themeName,
+            themePalette: MarkEditCoreEditorThemePalette.current(theme: theme),
             fontFace: sourceDefaults.fontFace,
             fontSize: sourceDefaults.fontSize,
             lineHeight: sourceDefaults.lineHeight,

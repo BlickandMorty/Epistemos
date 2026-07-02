@@ -40,6 +40,7 @@ struct LandingView: View {
     private static let maxLandingFeatureStatusCharacters = 1_200
     private static let maxLandingPDFImportStatusRows = 12
     private static let maxLandingPDFImportStatusLineCharacters = 160
+    private static let hiddenGooseHomeSurfaceOpacity = 0.001
 
     /// Shared blur-fade for surfaces embedded as home pages (Meeting/arXiv/Browser/…),
     /// matching the landing↔graph transition language.
@@ -96,6 +97,10 @@ struct LandingView: View {
     }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
+    private var isGooseHomeSurfaceVisible: Bool { ui.homeContent == .goose }
+    private var gooseHomeSurfaceOpacity: Double {
+        isGooseHomeSurfaceVisible ? 1 : Self.hiddenGooseHomeSurfaceOpacity
+    }
     private var showingLandingStageCommand: Bool {
         activeLandingInlineCommand != nil
     }
@@ -200,10 +205,13 @@ struct LandingView: View {
                         GooseWebSurfaceView(theme: ui.theme)
                     }
                 }
-                .opacity(ui.homeContent == .goose ? 1 : 0)
-                .allowsHitTesting(ui.homeContent == .goose)
-                .zIndex(ui.homeContent == .goose ? 5 : -3)
-                .animation(.spring(response: 0.4, dampingFraction: 0.86), value: ui.homeContent)
+                .opacity(gooseHomeSurfaceOpacity)
+                .allowsHitTesting(isGooseHomeSurfaceVisible)
+                .accessibilityHidden(!isGooseHomeSurfaceVisible)
+                .zIndex(5)
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
             }
 
             // Companion dock — hidden when the embedded graph is up so it
@@ -323,21 +331,12 @@ struct LandingView: View {
             activeLandingInlineCommand = nil
         }
         .background {
-            // Hidden ⌘N shortcut — creates new note and teleports there
+            // Hidden Cmd-N shortcut creates a Markdown note, then asks which surface to open.
             Button(action: {
                 HapticHelper.homeCommand(.newNote)
                 createAndOpenNote()
             }) {}
                 .keyboardShortcut("n", modifiers: .command)
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .allowsHitTesting(false)
-
-            Button(action: {
-                HapticHelper.homeCommand(.document)
-                createAndOpenDocument()
-            }) {}
-                .keyboardShortcut("n", modifiers: [.command, .option])
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
@@ -639,15 +638,6 @@ struct LandingView: View {
                 accent: Color(hex: 0x8ABF5D),
                 haptic: .newNote,
                 action: createAndOpenNote
-            )
-            PixelLandingCommandTile(
-                title: "new doc",
-                shortcut: "\u{2325}\u{2318}N",
-                glyph: .document,
-                theme: theme,
-                accent: Color(hex: 0xC985D8),
-                haptic: .document,
-                action: createAndOpenDocument
             )
             PixelLandingCommandTile(
                 title: "new code",
@@ -1359,17 +1349,10 @@ struct LandingView: View {
 
     private func createAndOpenNote() {
         Task {
-            if let pageId = await vaultSync.createPage(title: "New Note", allowVaultSelectionPrompt: true) {
-                NoteWindowManager.shared.open(pageId: pageId)
-            }
-        }
-    }
-
-    private func createAndOpenDocument() {
-        do {
-            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
-        } catch {
-            NSApplication.shared.presentError(error)
+            await NoteCreationCoordinator.createAndOpen(
+                vaultSync: vaultSync,
+                title: "New Note"
+            )
         }
     }
 

@@ -117,8 +117,7 @@ final class ActivityTracker {
 
     func recordNoteOpened(pageId: String, title: String) {
         appendEvent(.noteOpened(pageId: pageId, title: title))
-        // Take initial paragraph snapshot
-        snapshotParagraphs(for: pageId)
+        scheduleParagraphSnapshot(for: pageId)
     }
 
     func recordNoteClosed(pageId: String, title: String) {
@@ -179,7 +178,7 @@ final class ActivityTracker {
         var results: [(String, [UInt64], Int, [String], String)] = []
         
         for pageId in pageIds {
-            let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
+            let body = NoteWindowManager.shared.editorBody(for: pageId) ?? ""
             guard !body.isEmpty else { continue }
 
             let paragraphs = body.components(separatedBy: "\n\n")
@@ -231,22 +230,40 @@ final class ActivityTracker {
         }
     }
 
-    private func snapshotParagraphs(for pageId: String) {
-        let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
-        guard !body.isEmpty else { return }
-        let paragraphs = body.components(separatedBy: "\n\n")
-        paragraphHashes[pageId] = paragraphs.map { hashParagraph($0) }
+    private func scheduleParagraphSnapshot(for pageId: String) {
+        if let body = NoteWindowManager.shared.editorBody(for: pageId), !body.isEmpty {
+            paragraphHashes[pageId] = body.components(separatedBy: "\n\n").map { hashParagraph($0) }
+            return
+        }
+
+        Task { @MainActor in
+            let hashes = await Task.detached(priority: .utility) {
+                let body = NoteFileStorage.readBody(pageId: pageId, mapped: true, fast: true)
+                return Self.paragraphHashes(from: body)
+            }.value
+            guard !Task.isCancelled, !hashes.isEmpty else { return }
+            paragraphHashes[pageId] = hashes
+        }
     }
 
     /// Deterministic FNV-1a 64-bit hash — stable across process launches (unlike Swift's Hasher).
     /// Critical for cross-session paragraph diffing and Time Machine delta detection.
     private nonisolated func hashParagraph(_ text: String) -> UInt64 {
+        Self.hashParagraph(text)
+    }
+
+    private nonisolated static func hashParagraph(_ text: String) -> UInt64 {
         var hash: UInt64 = 0xcbf29ce484222325 // FNV offset basis
         for byte in text.utf8 {
             hash ^= UInt64(byte)
             hash &*= 0x100000001b3 // FNV prime
         }
         return hash
+    }
+
+    private nonisolated static func paragraphHashes(from body: String) -> [UInt64] {
+        guard !body.isEmpty else { return [] }
+        return body.components(separatedBy: "\n\n").map { hashParagraph($0) }
     }
 
     private func fetchPageTitle(pageId: String) -> String? {

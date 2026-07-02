@@ -1,0 +1,5 @@
+---
+id: A0A6C591-82BC-4D51-9E98-CEAB35F797A8
+title: New Note
+---
+

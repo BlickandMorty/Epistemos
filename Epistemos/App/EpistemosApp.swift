@@ -1420,9 +1420,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     @objc private func dockNewNote() {
         Task { @MainActor in
             guard let vaultSync = AppBootstrap.shared?.vaultSync else { return }
-            if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
-                NoteWindowManager.shared.open(pageId: pageId)
-            }
+            await NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)
             NSApp.activate()
         }
     }
@@ -1451,6 +1449,11 @@ struct EpistemosCommands: Commands {
     let ui: UIState
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
+
+    private var gooseSurfaceActive: Bool {
+        ui.homeTab == .home && ui.homeContent == .goose
+    }
+
     var body: some Commands {
         CommandPaletteCommands()
 
@@ -1479,18 +1482,6 @@ struct EpistemosCommands: Commands {
             // Owner "instant Goose": reveal the PRE-WARMED embedded Goose home page
             // instead of opening a new window (which would boot a 2nd runtime). Mirrors
             // Show Home + LandingView.openEpistemosGoose. (thermo-nuclear 2026-07-01)
-            #if EPISTEMOS_APP_STORE
-            let gooseAvailability = GooseSurfaceAvailability.current()
-            Button(gooseAvailability.menuTitle) {
-                ui.homeContent = .goose
-                ui.homeTab = .home
-                ui.setActivePanel(.home)
-                HomeWindowIdentity.surfaceHomeWindow()
-            }
-                .keyboardShortcut("3", modifiers: .command)
-                .disabled(!gooseAvailability.isReady)
-            #else
-            let gooseAvailability = GooseSurfaceAvailability.current()
             Button("Open Epistemos Goose") {
                 ui.homeContent = .goose
                 ui.homeTab = .home
@@ -1498,12 +1489,11 @@ struct EpistemosCommands: Commands {
                 HomeWindowIdentity.surfaceHomeWindow()
             }
             .keyboardShortcut("3", modifiers: .command)
-            .disabled(!gooseAvailability.isReady)
 
+            #if !EPISTEMOS_APP_STORE
             Button("Open Real Goose Electron Fallback") {
                 GooseElectronFallbackLauncher.shared.launchFromMenu()
             }
-
             #endif
 
             Button("Knowledge Graph") {
@@ -1534,15 +1524,32 @@ struct EpistemosCommands: Commands {
                 NSApp.activate()
             }
 
+            if gooseSurfaceActive {
+                Divider()
+
+                Menu("Goose Theme") {
+                    Button("System") {
+                        postGooseThemeIntent("system")
+                    }
+
+                    Button("Light") {
+                        postGooseThemeIntent("light")
+                    }
+
+                    Button("Dark") {
+                        postGooseThemeIntent("dark")
+                    }
+                }
+            }
         }
 
         CommandGroup(replacing: .newItem) {
-            Button("New Document") {
-                Task { @MainActor in
-                    createEpdocDocument()
+            if gooseSurfaceActive {
+                Button("New Chat") {
+                    postGooseIntent(type: "newChat")
                 }
+                .keyboardShortcut("n", modifiers: .command)
             }
-            .keyboardShortcut("n", modifiers: [.command, .option])
 
             Button("New HTML Workspace") {
                 Task { @MainActor in
@@ -1551,19 +1558,59 @@ struct EpistemosCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command, .option, .shift])
 
-            Button("New Note") {
-                Task { @MainActor in
-                    if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
-                        NoteWindowManager.shared.open(pageId: pageId)
+            if !gooseSurfaceActive {
+                Button("New Note") {
+                    Task { @MainActor in
+                        await NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)
                     }
                 }
+                .keyboardShortcut("n", modifiers: .command)
             }
-            .keyboardShortcut("n", modifiers: .command)
 
             Button("Quick Capture") {
                 NotificationCenter.default.post(name: .showQuickCapture, object: nil)
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
+        }
+
+        CommandMenu("Go") {
+            if gooseSurfaceActive {
+                Button("Home") {
+                    postGooseNavigationIntent("/")
+                }
+
+                Button("Chat") {
+                    postGooseNavigationIntent("/pair")
+                }
+
+                Button("Recipes") {
+                    postGooseNavigationIntent("/recipes")
+                }
+
+                Button("Skills") {
+                    postGooseNavigationIntent("/skills")
+                }
+
+                Button("Apps") {
+                    postGooseNavigationIntent("/apps")
+                }
+
+                Button("Scheduler") {
+                    postGooseNavigationIntent("/schedules")
+                }
+
+                Button("Extensions") {
+                    postGooseNavigationIntent("/extensions")
+                }
+
+                Button("History") {
+                    postGooseNavigationIntent("/sessions")
+                }
+
+                Button("Settings") {
+                    postGooseNavigationIntent("/settings")
+                }
+            }
         }
 
         CommandGroup(replacing: .appVisibility) {
@@ -1586,21 +1633,30 @@ struct EpistemosCommands: Commands {
     }
 
     @MainActor
-    private func createEpdocDocument() {
-        do {
-            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
-        } catch {
-            NSApplication.shared.presentError(error)
-        }
-    }
-
-    @MainActor
     private func createHTMLWorkspaceDocument() {
         do {
             try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
         } catch {
             NSApplication.shared.presentError(error)
         }
+    }
+
+    private func postGooseNavigationIntent(_ path: String) {
+        postGooseIntent(type: "navigate", userInfo: ["path": path])
+    }
+
+    private func postGooseThemeIntent(_ theme: String) {
+        postGooseIntent(type: "setTheme", userInfo: ["theme": theme])
+    }
+
+    private func postGooseIntent(type: String, userInfo: [String: String] = [:]) {
+        var info = userInfo
+        info["type"] = type
+        NotificationCenter.default.post(
+            name: .epistemosGooseNativeChromeIntent,
+            object: nil,
+            userInfo: info
+        )
     }
 
     // Save workspace UI is now handled via WorkspaceSavePanel (SwiftUI overlay).

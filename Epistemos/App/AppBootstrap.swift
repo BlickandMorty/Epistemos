@@ -1937,11 +1937,20 @@ final class AppBootstrap {
         // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
         // gated on ≥32 GB host RAM + explicit opt-in. Power-user mode
         // preserves Capability Ceiling controls, but does not lower the dense
+        let configuredCloudProvidersSummary: String
+        if inference.isDeferredCloudCredentialBootstrapInFlight {
+            configuredCloudProvidersSummary = "deferred"
+        } else {
+            configuredCloudProvidersSummary = inference.configuredCloudProviders
+                .map(\.rawValue)
+                .joined(separator: ",")
+        }
+
         Log.app.info(
             """
             App-local model stack removed: \
             cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
-            configured-cloud-providers=\(inference.configuredCloudProviders.map(\.rawValue).joined(separator: ","), privacy: .public)
+            configured-cloud-providers=\(configuredCloudProvidersSummary, privacy: .public)
             """
         )
 

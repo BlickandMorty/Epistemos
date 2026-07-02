@@ -136,7 +136,11 @@ struct NonAgentPruningValidationTests {
     func noteWorkspacePrefersLiveEditorBodies() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        #expect(source.contains("NoteWindowManager.shared.currentBody(for: pageId)"))
+        #expect(source.contains("private func schedulePersistedBodyRefresh(for page: SDPage?)"))
+        #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
+        #expect(source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(source.contains("_persistedBody = State(initialValue: \"\")"))
+        #expect(!source.contains("_persistedBody = State(initialValue: NoteWindowManager.shared.currentBody"))
     }
 
     @Test("living guidance documents point to the production TK2 editor stack")
@@ -177,10 +181,14 @@ struct NonAgentPruningValidationTests {
     func proseEditorViewPrefersLiveBodies() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
 
-        #expect(source.contains("private static func currentBody(for page: SDPage, preferredBody: String? = nil) -> String"))
-        #expect(source.contains("NoteWindowManager.shared.currentBody(for: page.id)"))
-        #expect(source.contains("let body = Self.currentBody(for: page)"))
-        #expect(source.contains("let fresh = Self.currentBody(for: page)"))
+        #expect(source.contains("@State private var loadedBodyPageId: String?"))
+        #expect(source.contains("private func loadBodyIfNeeded(force: Bool) async"))
+        #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
+        #expect(source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(source.contains("if loadedBodyPageId == page.id"))
+        #expect(!source.contains("private static func currentBody(for page: SDPage"))
+        #expect(!source.contains("NoteWindowManager.shared.currentBody(for: page.id)"))
+        #expect(!source.contains("Self.currentBody(for: page)"))
     }
 
     @Test("note window manager exposes a shared live-editor-first body helper")
@@ -191,13 +199,16 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: !mapped)"))
     }
 
-    @Test("workspace and activity surfaces use the shared live-editor-first body helper")
-    func workspaceAndActivitySurfacesUseSharedBodyHelper() throws {
+    @Test("workspace and idle summary surfaces use the shared live-editor-first body helper")
+    func workspaceAndIdleSummarySurfacesUseSharedBodyHelper() throws {
         let activity = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
         let workspace = try loadRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
         let timeMachine = try loadRepoTextFile("Epistemos/State/TimeMachineService.swift")
 
-        #expect(activity.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
+        #expect(activity.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
+        #expect(activity.contains("Task.detached(priority: .utility)"))
+        #expect(activity.contains("NoteFileStorage.readBody(pageId: pageId, mapped: true, fast: true)"))
+        #expect(!activity.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
         #expect(workspace.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
         #expect(timeMachine.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
     }

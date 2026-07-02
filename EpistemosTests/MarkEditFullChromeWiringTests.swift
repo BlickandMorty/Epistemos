@@ -64,17 +64,20 @@ nonisolated struct MarkEditFullChromeWiringTests {
         }
     }
 
-    @Test("CoreEditor build script stages resources for Epistemos and verbatim MarkEdit chunk loaders")
+    @Test("CoreEditor build and runtime scripts keep one canonical source tree plus MarkEdit flat chunk fallback")
     func coreEditorBuildScriptStagesResourcesForBothChunkLoaders() throws {
         let script = try loadMirroredSourceTextFile("build-coreeditor-bundle.sh")
+        let bundler = try loadMirroredSourceTextFile("bundle-app-runtime-assets.sh")
         let markEditChunkLoader = try loadMirroredSourceTextFile(
             "LocalPackages/MarkEdit/MarkEditMac/Sources/Editor/EditorChunkLoader.swift"
         )
 
         #expect(script.contains(#"DEST="${ROOT_DIR}/Epistemos/Resources/CoreEditor""#))
-        #expect(script.contains(#"ROOT_CHUNKS_DEST="${ROOT_DIR}/Epistemos/Resources/chunks""#))
         #expect(script.contains(#"rsync -a --delete dist/ "$DEST/""#))
-        #expect(script.contains(#"rsync -a --delete dist/chunks/ "$ROOT_CHUNKS_DEST/""#))
+        #expect(!script.contains("ROOT_CHUNKS_DEST"))
+        #expect(bundler.contains("CORE_EDITOR_CHUNKS_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/CoreEditor/chunks\""))
+        #expect(bundler.contains("CORE_EDITOR_CHUNKS_BUNDLE_DIR=\"$RESOURCES_DIR/chunks\""))
+        #expect(bundler.contains("rsync -a --delete \"$CORE_EDITOR_CHUNKS_SOURCE_DIR/\" \"$CORE_EDITOR_CHUNKS_BUNDLE_DIR/\""))
         #expect(markEditChunkLoader.contains(#"Bundle.main.url(forResource: "\(host)/\(url.path())", withExtension: nil)"#))
         #expect(markEditChunkLoader.contains("url.lastPathComponent"))
 

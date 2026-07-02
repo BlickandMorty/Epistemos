@@ -33,7 +33,8 @@ usage strings.
   VisionKit is available and an honest theme-token image fallback when it is not, with a bounded image-analysis policy
   before VisionKit receives in-memory images; recognized text returned to consumers is capped.
 - **DONE:** `Epistemos/Views/Shared/FileThumbnail.swift` provides `FileThumbnailer` and `FileThumbnailView`, with
-  the same readable bounded regular-file URL policy, including no-follow non-regular and oversized file rejection, plus
+  the same readable bounded regular-file URL policy, including non-regular file rejection, no-follow validation, and
+  oversized file rejection, plus
   finite/max dimension and scale rejection before QuickLookThumbnailing generation. Thumbnail fallback icons also use
   `UIState` theme tokens instead of raw system secondary styling, and thumbnail accessibility labels reuse the bounded
   preview-title helper.

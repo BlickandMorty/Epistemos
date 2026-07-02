@@ -231,18 +231,20 @@ struct NoteEditorLayoutTests {
         #expect(surfaceSource.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
     }
 
-    @Test("markdown documents default to prose edit and expose Edit Preview Source as peer modes")
+    @Test("markdown documents default to prose edit and expose Document Preview Source as peer modes")
     func markdownDocumentsDefaultToProseEditWithSourceAsThirdMode() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(source.contains("enum NoteWorkspaceMode: String, CaseIterable, Hashable"))
         #expect(source.contains("case edit"))
+        #expect(source.contains("case document"))
         #expect(source.contains("case preview"))
         #expect(source.contains("case source"))
         #expect(source.contains("@State private var noteMode: NoteWorkspaceMode = .edit"))
-        #expect(source.contains("Picker(\n                \"View\""))
-        #expect(source.contains(": [.edit, .preview, .source]"))
-        #expect(source.contains("guard resolvedNoteMode(for: page) == .source else {"))
+        #expect(source.contains("surfaceModeToolbarButton(mode: mode, isActive: mode == selectedMode)"))
+        #expect(!source.contains("Picker(\n                \"View\""))
+        #expect(source.contains(": [.edit, .document, .preview, .source]"))
+        #expect(source.contains("guard resolvedNoteMode(for: page, options: options) == .source else {"))
         #expect(!source.contains("MarkdownDocumentLens"))
         #expect(!source.contains("epistemos.markdownLens"))
         #expect(!source.contains("UserDefaults.standard.string(forKey: key(pageId: pageId, filePath: filePath))"))
@@ -284,8 +286,8 @@ struct NoteEditorLayoutTests {
         )
     }
 
-    @Test("code editor uses MarkEdit CoreEditor without native SourceEditor fallback")
-    func codeEditorUsesMarkEditCoreEditorWithoutNativeSourceEditorFallback() throws {
+    @Test("code editor uses MarkEdit CoreEditor with only explicit legacy v1 fallback")
+    func codeEditorUsesMarkEditCoreEditorWithOnlyExplicitLegacyV1Fallback() throws {
         let codeEditorSource = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
         let markEditSource = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
             + "\n"
@@ -301,7 +303,9 @@ struct NoteEditorLayoutTests {
         #expect(!codeEditorSource.contains("useNativeSourceEditorFallback"))
         #expect(!codeEditorSource.contains("usesWebKitEditor"))
         #expect(!codeEditorSource.contains("EpistemosEditorCoordinator"))
-        #expect(!codeEditorSource.contains("WebKitCodeEditor"))
+        #expect(codeEditorSource.contains(#"@AppStorage("codeEditor.useLegacyV1Editor") private var useLegacyV1Editor = false"#))
+        #expect(codeEditorSource.contains("useLegacyV1Editor && !isMarkdownDocument"))
+        #expect(codeEditorSource.contains("WebKitCodeEditorView("))
         #expect(codeEditorSource.contains("private var isMarkdownDocument"))
         #expect(!codeEditorSource.contains("preferWebKitEditor"))
         #expect(!codeEditorSource.contains("useWebKitBeta"))
@@ -367,6 +371,15 @@ struct NoteEditorLayoutTests {
         #expect(NoteWorkspaceFooterDisplay.showsShortcutHints == false)
     }
 
+    @Test("document surface hides the outer note footer so Epdoc owns document stats")
+    func documentSurfaceHidesOuterNoteFooter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("if shouldShowNoteWorkspaceFooter"))
+        #expect(source.contains("private var shouldShowNoteWorkspaceFooter: Bool"))
+        #expect(source.contains("return resolvedNoteMode(for: page) != .document"))
+    }
+
     @Test("toolbar quick actions keep find save and sidebar shortcuts without hover text")
     func toolbarQuickActionsKeepFindSaveAndSidebarShortcutsWithoutHoverText() {
         #expect(NoteWorkspaceQuickAction.allCases == [.findInNote, .saveToDisk, .notesSidebar])
@@ -381,54 +394,29 @@ struct NoteEditorLayoutTests {
     @Test("hidden prose shortcuts do not steal Source editor keybindings")
     func hiddenProseShortcutsDoNotStealSourceEditorKeybindings() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let shortcutsStart = source.range(of: "// Hidden keyboard shortcut buttons"),
+              let shortcutsEnd = source.range(of: ".popover(isPresented:", range: shortcutsStart.upperBound..<source.endIndex) else {
+            Issue.record("Failed to isolate hidden keyboard shortcut buttons in NoteDetailWorkspaceView.swift")
+            return
+        }
+        let shortcutSource = String(source[shortcutsStart.lowerBound..<shortcutsEnd.lowerBound])
 
-        #expect(source.contains("""
-            Button("") { showDiffSheet = true }
-                .keyboardShortcut("d", modifiers: .command)
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
-        #expect(source.contains("""
-            Button("") { togglePreviewMode() }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
-        #expect(source.contains("""
-            Button("") { insertMarkdown("**", "**") }
-                .keyboardShortcut("b", modifiers: .command)
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
-        #expect(source.contains("""
-            Button("") { insertMarkdown("*", "*") }
-                .keyboardShortcut("i", modifiers: .command)
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
-        #expect(source.contains("""
-            Button("") { navState?.back() }
-                .keyboardShortcut("[", modifiers: .command)
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
-        #expect(source.contains("""
-            .keyboardShortcut("p", modifiers: [.command, .shift])
-            .disabled(!noteCommandSurfaceIsActive)
-            .hidden()
-            """))
-        #expect(source.contains("""
-            Button("") { navState?.forward() }
-                .keyboardShortcut("]", modifiers: .command)
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
-        #expect(source.contains("""
-            Button("") { notesUI.isFocusMode.toggle() }
-                .keyboardShortcut("f", modifiers: [.command, .shift])
-                .disabled(!noteCommandSurfaceIsActive)
-                .hidden()
-            """))
+        for (action, shortcut) in [
+            ("showDiffSheet = true", #".keyboardShortcut("d", modifiers: .command)"#),
+            ("togglePreviewMode()", #".keyboardShortcut("e", modifiers: .command)"#),
+            ("showNativeFindInterface()", #".keyboardShortcut("f", modifiers: .command)"#),
+            (#"insertMarkdown("**", "**")"#, #".keyboardShortcut("b", modifiers: .command)"#),
+            (#"insertMarkdown("*", "*")"#, #".keyboardShortcut("i", modifiers: .command)"#),
+            ("page.isPinned.toggle()", #".keyboardShortcut("p", modifiers: [.command, .shift])"#),
+            ("navState?.back()", #".keyboardShortcut("[", modifiers: .command)"#),
+            ("navState?.forward()", #".keyboardShortcut("]", modifiers: .command)"#),
+            ("notesUI.isFocusMode.toggle()", #".keyboardShortcut("f", modifiers: [.command, .shift])"#),
+        ] {
+            #expect(shortcutSource.contains(action))
+            #expect(shortcutSource.contains(shortcut))
+        }
+        #expect(shortcutSource.components(separatedBy: ".disabled(!noteCommandSurfaceIsActive)").count - 1 >= 9)
+        #expect(shortcutSource.components(separatedBy: ".hidden()").count - 1 >= 9)
     }
 
     @Test("Source mode hides Prose-only quick actions")
@@ -436,14 +424,14 @@ struct NoteEditorLayoutTests {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(source.contains("guard noteCommandSurfaceIsActive else { return }\n            showNativeFindInterface()"))
-        #expect(source.contains("private func noteWorkspaceQuickActions(for page: SDPage) -> [NoteWorkspaceQuickAction]"))
-        #expect(source.contains("action != .findInNote || resolvedNoteMode(for: page) == .edit"))
-        #expect(source.contains("let actions = pages.first.map(noteWorkspaceQuickActions(for:)) ?? NoteWorkspaceQuickAction.allCases"))
+        #expect(source.contains("private func noteWorkspaceQuickActions(\n        for page: SDPage,\n        options: NoteModeOptions? = nil\n    ) -> [NoteWorkspaceQuickAction]"))
+        #expect(source.contains("action != .findInNote || resolvedNoteMode(for: page, options: options) == .edit"))
+        #expect(source.contains("noteWorkspaceQuickActions(for: page, options: noteModeOptions(for: page))"))
         #expect(source.contains("ForEach(actions, id: \\.self)"))
     }
 
-    @Test("preview H1 uses the same heading scale as the note editor")
-    func previewH1UsesEditorHeadingScale() throws {
+    @Test("preview headings use the same smaller adaptive scale as the note editor")
+    func previewHeadingsUseEditorHeadingScale() throws {
         let shortHeading = "Big Heading"
         let longHeading =
             "A Neuroscientific explanation of determinism in society across institutions, incentives, and collective mythmaking"
@@ -461,9 +449,18 @@ struct NoteEditorLayoutTests {
         )
         let previewSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/MarkdownTextView.swift")
 
+        #expect(MarkdownHeadingDisplay.noteHeadingBaseSize(for: 1) == 52)
+        #expect(MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2) == 27)
+        #expect(MarkdownHeadingDisplay.noteHeadingBaseSize(for: 3) == 17)
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) == expectedShort)
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: longHeading) == expectedLong)
         #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) > AppHeadingRole.h2.fontSize)
+        #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 2, text: shortHeading)
+            == MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2))
+        #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 2, text: longHeading)
+            < MarkdownHeadingDisplay.noteHeadingFontSize(for: 2, text: shortHeading))
+        #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 3, text: longHeading)
+            < MarkdownHeadingDisplay.noteHeadingFontSize(for: 3, text: shortHeading))
         #expect(previewSource.contains("noteHeadingFontSize("))
     }
 
@@ -610,11 +607,12 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))
-        #expect(source.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
+        #expect(source.contains("noteWorkspaceQuickActions(for: page, options: noteModeOptions(for: page))"))
+        #expect(source.contains("ForEach(actions, id: \\.self)"))
     }
 
-    @Test("code files do not show the note ask bar in the workspace toolbar")
-    func codeFilesDoNotShowTheNoteAskBarInTheWorkspaceToolbar() throws {
+    @Test("source mode keeps the native surface picker without duplicating note chrome")
+    func sourceModeKeepsNativeSurfacePickerWithoutDuplicatingNoteChrome() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         guard let bodyRange = source.range(of: "var body: some View {"),
               let nextSectionRange = source.range(of: ".environment(\\.colorScheme, noteWorkspaceColorScheme)", range: bodyRange.upperBound..<source.endIndex) else {
@@ -624,9 +622,42 @@ struct NoteEditorLayoutTests {
 
         let bodySource = String(source[bodyRange.lowerBound..<nextSectionRange.lowerBound])
 
-        #expect(bodySource.contains("if !isCodeFile {"))
-        #expect(bodySource.contains("ToolbarItem(placement: .principal) {"))
-        #expect(bodySource.contains("noteToolbarAskItem"))
+        #expect(!bodySource.contains("noteToolbarTitleItem"))
+        #expect(bodySource.contains("if shouldShowNoteToolbarPrimaryActions {"))
+        #expect(bodySource.contains("markEditSourceSettingsToolbarButton"))
+        #expect(source.contains("private var shouldShowNoteToolbarPrimaryActions: Bool"))
+        #expect(source.contains("return !isCodeFile || shouldShowMarkEditSourceSettingsToolbarButton"))
+        #expect(source.contains("allowsMarkEditWindowToolbar: false"))
+        guard let sourceModeGuardRange = bodySource.range(of: "if shouldShowNoteToolbarPrimaryActions {"),
+              let primaryActionRange = bodySource.range(of: "ToolbarItemGroup(placement: .primaryAction) {") else {
+            Issue.record("Expected source-mode guard and primary toolbar actions in NoteDetailWorkspaceView.swift")
+            return
+        }
+        #expect(sourceModeGuardRange.lowerBound < primaryActionRange.lowerBound)
+        #expect(!bodySource.contains("noteToolbarAskItem"))
+        #expect(!source.contains("sourceModeHeader(for: page, route: route)"))
+        #expect(!source.contains("private func sourceModeHeader"))
+    }
+
+    @Test("outline content and navigation belong to the active note surface")
+    func outlineContentAndNavigationBelongToActiveSurface() throws {
+        let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(workspace.contains("@State private var sourceEditorSelectionRequest: CoreEditorSelectionRequest?"))
+        #expect(workspace.contains("let outlineMarkdown = pages.first.map(activeOutlineMarkdown(for:)) ?? persistedBody"))
+        #expect(workspace.contains("externalItems: pages.first.flatMap(activeOutlineExternalItems(for:))"))
+        #expect(workspace.contains("blockItems: pages.first.flatMap(activeOutlineBlockItems(for:))"))
+        #expect(workspace.contains("private func activeOutlineMarkdown(for page: SDPage) -> String"))
+        #expect(workspace.contains("if let route = sourceEditorRoute(for: page) {\n            return cachedSourceEditorContent(page: page, route: route)\n        }"))
+        #expect(workspace.contains("case .edit:\n            return tocItems.isEmpty ? nil : tocItems"))
+        #expect(workspace.contains("case .document, .preview, .source:\n            return nil"))
+        #expect(workspace.contains("guard resolvedNoteMode(for: page) == .edit else { return nil }"))
+        #expect(workspace.contains("sourceEditorSelectionRequest = CoreEditorSelectionRequest("))
+        #expect(workspace.contains("externalSelectionRequest: sourceEditorSelectionRequest"))
+        #expect(codeEditor.contains("let externalSelectionRequest: CoreEditorSelectionRequest?"))
+        #expect(codeEditor.contains("externalSelectionRequest: CoreEditorSelectionRequest? = nil"))
+        #expect(codeEditor.contains("selectionRequest: externalSelectionRequest ?? coreEditorSelectionRequest"))
     }
 
     @Test("note workspace pins SwiftUI controls to the active note surface theme")
@@ -650,7 +681,7 @@ struct NoteEditorLayoutTests {
         #expect(workspaceSource.contains("themeOverride: noteWorkspaceTheme"))
     }
 
-    @Test("visible note toolbar strip stays lean with only preview history and more controls")
+    @Test("visible note toolbar primary actions stay scoped to mode, source PDF, and more controls")
     func visibleNoteToolbarStripStaysLean() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         guard let controlsRange = source.range(of: "private var noteToolbarPrimaryActions: some View"),
@@ -661,49 +692,70 @@ struct NoteEditorLayoutTests {
 
         let controlsSource = String(source[controlsRange.lowerBound..<nextSectionRange.lowerBound])
 
-        // Uses standard Button + Label (matching main chat's toolbar pattern).
-        #expect(controlsSource.contains("Label("))
-        #expect(controlsSource.contains("Chat History"))
+        #expect(controlsSource.contains("noteModePicker(for: page)"))
+        #expect(controlsSource.contains("ViewOriginalPDFAffordance("))
         #expect(controlsSource.contains("moreMenu"))
         #expect(!controlsSource.contains("outlineFoldButton"))
         #expect(!controlsSource.contains("glyph: .miniChat"))
         #expect(!controlsSource.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
-    @Test("preview reserves the native titlebar inset and falls back higher for tab groups")
-    func previewReservesTitlebarInset() {
+    @Test("preview paints a native chrome backdrop without padding content down")
+    func previewPaintsNativeChromeBackdropWithoutPaddingContentDown() {
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 0, hasMultipleTabs: false)
+            NotePreviewChromeMetrics.backdropHeight(titlebarInset: 0, hasMultipleTabs: false)
                 == NotePreviewChromeMetrics.fallbackSingleTopInset
         )
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 0, hasMultipleTabs: true)
+            NotePreviewChromeMetrics.backdropHeight(titlebarInset: 0, hasMultipleTabs: true)
                 == NotePreviewChromeMetrics.fallbackTabbedTopInset
         )
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 52, hasMultipleTabs: false)
+            NotePreviewChromeMetrics.backdropHeight(
+                titlebarInset: 0,
+                hasMultipleTabs: false,
+                minimumHeight: 74
+            )
+                == 74
+        )
+        #expect(
+            NotePreviewChromeMetrics.backdropHeight(titlebarInset: 52, hasMultipleTabs: false)
                 == 52
         )
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 52, hasMultipleTabs: true)
+            NotePreviewChromeMetrics.backdropHeight(titlebarInset: 52, hasMultipleTabs: true)
                 == NotePreviewChromeMetrics.fallbackTabbedTopInset
         )
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 88, hasMultipleTabs: true)
+            NotePreviewChromeMetrics.backdropHeight(titlebarInset: 88, hasMultipleTabs: true)
                 == NotePreviewChromeMetrics.fallbackTabbedTopInset
         )
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 128, hasMultipleTabs: true)
+            NotePreviewChromeMetrics.backdropHeight(titlebarInset: 128, hasMultipleTabs: true)
                 == 128
         )
     }
 
-    @Test("note preview uses the workspace surface instead of a second material theme")
-    func notePreviewUsesWorkspaceSurfaceInsteadOfMaterial() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+    @Test("note preview uses the workspace surface without extra top padding")
+    func notePreviewUsesWorkspaceSurfaceWithoutExtraTopPadding() throws {
+        let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let previewSource = try loadRepoTextFile("Epistemos/Views/Notes/NotePreviewSurfaceView.swift")
 
-        #expect(source.contains("surfaceBackground: noteWorkspaceBackground"))
-        #expect(!source.contains("Rectangle().fill(.regularMaterial)"))
+        #expect(workspaceSource.contains("surfaceBackground: noteWorkspaceBackground"))
+        #expect(!workspaceSource.contains("extraTopChromeInset"))
+        #expect(!previewSource.contains("extraTopChromeInset"))
+        #expect(!previewSource.contains(") + NoteWorkspaceSurfaceStyle.topPadding"))
+        #expect(!previewSource.contains(") + NoteWorkspaceSurfaceStyle.graphEmbeddedEditorTopSpacing"))
+        #expect(!workspaceSource.contains("NoteDualPreviewLayout.outerPadding.top + NotePreviewChromeMetrics.fallbackSingleTopInset"))
+        #expect(previewSource.contains("let chromeBackdropHeight = NotePreviewChromeMetrics.backdropHeight("))
+        #expect(previewSource.contains("minimumHeight: chromeMinimumHeight"))
+        #expect(previewSource.contains("top: NoteDualPreviewLayout.outerPadding.top,"))
+        #expect(!previewSource.contains("top: NoteDualPreviewLayout.outerPadding.top + contentTopInset"))
+        #expect(previewSource.contains("previewTopChrome(height: chromeBackdropHeight)"))
+        #expect(previewSource.contains("private func previewTopChrome(height: CGFloat) -> some View"))
+        #expect(previewSource.contains("private var previewChromeBackdrop: some View"))
+        #expect(previewSource.contains("MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other))"))
+        #expect(!previewSource.contains("Rectangle().fill(.regularMaterial)"))
     }
 
     @MainActor
@@ -730,16 +782,35 @@ struct NoteEditorLayoutTests {
         #expect(NoteEditorPerformancePolicy.renderedTableOverlayRefreshDelay == .milliseconds(120))
     }
 
-    @MainActor
-    @Test("editor bootstraps from persisted note body before the first onAppear")
-    func editorBootstrapsFromPersistedBody() {
-        let page = SDPage(title: "Bootstrap")
-        page.saveBody("# Persisted\n\nBody")
+    @Test("editor defers persisted note body reads until async load")
+    func editorDefersPersistedBodyReadsUntilAsyncLoad() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
 
-        let snapshot = ProseEditorView.initialBodySnapshot(for: page)
+        #expect(source.contains("@State private var loadedBodyPageId: String?"))
+        #expect(source.contains("private func loadBodyIfNeeded(force: Bool) async"))
+        #expect(source.contains("Task.detached(priority: .userInitiated)"))
+        #expect(source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(source.contains("if loadedBodyPageId == page.id"))
+        #expect(!source.contains("let snapshot = Self.initialBodySnapshot"))
+        #expect(!source.contains("let body = Self.currentBody(for: page)"))
+    }
 
-        #expect(snapshot.bodyText == "# Persisted\n\nBody")
-        #expect(snapshot.lastPersistedBody == "# Persisted\n\nBody")
+    @Test("note workspace persisted body refresh defers state writes out of SwiftUI view updates")
+    func noteWorkspacePersistedBodyRefreshDefersStateWritesOutOfViewUpdates() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let functionRange = source.range(of: "private func schedulePersistedBodyRefresh(for page: SDPage?)"),
+              let nextFunctionRange = source.range(
+                of: "private func persistedBodyFor(_ page: SDPage) -> String",
+                range: functionRange.upperBound..<source.endIndex
+              ) else {
+            Issue.record("Failed to isolate schedulePersistedBodyRefresh() in NoteDetailWorkspaceView.swift")
+            return
+        }
+
+        let functionSource = String(source[functionRange.lowerBound..<nextFunctionRange.lowerBound])
+        #expect(functionSource.contains("persistedBodyLoadTask = Task { @MainActor in\n            await Task.yield()"))
+        #expect(functionSource.contains("guard let page else {\n                persistedBody = \"\"\n                return\n            }"))
+        #expect(!functionSource.contains("guard let page else {\n            persistedBody = \"\"\n            return\n        }\n\n        let pageId"))
     }
 
     @MainActor

@@ -34,6 +34,7 @@ private struct CodeFileBodySnapshot: Equatable, Sendable {
 
 enum NoteWorkspaceMode: String, CaseIterable, Hashable {
     case edit
+    case document
     case preview
     case source
 
@@ -41,6 +42,8 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
         switch self {
         case .edit:
             "Edit/Prose"
+        case .document:
+            "Document"
         case .preview:
             "Preview"
         case .source:
@@ -52,6 +55,8 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
         switch self {
         case .edit:
             "pencil"
+        case .document:
+            "doc.richtext"
         case .preview:
             "eye"
         case .source:
@@ -71,6 +76,11 @@ private struct SourceEditorRoute {
     var isMarkdown: Bool {
         CodeLanguage.isMarkdownDocument(path: filePath)
     }
+}
+
+private struct NoteModeOptions {
+    let modes: [NoteWorkspaceMode]
+    let sourceRoute: SourceEditorRoute?
 }
 
 private struct SourceEditorPersistedContent {
@@ -253,8 +263,8 @@ enum NoteWorkspaceSurfaceStyle {
     static let topPadding: CGFloat = 24
     static let bottomPadding: CGFloat = 72
     static let graphEmbeddedToolbarCornerRadius: CGFloat = 22
-    static let graphEmbeddedEditorTopSpacing: CGFloat =
-        NoteDualPreviewLayout.outerPadding.top + NotePreviewChromeMetrics.fallbackSingleTopInset
+    static let graphEmbeddedEditorToolbarClearance: CGFloat = 74
+    static let graphEmbeddedPreviewChromeMinimumHeight: CGFloat = 74
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
         // Eighth pass + 1 (2026-05-13): paint the workspace canvas
@@ -358,282 +368,6 @@ enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
     }
 }
 
-enum NotePreviewPerformancePolicy {
-    static let showsOverlayBadge = false
-}
-
-enum NotePreviewChromeMetrics {
-    static let fallbackSingleTopInset: CGFloat = 46
-    static let fallbackTabbedTopInset: CGFloat = 96
-
-    static func contentTopInset(titlebarInset: CGFloat, hasMultipleTabs: Bool) -> CGFloat {
-        let fallback = hasMultipleTabs ? fallbackTabbedTopInset : fallbackSingleTopInset
-        guard titlebarInset > 0 else {
-            return fallback
-        }
-        return max(titlebarInset, fallback)
-    }
-
-    static func titlebarInset(for window: NSWindow) -> CGFloat {
-        let inset = max(0, window.frame.height - window.contentLayoutRect.maxY)
-        return inset.isFinite ? inset : 0
-    }
-}
-
-enum NotePreviewDisplay {
-    static func renderedMarkdown(_ markdown: String) -> String {
-        markdown
-    }
-}
-
-enum NoteDualPreviewLayout {
-    static let minimumWidth: CGFloat = 1180
-    static let pageSpacing: CGFloat = 28
-    static let pageMaxWidth: CGFloat = 580
-    static let defaultSinglePageMaxWidth: CGFloat = 920
-    static let defaultEditorSurfaceMaxWidth: CGFloat = 1080
-    static let tableSinglePageMaxWidth: CGFloat = 840
-    static let tableReadableMaxWidth: CGFloat = 740
-    static let tableEditorReadableMaxWidth: CGFloat = 520
-    static let previewTextReadableMaxWidth: CGFloat = 760
-    static let editorTextReadableMaxWidth: CGFloat = 960
-    static let minimumTextHorizontalInset: CGFloat = 60
-    static let outerPadding = EdgeInsets(top: 28, leading: 32, bottom: 40, trailing: 32)
-    static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)
-    static let sectionTargetCharacterCount = 900
-    static let sectionSoftOverflowFloor = 160
-
-    private enum PreviewBlockKind {
-        case heading
-        case prose
-        case isolated
-    }
-
-    static func usesDualColumns(for availableWidth: CGFloat) -> Bool {
-        availableWidth >= minimumWidth
-    }
-
-    static func containsTable(in markdown: String) -> Bool {
-        paragraphBlocks(in: markdown).contains(where: isTableBlock)
-    }
-
-    static func singlePageMaxWidth(for markdown: String) -> CGFloat {
-        containsTable(in: markdown) ? tableSinglePageMaxWidth : defaultSinglePageMaxWidth
-    }
-
-    static func singlePageWidth(for markdown: String, availableWidth: CGFloat) -> CGFloat {
-        let usableWidth = max(0, availableWidth - outerPadding.leading - outerPadding.trailing)
-        return min(singlePageMaxWidth(for: markdown), usableWidth)
-    }
-
-    static func dualPageWidth(for availableWidth: CGFloat) -> CGFloat {
-        let usableWidth = max(
-            0,
-            availableWidth - outerPadding.leading - outerPadding.trailing - pageSpacing
-        )
-        return min(pageMaxWidth, usableWidth / 2)
-    }
-
-    static func readableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
-        containsTable(in: markdown) ? min(defaultWidth, tableReadableMaxWidth) : defaultWidth
-    }
-
-    static func editorReadableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
-        if containsTable(in: markdown) {
-            return min(defaultWidth, tableEditorReadableMaxWidth)
-        }
-        return min(defaultWidth, defaultEditorSurfaceMaxWidth)
-    }
-
-    static func centeredTextInset(
-        for availableWidth: CGFloat,
-        markdown: String,
-        maxReadableWidth: CGFloat
-    ) -> CGFloat {
-        guard availableWidth.isFinite else { return minimumTextHorizontalInset }
-        guard !containsTable(in: markdown) else { return minimumTextHorizontalInset }
-
-        let clampedWidth = max(0, availableWidth)
-        return max(minimumTextHorizontalInset, (clampedWidth - maxReadableWidth) / 2)
-    }
-
-    static func paragraphBlocks(in markdown: String) -> [String] {
-        var blocks: [String] = []
-        var current: [String] = []
-        var isInsideCodeFence = false
-
-        func flushCurrent() {
-            let block = current.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !block.isEmpty {
-                blocks.append(block)
-            }
-            current.removeAll(keepingCapacity: true)
-        }
-
-        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
-            let currentLine = String(line)
-            let trimmed = currentLine.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") {
-                current.append(currentLine)
-                isInsideCodeFence.toggle()
-                continue
-            }
-            if !isInsideCodeFence && trimmed.isEmpty {
-                flushCurrent()
-                continue
-            }
-            current.append(currentLine)
-        }
-
-        flushCurrent()
-        return blocks
-    }
-
-    static func bookSections(
-        in markdown: String,
-        targetCharacterCount: Int = sectionTargetCharacterCount
-    ) -> [String] {
-        let blocks = paragraphBlocks(in: markdown)
-        guard !blocks.isEmpty else { return [] }
-
-        var sections: [String] = []
-        var current: [String] = []
-        var currentWeight = 0
-
-        func flushCurrent() {
-            let section = current.joined(separator: "\n\n").trimmingCharacters(
-                in: .whitespacesAndNewlines
-            )
-            if !section.isEmpty {
-                sections.append(section)
-            }
-            current.removeAll(keepingCapacity: true)
-            currentWeight = 0
-        }
-
-        for block in blocks {
-            let kind = classify(block)
-            let blockWeight = sectionWeight(block)
-
-            switch kind {
-            case .heading:
-                flushCurrent()
-                current = [block]
-                currentWeight = blockWeight
-
-            case .prose:
-                if current.isEmpty {
-                    current = [block]
-                    currentWeight = blockWeight
-                } else if shouldAppend(
-                    blockWeight: blockWeight,
-                    to: current,
-                    currentWeight: currentWeight,
-                    targetCharacterCount: targetCharacterCount
-                ) {
-                    current.append(block)
-                    currentWeight += blockWeight
-                } else {
-                    flushCurrent()
-                    current = [block]
-                    currentWeight = blockWeight
-                }
-
-            case .isolated:
-                if current.count == 1, classify(current[0]) == .heading {
-                    current.append(block)
-                    flushCurrent()
-                } else {
-                    flushCurrent()
-                    sections.append(block)
-                }
-            }
-        }
-
-        flushCurrent()
-        return sections
-    }
-
-    static func columnContents(
-        in markdown: String,
-        targetCharacterCount: Int = sectionTargetCharacterCount
-    ) -> [String] {
-        let sections = bookSections(in: markdown, targetCharacterCount: targetCharacterCount)
-        guard !sections.isEmpty else { return [] }
-        guard sections.count > 1 else { return sections }
-
-        let weights = sections.map(sectionWeight)
-        let target = weights.reduce(0, +) / 2
-        var running = 0
-        var bestSplit = 1
-        var bestDelta = Int.max
-
-        for index in 0..<(sections.count - 1) {
-            running += weights[index]
-            let delta = abs(target - running)
-            if delta < bestDelta {
-                bestDelta = delta
-                bestSplit = index + 1
-            }
-        }
-
-        return [
-            sections[..<bestSplit].joined(separator: "\n\n"),
-            sections[bestSplit...].joined(separator: "\n\n"),
-        ]
-    }
-
-    private static func classify(_ block: String) -> PreviewBlockKind {
-        let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasPrefix("#") {
-            return .heading
-        }
-        if trimmed.hasPrefix("```")
-            || trimmed == "---"
-            || trimmed == "***"
-            || trimmed == "___"
-            || isTableBlock(trimmed)
-        {
-            return .isolated
-        }
-        return .prose
-    }
-
-    private static func isTableBlock(_ block: String) -> Bool {
-        let lines = block.split(separator: "\n", omittingEmptySubsequences: true)
-        guard !lines.isEmpty else { return false }
-        return lines.allSatisfy { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            return trimmed.hasPrefix("|") && trimmed.hasSuffix("|")
-        }
-    }
-
-    private static func sectionWeight(_ section: String) -> Int {
-        let lineCount = section.split(separator: "\n", omittingEmptySubsequences: false).count
-        return section.count + max(0, lineCount - 1) * 20
-    }
-
-    private static func shouldAppend(
-        blockWeight: Int,
-        to current: [String],
-        currentWeight: Int,
-        targetCharacterCount: Int
-    ) -> Bool {
-        let combinedWeight = currentWeight + blockWeight
-        if combinedWeight <= targetCharacterCount {
-            return true
-        }
-        if current.count == 1, classify(current[0]) == .heading {
-            return true
-        }
-        if currentWeight < targetCharacterCount {
-            let overflowAllowance = max(targetCharacterCount / 3, sectionSoftOverflowFloor)
-            return combinedWeight <= targetCharacterCount + overflowAllowance
-        }
-        return false
-    }
-}
-
 enum NoteToolbarGlyph: Sendable {
     case format
     case preview
@@ -716,6 +450,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
+    @State private var sourceEditorSelectionRequest: CoreEditorSelectionRequest?
     @State private var persistedBody: String
     @State private var showLegacyRecoverySheet = false
     @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
@@ -735,6 +470,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var metricsTask: Task<Void, Never>?
     @State private var modelDerivedSidecarTask: Task<Void, Never>?
     @State private var codeFileLoadTask: Task<Void, Never>?
+    @State private var persistedBodyLoadTask: Task<Void, Never>?
     @State private var missingPageRecoveryTask: Task<Void, Never>?
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
@@ -756,11 +492,16 @@ struct NoteDetailWorkspaceView: View {
     /// True while a transition is in flight (prevents rapid re-trigger).
     @State private var isTransitioning = false
     @MainActor
-    init(pageId: String, presentation: NoteWorkspacePresentation = .window) {
+    init(
+        pageId: String,
+        presentation: NoteWorkspacePresentation = .window,
+        initialMode: NoteWorkspaceMode = .edit
+    ) {
         self.pageId = pageId
         self.presentation = presentation
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
-        _persistedBody = State(initialValue: NoteWindowManager.shared.currentBody(for: pageId))
+        _noteMode = State(initialValue: initialMode)
+        _persistedBody = State(initialValue: "")
         _deterministicOutlineState = State(
             initialValue: KnowledgeCoreOutlineProjectionState()
         )
@@ -831,18 +572,23 @@ struct NoteDetailWorkspaceView: View {
                         graphToolbarNavigationControls
                     }
                 }
-                if !isCodeFile {
+                if usesNativeGraphWindowToolbar, let page = pages.first {
                     ToolbarItem(placement: .principal) {
-                        if usesNativeGraphWindowToolbar, let page = pages.first {
-                            graphEmbeddedToolbarTitle(page)
-                        } else {
-                            noteToolbarTitleItem
-                        }
+                        graphEmbeddedToolbarTitle(page)
                     }
                 }
-                ToolbarItemGroup(placement: .primaryAction) {
-                    noteToolbarPrimaryActions
+                if shouldShowNoteToolbarPrimaryActions {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        noteToolbarPrimaryActions
+                    }
                 }
+                #if canImport(MarkEditKit)
+                if isCodeFile && shouldShowMarkEditSourceSettingsToolbarButton {
+                    ToolbarItem(placement: .primaryAction) {
+                        markEditSourceSettingsToolbarButton
+                    }
+                }
+                #endif
             }
         }
         .toolbarBackgroundVisibility(.automatic, for: .windowToolbar)
@@ -858,9 +604,7 @@ struct NoteDetailWorkspaceView: View {
             // Hidden keyboard shortcut buttons
             Button("") {
                 Task {
-                    if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    }
+                    await NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
@@ -1079,8 +823,10 @@ struct NoteDetailWorkspaceView: View {
                 // Transition overlay removed — direct swap between editor/preview
             }
             .overlay(alignment: .bottom) {
-                noteFooter
-                .allowsHitTesting(false)
+                if shouldShowNoteWorkspaceFooter {
+                    noteFooter
+                        .allowsHitTesting(false)
+                }
             }
             .overlay(alignment: .bottomTrailing) {
                 contextualShadowsOverlay
@@ -1088,15 +834,15 @@ struct NoteDetailWorkspaceView: View {
                     .padding(.bottom, 52)
             }
             .overlay(alignment: .trailing) {
-                let outlineMarkdown = pages.first.map(displayBody(for:)) ?? persistedBody
+                let outlineMarkdown = pages.first.map(activeOutlineMarkdown(for:)) ?? persistedBody
                 NoteOutlineOverlay(
                     markdown: outlineMarkdown,
                     theme: ui.theme,
                     onNavigate: { charOffset in
-                        scrollEditorTo(charOffset: charOffset)
+                        navigateActiveOutline(to: charOffset)
                     },
-                    externalItems: tocItems.isEmpty ? nil : tocItems,
-                    blockItems: blockOutlineItems.isEmpty ? nil : blockOutlineItems
+                    externalItems: pages.first.flatMap(activeOutlineExternalItems(for:)),
+                    blockItems: pages.first.flatMap(activeOutlineBlockItems(for:))
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1105,6 +851,7 @@ struct NoteDetailWorkspaceView: View {
                 Task { @MainActor in
                     refreshTabCount()
                     if let page = pages.first {
+                        schedulePersistedBodyRefresh(for: page)
                         let body = persistedBodyFor(page)
                         if persistedBody != body {
                             persistedBody = body
@@ -1135,6 +882,8 @@ struct NoteDetailWorkspaceView: View {
                 modelDerivedSidecarTask = nil
                 codeFileLoadTask?.cancel()
                 codeFileLoadTask = nil
+                persistedBodyLoadTask?.cancel()
+                persistedBodyLoadTask = nil
                 missingPageRecoveryTask?.cancel()
                 missingPageRecoveryTask = nil
                 legacyRecoveryRefreshTask?.cancel()
@@ -1142,12 +891,14 @@ struct NoteDetailWorkspaceView: View {
             }
             .onChange(of: pages.isEmpty) { _, isEmpty in
                 if isEmpty {
+                    schedulePersistedBodyRefresh(for: nil)
                     scheduleCodeFileBodyRefresh(for: nil)
                     refreshModelDerivedSidecarBadge(for: nil)
                     queueMissingPageRecovery()
                 } else {
                     missingPageRecoveryTask?.cancel()
                     missingPageRecoveryTask = nil
+                    schedulePersistedBodyRefresh(for: pages.first)
                     scheduleCodeFileBodyRefresh(for: pages.first)
                     refreshModelDerivedSidecarBadge(for: pages.first)
                     refreshLegacyRecoveryPresentation()
@@ -1160,12 +911,7 @@ struct NoteDetailWorkspaceView: View {
             .onReceive(NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)) { notification in
                 guard let changedId = notification.userInfo?["pageId"] as? String,
                       changedId == pageId else { return }
-                let freshBody = NoteWindowManager.shared.currentBody(for: pageId)
-                guard persistedBody != freshBody else { return }
-                persistedBody = freshBody
-                scheduleMetricsRefresh(body: freshBody, includeMarkdownHeadings: true)
-                refreshModelDerivedSidecarBadge(for: pages.first)
-                refreshLegacyRecoveryPresentation()
+                schedulePersistedBodyRefresh(for: pages.first)
             }
         }
     }
@@ -1228,6 +974,11 @@ struct NoteDetailWorkspaceView: View {
     private var noteCommandSurfaceIsActive: Bool {
         guard let page = pages.first else { return false }
         return resolvedNoteMode(for: page) == .edit
+    }
+
+    private var shouldShowNoteWorkspaceFooter: Bool {
+        guard let page = pages.first else { return false }
+        return resolvedNoteMode(for: page) != .document
     }
 
     private var noteFooter: some View {
@@ -1299,9 +1050,12 @@ struct NoteDetailWorkspaceView: View {
         vaultSync.savePage(pageId: pageId)
     }
 
-    private func noteWorkspaceQuickActions(for page: SDPage) -> [NoteWorkspaceQuickAction] {
+    private func noteWorkspaceQuickActions(
+        for page: SDPage,
+        options: NoteModeOptions? = nil
+    ) -> [NoteWorkspaceQuickAction] {
         NoteWorkspaceQuickAction.allCases.filter { action in
-            action != .findInNote || resolvedNoteMode(for: page) == .edit
+            action != .findInNote || resolvedNoteMode(for: page, options: options) == .edit
         }
     }
 
@@ -1318,6 +1072,27 @@ struct NoteDetailWorkspaceView: View {
               let route = sourceEditorRoute(for: page) else { return 0 }
         let content = cachedSourceEditorContent(page: page, route: route)
         return CodeEditorLineMetrics.lineCount(content)
+    }
+
+    private func activeOutlineMarkdown(for page: SDPage) -> String {
+        if let route = sourceEditorRoute(for: page) {
+            return cachedSourceEditorContent(page: page, route: route)
+        }
+        return displayBody(for: page)
+    }
+
+    private func activeOutlineExternalItems(for page: SDPage) -> [TOCItem]? {
+        switch resolvedNoteMode(for: page) {
+        case .edit:
+            return tocItems.isEmpty ? nil : tocItems
+        case .document, .preview, .source:
+            return nil
+        }
+    }
+
+    private func activeOutlineBlockItems(for page: SDPage) -> [TOCItem]? {
+        guard resolvedNoteMode(for: page) == .edit else { return nil }
+        return blockOutlineItems.isEmpty ? nil : blockOutlineItems
     }
 
     private func noteFooterBubble<Content: View>(
@@ -1351,10 +1126,20 @@ struct NoteDetailWorkspaceView: View {
     @ViewBuilder
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
         Group {
-            if let route = sourceEditorRoute(for: page) {
+            if resolvedNoteMode(for: page) == .document {
+                MarkdownDocumentSurface(
+                    pageId: page.id,
+                    title: page.title,
+                    markdown: displayBody(for: page),
+                    theme: noteWorkspaceTheme,
+                    saveMarkdown: { markdown in
+                        saveMarkdownDocumentSurfaceContent(page: page, markdown: markdown)
+                    },
+                    surfaceToolbarAccessory: markdownDocumentSurfaceToolbarAccessory(for: page)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else if let route = sourceEditorRoute(for: page) {
                 VStack(spacing: 0) {
-                    sourceModeHeader(for: page, route: route)
-
                     CodeEditorView(
                         content: cachedSourceEditorContent(page: page, route: route),
                         language: route.language,
@@ -1372,6 +1157,8 @@ struct NoteDetailWorkspaceView: View {
                         // SS-GC: in the embedded home graph, give the code editor the same
                         // landing-variant theme the prose branch gets, so its top bar paints the
                         // graph backdrop instead of a white card. nil elsewhere = unchanged.
+                        allowsMarkEditWindowToolbar: false,
+                        externalSelectionRequest: sourceEditorSelectionRequest,
                         themeOverride: usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : nil
                     )
                     .id("\(page.id)::\(route.filePath)")
@@ -1398,46 +1185,13 @@ struct NoteDetailWorkspaceView: View {
         }
         .padding(
             .top,
-            usesOverlayGraphToolbar ? NoteWorkspaceSurfaceStyle.graphEmbeddedEditorTopSpacing : 0
+            usesOverlayGraphToolbar ? NoteWorkspaceSurfaceStyle.graphEmbeddedEditorToolbarClearance : 0
         )
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity,
             alignment: .topLeading
         )
-    }
-
-    @ViewBuilder
-    private func sourceModeHeader(for page: SDPage, route: SourceEditorRoute) -> some View {
-        HStack(spacing: 10) {
-            CodeFileIconView(filePath: route.filePath, language: route.language, theme: ui.theme)
-
-            Text(URL(fileURLWithPath: route.filePath).lastPathComponent)
-                .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(ui.theme.resolved.foreground.color)
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            Spacer(minLength: 12)
-
-            if isMarkdownDocument(page) {
-                noteModePicker(for: page)
-
-                #if canImport(MarkEditKit)
-                Button {
-                    showMarkEditSourceSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .help("MarkEdit settings")
-                #endif
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: noteWorkspaceTheme))
     }
 
     /// Saves code file content back to disk and updates associated page state
@@ -1599,6 +1353,39 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    private func saveMarkdownDocumentSurfaceContent(page: SDPage, markdown: String) {
+        let pageId = page.id
+        guard stageBodyWrite(pageId: pageId, fullText: markdown) else { return }
+        page.body = markdown
+        page.blockReferences = SDPage.extractBlockReferences(from: markdown)
+        page.wordCount = markdown.split(separator: " ").count
+        page.updatedAt = .now
+        page.needsVaultSync = true
+
+        do {
+            try modelContext.save()
+        } catch {
+            Log.app.error("Document surface: failed to save markdown note state: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+
+        persistedBody = markdown
+        modeBodySnapshot = NoteModeBodySnapshot(pageId: pageId, body: markdown)
+        AppBootstrap.shared?.graphState.needsRefresh = true
+        scheduleMetricsRefresh(body: markdown, includeMarkdownHeadings: false)
+
+        if let modelContainer = AppBootstrap.shared?.modelContainer {
+            Task {
+                await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                    pageId: pageId,
+                    body: markdown,
+                    modelContainer: modelContainer
+                )
+            }
+        }
+        vaultSync.savePage(pageId: pageId)
+    }
+
     private func codeFileServiceForActiveVault(filePath: String) -> CodeFileService? {
         guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
@@ -1629,22 +1416,41 @@ struct NoteDetailWorkspaceView: View {
         graphState?.needsRefresh = true
     }
 
-    private var noteToolbarTitle: String {
-        let title = pages.first?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "Note" : title
+    private var shouldShowMarkEditSourceSettingsToolbarButton: Bool {
+        guard let page = pages.first,
+              let route = sourceEditorRoute(for: page) else {
+            return false
+        }
+        return route.isMarkdown
     }
 
-    private var noteToolbarTitleItem: some View {
-        Text(noteToolbarTitle)
-            .font(.headline)
-            .lineLimit(1)
-            .foregroundStyle(ui.theme.resolved.foreground.color)
+    private var shouldShowNoteToolbarPrimaryActions: Bool {
+        return !isCodeFile || shouldShowMarkEditSourceSettingsToolbarButton
     }
+
+    private var isMarkdownDocumentSurfaceModeActive: Bool {
+        guard let page = pages.first else { return false }
+        return resolvedNoteMode(for: page) == .document
+    }
+
+    #if canImport(MarkEditKit)
+    private var markEditSourceSettingsToolbarButton: some View {
+        Button {
+            showMarkEditSourceSettings = true
+        } label: {
+            Label("MarkEdit settings", systemImage: "gearshape")
+        }
+        .labelStyle(.iconOnly)
+        .help("MarkEdit settings")
+    }
+    #endif
 
     @ViewBuilder
     private var noteToolbarPrimaryActions: some View {
         if let page = pages.first {
-            noteModePicker(for: page)
+            if !isMarkdownDocumentSurfaceModeActive {
+                noteModePicker(for: page)
+            }
 
             ViewOriginalPDFAffordance(
                 page: page,
@@ -1658,27 +1464,56 @@ struct NoteDetailWorkspaceView: View {
         moreMenu
     }
 
+    private func markdownDocumentSurfaceToolbarAccessory(for page: SDPage) -> AnyView {
+        AnyView(
+            HStack(spacing: 4) {
+                noteModePicker(for: page)
+            }
+        )
+    }
+
     @ViewBuilder
     private func noteModePicker(for page: SDPage) -> some View {
-        let modes = availableNoteModes(for: page)
+        let options = noteModeOptions(for: page)
+        let modes = options.modes
         if modes.count > 1 {
-            Picker(
-                "View",
-                selection: Binding(
-                    get: { resolvedNoteMode(for: page) },
-                    set: { setNoteMode($0, for: page) }
-                )
-            ) {
-                ForEach(modes, id: \.self) { mode in
-                    Label(mode.label, systemImage: mode.symbolName).tag(mode)
+            let selectedMode = resolvedNoteMode(for: page, options: options)
+            ForEach(modes, id: \.self) { mode in
+                surfaceModeToolbarButton(mode: mode, isActive: mode == selectedMode) {
+                    setNoteMode(mode, for: page, options: options)
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: modes.count >= 3 ? 306 : 214)
-            .accessibilityLabel("Note view mode")
-            .accessibilityHint("Switch between Edit/Prose, Preview, and Source")
-            .help("Switch between Edit/Prose, Preview, and Source")
         }
+    }
+
+    private func surfaceModeToolbarButton(
+        mode: NoteWorkspaceMode,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        let accent = noteWorkspaceTheme.resolved.accent.color
+        let foreground = noteWorkspaceTheme.resolved.foreground.color
+
+        return Button(action: action) {
+            Image(systemName: mode.symbolName)
+                .font(.system(size: 13, weight: isActive ? .semibold : .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(isActive ? accent : foreground.opacity(0.78))
+                .frame(width: 28, height: 28)
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .background {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(isActive ? accent.opacity(0.16) : Color.clear)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .strokeBorder(isActive ? accent.opacity(0.36) : Color.clear, lineWidth: 0.75)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(mode.label)
+        .accessibilityHint("Switch between Prose, Document, Preview, and Source")
+        .help(mode.label)
     }
 
     private var graphToolbarNavigationControls: some View {
@@ -1984,6 +1819,17 @@ struct NoteDetailWorkspaceView: View {
         tv.showFindIndicator(for: lineRange)
     }
 
+    private func navigateActiveOutline(to charOffset: Int) {
+        guard let page = pages.first else { return }
+        if sourceEditorRoute(for: page) != nil {
+            sourceEditorSelectionRequest = CoreEditorSelectionRequest(
+                range: NSRange(location: max(0, charOffset), length: 0)
+            )
+        } else {
+            scrollEditorTo(charOffset: charOffset)
+        }
+    }
+
     // MARK: - Workspace Editor Restore
 
     private func applyEditorRestore(cursor: Int, scrollFraction: Double) {
@@ -1995,6 +1841,41 @@ struct NoteDetailWorkspaceView: View {
             let scrollY = scrollFraction * docHeight
             scrollView.contentView.scroll(to: NSPoint(x: 0, y: scrollY))
             scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+
+    private func schedulePersistedBodyRefresh(for page: SDPage?) {
+        persistedBodyLoadTask?.cancel()
+        persistedBodyLoadTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            guard let page else {
+                persistedBody = ""
+                return
+            }
+
+            let pageId = page.id
+            let fallbackBody = page.body
+            if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
+                guard persistedBody != liveBody else { return }
+                persistedBody = liveBody
+                scheduleMetricsRefresh(body: liveBody, includeMarkdownHeadings: true)
+                refreshModelDerivedSidecarBadge(for: page)
+                refreshLegacyRecoveryPresentation()
+                return
+            }
+
+            let loadedBody = await Task.detached(priority: .userInitiated) {
+                NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
+            }.value
+            guard !Task.isCancelled,
+                  pages.first?.id == pageId else { return }
+            let body = loadedBody.isEmpty ? fallbackBody : loadedBody
+            guard persistedBody != body else { return }
+            persistedBody = body
+            scheduleMetricsRefresh(body: body, includeMarkdownHeadings: true)
+            refreshModelDerivedSidecarBadge(for: pages.first)
+            refreshLegacyRecoveryPresentation()
         }
     }
 
@@ -2016,7 +1897,7 @@ struct NoteDetailWorkspaceView: View {
         if let snapshot = currentModeBodySnapshot(for: page.id), !snapshot.isEmpty {
             return snapshot
         }
-        let managed = NoteWindowManager.shared.currentBody(for: page.id)
+        let managed = NoteWindowManager.shared.editorBody(for: page.id) ?? ""
         if !managed.isEmpty {
             return managed
         }
@@ -2043,34 +1924,41 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func availableNoteModes(for page: SDPage) -> [NoteWorkspaceMode] {
+        noteModeOptions(for: page).modes
+    }
+
+    private func noteModeOptions(for page: SDPage) -> NoteModeOptions {
+        let sourceRoute = sourceFileRoute(for: page)
         // A note-backed note (no on-disk filePath) is a markdown/prose note, same as a resolved
         // .md file: offer the full Edit/Preview/Source set when a Source route is available.
         // Only a NON-markdown code file (a real non-.md filePath) is Source-only. This restores
         // the MarkEdit Source toggle that regressed away for note-backed notes. (source-toggle 2026-07-01)
         let isMarkdownBodied = isMarkdownDocument(page) || (page.filePath?.isEmpty ?? true)
         if isMarkdownBodied {
-            return sourceFileRoute(for: page) == nil
-                ? [.edit, .preview]
-                : [.edit, .preview, .source]
+            return NoteModeOptions(
+                modes: sourceRoute == nil ? [.edit, .document, .preview] : [.edit, .document, .preview, .source],
+                sourceRoute: sourceRoute
+            )
         }
-        if sourceFileRoute(for: page) != nil {
-            return [.source]
+        if sourceRoute != nil {
+            return NoteModeOptions(modes: [.source], sourceRoute: sourceRoute)
         }
-        return [.edit, .preview]
+        return NoteModeOptions(modes: [.edit, .preview], sourceRoute: nil)
     }
 
-    private func resolvedNoteMode(for page: SDPage) -> NoteWorkspaceMode {
-        let modes = availableNoteModes(for: page)
+    private func resolvedNoteMode(for page: SDPage, options: NoteModeOptions? = nil) -> NoteWorkspaceMode {
+        let modes = (options ?? noteModeOptions(for: page)).modes
         if modes.contains(noteMode) {
             return noteMode
         }
         return modes.first ?? .edit
     }
 
-    private func setNoteMode(_ mode: NoteWorkspaceMode, for page: SDPage) {
-        let modes = availableNoteModes(for: page)
+    private func setNoteMode(_ mode: NoteWorkspaceMode, for page: SDPage, options: NoteModeOptions? = nil) {
+        let options = options ?? noteModeOptions(for: page)
+        let modes = options.modes
         guard modes.contains(mode),
-              resolvedNoteMode(for: page) != mode else { return }
+              resolvedNoteMode(for: page, options: options) != mode else { return }
         flushCurrentEditor()
         noteMode = mode
         scheduleCodeFileBodyRefresh(for: page)
@@ -2136,12 +2024,8 @@ struct NoteDetailWorkspaceView: View {
         else { return nil }
 
         let normalizedPath = components.joined(separator: "/")
-        let candidate = vaultURL
-            .standardizedFileURL
-            .appendingPathComponent(normalizedPath, isDirectory: false)
-            .standardizedFileURL
-        let rootPath = vaultURL.standardizedFileURL.path
-        let candidatePath = candidate.path
+        let rootPath = lexicalFilePath(vaultURL.path)
+        let candidatePath = lexicalFilePath(rootPath + "/" + normalizedPath)
         let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
         guard candidatePath.hasPrefix(prefix),
               CodeLanguage.isMarkdownDocument(path: candidatePath)
@@ -2150,11 +2034,35 @@ struct NoteDetailWorkspaceView: View {
         return candidatePath
     }
 
+    private func lexicalFilePath(_ path: String) -> String {
+        let isAbsolute = path.hasPrefix("/")
+        var components: [String] = []
+        for component in path.split(separator: "/", omittingEmptySubsequences: true) {
+            if component == "." {
+                continue
+            }
+            if component == ".." {
+                if !components.isEmpty {
+                    components.removeLast()
+                }
+                continue
+            }
+            components.append(String(component))
+        }
+
+        let joined = components.joined(separator: "/")
+        if isAbsolute {
+            return joined.isEmpty ? "/" : "/" + joined
+        }
+        return joined.isEmpty ? "." : joined
+    }
+
     private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute? {
-        guard resolvedNoteMode(for: page) == .source else {
+        let options = noteModeOptions(for: page)
+        guard resolvedNoteMode(for: page, options: options) == .source else {
             return nil
         }
-        return sourceFileRoute(for: page)
+        return options.sourceRoute
     }
 
     private func scheduleCodeFileBodyRefresh(for page: SDPage?) {
@@ -2213,7 +2121,8 @@ struct NoteDetailWorkspaceView: View {
                     if let snapshot = currentModeBodySnapshot(for: pageId), !snapshot.isEmpty {
                         return
                     }
-                    if !NoteWindowManager.shared.currentBody(for: pageId).isEmpty {
+                    if let liveBody = NoteWindowManager.shared.editorBody(for: pageId),
+                       !liveBody.isEmpty {
                         return
                     }
                 }
@@ -2285,7 +2194,7 @@ struct NoteDetailWorkspaceView: View {
         if let snapshot = currentModeBodySnapshot(for: page.id), !snapshot.isEmpty {
             return snapshot
         }
-        let managed = NoteWindowManager.shared.currentBody(for: page.id)
+        let managed = NoteWindowManager.shared.editorBody(for: page.id) ?? ""
         if !managed.isEmpty {
             return managed
         }
@@ -2301,7 +2210,7 @@ struct NoteDetailWorkspaceView: View {
             return responder.string
         }
         switch resolvedNoteMode(for: page) {
-        case .source, .preview:
+        case .document, .source, .preview:
             return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)
         case .edit:
             return nil
@@ -2366,10 +2275,13 @@ struct NoteDetailWorkspaceView: View {
     @ViewBuilder
     private func notePreview(body: String) -> some View {
         AdaptiveNotePreviewView2(
-            content: NotePreviewDisplay.renderedMarkdown(body),
+            content: body,
             theme: noteWorkspaceTheme,
             hasMultipleTabs: hasMultipleTabs,
-            surfaceBackground: noteWorkspaceBackground
+            surfaceBackground: noteWorkspaceBackground,
+            chromeMinimumHeight: usesOverlayGraphToolbar
+                ? NoteWorkspaceSurfaceStyle.graphEmbeddedPreviewChromeMinimumHeight
+                : 0
         )
     }
 
@@ -2591,8 +2503,13 @@ struct NoteDetailWorkspaceView: View {
 
             Divider()
 
-            if pages.first.map({ resolvedNoteMode(for: $0) != .preview }) ?? true {
-                let actions = pages.first.map(noteWorkspaceQuickActions(for:)) ?? NoteWorkspaceQuickAction.allCases
+            if pages.first.map({ page in
+                let options = noteModeOptions(for: page)
+                return resolvedNoteMode(for: page, options: options) != .preview
+            }) ?? true {
+                let actions = pages.first.map { page in
+                    noteWorkspaceQuickActions(for: page, options: noteModeOptions(for: page))
+                } ?? NoteWorkspaceQuickAction.allCases
                 ForEach(actions, id: \.self) { action in
                     Button(action.title) {
                         performNoteWorkspaceQuickAction(action)
@@ -3680,278 +3597,6 @@ private struct IdeaRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(theme.glassBorder, lineWidth: 0.5)
         )
-    }
-}
-
-private struct NotePreviewView2: NSViewRepresentable {
-    let body: String
-    let theme: EpistemosTheme
-    private static let verticalInset: CGFloat = 54
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let (scrollView, textView) = ProseTextView2.makeTextKit2()
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.allowsUndo = false
-        textView.drawsBackground = false
-        textView.backgroundColor = .clear
-        textView.textContainerInset = NSSize(
-            width: NoteDualPreviewLayout.minimumTextHorizontalInset,
-            height: Self.verticalInset
-        )
-        textView.applyTheme(theme)
-        textView.textStorage?.setAttributedString(NSAttributedString(string: body))
-        textView.reparseAndInvalidate()
-
-        scrollView.drawsBackground = false
-        scrollView.backgroundColor = .clear
-        scrollView.wantsLayer = true
-        scrollView.automaticallyAdjustsContentInsets = false
-        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-
-        scrollView.contentView.postsFrameChangedNotifications = true
-        context.coordinator.frameObserver = NotificationCenter.default.addObserver(
-            forName: NSView.frameDidChangeNotification,
-            object: scrollView.contentView,
-            queue: .main
-        ) { [weak textView] _ in
-            guard let textView else { return }
-            MainActor.assumeIsolated {
-                Self.updateCenteringInsets(for: textView)
-            }
-        }
-
-        context.coordinator.textView = textView
-        context.coordinator.lastTheme = theme
-
-        DispatchQueue.main.async {
-            Self.updateCenteringInsets(for: textView)
-        }
-
-        return scrollView
-    }
-
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = context.coordinator.textView else { return }
-
-        if context.coordinator.lastTheme != theme {
-            context.coordinator.lastTheme = theme
-            textView.applyTheme(theme)
-        }
-
-        if textView.string != body {
-            textView.textStorage?.setAttributedString(NSAttributedString(string: body))
-            textView.reparseAndInvalidate()
-        } else {
-            textView.updateVisibleLineRange()
-        }
-
-        Self.updateCenteringInsets(for: textView)
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    final class Coordinator {
-        nonisolated(unsafe) var textView: ProseTextView2?
-        var lastTheme: EpistemosTheme?
-        nonisolated(unsafe) var frameObserver: (any NSObjectProtocol)?
-
-        deinit {
-            if let frameObserver {
-                NotificationCenter.default.removeObserver(frameObserver)
-            }
-        }
-    }
-
-    private static func updateCenteringInsets(for textView: ProseTextView2) {
-        guard let scrollView = textView.enclosingScrollView else { return }
-        let availableWidth = scrollView.contentSize.width
-        let horizontalInset = NoteDualPreviewLayout.centeredTextInset(
-            for: availableWidth,
-            markdown: textView.string,
-            maxReadableWidth: NoteDualPreviewLayout.previewTextReadableMaxWidth
-        )
-        let currentInset = textView.textContainerInset
-        if abs(currentInset.width - horizontalInset) > 0.5
-            || abs(currentInset.height - verticalInset) > 0.5
-        {
-            textView.textContainerInset = NSSize(width: horizontalInset, height: verticalInset)
-        }
-    }
-}
-
-private struct AdaptiveNotePreviewView2: View {
-    let content: String
-    let theme: EpistemosTheme
-    let hasMultipleTabs: Bool
-    let surfaceBackground: Color?
-    private let pageContents: [String]
-    @State private var titlebarInset: CGFloat = 0
-
-    init(
-        content: String,
-        theme: EpistemosTheme,
-        hasMultipleTabs: Bool,
-        surfaceBackground: Color? = nil
-    ) {
-        self.content = content
-        self.theme = theme
-        self.hasMultipleTabs = hasMultipleTabs
-        self.surfaceBackground = surfaceBackground
-        self.pageContents = NoteDualPreviewLayout.columnContents(in: content)
-    }
-
-    var body: some View {
-        GeometryReader { proxy in
-            let usesDualColumns = NoteDualPreviewLayout.usesDualColumns(for: proxy.size.width)
-                && pageContents.count > 1
-            let dualPageWidth = NoteDualPreviewLayout.dualPageWidth(for: proxy.size.width)
-            let contentTopInset = NotePreviewChromeMetrics.contentTopInset(
-                titlebarInset: titlebarInset,
-                hasMultipleTabs: hasMultipleTabs
-            )
-            let outerPadding = EdgeInsets(
-                top: NoteDualPreviewLayout.outerPadding.top + contentTopInset,
-                leading: NoteDualPreviewLayout.outerPadding.leading,
-                bottom: NoteDualPreviewLayout.outerPadding.bottom,
-                trailing: NoteDualPreviewLayout.outerPadding.trailing
-            )
-
-            ScrollView {
-                if usesDualColumns {
-                    HStack(alignment: .top, spacing: NoteDualPreviewLayout.pageSpacing) {
-                        ForEach(Array(pageContents.enumerated()), id: \.offset) { _, pageContent in
-                            NoteBookPreviewPage(markdown: pageContent, theme: theme)
-                                .equatable()
-                                .frame(
-                                    width: dualPageWidth,
-                                    alignment: .topLeading
-                                )
-                        }
-                    }
-                    .padding(outerPadding)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                } else {
-                    NoteBookPreviewPage(markdown: content, theme: theme)
-                        .equatable()
-                        .frame(
-                            maxWidth: NoteDualPreviewLayout.singlePageWidth(
-                                for: content,
-                                availableWidth: proxy.size.width
-                            ),
-                            alignment: .topLeading
-                        )
-                        .padding(outerPadding)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
-            }
-            .background { previewBackdrop }
-            .background {
-                NotePreviewTitlebarInsetReader(titlebarInset: $titlebarInset)
-                    .frame(width: 0, height: 0)
-            }
-            .overlay(alignment: .topTrailing) {
-                if NotePreviewPerformancePolicy.showsOverlayBadge {
-                    notePreviewBadge
-                        .padding(.top, NoteDualPreviewLayout.outerPadding.top)
-                        .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var previewBackdrop: some View {
-        if let surfaceBackground {
-            surfaceBackground
-        } else {
-            NoteWorkspaceSurfaceStyle.canvasBackground(for: theme)
-        }
-    }
-
-    private var notePreviewBadge: some View {
-        HStack(spacing: 8) {
-            ASCIIFrameAnimationText(
-                configuration: .previewScanner,
-                font: .system(size: 10, weight: .semibold, design: .monospaced),
-                color: theme.fontAccent.opacity(0.78)
-            )
-            Text("Preview")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(theme.textTertiary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule(style: .continuous)
-                .fill(theme.isDark ? Color.white.opacity(0.045) : Color.black.opacity(0.03))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .strokeBorder(
-                    theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06),
-                    lineWidth: 0.5
-                )
-        )
-    }
-}
-
-private struct NotePreviewTitlebarInsetReader: NSViewRepresentable {
-    @Binding var titlebarInset: CGFloat
-
-    func makeNSView(context: Context) -> NotePreviewTitlebarInsetView {
-        let view = NotePreviewTitlebarInsetView()
-        view.onChange = { inset in
-            guard abs(titlebarInset - inset) > 0.5 else { return }
-            titlebarInset = inset
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NotePreviewTitlebarInsetView, context: Context) {
-        nsView.onChange = { inset in
-            guard abs(titlebarInset - inset) > 0.5 else { return }
-            titlebarInset = inset
-        }
-        nsView.refreshInset()
-    }
-}
-
-private final class NotePreviewTitlebarInsetView: NSView {
-    var onChange: ((CGFloat) -> Void)?
-    private var lastReportedInset: CGFloat = -1
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        refreshInset()
-    }
-
-    override func layout() {
-        super.layout()
-        refreshInset()
-    }
-
-    func refreshInset() {
-        guard let window else { return }
-        let inset = NotePreviewChromeMetrics.titlebarInset(for: window)
-        guard abs(lastReportedInset - inset) > 0.5 else { return }
-        lastReportedInset = inset
-        onChange?(inset)
-    }
-}
-
-private struct NoteBookPreviewPage: View, Equatable {
-    let markdown: String
-    let theme: EpistemosTheme
-
-    var body: some View {
-        MarkdownTextView(
-            content: markdown,
-            theme: theme,
-            rippleStyle: .none
-        )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(NoteDualPreviewLayout.pagePadding)
     }
 }
 

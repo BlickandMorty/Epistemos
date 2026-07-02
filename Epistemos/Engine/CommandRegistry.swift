@@ -123,6 +123,10 @@ public final class CommandRegistry {
         commandOrder
     }
 
+    public func containsCommand(id: String) -> Bool {
+        commandStorage[id] != nil
+    }
+
     public func register(_ command: EpistemosCommand) {
         if commandStorage[command.id] == nil {
             commandOrder.append(command.id)

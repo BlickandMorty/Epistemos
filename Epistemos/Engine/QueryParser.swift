@@ -12,6 +12,9 @@ import Foundation
 // Handles ~60% of queries via regex alone. Designed to be extended.
 
 enum QueryParser {
+    private static let connectedPathPattern = /how is (.+?) connected to (.+)/
+    private static let pathFromPattern = /path (?:from )?(.+?) to (.+)/
+    private static let connectionBetweenPattern = /connection(?:s)? between (.+?) and (.+)/
 
     /// Parse NL query to QueryAST for the compiler pipeline.
     /// Returns nil only if the query is empty.
@@ -160,22 +163,19 @@ enum QueryParser {
     /// Extract "how is X connected to Y" / "path from X to Y" / "connection between X and Y"
     private static func extractPathQuery(_ query: String) -> (String, String)? {
         // "how is X connected to Y"
-        let connectedPattern = /how is (.+?) connected to (.+)/
-        if let match = try? connectedPattern.firstMatch(in: query) {
+        if let match = try? connectedPathPattern.firstMatch(in: query) {
             return (String(match.1).trimmingCharacters(in: .whitespaces),
                     String(match.2).trimmingCharacters(in: .whitespaces))
         }
 
         // "path from X to Y"
-        let pathPattern = /path (?:from )?(.+?) to (.+)/
-        if let match = try? pathPattern.firstMatch(in: query) {
+        if let match = try? pathFromPattern.firstMatch(in: query) {
             return (String(match.1).trimmingCharacters(in: .whitespaces),
                     String(match.2).trimmingCharacters(in: .whitespaces))
         }
 
         // "connection between X and Y"
-        let betweenPattern = /connection(?:s)? between (.+?) and (.+)/
-        if let match = try? betweenPattern.firstMatch(in: query) {
+        if let match = try? connectionBetweenPattern.firstMatch(in: query) {
             return (String(match.1).trimmingCharacters(in: .whitespaces),
                     String(match.2).trimmingCharacters(in: .whitespaces))
         }

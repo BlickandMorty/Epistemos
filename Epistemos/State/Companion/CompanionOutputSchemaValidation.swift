@@ -34,6 +34,9 @@ nonisolated enum CompanionOutputSchemaValidation {
         guard let data = trimmed.data(using: .utf8) else {
             return .invalid("Couldn't read the schema text.")
         }
+        guard !containsTrailingCommaBeforeClose(trimmed) else {
+            return .invalid("Not valid JSON — check for trailing commas or unquoted keys.")
+        }
         let parsed: Any
         do {
             parsed = try JSONSerialization.jsonObject(with: data, options: [])
@@ -47,5 +50,42 @@ nonisolated enum CompanionOutputSchemaValidation {
             return .invalid(#"Add a "type" or "properties" key so it reads as a schema."#)
         }
         return .valid
+    }
+
+    private static func containsTrailingCommaBeforeClose(_ source: String) -> Bool {
+        var inString = false
+        var isEscaped = false
+        var previousSignificant: Character?
+
+        for character in source {
+            if inString {
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == "\"" {
+                    inString = false
+                }
+                continue
+            }
+
+            if character == "\"" {
+                inString = true
+                previousSignificant = character
+                continue
+            }
+
+            if character.isWhitespace {
+                continue
+            }
+
+            if (character == "}" || character == "]"), previousSignificant == "," {
+                return true
+            }
+
+            previousSignificant = character
+        }
+
+        return false
     }
 }

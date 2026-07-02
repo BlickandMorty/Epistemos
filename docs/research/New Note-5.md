@@ -1,0 +1,5 @@
+---
+id: C2DFA764-87A2-43FC-AB5B-20E4A407486C
+title: New Note
+---
+

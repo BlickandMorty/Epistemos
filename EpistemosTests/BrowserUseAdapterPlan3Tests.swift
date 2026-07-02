@@ -62,11 +62,11 @@ struct BrowserUseAdapterPlan3Tests {
             "reject_symlinked_runtime_path",
             "allowed_macos_compat_symlink",
             "validate_private_runtime_directory",
-            "AGENT_BROWSER_SOCKET_DIR must not include symlink component",
+            "must not include symlink component:",
             "MAX_PATH_DIAGNOSTIC_CHARS - 3",
-            "AGENT_BROWSER_SOCKET_DIR must be owner-only",
+            "must be owned by the current user",
             "AGENT_BROWSER_SCREENSHOT_DIR",
-            "AGENT_BROWSER_SCREENSHOT_DIR must be owner-only",
+            "must be owner-only",
             "confine_screenshot_path",
             "screenshot path resolved outside private screenshot directory",
             "screenshot returned non-string path",
@@ -123,10 +123,10 @@ struct BrowserUseAdapterPlan3Tests {
             "\"url_redacted\"",
             "validate_cdp_url(parsed.cdp)",
             "def validate_cdp_url",
-            "--cdp must point at localhost, 127.0.0.1, or [::1]",
-            "--cdp must not include username or password credentials",
-            "--cdp must not include a URL query",
-            "--cdp must not include a URL fragment",
+            "must point at localhost, 127.0.0.1, or [::1]",
+            "must not include username or password credentials",
+            "must not include a URL query",
+            "must not include a URL fragment",
             "LEGACY_IPV4_PATTERN",
             "parse_legacy_ipv4_literal",
             "parse_legacy_ipv4_part",
@@ -276,7 +276,10 @@ struct BrowserUseAdapterPlan3Tests {
         let codepack = try loadMirroredSourceTextFile("docs/research/PLAN_3_BROWSER_USE_CODEPACK_2026_06_28.md")
 
         #expect(manifest.contains("\"agent_browser_adapter\""))
-        #expect(manifest.contains("\"expected_path\": \"epistemos_agent_browser.py\""))
+        #expect(manifest.contains("\"expected_paths\""))
+        #expect(manifest.contains("\"epistemos_agent_browser.py\""))
+        #expect(manifest.contains("\"epistemos_browser_env.py\""))
+        #expect(manifest.contains("\"epistemos_browser_task.py\""))
         #expect(manifest.contains("existing agent-browser JSON command contract"))
         #expect(codepack.contains("epistemos_agent_browser.py"))
         #expect(codepack.contains("adapter contract landed"))
@@ -346,6 +349,9 @@ struct BrowserUseAdapterPlan3Tests {
             "adapter_refs_truncated",
             "adapter_element_count",
             "browser_snapshot_preserves_adapter_truncation_flags",
+            "browser_success_json_requires_successful_exit_status",
+            "browser_json_output_requires_success_true_contract",
+            "browser_command_rejects_empty_success_output",
         ] {
             #expect(browserTool.contains(required), "Missing Rust browser-use bridge string: \(required)")
         }
@@ -365,9 +371,6 @@ struct BrowserUseAdapterPlan3Tests {
             "redact_browser_error_detail",
             "agent-browser returned non-JSON output",
             "agent-browser '{command_name}' failed",
-            "browser_success_json_requires_successful_exit_status",
-            "browser_json_output_requires_success_true_contract",
-            "browser_command_rejects_empty_success_output",
             "cleanup_local_daemon",
             "cleanup_socket_dir_is_private",
             "metadata.permissions().mode() & 0o077",

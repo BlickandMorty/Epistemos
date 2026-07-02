@@ -2,16 +2,14 @@ import Testing
 import Foundation
 
 /// OWNER MANDATE 2026-06-18 (#1, LOCAL FOR ALL MODES): with no cloud explicitly
-/// selected, Act/agentic must NOT silently route to GPT/cloud when the owner has
-/// a local agent-capable model. This source-guard locks the fix in
+/// selected, Act/agentic must NOT silently route to GPT/cloud. This source-guard locks the fix in
 /// `InferenceState.effectiveChatSurfaceSelection`: the `.agent` auto-route branch
-/// must guard its cloud return on `effectiveLocalAgentTextModelID == nil` (cloud
-/// only as the honest fallback when no local model can run the agent loop) —
-/// never an unconditional `.cloud` for `.agent`.
+/// must guard its cloud return on both no local agent route and configured cloud
+/// access — never an unconditional `.cloud` for `.agent`.
 ///
-/// Behavioral coverage of the local-agent resolution already lives in
-/// LocalModelInfrastructureTests (.agent → .localMLX(...)). This guard prevents a
-/// regression back to the unconditional cloud route the owner reported.
+/// Native local-agent surfaces were pruned on 2026-06-26, so this guard prevents
+/// a regression back to unconditional cloud routing without pretending local Act
+/// is currently live.
 @Suite("Local-for-all-modes agent route guard")
 struct LocalForAllModesAgentRouteGuardTests {
 
@@ -21,12 +19,32 @@ struct LocalForAllModesAgentRouteGuardTests {
 
         // `.agent` is now its own case (not combined with `.pro`) ...
         #expect(source.contains("case .agent:"))
-        // ... guarded so it only routes to cloud when no local agent model exists.
-        #expect(source.contains("if effectiveLocalAgentTextModelID == nil {"))
+        // ... guarded so it only routes to cloud when no local agent route exists
+        // and cloud access is actually configured.
+        guard let methodStart = source.range(of: "func effectiveChatSurfaceSelection"),
+              let switchStart = source.range(
+                of: "switch operatingMode",
+                range: methodStart.upperBound..<source.endIndex
+              ),
+              let start = source.range(of: "case .agent:", range: switchStart.upperBound..<source.endIndex),
+              let end = source.range(of: "case .thinking:", range: start.upperBound..<source.endIndex) else {
+            Issue.record("expected the .agent auto-route branch")
+            return
+        }
+        let agentBody = String(source[start.upperBound..<end.lowerBound])
+        #expect(agentBody.contains("if effectiveLocalAgentTextModelID == nil"))
+        #expect(agentBody.contains("hasConfiguredCloudAccess(for: autoModel.provider)"))
+        if let guardRange = agentBody.range(of: "if effectiveLocalAgentTextModelID == nil"),
+           let cloudAccessRange = agentBody.range(of: "hasConfiguredCloudAccess(for: autoModel.provider)"),
+           let cloudRange = agentBody.range(of: ".cloud(autoModel)") {
+            #expect(guardRange.lowerBound < cloudRange.lowerBound)
+            #expect(cloudAccessRange.lowerBound < cloudRange.lowerBound)
+        }
 
         // Regression tripwire: the old unconditional `.pro, .agent:` → cloud
-        // combined case must be gone.
-        #expect(!source.contains("case .pro, .agent:"))
+        // combined case must be gone from this routing switch.
+        let routingRegion = String(source[switchStart.upperBound..<end.lowerBound])
+        #expect(!routingRegion.contains("case .pro, .agent:"))
     }
 
     /// OWNER MANDATE 2026-06-18 (#1): Think AND Code/Pro were the remaining

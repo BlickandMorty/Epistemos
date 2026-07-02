@@ -10,7 +10,7 @@ import SwiftUI
 // Wave 7.17 stitch-up — the top-level SwiftUI shell that hosts the
 // W7.17.a SwiftUI toolbar, the Tiptap WKWebView document area, and
 // the 10 W7.17.b floating panels (slash menu, bubble menu, KaTeX
-// preview, complexity meter, thought-attached badge, insert link
+// preview, agent token counter, thought-attached badge, insert link
 // picker, block context menu, gutter menu — all wired through the
 // EpdocBridgeMessage stream).
 //
@@ -159,6 +159,12 @@ public final class EpdocEditorChromeController {
     /// `_width` through the same markdown write-through path as content
     /// saves, rather than letting toolbar code touch files directly.
     public var onContentWidthChanged: @Sendable @MainActor (NoteWidthMode) -> Void
+    /// User requested Epdoc frontmatter. The editor still receives the
+    /// visual insert command, but the owning document keeps manifest
+    /// metadata authoritative.
+    public var onEnsureFrontmatterMetadata: @Sendable @MainActor () -> Void
+    /// Explains how the rich Document surface projects to Markdown/package state.
+    public var onShowProjectionInfo: @Sendable @MainActor () -> Void
     /// Open a first-class HTML Workspace for DOM/interactive visual work.
     public var onOpenHTMLWorkspace: @Sendable @MainActor () -> Void
     /// Halo backend search closure for the Insert link picker (W8.4).
@@ -183,6 +189,8 @@ public final class EpdocEditorChromeController {
         self.onContentChanged = { _ in }
         self.onMarkdownChanged = { _ in }
         self.onContentWidthChanged = { _ in }
+        self.onEnsureFrontmatterMetadata = { }
+        self.onShowProjectionInfo = { EpdocProjectionInfoPresenter.present() }
         self.onOpenHTMLWorkspace = {
             do {
                 try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(
@@ -249,12 +257,18 @@ public final class EpdocEditorChromeController {
     }
 
     private func reflectLocalState(for command: EpdocEditorCommand) {
-        if case .setContentWidth(let mode) = command {
+        switch command {
+        case .setContentWidth(let mode):
             let normalized = mode.normalized
             toolbarModel.widthMode = normalized
             canonicalWidthMode = normalized
             guard !isFlushingInitialContent else { return }
             onContentWidthChanged(normalized)
+        case .runCommand(name: "insertEpdocFrontmatter", argsJSON: _):
+            guard !isFlushingInitialContent else { return }
+            onEnsureFrontmatterMetadata()
+        default:
+            break
         }
     }
 
@@ -328,7 +342,7 @@ public final class EpdocEditorChromeController {
 
     /// Consume a bridge message from the WKWebView. The chrome
     /// updates its view-state (toolbar counts, panel visibility,
-    /// complexity meter) accordingly.
+    /// token counter) accordingly.
     public func handleBridgeMessage(_ message: EpdocBridgeMessage) {
         switch message {
         case .editorReady:
@@ -444,13 +458,18 @@ public struct EpdocEditorChromeView: View {
 
     @Bindable public var controller: EpdocEditorChromeController
     @Environment(UIState.self) private var ui: UIState?
+    private let surfaceToolbarAccessory: AnyView?
 
     private var theme: EpistemosTheme {
         ui?.theme ?? controller.theme
     }
 
-    public init(controller: EpdocEditorChromeController) {
+    public init(
+        controller: EpdocEditorChromeController,
+        surfaceToolbarAccessory: AnyView? = nil
+    ) {
         self.controller = controller
+        self.surfaceToolbarAccessory = surfaceToolbarAccessory
     }
 
     public var body: some View {
@@ -506,22 +525,42 @@ public struct EpdocEditorChromeView: View {
         .overlay(alignment: .bottomTrailing) {
             EpdocCopilotDockView(
                 wordCount: controller.toolbarModel.wordCount,
-                complexity: controller.complexity,
                 dispatch: controller.dispatch
             )
             .padding(.trailing, 24)
             .padding(.bottom, 18)
+        }
+        .overlay(alignment: .topTrailing) {
+            if let surfaceToolbarAccessory {
+                surfaceToolbarAccessory
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.top, 14)
+                    .padding(.trailing, 18)
+                    .zIndex(30)
+            }
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 EpdocEditorToolbar(model: controller.toolbarModel, onSave: controller.onSave)
             }
             ToolbarItemGroup(placement: .primaryAction) {
-                EpdocComplexityMeter(
-                    complexity: controller.complexity,
-                    breakdown: controller.complexityBreakdown,
+                EpdocAgentTokenCounter(
+                    estimate: EpdocAgentTokenEstimate.estimate(
+                        markdown: controller.latestMarkdownSnapshot,
+                        fallbackWordCount: controller.toolbarModel.wordCount,
+                        fallbackCharacterCount: controller.toolbarModel.characterCount
+                    ),
                     label: controller.documentTitle
                 )
+                Button {
+                    controller.onShowProjectionInfo()
+                } label: {
+                    Label("Projection Info", systemImage: "info.circle")
+                }
+                .labelStyle(.iconOnly)
+                .help("How this Markdown projection works")
                 epdocSaveButton
             }
         }
@@ -579,6 +618,21 @@ public struct EpdocEditorChromeView: View {
 }
 
 @MainActor
+enum EpdocProjectionInfoPresenter {
+    static func present() {
+        let alert = NSAlert()
+        alert.messageText = "Document Projection"
+        alert.informativeText = """
+        Document mode is a rich editing surface over Markdown. In note windows, saves write back to the same .md file used by Prose, Preview, and Source.
+
+        Standalone .epdoc packages keep their package data and derived Markdown projection for compatibility.
+        """
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+}
+
+@MainActor
 private enum EpdocEditorThemeStyle {
     static func appearance(for theme: EpistemosTheme) -> NSAppearance? {
         NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
@@ -626,14 +680,14 @@ private enum EpdocEditorThemeStyle {
         ]
         // Per-theme H1-H3 size overrides. Always assign all three so
         // theme switches cannot leave stale CSS variables behind.
-        // Classic H2/H3 now keep Ember Tan's default 31 / 19 px
+        // Classic H2/H3 keep Ember Tan's default 27 / 17 px
         // values; Classic H1 and Platinum still shrink Matrix headings.
         let h1Multiplier = theme.headingSizeMultiplier(level: 1)
         let h2Multiplier = theme.headingSizeMultiplier(level: 2)
         let h3Multiplier = theme.headingSizeMultiplier(level: 3)
-        variables.append(("--epdoc-h1-size", "\(Int((59 * h1Multiplier).rounded()))px"))
-        variables.append(("--epdoc-h2-size", "\(Int((31 * h2Multiplier).rounded()))px"))
-        variables.append(("--epdoc-h3-size", "\(Int((19 * h3Multiplier).rounded()))px"))
+        variables.append(("--epdoc-h1-size", "\(Int((52 * h1Multiplier).rounded()))px"))
+        variables.append(("--epdoc-h2-size", "\(Int((27 * h2Multiplier).rounded()))px"))
+        variables.append(("--epdoc-h3-size", "\(Int((17 * h3Multiplier).rounded()))px"))
         return variables
     }
 

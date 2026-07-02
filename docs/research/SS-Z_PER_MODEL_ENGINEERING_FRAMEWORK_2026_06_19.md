@@ -1,3 +1,8 @@
+---
+id: 0EEF47DF-7EB9-4BCA-A315-C34B7F29E406
+title: SS-Z_PER_MODEL_ENGINEERING_FRAMEWORK_2026_06_19
+---
+
 # SS-Z — Per-model bespoke engineering framework (modernized, non-clashing) (2026-06-19)
 
 Read-only research (subagent), code-grounded. Feeds the PER-MODEL-FRAMEWORK ledger item. Owner: *"a custom

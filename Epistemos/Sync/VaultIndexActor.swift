@@ -1246,41 +1246,52 @@ actor VaultIndexActor {
 
     // MARK: - Rename Page File
 
-    /// Rename a page's vault .md file to match a new title.
+    /// Rename a page's vault file to match a new title.
     /// Moves the file on disk and updates page.filePath.
-    func renamePageFile(pageId: String, newTitle: String, vaultURL: URL) throws {
+    @discardableResult
+    func renamePageFile(pageId: String, newTitle: String, vaultURL: URL) throws -> String? {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == pageId }
         )
-        guard let page = try modelContext.fetch(descriptor).first else { return }
-        guard let oldPath = page.filePath else { return }
+        guard let page = try modelContext.fetch(descriptor).first else { return nil }
+        guard let oldPath = page.filePath else { return nil }
 
         let oldURL = URL(filePath: oldPath)
         let parentURL = oldURL.deletingLastPathComponent()
-        let newBaseName = sanitizeFileName(newTitle)
-        var newURL = parentURL.appendingPathComponent("\(newBaseName).md")
+        let oldExtension = oldURL.pathExtension
+        let newBaseName = sanitizeFileBaseName(newTitle, preservingExtension: oldExtension)
+        let newFileName = oldExtension.isEmpty ? "\(newBaseName).md" : "\(newBaseName).\(oldExtension)"
+        var newURL = parentURL.appendingPathComponent(newFileName)
 
         // Skip if the filename is already correct
-        guard newURL.path != oldURL.path else { return }
+        guard newURL.path != oldURL.path else { return oldURL.path }
 
         // Dedup if target already exists (and isn't the same file)
         var suffix = 1
         while FileManager.default.fileExists(atPath: newURL.path) {
             if suffix > 100 {
                 let uuid8 = UUID().uuidString.prefix(8)
-                newURL = parentURL.appendingPathComponent("\(newBaseName)-\(uuid8).md")
+                let candidateName = oldExtension.isEmpty
+                    ? "\(newBaseName)-\(uuid8).md"
+                    : "\(newBaseName)-\(uuid8).\(oldExtension)"
+                newURL = parentURL.appendingPathComponent(candidateName)
                 break
             }
-            newURL = parentURL.appendingPathComponent("\(newBaseName)-\(suffix).md")
+            let candidateName = oldExtension.isEmpty
+                ? "\(newBaseName)-\(suffix).md"
+                : "\(newBaseName)-\(suffix).\(oldExtension)"
+            newURL = parentURL.appendingPathComponent(candidateName)
             suffix += 1
         }
 
         // Move the file
-        guard FileManager.default.fileExists(atPath: oldURL.path) else { return }
+        guard FileManager.default.fileExists(atPath: oldURL.path) else { return nil }
         try FileManager.default.moveItem(at: oldURL, to: newURL)
+        updateCodeSidecarAfterFileRename(oldURL: oldURL, newURL: newURL, vaultURL: vaultURL)
         page.filePath = newURL.path
         try saveContext("renamed page file")
         log.info("Renamed page file: \(oldURL.lastPathComponent, privacy: .public) → \(newURL.lastPathComponent, privacy: .public)")
+        return newURL.path
     }
 
     // MARK: - Handle Deletion
@@ -2044,6 +2055,82 @@ actor VaultIndexActor {
         // Truncate to 200 characters
         if s.count > 200 { s = String(s.prefix(200)) }
         return s.isEmpty ? "Untitled" : s
+    }
+
+    private func sanitizeFileBaseName(_ title: String, preservingExtension extensionToPreserve: String) -> String {
+        let sanitized = sanitizeFileName(title)
+        let preservedExtension = extensionToPreserve
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !preservedExtension.isEmpty else { return sanitized }
+
+        let exactSuffix = ".\(preservedExtension)"
+        if sanitized.lowercased().hasSuffix(exactSuffix) {
+            let base = String(sanitized.dropLast(exactSuffix.count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return base.isEmpty ? "Untitled" : base
+        }
+
+        let typedExtension = URL(fileURLWithPath: sanitized).pathExtension.lowercased()
+        if Self.importableExtensions.contains(typedExtension) {
+            let base = URL(fileURLWithPath: sanitized)
+                .deletingPathExtension()
+                .lastPathComponent
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return base.isEmpty ? "Untitled" : base
+        }
+
+        return sanitized
+    }
+
+    private func updateCodeSidecarAfterFileRename(oldURL: URL, newURL: URL, vaultURL: URL) {
+        guard let oldRelativePath = Self.vaultRelativePath(for: oldURL, in: vaultURL),
+              let newRelativePath = Self.vaultRelativePath(for: newURL, in: vaultURL)
+        else { return }
+
+        let oldSidecarURL = CodeSidecarPath.sidecarURL(
+            forVaultRoot: vaultURL,
+            vaultRelativePath: oldRelativePath
+        )
+        guard FileManager.default.fileExists(atPath: oldSidecarURL.path) else { return }
+
+        do {
+            let data = try Data(contentsOf: oldSidecarURL)
+            let existing = try JSONDecoder.epdocCanonical.decode(CodeArtifactSidecar.self, from: data)
+            let migrated = CodeArtifactSidecar(
+                schemaVersion: existing.schemaVersion,
+                vaultRelativePath: newRelativePath,
+                kind: CodeArtifactKind.from(fileURL: newURL),
+                contentHash: existing.contentHash,
+                indexedAt: existing.indexedAt,
+                provenance: existing.provenance,
+                symbols: existing.symbols,
+                crossReferences: existing.crossReferences,
+                embedding: existing.embedding
+            )
+            let newSidecarURL = CodeSidecarPath.sidecarURL(
+                forVaultRoot: vaultURL,
+                vaultRelativePath: newRelativePath
+            )
+            try FileManager.default.createDirectory(
+                at: newSidecarURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try JSONEncoder.epdocCanonical.encode(migrated).write(to: newSidecarURL, options: .atomic)
+            if oldSidecarURL.path != newSidecarURL.path {
+                try? FileManager.default.removeItem(at: oldSidecarURL)
+            }
+        } catch {
+            log.warning("Failed to migrate code sidecar after rename: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    nonisolated private static func vaultRelativePath(for fileURL: URL, in vaultURL: URL) -> String? {
+        let rootPath = vaultURL.standardizedFileURL.path
+        let filePath = fileURL.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : "\(rootPath)/"
+        guard filePath.hasPrefix(prefix) else { return nil }
+        return String(filePath.dropFirst(prefix.count))
     }
 
     // MARK: - Title Sanitization

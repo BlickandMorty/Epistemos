@@ -13,6 +13,77 @@
   padding-inline-end: 18px;
 }
 
+.cm-md-embeddedPreview {
+  position: fixed;
+  z-index: 1000;
+  overflow: hidden;
+  max-width: calc(100vw - 32px);
+  max-height: min(420px, calc(100vh - 32px));
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 12px;
+  background: Canvas;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.24);
+  color: CanvasText;
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.cm-md-embeddedPreviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  font-weight: 700;
+}
+
+.cm-md-embeddedPreviewClose {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  place-items: center;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: inherit;
+  font: 18px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.cm-md-embeddedPreviewBody {
+  overflow: auto;
+  max-height: 360px;
+  padding: 12px;
+}
+
+.cm-md-embeddedPreview table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font: inherit;
+}
+
+.cm-md-embeddedPreview th,
+.cm-md-embeddedPreview td {
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cm-md-embeddedPreview th {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  font-weight: 700;
+}
+
+.cm-md-embeddedPreviewFallback {
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cm-md-previewWrapper {
     transition: none;

@@ -99,24 +99,45 @@ struct EpdocSlashMenuViewTests {
     }
 }
 
-@Suite("EpdocComplexityMeter (Wave 7.17.b)")
-nonisolated struct EpdocComplexityMeterTests {
+@Suite("EpdocAgentTokenCounter")
+nonisolated struct EpdocAgentTokenCounterTests {
 
-    @Test("shouldNudgeSplit fires when complexity > 0.7")
+    @Test("token estimate prefers the live Markdown snapshot")
     @MainActor
-    func nudgeSplitThreshold() {
-        #expect(EpdocComplexityMeter(complexity: 0.0).shouldNudgeSplit == false)
-        #expect(EpdocComplexityMeter(complexity: 0.5).shouldNudgeSplit == false)
-        #expect(EpdocComplexityMeter(complexity: 0.7).shouldNudgeSplit == false,
-                "exactly 0.7 is the boundary; only > 0.7 nudges")
-        #expect(EpdocComplexityMeter(complexity: 0.71).shouldNudgeSplit == true)
-        #expect(EpdocComplexityMeter(complexity: 1.0).shouldNudgeSplit == true)
+    func tokenEstimatePrefersLiveMarkdownSnapshot() {
+        let estimate = EpdocAgentTokenEstimate.estimate(
+            markdown: "123456789",
+            fallbackWordCount: 100,
+            fallbackCharacterCount: 600
+        )
+        #expect(estimate.tokens == 3)
+        #expect(estimate.source == .markdown)
+        #expect(estimate.compactCountText == "3")
     }
 
-    @Test("Out-of-range complexity values clamp to [0, 1] for the nudge band")
+    @Test("token estimate falls back to document stats")
     @MainActor
-    func outOfRangeClamp() {
-        #expect(EpdocComplexityMeter(complexity: -1.0).shouldNudgeSplit == false)
-        #expect(EpdocComplexityMeter(complexity: 5.0).shouldNudgeSplit == true)
+    func tokenEstimateFallsBackToDocumentStats() {
+        let estimate = EpdocAgentTokenEstimate.estimate(
+            markdown: "   ",
+            fallbackWordCount: 1200,
+            fallbackCharacterCount: 0
+        )
+        #expect(estimate.tokens == 1500)
+        #expect(estimate.source == .documentStats)
+        #expect(estimate.compactCountText == "1.5k")
+    }
+
+    @Test("Epdoc toolbar uses token counter instead of complexity meter")
+    func toolbarUsesTokenCounterInsteadOfComplexityMeter() throws {
+        let chrome = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+        let meter = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocComplexityMeter.swift")
+
+        #expect(chrome.contains("EpdocAgentTokenCounter("))
+        #expect(chrome.contains("latestMarkdownSnapshot"))
+        #expect(!chrome.contains("EpdocComplexityMeter("))
+        #expect(meter.contains("public struct EpdocAgentTokenCounter"))
+        #expect(meter.contains("public struct EpdocAgentTokenEstimate"))
+        #expect(!meter.contains("public struct EpdocComplexityMeter"))
     }
 }

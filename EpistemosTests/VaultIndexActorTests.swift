@@ -474,6 +474,132 @@ struct VaultIndexActorTests {
         #expect(updated?.filePath == newURL.path)
     }
 
+    @Test("renamePageFile preserves non-markdown code file extension")
+    func renamePageFilePreservesCodeFileExtension() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let oldURL = vaultURL.appendingPathComponent("Original.swift")
+        try "struct Original {}".write(to: oldURL, atomically: true, encoding: .utf8)
+
+        let page = insertPage(in: context, title: "Original", body: "")
+        page.format = "code"
+        page.filePath = oldURL.path
+        try context.save()
+
+        try await actor.renamePageFile(pageId: page.id, newTitle: "Renamed", vaultURL: vaultURL)
+
+        let renamedURL = vaultURL.appendingPathComponent("Renamed.swift")
+        let markdownURL = vaultURL.appendingPathComponent("Renamed.md")
+        #expect(!FileManager.default.fileExists(atPath: oldURL.path))
+        #expect(FileManager.default.fileExists(atPath: renamedURL.path))
+        #expect(!FileManager.default.fileExists(atPath: markdownURL.path))
+
+        let verifyContext = ModelContext(container)
+        let pageId = page.id
+        let updated = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageId })
+        #expect(updated?.filePath == renamedURL.path)
+        #expect(updated?.format == "code")
+    }
+
+    @Test("renamePageFile keeps code extension when typed title includes another extension and migrates sidecar")
+    func renamePageFileMigratesCodeSidecarAndKeepsOriginalExtension() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let service = CodeFileService(vaultRoot: vaultURL)
+        let oldURL = try service.createCodeFile(
+            relativeDirectory: "Code",
+            name: "Original",
+            kind: .swift,
+            body: "struct Original {}\n",
+            provenance: CodeProvenance(producer: .human)
+        )
+        let oldSidecarURL = CodeSidecarPath.sidecarURL(
+            forVaultRoot: vaultURL,
+            vaultRelativePath: "Code/Original.swift"
+        )
+        #expect(FileManager.default.fileExists(atPath: oldSidecarURL.path))
+
+        let page = insertPage(in: context, title: "Original", body: "struct Original {}\n")
+        page.format = "code"
+        page.filePath = oldURL.path
+        try context.save()
+
+        let renamedPath = try await actor.renamePageFile(
+            pageId: page.id,
+            newTitle: "Renamed.html",
+            vaultURL: vaultURL
+        )
+
+        let renamedURL = vaultURL.appendingPathComponent("Code/Renamed.swift")
+        let markdownURL = vaultURL.appendingPathComponent("Code/Renamed.md")
+        let doubledURL = vaultURL.appendingPathComponent("Code/Renamed.html.swift")
+        let newSidecarURL = CodeSidecarPath.sidecarURL(
+            forVaultRoot: vaultURL,
+            vaultRelativePath: "Code/Renamed.swift"
+        )
+        #expect(renamedPath == renamedURL.path)
+        #expect(!FileManager.default.fileExists(atPath: oldURL.path))
+        #expect(FileManager.default.fileExists(atPath: renamedURL.path))
+        #expect(!FileManager.default.fileExists(atPath: markdownURL.path))
+        #expect(!FileManager.default.fileExists(atPath: doubledURL.path))
+        #expect(!FileManager.default.fileExists(atPath: oldSidecarURL.path))
+        #expect(FileManager.default.fileExists(atPath: newSidecarURL.path))
+
+        let migratedSidecar = try JSONDecoder.epdocCanonical.decode(
+            CodeArtifactSidecar.self,
+            from: Data(contentsOf: newSidecarURL)
+        )
+        #expect(migratedSidecar.vaultRelativePath == "Code/Renamed.swift")
+        #expect(migratedSidecar.kind == .swift)
+
+        let verifyContext = ModelContext(container)
+        let pageId = page.id
+        let updated = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageId })
+        #expect(updated?.filePath == renamedURL.path)
+        #expect(updated?.format == "code")
+    }
+
+    @Test("renamePageFile reports nil when the tracked vault file is missing")
+    func renamePageFileReportsNilWhenTrackedFileIsMissing() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let missingURL = vaultURL.appendingPathComponent("Missing.swift")
+        let page = insertPage(in: context, title: "Missing", body: "")
+        page.format = "code"
+        page.filePath = missingURL.path
+        try context.save()
+
+        let renamedPath = try await actor.renamePageFile(
+            pageId: page.id,
+            newTitle: "Renamed",
+            vaultURL: vaultURL
+        )
+
+        #expect(renamedPath == nil)
+        #expect(!FileManager.default.fileExists(atPath: vaultURL.appendingPathComponent("Renamed.swift").path))
+
+        let verifyContext = ModelContext(container)
+        let pageId = page.id
+        let updated = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageId })
+        #expect(updated?.filePath == missingURL.path)
+        #expect(updated?.format == "code")
+    }
+
     @Test("renamePageFile dedupes when target filename already exists")
     func renamePageFileDedupesExistingTarget() async throws {
         let container = try makeContainer()

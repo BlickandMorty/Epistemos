@@ -80,7 +80,7 @@ private struct HTMLWorkspaceDocumentThemedRoot: View {
     var body: some View {
         HTMLWorkspaceEditorView(
             package: $package,
-            theme: ui.theme.surfaceVariant(.other),
+            theme: ui.theme,
             externalRevision: packageRevision
         )
             .preferredColorScheme(ui.preferredColorScheme)
@@ -305,7 +305,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             }
 
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 1180, height: 720),
+                contentRect: NSRect(x: 0, y: 0, width: 1320, height: 820),
                 styleMask: [.titled, .closable, .resizable, .miniaturizable],
                 backing: .buffered,
                 defer: false
@@ -314,7 +314,7 @@ public final class HTMLWorkspaceDocument: NSDocument, @unchecked Sendable {
             window.title = self.package.manifest.title.isEmpty
                 ? "HTML Workspace"
                 : self.package.manifest.title
-            window.minSize = NSSize(width: 520, height: 360)
+            window.minSize = NSSize(width: 980, height: 620)
             window.center()
             window.isReleasedWhenClosed = false
             window.isRestorable = false

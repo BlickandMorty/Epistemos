@@ -84,9 +84,9 @@
   --epdoc-h1-font: var(--epdoc-display-font);
   --epdoc-h2-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --epdoc-h3-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-  --epdoc-h1-size: 59px;
-  --epdoc-h2-size: 31px;
-  --epdoc-h3-size: 19px;
+  --epdoc-h1-size: 52px;
+  --epdoc-h2-size: 27px;
+  --epdoc-h3-size: 17px;
   --epdoc-line-height: 1.55;
   --epdoc-text-color: #1f1f1f;
   --epdoc-bg: transparent;
@@ -189,6 +189,8 @@ html, body {
   line-height: 1.08;
   margin-top: 1.4em;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .ProseMirror h2 {
@@ -198,9 +200,27 @@ html, body {
   line-height: 1.18;
   margin-top: 1.3em;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
-.ProseMirror h3 { font-family: var(--epdoc-h3-font); font-size: var(--epdoc-h3-size); font-weight: 600; margin-top: 1.2em; }
+.ProseMirror h3 {
+  font-family: var(--epdoc-h3-font);
+  font-size: var(--epdoc-h3-size);
+  font-weight: 600;
+  margin-top: 1.2em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.ProseMirror h1[data-epdoc-heading-size="medium"] { font-size: calc(var(--epdoc-h1-size) * 0.9); }
+.ProseMirror h1[data-epdoc-heading-size="long"] { font-size: calc(var(--epdoc-h1-size) * 0.82); }
+.ProseMirror h1[data-epdoc-heading-size="xlong"] { font-size: calc(var(--epdoc-h1-size) * 0.74); }
+.ProseMirror h2[data-epdoc-heading-size="medium"] { font-size: calc(var(--epdoc-h2-size) * 0.92); }
+.ProseMirror h2[data-epdoc-heading-size="long"] { font-size: calc(var(--epdoc-h2-size) * 0.84); }
+.ProseMirror h2[data-epdoc-heading-size="xlong"] { font-size: calc(var(--epdoc-h2-size) * 0.78); }
+.ProseMirror h3[data-epdoc-heading-size="medium"] { font-size: calc(var(--epdoc-h3-size) * 0.96); }
+.ProseMirror h3[data-epdoc-heading-size="long"] { font-size: calc(var(--epdoc-h3-size) * 0.92); }
+.ProseMirror h3[data-epdoc-heading-size="xlong"] { font-size: calc(var(--epdoc-h3-size) * 0.88); }
 .ProseMirror h4 { font-size: 1.1em; font-weight: 600; }
 .ProseMirror h5 { font-size: 1.0em; font-weight: 600; text-transform: uppercase; letter-spacing: 0; }
 .ProseMirror h6 { font-size: 0.9em; font-weight: 600; color: var(--epdoc-muted); }

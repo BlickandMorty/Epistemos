@@ -127,14 +127,10 @@ struct AgentAuthorityPersistenceTests {
     func productionAuthorityStoresStayDurable() throws {
         let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        let authoritySettings = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Settings/AuthoritySettingsView.swift"
-        )
 
         #expect(bootstrap.contains("let agentAuthorityStore = AgentAuthorityStore("))
         #expect(bootstrap.contains("persistence: FileBackedAgentAuthorityPersistence()"))
-        #expect(settings.contains("AppBootstrap.shared?.agentAuthorityStore"))
-        #expect(settings.contains("?? AgentAuthorityStore(persistence: FileBackedAgentAuthorityPersistence())"))
+        #expect(settings.contains("Retired\n    // agent/model/research-only settings stay out of `visibleSections`"))
 
         let appProductionSources = [bootstrap, settings].joined(separator: "\n")
         #expect(
@@ -142,8 +138,8 @@ struct AgentAuthorityPersistenceTests {
             "shipping app code must not construct an implicit authority store; use AppBootstrap.shared?.agentAuthorityStore or explicit FileBackedAgentAuthorityPersistence()"
         )
         #expect(
-            authoritySettings.contains("AuthoritySettingsView(store: AgentAuthorityStore())"),
-            "AuthoritySettingsView keeps its default constructor confined to the SwiftUI preview; AgentAuthorityStore() itself is file-backed."
+            !settings.contains("AuthoritySettingsView("),
+            "Authority settings UI is retired from the simplified settings tree; production authority state must stay on AppBootstrap's file-backed store."
         )
     }
 

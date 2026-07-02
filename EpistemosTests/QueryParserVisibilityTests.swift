@@ -79,4 +79,16 @@ struct QueryParserVisibilityTests {
             return
         }
     }
+
+    @Test("natural path query regexes are not rebuilt inside the hot parser path")
+    func naturalPathQueryRegexesAreHoistedOutOfHotParserPath() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/QueryParser.swift")
+
+        #expect(source.contains("private static let connectedPathPattern"))
+        #expect(source.contains("private static let pathFromPattern"))
+        #expect(source.contains("private static let connectionBetweenPattern"))
+        #expect(!source.contains("let connectedPattern = /how is (.+?) connected to (.+)/"))
+        #expect(!source.contains("let pathPattern = /path (?:from )?(.+?) to (.+)/"))
+        #expect(!source.contains("let betweenPattern = /connection(?:s)? between (.+?) and (.+)/"))
+    }
 }

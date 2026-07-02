@@ -7,9 +7,10 @@ import Foundation
 /// `operatingMode` — not a new engine. Pure + `nonisolated` so the gating logic
 /// is unit-testable without the view.
 ///
-/// Honest gating (CLAUDE.md): Act is only offered when an agent route actually
-/// exists (cloud / Pro configured → `.agent` is in `availableOperatingModes`).
-/// We never fake agent capability for a local-only setup.
+/// Honest gating (CLAUDE.md): Act is only offered when an agent route is
+/// surfaced by the current runtime capabilities. Native local chat/agent
+/// surfaces were pruned on 2026-06-26, so local model IDs must not be described
+/// as a runnable Act route.
 nonisolated enum CoworkChatMode: String, Sendable, CaseIterable {
     case chat
     case act
@@ -46,22 +47,15 @@ nonisolated enum CoworkChatMode: String, Sendable, CaseIterable {
         }
     }
 
-    /// Act is available when an agent route genuinely exists — i.e. the surface's
-    /// `availableOperatingModes` includes `.agent`. This is LOCAL-FIRST (owner #1,
-    /// 2026-06-19): a local agent-capable model (e.g. Qwen) puts `.agent` in the
-    /// available modes with ZERO cloud configured, so Act runs ON-DEVICE — cloud is
-    /// NOT required. A local model that genuinely can't run the agent loop has no
-    /// `.agent`, so Act is honestly disabled rather than faked (and never silently
-    /// escalated to a cloud/GPT route).
+    /// Act is available when an agent route is exposed by the resolved surface
+    /// capabilities. Runtime readiness is checked by `InferenceState`; this pure
+    /// helper only maps the capability list into the Chat/Act depth toggle.
     static func actAvailable(in availableModes: [EpistemosOperatingMode]) -> Bool {
         availableModes.contains(.agent)
     }
 
-    /// One-line honest reason shown when Act can't be selected. Local-first: Act
-    /// runs the agent loop on-device on a local agent-capable model — cloud is one
-    /// option, NOT the requirement (the previous copy wrongly implied "connect a
-    /// cloud model" was the only path).
+    /// One-line honest reason shown when Act can't be selected.
     static var actUnavailableReason: String {
-        "Act runs the multi-step agent loop. Pick a local agent-capable model (e.g. Qwen) to run it on-device with zero cloud, or connect a cloud model."
+        "Act runs the multi-step agent loop through a configured agent-capable cloud route. Connect a supported cloud model before choosing Act."
     }
 }

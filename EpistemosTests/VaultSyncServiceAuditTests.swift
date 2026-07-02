@@ -181,6 +181,66 @@ struct VaultSyncServiceAuditTests {
         #expect(snapshot.postImportRecallWorkload == .rebuild)
     }
 
+    @Test("createPage materializes a real markdown path before returning")
+    func createPageMaterializesRealMarkdownPathBeforeReturning() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let body = "instant markdown body"
+        let targetURL = vaultURL.appendingPathComponent("Instant Note.md")
+        let exportFinished = Locked(false)
+        service.setExportPageOverrideForTesting { _, vaultDir in
+            try? await Task.sleep(for: .milliseconds(150))
+            let target = vaultDir.appendingPathComponent("Instant Note.md")
+            try body.write(to: target, atomically: true, encoding: .utf8)
+            exportFinished.withLock { $0 = true }
+            return (target.path, SDPage.bodyHash(body))
+        }
+
+        guard let pageID = await service.createPage(title: "Instant Note", body: body) else {
+            Issue.record("createPage returned nil")
+            return
+        }
+
+        #expect(exportFinished.value, "createPage must await the first .md export before returning a page id")
+        #expect(FileManager.default.fileExists(atPath: targetURL.path))
+
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageID })
+        let savedPage = try context.fetch(descriptor).first
+        #expect(savedPage?.filePath == targetURL.path)
+        #expect(savedPage?.needsVaultSync == false)
+
+        try await waitUntil(timeout: .seconds(2)) {
+            exportFinished.value
+        }
+    }
+
+    @Test("createPage rolls back the transient note when first markdown export fails")
+    func createPageRollsBackWhenFirstMarkdownExportFails() async throws {
+        enum StubError: Error { case exportFailed }
+
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+        service.setExportPageOverrideForTesting { _, _ in
+            throw StubError.exportFailed
+        }
+
+        let pageID = await service.createPage(title: "Should Roll Back", body: "body")
+
+        #expect(pageID == nil)
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(12),
         condition: @escaping @MainActor () async -> Bool

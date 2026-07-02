@@ -332,7 +332,9 @@ final class HologramOverlay {
     private var controlsHostView: NSView?
     private var sidebarHostView: NSView?
     private var routeHostView: NSView?
+    private var fpsHUDHostView: NSView?
     private var routeObserver: Any?
+    private var lastSyncedGraphWorkspaceIsCanvas: Bool?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
     private var routeConstraints: [NSLayoutConstraint] = []
@@ -584,7 +586,7 @@ final class HologramOverlay {
         graphOpenStartTask = nil
         graphState.cancelOverlayPhysicsCycle()
         metalView.pauseEngine()
-        metalView.isHidden = false
+        metalView.isHidden = !graphState.currentRoute.isCanvas
         metalView.alphaValue = 0.0
     }
 
@@ -602,6 +604,15 @@ final class HologramOverlay {
                   let metalView,
                   self.window?.isVisible == true
             else { return }
+
+            guard self.graphState.currentRoute.isCanvas else {
+                metalView.pauseEngine()
+                metalView.isHidden = true
+                metalView.alphaValue = 0.0
+                self.graphState.cancelOverlayPhysicsCycle()
+                self.graphOpenStartTask = nil
+                return
+            }
 
             metalView.isHidden = false
             metalView.resumeEngine()
@@ -1130,7 +1141,9 @@ final class HologramOverlay {
         // inspector is in the external (not-embedded) state. The button
         // is meaningful only as a pop-OUT affordance on the embedded
         // variant.
-        let shouldShow = inspectorEmbeddedInGraph && !inspectorHostView.isHidden
+        let shouldShow = graphState.currentRoute.isCanvas
+            && inspectorEmbeddedInGraph
+            && !inspectorHostView.isHidden
         inspectorEjectButton.isHidden = !shouldShow
         // Pin to the inspector's top-right corner, 10pt inset.
         let inspectorFrame = inspectorHostView.frame
@@ -1273,9 +1286,7 @@ final class HologramOverlay {
         }
 
         guard graphState.currentRoute.isCanvas else {
-            inspectorHostView.isHidden = true
-            lastInspectorFrame = nil
-            lastInspectorNodeId = nil
+            hideGraphRouteInspectorChrome()
             return
         }
 
@@ -1412,9 +1423,7 @@ final class HologramOverlay {
     /// coordinates. Called from the render-loop observation task.
     func updatePinnedInspectorPositions() {
         guard graphState.currentRoute.isCanvas else {
-            for view in pinnedInspectorViews.values {
-                view.isHidden = true
-            }
+            hidePinnedInspectorViews()
             return
         }
 
@@ -1503,6 +1512,10 @@ final class HologramOverlay {
                 let hasSelection = s.graphState.selectedNodeId != nil
                 if hasSelection {
                     s.syncInspectorStateWithGraphSelection()
+                    guard s.graphState.currentRoute.isCanvas else {
+                        s.hideGraphRouteInspectorChrome()
+                        continue
+                    }
                     if s.inspectorEmbeddedInGraph, s.inspectorHostView != nil {
                         s.inspectorHostView?.isHidden = false
                         s.scheduleInspectorReposition()
@@ -1565,6 +1578,10 @@ final class HologramOverlay {
     func toggleInspectorEmbedded() {
         inspectorEmbeddedInGraph.toggle()
         let hasSelection = graphState.selectedNodeId != nil
+        guard graphState.currentRoute.isCanvas else {
+            hideGraphRouteInspectorChrome()
+            return
+        }
         if inspectorEmbeddedInGraph {
             // Embed: tear down external, reveal in-window.
             hideMiniInspector()
@@ -1583,6 +1600,7 @@ final class HologramOverlay {
     }
 
     private func showMiniInspector() {
+        guard graphState.currentRoute.isCanvas else { return }
         guard miniInspectorPanel == nil, let miniPanel else { return }
         let panel = createMiniInspectorPanel(relativeTo: miniPanel)
         self.miniInspectorPanel = panel
@@ -1593,6 +1611,10 @@ final class HologramOverlay {
 
     /// Resize the mini inspector panel when switching between profile/editor modes.
     private func resizeMiniInspectorForMode() {
+        guard graphState.currentRoute.isCanvas else {
+            hideMiniInspectorImmediately()
+            return
+        }
         guard let panel = miniInspectorPanel, let miniPanel else { return }
         let dimensions = miniInspectorDimensions(for: inspectorState.inspectorMode)
         let newWidth = dimensions.width
@@ -1621,6 +1643,28 @@ final class HologramOverlay {
                 self?.miniInspectorPanel = nil
             }
         }
+    }
+
+    private func hideMiniInspectorImmediately() {
+        miniInspectorPanel?.orderOut(nil)
+        miniInspectorPanel = nil
+    }
+
+    private func hidePinnedInspectorViews() {
+        for view in pinnedInspectorViews.values {
+            view.isHidden = true
+        }
+    }
+
+    private func hideGraphRouteInspectorChrome() {
+        inspectorHostView?.isHidden = true
+        inspectorEjectButton?.isHidden = true
+        hideMiniInspectorImmediately()
+        lastInspectorFrame = nil
+        lastInspectorNodeId = nil
+        lastQueuedInspectorAnchor = nil
+        lastQueuedInspectorMode = nil
+        hidePinnedInspectorViews()
     }
 
     // MARK: - Notification Observers
@@ -1659,9 +1703,13 @@ final class HologramOverlay {
     }
 
     private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool) {
+        let previousIsCanvas = lastSyncedGraphWorkspaceIsCanvas ?? isCanvas
+        lastSyncedGraphWorkspaceIsCanvas = isCanvas
+
         routeHostView?.isHidden = isCanvas
         controlsHostView?.isHidden = !isCanvas
-        sidebarHostView?.isHidden = false
+        sidebarHostView?.isHidden = !isCanvas
+        fpsHUDHostView?.isHidden = !isCanvas
 
         // User-authorized UI change 2026-05-14, REFINED 2026-05-15
         // (RCA-GRAPH-NOTE-BLUR-001):
@@ -1724,15 +1772,23 @@ final class HologramOverlay {
             return
         }
 
+        graphOpenStartTask?.cancel()
+        graphOpenStartTask = nil
+        graphState.cancelOverlayPhysicsCycle()
+        metalView?.pauseEngine()
+
         // Leaving canvas (note / folder route) — fade nodes out, then hide.
-        if let metalView, !metalView.isHidden {
+        let shouldAnimateLeavingCanvas = previousIsCanvas && !reduceMotion
+        if let metalView, !metalView.isHidden, metalView.alphaValue > 0.001, shouldAnimateLeavingCanvas {
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = transitionDuration
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 metalView.animator().alphaValue = 0.0
             }, completionHandler: { [weak self] in
                 MainActor.assumeIsolated {
+                    guard self?.graphState.currentRoute.isCanvas == false else { return }
                     self?.metalView?.isHidden = true
+                    self?.metalView?.alphaValue = 0.0
                     // Reset alpha so the next canvas return starts from a
                     // known state — the canvas-return path above sets it
                     // back to 0 explicitly before fading in to 1.
@@ -1740,23 +1796,17 @@ final class HologramOverlay {
             })
         } else {
             metalView?.isHidden = true
+            metalView?.alphaValue = 0.0
         }
 
         UtilityWindowManager.shared.hide(.notes)
-        inspectorHostView?.isHidden = true
-        lastInspectorFrame = nil
-        for view in pinnedInspectorViews.values {
-            view.isHidden = true
-        }
-        graphState.cancelOverlayPhysicsCycle()
-
+        hideGraphRouteInspectorChrome()
         // Fully pause the Metal render loop while the user is on a note or
         // folder route. Without this the CVDisplayLink keeps ticking and
         // even if renderNeeded=false the background thread wakes the main
         // queue at display-refresh rate, stealing cycles from the TextKit 2
         // prose editor and causing visible stutter while typing / scrolling
         // inside the graph-native note page.
-        metalView?.pauseEngine()
     }
 
     // MARK: - Fullscreen Handling
@@ -1946,6 +1996,7 @@ final class HologramOverlay {
         // Remove graph workspace route observer.
         if let obs = routeObserver { NotificationCenter.default.removeObserver(obs) }
         routeObserver = nil
+        lastSyncedGraphWorkspaceIsCanvas = nil
         // Cancel fade-in task.
         fadeInTask?.cancel()
         fadeInTask = nil
@@ -1965,6 +2016,7 @@ final class HologramOverlay {
         // Nil blur layer refs.
         darkenLayer = nil
         blurView = nil
+        fpsHUDHostView = nil
         noteWindowFrame = nil
         // Close and nil mini panel + inspector companion.
         miniPanel?.orderOut(nil as NSWindow?)
@@ -2081,6 +2133,8 @@ final class HologramOverlay {
         graphView.usesClickSelectionFallback = true
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.autoresizingMask = [.width, .height]
+        graphView.isHidden = !graphState.currentRoute.isCanvas
+        graphView.alphaValue = graphState.currentRoute.isCanvas ? 1.0 : 0.0
         contentView.addSubview(graphView)
 
         // Shaped Graph (experimental, 2026-05-19) — the shape-blur overlay
@@ -2159,6 +2213,7 @@ final class HologramOverlay {
         )
         fpsHUDView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(fpsHUDView)
+        self.fpsHUDHostView = fpsHUDView
         NSLayoutConstraint.activate([
             fpsHUDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
             fpsHUDView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
@@ -2224,14 +2279,14 @@ final class HologramOverlay {
             startInspectorPositionTracking()
         }
 
-        syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
-
         window.contentView = contentView
 
         installKeyDismissalHandler(on: window)
 
         self.window = window
         self.metalView = graphView
+
+        syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
         // Per user 2026-05-10: the unified graph (mini ontology) wires the
         // same observers + parent-window attachment + pinned-panel timer

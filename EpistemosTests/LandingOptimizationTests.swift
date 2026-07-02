@@ -65,6 +65,27 @@ struct LandingOptimizationTests {
         #expect(!landing.contains("Rectangle()\n                    .fill(PixelPanelBackground.actionSurface(for: theme))"))
     }
 
+    @Test("prewarmed Goose surface avoids zero-opacity cold reveal")
+    func prewarmedGooseSurfaceAvoidsZeroOpacityColdReveal() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let prewarmStart = try #require(landing.range(of: "if gooseSurfacePrewarmEnabled || ui.homeContent == .goose"))
+        let prewarmEnd = try #require(
+            landing.range(
+                of: "// Companion dock",
+                range: prewarmStart.upperBound..<landing.endIndex
+            )
+        )
+        let prewarmBlock = landing[prewarmStart.lowerBound..<prewarmEnd.lowerBound]
+
+        #expect(landing.contains("hiddenGooseHomeSurfaceOpacity"))
+        #expect(prewarmBlock.contains(".opacity(gooseHomeSurfaceOpacity)"))
+        #expect(prewarmBlock.contains(".zIndex(5)"))
+        #expect(prewarmBlock.contains(".transaction { transaction in"))
+        #expect(prewarmBlock.contains(".accessibilityHidden(!isGooseHomeSurfaceVisible)"))
+        #expect(!prewarmBlock.contains(".opacity(ui.homeContent == .goose ? 1 : 0)"))
+        #expect(!prewarmBlock.contains(".animation(.spring(response: 0.4, dampingFraction: 0.86), value: ui.homeContent)"))
+    }
+
     @Test("landing diagnostics redact thrown error details")
     func landingDiagnosticsRedactThrownErrorDetails() throws {
         let error = NSError(

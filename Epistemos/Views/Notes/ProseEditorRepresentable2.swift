@@ -118,8 +118,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
         coord.lastOutlineFoldMode = outlineFoldMode
-        coord.installHaloIfAvailable(in: scrollView)
-
         // Apply outline fold mode to initial content
         coord.applyOutlineFoldMode(outlineFoldMode)
 
@@ -328,11 +326,6 @@ extension ProseEditorRepresentable2 {
         var transclusionManager: TransclusionOverlayManager2?
         var renderedTableOverlayManager: RenderedTableOverlayManager2?
         var scrollObserver: (any NSObjectProtocol)?
-        private var haloController: HaloController?
-        private var haloPanelController: ShadowPanelController?
-        private var haloButtonHost: NSHostingView<HaloButton>?
-        private var haloSearchRevision: Int?
-
         // Per-page state
         struct PageState {
             var scrollY: CGFloat = 0
@@ -397,7 +390,6 @@ extension ProseEditorRepresentable2 {
 
             // Recalculate centering only when width changes
             if let sv = scrollView {
-                installHaloIfAvailable(in: sv)
                 let currentWidth = sv.contentSize.width
                 if abs(lastAvailableWidth - currentWidth) > 0.5 {
                     lastAvailableWidth = currentWidth
@@ -631,7 +623,6 @@ extension ProseEditorRepresentable2 {
             bindingSyncTask = nil
             recallDebounceTask?.cancel()
             recallDebounceTask = nil
-            dismantleHalo()
             scrollOverlayRefreshCoalescer.cancel()
 
             // Strip legacy inline-response content before any save reads.
@@ -806,112 +797,6 @@ extension ProseEditorRepresentable2 {
             scheduleTableAlignment(tv)
             scheduleDataDetection(newText)
             scheduleContextualShadowsRecall(newText)
-            feedHaloController(newText)
-        }
-
-        // MARK: - Halo V1 Mount
-
-        func installHaloIfAvailable(in scrollView: NSScrollView) {
-            guard let bootstrap = AppBootstrap.shared else {
-                dismantleHalo()
-                return
-            }
-            let state = bootstrap.contextualShadowsState
-            guard let search = state.haloSearchService else {
-                dismantleHalo()
-                return
-            }
-            guard haloController == nil || haloSearchRevision != state.haloSearchRevision else {
-                return
-            }
-
-            dismantleHalo()
-
-            let controller = HaloController(search: search)
-            let panelController = ShadowPanelController { [weak self] in
-                self?.closeHaloPanel()
-            }
-            let host = NSHostingView(rootView: HaloButton(controller: controller) { [weak self] in
-                self?.showHaloPanel()
-            })
-            host.translatesAutoresizingMaskIntoConstraints = false
-            scrollView.addSubview(host)
-            NSLayoutConstraint.activate([
-                host.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -18),
-                host.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -18)
-            ])
-
-            haloController = controller
-            haloPanelController = panelController
-            haloButtonHost = host
-            haloSearchRevision = state.haloSearchRevision
-        }
-
-        private func feedHaloController(_ text: String) {
-            if let scrollView {
-                installHaloIfAvailable(in: scrollView)
-            }
-            haloController?.editorTextDidChange(text, domain: .notes)
-        }
-
-        private func showHaloPanel() {
-            guard let controller = haloController,
-                  controller.state.isPanelOpen || controller.state.isRecoverableError,
-                  let panelController = haloPanelController,
-                  let scrollView,
-                  let window = scrollView.window else { return }
-            let anchorInWindow = scrollView.convert(scrollView.bounds, to: nil)
-            let anchorRect = window.convertToScreen(anchorInWindow)
-            panelController.show(anchorRect: anchorRect) { [weak self] in
-                ShadowPanelContent(
-                    controller: controller,
-                    handlers: self?.haloPanelHandlers() ?? ShadowPanelHandlers(),
-                    onClose: { [weak self] in
-                        self?.closeHaloPanel()
-                    }
-                )
-            }
-        }
-
-        private func closeHaloPanel() {
-            haloController?.closePanel()
-            haloPanelController?.hide()
-        }
-
-        private func haloPanelHandlers() -> ShadowPanelHandlers {
-            ShadowPanelHandlers(
-                onOpenHit: { [weak self] hit in
-                    self?.openHaloHit(hit)
-                },
-                onBeginEditNote: { [weak self] hit in
-                    self?.haloController?.beginEditingNote(id: hit.id)
-                    self?.openHaloHit(hit)
-                },
-                onSummarizeChat: { [weak self] hit in
-                    self?.haloController?.beginSummarizingChat(id: hit.id)
-                    self?.closeHaloPanel()
-                }
-            )
-        }
-
-        private func openHaloHit(_ hit: ShadowHit) {
-            switch hit.domain {
-            case .notes:
-                NoteWindowManager.shared.open(pageId: hit.id)
-            case .chats:
-                break
-            }
-            closeHaloPanel()
-        }
-
-        private func dismantleHalo() {
-            haloButtonHost?.removeFromSuperview()
-            haloButtonHost = nil
-            haloPanelController?.dismiss()
-            haloPanelController = nil
-            haloController?.editorDidLoseFocus()
-            haloController = nil
-            haloSearchRevision = nil
         }
 
         // MARK: - Contextual Shadows Recall (200ms debounce)

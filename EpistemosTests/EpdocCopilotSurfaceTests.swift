@@ -55,7 +55,9 @@ nonisolated struct EpdocCopilotSurfaceTests {
                 "Epdoc must expose the document actions directly in the native editor chrome.")
         #expect(chrome.contains(".overlay(alignment: .bottomTrailing)"),
                 "The document actions should stay in bottom native chrome, not inside the WebKit document body.")
-        #expect(dock.contains("HTML Workspace"))
+        #expect(dock.contains("ForEach([EpdocCopilotTransform.frontmatter])"))
+        #expect(!dock.contains("ForEach([EpdocCopilotTransform.visualMap, .frontmatter])"),
+                "The bottom page dock should not expose an HTML Workspace quick action.")
         #expect(dock.contains("Add frontmatter"))
         #expect(dock.contains("Review edit"))
         #expect(dock.contains("Accept AI edit"))

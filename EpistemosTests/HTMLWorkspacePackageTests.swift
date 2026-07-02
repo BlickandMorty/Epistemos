@@ -552,7 +552,7 @@ nonisolated struct HTMLWorkspacePackageTests {
 
     @Test("HTMLWorkspace regenerate auto-attach retries stale matching context envelopes")
     func regenerateAutoAttachRetriesStaleMatchingContextEnvelopes() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+        let source = try loadHTMLWorkspaceEditorSourceBundle()
 
         #expect(source.contains("shouldAttachRegenerateContextBeforeStreaming(query: query, requiredContextKind: requiredContextKind)"))
         #expect(source.contains("let envelope = HTMLWorkspaceRegenerateContext.dataFeedEnvelope(from: package.dataJSON, matching: currentFeed)"))
@@ -722,6 +722,7 @@ nonisolated struct HTMLWorkspacePackageTests {
     }
 
     @Test("HTMLWorkspace site folder export preserves route-relative package assets")
+    @MainActor
     func siteFolderExportPreservesRouteRelativePackageAssets() throws {
         let package = Self.samplePackage()
         let folderURL = FileManager.default.temporaryDirectory

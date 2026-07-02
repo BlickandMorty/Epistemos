@@ -296,7 +296,7 @@ final class NoteWindowManager {
     /// Open a note by ID — fetches the page, highlights in sidebar, opens as tab.
     /// Single entry point for sidebar / command palette note opens.
     /// Wikilink navigation uses NoteNavigationState.push() instead.
-    func open(pageId: String) {
+    func open(pageId: String, initialMode: NoteWorkspaceMode = .edit) {
         guard let bootstrap = AppBootstrap.shared else { return }
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -314,7 +314,7 @@ final class NoteWindowManager {
         }
 
         bootstrap.notesUI.openPage(pageId)
-        openWindow(for: page)
+        openWindow(for: page, initialMode: initialMode)
 
         // When a note is focused, dismiss the notes browser sidebar popover
         // and pause the graph overlay so editor scroll/typing stays fluid.
@@ -361,7 +361,7 @@ final class NoteWindowManager {
     // MARK: - Tab Windows
 
     /// Open a note in a new tab window. If already open, bring to front.
-    func openWindow(for page: SDPage) {
+    func openWindow(for page: SDPage, initialMode: NoteWorkspaceMode = .edit) {
         // If window already exists for this page, bring to front
         if let existing = windows[page.id], existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
@@ -398,7 +398,7 @@ final class NoteWindowManager {
         window.tabbingIdentifier = Self.noteTabbingIdentifier
         window.delegate = tabDelegate
 
-        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
+        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle, initialMode: initialMode)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
         let hostingController = NSHostingController(rootView: editorView)
@@ -654,9 +654,7 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
     @MainActor func newWindowForTab(_ sender: NSWindow) {
         Task { @MainActor in
             guard let vaultSync = AppBootstrap.shared?.vaultSync else { return }
-            if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
-                NoteWindowManager.shared.open(pageId: pageId)
-            }
+            await NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)
         }
     }
 
@@ -676,8 +674,10 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
 
 private struct NoteTabShell: View {
     @State private var navState: NoteNavigationState
+    let initialMode: NoteWorkspaceMode
 
-    init(pageId: String, pageTitle: String) {
+    init(pageId: String, pageTitle: String, initialMode: NoteWorkspaceMode = .edit) {
+        self.initialMode = initialMode
         _navState = State(
             initialValue: NoteNavigationState(
                 rootPageId: pageId, rootTitle: pageTitle
@@ -685,7 +685,10 @@ private struct NoteTabShell: View {
     }
 
     var body: some View {
-        NoteDetailWorkspaceView(pageId: navState.currentPageId)
+        NoteDetailWorkspaceView(
+            pageId: navState.currentPageId,
+            initialMode: navState.currentPageId == navState.rootPageId ? initialMode : .edit
+        )
             .id(navState.currentPageId)
             .environment(navState)
         .onChange(of: navState.currentPageId) { _, newPageId in

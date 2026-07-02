@@ -61,6 +61,7 @@ const mountNode = document.getElementById('editor');
 if (!mountNode) {
   throw new Error('Epdoc editor: #editor mount point missing from editor.html');
 }
+const editorRoot = mountNode;
 
 // AP8 — JS-side debounce on the update stream (Wave 13 §"Phase 4 perf —
 // AP8 Tiptap update debounce"). Tiptap fires `onTransaction` on every
@@ -80,6 +81,7 @@ let contentDidChangeTimer: ReturnType<typeof setTimeout> | null = null;
 let documentStatsTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingContentEditor: Editor | null = null;
 let pendingStatsEditor: Editor | null = null;
+let adaptiveHeadingSizeFrame: number | null = null;
 
 function editorIsLive(ed: Editor | null): ed is Editor {
   return ed !== null && (ed as { isDestroyed?: boolean }).isDestroyed !== true;
@@ -121,6 +123,41 @@ function scheduleDocumentStats(ed: Editor): void {
     if (!editorIsLive(editor)) return;
     postDocumentStats(editor);
   }, DOCUMENT_STATS_DEBOUNCE_MS);
+}
+
+function scheduleAdaptiveHeadingSizeSync(): void {
+  if (adaptiveHeadingSizeFrame !== null) return;
+  adaptiveHeadingSizeFrame = window.requestAnimationFrame(() => {
+    adaptiveHeadingSizeFrame = null;
+    syncAdaptiveHeadingSizes();
+  });
+}
+
+function syncAdaptiveHeadingSizes(): void {
+  editorRoot.querySelectorAll<HTMLElement>('h1, h2, h3').forEach((heading) => {
+    const density = adaptiveHeadingSizeDensity(heading);
+    if (density === null) {
+      heading.removeAttribute('data-epdoc-heading-size');
+    } else {
+      heading.setAttribute('data-epdoc-heading-size', density);
+    }
+  });
+}
+
+function adaptiveHeadingSizeDensity(heading: HTMLElement): 'medium' | 'long' | 'xlong' | null {
+  const level = Number(heading.tagName.slice(1));
+  const textLength = (heading.textContent ?? '').trim().replace(/\s+/g, ' ').length;
+  const limits = headingSizeLimits(level);
+  if (textLength > limits.long) return 'xlong';
+  if (textLength > limits.medium) return 'long';
+  if (textLength > limits.full) return 'medium';
+  return null;
+}
+
+function headingSizeLimits(level: number): { full: number; medium: number; long: number } {
+  if (level === 2) return { full: 36, medium: 64, long: 96 };
+  if (level === 3) return { full: 44, medium: 72, long: 110 };
+  return { full: 24, medium: 44, long: 72 };
 }
 
 const editor = new Editor({
@@ -198,9 +235,11 @@ const editor = new Editor({
       scheduleContentDidChange(ed);
     }
     scheduleDocumentStats(ed);
+    scheduleAdaptiveHeadingSizeSync();
   },
   onCreate: ({ editor: ed }) => {
     postDocumentStats(ed);
+    scheduleAdaptiveHeadingSizeSync();
     postBridge({ type: 'editorReady' });
   },
 });

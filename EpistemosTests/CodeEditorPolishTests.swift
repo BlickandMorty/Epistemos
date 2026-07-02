@@ -30,7 +30,7 @@ nonisolated struct CodeEditorPolishTests {
 
         let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         #expect(workspaceSource.contains("private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute?"))
-        #expect(workspaceSource.contains("guard resolvedNoteMode(for: page) == .source else {"))
+        #expect(workspaceSource.contains("guard resolvedNoteMode(for: page, options: options) == .source else {"))
         #expect(workspaceSource.contains("private func availableNoteModes(for page: SDPage) -> [NoteWorkspaceMode]"))
         #expect(!workspaceSource.contains("epistemos.markdownLens"))
         #expect(!workspaceSource.contains("MarkdownDocumentLens"))
@@ -41,7 +41,7 @@ nonisolated struct CodeEditorPolishTests {
         #expect(workspaceSource.contains("private func cachedSourceEditorContent(page: SDPage, route: SourceEditorRoute) -> String"))
         #expect(workspaceSource.contains("content: cachedSourceEditorContent(page: page, route: route)"))
         #expect(workspaceSource.contains("if CodeLanguage.isMarkdownDocument(path: filePath)"))
-        #expect(workspaceSource.contains("private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String)"))
+        #expect(workspaceSource.contains("private func saveMarkdownSourceContent(page: SDPage, filePath: String, content: String, noteBacked: Bool = false)"))
         #expect(workspaceSource.contains("private func currentSourceRouteMatches(pageId: String, filePath: String) -> Bool"))
         #expect(workspaceSource.contains("let currentRoute = sourceFileRoute(for: currentPage)"))
         #expect(workspaceSource.contains("private struct SourceEditorPersistedContent"))
@@ -49,6 +49,100 @@ nonisolated struct CodeEditorPolishTests {
         #expect(workspaceSource.contains("SourceEditorPersistedContent(rawContent: loaded.body, filePath: filePath)"))
         #expect(!workspaceSource.contains("let lang = CodeLanguage.detectEditorLanguage(from: path)"))
         #expect(!workspaceSource.contains("CodeLanguage.detectEditorLanguage(from: filePath) != nil"))
+    }
+
+    @Test("Markdown Source route resolution stays lexical and IO-free")
+    func markdownSourceRouteResolutionStaysLexicalAndIOFree() throws {
+        let workspaceSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let functionRange = workspaceSource.range(of: "private func activeVaultMarkdownSourcePath(for page: SDPage) -> String?"),
+              let nextFunctionRange = workspaceSource.range(
+                of: "private func sourceEditorRoute(for page: SDPage) -> SourceEditorRoute?",
+                range: functionRange.upperBound..<workspaceSource.endIndex
+              ) else {
+            Issue.record("Failed to isolate activeVaultMarkdownSourcePath() in NoteDetailWorkspaceView.swift")
+            return
+        }
+
+        let routeSource = String(workspaceSource[functionRange.lowerBound..<nextFunctionRange.lowerBound])
+        #expect(workspaceSource.contains("private func lexicalFilePath(_ path: String) -> String"))
+        #expect(routeSource.contains("let rootPath = lexicalFilePath(vaultURL.path)"))
+        #expect(routeSource.contains("let candidatePath = lexicalFilePath(rootPath + \"/\" + normalizedPath)"))
+        #expect(!routeSource.contains(".standardizedFileURL"))
+        #expect(!routeSource.contains("resolvingSymlinksInPath"))
+    }
+
+    @Test("Code file identity badges expose language logos and labels")
+    func codeFileIdentityBadgesExposeLanguageLogosAndLabels() {
+        let swift = CodeFileIconResolver.identity(forFilePath: "/tmp/App.swift", language: "")
+        #expect(swift.displayName == "Swift")
+        #expect(swift.symbolName == "swift")
+        #expect(swift.shortMark == "SW")
+
+        let html = CodeFileIconResolver.identity(forFilePath: "/tmp/index.html", language: "")
+        #expect(html.displayName == "HTML")
+        #expect(html.symbolName == "chevron.left.forwardslash.chevron.right")
+
+        let rust = CodeFileIconResolver.identity(forFilePath: "/tmp/lib.rs", language: "")
+        #expect(rust.displayName == "Rust")
+        #expect(rust.symbolName == "gearshape.2.fill")
+
+        let yaml = CodeFileIconResolver.identity(forFilePath: nil, language: "yaml")
+        #expect(yaml.displayName == "YAML")
+        #expect(yaml.shortMark == "YML")
+
+        let json = CodeFileIconResolver.identity(forFilePath: "/tmp/package.json", language: "")
+        #expect(json.displayName == "JSON")
+        #expect(json.symbolName == "curlybraces.square")
+    }
+
+    @Test("Code file rename preserves the existing file extension")
+    func codeFileRenamePreservesExistingFileExtension() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let functionStart = try #require(source.range(of: "func renamePageFile(pageId: String, newTitle: String, vaultURL: URL) throws"))
+        let functionEnd = try #require(
+            source.range(
+                of: "// MARK: - Handle Deletion",
+                range: functionStart.upperBound..<source.endIndex
+            )
+        )
+        let renameSource = source[functionStart.lowerBound..<functionEnd.lowerBound]
+
+        #expect(renameSource.contains("let oldExtension = oldURL.pathExtension"))
+        #expect(renameSource.contains("sanitizeFileBaseName(newTitle, preservingExtension: oldExtension)"))
+        #expect(renameSource.contains("updateCodeSidecarAfterFileRename(oldURL: oldURL, newURL: newURL, vaultURL: vaultURL)"))
+        #expect(renameSource.contains(#"oldExtension.isEmpty ? "\(newBaseName).md" : "\(newBaseName).\(oldExtension)""#))
+        #expect(renameSource.contains(#""\(newBaseName)-\(suffix).md""#))
+        #expect(renameSource.contains(#""\(newBaseName)-\(suffix).\(oldExtension)""#))
+        #expect(renameSource.contains(#""\(newBaseName)-\(uuid8).\(oldExtension)""#))
+        #expect(!renameSource.contains(#"appendingPathComponent("\(newBaseName).md")"#))
+        #expect(!renameSource.contains(#"appendingPathComponent("\(newBaseName)-\(suffix).md")"#))
+        #expect(sidebar.contains("private func preferredInitialMode(for page: SDPage) -> NoteWorkspaceMode"))
+        #expect(sidebar.contains("openInEditor(pageId, initialMode: .source)"))
+        #expect(sidebar.contains("page.needsVaultSync = isCodePage ? originalNeedsVaultSync : true"))
+        #expect(sidebar.contains("if originalFilePath != nil"))
+        #expect(sidebar.contains("page rename rollback after FS failure"))
+        #expect(sidebar.contains("renamedPage.title == sanitized"))
+    }
+
+    @Test("MarkEdit Source mount defers SwiftUI binding line metrics")
+    func markEditSourceMountDefersSwiftUIBindingLineMetrics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
+        guard let applyRange = source.range(of: "    private func apply(\n        text nextText: String,"),
+              let pollingRange = source.range(
+                of: "    private func startPolling(viewController: EditorViewController)",
+                range: applyRange.upperBound..<source.endIndex
+              ) else {
+            Issue.record("Failed to isolate MarkEdit chrome apply path")
+            return
+        }
+
+        let applySource = String(source[applyRange.lowerBound..<pollingRange.lowerBound])
+        #expect(source.contains("private func scheduleLineCountUpdate(for text: String)"))
+        #expect(source.contains("private func updateLineCountNow(for text: String)"))
+        #expect(source.contains("await Task.yield()"))
+        #expect(applySource.contains("scheduleLineCountUpdate(for: nextText)"))
+        #expect(!applySource.contains("updateLineCount(for: nextText)"))
     }
 
     @Test("Markdown Source mounts from note fallback and enriches from raw source safely")
@@ -71,7 +165,7 @@ nonisolated struct CodeEditorPolishTests {
                 "Immediate Source snapshots should live in the note workspace, not as an extra editor storage layer.")
         #expect(workspaceSource.contains("modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: persistedContent.body)"),
                 "Markdown Source snapshots must provide the front-matter-stripped body that Prose expects.")
-        #expect(workspaceSource.contains("case .source, .preview:\n            return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)"),
+        #expect(workspaceSource.contains("case .document, .source, .preview:\n            return currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page)"),
                 "Switching away from Source must flush the live Source snapshot instead of clobbering it with stale persisted body.")
         #expect(workspaceSource.contains("guard let currentPage = pages.first,"),
                 "Raw-source enrichment must not overwrite unsynced note edits.")
@@ -97,7 +191,7 @@ nonisolated struct CodeEditorPolishTests {
                 "The visible Save to Disk action must flush Source snapshots, not just call vaultSync directly.")
         #expect(workspaceSource.contains("let sourceContent = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: route.filePath)"),
                 "Source-mode saves should force-persist the latest CodeEditor snapshot.")
-        #expect(workspaceSource.contains("saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent)"),
+        #expect(workspaceSource.contains("saveCodeFileContent(page: page, filePath: route.filePath, content: sourceContent, noteBacked: route.isNoteBacked)"),
                 "Source-mode saves should use the code-file save path so markdown front matter and code files persist immediately.")
         #expect(!workspaceSource.contains("case .saveToDisk:\n            vaultSync.savePage(pageId: pageId)"),
                 "Save to Disk must not bypass the Source snapshot.")
@@ -122,7 +216,7 @@ nonisolated struct CodeEditorPolishTests {
     }
 
     @Test("Markdown Source fallback serialization preserves front matter metadata")
-    func markdownSourceFallbackSerializationPreservesFrontMatterMetadata() {
+    func markdownSourceFallbackSerializationPreservesFrontMatterMetadata() throws {
         let rendered = VaultIndexActor.buildMarkdownSource(
             pageId: "page-1",
             title: "Title: With Quotes \"Here\"",
@@ -350,6 +444,8 @@ nonisolated struct CodeEditorPolishTests {
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
             + "\n"
             + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorThemePalette.swift")
 
         #expect(source.contains("showLineNumbers: showLineGutter"),
                 "Line numbers must be passed to MarkEdit CoreEditor from Epistemos chrome.")
@@ -390,6 +486,9 @@ nonisolated struct CodeEditorPolishTests {
         let adapter = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorView.swift")
             + "\n"
             + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorState.swift")
+            + "\n"
+            + loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorThemePalette.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/Views/Notes/MarkEditCoreEditorCoordinator.swift")
 
         #expect(source.contains("MarkEditCodeEditorRepresentable("),
                 "Code files must render through MarkEdit CoreEditor by default, with v1 kept as an explicit fallback.")
@@ -397,6 +496,18 @@ nonisolated struct CodeEditorPolishTests {
                 "Epistemos theme changes and embedded-surface overrides must feed the CoreEditor adapter.")
         #expect(adapter.contains("AppTheme.epistemosSourceTheme(for: theme).editorTheme"),
                 "CoreEditor should map Epistemos themes into MarkEdit source themes instead of falling back to a plain body surface.")
+        #expect(adapter.contains("MarkEditCoreEditorThemePalette.current(theme: theme)"),
+                "CoreEditor must also receive Epistemos theme tokens so Ember/Platinum do not paint generic built-in canvases.")
+        #expect(adapter.contains("MarkEditCoreEditorThemeOverlay.script("),
+                "CoreEditor should apply the Epistemos token overlay in-place with the existing no-reload theme switch.")
+        #expect(adapter.contains("let surfaceTheme = theme"),
+                "The CoreEditor palette must use the already-selected app surface; applying .surfaceVariant(.other) again drifts Ember/Platinum/custom themes.")
+        #expect(!adapter.contains("let surfaceTheme = theme.surfaceVariant(.other)"),
+                "The CoreEditor palette must not double-variant the active theme surface.")
+        #expect(adapter.contains("window.__epistemosCoreEditorThemePalette"),
+                "The web editor should expose the applied token payload for visual/debug verification.")
+        #expect(coordinator.contains("self.applyTheme(themeName: state.themeName, palette: state.themePalette, to: webView)"),
+                "CoreEditor reset can repaint the built-in source theme; the Epistemos token overlay must be reapplied after reset succeeds.")
         #expect(adapter.contains(#"theme.isDark ? "xcode-dark" : "xcode-light""#),
                 "The non-MarkEdit fallback still needs a real code syntax theme.")
         #expect(adapter.contains(#"WebFontFace(family: "SF Mono", weight: nil, style: nil)"#),
@@ -415,6 +526,19 @@ nonisolated struct CodeEditorPolishTests {
                 "The existing code-editor wrap preference must reach CoreEditor.")
         #expect(!source.contains("private let useMinimalTheme = false"),
                 "The old native minimal-theme switch must not be the default code syntax gate anymore.")
+    }
+
+    @Test("Code editors reset legacy invisibles-on installs back to a clean source view")
+    func codeEditorsResetLegacyInvisiblesOnInstalls() throws {
+        let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let htmlWorkspace = try loadRepoTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspaceEditorView.swift")
+
+        #expect(codeEditor.contains(#"@AppStorage("codeEditor.invisiblesDefaultReset.20260702") private var didResetInvisiblesDefault = false"#))
+        #expect(codeEditor.contains("resetInvisiblesDefaultIfNeeded()"))
+        #expect(codeEditor.contains("showInvisibles = false"))
+        #expect(htmlWorkspace.contains(#"@AppStorage("codeEditor.invisiblesDefaultReset.20260702") private var didResetInvisiblesDefault = false"#))
+        #expect(htmlWorkspace.contains("resetInvisiblesDefaultIfNeeded()"))
+        #expect(htmlWorkspace.contains("sourceShowInvisibles = false"))
     }
 
     @Test("Code editor search engine finds forward matches and wraps")
@@ -751,7 +875,7 @@ nonisolated struct CodeEditorPolishTests {
                 "Same-file definitions must select the real definition range through the active editor bridge.")
         #expect(source.contains("semanticStatusCopyText"),
                 "Cross-file definitions must expose an actionable target instead of a dead-end status.")
-        #expect(source.contains("definitionTargetText(uri: definition.uri"),
+        #expect(source.contains("definitionTargetText(\n                            uri: definition.uri"),
                 "Cross-file definition targets should include a concrete path/URI, line, and column.")
         #expect(source.contains("Copy definition target"),
                 "The LSP status surface must expose a copy action for cross-file definitions.")

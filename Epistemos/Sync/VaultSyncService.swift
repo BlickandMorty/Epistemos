@@ -3930,94 +3930,85 @@ final class VaultSyncService {
         page.subfolder = subfolder
         page.wordCount = body.split(separator: " ").count
 
-        // Insert into main context (we're on MainActor)
         let context = modelContainer.mainContext
         context.insert(page)
         BlockMirror.sync(pageId: failedPageId, body: body, modelContext: context)
-        do {
-            try context.save()  // Explicit save ensures the page is persisted before background export
-        } catch {
-            context.delete(page)
-            let blockDescriptor = FetchDescriptor<SDBlock>(
-                predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
-            )
-            do {
-                let transientBlocks = try context.fetch(blockDescriptor)
-                for block in transientBlocks {
-                    context.delete(block)
-                }
-            } catch {
-                Log.vault.error(
-                    "Failed to clean up transient blocks for new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
-                )
-            }
-            NoteFileStorage.deleteBody(pageId: failedPageId)
-            Log.vault.error("Failed to save new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
-
-        // Index in Spotlight
-        SpotlightIndexer.index(page)
         page.lastSyncedBodyHash = nil
         page.lastSyncedAt = nil
         page.needsVaultSync = true
         do {
             try context.save()
         } catch {
+            rollBackCreatedPage(page, pageId: failedPageId, title: title, context: context)
+            Log.vault.error("Failed to save new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+
+        let pageId = failedPageId
+        suppressFileWatcherForSelfOriginatedChange()
+        let exportResult: (path: String, bodyHash: String)
+        do {
+            guard let result = try await exportPage(pageId: pageId, to: vaultURL) else {
+                rollBackCreatedPage(page, pageId: pageId, title: title, context: context)
+                publishVaultMutation(.vaultChanged)
+                return nil
+            }
+            exportResult = result
+        } catch {
+            rollBackCreatedPage(page, pageId: pageId, title: title, context: context)
+            publishVaultMutation(.vaultChanged)
+            log.error(
+                "Failed to export new page to disk: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+
+        page.filePath = exportResult.path
+        let currentHash = SDPage.bodyHash(latestAvailableBody(for: page, pageId: pageId))
+        if currentHash == exportResult.bodyHash {
+            page.lastSyncedBodyHash = currentHash
+            page.lastSyncedAt = .now
+            page.needsVaultSync = false
+        } else {
+            page.needsVaultSync = true
+        }
+
+        do {
+            try context.save()
+        } catch {
             Log.vault.error(
-                "Failed to mark new page dirty for vault export '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                "Failed to save new page export tracking: \(error.localizedDescription, privacy: .public)"
             )
         }
 
-        // Export to disk in background
-        let pageId = failedPageId
-        suppressFileWatcherForSelfOriginatedChange()
-        Task { [weak self] in
-            do {
-                guard let self,
-                      let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL) else {
-                    return
-                }
-                await MainActor.run {
-                    let context = self.modelContainer.mainContext
-                    let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                    guard let page = self.fetchFirst(descriptor, in: context, label: "new page export tracking") else {
-                        return
-                    }
-                    let currentHash = SDPage.bodyHash(self.latestAvailableBody(for: page, pageId: pageId))
-                    guard currentHash == exportResult.bodyHash else {
-                        page.needsVaultSync = true
-                        do {
-                            try context.save()
-                        } catch {
-                            Log.vault.error(
-                                "Failed to retain dirty state after new page export hash mismatch: \(error.localizedDescription, privacy: .public)"
-                            )
-                        }
-                        return
-                    }
-                    page.lastSyncedBodyHash = currentHash
-                    page.lastSyncedAt = .now
-                    page.needsVaultSync = false
-                    do {
-                        try context.save()
-                    } catch {
-                        Log.vault.error(
-                            "Failed to save new page export tracking: \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                }
-            } catch {
-                log.error(
-                    "Failed to export new page to disk: \(error.localizedDescription, privacy: .public)"
-                )
-            }
-            await MainActor.run {
-                self?.publishVaultMutation(.vaultChanged)
-            }
-        }
-
+        SpotlightIndexer.index(page)
+        publishVaultMutation(.vaultChanged)
         return pageId
+    }
+
+    private func rollBackCreatedPage(_ page: SDPage, pageId: String, title: String, context: ModelContext) {
+        context.delete(page)
+        let blockDescriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId }
+        )
+        do {
+            let transientBlocks = try context.fetch(blockDescriptor)
+            for block in transientBlocks {
+                context.delete(block)
+            }
+        } catch {
+            Log.vault.error(
+                "Failed to clean up transient blocks for new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        NoteFileStorage.deleteBody(pageId: pageId)
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error(
+                "Failed to roll back new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     // MARK: - Directory Operations
@@ -4085,22 +4076,25 @@ final class VaultSyncService {
         }
     }
 
-    /// Rename a page's vault .md file to match a new title.
+    /// Rename a page's vault file to match a new title.
     /// Call this after updating page.title so the Finder filename stays in sync.
-    func renamePageFile(pageId: String, newTitle: String) {
+    @discardableResult
+    func renamePageFile(pageId: String, newTitle: String) -> Task<String?, Never>? {
         guard let vaultURL else {
             log.warning("Cannot rename page file: no vault URL")
-            return
+            return nil
         }
         let actor = indexActor
         suppressFileWatcherForSelfOriginatedChange()
-        Task {
+        let task = Task { () -> String? in
             do {
-                try await actor?.renamePageFile(pageId: pageId, newTitle: newTitle, vaultURL: vaultURL)
+                return try await actor?.renamePageFile(pageId: pageId, newTitle: newTitle, vaultURL: vaultURL)
             } catch {
                 log.error("Failed to rename page file: \(error.localizedDescription, privacy: .public)")
+                return nil
             }
         }
+        return task
     }
 
     /// Rename a directory in the vault. Both paths are relative to vault root.

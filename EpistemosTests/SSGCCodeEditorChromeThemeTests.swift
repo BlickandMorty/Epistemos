@@ -61,9 +61,12 @@ struct SSGCCodeEditorChromeThemeTests {
         #expect(src.contains("private var codeEditorTheme: EpistemosTheme"))
         #expect(src.contains("themeOverride ?? ui.theme"))
         #expect(src.contains("theme: codeEditorTheme"))
-        #expect(src.contains("CodeFileIconView(filePath: filePath, language: language, theme: codeEditorTheme)"))
         #expect(src.contains("previewTheme: codeEditorTheme.isDark ? .dark : .light"))
         #expect(src.contains("codeEditorTheme.resolved.accent.nsColor.codePreviewCSSColor"))
         #expect(src.contains("let surfaceTheme = codeEditorTheme.surfaceVariant(.other)"))
+
+        let icon = try loadMirroredSourceTextFile("Epistemos/Views/Notes/CodeFileIconView.swift")
+        #expect(icon.contains("let theme: EpistemosTheme"))
+        #expect(icon.contains("theme.resolved.accent.color"))
     }
 }

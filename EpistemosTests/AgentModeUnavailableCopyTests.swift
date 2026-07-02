@@ -14,8 +14,10 @@ struct AgentModeUnavailableCopyTests {
 
     @Test("the suggestion copy references the tool-capable Qwen 3 family, not the over-claimed 3.5 4B")
     func copyReferencesToolCapableModel() throws {
-        let src = try loadMirroredSourceTextFile("Epistemos/Views/Omega/AgentModeUnavailableView.swift")
-        #expect(!src.contains("Qwen 3.5 4B"), "Qwen 3.5 4B is not tool-capable — must not be suggested")
-        #expect(src.contains("Qwen 3 4B+"))
+        let src = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
+        #expect(src.contains("case .qwen3_4B4Bit, .qwen3_8B4Bit:\n            .fullAgent"))
+        #expect(src.contains("case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai8B2Bit"))
+        #expect(LocalTextModelID.qwen3_4B4Bit.agentToolTier == .fullAgent)
+        #expect(LocalTextModelID.qwen35_4B4Bit.agentToolTier != .fullAgent)
     }
 }

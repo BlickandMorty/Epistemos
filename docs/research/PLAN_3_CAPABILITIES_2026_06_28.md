@@ -1,3 +1,8 @@
+---
+id: 14DFD560-E2F6-4D6C-89E5-45B1F215B6BC
+title: PLAN 3 — Capabilities (2026-06-28)
+---
+
 # PLAN 3 — Capabilities (2026-06-28)
 
 > **The THIRD plan. Standalone.** Sibling to — and NOT overlapping — the other two:
@@ -186,6 +191,7 @@ checkpoint through no-follow regular-file evidence before a signed package can r
 gate/settings/runtime diagnostics bound raw status/domain/path strings, normalize control/whitespace characters, and keep
 ellipsis inside configured caps before display. Decoded browser-use settings JSON is validated before returning UI/runtime
 state, not only before saves or launch planning.
+The vendor codepack, settings contract, staged payload, runtime shell, and adapter lane have landed.
 
 ---
 
@@ -397,8 +403,9 @@ Every Plan-3 capability is a one-tap button on the landing page (`LandingView` `
 grid `:492`). `LandingFeatureButton` enum (pdfImport/arxiv/provenance/extensions/vaultMCP/browser/browserUsePro/
 meetingNote/voice) reuses the existing `PixelLandingCommandTile` and summons Plan 3-owned surfaces only:
 `UtilityWindowManager.showSettings(section: .provenance)`, `UtilityWindowManager.showSettings(section: .skills)`,
-`UtilityWindowManager.showSettings(section: .voice)`, `UtilityWindowManager.show(.browser)`,
-`UtilityWindowManager.show(.meetingNote)`, the arXiv sheet, and `LiteParsePDFImportController.importPage`.
+`UtilityWindowManager.showSettings(section: .voice)`, embedded home surfaces for browser/browserUsePro/meeting/arXiv
+(`ui.homeContent = .browser`, `ui.homeContent = .browserUsePro`, `ui.homeContent = .meeting`,
+`ui.homeContent = .arxiv`), and `LiteParsePDFImportController.importPage`.
 Honest compile-time Pro pills; unavailable/help/status text is bounded and control/whitespace-normalized, then shown in
 tooltips and alerts with ellipsis inside configured caps.
 Adding a feature = 1 enum case + 1 switch line.

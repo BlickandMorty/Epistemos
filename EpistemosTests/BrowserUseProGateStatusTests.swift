@@ -378,7 +378,7 @@ struct BrowserUseProGateStatusTests {
 
         #expect(!status.isActive)
         #expect(status.headline == "browser-use Pro: packaged payload incomplete")
-        #expect(status.detail.contains("requirements.lock resolves outside vendor root at requirements.lock"))
+        #expect(status.detail.contains("requirements.lock path must not include symlink component"))
         #endif
     }
 
@@ -565,9 +565,6 @@ struct BrowserUseProGateStatusTests {
             "String(domain.prefix(maxDomainCharacters))",
             "normalizedDiagnostic(bounded)",
             "BrowserUseSignedBundleStatus",
-            "SecStaticCodeCheckValidity",
-            "kSecCSCheckNestedCode",
-            "kSecCSCheckAllArchitectures",
             "webUIRuntimeCompatibility",
             "webUIDryRunSubmit",
             "expectedDryRunSubmitEnvVar",
@@ -578,13 +575,7 @@ struct BrowserUseProGateStatusTests {
             "manifest name mismatch",
             "manifest runtime lane mismatch",
             "manifest native Browser boundary mismatch",
-            "signature manifest top-level keys mismatch",
-            "normalizedSigningIdentity(",
-            "signature manifest signing identity is empty",
-            "isSecondPrecisionUTCTimestamp",
-            "signature manifest codesign contract mismatch",
             "signed packaged payload ready",
-            "signature manifest",
             "unsafe path",
             "omittingEmptySubsequences: false",
             "is a directory at",
@@ -602,6 +593,15 @@ struct BrowserUseProGateStatusTests {
             "package result top-level keys mismatch",
             "loadPackageResult(",
             "st_nlink <= 1",
+            "SecStaticCodeCheckValidity",
+            "kSecCSCheckNestedCode",
+            "kSecCSCheckAllArchitectures",
+            "signature manifest top-level keys mismatch",
+            "normalizedSigningIdentity(",
+            "signature manifest signing identity is empty",
+            "isSecondPrecisionUTCTimestamp",
+            "signature manifest codesign contract mismatch",
+            "signature manifest",
             "signature manifest has multiple hard links",
             "package result has multiple hard links",
             "packageResultProblem(",
@@ -868,12 +868,12 @@ struct BrowserUseProGateStatusTests {
         },
         "wheelhouse": {
           "status": "staged",
-          "expected_path": "wheels/",
+          "expected_path": "wheels",
           "file_count": 177
         },
         "playwright_chromium": {
           "status": "staged",
-          "expected_path": "playwright/",
+          "expected_path": "playwright",
           "chromium_revision": "1223",
           "headless_shell_revision": "1223",
           "ffmpeg_revision": "1011"
@@ -890,7 +890,7 @@ struct BrowserUseProGateStatusTests {
       "signature_type": "ad-hoc",
       "signing_identity": "-",
       "payload_root": "Contents/Resources/BrowserUsePro",
-      "file_count": 198,
+      "file_count": 21,
       "python": "Python 3.11.15",
       "browser_use_version": "0.13.2",
       "component_repos": {

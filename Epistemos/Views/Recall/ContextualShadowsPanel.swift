@@ -137,8 +137,8 @@ struct ContextualShadowsPanel: View {
             .frame(width: isWorkspaceMode ? presentation.workspaceWidth : presentation.compactWidth)
             .frame(maxHeight: isWorkspaceMode ? 690 : presentation.maxPanelHeight)
             .recallPanelChrome(theme: theme)
-            .shadow(color: .black.opacity(theme.isDark ? 0.26 : 0.16), radius: 10, x: 0, y: 6)
-            .transition(reduceMotion ? .identity : .move(edge: .bottom).combined(with: .opacity))
+            .shadow(color: .black.opacity(theme.isDark ? 0.30 : 0.14), radius: 18, x: 0, y: 10)
+            .transition(reduceMotion ? .identity : .scale(scale: 0.97, anchor: .bottomTrailing).combined(with: .opacity))
             .onDisappear {
                 previewTask?.cancel()
                 previewTask = nil
@@ -505,29 +505,26 @@ private struct RecallPanelChromeModifier: ViewModifier {
     let theme: EpistemosTheme
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         content
             .background {
                 ZStack(alignment: .top) {
                     shape.fill(.regularMaterial)
-                    shape.fill(PixelPanelBackground.panelSurface(for: theme).opacity(theme.isDark ? 0.88 : 0.95))
+                    shape.fill(theme.card.opacity(theme.isDark ? 0.82 : 0.9))
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(theme.isDark ? 0.05 : 0.24),
+                            Color.white.opacity(theme.isDark ? 0.07 : 0.3),
                             Color.clear,
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                     .clipShape(shape)
-                    Rectangle()
-                        .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.52 : 0.36))
-                        .frame(height: 2)
                 }
             }
             .clipShape(shape)
             .overlay {
-                shape.strokeBorder(theme.border.opacity(theme.isDark ? 0.58 : 0.42), lineWidth: 0.8)
+                shape.strokeBorder(theme.border.opacity(theme.isDark ? 0.52 : 0.34), lineWidth: 0.8)
             }
     }
 }

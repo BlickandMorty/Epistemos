@@ -1041,7 +1041,7 @@ struct RuntimeValidationTests {
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
         }
     }
 
@@ -1070,7 +1070,7 @@ struct RuntimeValidationTests {
             ])
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
-            #expect(inference.availableOperatingModes == [.fast, .agent])
+            #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.llama32_3BInstruct4Bit.rawValue))
             #expect(inference.availableOperatingModes == [.fast])
@@ -2420,6 +2420,19 @@ struct RuntimeValidationTests {
         #expect(!inspector.contains("else if inspectorState.inspectorMode == .chat"))
         #expect(!inspector.contains("AssistantToolbarAskBar("))
         #expect(overlay.contains("let sidebarRoot = HologramSearchSidebar("))
+    }
+
+    @Test("graph search sidebar renders only on the canvas route")
+    func graphSearchSidebarRendersOnlyOnCanvasRoute() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+        let embedded = try loadRepoTextFile("Epistemos/Views/Home/HomeGraphEmbeddedView.swift")
+
+        #expect(sidebar.contains("if graphState.currentRoute.isCanvas"))
+        #expect(!sidebar.contains("expandForWorkspaceRoute"))
+        #expect(overlay.contains("sidebarHostView?.isHidden = !isCanvas"))
+        #expect(overlay.contains("hideGraphRouteInspectorChrome()"))
+        #expect(embedded.contains("if graphState.currentRoute.isCanvas"))
     }
 
     @Test("compact graph inspector typewrites node title and hides keyword chips")
@@ -3833,27 +3846,46 @@ struct RuntimeValidationTests {
         #expect(!source.contains("Omega"))
     }
 
-    @Test("graph-only chrome keeps notes query sidebar floating on full-width workspace routes")
-    func graphOnlyChromeKeepsNotesQuerySidebarFloatingOnWorkspaceRoutes() throws {
+    @Test("graph-only chrome hides sidebar and keeps Metal paused on workspace routes")
+    func graphOnlyChromeHidesSidebarAndPausesMetalOnWorkspaceRoutes() throws {
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+        let embedded = try loadRepoTextFile("Epistemos/Views/Home/HomeGraphEmbeddedView.swift")
         let container = try loadRepoTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
 
         #expect(overlay.contains("private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool)"))
+        #expect(overlay.contains("private var lastSyncedGraphWorkspaceIsCanvas: Bool?"))
+        #expect(overlay.contains("private var fpsHUDHostView: NSView?"))
         #expect(overlay.contains("routeHostView?.isHidden = isCanvas"))
         #expect(overlay.contains("controlsHostView?.isHidden = !isCanvas"))
-        #expect(overlay.contains("sidebarHostView?.isHidden = false"))
+        #expect(overlay.contains("sidebarHostView?.isHidden = !isCanvas"))
+        #expect(overlay.contains("fpsHUDHostView?.isHidden = !isCanvas"))
+        #expect(overlay.contains("graphOpenStartTask?.cancel()"))
+        #expect(overlay.contains("guard self.graphState.currentRoute.isCanvas else {"))
+        #expect(overlay.contains("guard s.graphState.currentRoute.isCanvas else {"))
+        #expect(overlay.contains("guard graphState.currentRoute.isCanvas else { return }"))
+        #expect(overlay.contains("metalView.pauseEngine()"))
+        #expect(overlay.contains("metalView.isHidden = true"))
+        #expect(overlay.contains("metalView.alphaValue = 0.0"))
+        #expect(overlay.contains("inspectorEjectButton?.isHidden = true"))
+        #expect(overlay.contains("miniInspectorPanel?.orderOut(nil)"))
+        #expect(overlay.contains("graphView.isHidden = !graphState.currentRoute.isCanvas"))
+        #expect(overlay.contains("syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)"))
+        #expect(embedded.contains("if graphState.currentRoute.isCanvas {\n                HStack(alignment: .top, spacing: 0)"))
+        #expect(embedded.contains("if graphState.currentRoute.isCanvas {\n                embeddedFloatingControls"))
         #expect(!container.contains("routeSidebarInset"))
         #expect(!container.contains("GraphSidebarLayout.routedContentLeadingInset"))
         #expect(!container.contains("epistemos.graphSidebarWidth.v1"))
+        #expect(!container.contains("GraphHTMLWorkspaceDock("))
+        #expect(!container.contains("graphHTMLWorkspaceDockLayer"))
         #expect(overlay.contains("if isCanvas {"))
         #expect(overlay.contains("inspectorHostView?.isHidden = true"))
         #expect(overlay.contains("for view in pinnedInspectorViews.values {"))
-        #expect(sidebar.contains(".onChange(of: graphState.currentRoute)"))
-        #expect(sidebar.contains("expandForWorkspaceRoute(graphState.currentRoute)"))
-        #expect(sidebar.contains("private func expandForWorkspaceRoute(_ route: GraphWorkspaceRoute)"))
-        #expect(sidebar.contains("guard !route.isCanvas else { return }"))
-        #expect(sidebar.contains("isCollapsed = false"))
+        #expect(sidebar.contains("if graphState.currentRoute.isCanvas"))
+        #expect(!sidebar.contains(".onChange(of: graphState.currentRoute)"))
+        #expect(!sidebar.contains("expandForWorkspaceRoute"))
+        #expect(!sidebar.contains("private func expandForWorkspaceRoute"))
+        #expect(!sidebar.contains("guard !route.isCanvas else { return }"))
     }
 
     @Test("bundled note-operation skills stay available to the harness")

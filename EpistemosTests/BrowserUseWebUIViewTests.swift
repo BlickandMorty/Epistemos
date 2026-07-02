@@ -76,7 +76,7 @@ struct BrowserUseWebUIViewTests {
 
         var blockedURL: URL?
         let hostingView = NSHostingView(
-            rootView: BrowserUseLoopbackWebView(url: fixtureURL) { url in
+            rootView: BrowserUseLoopbackWebView(url: fixtureURL, theme: .platinumViolet) { url in
                 blockedURL = url
             }
         )
@@ -131,7 +131,7 @@ struct BrowserUseWebUIViewTests {
 
         var blockedURL: URL?
         let hostingView = NSHostingView(
-            rootView: BrowserUseLoopbackWebView(url: smoke.loopbackURL) { url in
+            rootView: BrowserUseLoopbackWebView(url: smoke.loopbackURL, theme: .platinumViolet) { url in
                 blockedURL = url
             }
         )
@@ -186,7 +186,7 @@ struct BrowserUseWebUIViewTests {
 
         var blockedURL: URL?
         let hostingView = NSHostingView(
-            rootView: BrowserUseLoopbackWebView(url: smoke.loopbackURL) { url in
+            rootView: BrowserUseLoopbackWebView(url: smoke.loopbackURL, theme: .platinumViolet) { url in
                 blockedURL = url
             }
         )

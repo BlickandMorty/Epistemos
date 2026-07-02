@@ -1431,14 +1431,16 @@ struct NotesSidebar: View {
             // EditorActionsBar is isolated (has its own @Query for dirty pages).
             EditorActionsBar(
                 activePageId: currentSelectedPageId,
-                onNewDocument: { openNewEpdocDocument() },
                 onNewHTMLWorkspace: { openNewHTMLWorkspaceDocument() },
                 onNewCodeFile: { showingNewCodeFileSheet = true },
                 onNewPage: {
                     Task {
-                        if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
-                            openInEditor(pageId)
-                        }
+                        await NoteCreationCoordinator.createAndOpen(
+                            vaultSync: vaultSync,
+                            open: { pageId, mode in
+                                openInEditor(pageId, initialMode: mode)
+                            }
+                        )
                     }
                 },
                 onNewFolder: { createFolder(title: "Untitled Folder") },
@@ -1772,12 +1774,19 @@ struct NotesSidebar: View {
     // (all rows check highlight state) that blocks the main thread before the
     // editor can appear.
 
-    private func openInEditor(_ pageId: String) {
-        if let onSelectPage {
+    private func openInEditor(_ pageId: String, initialMode: NoteWorkspaceMode = .edit) {
+        if initialMode == .edit, let onSelectPage {
             onSelectPage(pageId)
         } else {
-            NoteWindowManager.shared.open(pageId: pageId)
+            NoteWindowManager.shared.open(pageId: pageId, initialMode: initialMode)
         }
+    }
+
+    private func preferredInitialMode(for page: SDPage) -> NoteWorkspaceMode {
+        guard let path = page.filePath,
+              CodeLanguage.detect(from: path) != nil
+        else { return .edit }
+        return .source
     }
 
     // MARK: - Action Handler
@@ -1785,32 +1794,65 @@ struct NotesSidebar: View {
     private func handleAction(_ action: SidebarAction) {
         switch action {
         case .openPage(let id):
-            openInEditor(id)
+            if let page = fetchPage(id) {
+                openInEditor(id, initialMode: preferredInitialMode(for: page))
+            } else {
+                openInEditor(id)
+            }
 
         case .openPageInNewWindow(let id):
             if let page = fetchPage(id) {
-                NoteWindowManager.shared.openWindow(for: page)
+                NoteWindowManager.shared.openWindow(for: page, initialMode: preferredInitialMode(for: page))
             }
 
         case .renamePage(let id, let newTitle):
             if let page = fetchPage(id) {
                 let sanitized = VaultIndexActor.sanitizeTitle(newTitle)
+                let isCodePage = preferredInitialMode(for: page) == .source
                 let originalTitle = page.title
                 let originalUpdatedAt = page.updatedAt
                 let originalNeedsVaultSync = page.needsVaultSync
+                let originalFilePath = page.filePath
                 page.title = sanitized
                 page.updatedAt = .now
-                page.needsVaultSync = true
+                page.needsVaultSync = isCodePage ? originalNeedsVaultSync : true
                 guard persistSidebarMutation(rebuild: false, reason: "page rename", restoreState: {
                     page.title = originalTitle
                     page.updatedAt = originalUpdatedAt
                     page.needsVaultSync = originalNeedsVaultSync
+                    page.filePath = originalFilePath
                 }) else {
                     return
                 }
-                // Rename the vault .md file to match the new title
-                vaultSync.renamePageFile(pageId: id, newTitle: sanitized)
-                setNeedsRebuild()
+                let renameTask = vaultSync.renamePageFile(pageId: id, newTitle: sanitized)
+                if originalFilePath != nil {
+                    Task { @MainActor in
+                        let renamedPath = await renameTask?.value
+                        guard let renamedPage = fetchPage(id) else {
+                            setNeedsRebuild()
+                            return
+                        }
+                        if let renamedPath {
+                            if renamedPage.filePath != renamedPath {
+                                renamedPage.filePath = renamedPath
+                                try? modelContext.save()
+                            }
+                        } else if renamedPage.title == sanitized {
+                            renamedPage.title = originalTitle
+                            renamedPage.updatedAt = originalUpdatedAt
+                            renamedPage.needsVaultSync = originalNeedsVaultSync
+                            renamedPage.filePath = originalFilePath
+                            _ = persistSidebarMutation(
+                                rebuild: false,
+                                reason: "page rename rollback after FS failure",
+                                restoreState: {}
+                            )
+                        }
+                        setNeedsRebuild()
+                    }
+                } else {
+                    setNeedsRebuild()
+                }
             }
 
         case .requestDeletePage(let item):
@@ -2012,9 +2054,12 @@ struct NotesSidebar: View {
 
         case .createNewPage:
             Task {
-                if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
-                    openInEditor(pageId)
-                }
+                await NoteCreationCoordinator.createAndOpen(
+                    vaultSync: vaultSync,
+                    open: { pageId, mode in
+                        openInEditor(pageId, initialMode: mode)
+                    }
+                )
             }
 
         case .newJournalEntry:
@@ -2290,16 +2335,6 @@ struct NotesSidebar: View {
         _ = ensureRootFolder(named: title, isCollection: true)
     }
 
-    private func openNewEpdocDocument() {
-        do {
-            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
-            refreshEpdocDocuments(in: vaultSync.vaultURL, force: true)
-            scheduleDeferredRebuild(after: .milliseconds(250), source: "epdoc create")
-        } catch {
-            NSApplication.shared.presentError(error)
-        }
-    }
-
     private func openNewHTMLWorkspaceDocument() {
         do {
             try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
@@ -2328,7 +2363,7 @@ struct NotesSidebar: View {
             )
             creationStatusText = "Code file created"
             setNeedsRebuild()
-            openInEditor(pageId)
+            openInEditor(pageId, initialMode: .source)
         } catch {
             creationStatusText = "Code file failed"
             NSApplication.shared.presentError(error)
@@ -3300,7 +3335,6 @@ private struct NoVaultConnectedBanner: View {
 
 private struct EditorActionsBar: View {
     let activePageId: String?
-    let onNewDocument: () -> Void
     let onNewHTMLWorkspace: () -> Void
     let onNewCodeFile: () -> Void
     let onNewPage: () -> Void
@@ -3321,15 +3355,9 @@ private struct EditorActionsBar: View {
         HStack(spacing: 2) {
             SidebarIconButton(
                 icon: "square.and.pencil",
-                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Page" : "New Page"
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Note" : "New Note"
             ) {
                 onNewPage()
-            }
-            SidebarIconButton(
-                icon: "doc.badge.plus",
-                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Document" : "New Document (.epdoc)"
-            ) {
-                onNewDocument()
             }
             SidebarIconButton(
                 icon: "curlybraces.square",
