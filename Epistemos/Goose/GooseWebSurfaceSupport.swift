@@ -326,22 +326,23 @@ extension GooseWebSurfaceView {
 
     static func nativeFeelCSS(theme: EpistemosTheme) -> String {
         let resolved = theme.resolved
-        let background = cssColor(resolved.chatSurface)
-        let surface = cssColor(resolved.card)
-        let surfaceStrong = cssColor(resolved.floatingSurfaceTint)
-        let mutedSurface = cssColor(resolved.muted)
-        let foreground = cssColor(resolved.foreground)
-        let mutedForeground = cssColor(resolved.mutedForeground)
-        let accent = cssColor(resolved.accent)
-        let uiAccent = cssColor(resolved.uiAccent)
-        let border = cssColor(resolved.border)
+        let isDark = resolved.isDark
+        let background = cssColor(resolved.chatSurface, isDark: isDark)
+        let surface = cssColor(resolved.card, isDark: isDark)
+        let surfaceStrong = cssColor(resolved.floatingSurfaceTint, isDark: isDark)
+        let mutedSurface = cssColor(resolved.muted, isDark: isDark)
+        let foreground = cssColor(resolved.foreground, isDark: isDark)
+        let mutedForeground = cssColor(resolved.mutedForeground, isDark: isDark)
+        let accent = cssColor(resolved.accent, isDark: isDark)
+        let uiAccent = cssColor(resolved.uiAccent, isDark: isDark)
+        let border = cssColor(resolved.border, isDark: isDark)
         // Legacy quiet-focus vars stay emitted for any donor rule still
         // referencing them; the June layer's --focus-ring is the live recipe.
         let quietFocus = "color-mix(in srgb, \(accent) 7%, \(surfaceStrong))"
         let quietFocusRing = "color-mix(in srgb, \(accent) 18%, transparent)"
-        let inverseBackground = cssColor(resolved.foreground)
-        let inverseText = cssColor(resolved.background)
-        let colorScheme = theme.isDark ? "dark" : "light"
+        let inverseBackground = cssColor(resolved.foreground, isDark: isDark)
+        let inverseText = cssColor(resolved.background, isDark: isDark)
+        let colorScheme = isDark ? "dark" : "light"
 
         return """
         :root,
@@ -419,8 +420,25 @@ extension GooseWebSurfaceView {
         """
     }
 
-    private static func cssColor(_ token: EpistemosTheme.ResolvedColorToken) -> String {
-        guard let srgb = token.nsColor.usingColorSpace(.sRGB) else { return "currentColor" }
+    private static func cssColor(
+        _ token: EpistemosTheme.ResolvedColorToken,
+        isDark: Bool
+    ) -> String {
+        // Dynamic system colors (.windowBackground/.controlBackground) resolve
+        // against the *current drawing appearance*, which tracks the OS — not
+        // the selected Epistemos theme. Pin the theme's appearance before
+        // converting, or a light in-app theme on a dark Mac emits dark dynamic
+        // surfaces under light literal inks: text (and selected text) becomes
+        // unreadable in the injected palette.
+        var srgb: NSColor?
+        if let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua) {
+            appearance.performAsCurrentDrawingAppearance {
+                srgb = token.nsColor.usingColorSpace(.sRGB)
+            }
+        } else {
+            srgb = token.nsColor.usingColorSpace(.sRGB)
+        }
+        guard let srgb else { return "currentColor" }
         let red = Int((srgb.redComponent * 255).rounded())
         let green = Int((srgb.greenComponent * 255).rounded())
         let blue = Int((srgb.blueComponent * 255).rounded())
