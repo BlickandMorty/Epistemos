@@ -669,7 +669,15 @@ final class GooseRuntimeSupervisor {
     }
 
     nonisolated static func defaultBaseURL(port: Int = defaultPort, scheme: String = "http") -> URL {
-        URL(string: "\(scheme)://\(defaultHost):\(port)")!
+        // Built via URLComponents (robust percent-handling) with a non-failable
+        // fallback — no force-unwrap in a production path (CLAUDE.md). The
+        // fallback is unreachable with the controlled scheme/host/port inputs;
+        // URL(fileURLWithPath:) never returns nil, so this can never crash.
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = defaultHost
+        components.port = port
+        return components.url ?? URL(fileURLWithPath: "/")
     }
 
     /// goosed has no `/health` (404); its readiness/health endpoint is `/status` (200). (Step 2.)
