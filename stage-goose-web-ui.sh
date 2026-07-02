@@ -3478,7 +3478,7 @@ if (!source.includes('const SessionTabsStrip')) {
       data-epistemos-session-tabs-command-switch
     >
       <div
-        className="pointer-events-auto flex max-w-full gap-1 overflow-x-auto rounded-[10px] bg-background-primary/58 p-1"
+        className="pointer-events-auto flex max-w-full gap-[2px] overflow-x-auto rounded-[var(--r-md)] bg-[var(--surface-subtle)] p-[3px]"
         role="tablist"
         aria-label="Active sessions"
       >
@@ -3488,10 +3488,10 @@ if (!source.includes('const SessionTabsStrip')) {
           aria-label={isSplitMode ? 'Exit split view' : 'Split active sessions'}
           onClick={toggleSplitView}
           className={cn(
-            'flex shrink-0 items-center rounded-[8px] p-1.5 transition-colors',
+            'flex shrink-0 items-center rounded-[var(--r-sm)] p-1.5 transition-colors',
             isSplitMode
-              ? 'bg-[var(--epistemos-accent)]/12 text-text-primary'
-              : 'text-text-secondary hover:bg-background-secondary/56 hover:text-text-primary'
+              ? 'bg-[var(--card)] text-text-primary shadow-[var(--shadow-sm)]'
+              : 'text-text-secondary hover:text-text-primary'
           )}
           data-epistemos-session-split-toggle
         >
@@ -3506,12 +3506,14 @@ if (!source.includes('const SessionTabsStrip')) {
               key={session.sessionId}
               role="presentation"
               className={cn(
-                'group flex min-w-0 max-w-[200px] items-center gap-1 rounded-[8px] px-2 py-1.5 text-xs transition-colors',
+                // June tab anatomy: card indicator + slight shadow on the
+                // surface-subtle track (never an accent-alpha wash).
+                'group flex min-w-0 max-w-[200px] items-center gap-1 rounded-[var(--r-sm)] px-2 py-1.5 text-xs transition-colors',
                 active
-                  ? 'bg-[var(--epistemos-accent)]/12 text-text-primary'
+                  ? 'bg-[var(--card)] text-text-primary shadow-[var(--shadow-sm)]'
                   : isSplitPeer
-                    ? 'bg-[var(--epistemos-accent)]/8 text-text-primary'
-                  : 'text-text-secondary hover:bg-background-secondary/56 hover:text-text-primary'
+                    ? 'bg-[var(--card)]/60 text-text-primary'
+                  : 'text-text-secondary hover:text-text-primary'
               )}
             >
               <button
