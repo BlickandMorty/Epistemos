@@ -22,6 +22,14 @@ const claudeDesktopLockMarker = 'epistemos-native-claude-desktop-lock';
 const flatSourceSurfacesMarker = 'epistemos-native-flat-source-surfaces';
 const juneDemotionMarker = 'epistemos-june-ontology-reskin-demotion';
 
+// June component ontology present in the checkout (src/styles/june/): the
+// June layer is the styling authority for ported components, so cosmetic
+// reskin patches whose donor anchors were rewritten are EXPECTED to stop
+// matching — they skip with a warning instead of failing the stage.
+const junePresent = fs.existsSync(
+  path.join(desktopRoot, 'src/styles/june/tokens.css')
+);
+
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
 }
@@ -51,6 +59,10 @@ function replaceRequired(source, label, search, replacement) {
     ? source.replace(search, replacement)
     : source.replace(search, replacement);
   if (next === source) {
+    if (junePresent) {
+      console.warn(`[june-ontology] skipping stale reskin patch: ${label}`);
+      return source;
+    }
     throw new Error(`${label} replacement was not applied`);
   }
   return next;

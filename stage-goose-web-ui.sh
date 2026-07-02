@@ -5580,23 +5580,21 @@ source = source.replace(
 `
 );
 source = source.replace(
-  `            {/* Right: attach */}
+  `            {/* Right: attach — June toolbar icon-button anatomy */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <button
                   type="button"
                   onClick={handleFileSelect}
                   disabled={isFilePickerOpen}
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
                   className={cn(
-                    'text-text-primary/70 hover:text-text-primary transition-colors',
-                    isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    'agent-composer-attach',
+                    isFilePickerOpen && 'opacity-50 cursor-not-allowed'
                   )}
+                  aria-label="Attach file"
                 >
                   <Attach className="w-4 h-4" />
-                </Button>
+                </button>
               </TooltipTrigger>
               <TooltipContent>Attach file</TooltipContent>
             </Tooltip>
@@ -5604,21 +5602,18 @@ source = source.replace(
   `            {/* Right: git diff */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <button
                   type="button"
                   onClick={handleAttachGitDiff}
                   disabled={isGitDiffAttachInFlight}
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
                   className={cn(
-                    'text-text-primary/70 hover:text-text-primary transition-colors',
-                    isGitDiffAttachInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    'agent-composer-attach',
+                    isGitDiffAttachInFlight && 'opacity-50 cursor-not-allowed'
                   )}
                   aria-label="Attach git diff"
                 >
                   <ScrollText className="w-4 h-4" />
-                </Button>
+                </button>
               </TooltipTrigger>
               <TooltipContent>Attach git diff</TooltipContent>
             </Tooltip>
@@ -5626,21 +5621,18 @@ source = source.replace(
             {/* Right: GitHub pull request */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <button
                   type="button"
                   onClick={handleOpenGitHubPullRequest}
                   disabled={isGitCompareOpenInFlight}
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
                   className={cn(
-                    'text-text-primary/70 hover:text-text-primary transition-colors',
-                    isGitCompareOpenInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    'agent-composer-attach',
+                    isGitCompareOpenInFlight && 'opacity-50 cursor-not-allowed'
                   )}
                   aria-label="Open GitHub pull request"
                 >
                   <ExternalLink className="w-4 h-4" />
-                </Button>
+                </button>
               </TooltipTrigger>
               <TooltipContent>Open GitHub pull request</TooltipContent>
             </Tooltip>
@@ -5648,42 +5640,37 @@ source = source.replace(
             {/* Right: Epistemos context */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <button
                   type="button"
                   onClick={handleAttachEpistemosContext}
                   disabled={isContextAttachInFlight}
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
                   className={cn(
-                    'text-text-primary/70 hover:text-text-primary transition-colors',
-                    isContextAttachInFlight ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    'agent-composer-attach',
+                    isContextAttachInFlight && 'opacity-50 cursor-not-allowed'
                   )}
                   aria-label="Attach Epistemos context"
                 >
                   <BookOpen className="w-4 h-4" />
-                </Button>
+                </button>
               </TooltipTrigger>
               <TooltipContent>Attach Epistemos context</TooltipContent>
             </Tooltip>
 
-            {/* Right: attach */}
+            {/* Right: attach — June toolbar icon-button anatomy */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <button
                   type="button"
                   onClick={handleFileSelect}
                   disabled={isFilePickerOpen}
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
                   className={cn(
-                    'text-text-primary/70 hover:text-text-primary transition-colors',
-                    isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    'agent-composer-attach',
+                    isFilePickerOpen && 'opacity-50 cursor-not-allowed'
                   )}
+                  aria-label="Attach file"
                 >
                   <Attach className="w-4 h-4" />
-                </Button>
+                </button>
               </TooltipTrigger>
               <TooltipContent>Attach file</TooltipContent>
             </Tooltip>
