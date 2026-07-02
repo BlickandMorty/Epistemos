@@ -1889,7 +1889,7 @@ if (!source.includes('epistemos-goose-only-launcher')) {
   replaceRequired(
     'segmented surface selector removal',
     `        <div
-          className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1 rounded-[10px] bg-background-secondary/56 p-1"
+          className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1 rounded-[var(--r-md)] bg-[var(--surface-subtle)] p-[3px]"
           role="radiogroup"
           aria-label="Surface"
         >
@@ -1905,10 +1905,10 @@ if (!source.includes('epistemos-goose-only-launcher')) {
                   setSelectedSurface(surface.key);
                   requestAnimationFrame(() => inputRef.current?.focus());
                 }}
-                className={\`h-8 min-w-16 rounded-[7px] px-3 font-sans text-xs transition-colors duration-200 ease-[var(--epistemos-control-ease)] \${
+                className={\`h-8 min-w-16 rounded-[var(--r-sm)] px-3 text-xs font-medium transition-colors \${
                   isSelected
-                    ? 'bg-background-primary/78 text-text-primary'
-                    : 'text-text-secondary hover:bg-background-secondary hover:text-text-primary'
+                    ? 'bg-[var(--card)] text-text-primary shadow-[var(--shadow-sm)]'
+                    : 'text-text-secondary hover:text-text-primary'
                 }\`}
               >
                 {intl.formatMessage(messages[surface.label])}
