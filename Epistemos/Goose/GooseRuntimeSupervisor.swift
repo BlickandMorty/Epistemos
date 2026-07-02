@@ -735,6 +735,10 @@ final class GooseRuntimeSupervisor {
         address.sin_port = in_port_t(port).bigEndian
         address.sin_addr = in_addr(s_addr: inet_addr(defaultHost))
 
+        // SAFETY: `address` is a live stack-local sockaddr_in valid for the whole
+        // closure; withMemoryRebound to sockaddr is the standard layout-compatible
+        // reinterpretation bind() requires for AF_INET, and the pointer never
+        // escapes the closure. (CLAUDE.md: every unsafe block gets a SAFETY note.)
         return withUnsafePointer(to: &address) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
                 bind(descriptor, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
