@@ -115,6 +115,9 @@ nonisolated final class GooseMASAgentCoreRunner: GooseMASAgentCoreRunning, @unch
     }
 }
 
+// SAFETY: the callbacks are @Sendable and immutable; the mutable state
+// (didComplete, pendingPermissionRequests) is guarded by `lock` (NSLock) on
+// every access.
 nonisolated private final class GooseMASAgentCoreDelegate: AgentStreamEventDelegate, @unchecked Sendable {
     private let emitEvent: @Sendable (GooseMASAgentCoreRunEvent) -> Void
     private let permissionHandler: @Sendable (GooseMASAgentCorePermissionRequest) -> Bool
@@ -275,6 +278,9 @@ nonisolated private final class GooseMASAgentCoreDelegate: AgentStreamEventDeleg
     }
 }
 
+// SAFETY: all mutable state (config/provider/preference dicts, pendingPermissions,
+// status) is guarded by dedicated NSLocks (statusLock / pendingPermissionsLock /
+// per-field locks) — every read and write takes the owning lock.
 nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     enum Status: Equatable, Sendable {
         case idle
@@ -290,6 +296,8 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         let cwd: String
     }
 
+    // SAFETY: immutable carrier around NWConnection, which is designed for
+    // concurrent use (Network.framework serializes onto its own queue).
     private final class WebSocketConnectionBox: @unchecked Sendable {
         let connection: NWConnection
 
@@ -298,6 +306,9 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         }
     }
 
+    // SAFETY: an immutable value type; @unchecked only because requestID is the
+    // JSON-RPC id typed as Any? (carries only String/Int/null primitives), which
+    // the compiler can't prove Sendable. No reference state, no mutation.
     private struct PromptRun: @unchecked Sendable {
         let requestID: Any?
         let sessionID: String
@@ -309,10 +320,14 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         let maxTokens: Int
     }
 
+    // SAFETY: immutable carrier of a runner existential; the concrete runner
+    // (GooseMASAgentCoreRunner) has no mutable instance state (see above).
     private struct AgentCoreRunnerBox: @unchecked Sendable {
         let runner: any GooseMASAgentCoreRunning
     }
 
+    // SAFETY: the only mutable state (approved) is guarded by `lock` (NSLock);
+    // the semaphore coordinates the blocking wait for the response.
     private final class PendingPermissionResponse: @unchecked Sendable {
         private let semaphore = DispatchSemaphore(value: 0)
         private let lock = NSLock()

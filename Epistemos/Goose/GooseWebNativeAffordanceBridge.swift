@@ -180,19 +180,34 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return
         }
 
-        // The git-worktree affordance spawns a Process() and waits up to 3s; running it on
-        // @MainActor (the sync handleAffordance path) FROZE the UI for ~3s every time the Goose
-        // surface's directory chip (DirSwitcher) queried worktrees on transition. Route it
-        // off-main, mirroring the getAllowedExtensions carve-out above. (goose-3s 2026-07-01)
+        if name == "epistemos.context.snapshot" {
+            Task { @MainActor in
+                replyHandler(await GooseAppContextSnapshot.current().dictionary, nil)
+            }
+            return
+        }
+
+        // Git affordances spawn Process() and wait on semaphores. Keep the fast validation on the
+        // main actor, then run subprocess waits off-main so WebView activation never beachballs.
         #if !EPISTEMOS_APP_STORE
-        if name == "listGitWorktreeDirs" {
+        let offMainGitAffordances: Set<String> = ["listGitWorktreeDirs", "readGitDiff", "readGitHubCompareURL"]
+        if handlers[name] == nil, offMainGitAffordances.contains(name) {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 do {
                     guard let path = self.stringArgument(args, at: 0) else {
                         throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
                     }
-                    replyHandler(await self.listGitWorktreeDirsOffMain(path), nil)
+                    switch name {
+                    case "listGitWorktreeDirs":
+                        replyHandler(await self.listGitWorktreeDirsOffMain(path), nil)
+                    case "readGitDiff":
+                        replyHandler(await self.readGitDiffOffMain(path), nil)
+                    case "readGitHubCompareURL":
+                        replyHandler(await self.readGitHubCompareURLOffMain(path), nil)
+                    default:
+                        replyHandler(nil, "Unsupported Goose git affordance.")
+                    }
                 } catch {
                     replyHandler(nil, Self.nativeErrorMessage(for: error))
                 }
@@ -448,8 +463,6 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return hasAcceptedRecipeBefore(args.first)
         case "recordRecipeHash":
             return recordRecipeHash(args.first)
-        case "epistemos.context.snapshot":
-            return GooseAppContextSnapshot.current().dictionary
         default:
             throw GooseWebNativeAffordanceBridgeError.unsupported(name)
         }
@@ -901,21 +914,77 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         }
     }
 
+    private struct GitDirectoryInvocation: Sendable {
+        let git: String
+        let expandedPath: String
+        let environment: [String: String]
+    }
+
+    private enum GitDirectoryInvocationFailure: Error, Sendable {
+        case blocked(expandedPath: String)
+        case unavailable(expandedPath: String)
+    }
+
+    private enum GitDictionaryOperation: Sendable {
+        case diff
+        case githubCompare
+    }
+
     /// FAST @MainActor validation (filesystem stats + scoped-root allow-check) shared by the
-    /// sync + off-main callers. Returns the resolved git binary, expanded path, and minimal
-    /// env, or nil when the path isn't allowed / isn't a real directory.
-    private func gitWorktreeInvocation(for path: String) -> (git: String, expandedPath: String, env: [String: String])? {
+    /// sync + off-main callers. Returns the resolved git binary, expanded path, and minimal env.
+    private func gitDirectoryInvocation(for path: String) -> Result<GitDirectoryInvocation, GitDirectoryInvocationFailure> {
         let expandedPath = Self.standardizedPath(expandTilde(path))
         var isDirectory: ObjCBool = false
         guard isPathAllowed(expandedPath),
               fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
               isDirectory.boolValue,
               !isSymbolicLink(expandedPath) else {
-            return nil
+            return .failure(.blocked(expandedPath: expandedPath))
         }
         let git = resolveBinaryPath("git")
-        guard !git.isEmpty else { return nil }
-        return (git, expandedPath, gitProcessEnvironment(git: git))
+        guard !git.isEmpty else { return .failure(.unavailable(expandedPath: expandedPath)) }
+        return .success(GitDirectoryInvocation(
+            git: git,
+            expandedPath: expandedPath,
+            environment: gitProcessEnvironment(git: git)
+        ))
+    }
+
+    private func gitDirectoryFailure(
+        _ failure: GitDirectoryInvocationFailure,
+        blockedError: String
+    ) -> (expandedPath: String, error: String) {
+        switch failure {
+        case .blocked(let expandedPath):
+            return (expandedPath, blockedError)
+        case .unavailable(let expandedPath):
+            return (expandedPath, "Git is unavailable.")
+        }
+    }
+
+    private func runOffMainGitDictionary(
+        _ invocation: GitDirectoryInvocation,
+        operation: GitDictionaryOperation
+    ) async -> [String: Any] {
+        let box = await Task.detached(priority: .userInitiated) {
+            let value: [String: Any]
+            switch operation {
+            case .diff:
+                value = Self.runReadGitDiff(
+                    git: invocation.git,
+                    expandedPath: invocation.expandedPath,
+                    environment: invocation.environment
+                )
+            case .githubCompare:
+                value = Self.runReadGitHubCompareURL(
+                    git: invocation.git,
+                    expandedPath: invocation.expandedPath,
+                    environment: invocation.environment
+                )
+            }
+            return GooseAffordanceDictionaryBox(value: value)
+        }.value
+        return box.value
     }
 
     private func listGitWorktreeDirs(_ path: String) -> [[String: Any]] {
@@ -936,13 +1005,46 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         []
     }
 
+    private func readGitDiffOffMain(_ path: String) async -> [String: Any] {
+        switch gitDirectoryInvocation(for: path) {
+        case .success(let invocation):
+            return await runOffMainGitDictionary(invocation, operation: .diff)
+        case .failure(let failure):
+            let result = gitDirectoryFailure(
+                failure,
+                blockedError: "Epistemos blocked Goose WebView git diff outside scoped roots."
+            )
+            return Self.gitDiffResult(
+                expandedPath: result.expandedPath,
+                ok: false,
+                error: result.error
+            )
+        }
+    }
+
+    private func readGitHubCompareURLOffMain(_ path: String) async -> [String: Any] {
+        switch gitDirectoryInvocation(for: path) {
+        case .success(let invocation):
+            return await runOffMainGitDictionary(invocation, operation: .githubCompare)
+        case .failure(let failure):
+            let result = gitDirectoryFailure(
+                failure,
+                blockedError: "Epistemos blocked Goose WebView git compare outside scoped roots."
+            )
+            return Self.gitHubCompareResult(
+                expandedPath: result.expandedPath,
+                ok: false,
+                error: result.error
+            )
+        }
+    }
+
     nonisolated static func runGitWorktreeList(
         git: String,
         expandedPath: String,
         environment: [String: String]
     ) -> [[String: Any]] {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         // review LOW-2: this runs git on a WEB-CHOSEN directory, so neutralize attacker-controlled git
         // config that could run code. `-c core.fsmonitor=false` blocks a malicious repo `.git/config`
@@ -952,7 +1054,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             "-c", "protocol.allow=never",
             "-C", expandedPath, "worktree", "list", "--porcelain",
         ]
-        // Minimal env computed on @MainActor by the caller (gitWorktreeInvocation) and passed in —
+        // Minimal env computed on @MainActor by the caller (gitDirectoryInvocation) and passed in —
         // DYLD_*/LD_*/Malloc*/NODE_*/PYTHON* stripped + SYSTEM/GLOBAL git config ignored.
         process.environment = environment
         let stdout = Pipe()
@@ -1035,51 +1137,31 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func readGitDiff(_ path: String) -> [String: Any] {
-        let expandedPath = Self.standardizedPath(expandTilde(path))
-        func result(
-            ok: Bool,
-            status: String? = nil,
-            branch: String? = nil,
-            pullRequestURL: String? = nil,
-            pullRequestSearchURL: String? = nil,
-            diff: String = "",
-            truncated: Bool = false,
-            error: String? = nil
-        ) -> [String: Any] {
-            let errorValue: Any = error.map { $0 as Any } ?? NSNull()
-            let statusValue: Any = status.map { $0 as Any } ?? NSNull()
-            let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
-            let pullRequestURLValue: Any = pullRequestURL.map { $0 as Any } ?? NSNull()
-            let pullRequestSearchURLValue: Any = pullRequestSearchURL.map { $0 as Any } ?? NSNull()
-            return [
-                "ok": ok,
-                "status": statusValue,
-                "branch": branchValue,
-                "pullRequestURL": pullRequestURLValue,
-                "pullRequestSearchURL": pullRequestSearchURLValue,
-                "diff": diff,
-                "truncated": truncated,
-                "path": expandedPath,
-                "base": "HEAD",
-                "error": errorValue,
-            ]
-        }
-
-        var isDirectory: ObjCBool = false
-        guard isPathAllowed(expandedPath),
-              fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
-              isDirectory.boolValue,
-              !isSymbolicLink(expandedPath) else {
-            return result(
+        switch gitDirectoryInvocation(for: path) {
+        case .success(let invocation):
+            return Self.runReadGitDiff(
+                git: invocation.git,
+                expandedPath: invocation.expandedPath,
+                environment: invocation.environment
+            )
+        case .failure(let failure):
+            let result = gitDirectoryFailure(
+                failure,
+                blockedError: "Epistemos blocked Goose WebView git diff outside scoped roots."
+            )
+            return Self.gitDiffResult(
+                expandedPath: result.expandedPath,
                 ok: false,
-                error: "Epistemos blocked Goose WebView git diff outside scoped roots."
+                error: result.error
             )
         }
-        let git = resolveBinaryPath("git")
-        guard !git.isEmpty else {
-            return result(ok: false, error: "Git is unavailable.")
-        }
+    }
 
+    nonisolated private static func runReadGitDiff(
+        git: String,
+        expandedPath: String,
+        environment: [String: String]
+    ) -> [String: Any] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         process.arguments = [
@@ -1096,7 +1178,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             "HEAD",
             "--",
         ]
-        process.environment = gitProcessEnvironment(git: git)
+        process.environment = environment
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
@@ -1117,15 +1199,15 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         do {
             try process.run()
         } catch {
-            return result(ok: false, error: "Git diff could not start.")
+            return gitDiffResult(expandedPath: expandedPath, ok: false, error: "Git diff could not start.")
         }
         if semaphore.wait(timeout: .now() + 3) == .timedOut {
             process.terminate()
-            return result(ok: false, error: "Git diff timed out.")
+            return gitDiffResult(expandedPath: expandedPath, ok: false, error: "Git diff timed out.")
         }
         _ = drainDone.wait(timeout: .now() + 1)
         guard process.terminationStatus == 0 else {
-            return result(ok: false, error: "No git diff is available for this directory.")
+            return gitDiffResult(expandedPath: expandedPath, ok: false, error: "No git diff is available for this directory.")
         }
 
         let outputData = drainBox.load()
@@ -1133,11 +1215,12 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         let boundedData = truncated ? Data(outputData.prefix(Self.maxGitDiffBytes)) : outputData
         let diff = String(data: boundedData, encoding: .utf8) ?? ""
         guard !diff.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return result(ok: false, error: "No tracked changes to attach.")
+            return gitDiffResult(expandedPath: expandedPath, ok: false, error: "No tracked changes to attach.")
         }
-        let status = readGitStatus(expandedPath, git: git)
-        let pullRequest = gitHubPullRequestContext(expandedPath, git: git)
-        return result(
+        let status = readGitStatus(expandedPath, git: git, environment: environment)
+        let pullRequest = gitHubPullRequestContext(expandedPath, git: git, environment: environment)
+        return gitDiffResult(
+            expandedPath: expandedPath,
             ok: true,
             status: status,
             branch: pullRequest?.branch,
@@ -1148,7 +1231,41 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         )
     }
 
-    private func gitHubPullRequestContext(_ path: String, git: String) -> (
+    nonisolated private static func gitDiffResult(
+        expandedPath: String,
+        ok: Bool,
+        status: String? = nil,
+        branch: String? = nil,
+        pullRequestURL: String? = nil,
+        pullRequestSearchURL: String? = nil,
+        diff: String = "",
+        truncated: Bool = false,
+        error: String? = nil
+    ) -> [String: Any] {
+        let errorValue: Any = error.map { $0 as Any } ?? NSNull()
+        let statusValue: Any = status.map { $0 as Any } ?? NSNull()
+        let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
+        let pullRequestURLValue: Any = pullRequestURL.map { $0 as Any } ?? NSNull()
+        let pullRequestSearchURLValue: Any = pullRequestSearchURL.map { $0 as Any } ?? NSNull()
+        return [
+            "ok": ok,
+            "status": statusValue,
+            "branch": branchValue,
+            "pullRequestURL": pullRequestURLValue,
+            "pullRequestSearchURL": pullRequestSearchURLValue,
+            "diff": diff,
+            "truncated": truncated,
+            "path": expandedPath,
+            "base": "HEAD",
+            "error": errorValue,
+        ]
+    }
+
+    nonisolated private static func gitHubPullRequestContext(
+        _ path: String,
+        git: String,
+        environment: [String: String]
+    ) -> (
         url: String,
         searchURL: String,
         branch: String
@@ -1157,6 +1274,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             path,
             git: git,
             arguments: ["rev-parse", "--abbrev-ref", "HEAD"],
+            environment: environment,
             maxBytes: Self.maxGitBranchNameCharacters + 1
         ).flatMap(Self.boundedGitBranchName),
               branch != "HEAD",
@@ -1164,6 +1282,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 path,
                 git: git,
                 arguments: ["remote", "get-url", "origin"],
+                environment: environment,
                 maxBytes: Self.maxGitRemoteURLCharacters + 1
               ).flatMap(Self.boundedGitRemoteURL),
               let repositoryPath = Self.gitHubRepositoryPath(from: remote),
@@ -1177,7 +1296,11 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
         return (url: pullRequestURL, searchURL: pullRequestSearchURL, branch: branch)
     }
 
-    private func readGitStatus(_ path: String, git: String) -> String? {
+    nonisolated private static func readGitStatus(
+        _ path: String,
+        git: String,
+        environment: [String: String]
+    ) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: git, isDirectory: false)
         process.arguments = [
@@ -1189,7 +1312,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             "--branch",
             "--untracked-files=normal",
         ]
-        process.environment = gitProcessEnvironment(git: git)
+        process.environment = environment
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
@@ -1227,58 +1350,58 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     }
 
     private func readGitHubCompareURL(_ path: String) -> [String: Any] {
-        let expandedPath = Self.standardizedPath(expandTilde(path))
-        func result(
-            ok: Bool,
-            url: String? = nil,
-            pullRequestSearchURL: String? = nil,
-            branch: String? = nil,
-            error: String? = nil
-        ) -> [String: Any] {
-            let urlValue: Any = url.map { $0 as Any } ?? NSNull()
-            let pullRequestSearchURLValue: Any = pullRequestSearchURL.map { $0 as Any } ?? NSNull()
-            let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
-            let errorValue: Any = error.map { $0 as Any } ?? NSNull()
-            return [
-                "ok": ok,
-                "url": urlValue,
-                "pullRequestSearchURL": pullRequestSearchURLValue,
-                "branch": branchValue,
-                "path": expandedPath,
-                "error": errorValue,
-            ]
-        }
-
-        var isDirectory: ObjCBool = false
-        guard isPathAllowed(expandedPath),
-              fileManager.fileExists(atPath: expandedPath, isDirectory: &isDirectory),
-              isDirectory.boolValue,
-              !isSymbolicLink(expandedPath) else {
-            return result(
+        switch gitDirectoryInvocation(for: path) {
+        case .success(let invocation):
+            return Self.runReadGitHubCompareURL(
+                git: invocation.git,
+                expandedPath: invocation.expandedPath,
+                environment: invocation.environment
+            )
+        case .failure(let failure):
+            let result = gitDirectoryFailure(
+                failure,
+                blockedError: "Epistemos blocked Goose WebView git compare outside scoped roots."
+            )
+            return Self.gitHubCompareResult(
+                expandedPath: result.expandedPath,
                 ok: false,
-                error: "Epistemos blocked Goose WebView git compare outside scoped roots."
+                error: result.error
             )
         }
-        let git = resolveBinaryPath("git")
-        guard !git.isEmpty else {
-            return result(ok: false, error: "Git is unavailable.")
-        }
+    }
+
+    nonisolated private static func runReadGitHubCompareURL(
+        git: String,
+        expandedPath: String,
+        environment: [String: String]
+    ) -> [String: Any] {
         guard let branch = readGitSingleLine(
             expandedPath,
             git: git,
             arguments: ["rev-parse", "--abbrev-ref", "HEAD"],
+            environment: environment,
             maxBytes: Self.maxGitBranchNameCharacters + 1
         ).flatMap(Self.boundedGitBranchName),
               branch != "HEAD" else {
-            return result(ok: false, error: "No current git branch is available.")
+            return gitHubCompareResult(
+                expandedPath: expandedPath,
+                ok: false,
+                error: "No current git branch is available."
+            )
         }
         guard let remote = readGitSingleLine(
             expandedPath,
             git: git,
             arguments: ["remote", "get-url", "origin"],
+            environment: environment,
             maxBytes: Self.maxGitRemoteURLCharacters + 1
         ).flatMap(Self.boundedGitRemoteURL) else {
-            return result(ok: false, branch: branch, error: "No origin remote is available.")
+            return gitHubCompareResult(
+                expandedPath: expandedPath,
+                ok: false,
+                branch: branch,
+                error: "No origin remote is available."
+            )
         }
         guard let repositoryPath = Self.gitHubRepositoryPath(from: remote),
               let pullRequestURL = Self.gitHubCompareURL(repositoryPath: repositoryPath, branch: branch),
@@ -1286,15 +1409,49 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
                 repositoryPath: repositoryPath,
                 branch: branch
               ) else {
-            return result(ok: false, branch: branch, error: "The origin remote cannot open a GitHub pull request.")
+            return gitHubCompareResult(
+                expandedPath: expandedPath,
+                ok: false,
+                branch: branch,
+                error: "The origin remote cannot open a GitHub pull request."
+            )
         }
-        return result(ok: true, url: pullRequestURL, pullRequestSearchURL: pullRequestSearchURL, branch: branch)
+        return gitHubCompareResult(
+            expandedPath: expandedPath,
+            ok: true,
+            url: pullRequestURL,
+            pullRequestSearchURL: pullRequestSearchURL,
+            branch: branch
+        )
     }
 
-    private func readGitSingleLine(
+    nonisolated private static func gitHubCompareResult(
+        expandedPath: String,
+        ok: Bool,
+        url: String? = nil,
+        pullRequestSearchURL: String? = nil,
+        branch: String? = nil,
+        error: String? = nil
+    ) -> [String: Any] {
+        let urlValue: Any = url.map { $0 as Any } ?? NSNull()
+        let pullRequestSearchURLValue: Any = pullRequestSearchURL.map { $0 as Any } ?? NSNull()
+        let branchValue: Any = branch.map { $0 as Any } ?? NSNull()
+        let errorValue: Any = error.map { $0 as Any } ?? NSNull()
+        return [
+            "ok": ok,
+            "url": urlValue,
+            "pullRequestSearchURL": pullRequestSearchURLValue,
+            "branch": branchValue,
+            "path": expandedPath,
+            "error": errorValue,
+        ]
+    }
+
+    nonisolated private static func readGitSingleLine(
         _ path: String,
         git: String,
         arguments: [String],
+        environment: [String: String],
         maxBytes: Int
     ) -> String? {
         let process = Process()
@@ -1304,7 +1461,7 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             "-c", "protocol.allow=never",
             "-C", path,
         ] + arguments
-        process.environment = gitProcessEnvironment(git: git)
+        process.environment = environment
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
@@ -2795,9 +2952,18 @@ private final class GooseWebNativeAppWindowDelegate: NSObject, NSWindowDelegate 
 /// Ferries a non-Sendable [[String: Any]] affordance result across the actor boundary from an
 /// off-main worker back to the @MainActor bridge. `nonisolated` so its init runs off-main under
 /// the module's SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor. (goose-3s 2026-07-01)
+// SAFETY: immutable carrier of a value snapshot; @unchecked only because the
+// element type is [String: Any] (Any isn't Sendable). No mutation after init.
 private nonisolated final class GooseAffordanceResultBox: @unchecked Sendable {
     let value: [[String: Any]]
     init(value: [[String: Any]]) { self.value = value }
+}
+
+// SAFETY: immutable carrier of a value snapshot; @unchecked only because the
+// value type is [String: Any] (Any isn't Sendable). No mutation after init.
+private nonisolated final class GooseAffordanceDictionaryBox: @unchecked Sendable {
+    let value: [String: Any]
+    init(value: [String: Any]) { self.value = value }
 }
 
 private nonisolated final class GooseAffordanceDataBox: @unchecked Sendable {

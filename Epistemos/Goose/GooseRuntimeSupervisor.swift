@@ -17,6 +17,9 @@ struct GooseRuntimeConnection: Equatable, Sendable {
 /// code-signature validation of the notarized goosed binary (hundreds of ms–
 /// seconds) and GooseRuntimeSupervisor is @MainActor, so spawning inline froze
 /// the UI on the Goose transition. (hang-trace 2026-07-01)
+// SAFETY: immutable carrier used to hand a freshly-created Process across a
+// concurrency boundary exactly once (spawn off-main); the Process is not
+// mutated concurrently. (CLAUDE.md: justify every @unchecked Sendable.)
 private struct GooseSpawnBox: @unchecked Sendable {
     let process: Process
 }
