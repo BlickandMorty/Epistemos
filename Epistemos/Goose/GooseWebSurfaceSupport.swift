@@ -79,11 +79,11 @@ extension GooseWebSurfaceView {
         )
     }
 
-    static func resolvedGooseUIIndex() -> URL? {
+    nonisolated static func resolvedGooseUIIndex() -> URL? {
         GooseWebUIResolver.indexURL()
     }
 
-    static func resolvedGooseUIRoot() -> URL? {
+    nonisolated static func resolvedGooseUIRoot() -> URL? {
         resolvedGooseUIIndex()?.deletingLastPathComponent()
     }
 
@@ -329,11 +329,14 @@ extension GooseWebSurfaceView {
         let background = cssColor(resolved.chatSurface)
         let surface = cssColor(resolved.card)
         let surfaceStrong = cssColor(resolved.floatingSurfaceTint)
+        let mutedSurface = cssColor(resolved.muted)
         let foreground = cssColor(resolved.foreground)
         let mutedForeground = cssColor(resolved.mutedForeground)
         let accent = cssColor(resolved.accent)
-        // Focus feedback is theme-toned, never the chunky OS/Tailwind ring (spec HARD RULE 2):
-        // a soft surface-fill shift on inputs + a quiet diffuse halo on keyboard focus.
+        let uiAccent = cssColor(resolved.uiAccent)
+        let border = cssColor(resolved.border)
+        // Legacy quiet-focus vars stay emitted for any donor rule still
+        // referencing them; the June layer's --focus-ring is the live recipe.
         let quietFocus = "color-mix(in srgb, \(accent) 7%, \(surfaceStrong))"
         let quietFocusRing = "color-mix(in srgb, \(accent) 18%, transparent)"
         let inverseBackground = cssColor(resolved.foreground)
@@ -363,38 +366,55 @@ extension GooseWebSurfaceView {
           --color-ring-info: transparent !important;
           --epistemos-quiet-focus: \(quietFocus) !important;
           --epistemos-quiet-ring: \(quietFocusRing) !important;
+          /* June seam (two-token-source: EpistemosTheme.swift is authoritative
+             at runtime; june/tokens.css carries the static defaults). The June
+             layer derives --brand/--background/--card/--border… from these via
+             June's own color-mix math, so classic-B&W and custom palettes
+             recolor the whole ported ontology. */
+          --ep-accent: \(uiAccent) !important;
+          --ep-surface-window: \(background) !important;
+          --ep-surface-card: \(surfaceStrong) !important;
+          --ep-surface-muted: \(mutedSurface) !important;
+          --ep-text-primary: \(foreground) !important;
+          --ep-text-secondary: \(mutedForeground) !important;
+          --ep-border: \(border) !important;
         }
         :root[data-epistemos-runtime-extensibility='disabled'] [data-epistemos-mas-hidden='runtime-extensibility'] {
           display: none !important;
         }
         :root :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus,
-        :root :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible,
-        .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus,
-        .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible {
+        .goose-epistemos :is(button, input, textarea, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus {
           outline: none !important;
           --tw-ring-color: transparent !important;
           --tw-ring-shadow: 0 0 #0000 !important;
           --tw-ring-offset-shadow: 0 0 #0000 !important;
         }
-        :root :is(button, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible,
-        .goose-epistemos :is(button, select, [role='button'], [role='tab'], [role='menuitem'], [tabindex]):focus-visible {
-          box-shadow: 0 0 0 2px var(--epistemos-quiet-ring), 0 0 12px -2px var(--epistemos-quiet-ring) !important;
+        :root :is(button, select, a, summary, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [tabindex]):focus-visible,
+        .goose-epistemos :is(button, select, a, summary, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [tabindex]):focus-visible {
+          /* June's quiet keyboard ring — 2px themed outline, never the OS
+             blue and never the Tailwind ring shadow. */
+          outline: 2px solid var(--focus-ring, \(quietFocusRing)) !important;
+          outline-offset: 2px !important;
+          --tw-ring-color: transparent !important;
+          --tw-ring-shadow: 0 0 #0000 !important;
+          --tw-ring-offset-shadow: 0 0 #0000 !important;
+          box-shadow: none !important;
         }
         :root :is(input, textarea, [contenteditable='true'], [contenteditable='']):focus,
         .goose-epistemos :is(input, textarea, [contenteditable='true'], [contenteditable='']):focus {
-          background-color: var(--epistemos-quiet-focus) !important;
-          box-shadow: 0 0 12px -3px var(--epistemos-quiet-ring) !important;
+          /* Text surfaces carry no ring of their own — their June container
+             (e.g. the composer box) shifts border/shadow via :focus-within. */
+          outline: none !important;
+          box-shadow: none !important;
         }
         * { -webkit-font-smoothing: antialiased; }
         html,
         body {
-          background: \(background) !important;
+          /* Prefer the June-derived backdrop (base surface + brand wash);
+             the resolved literal is the pre-CSS fallback. */
+          background: var(--background, \(background)) !important;
           cursor: default;
           overscroll-behavior: none;
-        }
-        ::-webkit-scrollbar {
-          width: initial;
-          height: initial;
         }
         """
     }

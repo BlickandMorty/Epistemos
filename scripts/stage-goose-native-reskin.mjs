@@ -20,6 +20,7 @@ const claudePixelPolishMarker = 'epistemos-native-claude-pixel-polish';
 const claudePixelContractMarker = 'epistemos-native-claude-pixel-contract';
 const claudeDesktopLockMarker = 'epistemos-native-claude-desktop-lock';
 const flatSourceSurfacesMarker = 'epistemos-native-flat-source-surfaces';
+const juneDemotionMarker = 'epistemos-june-ontology-reskin-demotion';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(desktopRoot, relativePath), 'utf8');
@@ -159,6 +160,10 @@ function applyThemeTokens() {
 
 function applyMainCSS() {
   let source = read('src/styles/main.css');
+  // Everything this function adds is appended after the checkout's own
+  // content (marker-guarded `source +=` blocks only) — the June demotion at
+  // the end relies on that to slice the appended overlay back out.
+  const base = source;
   if (!source.includes(marker)) {
     source += `
 
@@ -1403,6 +1408,22 @@ body,
   image-rendering: pixelated;
 }
 `;
+  }
+  // June component ontology present (src/styles/june/): demote the whole
+  // reskin overlay into a cascade layer with its !important flags stripped.
+  // Layered rules lose to the unlayered June layer, so ported components
+  // (composer, segmented, dialog, scrollbar, focus, selection) keep June's
+  // anatomy while not-yet-ported donor components keep the glass look.
+  if (fs.existsSync(path.join(desktopRoot, 'src/styles/june/tokens.css'))) {
+    const appended = source.slice(base.length);
+    if (appended.length > 0 && !source.includes(juneDemotionMarker)) {
+      source = `${base}
+/* ${juneDemotionMarker} */
+@layer epistemos-reskin {
+${appended.replaceAll(' !important', '')}
+}
+`;
+    }
   }
   write('src/styles/main.css', source);
 }
