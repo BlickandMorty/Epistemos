@@ -3570,9 +3570,9 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
 
 replaceRequired(
   'main content relative for session tabs',
-  `<div className="flex-1 overflow-hidden min-h-0">
+  `<div className="june-main-panel flex-1 overflow-hidden min-h-0">
           <Outlet />`,
-  `<div className="relative flex-1 overflow-hidden min-h-0">
+  `<div className="june-main-panel relative flex-1 overflow-hidden min-h-0">
           {isOnPairRoute && <SessionTabsStrip activeSessions={activeSessions} />}
           <Outlet />`
 );
