@@ -77,6 +77,10 @@ function replaceOptional(source, search, replacement) {
 function replaceAllRequired(source, label, search, replacement) {
   const next = source.replaceAll(search, replacement);
   if (next === source) {
+    if (junePresent) {
+      console.warn(`[june-ontology] skipping stale reskin patch: ${label}`);
+      return source;
+    }
     throw new Error(`${label} replacement was not applied`);
   }
   return next;
