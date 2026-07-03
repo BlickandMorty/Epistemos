@@ -360,18 +360,12 @@ struct BrowserView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background {
-                    // Floating liquid-glass URL bubble (owner request 2026-07-03).
-                    Capsule(style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .strokeBorder(
-                                    theme.resolved.foreground.color.opacity(0.10),
-                                    lineWidth: 1
-                                )
-                        )
+                    // Flat URL field — no capsule bubble/border/shadow; the floating
+                    // toolbar provides the surface (owner 2026-07-03: "make the url thing
+                    // flat"). A subtle rounded fill keeps it legible without raised chrome.
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(theme.resolved.foreground.color.opacity(0.06))
                 }
-                .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
 
                 ToolbarCapsuleButton(
                     title: nil,
