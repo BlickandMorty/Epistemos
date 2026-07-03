@@ -56,6 +56,17 @@ struct ArxivSearchView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var didLoadFeaturedFeed = false
     @State private var ingestTasks: [String: Task<Void, Never>] = [:]
+    @State private var selectedCategory: String?
+
+    /// Quick-browse arXiv categories (owner 2026-07-03: more arXiv functionality).
+    private static let browseCategories: [(label: String, code: String)] = [
+        ("AI", "cs.AI"),
+        ("ML", "cs.LG"),
+        ("NLP", "cs.CL"),
+        ("Vision", "cs.CV"),
+        ("Robotics", "cs.RO"),
+        ("Systems", "cs.DC"),
+    ]
 
     private let client = ArxivClient()
 
@@ -137,6 +148,8 @@ struct ArxivSearchView: View {
                 .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSearching)
             }
 
+            categoryChips
+
             if let statusMessage {
                 Text(statusMessage)
                     .font(.caption)
@@ -188,6 +201,63 @@ struct ArxivSearchView: View {
         }
         .onDisappear {
             cancelActiveTasks()
+        }
+    }
+
+    private var categoryChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Self.browseCategories, id: \.code) { category in
+                    let isSelected = selectedCategory == category.code
+                    Button {
+                        loadCategory(category.code, label: category.label)
+                    } label: {
+                        Text(category.label)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(
+                                isSelected
+                                    ? ui.theme.resolved.background.color
+                                    : ui.theme.resolved.foreground.color.opacity(0.82)
+                            )
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(
+                                        isSelected
+                                            ? ui.theme.resolved.accent.color
+                                            : ui.theme.resolved.card.color.opacity(0.5)
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSearching)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    /// Browse recent papers in a specific arXiv category (owner request 2026-07-03).
+    private func loadCategory(_ code: String, label: String) {
+        searchTask?.cancel()
+        selectedCategory = code
+        query = ""
+        searchTask = Task {
+            isSearching = true
+            defer { isSearching = false; searchTask = nil }
+            do {
+                let results = try await client.search(query: "cat:\(code)", maxResults: 20)
+                guard !Task.isCancelled else { return }
+                papers = results
+                statusMessage = results.isEmpty
+                    ? "No recent \(label) papers found — try a search above."
+                    : "Recent \(label) papers. Search above, or pick another category."
+            } catch is CancellationError {
+                return
+            } catch {
+                statusMessage = "Couldn't load \(label) papers. Tap again to retry."
+            }
         }
     }
 
@@ -322,6 +392,7 @@ struct ArxivSearchView: View {
     private func startSearch() {
         guard !isSearching else { return }
         searchTask?.cancel()
+        selectedCategory = nil
         searchTask = Task {
             await search()
             searchTask = nil
