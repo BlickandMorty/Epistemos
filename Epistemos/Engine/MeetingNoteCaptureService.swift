@@ -98,10 +98,20 @@ final class MeetingNoteCaptureService {
     private var captureGeneration = UUID()
     @ObservationIgnored
     private var savedResult: CaptureResult?
+    // #30 durable persistence (audit 2026-07-03): the active session's transcript is
+    // written to a draft file as segments finalize, and deleted on save, so a crash
+    // mid-meeting doesn't lose the recording.
+    @ObservationIgnored
+    private var draftSessionId: String?
+    @ObservationIgnored
+    private var draftWriteTask: Task<Void, Never>?
 
     private(set) var state: State = .idle
     private(set) var partialTranscript = ""
     private(set) var modelDownloadProgress: Double?
+    /// A previous session's unsaved transcript recovered from disk (crash recovery),
+    /// surfaced so the user can restore it instead of losing it.
+    private(set) var recoverableDraft: MeetingDraftStore.RecoverableDraft?
 
     init(
         voiceInput: (any MeetingVoiceInputProviding)? = nil,
@@ -140,6 +150,8 @@ final class MeetingNoteCaptureService {
         let generation = UUID()
         captureGeneration = generation
         savedResult = nil
+        draftSessionId = UUID().uuidString
+        recoverableDraft = nil
         resetTranscript()
         startedAt = now()
         stoppedAt = nil
@@ -173,6 +185,9 @@ final class MeetingNoteCaptureService {
         captureGeneration = UUID()
         cancelAutoStopSilence()
         refreshFromVoiceInput(scheduleAutoStopOnFinal: false)
+        // #30: flush the crash-recovery draft immediately so a close-without-save
+        // keeps the last few seconds the 2s debounce may not have written yet.
+        flushDraft()
         voiceInput.tearDown()
         freezeCaptureClock()
         modelDownloadProgress = nil
@@ -239,6 +254,7 @@ final class MeetingNoteCaptureService {
         if Self.finalSegment(cleaned, coversPartial: partialTranscript) {
             partialTranscript = ""
         }
+        scheduleDraftWrite()
     }
 
     @discardableResult
@@ -296,6 +312,13 @@ final class MeetingNoteCaptureService {
                 throw TextCaptureError.persistenceFailed("meeting note was not persisted")
             }
             savedResult = result
+            // #30: the meeting is durably saved — drop the crash-recovery draft.
+            draftWriteTask?.cancel()
+            if let sessionId = draftSessionId {
+                Task.detached { MeetingDraftStore.delete(sessionId: sessionId) }
+            }
+            draftSessionId = nil
+            recoverableDraft = nil
             state = .saved(
                 pageID: noteID,
                 title: result.title
@@ -307,6 +330,61 @@ final class MeetingNoteCaptureService {
             }
             throw error
         }
+    }
+
+    // MARK: - #30 Draft persistence (crash recovery)
+
+    /// Debounced write of the current durable transcript to disk so a crash /
+    /// force-quit / power loss can't lose the meeting. Snapshots on the main actor,
+    /// writes off-main (a 2 MB transcript would hitch the UI if written inline).
+    private func scheduleDraftWrite() {
+        guard draftSessionId != nil else { return }
+        draftWriteTask?.cancel()
+        draftWriteTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, !Task.isCancelled, let sessionId = self.draftSessionId else { return }
+            let snapshot = Self.renderTranscript(finalSegments: self.finalSegments, partial: "")
+            Task.detached { MeetingDraftStore.write(sessionId: sessionId, transcript: snapshot) }
+        }
+    }
+
+    /// Write the current transcript immediately (bypassing the debounce) so a
+    /// close-without-save doesn't drop the last few seconds from the draft.
+    private func flushDraft() {
+        draftWriteTask?.cancel()
+        guard let sessionId = draftSessionId else { return }
+        let snapshot = Self.renderTranscript(finalSegments: finalSegments, partial: "")
+        Task.detached { MeetingDraftStore.write(sessionId: sessionId, transcript: snapshot) }
+    }
+
+    /// Look for an unsaved transcript left by a previous (crashed) session and, if
+    /// found while idle with no live transcript, surface it for recovery. Call on
+    /// the meeting view's appear.
+    func refreshRecoverableDraft() {
+        guard case .idle = state, transcriptText.isEmpty else {
+            recoverableDraft = nil
+            return
+        }
+        recoverableDraft = MeetingDraftStore.latestRecoverable(excluding: draftSessionId)
+    }
+
+    /// Restore a recovered draft into the live transcript so the user can save it.
+    func restoreRecoverableDraft() {
+        guard let draft = recoverableDraft else { return }
+        finalSegments = [draft.transcript]
+        partialTranscript = ""
+        // Adopt the recovered session's id so saving deletes the right draft file.
+        draftSessionId = draft.sessionId
+        recoverableDraft = nil
+        state = .idle
+    }
+
+    /// Discard a recovered draft the user doesn't want.
+    func discardRecoverableDraft() {
+        guard let draft = recoverableDraft else { return }
+        let sessionId = draft.sessionId
+        Task.detached { MeetingDraftStore.delete(sessionId: sessionId) }
+        recoverableDraft = nil
     }
 
     private func syncStateFromVoiceInput() {

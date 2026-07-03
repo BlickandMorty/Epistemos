@@ -21,6 +21,10 @@ struct MeetingNoteView: View {
         VStack(spacing: 0) {
             toolbar
 
+            if let draft = service.recoverableDraft {
+                recoveryBanner(draft)
+            }
+
             ScrollView {
                 Text(transcriptDisplayText)
                     .font(.system(size: 14, design: .rounded))
@@ -47,6 +51,9 @@ struct MeetingNoteView: View {
         }
         .onChange(of: voiceInput.finalTranscript) { _, _ in
             service.refreshFromVoiceInput()
+        }
+        .onAppear {
+            service.refreshRecoverableDraft()
         }
         .onDisappear {
             service.tearDownCapture()
@@ -92,6 +99,34 @@ struct MeetingNoteView: View {
         } message: {
             Text("This meeting has an unsaved transcript. Leaving clears it without creating a note.")
         }
+    }
+
+    @ViewBuilder
+    private func recoveryBanner(_ draft: MeetingDraftStore.RecoverableDraft) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.uturn.backward.circle.fill")
+                .foregroundStyle(ui.theme.resolved.accent.color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Unsaved meeting recovered")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text("A previous session ended without saving. Restore its transcript?")
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+            }
+            Spacer(minLength: 8)
+            Button("Restore") { service.restoreRecoverableDraft() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            Button("Discard") { service.discardRecoverableDraft() }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(ui.theme.resolved.card.color.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
     }
 
     private var toolbar: some View {
