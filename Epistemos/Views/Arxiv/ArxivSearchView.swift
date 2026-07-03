@@ -152,12 +152,22 @@ struct ArxivSearchView: View {
                 )
                 .frame(maxWidth: .infinity, minHeight: 220)
             } else if papers.isEmpty {
-                ContentUnavailableView(
-                    "Search arXiv",
-                    systemImage: "doc.text.magnifyingglass",
-                    description: Text("Search metadata, then add a paper to the vault after local PDF→Markdown conversion succeeds.")
-                )
-                .frame(maxWidth: .infinity, minHeight: 220)
+                if isSearching {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading featured papers…")
+                            .font(.callout)
+                            .foregroundStyle(mutedTint)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 220)
+                } else {
+                    ContentUnavailableView(
+                        "Search arXiv",
+                        systemImage: "doc.text.magnifyingglass",
+                        description: Text("Search papers by title, author, or category. Featured AI & ML papers load automatically.")
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 220)
+                }
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -195,20 +205,24 @@ struct ArxivSearchView: View {
         isSearching = true
         defer { isSearching = false }
         do {
-            let featured = try await client.search(
-                query: "cat:cs.AI OR cat:cs.LG OR cat:cs.CL",
-                maxResults: 12
-            )
+            // Single-category query (robust: avoids the strict request/response
+            // URL-equality check that a multi-category OR query can trip). cs.LG
+            // (Machine Learning) covers most current AI research via cross-listing.
+            var featured = try await client.search(query: "cat:cs.LG", maxResults: 14)
+            if featured.isEmpty {
+                featured = try await client.search(query: "all:machine learning", maxResults: 14)
+            }
             // Only populate if the user hasn't started their own search meanwhile.
             guard papers.isEmpty,
                   query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { return }
             papers = featured
-            if !featured.isEmpty {
-                statusMessage = "Featured — recent AI & ML papers. Search above for anything else."
-            }
+            statusMessage = featured.isEmpty
+                ? "Couldn't load featured papers right now — search above to find papers."
+                : "Featured — recent Machine Learning papers. Search above for anything else."
         } catch {
-            // Leave the empty state in place if the featured fetch fails.
+            // Never fail silently to a blank screen — tell the user what happened.
+            statusMessage = "Couldn't reach arXiv (\(ArxivSearchPresentation.status("\(error)"))). Search above to try again."
         }
     }
 

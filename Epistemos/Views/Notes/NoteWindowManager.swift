@@ -573,7 +573,13 @@ final class NoteWindowManager {
         let hostingController = NSHostingController(rootView: view)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 680),
+            // Owner 2026-07-03: open at the note default size (not a smaller 900x680)
+            // so the browser doesn't start compressed / snap on first resize.
+            contentRect: NSRect(
+                x: 0, y: 0,
+                width: Self.noteDefaultFrameSize.width,
+                height: Self.noteDefaultFrameSize.height
+            ),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
@@ -586,7 +592,9 @@ final class NoteWindowManager {
         window.center()
         window.isReleasedWhenClosed = false
         window.isRestorable = false
-        window.minSize = NSSize(width: 480, height: 360)
+        window.minSize = Self.noteMinimumFrameSize
+        window.setFrameAutosaveName("epistemos-browser-tab")
+        normalizeNoteWindowFrame(window)
 
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
         NoteWindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
