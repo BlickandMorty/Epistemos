@@ -27,10 +27,11 @@
 
 ★ FINISH MODE — PLAN 1 (Goose). Don't rush (correctness + canon over speed), but CONVERGE: close the reals, ONE capped
 hardening pass on what you touch, then STOP AND REPORT — do NOT infinite-loop hardening.
-READ FIRST: docs/prompts/PROMPT_PLAN_1_GOOSE.md + docs/handoffs/GOOSE_NATIVE_UI_DECISION_2026_06_29.md (Option 1) +
-docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md + docs/research/GOOSE_FLAT_PIXEL_RESKIN_SPEC_2026_06_30.md
-(owner-approved look = clean flat + slight pixel twist, theme-aware, NO blue focus ring — NOT the withdrawn flat-pixel-art
-amendment). For MAS also read GOOSE_MAS_BUILD_CANON_2026_06_30 + GOOSE_MAS_IN_PROCESS_READINESS_SPEC_2026_06_30.
+⛔ STALE WRAPPER (2026-07-03): PROMPT_PLAN_1_GOOSE.md is tombstoned and GOOSE_NATIVE_UI_DECISION /
+GOOSE_FLAT_PIXEL_RESKIN_SPEC are archived (docs/_archive/pre-openchamber-2026-07-02/). READ INSTEAD:
+docs/prompts/PROMPT_PLAN_1_PRO_OPENCHAMBER.md (Pro track) and docs/prompts/PROMPT_PLAN_1_MAS_JUNE.md (MAS track) —
+these are the canonical, source-verified Plan-1 dossiers. The engine canon GOOSE_MAS_BUILD_CANON_2026_06_30 +
+GOOSE_MAS_IN_PROCESS_READINESS_SPEC_2026_06_30 remain live for the agent_core tool split (read via the MAS dossier).
 
 P0 — GREEN THE BUILD (blocks the owner from testing anything; commit as a clean "green the build" checkpoint):
  1. Epistemos/Goose/GooseWebNativeAffordanceBridge.swift ~2420 — make `nonisolated enum GooseNativeJSONSizeBudget`

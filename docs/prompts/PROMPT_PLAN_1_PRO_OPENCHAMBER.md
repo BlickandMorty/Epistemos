@@ -14,6 +14,11 @@
 - Web-verified repo moves: goose → `github.com/aaif-goose/goose` (AAIF/Linux Foundation,
   2026-04-07); opencode → `github.com/anomalyco/opencode`.
 
+**Raw research corpus (provenance only — contains corrected errors, never build from
+it):** `docs/research/OPENCHAMBER_RESEARCH_CORPUS_RAW_2026_07_02.md`. Sibling MAS
+dossier: [`PROMPT_PLAN_1_MAS_JUNE.md`](PROMPT_PLAN_1_MAS_JUNE.md) — note June scoping
+DIFFERS by track (bar+gradient only here; full Surface-B design grammar there).
+
 ---
 
 ## §0 LOCKED OWNER DECISIONS (read first, non-negotiable)
@@ -193,13 +198,17 @@ gradient. Nothing else.** Stock OpenChamber themes remain; no global warm pass.
   geometry/colors (the consensus claim "June source not publicly locatable" is wrong for
   us; we have the clone). Prior June token extraction (oklch values) from the goose-fork
   work is reusable reference.
-- **Gradient hook** [VERIFIED-CODE]: extend `packages/ui/src/lib/theme/cssGenerator.ts`
-  (`generate(theme)` emits CSS vars from `theme.colors.{primary,surface,interactive,
-  status}`) to ALSO emit derived vars for every theme, custom themes included:
-  `--landing-gradient-start = color-mix(in oklab, surface.background 92%, primary.base 8%)`,
-  `--landing-gradient-end = color-mix(in oklab, surface.background 78%, primary.base 22%)`
-  (tune ratios against June side-by-side). Classic light theme → white with a slight tan
-  wash. New files/vars only; no scattered component CSS.
+- **Gradient hook** [VERIFIED-CODE, June's literal recipe measured from source]: extend
+  `packages/ui/src/lib/theme/cssGenerator.ts` (`generate(theme)` emits CSS vars from
+  `theme.colors.{primary,surface,interactive,status}`) to ALSO emit, for every theme
+  including custom palettes:
+  `--landing-hero-wash = color-mix(in oklch, <primary.base> 11%, transparent)` and the
+  page wash `linear-gradient(to bottom, transparent 30%, var(--landing-hero-wash))` —
+  this is June's actual formula (`.research-clones/june/src/styles/tokens.css:229` +
+  `app.css` hero wash), not an invented ratio. June's reference warm values: `--brand:
+  #936862`, `--background: color-mix(in oklch, oklch(95.13% 0.0015 84.59), var(--brand)
+  3%)` — reference only, always derive from the active theme. Classic light theme →
+  white warming into a slight tan wash at the bottom. New files/vars only.
 - **Message bar:** one styled composer component family (landing + in-session — it's the
   same composer), June geometry/fill/stroke/shadow, OpenChamber behavior untouched
   (chips, queue, attachments all keep working). Engine chip lives here.
@@ -314,3 +323,58 @@ OpenCode providers or goose. A third engine family recreates 1Code's orchestrato
 - Swift changes: `xcodebuild` on isolated DerivedData, `CODE_SIGNING_ALLOWED=NO`,
   BUILD SUCCEEDED before commit. Never two xcodebuilds concurrently (16 GB machine).
 - Commit after every coherent change; report honestly (no "done" without the §8 ledger).
+
+---
+
+## §12 BUILD RUNBOOK (start here — decisions pre-made)
+
+**R1. Vendor (one-time).** Fork `openchamber/openchamber` → clone OUTSIDE this repo
+(e.g. `~/dev/openchamber-epistemos`); `git remote add upstream
+https://github.com/openchamber/openchamber.git`; pin the start tag/SHA (verified base:
+`0ee55a1`). `bun install && bun run build` must pass UNTOUCHED before any edit.
+
+**R2. Kill PWA + self-updater (the first patch-ledger rows) [VERIFIED-CODE]:**
+- `packages/web/vite.config.ts:42-47` — `VitePWA({ registerType:'autoUpdate',
+  injectManifest:{filename:'sw.ts'} })` → gate off for the embed build.
+- `packages/web/src/main.tsx:88` — `registerSW({...})` → strip/flag.
+- `packages/ui/src/stores/useUpdateStore.ts:109` — `runtimeFetch('/api/openchamber/
+  update-check...')` → stub "no update" + hide the affordance.
+
+**R3. Swift host — reuse hooks (SIMPLER than the current goose surface).** The goose
+surface serves its SPA via a custom scheme + `WorkSPASchemeHandler`
+(`GooseWebSurfaceSupport.swift:23-62`) — the OpenChamber surface does NOT need any of
+that: the web server serves the SPA, the WKWebView just loads
+`http://127.0.0.1:<uiPort>`. Model the new supervisor on `GooseRuntimeSupervisor`'s
+proven API: `start(...)`/`stop()` (`:171`/`:233`), observable `status` enum (`:162`),
+injectable `healthCheck` closure (`:860` — GET `/health`, expect 200+"ok", 5s timeout),
+`defaultBaseURL` hardcoded to `127.0.0.1` (`:674`, `:39`), occupied-port fallback scan
+(`:711`). Three supervised children: openchamber web server (bundled node runtime),
+opencode binary, goosed binary.
+
+**R4. Env matrix (per-launch):**
+| Child | Env / args |
+|---|---|
+| web server | `OPENCODE_PORT=<p1>`, `OPENCODE_SKIP_START=true`, `--port <uiPort> --host 127.0.0.1` |
+| opencode | `serve --hostname 127.0.0.1 --port <p1>` + `OPENCODE_SERVER_PASSWORD=<random>` |
+| goosed | `GOOSE_HOST=127.0.0.1`, `GOOSE_PORT=<p2>`, **`GOOSE_TLS=false`**, `GOOSE_SERVER__SECRET_KEY=<random>` |
+All ports dynamically allocated; secrets generated per-launch, held Swift-side +
+injected into the `/goose/*` proxy — never into webview JS.
+
+**R5. June bar — measurement sources [VERIFIED-CODE]:** composer =
+`.research-clones/june/src/components/agent/composer/ComposerEditor.tsx` (ProseMirror-
+based — measure container/radius/shadow/fill/placeholder ONLY; OpenChamber composer
+behavior stays). Tokens = `june/src/styles/tokens.css:39-257`. **⚠️ FONTS: June uses
+commercial typefaces (ABC Diatype, Martina Plantijn, Berkeley Mono) — DO NOT copy
+font files (unlicensed). The bar signature = geometry + color, donor fonts stay.**
+
+**R6. Overlay files to create in the fork:** `packages/ui/src/epistemos/
+{gooseClient.ts, engineChip/, landing/}`, `packages/web/server/lib/goose/proxy.js`,
+`docs/PATCH_LEDGER.md` (seed rows: R2 ×3 + the client-wrapper injection point
+`packages/ui/src/lib/opencode/client.ts`).
+
+**R7. Phase acceptance:** P0 = SPA renders in WKWebView; SSE + PTY WebSocket work
+same-origin; Web Inspector shows ZERO service workers. P1 = chat/diff/terminal/git all
+green through opencode. P2 = pill/typewriter/all-chats/June bar+wash visible; gradient
+derives correctly on ≥3 themes incl. one custom. P3 = goose conversation streams via
+the adapter; engine badges + directory-grouping degradation honest; absent capabilities
+hidden. Each phase ends in a commit + an owner-visual checkpoint.
