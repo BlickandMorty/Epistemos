@@ -1499,16 +1499,17 @@ struct NoteDetailWorkspaceView: View {
                 .font(.system(size: 13, weight: isActive ? .semibold : .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(isActive ? accent : foreground.opacity(0.78))
-                .frame(width: 28, height: 28)
-                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 30, height: 30)
+                .contentShape(Circle())
+                // Owner 2026-07-03: individual NATIVE circular toolbar items (not one
+                // merged pill), with a CIRCLE selection instead of the square box.
                 .background {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(isActive ? accent.opacity(0.16) : Color.clear)
+                    Circle().fill(isActive ? accent.opacity(0.16) : Color.clear)
                 }
                 .overlay {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(isActive ? accent.opacity(0.36) : Color.clear, lineWidth: 0.75)
+                    Circle().strokeBorder(isActive ? accent.opacity(0.42) : Color.clear, lineWidth: 1)
                 }
+                .glassEffect(.regular.interactive(), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mode.label)

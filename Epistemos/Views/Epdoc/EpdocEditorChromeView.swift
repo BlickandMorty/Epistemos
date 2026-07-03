@@ -533,9 +533,9 @@ public struct EpdocEditorChromeView: View {
         .overlay(alignment: .topTrailing) {
             if let surfaceToolbarAccessory {
                 surfaceToolbarAccessory
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(.regularMaterial, in: Capsule())
+                    // Owner 2026-07-03: individual glass items, not one merged pill.
+                    // The group .regularMaterial Capsule was removed; each mode button
+                    // now carries its own glassEffect circle (native individual items).
                     .padding(.top, 14)
                     .padding(.trailing, 18)
                     .zIndex(30)

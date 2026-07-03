@@ -216,7 +216,8 @@ nonisolated enum BrowserNavigationErrorPolicy {
 
 @MainActor @Observable
 final class BrowserTab {
-    var address = "https://www.apple.com"
+    // Opens on the custom themed home page (owner 2026-07-03) unless a URL is given.
+    var address = BrowserHomePage.marker
     var currentURL: URL?
     var title = "Browser"
     var canGoBack = false
@@ -496,7 +497,10 @@ private struct BrowserWebView: NSViewRepresentable {
         webView.setValue(false, forKey: "drawsBackground")
 
         context.coordinator.attach(webView: webView, tab: tab)
-        if let url = BrowserURLGuard.resolve(raw: tab.address) {
+        if BrowserHomePage.isHome(tab.address) {
+            // Custom themed pixel-art home page (owner 2026-07-03).
+            webView.loadHTMLString(BrowserHomePage.html(theme: theme), baseURL: nil)
+        } else if let url = BrowserURLGuard.resolve(raw: tab.address) {
             webView.load(URLRequest(url: url))
         }
         EpdocWebViewShared.notifyWebViewCreated()

@@ -13,7 +13,8 @@ enum BrowserThemeInjection {
 
     /// Font file → base64 data URI, computed once. Reading + encoding a font on
     /// every navigation would be wasteful, so cache the whole @font-face block.
-    private static let pixelFontFaceCSS: String = {
+    /// Internal so the custom home page (BrowserHomePage) can reuse it.
+    static let pixelFontFaceCSS: String = {
         guard let url = Bundle.main.url(forResource: "ChonkyPixels", withExtension: "ttf"),
               let data = try? Data(contentsOf: url) else { return "" }
         let base64 = data.base64EncodedString()
@@ -33,7 +34,12 @@ enum BrowserThemeInjection {
         html,body{background-color:\(background) !important;color:\(foreground) !important;}
         p,span,li,td,th,div,section,article,main,figcaption,blockquote,label{color:\(foreground) !important;}
         a,a:link,a:visited{color:\(accent) !important;}
-        h1,h2,h3,h4,h5,h6{font-family:'EpistemosPixel',ui-monospace,monospace !important;color:\(heading) !important;letter-spacing:0.4px;}
+        /* Owner 2026-07-03: pixel font on headings, LINKS, BOLD, and page titles —
+           NOT plain body/paragraph text (keeps long-form pages readable). */
+        h1,h2,h3,h4,h5,h6,a,a:link,a:visited,strong,b,th,summary,title{
+          font-family:'EpistemosPixel',ui-monospace,monospace !important;letter-spacing:0.4px;
+        }
+        h1,h2,h3,h4,h5,h6{color:\(heading) !important;}
         ::selection{background:\(accent);color:\(background);}
         """
     }
