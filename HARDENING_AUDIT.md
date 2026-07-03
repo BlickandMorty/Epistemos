@@ -209,3 +209,5 @@ OWNER-ACTION items (I did NOT change these — Goose-entangled Work lane and/or 
 - MED: com.apple.security.cs.allow-jit — confirm a real in-process JIT consumer (Kokoro/Metal?) or remove (MLX stack removed).
 - MED: setValue(false, forKey:"drawsBackground") private KVC (6 webview sites) — gray-area, usually survives; convert to underPageBackgroundColor if you want zero doubt (deferred: unverifiable transparency regression risk).
 - LOW: "Scrub Pro Frameworks" build step is a no-op stub; Widgets/XPC not wired into MAS app (need app-sandbox+app-groups if shipped); CoreLocation import is data-type-only; pin Pyodide indexURL to the bundled copy; AppStore Release code-sign identity is a submission detail.
+
+- MEET MED-5 (permission revoke) + MED-6 (interruption without config-change) FIXED 2026-07-03: EpistemosSpeechAnalyzer now runs a permission/engine monitor while capturing — stops on mic-permission revoke (no more silent "recording") and re-arms if an interruption stopped the engine without an AVAudioEngineConfigurationChange.

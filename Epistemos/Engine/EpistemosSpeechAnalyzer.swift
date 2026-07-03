@@ -84,6 +84,7 @@ public final class EpistemosSpeechAnalyzer {
     private var bufferConverter: SpeechAnalyzerAudioBufferConverter?
     private var analyzerFormat: AVAudioFormat?
     private var configChangeObserver: NSObjectProtocol?
+    private var permissionMonitorTask: Task<Void, Never>?
 
     private init() {}
 
@@ -274,6 +275,34 @@ public final class EpistemosSpeechAnalyzer {
             MainActor.assumeIsolated { self?.rearmInputTapAfterConfigurationChange() }
         }
 
+        // MED-5 (audit 2026-07-03): mic permission can be revoked mid-meeting; the
+        // engine keeps "running" but the tap goes silent, so the UI keeps showing
+        // "recording" with no audio captured. Poll authorization while capturing and
+        // stop (ending the results stream) if it's revoked, so the stall isn't silent —
+        // the meeting ends and the user can re-grant permission and restart.
+        permissionMonitorTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { return }
+                let status = AVCaptureDevice.authorizationStatus(for: .audio)
+                if status == .denied || status == .restricted {
+                    Self.log.warning("microphone permission revoked mid-capture; stopping")
+                    self?.stopInternal()
+                    return
+                }
+                // MED-6 (audit 2026-07-03): an interruption (Siri, a screen-share audio
+                // grab) can stop the engine WITHOUT posting an AVAudioEngineConfiguration
+                // Change, so the #28 observer wouldn't fire and transcription would die
+                // silently. If we're still meant to be capturing but the engine stopped,
+                // re-arm it (rearm handles its own errors, so a permanently-gone device
+                // just retries every few seconds rather than looping tightly).
+                if let self, self.didInstallInputTap, !self.engine.isRunning {
+                    Self.log.warning("audio engine stopped unexpectedly (interruption?); re-arming")
+                    self.rearmInputTapAfterConfigurationChange()
+                }
+            }
+        }
+
         Self.log.info("live transcription started")
         return resultsStream
     }
@@ -289,6 +318,8 @@ public final class EpistemosSpeechAnalyzer {
             NotificationCenter.default.removeObserver(observer)
             configChangeObserver = nil
         }
+        permissionMonitorTask?.cancel()
+        permissionMonitorTask = nil
         if engine.isRunning {
             engine.stop()
         }
