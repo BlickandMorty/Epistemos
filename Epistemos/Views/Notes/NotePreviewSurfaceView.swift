@@ -371,6 +371,14 @@ struct AdaptiveNotePreviewView2: View {
                         .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
                 }
             }
+            // Owner 2026-07-03 (padding re-fix): extend the preview UNDER the window
+            // titlebar, matching the AppKit prose editor whose NSScrollView sets
+            // automaticallyAdjustsContentInsets = false (ProseTextView2:807). Without
+            // this the SwiftUI ScrollView sits BELOW the titlebar, so previewTopChrome
+            // renders as a colored BAND below the title — the persistent "padding below
+            // the title." Under the titlebar the same backdrop sits BEHIND the title
+            // (the wanted "color behind the title") and content flows up flush with it.
+            .ignoresSafeArea(.container, edges: .top)
         }
     }
 
