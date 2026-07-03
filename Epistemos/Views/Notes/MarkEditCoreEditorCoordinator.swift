@@ -457,7 +457,12 @@ final class MarkEditCoreEditorCoordinator: NSObject, WKNavigationDelegate, WKScr
             return url.host == "chunks"
         case "http", "https":
             guard let host = url.host?.lowercased() else { return false }
-            return host == "localhost" || host == "127.0.0.1" || host == "::1"
+            let isLocalhost = host == "localhost" || host == "127.0.0.1" || host == "::1"
+            // Allow only the editor's OWN programmatic load (.other), not user link
+            // clicks — a clicked localhost link against a live local server could
+            // otherwise navigate the editor webview and corrupt its text buffer
+            // (bridge audit 2026-07-03, LOW).
+            return isLocalhost && navigationAction.navigationType == .other
         default:
             return false
         }

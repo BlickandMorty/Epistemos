@@ -724,7 +724,14 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
         case .dismissBubbleMenu:
             return "window.epistemos.dismissBubbleMenu()"
         case .runCommand(let name, let argsJSON):
-            let argsLiteral = String(data: argsJSON, encoding: .utf8) ?? "[]"
+            // argsJSON is a JSON array spliced (spread) directly into the JS
+            // expression, so it can't go through jsStringLiteral. Escape U+2028/U+2029
+            // — JSON-legal inside string values but JS line terminators that would
+            // break the expression parse (one-command DoS) — to their \u escapes,
+            // which are valid in both JSON and JS (bridge audit 2026-07-03, LOW).
+            let argsLiteral = (String(data: argsJSON, encoding: .utf8) ?? "[]")
+                .replacingOccurrences(of: "\u{2028}", with: "\\u2028")
+                .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
             // window.epistemos.runCommand(name, ...args)
             return "window.epistemos.runCommand(\(jsStringLiteral(name)), ...\(argsLiteral))"
         case .setContentWidth(let mode):
