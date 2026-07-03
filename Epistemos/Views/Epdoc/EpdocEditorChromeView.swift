@@ -644,6 +644,8 @@ private enum EpdocEditorThemeStyle {
                 "root.style.setProperty(\(jsStringLiteral(name)), \(jsStringLiteral(value)));"
             }
             .joined()
+        let h1Size = Int((52 * theme.headingSizeMultiplier(level: 1)).rounded())
+        let h2Size = Int((27 * theme.headingSizeMultiplier(level: 2)).rounded())
         return """
         (function(){
           const root = document.documentElement;
@@ -651,6 +653,37 @@ private enum EpdocEditorThemeStyle {
           root.dataset.epdocTheme = \(jsStringLiteral(theme.rawValue));
           root.dataset.epdocThemeDark = \(theme.isDark ? "true" : "false");
           \(assignments)
+        })();
+        \(adaptiveHeadingScript(h1: h1Size, h2: h2Size))
+        """
+    }
+
+    /// Owner 2026-07-03: mirror prose's "longer heading → smaller" behavior in the
+    /// Epdoc editor. CSS can't size by text length, so a lightweight observer
+    /// measures each H1 and shrinks it toward the H2 size as the title grows. The
+    /// base H1/H2 pixel sizes are baked in per-theme (matching --epdoc-h1/h2-size);
+    /// the observer is installed once and re-applies on every content edit.
+    private static func adaptiveHeadingScript(h1: Int, h2: Int) -> String {
+        """
+        (function(){
+          var H1=\(h1), H2=\(h2);
+          function adapt(){
+            var hs=document.querySelectorAll('h1');
+            for(var i=0;i<hs.length;i++){
+              var h=hs[i], len=(h.textContent||'').trim().length;
+              var size = len<=20 ? H1 : Math.max(H2+4, Math.round(H1-(len-20)*0.6));
+              h.style.fontSize = size+'px';
+            }
+          }
+          adapt();
+          if(!window.__epdocHeadingObserver){
+            try{
+              window.__epdocHeadingObserver=new MutationObserver(function(){
+                window.requestAnimationFrame(adapt);
+              });
+              window.__epdocHeadingObserver.observe(document.body,{childList:true,subtree:true,characterData:true});
+            }catch(e){}
+          }
         })();
         """
     }
