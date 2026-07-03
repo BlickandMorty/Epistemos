@@ -225,6 +225,10 @@ final class BrowserTab {
     var isLoading = false
     var progress = 0.0
     var lastError: String?
+    /// Owner 2026-07-03: the floating toolbar hides on scroll-down and reappears on
+    /// scroll-up so the page can take the full window. Driven by an injected scroll
+    /// listener that posts direction to the `browserScroll` message handler.
+    var toolbarHidden = false
 
     @ObservationIgnored var loadURL: ((URL) -> Void)?
     @ObservationIgnored var goBack: (() -> Void)?
@@ -281,7 +285,15 @@ struct BrowserView: View {
     var body: some View {
         @Bindable var tab = tab
 
-        VStack(spacing: 0) {
+        ZStack(alignment: .top) {
+            // Web view fills the whole window; the toolbar floats over it and hides on
+            // scroll so the page can take the entire window (owner 2026-07-03).
+            BrowserWebView(tab: tab, theme: theme)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(Rectangle())
+
+            // Floating, flat toolbar.
+            VStack(spacing: 0) {
             HStack(spacing: 8) {
                 IntegrationBrandMarkView(brand: .browser, size: 18)
                     .foregroundStyle(theme.resolved.mutedForeground.color)
@@ -417,9 +429,14 @@ struct BrowserView: View {
                 .background(theme.resolved.card.color.opacity(0.5))
             }
 
-            BrowserWebView(tab: tab, theme: theme)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(Rectangle())
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
+            .background(.ultraThinMaterial)
+            .allowsHitTesting(!tab.toolbarHidden)
+            .opacity(tab.toolbarHidden ? 0 : 1)
+            .blur(radius: tab.toolbarHidden ? 6 : 0)
+            .offset(y: tab.toolbarHidden ? -72 : 0)
+            .animation(.easeInOut(duration: 0.28), value: tab.toolbarHidden)
         }
         .background(theme.resolved.background.color)
         .onAppear {
@@ -489,6 +506,46 @@ private struct BrowserWebView: NSViewRepresentable {
     let tab: BrowserTab
     let theme: EpistemosTheme
 
+    static let scrollMessageName = "browserScroll"
+    /// Posts 'down' / 'up' to the `browserScroll` handler as the page scrolls, throttled
+    /// to one message per animation frame and ignoring sub-6px jitter. Main-frame only.
+    static let scrollDirectionScript = WKUserScript(
+        source: """
+        (function(){
+          var lastY = 0, ticking = false;
+          window.addEventListener('scroll', function(){
+            if (ticking) return;
+            ticking = true;
+            window.requestAnimationFrame(function(){
+              var y = window.scrollY || document.documentElement.scrollTop || 0;
+              if (Math.abs(y - lastY) > 6) {
+                try { window.webkit.messageHandlers.browserScroll.postMessage((y > lastY && y > 48) ? 'down' : 'up'); } catch(e){}
+                lastY = y;
+              }
+              ticking = false;
+            });
+          }, { passive: true });
+        })();
+        """,
+        injectionTime: .atDocumentEnd,
+        forMainFrameOnly: true
+    )
+
+    /// Weak proxy so the userContentController doesn't strongly retain the Coordinator
+    /// (which retains the webView) — the classic WKWebView message-handler leak.
+    private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+        weak var target: Coordinator?
+        init(_ target: Coordinator) { self.target = target }
+        nonisolated func userContentController(
+            _ controller: WKUserContentController, didReceive message: WKScriptMessage
+        ) {
+            guard message.name == BrowserWebView.scrollMessageName,
+                  let direction = message.body as? String else { return }
+            // WKScriptMessageHandler callbacks are delivered on the main thread.
+            MainActor.assumeIsolated { target?.setToolbarHidden(direction == "down") }
+        }
+    }
+
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
@@ -499,6 +556,13 @@ private struct BrowserWebView: NSViewRepresentable {
         // page that loads — browsing stays canon with the app (owner 2026-07-03).
         configuration.userContentController.addUserScript(
             BrowserThemeInjection.userScript(for: theme)
+        )
+        // Owner 2026-07-03: drive the floating toolbar's hide-on-scroll-down /
+        // show-on-scroll-up. WeakScriptMessageHandler breaks the userContentController →
+        // handler → webView retain cycle (removed again in dismantleNSView).
+        configuration.userContentController.addUserScript(Self.scrollDirectionScript)
+        configuration.userContentController.add(
+            WeakScriptMessageHandler(context.coordinator), name: Self.scrollMessageName
         )
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -535,6 +599,8 @@ private struct BrowserWebView: NSViewRepresentable {
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: Self.scrollMessageName)
         coordinator.shutdown()
         EpdocWebViewShared.notifyWebViewDismantled()
     }
@@ -573,6 +639,12 @@ private struct BrowserWebView: NSViewRepresentable {
             tab?.stopLoading = nil
             webView = nil
             tab = nil
+        }
+
+        /// Owner 2026-07-03: toolbar hide/show, driven by the injected scroll listener.
+        func setToolbarHidden(_ hidden: Bool) {
+            guard tab?.toolbarHidden != hidden else { return }
+            tab?.toolbarHidden = hidden
         }
 
         private func installCommands(webView: WKWebView, tab: BrowserTab) {

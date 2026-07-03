@@ -44,9 +44,19 @@ enum BrowserThemeInjection {
         html,body{background-color:\(background) !important;color:\(foreground) !important;}
         p,span,li,td,th,div,section,article,main,figcaption,blockquote,label{color:\(foreground) !important;}
         a,a:link,a:visited{color:\(accent) !important;}
-        /* Owner 2026-07-03: pixel font on headings, LINKS, BOLD, and page titles —
-           NOT plain body/paragraph text (keeps long-form pages readable). */
-        h1,h2,h3,h4,h5,h6,a,a:link,a:visited,strong,b,th,summary,title{
+        /* Owner 2026-07-03: pixel font forced on all non-body-text elements — headings,
+           links, emphasis, UI chrome (buttons/nav/labels), and structural bits — while
+           plain paragraph/list/cell/span body text stays in the site's readable face so
+           long-form pages remain legible. */
+        h1,h2,h3,h4,h5,h6,
+        a,a:link,a:visited,
+        strong,b,em,i,mark,ins,del,
+        button,[role=button],input[type=button],input[type=submit],input[type=reset],
+        nav,[role=navigation],menu,[role=menu],[role=tab],
+        label,legend,fieldset>legend,
+        th,thead,tfoot,caption,figcaption,dt,summary,details>summary,
+        blockquote,cite,q,code,kbd,samp,var,time,abbr,
+        title{
           font-family:'EpistemosPixel',ui-monospace,monospace !important;letter-spacing:0.4px;
         }
         h1,h2,h3,h4,h5,h6{color:\(heading) !important;}
