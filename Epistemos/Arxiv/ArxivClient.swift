@@ -182,6 +182,29 @@ nonisolated enum ArxivPDFURLPolicy {
     }
 }
 
+/// ARX-2 (audit): serializes + spaces outbound arXiv requests so rapid interactions
+/// (e.g. quickly clicking the category chips) don't hammer the arXiv API, which
+/// rate-limits/blocks callers that don't pace their requests — that would break the
+/// research surface for the user. A light 1.2s min-interval: a single interactive
+/// search sees no delay (nothing recent), only rapid-fire requests get spaced. The
+/// slot is reserved BEFORE sleeping, so concurrent callers get sequential slots
+/// (no actor-reentrancy double-booking).
+actor ArxivRequestThrottle {
+    static let shared = ArxivRequestThrottle()
+    private var nextAllowed: Date?
+    private let minInterval: TimeInterval = 1.2
+
+    func waitForSlot() async {
+        let now = Date()
+        let scheduled = max(nextAllowed ?? now, now)
+        nextAllowed = scheduled.addingTimeInterval(minInterval)
+        let delay = scheduled.timeIntervalSince(now)
+        if delay > 0 {
+            try? await Task.sleep(for: .seconds(delay))
+        }
+    }
+}
+
 nonisolated struct ArxivClient: Sendable {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
     static let maxSearchResponseBytes = 5 * 1024 * 1024
@@ -193,7 +216,10 @@ nonisolated struct ArxivClient: Sendable {
     private let fetch: Fetch
 
     init(fetch: @escaping Fetch = { request in
-        try await URLSession.shared.data(for: request)
+        // ARX-2: pace real network requests through the shared throttle (injected
+        // test fetches bypass this — they never touch the network).
+        await ArxivRequestThrottle.shared.waitForSlot()
+        return try await URLSession.shared.data(for: request)
     }) {
         self.fetch = fetch
     }
