@@ -263,6 +263,9 @@ struct LiquidGreeting: View {
                         : Color.black.opacity(0.06))),
             radius: compact ? 0 : (theme.isDark ? 8 : (theme.headingGlows ? 6 : 5))
         )
+        // Owner 2026-07-03: a subtle liquid sheen sweeps across the hero — makes the
+        // "LiquidGreeting" name real. Gated by shouldAnimate (!windowOccluded) + Reduce Motion.
+        .liquidShimmer(sheen: theme.fontAccent, active: shouldAnimate)
     }
 
     @ViewBuilder

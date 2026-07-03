@@ -58,3 +58,39 @@ struct LiquidMetalSurface: View {
         }
     }
 }
+
+extension View {
+    /// A subtle moving liquid "sheen" sweep over this view's CONTENT (e.g. hero text) —
+    /// makes a surface feel alive. Masked to the content's own alpha. Pass
+    /// `active: !ui.windowOccluded` (Reduce Motion also disables it).
+    func liquidShimmer(sheen: Color, intensity: Double = 0.16, active: Bool = true) -> some View {
+        modifier(LiquidShimmer(sheen: sheen, intensity: intensity, active: active))
+    }
+}
+
+private struct LiquidShimmer: ViewModifier {
+    let sheen: Color
+    var intensity: Double = 0.16
+    var active: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if active && !reduceMotion {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600)
+                content.visualEffect { effect, proxy in
+                    effect.colorEffect(
+                        ShaderLibrary.liquidSheen(
+                            .float(Float(t)),
+                            .float2(proxy.size),
+                            .color(sheen),
+                            .float(Float(intensity))
+                        )
+                    )
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
