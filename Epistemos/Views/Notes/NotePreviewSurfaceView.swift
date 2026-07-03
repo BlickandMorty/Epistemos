@@ -51,7 +51,16 @@ enum NoteDualPreviewLayout {
     // preview matches the editor/prose top edge. The see-through-title fix is
     // separate (the top chrome backdrop opacity), not padding.
     static let outerPadding = EdgeInsets(top: 0, leading: 32, bottom: 40, trailing: 32)
-    static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)
+    // Owner 2026-07-03: the top separation IS the prose editor's own vertical inset
+    // (ProseEditorRepresentable2.verticalInset, the NSTextView textContainerInset height)
+    // — same value, same "space on the content layer" the editor uses, not an added
+    // padding band. Preview and Edit line up exactly.
+    static let pagePadding = EdgeInsets(
+        top: ProseEditorRepresentable2.verticalInset,
+        leading: 38,
+        bottom: 36,
+        trailing: 38
+    )
     static let sectionTargetCharacterCount = 900
     static let sectionSoftOverflowFloor = 160
 
@@ -357,8 +366,17 @@ struct AdaptiveNotePreviewView2: View {
             }
             .background { previewBackdrop }
             .overlay(alignment: .top) {
-                previewTopChrome(height: chromeBackdropHeight)
-                    .zIndex(10)
+                // Regular note preview (chromeMinimumHeight == 0): NO chrome band — match
+                // the prose editor exactly. "Color behind the title" comes from the
+                // workspace background layer (NoteDetailWorkspaceView draws
+                // noteWorkspaceBackground.ignoresSafeArea() behind everything), and the
+                // top separation is pagePadding.top (== the editor's verticalInset 40) —
+                // space on the content layer, not a padding band. Only the graph-embedded
+                // preview keeps the chrome (it covers the floating graph toolbar area).
+                if chromeMinimumHeight > 0 {
+                    previewTopChrome(height: chromeBackdropHeight)
+                        .zIndex(10)
+                }
             }
             .background {
                 NotePreviewTitlebarInsetReader(titlebarInset: $titlebarInset)
@@ -371,14 +389,6 @@ struct AdaptiveNotePreviewView2: View {
                         .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
                 }
             }
-            // Owner 2026-07-03 (padding re-fix): extend the preview UNDER the window
-            // titlebar, matching the AppKit prose editor whose NSScrollView sets
-            // automaticallyAdjustsContentInsets = false (ProseTextView2:807). Without
-            // this the SwiftUI ScrollView sits BELOW the titlebar, so previewTopChrome
-            // renders as a colored BAND below the title — the persistent "padding below
-            // the title." Under the titlebar the same backdrop sits BEHIND the title
-            // (the wanted "color behind the title") and content flows up flush with it.
-            .ignoresSafeArea(.container, edges: .top)
         }
     }
 
