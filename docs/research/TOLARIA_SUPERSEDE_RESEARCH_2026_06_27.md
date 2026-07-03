@@ -1,5 +1,7 @@
 # Tolaria-Supersede Research Loop (2026-06-27)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02.** The editor-quality RESEARCH here is durable, but the GOAL shrank: owner 2026-07-02 = editors SIMPLIFY/POLISH, NOT "build a Tolaria rival." OpenChamber's own markdown editor carries agent-doc editing inside the Agent surface, so the standalone editor only needs to be nice to write in. Mine the research for polish ideas; do not chase Tolaria parity. Canon: memory `project_product_shape_agent_center_2026_07_02`.
+
 > ★ **CANONICAL PLAN = `EDITOR_CANONICAL_PLAN_2026_06_27.md`** (written pass 6 — the single source of truth).
 > This doc is the running research LOG; that doc is the consolidated plan. Code detail = the 4 codepacks.
 >

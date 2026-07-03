@@ -1,5 +1,7 @@
 # CANON CONSISTENCY LEDGER (the "check doc") — 2026-06-29
 
+> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02 (OpenChamber pivot).** This ledger's consistency checks assume the pre-pivot world (Goose-as-surface reskin / Option 1 / Goose-only). The agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Use this doc's METHOD (consistency-check discipline) but re-anchor every "Goose surface / reskin / Option 1" assertion to current canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`. The live plan/prompt reconciliation superseding this ledger was done 2026-07-02 (see the PROMPT_PLAN_* override headers + `docs/_archive/pre-openchamber-2026-07-02/`).
+
 > **THE single doc to open to confirm the canon is still consistent during implementation.** The Auditor agent
 > (`docs/prompts/PROMPT_AUDITOR_LOOP.md`, cron) re-runs every check below each cycle, updates the STATUS column,
 > reconciles confident drift (adds a SUPERSEDED banner / inline `[DELETED]` marker — NEVER deletes a doc, NEVER

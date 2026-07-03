@@ -1,5 +1,7 @@
 # Goose Note-Context Plumbing — CODE PACK (2026-06-27, superseded in part 2026-06-29)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02.** The note-context PLUMBING detail (ActiveEpdocTracker / NoteContextProvider / bounded head-tail projection) is durable — it now feeds the Agent surface's context + the note-edit PROVENANCE system. STALE: the whole embedded "mini-Goose-chat panel / reskinned Goose WebView / Option 1 / dock slot in Epdoc" premise — that minichat is DEFERRED (owner 2026-07-02); the agent works notes via shared files + a companion mascot, not an in-editor chat. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+
 > Original Pass-4d deliverable was a minichat. After the 2026-06-29 upgrade, the live deliverable is only the
 > note-context plumbing that feeds open-note context to the Plan-1-owned Goose WebView/reskin. Tags
 > [VERIFIED-CODE]/[INFERRED].

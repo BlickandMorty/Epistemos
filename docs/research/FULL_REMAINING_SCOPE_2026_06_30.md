@@ -1,5 +1,7 @@
 # FULL REMAINING SCOPE — Plans 1 / 2 / 3 (2026-06-30)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The Plan-2/3 scope items (editor, capabilities) are largely still valid; the Plan-1 scope (reskin Goose / Goose-as-surface / Option 1 / MAS-as-reskinned-goose-webview) is DEAD. Current: Agent surface = OpenChamber (Pro) + goose/OpenCode engines; MAS = June + goose IN-PROCESS backend; goose = one engine. Editors = simplify not Tolaria-rival; arXiv/Obscura kept dedicated. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+
 > No-compromise inventory of EVERYTHING left across the three build plans — **including the MAS in-process backend +
 > frontend and all deferred/gated items.** Compiled by reading the actual plan docs + canonical codepacks (not memory).
 > Status tags: ✅ done · 🔨 in-progress · ⬜ not-started · ⏸ deferred (in-scope, sequenced later) · 🔒 Pro-gated · ⛔ cut/forbidden.
