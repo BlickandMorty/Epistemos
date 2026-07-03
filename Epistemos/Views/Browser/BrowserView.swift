@@ -309,6 +309,7 @@ struct BrowserView: View {
                     tab.back()
                 }
                 .disabled(!tab.canGoBack)
+                .keyboardShortcut("[", modifiers: .command)  // GAP-22
 
                 ToolbarCapsuleButton(
                     title: nil,
@@ -321,6 +322,7 @@ struct BrowserView: View {
                     tab.forward()
                 }
                 .disabled(!tab.canGoForward)
+                .keyboardShortcut("]", modifiers: .command)  // GAP-22
 
                 ToolbarCapsuleButton(
                     title: nil,
@@ -333,6 +335,7 @@ struct BrowserView: View {
                 ) {
                     tab.isLoading ? tab.stop() : tab.reload()
                 }
+                .keyboardShortcut("r", modifiers: .command)  // GAP-22
 
                 HStack(spacing: 7) {
                     Image(systemName: addressIcon)
@@ -378,6 +381,17 @@ struct BrowserView: View {
                     savePageToNotes()
                 }
                 .disabled(isSavingToNotes)
+
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "link",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Copy page URL",
+                    accessibilityLabel: "Copy page URL"
+                ) {
+                    copyCurrentURL()
+                }
 
                 ToolbarCapsuleButton(
                     title: nil,
@@ -439,6 +453,14 @@ struct BrowserView: View {
                 tab.navigate(to: url)
             }
         }
+    }
+
+    // GAP-22 (audit 2026-07-03): copy the current page URL to the pasteboard.
+    private func copyCurrentURL() {
+        let urlString = tab.currentURL?.absoluteString ?? tab.address
+        guard !urlString.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(urlString, forType: .string)
     }
 
     private func savePageToNotes() {
