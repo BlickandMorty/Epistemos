@@ -23,7 +23,6 @@ struct AppleNativeUnifiedSmoke {
         let fallbackWindow = read("Epistemos/Goose/GooseSurfaceWindowController.swift", root: root)
         let app = read("Epistemos/App/EpistemosApp.swift", root: root)
         let gooseWeb = read("Epistemos/Goose/GooseWebSurfaceView.swift", root: root)
-        let browserUse = read("Epistemos/BrowserUsePro/BrowserUseProGateStatus.swift", root: root)
 
         require(!exists("Epistemos/Goose/GooseSurfaceRouter.swift", root: root), "Goose must not keep a native route router")
         require(!exists("Epistemos/Goose/GooseNativeModelsView.swift", root: root), "Goose must not keep a native Models route")
@@ -45,10 +44,8 @@ struct AppleNativeUnifiedSmoke {
         require(!gooseWeb.contains("GooseNativeModelsView(bridge: acpBridge)"), "Goose window must not promote Models to native")
         require(!gooseWeb.contains("router.isNative(.models)"), "Goose window must not keep native route promotion")
         require(!gooseWeb.contains("GooseSurfaceRouter()"), "Goose window must not instantiate a native route router")
-        require(browserUse.contains("cannot drive the native WKWebView Browser"), "browser-use must remain outside native WKWebView Browser")
-        require(browserUse.contains("Launch remains user-initiated and separate from the native WKWebView Browser"), "browser-use must remain subordinate/separate")
 
-        print("apple-native unified smoke OK: goose_frame_live=true webview_oracle=true native_chat=false browser_use_subordinate=true")
+        print("apple-native unified smoke OK: goose_frame_live=true webview_oracle=true native_chat=false")
     }
 
     private static func read(_ relativePath: String, root: URL) -> String {

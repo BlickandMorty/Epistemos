@@ -27,8 +27,6 @@ struct ExtensionsDetailView: View {
                     MCPServersDetailView()
                 case .connectors:
                     ConnectorsDetailView()
-                case .browserUse:
-                    BrowserUseSettingsView()
                 }
             }
         }
@@ -58,7 +56,6 @@ private enum ExtensionsSettingsTab: String, CaseIterable, Identifiable {
     case skills
     case mcpServers
     case connectors
-    case browserUse
 
     var id: String { rawValue }
 
@@ -67,7 +64,6 @@ private enum ExtensionsSettingsTab: String, CaseIterable, Identifiable {
         case .skills: "Skills"
         case .mcpServers: "MCP Servers"
         case .connectors: "Connectors"
-        case .browserUse: "browser-use"
         }
     }
 }

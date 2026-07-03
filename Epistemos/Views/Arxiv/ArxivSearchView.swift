@@ -54,6 +54,7 @@ struct ArxivSearchView: View {
     @State private var ingestingIDs: Set<String> = []
     @State private var importedIDs: Set<String> = []
     @State private var searchTask: Task<Void, Never>?
+    @State private var didLoadFeaturedFeed = false
     @State private var ingestTasks: [String: Task<Void, Never>] = [:]
 
     private let client = ArxivClient()
@@ -72,7 +73,18 @@ struct ArxivSearchView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(spacing: 10) {
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "house",
+                    role: .secondaryGhost,
+                    helpText: "Back to home",
+                    accessibilityLabel: "Back to home"
+                ) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                        ui.homeContent = .greeting
+                    }
+                }
                 IntegrationBrandMarkView(brand: .arxiv, size: 24)
                     .foregroundStyle(mutedTint)
                 Text("arXiv")
@@ -93,12 +105,20 @@ struct ArxivSearchView: View {
                 TextField("Search papers", text: $query)
                     .textFieldStyle(.plain)
                     .foregroundStyle(ui.theme.resolved.foreground.color)
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 32)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 38)
                     .background(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(inputBackground)
+                        Capsule(style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .strokeBorder(
+                                        ui.theme.resolved.foreground.color.opacity(0.10),
+                                        lineWidth: 1
+                                    )
+                            )
                     )
+                    .shadow(color: .black.opacity(0.16), radius: 10, y: 3)
                     .onSubmit {
                         startSearch()
                     }
@@ -152,9 +172,43 @@ struct ArxivSearchView: View {
             }
         }
         .padding(20)
-        .frame(minWidth: 680, minHeight: 520)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .task {
+            await loadFeaturedFeedIfNeeded()
+        }
         .onDisappear {
             cancelActiveTasks()
+        }
+    }
+
+    /// On open, show a live feed of recent AI/ML papers instead of an empty
+    /// search state (owner request 2026-07-03) — makes arXiv an interesting
+    /// research surface immediately. Only runs once, only if the user hasn't
+    /// already typed a query, and only when the arXiv pull gate is active.
+    private func loadFeaturedFeedIfNeeded() async {
+        guard !didLoadFeaturedFeed,
+              papers.isEmpty,
+              query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              ArxivPullGateStatus.status().isActive
+        else { return }
+        didLoadFeaturedFeed = true
+        isSearching = true
+        defer { isSearching = false }
+        do {
+            let featured = try await client.search(
+                query: "cat:cs.AI OR cat:cs.LG OR cat:cs.CL",
+                maxResults: 12
+            )
+            // Only populate if the user hasn't started their own search meanwhile.
+            guard papers.isEmpty,
+                  query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return }
+            papers = featured
+            if !featured.isEmpty {
+                statusMessage = "Featured — recent AI & ML papers. Search above for anything else."
+            }
+        } catch {
+            // Leave the empty state in place if the featured fetch fails.
         }
     }
 
@@ -189,6 +243,17 @@ struct ArxivSearchView: View {
 
             ToolbarCapsuleButton(
                 title: nil,
+                systemImage: "safari",
+                role: .toolbarUtility,
+                chromePolicy: .alwaysSurface,
+                helpText: "View paper in the themed in-app browser",
+                accessibilityLabel: "View paper in the in-app browser"
+            ) {
+                openPaperInBrowser(paper)
+            }
+
+            ToolbarCapsuleButton(
+                title: nil,
                 systemImage: ingestActionImage(for: paper),
                 role: importedIDs.contains(paper.id) ? .toolbarUtility : .primaryAction,
                 isActive: ingestingIDs.contains(paper.id) || importedIDs.contains(paper.id),
@@ -205,6 +270,16 @@ struct ArxivSearchView: View {
 
     private var rowGap: some View {
         Color.clear.frame(height: 6)
+    }
+
+    private func openPaperInBrowser(_ paper: ArxivPaper) {
+        // View the paper in the themed in-app browser tab (owner request
+        // 2026-07-03) — arXiv's abs page renders with the Epistemos palette +
+        // pixel headings, and can be saved to notes from there.
+        let absURL = paper.shortID.isEmpty
+            ? paper.id
+            : "https://arxiv.org/abs/\(paper.shortID)"
+        NoteWindowManager.shared.openBrowserTab(url: absURL)
     }
 
     private func ingestActionImage(for paper: ArxivPaper) -> String {

@@ -180,9 +180,6 @@ struct LandingView: View {
             case .browser:
                 HomeEmbeddedPage(title: "Browser") { BrowserView() }
                     .transition(Self.homePageTransition).zIndex(1)
-            case .browserUsePro:
-                HomeEmbeddedPage(title: "Browser-Use Pro") { BrowserUseWebUIView() }
-                    .transition(Self.homePageTransition).zIndex(1)
             case .goose:
                 // Rendered by the persistent pre-warmed Goose layer below (kept
                 // alive so navigation is instant). This case only holds the slot.
@@ -695,16 +692,10 @@ struct LandingView: View {
             runLandingPDFImport()
         case .arxiv:
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .arxiv }
-        case .provenance:
-            UtilityWindowManager.shared.showSettings(section: .provenance)
-        case .extensions, .vaultMCP:
-            UtilityWindowManager.shared.showSettings(section: .skills)
-        case .voice:
-            UtilityWindowManager.shared.showSettings(section: .voice)
         case .browser:
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .browser }
-        case .browserUsePro:
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .browserUsePro }
+            // Browser opens as a TAB sharing the note-workspace window (like
+            // HTMLWorkspace / code editor), not a home page. Owner 2026-07-03.
+            NoteWindowManager.shared.openBrowserTab()
         case .meetingNote:
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
                 ui.homeContent = .meeting

@@ -12,13 +12,8 @@ struct LandingFeatureButtonsPlan3Tests {
             LandingFeatureButton.allCases.map(\.rawValue) == [
                 "pdfImport",
                 "arxiv",
-                "provenance",
-                "extensions",
-                "vaultMCP",
                 "browser",
-                "browserUsePro",
                 "meetingNote",
-                "voice",
             ]
         )
     }
@@ -27,15 +22,9 @@ struct LandingFeatureButtonsPlan3Tests {
     func landingFeatureButtonsHaveIntegrationBrands() {
         #expect(LandingFeatureButton.pdfImport.integrationBrand == .pdfImport)
         #expect(LandingFeatureButton.arxiv.integrationBrand == .arxiv)
-        #expect(LandingFeatureButton.provenance.integrationBrand == .provenance)
-        #expect(LandingFeatureButton.extensions.integrationBrand == .extensions)
-        #expect(LandingFeatureButton.vaultMCP.integrationBrand == .vaultMCP)
         #expect(LandingFeatureButton.browser.integrationBrand == .browser)
-        #expect(LandingFeatureButton.browserUsePro.integrationBrand == .browserUse)
         #expect(LandingFeatureButton.meetingNote.integrationBrand == .meetingNote)
-        #expect(LandingFeatureButton.voice.integrationBrand == .voice)
-        #expect(LandingFeatureButton.vaultMCP.shortcut == nil)
-        #expect(LandingFeatureButton.browserUsePro.shortcut == nil)
+        #expect(LandingFeatureButton.browser.shortcut == nil)
     }
 
     @Test("landing feature button tiles render the registry-backed brand mark")
@@ -58,7 +47,6 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(buttons.contains("theme.resolved.accent.color"))
         #expect(buttons.contains("theme.resolved.headingAccent.color"))
         #expect(!buttons.contains("Color(hex:"))
-        #expect(!buttons.contains("case .vaultMCP, .browserUsePro: \"PRO\""))
         #expect(pixelComponents.contains("var brand: IntegrationBrand? = nil"))
         #expect(pixelComponents.contains("IntegrationBrandMarkView(brand: brand, size: 15)"))
     }
@@ -87,25 +75,19 @@ struct LandingFeatureButtonsPlan3Tests {
         #expect(landing.contains("String(bounded.prefix(limit - 3))"))
         #expect(landing.contains("LandingFeatureButtonTextPolicy.normalizedDisplayText(clipped)"))
         #expect(landing.contains("ui.homeContent = .arxiv"))
-        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .provenance)"))
-        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .skills)"))
-        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .voice)"))
-        #expect(landing.contains("ui.homeContent = .browser"))
-        #expect(landing.contains("ui.homeContent = .browserUsePro"))
+        // updated 2026-07-03: browser now opens as a note-workspace TAB
+        // (owner request), not a home page — routes via openBrowserTab().
+        #expect(landing.contains("NoteWindowManager.shared.openBrowserTab()"))
         #expect(landing.contains("ui.homeContent = .meeting"))
 
         #expect(buttons.contains("LiteParseImportGateStatus.status().isActive"))
         #expect(buttons.contains("ArxivPullGateStatus.status().isActive"))
-        #expect(buttons.contains("BrowserUseProGateStatus.status().isActive"))
-        #expect(buttons.contains("BrowserUseProGateStatus.status().detail"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().isActive"))
         #expect(buttons.contains("MeetingNoteLandingGateStatus.status().detail"))
         #expect(buttons.contains("AVCaptureDevice.authorizationStatus(for: .audio)"))
         #expect(buttons.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(buttons.contains("case .browser:"))
-        #expect(buttons.contains("case .browserUsePro:"))
         #expect(buttons.contains("case .meetingNote:"))
-        #expect(buttons.contains("case .voice:"))
         #expect(buttons.contains("return true"))
         #expect(!landing.contains("GooseSurfaceWindowController"))
         #expect(!buttons.contains("GooseSurfaceWindowController"))
@@ -168,16 +150,12 @@ struct LandingFeatureButtonsPlan3Tests {
         let settings = try Self.loadSource("Epistemos/Views/Settings/SettingsView.swift")
         let voiceSettings = try Self.loadSource("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
         let windows = try Self.loadSource("Epistemos/App/UtilityWindowManager.swift")
-        let landing = try Self.loadSource("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(settings.contains("case voice = \"Voice\""))
         #expect(voiceSettings.contains("VoicePreferencesSection()"))
         #expect(settings.contains("static let selectSettingsSection"))
         #expect(windows.contains("func showSettings(section: SettingsView.SettingsSection)"))
         #expect(windows.contains("SettingsView(initialSelection: initialSettingsSection)"))
-        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .provenance)"))
-        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .skills)"))
-        #expect(landing.contains("UtilityWindowManager.shared.showSettings(section: .voice)"))
         #expect(!settings.contains("Epistemos/Goose"))
         #expect(!settings.contains("Epistemos/Agent"))
     }

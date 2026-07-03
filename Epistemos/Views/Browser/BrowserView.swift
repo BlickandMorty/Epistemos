@@ -259,9 +259,18 @@ final class BrowserTab {
 
 struct BrowserView: View {
     @Environment(UIState.self) private var ui
-    @State private var tab = BrowserTab()
+    @State private var tab: BrowserTab
+    @State private var isSavingToNotes = false
     @State private var showingLimits = false
     @FocusState private var addressFocused: Bool
+
+    init(initialAddress: String? = nil) {
+        let browserTab = BrowserTab()
+        if let initialAddress, !initialAddress.isEmpty {
+            browserTab.address = initialAddress
+        }
+        _tab = State(initialValue: browserTab)
+    }
 
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.mainChat) }
     private var warningTint: Color { theme.resolved.headingAccent.color }
@@ -333,12 +342,33 @@ struct BrowserView: View {
                         tab.submitAddress()
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
                 .background {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(theme.resolved.card.color.opacity(theme.isDark ? 0.74 : 0.92))
+                    // Floating liquid-glass URL bubble (owner request 2026-07-03).
+                    Capsule(style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(
+                                    theme.resolved.foreground.color.opacity(0.10),
+                                    lineWidth: 1
+                                )
+                        )
                 }
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "text.badge.plus",
+                    role: .toolbarUtility,
+                    chromePolicy: .bareUntilPressed,
+                    helpText: "Save this page to notes",
+                    accessibilityLabel: "Save this page to notes"
+                ) {
+                    savePageToNotes()
+                }
+                .disabled(isSavingToNotes)
 
                 ToolbarCapsuleButton(
                     title: nil,
@@ -381,7 +411,7 @@ struct BrowserView: View {
                 .background(theme.resolved.card.color.opacity(0.5))
             }
 
-            BrowserWebView(tab: tab)
+            BrowserWebView(tab: tab, theme: theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipShape(Rectangle())
         }
@@ -390,6 +420,35 @@ struct BrowserView: View {
             if tab.currentURL == nil,
                let url = BrowserURLGuard.resolve(raw: tab.address) {
                 tab.navigate(to: url)
+            }
+        }
+    }
+
+    private func savePageToNotes() {
+        guard !isSavingToNotes else { return }
+        let pageTitle = tab.title.isEmpty ? tab.address : tab.title
+        let url = tab.address
+        isSavingToNotes = true
+        Task { @MainActor in
+            let body = """
+            # \(pageTitle)
+
+            **Source:** [\(url)](\(url))
+
+            _Saved from the Epistemos browser._
+            """
+            let created = await AppBootstrap.shared?.vaultSync.createPage(
+                title: pageTitle,
+                body: body,
+                emoji: "🔖",
+                subfolder: "Web Clips",
+                allowVaultSelectionPrompt: true
+            )
+            isSavingToNotes = false
+            if created != nil {
+                ui.showToast("Saved to notes: \(pageTitle)", type: .success)
+            } else {
+                ui.showToast("Couldn't save this page to notes", type: .error)
             }
         }
     }
@@ -415,6 +474,7 @@ private struct BrowserLimitsPopover: View {
 
 private struct BrowserWebView: NSViewRepresentable {
     let tab: BrowserTab
+    let theme: EpistemosTheme
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -422,6 +482,11 @@ private struct BrowserWebView: NSViewRepresentable {
         configuration.userContentController = WKUserContentController()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         BrowserTrackerContentBlocker.install(on: configuration.userContentController)
+        // Force the Epistemos theme (palette + pixel heading font) onto every
+        // page that loads — browsing stays canon with the app (owner 2026-07-03).
+        configuration.userContentController.addUserScript(
+            BrowserThemeInjection.userScript(for: theme)
+        )
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -440,6 +505,9 @@ private struct BrowserWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.attach(webView: webView, tab: tab)
+        // Re-apply the theme CSS live when the app theme changes — updateNSView
+        // fires because `theme` is an observed SwiftUI dependency.
+        webView.evaluateJavaScript(BrowserThemeInjection.applyThemeJS(for: theme), completionHandler: nil)
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {

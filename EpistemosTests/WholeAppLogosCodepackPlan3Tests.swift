@@ -123,7 +123,6 @@ struct WholeAppLogosCodepackPlan3Tests {
         let skills = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
         let arxiv = try loadMirroredSourceTextFile("Epistemos/Views/Arxiv/ArxivSearchView.swift")
         let browser = try loadMirroredSourceTextFile("Epistemos/Views/Browser/BrowserView.swift")
-        let browserUse = try loadMirroredSourceTextFile("Epistemos/Views/Settings/BrowserUseSettingsView.swift")
         let meeting = try loadMirroredSourceTextFile("Epistemos/Views/Meeting/MeetingNoteView.swift")
         let voice = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
         let provenance = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ProvenanceConsoleView.swift")
@@ -144,7 +143,6 @@ struct WholeAppLogosCodepackPlan3Tests {
 
         #expect(arxiv.contains("IntegrationBrandMarkView(brand: .arxiv"))
         #expect(browser.contains("IntegrationBrandMarkView(brand: .browser"))
-        #expect(browserUse.contains("IntegrationBrandMarkView(brand: .browserUse"))
         #expect(meeting.contains("IntegrationBrandMarkView(brand: .meetingNote"))
         #expect(voice.contains("IntegrationBrandMarkView(brand: .voice"))
         #expect(voice.contains("ui.theme.resolved.mutedForeground.color"))

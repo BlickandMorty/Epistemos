@@ -1479,10 +1479,19 @@ private struct AppearanceThemePairSection: View {
         GridItem(.adaptive(minimum: 154), spacing: Spacing.sm, alignment: .top),
     ]
 
+    @AppStorage("epistemos.theme.customExperimentalEnabled")
+    private var customThemesExperimentalEnabled = false
+
+    private var visibleThemePairs: [ThemePair] {
+        // Custom is experimental + OFF by default (owner request 2026-07-03): hide it
+        // from the picker until the user enables the experimental toggle below.
+        ThemePair.allCases.filter { $0 != .custom || customThemesExperimentalEnabled }
+    }
+
     var body: some View {
         Section {
             LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
-                ForEach(ThemePair.allCases, id: \.self) { pair in
+                ForEach(visibleThemePairs, id: \.self) { pair in
                     ThemePairCard(
                         pair: pair,
                         theme: theme,
@@ -1491,6 +1500,24 @@ private struct AppearanceThemePairSection: View {
                         ui.setPair(pair)
                         ui.setThemeMode(.custom)
                     }
+                }
+            }
+
+            Toggle(isOn: $customThemesExperimentalEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Custom themes (experimental)")
+                        .font(.callout.weight(.medium))
+                    Text("Off by default. Enables a fully user-editable palette across native and web surfaces. Experimental — it is modular and may not render perfectly everywhere.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .onChange(of: customThemesExperimentalEnabled) { _, enabled in
+                // Disabling the experiment while Custom is selected falls back to the
+                // default theme so nothing renders half-custom.
+                if !enabled, ui.activePair == .custom {
+                    ui.setPair(.platinumViolet)
                 }
             }
 

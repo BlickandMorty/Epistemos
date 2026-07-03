@@ -163,6 +163,7 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
     public let workspaceID: ArtifactID
     @State private var observedPackage: HTMLWorkspacePackage?
     @State private var dataFeedStatusText: String?
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(workspaceID: ArtifactID) {
         self.workspaceID = workspaceID
@@ -178,7 +179,10 @@ nonisolated public struct HTMLWorkspaceArtifactHost: View {
                     HTMLWorkspacePreviewView(
                         package: package,
                         safeAPIEnabled: false,
-                        previewTheme: nil
+                        // #9 gap 2: respect the app's light/dark appearance (was
+                        // always the default). Full custom-palette theming of
+                        // HTMLWorkspace previews remains a documented experimental gap.
+                        previewTheme: colorScheme == .dark ? .dark : .light
                     )
                     .id(HTMLWorkspacePreviewIdentity.viewIdentity(for: package))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

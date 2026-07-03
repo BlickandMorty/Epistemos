@@ -560,6 +560,63 @@ final class NoteWindowManager {
             "Opened version tab: \(windowTitle, privacy: .public) (\(dateStr, privacy: .public))")
     }
 
+    /// Open the in-app browser as a TAB that shares the note-workspace window,
+    /// exactly like HTMLWorkspace / code-editor windows do (owner request
+    /// 2026-07-03). The browser joins the note tab strip so browsing lives right
+    /// alongside notes instead of being a separate home page.
+    func openBrowserTab(url: String? = nil) {
+        guard let bootstrap = AppBootstrap.shared else { return }
+
+        let view = BrowserView(initialAddress: url)
+            .withAppEnvironment(bootstrap)
+            .modelContainer(bootstrap.modelContainer)
+        let hostingController = NSHostingController(rootView: view)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 680),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Browser"
+        window.contentViewController = NoteWindowThemeStyler.themedContentController(
+            hostingController: hostingController,
+            uiState: bootstrap.uiState
+        )
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.isRestorable = false
+        window.minSize = NSSize(width: 480, height: 360)
+
+        NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
+        NoteWindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+
+        // Join the note tab group so the browser shares the notes window.
+        window.tabbingMode = .preferred
+        window.tabbingIdentifier = Self.noteTabbingIdentifier
+        if let existingWindow = Self.firstAvailableNoteTabGroupWindow(excluding: window) {
+            existingWindow.addTabbedWindow(window, ordered: .above)
+        }
+        window.makeKeyAndOrderFront(nil)
+
+        let key = "browser-\(UUID().uuidString)"
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] notification in
+            guard let window = notification.object as? NSWindow else { return }
+            MainActor.assumeIsolated {
+                self?.handleWindowClose(window, pageId: key)
+            }
+        }
+        observers[key] = observer
+        windows[key] = window
+
+        Self.log.info("Opened browser tab in the note-workspace window")
+    }
+
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(uiState: UIState) {
         for w in windows.values {

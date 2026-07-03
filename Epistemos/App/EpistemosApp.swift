@@ -1175,10 +1175,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             UNUserNotificationCenter.current().delegate = self
         }
 
-        // BUP-1: purge any browser-use env file a prior crash left behind (0600 but
-        // holds Keychain-sourced API keys) before any surface can create a supervisor.
-        BrowserUseRuntimeSupervisor.purgeStaleEnvironmentFilesAtLaunch()
-
         // Audit gap F8 close-out — push the SearchIndexService
         // writer to the EpistemosDocumentController installed in
         // `applicationWillFinishLaunching`. By the time AppKit
@@ -1318,9 +1314,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             return
         }
         RuntimeIssueMonitor.shared.stop(reason: "application_teardown")
-        // BUP-1: SIGTERM any live browser-use runtime (its python closes Chromium)
-        // and remove the 0600 keyed env file, instead of orphaning the tree on quit.
-        BrowserUseRuntimeSupervisor.stopAllForAppTermination()
         HomeWindowInputDiagnostics.shared.stop()
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.teardownRuntimeObservers()
@@ -1512,12 +1505,6 @@ struct EpistemosCommands: Commands {
                 UtilityWindowManager.shared.show(.browser)
             }
             .keyboardShortcut("b", modifiers: [.command, .shift])
-
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-            Button("browser-use Pro") {
-                UtilityWindowManager.shared.show(.browserUsePro)
-            }
-            #endif
 
             Button("Reveal Current Document in Graph") {
                 (NSApp.delegate as? EpistemosAppDelegate)?

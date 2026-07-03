@@ -10,6 +10,7 @@ struct MeetingNoteView: View {
     @State private var isSaving = false
     @State private var showingDiscardConfirmation = false
     @State private var pendingStartAfterDiscardConfirmation = false
+    @State private var showingHomeLeaveConfirmation = false
 
     init(voiceInput: LiveVoiceInputService = .shared) {
         _voiceInput = State(initialValue: voiceInput)
@@ -39,7 +40,7 @@ struct MeetingNoteView: View {
 
             footer
         }
-        .frame(minWidth: 520, minHeight: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ui.theme.resolved.background.color.opacity(ui.theme.isDark ? 0.92 : 0.96))
         .onChange(of: voiceInput.partialTranscript) { _, _ in
             service.refreshFromVoiceInput()
@@ -76,16 +77,34 @@ struct MeetingNoteView: View {
                 pendingStartAfterDiscardConfirmation = false
             }
         }
-        // MEET-4: report unsaved capture up to HomeEmbeddedPage so its
-        // back-to-home chip confirms before discarding a recording/transcript.
-        .preference(
-            key: HomeEmbeddedLeaveGuardKey.self,
-            value: isRecording || canDiscard
-        )
+        .confirmationDialog(
+            "Leave without saving?",
+            isPresented: $showingHomeLeaveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Discard & leave", role: .destructive) {
+                service.discard()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                    ui.homeContent = .greeting
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This meeting has an unsaved transcript. Leaving clears it without creating a note.")
+        }
     }
 
     private var toolbar: some View {
         HStack(spacing: 10) {
+            ToolbarCapsuleButton(
+                title: nil,
+                systemImage: "house",
+                role: .secondaryGhost,
+                helpText: "Back to home",
+                accessibilityLabel: "Back to home"
+            ) {
+                goHome()
+            }
             IntegrationBrandMarkView(brand: .meetingNote, size: 20)
                 .foregroundStyle(ui.theme.resolved.mutedForeground.color)
             Text("Meeting Note")
@@ -233,6 +252,16 @@ struct MeetingNoteView: View {
     private var durationLabel: String {
         let seconds = service.durationSeconds
         return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func goHome() {
+        if isRecording || canDiscard {
+            showingHomeLeaveConfirmation = true
+        } else {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                ui.homeContent = .greeting
+            }
+        }
     }
 
     private func toggleRecording() {

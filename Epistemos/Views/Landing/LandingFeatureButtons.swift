@@ -98,13 +98,8 @@ nonisolated enum MeetingNoteLandingGateStatus {
 enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case pdfImport
     case arxiv
-    case provenance
-    case extensions
-    case vaultMCP
     case browser
-    case browserUsePro
     case meetingNote
-    case voice
 
     var id: String { rawValue }
 
@@ -112,13 +107,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport: "pdf import"
         case .arxiv: "arXiv"
-        case .provenance: "provenance"
-        case .extensions: "extensions"
-        case .vaultMCP: "vault MCP"
         case .browser: "browser"
-        case .browserUsePro: "browser-use"
         case .meetingNote: "meeting"
-        case .voice: "voice"
         }
     }
 
@@ -126,13 +116,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport: .document
         case .arxiv: .search
-        case .provenance: .graph
-        case .extensions: .workspace
-        case .vaultMCP: .notes
         case .browser: .html
-        case .browserUsePro: .agent
         case .meetingNote: .capture
-        case .voice: .chat
         }
     }
 
@@ -142,11 +127,11 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
 
     func accent(in theme: EpistemosTheme) -> Color {
         switch self {
-        case .pdfImport, .vaultMCP, .voice:
+        case .pdfImport:
             theme.resolved.accent.color
-        case .arxiv, .browser, .browserUsePro:
+        case .arxiv, .browser:
             theme.resolved.headingAccent.color
-        case .provenance, .extensions, .meetingNote:
+        case .meetingNote:
             theme.resolved.foreground.color.opacity(theme.isDark ? 0.88 : 0.76)
         }
     }
@@ -154,10 +139,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     var haptic: HomeCommandHapticStyle {
         switch self {
         case .pdfImport, .arxiv: .document
-        case .provenance: .graph
-        case .extensions, .vaultMCP: .workspace
-        case .browser, .browserUsePro: .agent
-        case .meetingNote, .voice: .capture
+        case .browser: .agent
+        case .meetingNote: .capture
         }
     }
 
@@ -166,33 +149,18 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     }
 
     var isProOnly: Bool {
-        switch self {
-        case .vaultMCP, .browserUsePro:
-            return true
-        case .pdfImport, .arxiv, .provenance, .extensions, .browser, .meetingNote, .voice:
-            return false
-        }
+        false
     }
 
     var isAvailableInThisBuild: Bool {
         switch self {
-        case .vaultMCP:
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            return false
-            #else
-            return true
-            #endif
-        case .browserUsePro:
-            return BrowserUseProGateStatus.status().isActive
         case .pdfImport:
             return LiteParseImportGateStatus.status().isActive
         case .arxiv:
             return ArxivPullGateStatus.status().isActive
-        case .provenance, .extensions:
-            return true
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().isActive
-        case .browser, .voice:
+        case .browser:
             return true
         }
     }
@@ -205,16 +173,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return ArxivPullGateStatus.status().detail
         case .browser:
             return "Browser is unavailable in this build."
-        case .browserUsePro:
-            return BrowserUseProGateStatus.status().detail
-        case .vaultMCP:
-            return "vault MCP is available in Epistemos Pro."
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().detail
-        case .voice:
-            return "Voice settings are unavailable in this build."
-        case .provenance, .extensions:
-            return "\(title) is unavailable in this build."
         }
     }
 

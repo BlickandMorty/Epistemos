@@ -412,9 +412,10 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
             return AppDisplayTypography.headingFontOverride(level: 1) ?? AppDisplayTypography.matrixDisplayFontName
         }
         switch themePair {
-        case .classic:        return AppDisplayTypography.matrixBoldDisplayFontName
-        case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
-        case .ember:          return "ColorBasic-Regular"
+        // Owner request 2026-07-03: all non-custom themes share Ember's typography
+        // (same font faces); each theme keeps its own palette/colors. Custom is
+        // unchanged (it drives its own font via AppCustomTheme override above).
+        case .classic, .platinumViolet, .ember: return "ColorBasic-Regular"
         case .custom:         return AppDisplayTypography.matrixDisplayFontName
         }
     }
@@ -435,15 +436,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
             return AppDisplayTypography.headingFontOverride(level: level) ?? defaultName
         }
         let defaultName = switch themePair {
-        case .classic:
-            (1...3).contains(level)
-                ? AppDisplayTypography.matrixBoldDisplayFontName
-                : AppDisplayTypography.chonkyDisplayFontName
-        case .platinumViolet:
-            (1...3).contains(level)
-                ? AppDisplayTypography.matrixBoldDisplayFontName
-                : AppDisplayTypography.matrixDisplayFontName
-        case .ember:
+        // Classic/Platinum share Ember's heading face (ChonkyPixels) per owner request.
+        case .classic, .platinumViolet, .ember:
             AppDisplayTypography.chonkyDisplayFontName
         case .custom:
             level <= 1
@@ -483,9 +477,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
             return headingFontName
         }
         switch themePair {
-        case .classic:        return AppDisplayTypography.matrixBoldDisplayFontName
-        case .platinumViolet: return AppDisplayTypography.matrixBoldDisplayFontName
-        case .ember:          return AppDisplayTypography.chonkyDisplayFontName
+        // Share Ember's node-title face (ChonkyPixels) across non-custom themes.
+        case .classic, .platinumViolet, .ember: return AppDisplayTypography.chonkyDisplayFontName
         case .custom:         return headingFontName
         }
     }
@@ -518,9 +511,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
             return headingFontName
         }
         switch themePair {
-        case .classic:        return headingFontName
-        case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
-        case .ember:          return "ColorBasic-Regular"
+        // Share Ember's panel face (ColorBasic-Regular) across non-custom themes.
+        case .classic, .platinumViolet, .ember: return "ColorBasic-Regular"
         case .custom:         return headingFontName
         }
     }
@@ -582,8 +574,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         let base = switch themePair {
         case .classic:
             (2...3).contains(level) ? 1.0 : 0.72
-        case .platinumViolet:
-            (2...3).contains(level) ? 0.82 : 0.72
+        // Platinum matched Ember's heading sizes (owner request 2026-07-03): it was
+        // rendering H1/H2 SMALLER (0.72/0.82) than the other themes even with the
+        // shared font. Now 1.0 at every level so headings line up across themes and
+        // switching themes no longer shifts heading layout.
+        case .platinumViolet: 1.0
         case .ember: 1.0
         case .custom: 1.0
         }
@@ -1487,7 +1482,24 @@ enum AppCustomTheme: Sendable {
     }
 
     nonisolated static func isActive(defaults: UserDefaults) -> Bool {
-        ThemePair(rawValue: defaults.string(forKey: UIState.themePairDefaultsKey) ?? "") == .custom
+        // Custom themes are EXPERIMENTAL + OFF by default (owner request 2026-07-03):
+        // never active unless the user has explicitly enabled the experimental flag.
+        guard isExperimentalEnabled(defaults: defaults) else { return false }
+        return ThemePair(rawValue: defaults.string(forKey: UIState.themePairDefaultsKey) ?? "") == .custom
+    }
+
+    /// EXPERIMENTAL custom-theme gate. Off by default — the custom palette (and its
+    /// web-surface CSS) engages only after the user flips this toggle in Settings.
+    /// Because it is modular by design it can break surfaces if half-applied, so it
+    /// stays behind this flag until the user opts in.
+    nonisolated static let experimentalDefaultsKey = "epistemos.theme.customExperimentalEnabled"
+
+    nonisolated static func isExperimentalEnabled(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: experimentalDefaultsKey)
+    }
+
+    nonisolated static func setExperimentalEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
+        defaults.set(enabled, forKey: experimentalDefaultsKey)
     }
 
     nonisolated static func hex(
@@ -2026,9 +2038,9 @@ enum AppDisplayTypography: Sendable {
     nonisolated static func displayFontName(isDark: Bool) -> String {
         _ = isDark
         switch activeThemePair() {
-        case .platinumViolet: return matrixDisplayFontName
-        case .ember:          return "ColorBasic-Regular"
-        case .classic:        return matrixBoldDisplayFontName
+        // Non-custom themes share Ember's display face (owner request 2026-07-03);
+        // palettes stay per-theme. Custom keeps its own override.
+        case .platinumViolet, .ember, .classic: return "ColorBasic-Regular"
         case .custom:         return headingFontOverride(level: 1) ?? matrixDisplayFontName
         }
     }
@@ -2039,17 +2051,8 @@ enum AppDisplayTypography: Sendable {
             return override
         }
         switch activeThemePair() {
-        case .classic:
-            switch role {
-            case .h1, .h2, .h3: return matrixBoldDisplayFontName
-            default:            return matrixDisplayFontName
-            }
-        case .platinumViolet:
-            switch role {
-            case .h1, .h2, .h3: return matrixBoldDisplayFontName
-            default:            return matrixDisplayFontName
-            }
-        case .ember:
+        // Classic/Platinum share Ember's heading face (ChonkyPixels) per owner request.
+        case .classic, .platinumViolet, .ember:
             return chonkyDisplayFontName
         case .custom:
             switch role {
@@ -2071,7 +2074,14 @@ enum AppDisplayTypography: Sendable {
 
     nonisolated private static func activeThemePair(defaults: UserDefaults) -> ThemePair {
         let raw = defaults.string(forKey: UIState.themePairDefaultsKey) ?? ""
-        return ThemePair(rawValue: raw) ?? .platinumViolet
+        let pair = ThemePair(rawValue: raw) ?? .platinumViolet
+        // Custom is experimental + off by default: a stored .custom selection
+        // resolves to the default theme until the experimental flag is enabled,
+        // so custom fonts/tokens never engage app-wide when the feature is off.
+        if pair == .custom, !AppCustomTheme.isExperimentalEnabled(defaults: defaults) {
+            return .platinumViolet
+        }
+        return pair
     }
 
     nonisolated static func graphLabelAtlasResourceName(isDark: Bool) -> String {

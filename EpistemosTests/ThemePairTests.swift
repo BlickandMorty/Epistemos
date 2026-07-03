@@ -22,6 +22,9 @@ struct ThemePairTests {
         let keys = [
             ThemeMode.defaultsKey,
             UIState.themePairDefaultsKey,
+            // updated 2026-07-03: preserve the experimental custom-theme flag so
+            // tests that enable it (custom fonts/colors now gate on it) restore cleanly.
+            AppCustomTheme.experimentalDefaultsKey,
             AppDisplayTypography.headingLevel1FontDefaultsKey,
             AppDisplayTypography.headingLevel2FontDefaultsKey,
             AppDisplayTypography.headingLevel3FontDefaultsKey,
@@ -40,6 +43,10 @@ struct ThemePairTests {
             }
         }
         AppDisplayTypography.resetHeadingTypography(defaults: defaults)
+        // updated 2026-07-03: custom theme is experimental + OFF by default now; start
+        // each preserved-defaults test from a known-off baseline so preset assertions
+        // never see a leaked custom engagement from a prior test.
+        AppCustomTheme.setExperimentalEnabled(false, defaults: defaults)
         body()
     }
 
@@ -79,6 +86,9 @@ struct ThemePairTests {
         let defaults = UserDefaults.standard
         let keys = [
             UIState.themePairDefaultsKey,
+            // updated 2026-07-03: heading overrides only engage when the custom pair is
+            // actually active, which now requires the experimental flag — preserve it.
+            AppCustomTheme.experimentalDefaultsKey,
             AppDisplayTypography.headingLevel1FontDefaultsKey,
             AppDisplayTypography.headingLevel2FontDefaultsKey,
             AppDisplayTypography.headingLevel3FontDefaultsKey,
@@ -98,11 +108,17 @@ struct ThemePairTests {
         }
 
         AppDisplayTypography.resetHeadingTypography(defaults: defaults)
+        // updated 2026-07-03: custom theme is experimental + off by default; enable it so
+        // the .custom branch below actually routes the stored H2 override/scale (the whole
+        // point of this test). Preset (.classic) still ignores overrides regardless.
+        AppCustomTheme.setExperimentalEnabled(true, defaults: defaults)
         AppDisplayTypography.setHeadingFontOverride("Coder's-Crux", level: 2, defaults: defaults)
         AppDisplayTypography.setHeadingSizeScale(1.2, level: 2, defaults: defaults)
 
         defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-        #expect(EpistemosTheme.oledSoft.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
+        // updated 2026-07-03: classic now shares Ember's heading face (ChonkyPixels); the
+        // stored override does NOT leak into the preset classic pair.
+        #expect(EpistemosTheme.oledSoft.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
         #expect(abs(EpistemosTheme.oledSoft.headingSizeMultiplier(level: 2) - 1.0) < 0.001)
 
         defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
@@ -117,7 +133,8 @@ struct ThemePairTests {
     @Test("Custom appearance colors are isolated from preset theme cards")
     func customAppearanceColorsAreIsolatedFromPresetThemes() {
         let defaults = UserDefaults.standard
-        let keys = [UIState.themePairDefaultsKey] + customThemeDefaultsKeys
+        // updated 2026-07-03: custom theme now gates on the experimental flag — preserve it.
+        let keys = [UIState.themePairDefaultsKey, AppCustomTheme.experimentalDefaultsKey] + customThemeDefaultsKeys
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
             for (key, value) in previousValues {
@@ -130,6 +147,9 @@ struct ThemePairTests {
         }
 
         AppCustomTheme.reset(defaults: defaults)
+        // updated 2026-07-03: custom theme is experimental + off by default; enable it so a
+        // .custom selection actually engages the stored palette (preset pairs stay isolated).
+        AppCustomTheme.setExperimentalEnabled(true, defaults: defaults)
         AppCustomTheme.setHex(0x123456, for: .background, isDark: true, defaults: defaults)
         AppCustomTheme.setHex(0xABCDEF, for: .accent, isDark: true, defaults: defaults)
 
@@ -152,6 +172,9 @@ struct ThemePairTests {
             let defaults = UserDefaults.standard
             defaults.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
             AppCustomTheme.reset(defaults: defaults)
+            // updated 2026-07-03: canvas/solid-flat note surface resolves the custom token only
+            // when the custom theme is active, which now requires the experimental flag.
+            AppCustomTheme.setExperimentalEnabled(true, defaults: defaults)
 
             AppCustomTheme.setHex(0xABCDEF, for: .card, isDark: false, defaults: defaults)
             #expect(AppCustomTheme.noteSurfaceHex(isDark: false, defaults: defaults) == 0xABCDEF)
@@ -197,16 +220,20 @@ struct ThemePairTests {
                 }
             }
 
+            // updated 2026-07-03: all non-custom themes now share Ember's heading face
+            // (ChonkyPixels); classic's landing hero shares Ember's display face
+            // (theme.displayFontName == "ColorBasic-Regular"). Presets still ignore the
+            // stored custom overrides set above — that isolation is the point of this test.
             defaults.set(ThemePair.platinumViolet.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == AppDisplayTypography.matrixBoldDisplayFontName)
-            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
-            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
 
             defaults.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(EpistemosTheme.light.headingFontName(level: 1) == AppDisplayTypography.matrixBoldDisplayFontName)
-            #expect(EpistemosTheme.light.headingFontName(level: 2) == AppDisplayTypography.matrixBoldDisplayFontName)
-            #expect(EpistemosTheme.light.headingFontName(level: 3) == AppDisplayTypography.matrixBoldDisplayFontName)
-            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.matrixBoldDisplayFontName)
+            #expect(EpistemosTheme.light.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(EpistemosTheme.light.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(EpistemosTheme.light.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(LandingCommandTypography.heroFontName(for: .light) == EpistemosTheme.light.displayFontName)
 
             defaults.set(ThemePair.ember.rawValue, forKey: UIState.themePairDefaultsKey)
             #expect(EpistemosTheme.tan.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
@@ -240,11 +267,16 @@ struct ThemePairTests {
     func customLandingTypographyUsesStoredH1OverrideWhilePresetsStayLocked() {
         withPreservedThemeDefaults {
             UserDefaults.standard.set(ThemePair.custom.rawValue, forKey: UIState.themePairDefaultsKey)
+            // updated 2026-07-03: custom theme is experimental + off by default; enable it so the
+            // stored H1 override drives the custom landing hero (the point of this test).
+            AppCustomTheme.setExperimentalEnabled(true)
             AppDisplayTypography.setHeadingFontOverride("Charybdis", level: 1)
             #expect(LandingCommandTypography.heroFontName(for: .platinumVioletDark) == "Charybdis")
 
             UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(LandingCommandTypography.heroFontName(for: .light) == AppDisplayTypography.matrixBoldDisplayFontName)
+            // updated 2026-07-03: classic landing hero now shares Ember's display face
+            // (theme.displayFontName == "ColorBasic-Regular"); preset ignores the H1 override.
+            #expect(LandingCommandTypography.heroFontName(for: .light) == EpistemosTheme.light.displayFontName)
         }
     }
 
@@ -636,13 +668,15 @@ struct ThemePairTests {
             #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
             #expect(AppDisplayTypography.matrixBoldDisplayFontName == "MatrixTypeDisplay-Bold")
             #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
-            #expect(AppDisplayTypography.displayFontName(isDark: false) == "MatrixTypeDisplay-Bold")
-            #expect(AppDisplayTypography.displayFontName(isDark: true) == "MatrixTypeDisplay-Bold")
+            // updated 2026-07-03: all non-custom themes share Ember's typography — classic's
+            // display face is now "ColorBasic-Regular" and its H1-H3 heading face is ChonkyPixels.
+            #expect(AppDisplayTypography.displayFontName(isDark: false) == "ColorBasic-Regular")
+            #expect(AppDisplayTypography.displayFontName(isDark: true) == "ColorBasic-Regular")
             #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.0)
             #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
-            #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Bold")
-            #expect(AppHeadingRole.h2.fontName == "MatrixTypeDisplay-Bold")
-            #expect(AppHeadingRole.h3.fontName == "MatrixTypeDisplay-Bold")
+            #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(AppHeadingRole.h2.fontName == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(AppHeadingRole.h3.fontName == AppDisplayTypography.chonkyDisplayFontName)
         }
         // Per user 2026-05-12: graph node labels use the JetBrainsMono
         // monospace atlas (the v1 "before" identity) in both light and
@@ -658,22 +692,26 @@ struct ThemePairTests {
         #expect(AppHeadingRole.section.fontSize == 12)
     }
 
-    @Test("Classic H2 and H3 use Matrix Bold while keeping Ember Tan note heading scale")
+    // updated 2026-07-03: classic now SHARES Ember's heading face (ChonkyPixels) at every
+    // level, so the former font distinctness (!=) becomes equality (==). The genuine
+    // remaining distinction is SIZE: classic H1 still renders smaller (0.72) than Ember's
+    // 1.0, while classic H2/H3 keep Ember Tan's heading scale + note point sizes (27 / 17).
+    @Test("Classic shares Ember's heading face but keeps a smaller H1 and the Ember Tan note heading scale")
     func classicH2H3UseMatrixBoldWithEmberTanNoteHeadingScale() {
         let classic = EpistemosTheme.light
         let emberTan = EpistemosTheme.tan
 
-        #expect(classic.headingFontName(level: 1) != emberTan.headingFontName(level: 1))
-        #expect(classic.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
-        #expect(classic.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
-        #expect(classic.headingFontName(level: 2) != emberTan.headingFontName(level: 2))
-        #expect(classic.headingFontName(level: 3) != emberTan.headingFontName(level: 3))
+        #expect(classic.headingFontName(level: 1) == emberTan.headingFontName(level: 1))
+        #expect(classic.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(classic.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(classic.headingFontName(level: 2) == emberTan.headingFontName(level: 2))
+        #expect(classic.headingFontName(level: 3) == emberTan.headingFontName(level: 3))
         #expect(classic.headingSizeMultiplier(level: 1) < emberTan.headingSizeMultiplier(level: 1))
         #expect(classic.headingSizeMultiplier(level: 2) == emberTan.headingSizeMultiplier(level: 2))
         #expect(classic.headingSizeMultiplier(level: 3) == emberTan.headingSizeMultiplier(level: 3))
-        #expect(classic.notesMatchingHeadingSpec(level: 2)?.fontName == "MatrixTypeDisplay-Bold")
+        #expect(classic.notesMatchingHeadingSpec(level: 2)?.fontName == AppDisplayTypography.chonkyDisplayFontName)
         #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == emberTan.notesMatchingHeadingSpec(level: 2)?.size)
-        #expect(classic.notesMatchingHeadingSpec(level: 3)?.fontName == "MatrixTypeDisplay-Bold")
+        #expect(classic.notesMatchingHeadingSpec(level: 3)?.fontName == AppDisplayTypography.chonkyDisplayFontName)
         #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == emberTan.notesMatchingHeadingSpec(level: 3)?.size)
         #expect(classic.notesMatchingHeadingSpec(level: 2)?.size == 27)
         #expect(classic.notesMatchingHeadingSpec(level: 3)?.size == 17)
@@ -695,18 +733,21 @@ struct ThemePairTests {
         #expect(AppDisplayTypography.platinumGlyphFontName(for: ",") == "MatrixTypeDisplay-Regular")
         #expect(AppDisplayTypography.platinumGlyphFontName(for: "1") == "MatrixTypeDisplay-Regular")
         #expect(!AppDisplayTypography.usesPlatinumGlyphFallback(theme: .platinumViolet, level: 1))
-        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.platinumViolet.nodeTitleFontName == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.platinumViolet.panelFontName == "MatrixTypeDisplay-Regular")
+        // updated 2026-07-03: platinum now shares Ember's typography — heading + node-title
+        // faces are ChonkyPixels and the panel face is "ColorBasic-Regular" (still NOT the
+        // retired Matrix Dots demo face, which is what this test guards).
+        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(EpistemosTheme.platinumViolet.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(EpistemosTheme.platinumViolet.nodeTitleFontName == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(EpistemosTheme.platinumViolet.panelFontName == "ColorBasic-Regular")
         #expect(EpistemosTheme.platinumViolet.headingSizeMultiplier(level: 2) > 0.72)
         #expect(EpistemosTheme.platinumViolet.headingSizeMultiplier(level: 3) > 0.72)
         withPreservedThemeDefaults {
             UserDefaults.standard.set(ThemePair.platinumViolet.rawValue, forKey: UIState.themePairDefaultsKey)
-            #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Bold")
-            #expect(AppHeadingRole.h2.fontName == "MatrixTypeDisplay-Bold")
-            #expect(AppHeadingRole.h3.fontName == "MatrixTypeDisplay-Bold")
+            #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(AppHeadingRole.h2.fontName == AppDisplayTypography.chonkyDisplayFontName)
+            #expect(AppHeadingRole.h3.fontName == AppDisplayTypography.chonkyDisplayFontName)
         }
         #expect(theme.contains(#"matrixDotsDisplayFontName = "MatrixDotsDemoRegular""#))
         #expect(theme.contains("platinumGlyphFallbackAttributedString"))
@@ -723,17 +764,20 @@ struct ThemePairTests {
         #expect(!liquidGreeting.contains("[.classic, .platinumViolet].contains(theme.themePair)"))
     }
 
-    @Test("Classic landing greeting keeps the Epistemos-Latest Matrix Type Bold face")
+    // updated 2026-07-03: classic's landing greeting + H1-H3 headings now share Ember's
+    // typography — ChonkyPixels headings and the ColorBasic-Regular display face via
+    // theme.displayFontName (owner request). The greeting still keys off themePair == .classic.
+    @Test("Classic landing greeting shares Ember's ColorBasic display face")
     func classicLandingGreetingUsesLatestMatrixTypeBoldFace() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
 
         #expect(AppDisplayTypography.matrixBoldDisplayFontName == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.light.headingFontName(level: 1) == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.light.headingFontName(level: 2) == "MatrixTypeDisplay-Bold")
-        #expect(EpistemosTheme.light.headingFontName(level: 3) == "MatrixTypeDisplay-Bold")
+        #expect(EpistemosTheme.light.headingFontName(level: 1) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(EpistemosTheme.light.headingFontName(level: 2) == AppDisplayTypography.chonkyDisplayFontName)
+        #expect(EpistemosTheme.light.headingFontName(level: 3) == AppDisplayTypography.chonkyDisplayFontName)
         #expect(pixelComponents.contains("case .classic:"))
-        #expect(pixelComponents.contains("return AppDisplayTypography.matrixBoldDisplayFontName"))
+        #expect(pixelComponents.contains("return theme.displayFontName"))
         #expect(!pixelComponents.contains("return AppDisplayTypography.coralDisplayFontName"))
         #expect(liquidGreeting.contains("theme.themePair == .classic"))
     }
@@ -1795,18 +1839,22 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains(".preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)"))
     }
 
-    @Test("landing typography follows the Epistemos-Latest Classic Matrix Bold mapping")
+    // updated 2026-07-03: the Classic→Matrix Bold source mapping was retired; all non-custom
+    // themes now share Ember's typography (ColorBasic-Regular display face + ChonkyPixels
+    // headings), and the classic landing hero shares Ember's displayFontName. These greps now
+    // pin the new shared-Ember source structure instead of the old classic-specific cases.
+    @Test("landing typography follows the shared-Ember font mapping")
     func landingTypographyFollowsGlobalClassicMapping() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
         let theme = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
 
-        #expect(theme.contains("case .classic:        return AppDisplayTypography.matrixBoldDisplayFontName"))
-        #expect(theme.contains("? AppDisplayTypography.matrixBoldDisplayFontName"))
-        #expect(theme.contains("case .h1, .h2, .h3: return matrixBoldDisplayFontName"))
+        #expect(theme.contains("case .classic, .platinumViolet, .ember: return \"ColorBasic-Regular\""))
+        #expect(theme.contains("case .classic, .platinumViolet, .ember: return AppDisplayTypography.chonkyDisplayFontName"))
+        #expect(theme.contains("return chonkyDisplayFontName"))
         #expect(liquidGreeting.contains("LandingCommandTypography.heroFontName(for: theme)"))
         #expect(liquidGreeting.contains(".weight(.heavy)"))
-        #expect(pixelComponents.contains("return AppDisplayTypography.matrixBoldDisplayFontName"))
+        #expect(pixelComponents.contains("case .classic, .ember:"))
         #expect(pixelComponents.contains("theme.displayFontName"))
         #expect(pixelComponents.contains("theme.headingFontName(level: 2)"))
         #expect(pixelComponents.contains("return .system(size: size, weight: .semibold, design: .rounded)"))

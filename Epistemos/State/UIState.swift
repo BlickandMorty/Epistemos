@@ -363,7 +363,6 @@ final class UIState {
         case meeting
         case arxiv
         case browser
-        case browserUsePro
         case goose
     }
 

@@ -30,6 +30,8 @@ public struct EpdocKaTeXPreview: View {
         case display
     }
 
+    @Environment(UIState.self) private var ui
+
     public init(formula: String, displayMode: DisplayMode = .display) {
         self.formula = formula
         self.displayMode = displayMode
@@ -46,7 +48,7 @@ public struct EpdocKaTeXPreview: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
-            KaTeXWebView(formula: formula, displayMode: displayMode)
+            KaTeXWebView(formula: formula, displayMode: displayMode, theme: ui.theme)
                 .frame(minHeight: 60)
                 .padding(8)
         }
@@ -66,6 +68,7 @@ public struct EpdocKaTeXPreview: View {
 private struct KaTeXWebView: NSViewRepresentable {
     let formula: String
     let displayMode: EpdocKaTeXPreview.DisplayMode
+    let theme: EpistemosTheme
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -94,8 +97,12 @@ private struct KaTeXWebView: NSViewRepresentable {
         // missed \r + the JS line-terminator code points and could break the call.
         let escaped = jsStringLiteral(formula)
         let displayFlag = displayMode == .display ? "true" : "false"
+        // #9: keep KaTeX text in the active theme's foreground (incl. custom theme),
+        // re-applied here so a live theme change recolors the formula.
+        let color = EpistemosWebThemeCSS.color(theme.resolved.foreground)
         let js = """
         try {
+          if (document.body) { document.body.style.color = '\(color)'; }
           const out = katex.renderToString(\(escaped), { displayMode: \(displayFlag), throwOnError: false });
           document.getElementById('preview').innerHTML = out;
         } catch (e) {
@@ -119,7 +126,7 @@ private struct KaTeXWebView: NSViewRepresentable {
           <link rel="stylesheet" href="/vendor/katex/katex.min.css">
           <script defer src="/vendor/katex/katex.min.js"></script>
           <style>
-            body { margin: 0; padding: 0; font: 14px -apple-system, system-ui, sans-serif; }
+            body { margin: 0; padding: 0; font: 14px -apple-system, system-ui, sans-serif; color: \(EpistemosWebThemeCSS.color(theme.resolved.foreground)); }
             #preview { padding: 0; min-height: 40px; }
           </style>
         </head>

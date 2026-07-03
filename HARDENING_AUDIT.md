@@ -120,3 +120,40 @@ Subagent a6cce091 reconciled the removal-casualty source-guards across **10 test
 **Coordinator VERIFICATION (spot-checked, not trusted):** GGUFRuntimeBridge + omega-ax genuinely gone from project.yml (flips correct); LocalTextModelID type + localRouteDisplayName genuinely gone (the "2 files" are leftover UserDefaults key STRINGS, not the type — test removal correct); Rust `execute_computer_action` (agent_core bridge.rs + agent_loop.rs, 2 refs) genuinely present (KEEP correct); omega-ax still in .github/workflows/ci.yml (8 refs) so subagent correctly LEFT HELIOS:1541 (flipping would break a green test). Subagent also caught + corrected an error in MY symbol list (IMessageDriverService — I wrongly said kept; it's genuinely gone, 0 files → correctly flipped).
 **36 residual failures = OUT OF SCOPE (correctly left):** ~28 F-STALE-1 refactored-kept-feature source-mirrors (RootView/SettingsView cloud identifiers, code-editor, vault-sync, HookRegistry method renames), 4 pre-existing iMessage/Channels (deleted in a PRIOR commit, separate cluster), 2 script-behavioral (ci_test/run_swift_tests entrypoints), 1 force-unwrap code-quality test. These are the documented brittle-test debt, not app breakage.
 **REAL app-level removal GAP found + FIXED by coordinator:** `scripts/xcodebuild_epistemos.sh` still called `patch_mlx_package_checkouts()` → deleted `scripts/patch_mlx_metal_warnings.sh` (exit 127 → why ci_test/run_swift_tests failed). REMOVED the dead function + call (bash -n OK). Also cleaned the stale `AppBootstrap.swift:1700` "AmbientCapture is lazy" comment. **FINAL FULL-STATE BUILD GREEN 2026-07-03: TEST BUILD SUCCEEDED, 0 errors** — the entire session (18 hardening fixes + 34-assertion removal reconciliation + build-script fix + comment cleanup) compiles clean together.
+
+## UI / FEATURE OVERHAUL — owner-directed, 2026-07-03 (all build-verified unless noted)
+
+Owner requested a rapid product overhaul alongside hardening. Each item below was landed via `xcodebuild build-for-testing` GREEN (relaunch to see). Committed baseline: a6927ac03 (pre-overhaul).
+
+**Deletions**
+- Removed 4 landing feature buttons (vaultMCP, extensions, provenance, voice) from `LandingFeatureButton` enum + all LandingView refs. Kept pdfImport/arxiv/browser/meetingNote.
+- Deleted the entire Browser-Use Pro lane (20 files: 7 BrowserUsePro/ + 2 views + 6 tests + 5 scripts) + unwound UIState/UtilityWindowManager/EpistemosApp/AppBootstrap/ExtensionsDetailView + the bundle-app-runtime-assets.sh browser_use_pro block. Lite BrowserView KEPT + intact.
+
+**UI polish**
+- arXiv + meeting: `.frame(maxWidth/maxHeight:.infinity)` (fixed half-page glitch), Home button in the top toolbar (meeting's carries the unsaved-transcript confirm), liquid-glass search bar / URL bubble, retired the shared HomeEmbeddedPage floating chip.
+- Browser: no Home button; URL bar → floating liquid-glass capsule.
+
+**Themes**
+- All non-custom themes share Ember's font faces (EpistemosTheme instance getters + AppDisplayTypography static getters); Platinum keeps its OWN landing-greeting hero font (`LandingCommandTypography.heroFontName`), Classic+Ember use Ember's.
+- Platinum heading-size root-cause fix: `headingSizeMultiplier` was 0.72/0.82 at H1/H2 vs Ember 1.0 → now 1.0 all levels (headers line up; no shift on theme switch).
+- Custom theme → EXPERIMENTAL + OFF by default: `AppCustomTheme.isActive`/`activeThemePair()` gate on `AppCustomTheme.experimentalDefaultsKey`; Settings toggle hides the custom card until enabled + falls back on disable.
+
+**Browser↔notes + browser theming (owner's #1 want)**
+- `BrowserThemeInjection` forces the Epistemos palette (bg/fg/accent, !important) + a pixel `@font-face` (ChonkyPixels) on headings onto EVERY webpage via WKUserScript; re-applied live on theme change.
+- "Save to notes" button (VaultSyncService.createPage). Browser opens as a TAB sharing the notes window via `NoteWindowManager.openBrowserTab(url:)` (noteTabbingIdentifier), like HTMLWorkspace/code-editor.
+
+**arXiv**
+- Auto-featured feed of recent AI/ML papers on open (was empty state). "View paper" button opens the abs page in the themed in-app browser tab.
+
+**#9 custom-theme web hardening**
+- Audit (subagent a77e278d) found KaTeX + HTMLWorkspace-preview gaps; the rest (code editors, MarkEdit, Epdoc, Work) already propagate `theme.resolved`.
+- Gap 1 FIXED: EpdocKaTeXPreview now injects `resolved.foreground` + re-applies on theme change.
+- Gap 2 FIXED: HTMLWorkspaceArtifactHost passes light/dark (was `previewTheme: nil` → always default).
+- Gap 3 DOCUMENTED (known experimental limitation): full custom-PALETTE theming of HTMLWorkspace *previews* needs threading a resolved-color guardCSS through `themeGuardCSSOverride`; deferred (experimental-custom edge case, off by default).
+
+**REMAINING — need owner input or a bundle rebuild (documented, not silently dropped)**
+- #12 links auto-open in browser: broad app-wide interception; link-open sites not in obvious places — needs investigation, deferred.
+- #15 note-preview top padding + solid title background: VISUAL (NotePreviewSurfaceView chrome) — needs owner verification vs blind guessing (owner frustrated prior agents "just added padding").
+- Epdoc adaptive-header-sizing (longer header → smaller, to match prose `MarkdownTextView.fontSize`): needs a js-editor/ bundle rebuild (npm) — WEB-4-class constraint.
+- Epdoc↔prose color match in the embedded graph: VISUAL — needs owner verification.
+- Platinum greeting hero size: font-family shared; if it reads small, needs a precise per-theme size multiplier (owner to confirm the feel).
