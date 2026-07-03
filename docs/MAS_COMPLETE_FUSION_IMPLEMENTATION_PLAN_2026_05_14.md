@@ -1,5 +1,7 @@
 # MAS Complete Fusion Implementation Plan — No Compromise (except POSTV1 exclusions)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** MAS architecture is now settled: **MAS build = June minimal surface + goose IN-PROCESS backend** (`agent_core`, no subprocess); Pro = OpenChamber + goose/OpenCode. Any MAS framing here that assumes a reskinned-Goose-webview surface or "Goose-only" is superseded — MAS surface = June; goose = one engine. Backend/in-process MAS work stays relevant (see the kept `GOOSE_MAS_BUILD_CANON` + `GOOSE_MAS_IN_PROCESS_READINESS`). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
 
 **Date:** 2026-05-14

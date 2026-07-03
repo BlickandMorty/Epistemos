@@ -1,5 +1,7 @@
 # Osaurus addendum (2026-06-21) — "Epistemos Picks" model section + harden-after
 
+> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02.** Osaurus/three-engine was already CUT (goose-only lock 2026-06-28); now further re-scoped: the agent surface is OpenChamber (Pro) + goose/OpenCode engines / June+goose-in-process (MAS). No Osaurus/Act/three-engine revival. Mine only for any durable model-catalog UX ideas. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 **Owner (verbatim, 2026-06-21):** *"we can just add my models to the osaurus stack as a section that
 says epistemos picks or whatever a clever name so i don't lose my custom hardened models and such. i
 would just need to start hardening all the things that exist after the osaurus clone."*
