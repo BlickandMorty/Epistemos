@@ -323,8 +323,35 @@ final class EmbeddingService {
             _activeEmbeddingLookup = newValue
         }
     }
-    nonisolated(unsafe) private var swiftEmbeddingFallbackActive = true
-    nonisolated(unsafe) private var preparedQueryEmbeddingActive = false
+    // LOW-9 (audit 2026-07-03): these were written on MainActor + read from nonisolated
+    // background funcs unsynchronized (a benign, byte-sized TSan race). Route them
+    // through the same embeddingLookupLock as _activeEmbeddingLookup for a clean TSan run.
+    nonisolated(unsafe) private var _swiftEmbeddingFallbackActive = true
+    nonisolated private var swiftEmbeddingFallbackActive: Bool {
+        get {
+            embeddingLookupLock.lock()
+            defer { embeddingLookupLock.unlock() }
+            return _swiftEmbeddingFallbackActive
+        }
+        set {
+            embeddingLookupLock.lock()
+            defer { embeddingLookupLock.unlock() }
+            _swiftEmbeddingFallbackActive = newValue
+        }
+    }
+    nonisolated(unsafe) private var _preparedQueryEmbeddingActive = false
+    nonisolated private var preparedQueryEmbeddingActive: Bool {
+        get {
+            embeddingLookupLock.lock()
+            defer { embeddingLookupLock.unlock() }
+            return _preparedQueryEmbeddingActive
+        }
+        set {
+            embeddingLookupLock.lock()
+            defer { embeddingLookupLock.unlock() }
+            _preparedQueryEmbeddingActive = newValue
+        }
+    }
     private(set) var preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration?
     private(set) var preparedRetrievalExecutionMode: PreparedRetrievalExecutionMode = .appleEmbeddingFallback
     var preparedRetrievalIndexManifestPath: String? {
