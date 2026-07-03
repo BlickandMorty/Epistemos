@@ -209,6 +209,19 @@ struct HologramNodeInspector: View {
                     .foregroundStyle(.secondary)
 
                 Spacer(minLength: 8)
+
+                // Owner 2026-07-03: explicit "Open Node" affordance — a clear second
+                // way to enter/open the selected node (besides double-click).
+                Button {
+                    graphState.openNode(node.id)
+                } label: {
+                    Label("Open Node", systemImage: "arrow.up.forward.square")
+                        .font(.system(size: 11, weight: .semibold))
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help("Open this node")
             }
 
             TypewriterHeading(

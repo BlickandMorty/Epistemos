@@ -200,3 +200,12 @@ Owner asked for the deepest possible hardening beneath UI/backend/engines. Ran 3
 - LOW-9 EmbeddingService nonisolated(unsafe) Bools. DEFERRED — byte-sized, no torn value.
 
 BUILD OPTIMIZATION: Release now sets explicit whole-module optimization (project.yml SWIFT_COMPILATION_MODE: wholemodule, commit 1e10b75da). Effective on next xcodegen + Release build.
+
+## MAS-READINESS AUDIT — 2026-07-03 (agent a43abdc2, read-only)
+VERDICT: NO guaranteed-rejection BLOCKER in the current MAS config (Epistemos-AppStore, sandbox ON). Usage strings complete (mic/speech/Documents/Desktop/Downloads present), no forbidden entitlements, no active private APIs, dangerous subprocess/computer-use surfaces correctly #if !EPISTEMOS_APP_STORE-gated. PrivacyInfo.xcprivacy present + well-formed. No ATS exceptions. No runtime npm/node.
+OWNER-ACTION items (I did NOT change these — Goose-entangled Work lane and/or entitlement/feature decisions that are the owner's call):
+- HIGH: 3 Work runtime supervisors compile Process().run() into the MAS binary UN-gated (WorkOpenWorkSupervisor:79/97, WorkOpenGUISupervisor:161/178, WorkRuntimeSupervisor:106/122). INERT today (binaries not staged in MAS + sandbox blocks exec), so not a guaranteed reject — BUT WorkOpenGUISupervisor.resolveBun (:676-678) probes /opt/homebrew/bin/bun OUTSIDE #if DEBUG, so a MAS build attempts a (denied, reviewer-observable) exec when the Work surface opens. FIX (owner): wrap all three supervisors' Process paths in #if !EPISTEMOS_APP_STORE (mirrors WorkTerminalView/HarnessLab/VaultChatMutator) + drop the homebrew bun fallback in MAS. Goose-entangled Work lane → owner applies.
+- MED: com.apple.security.network.server entitlement — confirm a real MAS feature binds a socket (MCP host?) or remove.
+- MED: com.apple.security.cs.allow-jit — confirm a real in-process JIT consumer (Kokoro/Metal?) or remove (MLX stack removed).
+- MED: setValue(false, forKey:"drawsBackground") private KVC (6 webview sites) — gray-area, usually survives; convert to underPageBackgroundColor if you want zero doubt (deferred: unverifiable transparency regression risk).
+- LOW: "Scrub Pro Frameworks" build step is a no-op stub; Widgets/XPC not wired into MAS app (need app-sandbox+app-groups if shipped); CoreLocation import is data-type-only; pin Pyodide indexURL to the bundled copy; AppStore Release code-sign identity is a submission detail.

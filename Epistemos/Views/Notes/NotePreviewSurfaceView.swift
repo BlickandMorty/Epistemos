@@ -20,7 +20,12 @@ enum NotePreviewChromeMetrics {
             baseHeight = fallback
             return max(baseHeight, minimumHeight)
         }
-        baseHeight = max(titlebarInset, fallback)
+        // Owner 2026-07-03: when the titlebar inset is actually measured, cover EXACTLY
+        // that — the previous `max(titlebarInset, fallback)` forced the chrome to at
+        // least 46 (single) / 96 (tabbed) even when the real titlebar was ~28px, which
+        // read as a solid empty pad above the content (the persistent "top padding").
+        // The fallback now only applies when the inset can't be measured (guard above).
+        baseHeight = titlebarInset
         return max(baseHeight, minimumHeight)
     }
 
