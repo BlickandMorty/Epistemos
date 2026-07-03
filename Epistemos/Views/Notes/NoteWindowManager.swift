@@ -489,7 +489,12 @@ final class NoteWindowManager {
             activeUserActivity?.resignCurrent()
             activeUserActivity = nil
         }
-        AppBootstrap.shared?.activityTracker.recordNoteClosed(pageId: pageId, title: window.title)
+        // Only record close activity for real note pages — browser/version tabs use
+        // synthetic keys ("browser-…"/"version-…") that were never recorded as opened,
+        // so a matching close event would just add noise to the activity digest.
+        if !pageId.hasPrefix("browser-") && !pageId.hasPrefix("version-") {
+            AppBootstrap.shared?.activityTracker.recordNoteClosed(pageId: pageId, title: window.title)
+        }
     }
 
     // MARK: - Version Tab (Read-Only)

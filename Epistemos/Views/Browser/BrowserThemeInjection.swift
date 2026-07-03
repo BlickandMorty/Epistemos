@@ -23,6 +23,16 @@ enum BrowserThemeInjection {
             + "font-display:swap;}"
     }()
 
+    /// Lightweight identity of the theme's injected colors. Used to skip
+    /// re-injecting identical CSS on every SwiftUI invalidation (page-load KVO
+    /// churns updateNSView ~30-50x per load; the CSS only changes on theme change).
+    static func themeKey(for theme: EpistemosTheme) -> String {
+        let resolved = theme.resolved
+        return [resolved.background, resolved.foreground, resolved.accent, resolved.headingAccent]
+            .map { EpistemosWebThemeCSS.color($0) }
+            .joined(separator: "|")
+    }
+
     static func css(for theme: EpistemosTheme) -> String {
         let resolved = theme.resolved
         let background = EpistemosWebThemeCSS.color(resolved.background)

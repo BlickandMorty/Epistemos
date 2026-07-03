@@ -157,3 +157,11 @@ Owner requested a rapid product overhaul alongside hardening. Each item below wa
 - Epdoc adaptive-header-sizing (longer header → smaller, to match prose `MarkdownTextView.fontSize`): needs a js-editor/ bundle rebuild (npm) — WEB-4-class constraint.
 - Epdoc↔prose color match in the embedded graph: VISUAL — needs owner verification.
 - Platinum greeting hero size: font-family shared; if it reads small, needs a precise per-theme size multiplier (owner to confirm the feel).
+
+## OVERHAUL HARDENING AUDIT — 2026-07-03 (subagent a1fe4148, adversarial, read-only)
+Audited the full UI/feature overhaul (a6927ac03..HEAD) for security/concurrency/MAS/robustness. VERDICT: no CRITICAL/HIGH defects, no new MAS blockers. High-risk surfaces PROVEN clean with defense-in-depth: BrowserThemeInjection (theme-only numeric CSS, textContent not innerHTML, no page-content read), BrowserHomePage (encodeURIComponent search, static HTML), BrowserURLGuard (http/https-only, blocks user:pass@ + data:/file:/javascript: at input+nav+response+popup), DataDetection links (http/https→guarded browser only), ArxivClient (HTTPS+host+query validation, XXE off, size caps), custom-theme gating (flag+pair required, clamped hex), openBrowserTab window lifecycle (weak-self observer, no leak/cycle).
+Findings + resolution:
+- #1 MED (PRE-EXISTING, MAS gray-area): BrowserView `setValue(false, forKey:"drawsBackground")` private KVC. ACCEPTED — not introduced by the overhaul, mitigated (setDrawsBackground: is a public selector on NSScrollView/NSTextField/NSBox so a binary scan can't attribute it to WKWebView; ships in many MAS apps), and the theme injection now forces page backgrounds anyway. Converting to underPageBackgroundColor risks an unverifiable transparency/white-flash regression; left as a conscious accepted call (also tracked as BRW-3).
+- #2 LOW (perf): FIXED — theme re-injection in updateNSView now gated on a themeKey (was ~30-50 redundant evals/page-load).
+- #3 LOW: FIXED — arXiv feed catch now handles CancellationError (no spurious error on navigate-away).
+- #4 LOW: FIXED — browser/version tab close no longer emits a synthetic-key recordNoteClosed activity event.

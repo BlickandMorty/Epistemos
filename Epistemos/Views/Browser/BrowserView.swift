@@ -509,9 +509,14 @@ private struct BrowserWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.attach(webView: webView, tab: tab)
-        // Re-apply the theme CSS live when the app theme changes — updateNSView
-        // fires because `theme` is an observed SwiftUI dependency.
-        webView.evaluateJavaScript(BrowserThemeInjection.applyThemeJS(for: theme), completionHandler: nil)
+        // Re-apply the theme CSS only when the app theme ACTUALLY changes — not on
+        // every page-load KVO invalidation (progress/title/url churn updateNSView
+        // ~30-50x per load). The per-navigation user script handles fresh page loads.
+        let key = BrowserThemeInjection.themeKey(for: theme)
+        if context.coordinator.lastThemeKey != key {
+            context.coordinator.lastThemeKey = key
+            webView.evaluateJavaScript(BrowserThemeInjection.applyThemeJS(for: theme), completionHandler: nil)
+        }
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
@@ -531,6 +536,8 @@ private struct BrowserWebView: NSViewRepresentable {
         private weak var webView: WKWebView?
         private weak var tab: BrowserTab?
         private var observations: [NSKeyValueObservation] = []
+        /// Last theme identity applied via live re-injection; skips redundant evals.
+        var lastThemeKey: String?
 
         func attach(webView: WKWebView, tab: BrowserTab) {
             if self.webView !== webView {

@@ -220,6 +220,9 @@ struct ArxivSearchView: View {
             statusMessage = featured.isEmpty
                 ? "Couldn't load featured papers right now — search above to find papers."
                 : "Featured — recent Machine Learning papers. Search above for anything else."
+        } catch is CancellationError {
+            // Navigated away mid-load — normal cancellation, not an error.
+            return
         } catch {
             // Never fail silently to a blank screen — tell the user what happened.
             statusMessage = "Couldn't reach arXiv (\(ArxivSearchPresentation.status("\(error)"))). Search above to try again."
