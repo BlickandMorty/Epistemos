@@ -42,7 +42,10 @@ enum NoteDualPreviewLayout {
     static let previewTextReadableMaxWidth: CGFloat = 760
     static let editorTextReadableMaxWidth: CGFloat = 960
     static let minimumTextHorizontalInset: CGFloat = 60
-    static let outerPadding = EdgeInsets(top: 28, leading: 32, bottom: 40, trailing: 32)
+    // Owner 2026-07-03: top space below the titlebar DELETED (was 28) so the
+    // preview matches the editor/prose top edge. The see-through-title fix is
+    // separate (the top chrome backdrop opacity), not padding.
+    static let outerPadding = EdgeInsets(top: 0, leading: 32, bottom: 40, trailing: 32)
     static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)
     static let sectionTargetCharacterCount = 900
     static let sectionSoftOverflowFloor = 160

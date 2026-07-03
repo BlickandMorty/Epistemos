@@ -658,7 +658,11 @@ private enum EpdocEditorThemeStyle {
     private static func cssVariables(for theme: EpistemosTheme) -> [(String, String)] {
         let resolved = theme.resolved
         var variables: [(String, String)] = [
-            ("--epdoc-bg", "transparent"),
+            // Owner 2026-07-03: paint the editor body with the EXPLICIT solid
+            // canvasBackground color (matches the prose surface exactly) instead of
+            // "transparent" — the transparent WKWebView composited darker over the
+            // SwiftUI backdrop on dark themes (Ember), causing a prose↔Epdoc two-tone.
+            ("--epdoc-bg", cssColor(MarkdownPreviewSurfaceStyle.solidFlatBackgroundNSColor(for: theme.surfaceVariant(.other)))),
             ("--epdoc-display-font", theme.epdocDisplayFontFamily),
             ("--epdoc-h1-font", theme.epdocHeadingFontFamily(level: 1)),
             ("--epdoc-h2-font", theme.epdocHeadingFontFamily(level: 2)),
