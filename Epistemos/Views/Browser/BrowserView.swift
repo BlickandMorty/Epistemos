@@ -236,6 +236,8 @@ final class BrowserTab {
     @ObservationIgnored var reloadPage: (() -> Void)?
     @ObservationIgnored var stopLoading: (() -> Void)?
     @ObservationIgnored var clearData: (() -> Void)?
+    /// GAP-3: capture the live page's outerHTML + innerText for a real web clip.
+    @ObservationIgnored var capturePageContent: ((@escaping (String?, String?) -> Void) -> Void)?
 
     func submitAddress() {
         guard let url = BrowserURLGuard.resolve(raw: address) else {
@@ -465,27 +467,60 @@ struct BrowserView: View {
 
     private func savePageToNotes() {
         guard !isSavingToNotes else { return }
-        let pageTitle = tab.title.isEmpty ? tab.address : tab.title
+        let fallbackTitle = tab.title.isEmpty ? tab.address : tab.title
         let url = tab.address
+        let capture = tab.capturePageContent
         isSavingToNotes = true
+
+        // GAP-3 (audit 2026-07-03): build a REAL web clip from the live page (extracted
+        // body + source_kind:web_clip front matter, via WebClipperMarkdownBuilder) instead
+        // of a title+URL stub, so it's indexed and included by the web-clip context source.
+        // Falls back to the stub if the page content can't be captured.
         Task { @MainActor in
-            let body = """
-            # \(pageTitle)
+            let captured: (html: String?, text: String?)? = await withCheckedContinuation { continuation in
+                guard let capture else { continuation.resume(returning: nil); return }
+                capture { html, text in continuation.resume(returning: (html, text)) }
+            }
 
-            **Source:** [\(url)](\(url))
+            let docTitle: String
+            let body: String
+            let frontMatter: [String: String]
+            if let captured,
+               let document = try? WebClipperMarkdownBuilder.document(
+                   from: WebClipCaptureDraft(
+                       title: tab.title,
+                       sourceURL: url,
+                       html: captured.html ?? "",
+                       plainText: captured.text ?? "",
+                       capturedAt: Date()
+                   )
+               ) {
+                docTitle = document.title
+                body = document.markdownBody
+                frontMatter = document.frontMatter
+            } else {
+                docTitle = fallbackTitle
+                body = """
+                # \(fallbackTitle)
 
-            _Saved from the Epistemos browser._
-            """
+                **Source:** [\(url)](\(url))
+
+                _Saved from the Epistemos browser._
+                """
+                frontMatter = ["source_kind": "web_clip", "source-url": url, "source_title": fallbackTitle]
+            }
+
             let created = await AppBootstrap.shared?.vaultSync.createPage(
-                title: pageTitle,
+                title: docTitle,
                 body: body,
                 emoji: "🔖",
                 subfolder: "Web Clips",
-                allowVaultSelectionPrompt: true
+                allowVaultSelectionPrompt: true,
+                frontMatter: frontMatter
             )
             isSavingToNotes = false
             if created != nil {
-                ui.showToast("Saved to notes: \(pageTitle)", type: .success)
+                ui.showToast("Saved to notes: \(docTitle)", type: .success)
             } else {
                 ui.showToast("Couldn't save this page to notes", type: .error)
             }
@@ -690,6 +725,14 @@ private struct BrowserWebView: NSViewRepresentable {
                     modifiedSince: .distantPast
                 ) {
                     webView.reload()
+                }
+            }
+            tab.capturePageContent = { [weak webView] completion in
+                guard let webView else { completion(nil, nil); return }
+                webView.evaluateJavaScript("document.documentElement.outerHTML") { html, _ in
+                    webView.evaluateJavaScript("document.body ? document.body.innerText : ''") { text, _ in
+                        completion(html as? String, text as? String)
+                    }
                 }
             }
         }
