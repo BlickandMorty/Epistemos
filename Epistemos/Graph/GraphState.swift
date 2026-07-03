@@ -903,8 +903,14 @@ final class GraphState {
         }
     }
 
-    func incomingEdges(forPageId pageId: String) async -> [(sourcePageId: String, sourceTitle: String, edgeType: String)] {
-        let semanticEdgeTypes: Set<GraphEdgeType> = [.supports, .contradicts, .expands, .questions]
+    func incomingEdges(
+        forPageId pageId: String,
+        includingReferences: Bool = false
+    ) async -> [(sourcePageId: String, sourceTitle: String, edgeType: String)] {
+        // GAP-19 (audit 2026-07-03): block-reference ((id)) backlinks build `.reference`
+        // edges; the backlinks panel opts in so they surface alongside semantic backlinks.
+        var semanticEdgeTypes: Set<GraphEdgeType> = [.supports, .contradicts, .expands, .questions]
+        if includingReferences { semanticEdgeTypes.insert(.reference) }
         let targetNodeIDs = Set(
             store.nodes.values.compactMap { node in
                 node.sourceId == pageId ? node.id : nil

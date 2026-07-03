@@ -131,7 +131,10 @@ struct NoteBacklinksPopover: View {
 
         // Phase 2: Graph-based semantic edges (supports, contradicts, expands, questions)
         if let graphState, let currentPageId = pageId {
-            let graphBacklinks = await graphState.incomingEdges(forPageId: currentPageId)
+            let graphBacklinks = await graphState.incomingEdges(
+                forPageId: currentPageId,
+                includingReferences: true  // GAP-19: surface block-reference backlinks too
+            )
             for (sourcePageId, sourceTitle, edgeType) in graphBacklinks {
                 // Don't duplicate items already found via text scan
                 guard !textBacklinkIds.contains(sourcePageId) else { continue }
