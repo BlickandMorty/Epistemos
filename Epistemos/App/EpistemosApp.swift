@@ -1307,6 +1307,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         // never reached fileWrapper(ofType:). flushNow() short-circuits
         // the debounce and saves synchronously.
         EpdocEditorSavePipeline.flushAllForShutdown()
+        // NOTE-1 (audit 2026-07-03): plain-note bodies save via an async detached Task,
+        // which the process exit can kill on Cmd-Q — losing up to a typing burst. Drain
+        // the staged note-body cache synchronously here too, mirroring the Epdoc flush.
+        NoteFileStorage.flushAllPendingBodiesForShutdown()
         guard !Self.isRunningTests else {
             StatusBar.shared.remove()
             HologramController.shared.teardown()

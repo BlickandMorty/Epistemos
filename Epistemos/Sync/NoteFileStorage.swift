@@ -1198,6 +1198,31 @@ enum NoteFileStorage {
         return await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
     }
 
+    /// NOTE-1 (audit 2026-07-03): synchronously persist EVERY staged note body to disk.
+    /// Call from applicationWillTerminate BEFORE the process exits. Normal note saves are
+    /// async (`scheduleWriteBody` → detached Task with F_FULLFSYNC), so on Cmd-Q the durable
+    /// write races — and loses to — process exit, dropping up to a full typing burst.
+    /// Mirrors `EpdocEditorSavePipeline.flushAllForShutdown` for the plain-note body path:
+    /// drains the staged `pendingBodies` cache straight through the atomic writer while the
+    /// process is still alive. Idempotent (re-persisting an already-written body is a no-op
+    /// at the byte level).
+    nonisolated static func flushAllPendingBodiesForShutdown() {
+        let snapshot = pendingBodyQueue.sync { pendingBodies }
+        guard !snapshot.isEmpty else { return }
+        mutationQueue.performSync {
+            for (key, body) in snapshot {
+                // key == "<directory path>\u{1F}<pageId>" (see `pendingBodyKey`).
+                guard let separator = key.firstIndex(of: "\u{1F}") else { continue }
+                let directoryPath = String(key[..<separator])
+                let pageId = String(key[key.index(after: separator)...])
+                guard isValidPageId(pageId) else { continue }
+                let directory = URL(fileURLWithPath: directoryPath)
+                let url = bodyURL(pageId: pageId, in: directory)
+                _ = persistStagedBody(body, pageId: pageId, url: url, directory: directory)
+            }
+        }
+    }
+
     /// Delete a note body file.
     nonisolated static func deleteBody(pageId: String) {
         guard isValidPageId(pageId) else { return }

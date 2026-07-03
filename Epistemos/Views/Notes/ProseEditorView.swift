@@ -351,6 +351,15 @@ struct ProseEditorView: View {
             NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
         ) { _ in
             flushIfNeeded()
+            // NOTE-1 (audit 2026-07-03): flushIfNeeded only STAGES the body + schedules an
+            // async detached write, which process exit can kill on Cmd-Q — losing a typing
+            // burst. Persist this editor's current body SYNCHRONOUSLY here so the last edits
+            // survive quit regardless of teardown-observer ordering (the app delegate
+            // registers before these views, so the performTeardown drain can run first).
+            // writeBody is idempotent, so this is safe even if already persisted.
+            if loadedBodyPageId == page.id {
+                NoteFileStorage.writeBody(pageId: page.id, content: bodyText)
+            }
         }
     }
 
