@@ -50,8 +50,8 @@ enum BrowserHomePage {
         <body>
           <div class="title">EPISTEMOS</div>
           <div class="sub">minimal research browser</div>
-          <form onsubmit="return go()">
-            <input id="q" placeholder="Search the web…" autofocus autocomplete="off">
+          <form id="searchForm" method="get" action="https://www.google.com/search">
+            <input id="q" name="q" placeholder="Search the web…" autofocus autocomplete="off">
             <button type="submit">&rarr;</button>
           </form>
           <div class="engines">
@@ -59,24 +59,22 @@ enum BrowserHomePage {
             <div class="engine" id="e-ddg" onclick="setEngine('ddg')">DUCKDUCKGO</div>
           </div>
           <script>
+            // Standard form GET navigation (action + name="q") — robust even from a
+            // baseURL:nil page where JS window.location can misbehave. The engine
+            // picker just swaps the form's action; both engines take a ?q= param.
+            var GOOGLE = 'https://www.google.com/search';
+            var DDG = 'https://duckduckgo.com/';
             var engine = 'google';
             try { engine = localStorage.getItem('epi-engine') || 'google'; } catch (e) {}
             function setEngine(e) {
               engine = e;
               try { localStorage.setItem('epi-engine', e); } catch (err) {}
+              var form = document.getElementById('searchForm');
+              if (form) form.action = (e === 'ddg') ? DDG : GOOGLE;
               document.getElementById('e-google').className = 'engine' + (e === 'google' ? ' active' : '');
               document.getElementById('e-ddg').className = 'engine' + (e === 'ddg' ? ' active' : '');
             }
             setEngine(engine);
-            function go() {
-              var v = document.getElementById('q').value.trim();
-              if (!v) return false;
-              var q = encodeURIComponent(v);
-              window.location = engine === 'ddg'
-                ? 'https://duckduckgo.com/?q=' + q
-                : 'https://www.google.com/search?q=' + q;
-              return false;
-            }
           </script>
         </body></html>
         """
