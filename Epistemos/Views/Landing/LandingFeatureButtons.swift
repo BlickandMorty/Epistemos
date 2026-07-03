@@ -182,9 +182,25 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         LandingFeatureButtonTextPolicy.unavailableMessage(rawUnavailableMessage)
     }
 
+    /// A short description of what this feature does — surfaced on hover so users
+    /// actually discover the app's capabilities instead of guessing from a one-word
+    /// label (owner discoverability request 2026-07-03).
+    var featureDescription: String {
+        switch self {
+        case .pdfImport:
+            return "Import a PDF and turn it into searchable, linked notes in your vault."
+        case .arxiv:
+            return "Search arXiv, browse featured AI & ML papers, and save any paper to notes."
+        case .browser:
+            return "A themed in-app browser — save any page to notes; links across the app open here."
+        case .meetingNote:
+            return "Record a meeting and capture a live, auto-saved transcript."
+        }
+    }
+
     var helpText: String {
         if isAvailableInThisBuild {
-            return "Open \(title)."
+            return featureDescription
         }
         return LandingFeatureButtonTextPolicy.helpText(unavailableMessage)
     }
