@@ -67,3 +67,23 @@ Ran behavioral test suites for every touched fix area to confirm no regressions:
 - HARDENING_AUDIT.md — findings table + commands log.
 - scratchpad (session): /private/tmp/claude-501/-Users-jojo/6594a750-07ca-4662-a2b6-cf70567a762e/scratchpad/ — build logs live here before being summarized into repo docs.
 - Prior lane evidence: /tmp/epi_*_green_20260702.xcresult (9 targeted suites, per NON_GOOSE_UI_DEEP_CLEAN handoff).
+
+## ✅ LATEST STATE — 2026-07-03 overhaul + 5-audit deep-hardening session (29 commits on feat/goose-surface)
+UI OVERHAUL (owner-driven, all build-verified): landing button deletions; arXiv feed+categories+themed viewer; browser home-page + palette/pixel injection + note-tab sharing + auto-open links; circle editor toolbar; all themes share Ember greeting font + Platinum size + Classic/Platinum uppercase/lowercase greeting combo; custom theme = experimental flag OFF; Epdoc adaptive headers + solid-bg (kills dark two-tone); preview top-padding REAL fix (backdropHeight was max(inset, 46/96 fallback) — forced empty pad); Epdoc scroll observer coalesced; browser-home "Blocked non-web navigation" fix (allow about: scheme); graph "Open Node" button; discoverability tooltips (landing features + commands + editor modes).
+
+FIVE DEEP ADVERSARIAL AUDITS — every CRITICAL + HIGH FIXED + build-verified:
+- MEETING (100%): CRIT 10k save-truncation; HIGH AirPods route-change stall / Cmd-W hidden-mic / no-durable-persistence (MeetingDraftStore + recovery banner); MED-5 permission-revoke; MED-6 interruptions; MED-7 audio-drop marker. Remaining: LOW-8 render-thread conversion lock (quality; fix risks audio latency — deferred).
+- CONCURRENCY: HIGH ModelContext-across-await (BlockMirror hot path + Prewarm); HIGH EmbeddingService engine UAF; LOW-6 link-picker task cancel; LOW-7 SDF static-scratch race; LOW-9 flags lock. ALL FIXED. LOW-8 MetalRuntimeManager dead = owner's MLX-deletion effort (don't preempt).
+- DATA: MED-2 move-rollback; MED-3 vault-disconnect health diagnostic (Settings > Diagnostics); LOW-4 empty-file window. Layer otherwise clean (no CRIT/HIGH). MED-1 concurrent-edit conflict = DOCUMENTED owner UX decision (risky sync path).
+- BRIDGE: HIGH-latent allowsMarkEditWindowToolbar default→false; LOW-3 localhost-nav lock; LOW-4 argsJSON U+2028/2029 escape. ALL FIXED. Purpose-built bridges proven default-deny.
+- MAS: NO rejection blocker (usage strings complete, no forbidden entitlements, no active private APIs, subprocess surfaces #if-gated). OWNER-ITEMS ONLY.
+
+RELEASE: added explicit SWIFT_COMPILATION_MODE wholemodule to project.yml Release (needs owner xcodegen + Release build to take effect).
+
+NEXT ACTIONS — all need OWNER (no safe autonomous high-value work remains):
+1. MAS owner-items: 3 Work supervisors compile Process().run() into the MAS binary un-gated (inert today — binaries unstaged + sandbox blocks exec — but WorkOpenGUISupervisor.resolveBun probes /opt/homebrew/bin/bun in release, a reviewer-observable denied exec) → wrap in #if !EPISTEMOS_APP_STORE (Goose-entangled Work lane, dual-build = owner). Justify-or-remove network.server + allow-jit entitlements.
+2. MED-1 concurrent-edit: conflict-prompt vs mtime-wins UX decision.
+3. Discoverability visible-hints (subtitles / first-run / empty-state): design steer — trades against minimalism.
+4. LOW-8 render-lock: risky audio-pipeline change for a rare quality issue.
+
+BAR STATUS: no known critical breakage unpatched or undocumented; every completion claim build-verified. Goose lane untouched throughout.
