@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -162,6 +163,17 @@ struct MeetingNoteView: View {
             }
             .disabled(isSaving || isFinalizing || isPreparing)
             ToolbarCapsuleButton(
+                title: nil,
+                systemImage: "doc.on.doc",
+                role: .toolbarUtility,
+                chromePolicy: .bareUntilPressed,
+                helpText: "Copy transcript",
+                accessibilityLabel: "Copy transcript"
+            ) {
+                copyTranscript()
+            }
+            .disabled(service.transcriptText.isEmpty)
+            ToolbarCapsuleButton(
                 title: "Save",
                 systemImage: "square.and.arrow.down",
                 role: .primaryAction,
@@ -174,6 +186,14 @@ struct MeetingNoteView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    // GAP-26 (audit 2026-07-03): let the user copy the live/finalized transcript.
+    private func copyTranscript() {
+        let text = service.transcriptText
+        guard !text.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     private var footer: some View {

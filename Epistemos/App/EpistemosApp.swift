@@ -1521,6 +1521,7 @@ struct EpistemosCommands: Commands {
                 UtilityWindowManager.shared.show(.settings)
                 NSApp.activate()
             }
+            .keyboardShortcut(",", modifiers: .command)  // GAP-21: standard macOS Settings shortcut
 
             if gooseSurfaceActive {
                 Divider()
