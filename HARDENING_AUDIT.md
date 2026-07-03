@@ -165,3 +165,38 @@ Findings + resolution:
 - #2 LOW (perf): FIXED — theme re-injection in updateNSView now gated on a themeKey (was ~30-50 redundant evals/page-load).
 - #3 LOW: FIXED — arXiv feed catch now handles CancellationError (no spurious error on navigate-away).
 - #4 LOW: FIXED — browser/version tab close no longer emits a synthetic-key recordNoteClosed activity event.
+
+## DEEP RECURSIVE HARDENING — 2026-07-03 (3 parallel adversarial audits: data / meeting / concurrency)
+Owner asked for the deepest possible hardening beneath UI/backend/engines. Ran 3 read-only audits; fixed all CRITICAL + HIGH; MED/LOW documented below with status so NOTHING is undocumented.
+
+### DATA / VAULT INTEGRITY (agent a0090d778) — verdict: well-hardened, NO CRITICAL/HIGH
+- MED-1 external-edit conflict is last-mtime-wins on the auto-import path (one side's edits lost). DEFERRED — mitigated by 50-version history; needs conflict-UI routing.
+- MED-2 movePage disk-move + SwiftData filePath save not transactional → duplicate on save-failure. FIXED (commit: movePage rollback — move the file back on save failure).
+- MED-3 persistent save failure (vault on a disconnected volume) swallowed to log; edits lost only on quit/crash-while-disconnected. DEFERRED — mitigated by dirty-tracking retry-on-reconnect; RootView off-limits for a banner, Settings diagnostic-row surface TBD.
+- LOW-4 exportPage empty-file pre-creation (0-byte .md on kill). DEFERRED — mitigated by dedup + empty-never-wins.
+- LOW-5 AIPartner log non-atomic write. DEFERRED — rebuildable telemetry.
+- LOW-6 no VersionedSchema/MigrationPlan. DEFERRED — future breaking migration is an availability outage, NOT data loss (store + .md preserved).
+- LOW-7 SDPage.saveBody swallows the write Bool. DEFERRED — authoritative path is checked; defensive smell.
+
+### MEETING CAPTURE (agent a22feed32) — the #1 trust surface — ALL CRITICAL+HIGH FIXED
+- CRITICAL-1 transcript silently truncated to 10k on save. FIXED (#27, commit bca8a13b4).
+- HIGH-2 no durable persistence / crash loses transcript. FIXED (#30, commit 9cb82b2b1 — MeetingDraftStore + recovery banner).
+- HIGH-3 AirPods/route-change silently stalls transcription. FIXED (#28, commit bca8a13b4 — config-change re-arm).
+- HIGH-4 Cmd-W bypasses teardown → hidden mic recording. FIXED (#29, commit ec3c5e9d3 — willClose stop).
+- MED-5 mic-permission revoke mid-meeting undetected. DEFERRED — same silent-stall signature as HIGH-3.
+- MED-6 Siri/interruption unhandled. DEFERRED — same engine-re-arm remedy as HIGH-3.
+- MED-7 input AsyncStream .bufferingNewest(64) silently drops audio under backpressure. DEFERRED — inherent bounded-buffer tradeoff; flag as gap-marker later.
+- LOW-8 format conversion on the render thread (NSLock). DEFERRED — quality, not loss.
+
+### ENGINE CONCURRENCY (agent a7bec819) — verdict: well-hardened (main.sync=0, unbounded AsyncStream=0)
+- HIGH-1 ModelContext saved across await (BlockMirror hot path + prewarm) → CoreData thread-confinement → store corruption. FIXED (#31, commit e6555e31b).
+- HIGH-2 EmbeddingService outer FFI push not under teardown drain gate → engine use-after-free. FIXED (#32, commit e6555e31b).
+- MED-3 off-main unsetenv/setenv races getenv. DEFERRED — agent-core env setup (Goose-adjacent), out of non-Goose scope.
+- MED-4 VaultIndexActor import/migration reentrancy across await. DEFERRED — self-heals (both migrations synchronous), one-time UserDefaults-gated.
+- LOW-5 observeRouteChanges leaks its observer token. MITIGATED — #28 wired an internal re-arm; the leaky public API is now unused (no repeat caller).
+- LOW-6 EpdocInsertLinkPicker per-keystroke task not cancelled. FIXED (commit f36e30e97).
+- LOW-7 SDFLabelInstanceBuilder static scratch races parallel tests. FIXED (commit 1e10b75da — local var).
+- LOW-8 MetalRuntimeManager dead @unchecked Sendable. DEFERRED — delete with the dead MLX stack.
+- LOW-9 EmbeddingService nonisolated(unsafe) Bools. DEFERRED — byte-sized, no torn value.
+
+BUILD OPTIMIZATION: Release now sets explicit whole-module optimization (project.yml SWIFT_COMPILATION_MODE: wholemodule, commit 1e10b75da). Effective on next xcodegen + Release build.

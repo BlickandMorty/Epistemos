@@ -4166,6 +4166,7 @@ final class VaultSyncService {
                 withIntermediateDirectories: true
             )
 
+            var performedMove: (from: URL, to: URL)?
             if let existingPath = page.filePath,
                 FileManager.default.fileExists(atPath: existingPath)
             {
@@ -4187,6 +4188,7 @@ final class VaultSyncService {
                     }
 
                     try FileManager.default.moveItem(at: oldURL, to: newURL)
+                    performedMove = (from: oldURL, to: newURL)
                 }
 
                 page.filePath = newURL.path
@@ -4196,7 +4198,20 @@ final class VaultSyncService {
 
             page.subfolder = normalizedSubfolder
             page.updatedAt = .now
-            try context.save()
+            do {
+                try context.save()
+            } catch {
+                // MED #2 (audit 2026-07-03): the disk move already succeeded but the
+                // SwiftData filePath update failed to persist. Roll the file back so
+                // disk matches the persisted (old) path — otherwise the moved file
+                // re-imports as a DUPLICATE page on the next launch (store still points
+                // at the old path; the file now sits at the new one).
+                if let move = performedMove {
+                    try? FileManager.default.moveItem(at: move.to, to: move.from)
+                    page.filePath = move.from.path
+                }
+                throw error
+            }
 
             if page.filePath == nil {
                 savePage(pageId: pageId)
