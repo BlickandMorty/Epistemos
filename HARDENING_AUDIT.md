@@ -235,3 +235,5 @@ Safe (verified): atomic durable write (NoteFileStorage.atomicWriteUTF8 temp→fs
 - NOTE-6 (MED) — OPEN: flushIfNeeded marks lastPersistedBody before the async write confirms (scheduleWriteBody returns a Task immediately); a failed write leaves in-memory state believing it saved. (NOTE-1's added synchronous writeBody mitigates the quit case.)
 - NOTE-7 (LOW) — OPEN: undo history resets across NoteWorkspaceMode switches (Coordinator destroyed). Committed text preserved. Expected of most editors.
 - NOTE-8 (LOW) — OPEN: write failures are logged, never surfaced to the user (fail-closed, no corruption).
+
+- GAP-1 (imports skip in-session search index) FIXED 2026-07-03: PDF + arXiv imports set needsVaultSync=false, which skipped the export-path FTS index → imported notes/papers were unfindable in content search until relaunch. Both controllers now call searchService.upsert(id/title/body/tags/updatedAt) directly after save (via AppBootstrap.shared.vaultSync.searchService, body from NoteFileStorage.readBody). Spotlight donate deferred (needs a NoteEntity build). Build-verified.

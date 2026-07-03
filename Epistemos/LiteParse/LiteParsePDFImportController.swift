@@ -78,6 +78,18 @@ enum LiteParsePDFImportController {
             try Task.checkCancellation()
             try modelContext.save()
             graphState?.needsRefresh = true
+            // GAP-1 (audit 2026-07-03): imports set needsVaultSync=false, which skips the
+            // export-path search index — so the imported note is unfindable in content
+            // search until relaunch. Index it directly now (saveBody wrote the body sync).
+            if let searchService = AppBootstrap.shared?.vaultSync.searchService {
+                try? searchService.upsert(
+                    id: page.id,
+                    title: page.title,
+                    body: NoteFileStorage.readBody(pageId: page.id),
+                    tags: page.tags.joined(separator: " "),
+                    updatedAt: page.updatedAt
+                )
+            }
             return .imported(
                 pageID: page.id,
                 title: page.title,
