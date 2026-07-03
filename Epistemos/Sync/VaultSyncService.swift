@@ -400,6 +400,12 @@ final class VaultSyncService {
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
+    /// Data MED-3: consecutive all-failed export batches (0 = healthy). A sustained
+    /// streak means the vault volume/path is unreachable and recent edits aren't
+    /// reaching disk (they stay dirty + retry). Surfaced as a Settings diagnostic.
+    private(set) var vaultSaveFailureStreak: Int = 0
+    private(set) var lastVaultSaveError: String?
+    var isVaultSaveHealthy: Bool { vaultSaveFailureStreak < 2 }
     var ambientManifest: VaultManifest?
 
     /// Whether the vault is being imported/indexed. Starts true if a vault
@@ -3377,6 +3383,7 @@ final class VaultSyncService {
             }
             var successfulExports: [SuccessfulExport] = []
             successfulExports.reserveCapacity(batch.dirtyIds.count)
+            var exportFailures = 0
 
             for pageId in batch.dirtyIds {
                 do {
@@ -3386,8 +3393,22 @@ final class VaultSyncService {
                         successfulExports.append(SuccessfulExport(pageId: pageId, bodyHash: result.bodyHash))
                     }
                 } catch {
+                    exportFailures += 1
+                    lastVaultSaveError = error.localizedDescription
                     log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
+            }
+
+            // Data MED-3: a whole batch failing to export usually means the vault
+            // volume/path became unreachable. Track the streak so a "recent edits not
+            // saved" diagnostic can be surfaced (Settings → vault-save health); reset
+            // on any success. Additive — does NOT change the save/retry logic (the
+            // pages stay dirty and retry on the next tick / on reconnect).
+            if !successfulExports.isEmpty {
+                vaultSaveFailureStreak = 0
+                lastVaultSaveError = nil
+            } else if exportFailures > 0 {
+                vaultSaveFailureStreak += 1
             }
 
             for export in successfulExports {

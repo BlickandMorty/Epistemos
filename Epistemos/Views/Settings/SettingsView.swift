@@ -856,6 +856,7 @@ private struct GeneralDetailView: View {
                 SettingsDescriptionText(
                     text: "Read-only health probes for app storage, indexing, memory, graph projections, and import surfaces. Foundation IP lives in Epistemos Foundation."
                 )
+                VaultSaveHealthRow()
                 ShadowSearchHealthRow()
                 BackgroundIndexingHealthRow()
                 ProcessMemoryHealthRow()
