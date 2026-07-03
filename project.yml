@@ -29,6 +29,10 @@ settings:
       GCC_GENERATE_DEBUGGING_SYMBOLS: true
     Release:
       SWIFT_OPTIMIZATION_LEVEL: "-Osize"
+      # Whole-module optimization: compile the module as a unit so the optimizer can
+      # inline + specialize across files. Made explicit (xcodegen projects don't
+      # reliably default Release to WMO) so the shipped MAS build is fully optimized.
+      SWIFT_COMPILATION_MODE: "wholemodule"
       DEAD_CODE_STRIPPING: true
       LLVM_LTO: "YES"
       STRIP_INSTALLED_PRODUCT: true

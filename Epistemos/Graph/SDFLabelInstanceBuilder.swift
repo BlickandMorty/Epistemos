@@ -40,9 +40,6 @@ struct SDFLabelInstance {
 
 /// Build LabelInstances for visible nodes and push to the graph engine.
 enum SDFLabelInstanceBuilder {
-    /// Reusable scratch buffer — avoids per-frame allocation.
-    static var scratch: [SDFLabelInstance] = []
-
     struct Node {
         let worldX: Float
         let worldY: Float
@@ -67,7 +64,9 @@ enum SDFLabelInstanceBuilder {
         worldPxPerEm: Float,
         color: SIMD4<Float> = SIMD4<Float>(0.95, 0.95, 0.95, 1.0)
     ) -> [SDFLabelInstance] {
-        scratch.removeAll(keepingCapacity: true)
+        // Local (not a shared static) so parallel callers — including parallel Swift
+        // Testing methods — can't race the same copy-on-write buffer (audit 2026-07-03).
+        var scratch: [SDFLabelInstance] = []
         scratch.reserveCapacity(min(labelBudget, nodes.count * 12))
 
         var total = 0
