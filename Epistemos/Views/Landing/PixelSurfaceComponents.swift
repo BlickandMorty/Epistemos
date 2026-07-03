@@ -676,6 +676,9 @@ struct PixelLandingCommandTile: View {
     let haptic: HomeCommandHapticStyle
     var brand: IntegrationBrand? = nil
     var isActive = false
+    /// Optional hover description — surfaces what the command does for discoverability
+    /// (owner request 2026-07-03). Defaults to nil (no tooltip) to preserve existing calls.
+    var help: String? = nil
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -743,7 +746,7 @@ struct PixelLandingCommandTile: View {
         .buttonStyle(.plain)
         .zIndex(isActive || isHovered ? 10 : 0)
         .onHover(perform: handleHover)
-        .help(shortcut.map { "\(title) (\($0))" } ?? title)
+        .help(help ?? (shortcut.map { "\(title) (\($0))" } ?? title))
     }
 
     private var dormantCommandLabel: some View {

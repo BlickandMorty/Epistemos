@@ -572,6 +572,7 @@ struct LandingView: View {
                 accent: Color(hex: 0x4FB477),
                 haptic: .capture,
                 isActive: activeLandingInlineCommand == .quickCapture,
+                help: "Jot a quick note or idea without leaving the home screen.",
                 action: { showLandingInlineCommand(.quickCapture) }
             )
             PixelLandingCommandTile(
@@ -601,7 +602,8 @@ struct LandingView: View {
                 theme: theme,
                 accent: Color(hex: 0xE0A53C),
                 haptic: .save,
-                isActive: activeLandingInlineCommand == .saveWorkspace
+                isActive: activeLandingInlineCommand == .saveWorkspace,
+                help: "Save the current window arrangement as a reusable workspace."
             ) {
                 showLandingInlineCommand(.saveWorkspace)
             }
@@ -612,7 +614,8 @@ struct LandingView: View {
                 theme: theme,
                 accent: Color(hex: 0xCF6F5F),
                 haptic: .timeMachine,
-                isActive: activeLandingInlineCommand == .timeMachine
+                isActive: activeLandingInlineCommand == .timeMachine,
+                help: "Browse and restore earlier versions of your notes."
             ) {
                 showLandingInlineCommand(.timeMachine)
             }
@@ -652,6 +655,7 @@ struct LandingView: View {
                 theme: theme,
                 accent: Color(hex: 0xB37A3F),
                 haptic: .workspace,
+                help: "Build and live-preview an HTML/JS mini-app — no server needed.",
                 action: createAndOpenHTMLWorkspace
             )
             PixelLandingCommandTile(
@@ -661,6 +665,7 @@ struct LandingView: View {
                 theme: theme,
                 accent: Color(hex: 0xD96B7E),
                 haptic: .graph,
+                help: "See how your notes connect in an interactive knowledge graph.",
                 action: toggleGraphForCurrentLocation
             )
         }
