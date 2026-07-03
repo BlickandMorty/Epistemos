@@ -1,5 +1,7 @@
 # June UI Ontology — build spec (make Epistemos's UI structurally = June)
 
+> 🔴 **SUPERSEDED 2026-07-02 — DO NOT BUILD FROM THIS.** This was the operative spec for the "make the agent surface structurally = June" port, which FAILED across ~13 rounds. The agent surface is now **OpenChamber** (Pro base) + **June = theme + landing signatures + the MAS surface** (June minimal + goose in-process backend), with **goose + OpenCode** engines. June's component ontology is NO LONGER the agent-surface base — OpenChamber's is. KEEP this doc only for June's token/component study (still useful for the June THEME pass + the June MAS surface + landing bar/gradient). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+
 > **READ THE NUANCE FIRST.** The goal is to get Epistemos's UI **as close to June as possible by adopting June's component
 > ONTOLOGY** — the real *anatomy* of each component (its exact structure + CSS: the slight shadow, the fine border, the
 > radius/padding, the frosted layering, the internal composition) — **ported from June's actual source (MIT).**
