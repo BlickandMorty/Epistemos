@@ -1,5 +1,8 @@
 # Goose on MAS — BUILD CANON (converged 2026-06-30)
 
+> 🟢 **STILL LIVE — MORE relevant after 2026-07-02.** MAS is now **June surface + goose IN-PROCESS backend** (this doc's core). The in-process/no-subprocess backend canon here is the MAS engine spec. STALE only: "reskin Goose's web UI as the MAS surface" (the MAS surface is June). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` (MAS/Pro split).
+
+
 > **THE reference for the MAS portion of Plan 1.** Converged from **6 independent research efforts** — Epistemos internal
 > deep-research (`wf_7d57fe20-003`, 24/25 claims verified) + owner-supplied Gemini-1, Gemini-2, GPT-1, GPT-2, and a
 > Goose-embedding synthesis. Where the six agree, it's marked **[CONSENSUS]**; where they diverge or Apple is silent,

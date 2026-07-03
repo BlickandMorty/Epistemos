@@ -1,5 +1,8 @@
 # Epistemos App-Wide Nativeness Doctrine (2026-06-29)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The flat/minimal/theme-aware LOOK principles + the verified Apple tokens/springs/glass recipe here are STILL CANON (apply to June + OpenChamber + the MAS-June surface). STALE: any "apply this by RESKINNING GOOSE's web UI / Option 1 / Goose is the surface" framing — the agent surface is now OpenChamber (Pro) / June+goose-in-process (MAS). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
+
 > ⚡ **OWNER REFINEMENT — 2026-06-30 (after seeing the live app; SUPERSEDES the surface-material details below where they conflict):** the look is **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the native FRAME (rounded-corner window + vibrancy + traffic-lights + springs — the curved-white window the owner likes). **SURFACES are FLAT + BORDERLESS** — NO thick outlines / hard box borders / 1px rules; differentiate by subtle tint + spacing + soft shadow only. NOT old thick-outline pixel-art, NOT translucent-glass on every surface. **For GOOSE: NO native nav rail** — it duplicated Goose's own web sidebar and lagged; native = the window FRAME only, Goose's reskinned web UI is the whole surface + nav.
 
 > ✅ **OWNER REFINEMENT LOCKED 2026-06-30 — flat/minimal + slight pixel twist is the active Goose visual direction.**

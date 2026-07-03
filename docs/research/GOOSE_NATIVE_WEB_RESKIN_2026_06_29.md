@@ -1,5 +1,8 @@
 # Goose Native-Feel Web Reskin — LIVING RESEARCH (started 2026-06-29)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The reusable tokens/springs code-to-lift recipe here is DURABLE. STALE: the whole "reskin GOOSE's own web UI" APPLICATION — the agent surface is OpenChamber (Pro) / June+goose-in-process (MAS). Mine the recipe, ignore the goose-reskin how-to. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
+
 > 🎨 **OWNER DESIGN STATUS — 2026-06-30 CURRENT CANON:** Goose should look like the approved Claude-desktop-style
 > clean flat UI with a slight pixel-art twist: borderless surfaces, no hard box outlines, no chunky/blue focus ring,
 > headings/section labels/companions get the pixel accent, body/buttons/inputs stay SF Pro. Keep the native rounded

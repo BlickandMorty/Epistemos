@@ -1,5 +1,8 @@
 # Goose on the Mac App Store — in-process backend readiness spec (2026-06-30)
 
+> 🟢 **STILL LIVE — MORE relevant after 2026-07-02.** MAS = June surface + goose in-process backend; this readiness spec is the MAS engine's checklist. STALE only: "reskin Goose web UI as the MAS surface" (MAS surface = June). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
+
 > ⚠️ **SUPERSEDED ON TRANSPORT by the converged canon.** Read **`docs/research/GOOSE_MAS_BUILD_CANON_2026_06_30.md`**
 > FIRST — it converges 6 independent research efforts and **corrects the transport**: prefer
 > `WKScriptMessageHandlerWithReply` (control) + `callAsyncJavaScript` event-push (stream) over the loopback

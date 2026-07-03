@@ -1,5 +1,8 @@
 # Epistemos Surface Fusion — DEFINITIVE Plan, Directives & Agent Prompts
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The WebView-vs-native embedding RESEARCH here is durable (feeds OpenChamber-in-WebView for Pro + June+goose-in-process for MAS). STALE: the goose-specific VERDICT (Option 1, reskin Goose, Goose-as-the-surface). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
+
 **Status:** ✅ DEFINITIVE / LOCKED 2026-06-25. Single source of truth. Zero-contradiction. Research loop CLOSED.
 **Question source:** `/Users/jojo/.codex/attachments/ab4fbb0d-28e8-4e34-911c-2c9332d8c3df/goal-objective.md`
 **(The former federation "companion ladder" doc was deleted 2026-06-26 — Goose-single. Goose mechanics live in §2–§7 here; reskin-in-progress log = `docs/handoffs/GOOSE_SURFACE_CLAUDE_HANDOFF_2026_06_24.md`.)**
