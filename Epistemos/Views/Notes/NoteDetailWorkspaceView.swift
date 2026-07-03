@@ -51,6 +51,21 @@ enum NoteWorkspaceMode: String, CaseIterable, Hashable {
         }
     }
 
+    /// Fuller hover description than the terse label — "Source" and "Document" aren't
+    /// self-evident (owner discoverability request 2026-07-03).
+    var helpText: String {
+        switch self {
+        case .edit:
+            "Edit — write in rich prose"
+        case .document:
+            "Document — rich block editor (headings, lists, tables)"
+        case .preview:
+            "Preview — rendered, read-only view"
+        case .source:
+            "Source — the raw Markdown"
+        }
+    }
+
     var symbolName: String {
         switch self {
         case .edit:
@@ -1514,7 +1529,7 @@ struct NoteDetailWorkspaceView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(mode.label)
         .accessibilityHint("Switch between Prose, Document, Preview, and Source")
-        .help(mode.label)
+        .help(mode.helpText)
     }
 
     private var graphToolbarNavigationControls: some View {
