@@ -78,6 +78,26 @@ public struct DailyNoteView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            // GAP-25 (audit 2026-07-03): quick prev/next-day nav (the DatePicker still
+            // handles jumping to an arbitrary date).
+            Button {
+                if let previous = Calendar.current.date(byAdding: .day, value: -1, to: date) {
+                    date = previous
+                }
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(.borderless)
+            .help("Previous day")
+            Button {
+                if let next = Calendar.current.date(byAdding: .day, value: 1, to: date) {
+                    date = next
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(.borderless)
+            .help("Next day")
             DatePicker("", selection: $date, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)

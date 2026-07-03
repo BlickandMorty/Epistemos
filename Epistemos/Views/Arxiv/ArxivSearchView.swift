@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -341,6 +342,17 @@ struct ArxivSearchView: View {
 
             ToolbarCapsuleButton(
                 title: nil,
+                systemImage: "quote.opening",
+                role: .toolbarUtility,
+                chromePolicy: .alwaysSurface,
+                helpText: "Copy citation",
+                accessibilityLabel: "Copy citation"
+            ) {
+                copyCitation(for: paper)
+            }
+
+            ToolbarCapsuleButton(
+                title: nil,
                 systemImage: ingestActionImage(for: paper),
                 role: importedIDs.contains(paper.id) ? .toolbarUtility : .primaryAction,
                 isActive: ingestingIDs.contains(paper.id) || importedIDs.contains(paper.id),
@@ -357,6 +369,18 @@ struct ArxivSearchView: View {
 
     private var rowGap: some View {
         Color.clear.frame(height: 6)
+    }
+
+    // GAP-23 (audit 2026-07-03): copy a plain-text citation for the paper.
+    private func citation(for paper: ArxivPaper) -> String {
+        let authors = paper.authors.isEmpty ? "" : "\(paper.authors.joined(separator: ", ")). "
+        let year = paper.published.map { " (\(Calendar.current.component(.year, from: $0)))" } ?? ""
+        return "\(authors)\"\(paper.title)\". arXiv:\(paper.id)\(year)."
+    }
+
+    private func copyCitation(for paper: ArxivPaper) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(citation(for: paper), forType: .string)
     }
 
     private func openPaperInBrowser(_ paper: ArxivPaper) {
