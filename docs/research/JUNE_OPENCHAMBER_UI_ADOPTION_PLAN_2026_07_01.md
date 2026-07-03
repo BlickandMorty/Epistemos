@@ -1,5 +1,7 @@
 # June + OpenChamber → Epistemos UI adoption plan (2026-07-01)
 
+> 🔴 **RE-SUPERSEDED 2026-07-02 — THE OPENCHAMBER PIVOT (this doc is now DOUBLY superseded).** The "pure June, no OpenChamber" decision in the banner below (the June UI-ontology port) FAILED across ~13 rounds and led to today's reversal: **OpenChamber IS the agent-surface base (Pro), June = theme + landing signatures + the MAS surface, goose = one engine (beside OpenCode), 1Code = the gap-filler reference.** So BOTH this doc's original two-stack plan AND its "pure June / OpenChamber-as-gap-filler-rebuilt-in-June" framing are dead. KEEP for the durable 5-round COMPONENT STUDY + palette/font/scale inventory only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`. MAS specifically = June + goose in-process backend; Pro = OpenChamber + goose/OpenCode.
+
 > ⛔ **SUPERSEDED (owner 2026-07-01): PURE JUNE, NO OPENCHAMBER — and UI-ONTOLOGY ONLY, no backend.** The owner dropped
 > OpenChamber entirely (no gap-fillers, no diff view — 100% June) and scoped the work to porting June's component
 > *ontology* only (NOT wiring June to a backend). **The operative doc is now `JUNE_UI_ONTOLOGY_BUILD_SPEC_2026_07_01.md`.**

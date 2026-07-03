@@ -1,6 +1,12 @@
 # PLAN 1 — Agent surface build prompt (paste to Codex)
 
 > ⛔⛔⛔ **RETIRED — DO NOT BUILD FROM THIS DOC (owner 2026-07-02).** Plan 1 is being **replaced wholesale** by a new, research-driven Agent-surface plan once the OpenChamber deep-research dossier is back. The body below is **reference only** (goose backend + verification discipline worth mining) — its UI approach (reskin Goose's own WebView, Goose-as-the-surface, Option 1, no native controls) is **DEAD**. Do NOT act on any instruction in this file. The live direction is the OpenChamber pivot: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`. When the research lands, DELETE this file and author the replacement.
+>
+> 🧭 **THE REPLACEMENT MUST COVER BOTH BUILD SURFACES (MAS/Pro split, owner 2026-07-02):**
+> • **Pro** = OpenChamber (whole app, vendored) + **goose + OpenCode** engines behind a per-conversation engine chip + browser-use.
+> • **MAS** = **June surface (minimal, native, App-Store-clean) + goose IN-PROCESS backend** (`agent_core` Rust/FFI, no subprocess — the only sandbox-legal path; OpenChamber's supervised-OpenCode-server + browser-use are Pro-only). A bounded minimal agent.
+> • SHARED across both builds: the goose in-process backend, the rooms (notes/editors/arXiv/Obscura/companions), the native chrome (pill + mascot bubbles). Only the AGENT ROOM forks (June-min on MAS, OpenChamber on Pro). The existing two schemes (Epistemos-AppStore / Epistemos) gate it — a profile-gated surface swap, not a new build system.
+> • The goose **in-process MAS backend** work below (the `EPISTEMOS_MAS_GOOSE_V0` scaffold — real `agent_core` loop still unwired, sources/schedules empty) is STILL LIVE — it's the MAS engine. Spec: `docs/research/GOOSE_MAS_BUILD_CANON_2026_06_30.md` + `GOOSE_MAS_IN_PROCESS_READINESS_SPEC_2026_06_30.md` (kept + annotated). Only its "reskin Goose web UI as the MAS surface" premise is dead — the MAS surface is June.
 
 
 > 🔴🔴 **OWNER OVERRIDE — 2026-07-02 · THE OPENCHAMBER PIVOT (READ FIRST; SUPERSEDES THE ENTIRE PLAN BELOW WHERE THEY CONFLICT). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.**
