@@ -1,5 +1,7 @@
 # HTML Workspace — Regenerate: the "not-a-demo" spec (owner-locked 2026-06-30)
 
+> 🟢 **MOSTLY LIVE 2026-07-02.** The HTML Workspace regenerate spec is a capability surface (Plan 2/3 lane) largely unaffected by the OpenChamber pivot. Re-anchor ONLY any "Goose-web reskin / Option 1 / agent = reskinned Goose" reference to: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > Plan 2 item (1). Owner decided (2026-06-30): make regenerate the **FULL version** — genuinely robust (not a demo),
 > pixel-minimal styled, **with preset action buttons**. Presets = **Layout + Add-a-thing + Vault-data** (owner
 > EXCLUDED style presets). Build to this; flip `isLive: true` only when it's proven in a launched app.

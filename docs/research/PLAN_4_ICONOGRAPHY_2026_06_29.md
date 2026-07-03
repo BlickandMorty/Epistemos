@@ -1,5 +1,7 @@
 # PLAN 4 — Theme-Canonical Monochrome Iconography (canonical spec) — 2026-06-29
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The mono-iconography SPEC (theme-derived, token-fed, all palettes incl. custom) is durable + still wanted. What changed: its HOME — the mono set now folds into the OpenChamber June-theme pass and also feeds the native pill nav + companion MASCOT emotes/badges + per-engine model/provider/tool marks. STALE: any "Goose-web model/provider logo plumbing / reskin Goose" as the primary target. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > **STATUS: SAVED / NOT YET ACTIVE.** Owner brainstormed + locked the shape 2026-06-29; do NOT start until the owner
 > says go. This is the detail home for `docs/prompts/PROMPT_PLAN_4_ICONS.md` (the lean paste prompt points here).
 >

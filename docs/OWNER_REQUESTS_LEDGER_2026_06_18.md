@@ -1,5 +1,7 @@
 # OWNER REQUESTS LEDGER (2026-06-18) — the authoritative checklist
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** This ledger of owner requests is durable HISTORY — but any item framed as "reskin Goose / Goose-as-the-surface / Option 1 / Goose-only / MAS = reskinned goose webview" is now re-scoped: Agent surface = OpenChamber (Pro) + goose/OpenCode engines; MAS = June + goose IN-PROCESS backend; goose = one engine. arXiv + Obscura KEPT dedicated (Obscura automation-engine-vs-browser = open owner flag). Read requests as intent; re-anchor surface/engine specifics to canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+
 > **READ-FIRST (owner 2026-06-19):** before editing/building, READ the unified capstone
 > `docs/research/MASTER_SYNTHESIS_2026_06_19.md` (the one plan: keystone + build-once
 > primitives + governing constraints incl. the HARDENING LIFECYCLE + Phase 0→3 roadmap),

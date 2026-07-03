@@ -5,6 +5,8 @@ title: PLAN 3 — Capabilities (2026-06-28)
 
 # PLAN 3 — Capabilities (2026-06-28)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The Plan-3 capability SET (PDF→MD, provenance, extensibility, browser-use Pro, arXiv, STT/voice, brand logos) is largely still valid. STALE: "Plan 1 = Goose surface / reskin Goose / AI is Goose-only" framing below → Agent surface = OpenChamber (Pro) + goose/OpenCode engines; MAS = June + goose in-process; goose = one engine. arXiv + Obscura KEPT dedicated + as capabilities (Obscura automation-engine-vs-browser = open owner flag, do not resolve). Live Plan 3 prompt = `docs/prompts/PROMPT_PLAN_3_CAPABILITIES.md` (override-headed). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+
 > **The THIRD plan. Standalone.** Sibling to — and NOT overlapping — the other two:
 > - **Plan 1 = Goose surface** (`GOOSE_MASTER_BUILD_PROMPT_2026_06_27.md` etc.) — untouched.
 > - **Plan 2 = Editor canonical** (`EDITOR_CANONICAL_PLAN_2026_06_27.md`) — owns markdown-truth, Tolaria-supersede,
