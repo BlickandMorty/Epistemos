@@ -1,5 +1,7 @@
 # Goose Surface Parity Fix Plan (2026-06-28)
 
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Parity-fix plan for the DEAD reskin-Goose-surface program. The agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 Source: 8-area multi-agent parity audit (Epistemos staged Goose vs real upstream Goose), root-caused. Owner pains: (1) can't change model, (2) no auto-detect of installed providers/CLIs, (3) main providers not ready by default.
 
 ## Executive summary

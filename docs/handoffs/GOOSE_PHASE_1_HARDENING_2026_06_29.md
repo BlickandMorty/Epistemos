@@ -1,5 +1,7 @@
 # Goose Phase 1 — Native Frame Hardening Log (2026-06-29)
 
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Hardening log for the DEAD native-frame-around-reskinned-Goose-WebView approach. The agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 Phase 1 = HYBRID APPKIT, **native FRAME only** (window + nav rail + permission/elicitation
 pop-ups) wrapping Goose's reskinned WebView. Every Goose feature stays in the WebView (owner
 charter 2026-06-27). This log records the thermonuclear hardening pass over the new frame.

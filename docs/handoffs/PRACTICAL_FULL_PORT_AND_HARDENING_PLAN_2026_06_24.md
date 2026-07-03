@@ -1,5 +1,7 @@
 # Practical Full-Port And Hardening Plan - 2026-06-24
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Hardening discipline durable; the "full-port of Goose as the reskin surface" framing is DEAD. Agent surface = OpenChamber (Pro, vendored fork+overlay) / June+goose-in-process (MAS); goose = one engine. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > 🛑 **SUPERSEDED 2026-06-29 — NOT a current paste-prompt.** This 06-24 full-port/clone-infusion plan (Osaurus Act,
 > OpenChamber/OpenWork, "full clones first") is overtaken by the **2026-06-25 surface lock** (Act = Goose, Work =
 > OpenGUI/OpenCode), the **2026-06-28 Goose-only scope lock**, and the **2026-06-29 Option 1** canon. The only prompts

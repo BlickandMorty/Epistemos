@@ -1,5 +1,7 @@
 # AGENT 1 — Goose Surface (Plan 1) — Audit Trail & Research Log
 
+> 🔴 **SUPERSEDED 2026-07-02 (OpenChamber pivot) — DO NOT BUILD FROM THIS.** Audit trail of the DEAD Plan-1 reskin-Goose-surface program (Plan 1 is now RETIRED). The agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. Historical reference only. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 **Date:** 2026-06-29 · **Agent:** Agent 1 = the Goose-surface build + audit agent (loop `5a0cef97`).
 **Purpose:** a no-bullshit audit of *everything Agent 1 did and found* this session — edits made, research
 done, findings, proposed-but-unapplied fixes, and open items — so other agents and the owner have a single

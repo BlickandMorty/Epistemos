@@ -5,6 +5,8 @@ title: Plan 3 — browser-use Pro vendor codepack (signed Pro payload, Pass 7)
 
 # Plan 3 — browser-use Pro vendor codepack (signed Pro payload, Pass 7)
 
+> 🟢 **MOSTLY LIVE 2026-07-02.** browser-use is a Pro-lane capability, unaffected by the UI pivot except framing. Re-anchor: it's a subordinate, Pro-gated, browser-scoped sub-agent the ACTIVE Agent engine (OpenChamber's goose or OpenCode) delegates to — NOT "Goose the one user-facing agent." Version pins + Chromium/CDP honesty stand. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > [!INFO]
 > Companion to `PLAN_3_CAPABILITIES_2026_06_28.md §2/§9`. This records the landed Pro-only vendor/runtime staging lane
 > for the Chromium robot. browser-use drives Chromium over CDP; it is deliberately separate from the MAS-safe
