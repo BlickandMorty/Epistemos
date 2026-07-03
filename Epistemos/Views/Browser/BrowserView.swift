@@ -231,6 +231,7 @@ final class BrowserTab {
     @ObservationIgnored var goForward: (() -> Void)?
     @ObservationIgnored var reloadPage: (() -> Void)?
     @ObservationIgnored var stopLoading: (() -> Void)?
+    @ObservationIgnored var clearData: (() -> Void)?
 
     func submitAddress() {
         guard let url = BrowserURLGuard.resolve(raw: address) else {
@@ -256,6 +257,7 @@ final class BrowserTab {
     func forward() { goForward?() }
     func reload() { reloadPage?() }
     func stop() { stopLoading?() }
+    func clearBrowsingData() { clearData?() }
 }
 
 struct BrowserView: View {
@@ -382,7 +384,10 @@ struct BrowserView: View {
                     showingLimits.toggle()
                 }
                 .popover(isPresented: $showingLimits, arrowEdge: .bottom) {
-                    BrowserLimitsPopover()
+                    BrowserLimitsPopover(onClearData: {
+                        tab.clearBrowsingData()
+                        showingLimits = false
+                    })
                         .padding(14)
                         .frame(width: 300, alignment: .leading)
                 }
@@ -460,6 +465,8 @@ struct BrowserView: View {
 }
 
 private struct BrowserLimitsPopover: View {
+    let onClearData: () -> Void
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Browser")
@@ -467,6 +474,11 @@ private struct BrowserLimitsPopover: View {
             Text("Human-driven WebKit tab. Cookies and cache are isolated from Safari in memory for this in-app browser session.")
             Text("Common tracker and ad domains are blocked with a local WebKit content rule list.")
             Text("No Safari extensions. Some premium DRM video may not play in WKWebView.")
+            Divider()
+            Button(role: .destructive, action: onClearData) {
+                Label("Clear browsing data now", systemImage: "trash")
+            }
+            .help("Wipe this session's cookies, cache, and site storage, then reload the page.")
         }
         .font(.caption)
         .fixedSize(horizontal: false, vertical: true)
@@ -578,6 +590,19 @@ private struct BrowserWebView: NSViewRepresentable {
             }
             tab.stopLoading = { [weak webView] in
                 webView?.stopLoading()
+            }
+            // BRW-4: explicit "clear browsing data" — wipe the (already in-memory-only,
+            // non-persistent) cookies/cache/storage on demand, then reload the page so
+            // it re-runs cleanly. Makes the browser's data isolation user-controllable.
+            tab.clearData = { [weak webView] in
+                guard let webView else { return }
+                let store = webView.configuration.websiteDataStore
+                store.removeData(
+                    ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                    modifiedSince: .distantPast
+                ) {
+                    webView.reload()
+                }
             }
         }
 
