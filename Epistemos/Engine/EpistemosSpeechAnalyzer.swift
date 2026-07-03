@@ -79,6 +79,11 @@ public final class EpistemosSpeechAnalyzer {
     private var resultsTask: Task<Void, Never>?
     private var analyzeTask: Task<Void, Never>?
     private var didInstallInputTap = false
+    // Retained so the mic tap can be re-armed against a NEW input format when the
+    // audio route changes mid-capture (AirPods connect/disconnect).
+    private var bufferConverter: SpeechAnalyzerAudioBufferConverter?
+    private var analyzerFormat: AVAudioFormat?
+    private var configChangeObserver: NSObjectProtocol?
 
     private init() {}
 
@@ -241,17 +246,14 @@ public final class EpistemosSpeechAnalyzer {
             }
         }
 
+        // Retain the analyzer format + converter so the input tap can be re-armed
+        // against a NEW input format after an audio route change.
+        self.analyzerFormat = analyzerFormat
+        self.bufferConverter = bufferConverter
+
         // Audio engine: installTap on input bus, push each buffer
         // into the AsyncStream wrapped as AnalyzerInput.
-        engine.inputNode.installTap(
-            onBus: 0, bufferSize: 1024, format: inputFormat
-        ) { buffer, _ in
-            guard let input = bufferConverter.makeAnalyzerInput(from: buffer) else {
-                return
-            }
-            inputCont.yield(input)
-        }
-        didInstallInputTap = true
+        installInputTap(converter: bufferConverter, continuation: inputCont, inputFormat: inputFormat)
         do {
             try engine.start()
         } catch {
@@ -259,6 +261,17 @@ public final class EpistemosSpeechAnalyzer {
             throw SpeechError.audioEngineFailed(
                 VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "audio engine failed")
             )
+        }
+
+        // HIGH (audit 2026-07-03): re-arm the input tap when the audio route
+        // changes (AirPods connect/disconnect, device switch). Without this the
+        // engine stops, the tap dies, and transcription silently ends while the UI
+        // still shows "recording" — a lost meeting. The analyzer + accumulated
+        // transcript stay alive; only the audio input is rebuilt for the new format.
+        configChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.rearmInputTapAfterConfigurationChange() }
         }
 
         Self.log.info("live transcription started")
@@ -272,6 +285,10 @@ public final class EpistemosSpeechAnalyzer {
     }
 
     private func stopInternal() {
+        if let observer = configChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            configChangeObserver = nil
+        }
         if engine.isRunning {
             engine.stop()
         }
@@ -287,7 +304,56 @@ public final class EpistemosSpeechAnalyzer {
         analyzeTask = nil
         analyzer = nil
         transcriber = nil
+        bufferConverter = nil
+        analyzerFormat = nil
         Self.log.info("live transcription stopped")
+    }
+
+    /// Install the mic tap for the CURRENT input format, forwarding converted
+    /// buffers into the analyzer input stream. Extracted so the tap can be
+    /// re-armed against a new format after an audio route change. The tap closure
+    /// captures only the (Sendable) converter + continuation — never `self` — so
+    /// it adds no retain cycle with the engine.
+    private func installInputTap(
+        converter: SpeechAnalyzerAudioBufferConverter,
+        continuation: AsyncStream<AnalyzerInput>.Continuation,
+        inputFormat: AVAudioFormat
+    ) {
+        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
+            guard let input = converter.makeAnalyzerInput(from: buffer) else { return }
+            continuation.yield(input)
+        }
+        didInstallInputTap = true
+    }
+
+    /// Re-arm the mic tap after `.AVAudioEngineConfigurationChange` (route change).
+    /// Rebuilds the converter for the NEW input format and restarts the engine,
+    /// keeping the analyzer + accumulated transcript alive. Degrades to a logged
+    /// error (never a crash) if the new format can't be converted.
+    private func rearmInputTapAfterConfigurationChange() {
+        guard didInstallInputTap,
+              let analyzerFormat,
+              let continuation = inputContinuation else { return }
+        Self.log.info("audio configuration changed; re-arming input tap")
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+        didInstallInputTap = false
+        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        guard let converter = SpeechAnalyzerAudioBufferConverter(
+            inputFormat: inputFormat,
+            outputFormat: analyzerFormat
+        ) else {
+            Self.log.error("could not rebuild audio converter after configuration change")
+            return
+        }
+        bufferConverter = converter
+        installInputTap(converter: converter, continuation: continuation, inputFormat: inputFormat)
+        do {
+            try engine.start()
+            Self.log.info("audio input re-armed after configuration change")
+        } catch {
+            Self.log.error("failed to restart audio engine after configuration change: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Route-change handling

@@ -285,6 +285,13 @@ extension TraceEvent {
 final class TextCapturePipeline {
 
     nonisolated static let maxCleanedTextCharacters = 10_000
+    /// Meeting transcripts persist at the full meeting cap (matches the in-memory
+    /// 2M transcript buffer). The 10k `maxCleanedTextCharacters` cap is a per-quick-
+    /// capture SUMMARY limit, NOT a meeting-body limit — routing a full meeting
+    /// transcript through it silently dropped ~70% of any meeting past ~12 minutes
+    /// while the UI reported "Saved." (audit 2026-07-03, CRITICAL). Meeting bodies
+    /// use this cap instead.
+    nonisolated static let maxMeetingBodyCharacters = 2_000_000
 
     private let traceCollector: TraceCollector
     private let sessionId: String
@@ -311,7 +318,8 @@ final class TextCapturePipeline {
     func run(
         rawText: String,
         modelContext: ModelContext? = nil,
-        sourceMetadata: CaptureSourceMetadata? = nil
+        sourceMetadata: CaptureSourceMetadata? = nil,
+        maxBodyCharacters: Int? = nil
     ) async throws -> CaptureResult {
         let traceId = UUID().uuidString
 
@@ -320,7 +328,9 @@ final class TextCapturePipeline {
             sessionId: sessionId, traceId: traceId, textLength: rawText.count
         ))
 
-        let cleaned = Self.stripHiddenCaptureMetadataComments(from: cleanText(rawText))
+        let cleaned = Self.stripHiddenCaptureMetadataComments(
+            from: cleanText(rawText, maxCharacters: maxBodyCharacters)
+        )
         guard !cleaned.isEmpty else {
             throw TextCaptureError.emptyCapture
         }
@@ -502,10 +512,11 @@ final class TextCapturePipeline {
 
     // MARK: - Text Cleaning
 
-    nonisolated func cleanText(_ raw: String) -> String {
+    nonisolated func cleanText(_ raw: String, maxCharacters: Int? = nil) -> String {
+        let limit = maxCharacters ?? Self.maxCleanedTextCharacters
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > Self.maxCleanedTextCharacters else { return trimmed }
-        return String(trimmed.prefix(Self.maxCleanedTextCharacters))
+        guard trimmed.count > limit else { return trimmed }
+        return String(trimmed.prefix(limit))
     }
 
     nonisolated static func stripHiddenCaptureMetadataComments(from body: String) -> String {
@@ -970,7 +981,10 @@ final class TextCapturePipeline {
         return try await run(
             rawText: rawText,
             modelContext: modelContext,
-            sourceMetadata: sourceMetadata
+            sourceMetadata: sourceMetadata,
+            // Meeting bodies persist at the full meeting cap, NOT the 10k quick-
+            // capture summary cap — otherwise a >12-minute meeting saves truncated.
+            maxBodyCharacters: Self.maxMeetingBodyCharacters
         )
     }
 }
