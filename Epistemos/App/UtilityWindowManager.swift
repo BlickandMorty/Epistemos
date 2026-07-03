@@ -327,15 +327,13 @@ final class UtilityWindowManager {
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
-            // Notes and Settings both contain long, scrollable source-list
-            // surfaces. Do not let SwiftUI's full content height become the
-            // NSPanel minimum size; the explicit UtilityPanel min/default
-            // sizes are the window contract.
-            if kind == .notes || kind == .settings {
-                host.sizingOptions = []
-            } else {
-                host.sizingOptions = .minSize
-            }
+            // Never let SwiftUI's content drive the NSPanel size — the explicit
+            // UtilityPanel min/default sizes are the window contract. Content-driven
+            // `.minSize` can resize the window AFTER it's shown (SwiftUI lays out
+            // asynchronously), which reads as a shake/jump when opening a page
+            // (owner-reported open glitch 2026-07-03). `[]` keeps the size stable;
+            // the explicit `panel.minSize` still enforces the floor.
+            host.sizingOptions = []
             let cornerRadius: CGFloat? = kind == .settings ? 22 : nil
             panel.contentView = WindowThemeStyler.themedContentView(
                 host: host,

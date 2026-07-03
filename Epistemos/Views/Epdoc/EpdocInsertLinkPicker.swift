@@ -68,6 +68,7 @@ public struct EpdocInsertLinkPicker: View {
     @State private var query: String = ""
     @State private var results: [EpdocLinkSuggestion] = []
     @State private var isSearching: Bool = false
+    @State private var searchTask: Task<Void, Never>?
 
     public init(
         search: @escaping @Sendable @MainActor (String) async -> [EpdocLinkSuggestion],
@@ -135,14 +136,19 @@ public struct EpdocInsertLinkPicker: View {
         )
         .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 6)
         .onChange(of: query) { _, newQuery in
-            Task { @MainActor in
+            // Cancel the prior search so a slow earlier query can't resolve after a
+            // newer one and clobber the suggestion list with stale results.
+            searchTask?.cancel()
+            searchTask = Task { @MainActor in
                 guard !newQuery.isEmpty,
                       !EpdocInsertLinkPicker.looksLikeURL(newQuery) else {
                     results = []
                     return
                 }
                 isSearching = true
-                results = await search(newQuery)
+                let found = await search(newQuery)
+                guard !Task.isCancelled else { return }
+                results = found
                 isSearching = false
             }
         }
