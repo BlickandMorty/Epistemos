@@ -175,7 +175,12 @@ final class EditorViewController: NSViewController {
     }
 
     let webView = EditorWebView(frame: .zero, configuration: config)
+    // WEB-2: the Web Inspector must NOT be enabled in release builds — it exposes the
+    // notes editor's DOM + native bridge to inspection on a shipped app. Vendored-MarkEdit
+    // edit (Epistemos hardening): re-apply this #if DEBUG gate on any MarkEdit re-vendor.
+    #if DEBUG
     webView.isInspectable = true
+    #endif
     webView.allowsMagnification = true
     webView.uiDelegate = self
     webView.actionDelegate = self

@@ -94,8 +94,8 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -109,42 +109,21 @@ targets:
           ENABLE_HARDENED_RUNTIME: true
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
         script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
         basedOnDependencyAnalysis: false
     dependencies:
-      - package: AXorcist
       - package: GRDB
       - package: Grape
-      - package: vmlx-swift
-        product: MLX
-      - package: vmlx-swift
-        product: MLXNN
-      - package: vmlx-swift
-        product: MLXOptimizers
-      - package: vmlx-swift
-        product: MLXLMCommon
-      - package: vmlx-swift
-        product: MLXLLM
-      - package: vmlx-swift
-        product: MLXVLM
-      - package: vmlx-swift
-        product: MLXHuggingFace
-      - package: vmlx-swift
-        product: VMLXHuggingFace
-      - package: vmlx-swift
-        product: VMLXTokenizers
       # WORK = OpenCode shell (owner 2026-06-21): SwiftTerm = the native terminal view
       # (NSView LocalProcessTerminalView + PTY) that renders OpenCode's REAL terminal TUI
       # natively (Option A — keep the real terminal UI, not an Electron GUI, not a native
       # rebuild). Drives WorkShellLaunchSpec via startProcess. Pure Swift, MIT.
       - package: SwiftTerm
         product: SwiftTerm
-      - package: GGUFRuntimeBridge
-        product: GGUFRuntimeBridge
       - package: KokoroPipeline
         product: KokoroPipeline
       - package: MarkEditCore
@@ -205,8 +184,6 @@ targets:
         type: syncedFolder
         includes:
           - "*.swift"
-        excludes:
-          - omega_ax.swift
     resources:
       - path: Epistemos/Resources
         excludes:
@@ -262,31 +239,10 @@ targets:
         script: |
           set -euo pipefail
           frameworks_dir="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
-          rm -f "${frameworks_dir}/libomega_ax.dylib"
-          rm -rf "${frameworks_dir}/AXorcist.framework"
-          rm -rf "${frameworks_dir}/llama.framework"
         basedOnDependencyAnalysis: false
     dependencies:
       - package: GRDB
       - package: Grape
-      - package: vmlx-swift
-        product: MLX
-      - package: vmlx-swift
-        product: MLXNN
-      - package: vmlx-swift
-        product: MLXOptimizers
-      - package: vmlx-swift
-        product: MLXLMCommon
-      - package: vmlx-swift
-        product: MLXLLM
-      - package: vmlx-swift
-        product: MLXVLM
-      - package: vmlx-swift
-        product: MLXHuggingFace
-      - package: vmlx-swift
-        product: VMLXHuggingFace
-      - package: vmlx-swift
-        product: VMLXTokenizers
       - package: KokoroPipeline
         product: KokoroPipeline
       - package: MarkEditCore
@@ -489,7 +445,6 @@ targets:
           copy_tree "epistemos-research"
           copy_tree "epistemos-vault"
           copy_tree "lean"
-          copy_tree "omega-ax"
           copy_tree "omega-mcp"
           copy_tree "substrate-core"
           copy_tree "substrate-rt"
@@ -522,7 +477,6 @@ targets:
           copy_file "build-rust.sh"
           copy_file "build-syntax-core.sh"
           copy_file "build-omega-mcp.sh"
-          copy_file "build-omega-ax.sh"
           copy_file "build-epistemos-core.sh"
           copy_file "build-agent-core.sh"
           copy_file "build-epistemos-shadow.sh"
@@ -544,31 +498,21 @@ targets:
         ALWAYS_SEARCH_USER_PATHS: false
         BUNDLE_LOADER: "$(TEST_HOST)"
         SWIFT_OBJC_BRIDGING_HEADER: Epistemos-Bridging-Header.h
-        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
+        SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
 
 packages:
-  AXorcist:
-    url: https://github.com/steipete/AXorcist.git
-    from: "0.1.0"
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
     version: 7.10.0
   Grape:
     url: https://github.com/SwiftGraphs/Grape
     from: 1.1.0
-  # Local MLX runtime consolidation (owner 2026-06-21): vmlx-swift provides the
-  # MLX module family used by Epistemos without adding a second MLX stack.
-  # Replaces ml-explore/mlx-swift + LocalPackages/mlx-swift-lm.
-  vmlx-swift:
-    path: LocalPackages/vmlx-swift
   # WORK = OpenCode shell native terminal view (owner 2026-06-21). SwiftTerm
   # (migueldeicaza/SwiftTerm, MIT) — the macOS NSView terminal emulator + PTY host.
   # Vendored locally (lean ~5 MB, offline-deterministic) like vmlx-swift.
   SwiftTerm:
     path: LocalPackages/SwiftTerm
-  GGUFRuntimeBridge:
-    path: LocalPackages/GGUFRuntimeBridge
   KokoroPipeline:
     path: LocalPackages/KokoroPipeline
   MarkEditCore:
@@ -577,19 +521,10 @@ packages:
     path: LocalPackages/MarkEdit/MarkEditKit
   MarkEditModules:
     path: LocalPackages/MarkEdit/MarkEditMac/Modules
-  # MLXStructured (petrukha-ivan/mlx-swift-structured) REMOVED in the local MLX
-  # consolidation (owner 2026-06-21): it pins ml-explore/mlx-swift, which would re-introduce
-  # the dual-MLX clash against vmlx-swift. Its consumer (LocalToolGrammar.swift) is
-  # `#if canImport(MLXStructured)`-guarded, so it degrades cleanly to the omegaSoftGuidance
-  # fallback. Re-evaluate once vmlx-swift's own structured/tool-parser surface is wired.
 
 schemes:
   Epistemos:
     build:
-      preActions:
-        - name: Patch MLX Metal Warning
-          script: bash "${SRCROOT}/scripts/patch_mlx_metal_warnings.sh"
-          settingsTarget: Epistemos
       targets:
         Epistemos: all
     test:
@@ -601,10 +536,6 @@ schemes:
       config: Release
   Epistemos-AppStore:
     build:
-      preActions:
-        - name: Patch MLX Metal Warning
-          script: bash "${SRCROOT}/scripts/patch_mlx_metal_warnings.sh"
-          settingsTarget: Epistemos-AppStore
       targets:
         Epistemos-AppStore: all
     run:

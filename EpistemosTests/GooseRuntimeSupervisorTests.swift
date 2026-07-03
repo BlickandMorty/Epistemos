@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Testing
 @testable import Epistemos
@@ -142,7 +143,7 @@ struct GooseRuntimeSupervisorTests {
     func masInProcessACPSchedulerListUsesWebUIShape() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseInProcessACPServer.swift")
         #expect(source.contains(#"case "_goose/unstable/schedules/list":"#))
-        #expect(source.contains(#"emptySchedulesResult()"#))
+        #expect(source.contains(#"boundedSchedulesResult()"#))
         #expect(source.contains(#""jobs": []"#))
     }
 
@@ -287,16 +288,18 @@ struct GooseRuntimeSupervisorTests {
     @Test("supervisor refuses to reuse a stale health endpoint before spawning")
     @MainActor
     func supervisorRefusesStaleHealthEndpoint() async throws {
+        let port = try Self.freeLoopbackPort()
         let supervisor = GooseRuntimeSupervisor()
         supervisor.start(
             binary: URL(fileURLWithPath: "/bin/echo"),
             secretKey: "secret-123",
+            port: port,
             healthCheck: { _ in true }
         )
 
         try await waitUntilSupervisorStatus {
             guard case .failed(let message) = supervisor.status else { return false }
-            return message.contains("3284") && message.contains("already")
+            return message.contains(String(port)) && message.contains("already")
         }
     }
 
@@ -307,11 +310,13 @@ struct GooseRuntimeSupervisorTests {
         // `goose serve` still releasing the socket on a restart) then goes down.
         // The supervisor must NOT declare the port occupied; it proceeds to launch
         // (and then fails on the immediately-exiting /bin/echo, not on "already").
+        let port = try Self.freeLoopbackPort()
         let probes = GoosePortProbeSequence(upProbes: 1)
         let supervisor = GooseRuntimeSupervisor()
         supervisor.start(
             binary: URL(fileURLWithPath: "/bin/echo"),
             secretKey: "secret-123",
+            port: port,
             healthCheck: { _ in await probes.probe() }
         )
 
@@ -319,6 +324,35 @@ struct GooseRuntimeSupervisorTests {
             guard case .failed(let message) = supervisor.status else { return false }
             return !message.contains("already")
         }
+    }
+
+    private static func freeLoopbackPort() throws -> Int {
+        let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+        guard descriptor >= 0 else { throw POSIXError(.EADDRNOTAVAIL) }
+        defer { close(descriptor) }
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = in_port_t(0)
+        address.sin_addr = in_addr(s_addr: inet_addr(GooseRuntimeSupervisor.defaultHost))
+
+        let bindResult = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                bind(descriptor, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard bindResult == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EADDRNOTAVAIL) }
+
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let nameResult = withUnsafeMutablePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                getsockname(descriptor, sockaddrPointer, &length)
+            }
+        }
+        guard nameResult == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EADDRNOTAVAIL) }
+
+        return Int(UInt16(bigEndian: address.sin_port))
     }
 
     @Test("listening lines parse only loopback Goose ACP base URLs")
@@ -516,6 +550,22 @@ struct GooseRuntimeSupervisorTests {
         #expect(guardCount >= 3, "expected cancellation guards in loadWhenReady + loadGooseUIWhenReady + native ACP loop; found \(guardCount)")
     }
 
+    @Test("Goose disappear cleanup defers state writes outside SwiftUI route updates")
+    func gooseDisappearCleanupDefersStateWritesOutsideRouteUpdates() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+        #expect(source.contains(".onDisappear {\n            scheduleSurfaceTeardown()"))
+        #expect(source.contains("private func scheduleSurfaceTeardown()"))
+        #expect(source.contains("Task { @MainActor in\n            await Task.yield()\n            performSurfaceTeardown()"))
+        #expect(source.contains("private func performSurfaceTeardown()"))
+        let disappearRange = try #require(source.range(of: ".onDisappear {"))
+        let disappearEnd = try #require(source.range(of: "\n        }\n    }", range: disappearRange.upperBound..<source.endIndex))
+        let disappearSource = String(source[disappearRange.lowerBound..<disappearEnd.upperBound])
+        #expect(!disappearSource.contains("surfaceStarted = false"))
+        #expect(!disappearSource.contains("runtimeRetryTask = nil"))
+        #expect(!disappearSource.contains("supervisor.stop()"))
+        #expect(!disappearSource.contains("gooseUIServer?.stop()"))
+    }
+
     @Test("ACP reconnect budget resets on a successful connect (transient flaps don't exhaust the lifetime)")
     func acpReconnectBudgetResetsOnSuccessfulConnect() throws {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseACPEventBridge.swift")
@@ -634,8 +684,8 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("private func readGitDiff(_ path: String)"))
         #expect(bridge.contains("\"pullRequestURL\": pullRequestURLValue"))
         #expect(bridge.contains("\"pullRequestSearchURL\": pullRequestSearchURLValue"))
-        #expect(bridge.contains("private func gitHubPullRequestContext(_ path: String, git: String)"))
-        #expect(bridge.contains("private func readGitStatus(_ path: String, git: String)"))
+        #expect(bridge.contains("nonisolated private static func gitHubPullRequestContext("))
+        #expect(bridge.contains("nonisolated private static func readGitStatus("))
         #expect(bridge.contains("private func readGitHubCompareURL(_ path: String)"))
         #expect(bridge.contains("nonisolated static func gitHubRepositoryPath(from remote: String) -> String?"))
         #expect(bridge.contains("nonisolated static func gitHubCompareURL(repositoryPath: String, branch: String) -> String?"))
@@ -647,6 +697,80 @@ struct GooseRuntimeSupervisorTests {
         #expect(bridge.contains("String(data: outputData, encoding: .utf8)"))
         #expect(!bridge.contains("readDataToEndOfFile()"))
         #expect(!bridge.contains("drainBox.data = stdoutHandle.readDataToEndOfFile()"))
+    }
+
+    @Test("Goose git affordances bypass the synchronous dispatcher")
+    func gooseGitAffordancesBypassSynchronousDispatcher() throws {
+        let bridge = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+
+        #expect(bridge.contains("let offMainGitAffordances: Set<String>"))
+        #expect(bridge.contains("\"listGitWorktreeDirs\", \"readGitDiff\", \"readGitHubCompareURL\""))
+        #expect(bridge.contains("replyHandler(await self.readGitDiffOffMain(path), nil)"))
+        #expect(bridge.contains("replyHandler(await self.readGitHubCompareURLOffMain(path), nil)"))
+        #expect(bridge.contains("Task.detached(priority: .userInitiated)"))
+        #expect(bridge.contains("private nonisolated final class GooseAffordanceDictionaryBox: @unchecked Sendable"))
+    }
+
+    @Test("Goose git affordance helpers stay consolidated and single-spawn")
+    func gooseGitAffordanceHelpersStayConsolidatedAndSingleSpawn() throws {
+        let bridge = try loadRepoTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
+
+        #expect(bridge.contains("private func gitDirectoryInvocation("))
+        #expect(bridge.contains("private func runOffMainGitDictionary("))
+        #expect(!bridge.contains("private func gitWorktreeInvocation("))
+
+        guard let worktreeRange = bridge.range(of: "    nonisolated static func runGitWorktreeList("),
+              let readDiffRange = bridge.range(
+                of: "    private func readGitDiff(_ path: String)",
+                range: worktreeRange.upperBound..<bridge.endIndex
+              ) else {
+            Issue.record("Failed to isolate runGitWorktreeList in GooseWebNativeAffordanceBridge.swift")
+            return
+        }
+
+        let worktreeSource = String(bridge[worktreeRange.lowerBound..<readDiffRange.lowerBound])
+        let executableAssignments = worktreeSource.components(separatedBy: "process.executableURL =").count - 1
+        #expect(executableAssignments == 1)
+    }
+
+    @Test("Goose Web UI root resolution stays off the startup render path")
+    func gooseWebUIRootResolutionStaysOffStartupRenderPath() throws {
+        let surface = try loadRepoTextFile("Epistemos/Goose/GooseWebSurfaceView.swift")
+
+        #expect(surface.contains("private nonisolated final class GooseWebUIIndexBox: @unchecked Sendable"))
+        #expect(surface.contains("private func resolvedGooseUIIndexOffMain() async -> URL?"))
+        #expect(surface.contains("gooseUIRoot: nil"))
+        #expect(surface.contains("let index = await resolvedGooseUIIndexOffMain()"))
+        #expect(surface.contains("private func rebuildPageIfNeeded(for connection: GooseRuntimeConnection, gooseUIRoot: URL?)"))
+
+        guard let initRange = surface.range(of: "    init(theme: EpistemosTheme = .nativeDefault, route: String = \"/?\") {"),
+              let bodyRange = surface.range(of: "    var body: some View {", range: initRange.upperBound..<surface.endIndex) else {
+            Issue.record("Failed to isolate GooseWebSurfaceView.init")
+            return
+        }
+        let initSource = String(surface[initRange.lowerBound..<bodyRange.lowerBound])
+        #expect(!initSource.contains("resolvedGooseUIRoot"))
+        #expect(!initSource.contains("resolvedGooseUIIndex"))
+    }
+
+    @Test("Goose command menu does not resolve availability during startup command construction")
+    func gooseCommandMenuDoesNotResolveAvailabilityDuringStartupCommandConstruction() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        guard let commandsRange = app.range(of: "struct EpistemosCommands: Commands {"),
+              let helpersRange = app.range(
+                of: "\n    @MainActor\n    private func createHTMLWorkspaceDocument()",
+                range: commandsRange.upperBound..<app.endIndex
+              ) else {
+            Issue.record("Failed to isolate EpistemosCommands in EpistemosApp.swift")
+            return
+        }
+
+        let commandsSource = String(app[commandsRange.lowerBound..<helpersRange.lowerBound])
+        #expect(commandsSource.contains("Button(\"Open Epistemos Goose\")"))
+        #expect(!commandsSource.contains("GooseSurfaceAvailability.current()"))
+        #expect(!commandsSource.contains("gooseAvailability"))
+        #expect(!commandsSource.contains(".disabled(!gooseAvailability.isReady)"))
     }
 
     @Test("ACP per-frame decode is contained — a drifted known-method payload becomes unhandled*, not fatal")
@@ -768,6 +892,25 @@ struct GooseWebUIResolverTests {
         let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
         #expect(source.contains("safeEnvironmentPath(environment[explicitIndexEnvironmentKey])"))
         #expect(source.contains("diagnosticValue(environment[\"TEST_HOST\"])"))
+    }
+
+    @Test("resolver keeps activation-time path checks lexical")
+    func resolverKeepsActivationPathChecksLexical() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
+
+        #expect(source.contains("normalizedFilePath("))
+        #expect(!source.contains(".standardizedFileURL"))
+    }
+
+    @Test("resolver short-circuits activation candidates without quadratic path scans")
+    func resolverShortCircuitsActivationCandidatesWithoutQuadraticPathScans() throws {
+        let source = try loadRepoTextFile("Epistemos/Goose/GooseWebUIResolver.swift")
+
+        #expect(source.contains("forEachCandidateIndexURL("))
+        #expect(source.contains("return true"))
+        #expect(source.contains("private struct UniqueURLAccumulator"))
+        #expect(source.contains("seenPaths.insert(path).inserted"))
+        #expect(!source.contains("urls.contains(where:"))
     }
 
     @Test("resolver finds a bundled Goose Web UI index in the goose-desktop resource subdirectory")

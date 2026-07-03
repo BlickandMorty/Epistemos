@@ -372,40 +372,10 @@ struct RuntimeValidationTests {
         }
     }
 
-    @MainActor
-    @Test("inference keeps only local routing defaults after legacy cleanup")
-    func inferenceKeepsOnlyLocalRoutingDefaults() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-
-            #expect(inference.routingMode == .auto)
-            #expect(inference.preferredLocalTextModelID == LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue)
-            #expect(
-                inference.preferredChatModelSelection
-                    == .localMLX(LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue)
-            )
-        }
-    }
-
-    @MainActor
-    @Test("tool-capable local selections expose agent mode to compact chat surfaces")
-    func toolCapableLocalSelectionsExposeAgentModeToCompactChatSurfaces() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-            let modelID = LocalTextModelID.qwen3CoderNext4Bit.rawValue
-
-            inference.setInstalledLocalTextModelIDs([modelID])
-            inference.setPreparedLocalTextModelIDs([modelID])
-            inference.setPreferredChatModelSelection(.localMLX(modelID))
-
-            let modes = inference.availableOperatingModes(
-                for: inference.preferredChatModelSelection
-            )
-
-            #expect(modes.contains(.fast))
-            #expect(modes.contains(.agent))
-        }
-    }
+    // Cloud-only migration: removed "inference keeps only local routing defaults"
+    // (routingMode / preferredLocalTextModelID / recommendedLocalTextModelID deleted)
+    // and "tool-capable local selections expose agent mode …" (LocalTextModelID +
+    // setInstalled/PreparedLocalTextModelIDs deleted).
 
     @Test("inference migrates legacy secure cloud keys and selections forward")
     func inferenceMigratesLegacyCloudConfigurationForward() throws {
@@ -455,20 +425,10 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("inference.preferredCloudModel(for: provider)"))
     }
 
-    @Test("local model toolbar subtitles do not query runtime modes per row")
-    func localModelToolbarSubtitlesDoNotQueryRuntimeModesPerRow() throws {
-        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
-        let marker = "private func localModelSubtitle(for model: LocalModelDescriptor) -> String"
-        let subtitleTail = try #require(rootView.components(separatedBy: marker).dropFirst().first)
-        let subtitleSection = subtitleTail.components(separatedBy: "private func providerSelectionSubtitle")
-            .first ?? ""
-
-        #expect(rootView.contains("localModelSubtitleCache"))
-        #expect(rootView.contains("localModelSubtitleInputsFingerprint"))
-        #expect(rootView.contains("refreshLocalModelSubtitleCache()"))
-        #expect(rootView.contains("staticLocalModelSubtitle("))
-        #expect(!subtitleSection.contains("availableOperatingModes(for:"))
-    }
+    // "local model toolbar subtitles do not query runtime modes per row" removed with
+    // cloud-only/Omega removal 2026-07-03 — the local-model subtitle machinery
+    // (localModelSubtitle(for: LocalModelDescriptor) / localModelSubtitleCache / etc.) was deleted
+    // from RootView with the local-model UI.
 
     @Test("managed tool runtime falls back to a writable scratch vault when no vault is attached")
     func managedToolRuntimeFallsBackToWritableScratchVaultWhenNoVaultIsAttached() throws {
@@ -591,7 +551,8 @@ struct RuntimeValidationTests {
         )
 
         #expect(!bootstrap.contains("Local agent model loaded:"))
-        #expect(bootstrap.contains("Local agent model selected:"))
+        // `bootstrap.contains("Local agent model selected:")` removed with cloud-only/Omega
+        // removal 2026-07-03 — the local-agent model-selection log was deleted with the local stack.
     }
 
     @Test("startup warmups only schedule Metal shader warmup outside tests and debug builds")
@@ -623,20 +584,10 @@ struct RuntimeValidationTests {
         #expect(!source.contains("shouldSuperviseHermesAtLaunch"))
     }
 
-    @Test("local runtime health is wired from mlx and gguf inference into settings surfaces")
-    func localRuntimeHealthIsWiredIntoSettingsSurfaces() throws {
-        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let settingsView = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
-
-        #expect(appBootstrap.contains("setOnRunProfileUpdated"))
-        #expect(appBootstrap.contains("setLatestLocalRuntimeProfile(profile)"))
-        #expect(appBootstrap.contains("localGGUFClient.setOnRunProfileUpdated"))
-        #expect(appBootstrap.contains("setLatestLocalRuntimeHealth(LocalRuntimeHealthSnapshot(profile))"))
-        #expect(settingsView.contains("Runtime Status"))
-        #expect(settingsView.contains("Last Local Run"))
-        #expect(settingsView.contains("inference.localRuntimeStatusSummary"))
-        #expect(settingsView.contains("inference.localRuntimeStatusDetail"))
-    }
+    // "local runtime health is wired from mlx and gguf inference into settings surfaces" removed
+    // with cloud-only/Omega removal 2026-07-03 — the local-runtime health wiring (localGGUFClient /
+    // LocalRuntimeHealthSnapshot / setLatestLocalRuntimeProfile / localRuntimeStatus*) was deleted
+    // with the MLX/GGUF stack; the app is cloud-only.
 
     @Test("live notes route through the global staged vault approval flow")
     func liveNotesRouteThroughGlobalStagedVaultApprovalFlow() throws {
@@ -817,8 +768,8 @@ struct RuntimeValidationTests {
         #expect(!appBootstrap.contains("var dualBrainRouter: DualBrainRouter"))
         #expect(!appBootstrap.contains("self._dualBrainRouter = DualBrainRouter("))
         #expect(!appEnvironment.contains(".environment(bootstrap.dualBrainRouter)"))
-        #expect(appBootstrap.contains("Initialize device-action infrastructure"))
-        #expect(appBootstrap.contains("deviceAgent.setBackend("))
+        // "Initialize device-action infrastructure" / deviceAgent.setBackend asserts removed
+        // with cloud-only/Omega removal 2026-07-03 (the device-action infra was deleted).
     }
 
     @Test("archived runtime shims are compile-time unavailable so they cannot drift back into the live app")
@@ -889,7 +840,9 @@ struct RuntimeValidationTests {
         let searchIndex = try loadRepoTextFile("Epistemos/Sync/SearchIndexService.swift")
         let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
         let paperclipStore = try loadRepoTextFile("Epistemos/State/PaperclipStateStore.swift")
-        let localModels = try loadRepoTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+        // localModels (LocalModelInfrastructure.swift) dropped from the FoundationSafety-routing
+        // list with cloud-only/Omega removal 2026-07-03 — its local-model persistence (which used
+        // FoundationSafety.userApplicationSupportDirectory) was gutted; it is no longer a persistence surface.
         let traceCollector = try loadRepoTextFile("Epistemos/Harness/TraceCollector.swift")
         let harnessRegistry = try loadRepoTextFile("Epistemos/Harness/HarnessRegistry.swift")
         let progressStore = try loadRepoTextFile("Epistemos/Harness/ProgressStore.swift")
@@ -900,7 +853,7 @@ struct RuntimeValidationTests {
         let appGroupContainer = try loadRepoTextFile("Epistemos/App/AppGroupContainer.swift")
         let quarantineArchive = try loadRepoTextFile("Epistemos/Engine/QuarantineArchive.swift")
         let capabilityManifest = try loadRepoTextFile("Epistemos/Engine/CapabilityManifestBuilder.swift")
-        let deviceAgent = try loadRepoTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
+        // deviceAgent (DeviceAgentService.swift) removed with cloud-only/Omega removal 2026-07-03
         let traceInspector = try loadRepoTextFile("Epistemos/Views/Capture/TraceInspectorView.swift")
 
         #expect(extensions.contains("Epistemos-TestRuntime"))
@@ -918,7 +871,6 @@ struct RuntimeValidationTests {
             searchIndex,
             vaultSync,
             paperclipStore,
-            localModels,
             traceCollector,
             harnessRegistry,
             progressStore,
@@ -929,7 +881,6 @@ struct RuntimeValidationTests {
             appGroupContainer,
             quarantineArchive,
             capabilityManifest,
-            deviceAgent,
             traceInspector,
         ] {
             #expect(source.contains("FoundationSafety.userApplicationSupportDirectory"))
@@ -993,114 +944,27 @@ struct RuntimeValidationTests {
         #expect(!config.contains("resetMalformedBundleList"))
     }
 
-    @MainActor
-    @Test("thinking operating mode sanitizes unsupported chat model selections")
-    func thinkingOperatingModeSanitizesUnsupportedSelections() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-            inference.setInstalledLocalTextModelIDs([
-                LocalTextModelID.qwen35_4B4Bit.rawValue,
-                LocalTextModelID.smolLM3_3B4Bit.rawValue,
-            ])
-
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
-
-            inference.setPreferredChatModelSelection(.appleIntelligence)
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
-
-            inference.setPreferredLocalTextModelID(LocalTextModelID.smolLM3_3B4Bit.rawValue)
-            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
-        }
-    }
-
-    @MainActor
-    @Test("thinking operating mode stays off for local models without verified responsive thinking support")
-    func thinkingOperatingModeStaysOffForUnverifiedThinkingLocalModels() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-            inference.setInstalledLocalTextModelIDs([
-                LocalTextModelID.qwen35_0_8B4Bit.rawValue,
-                LocalTextModelID.qwen35_2B4Bit.rawValue,
-                LocalTextModelID.qwen3_4B4Bit.rawValue,
-            ])
-
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_0_8B4Bit.rawValue))
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes.contains(.fast))
-            #expect(!inference.availableOperatingModes.contains(.thinking))
-
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue))
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes.contains(.fast))
-            #expect(!inference.availableOperatingModes.contains(.thinking))
-
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast])
-        }
-    }
-
-    @MainActor
-    @Test("thinking operating mode stays off for installed local models without verified think support")
-    func thinkingOperatingModeStaysOffForInstalledNonThinkingLocalModels() async {
-        await withResetInferenceDefaults {
-            let inference = InferenceState()
-            inference.setInstalledLocalTextModelIDs([LocalTextModelID.smolLM3_3B4Bit.rawValue])
-            inference.setPreferredLocalTextModelID(LocalTextModelID.smolLM3_3B4Bit.rawValue)
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.smolLM3_3B4Bit.rawValue))
-
-            #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
-        }
-    }
+    // Cloud-only migration: removed the local-model thinking-mode gating tests
+    // ("… sanitizes unsupported chat model selections", "… stays off for local
+    // models without verified responsive thinking support", "… stays off for
+    // installed local models without verified think support") and the local
+    // hardware-tier support test — all drove deleted LocalTextModelID /
+    // setInstalled/PreferredLocalTextModelIDs machinery.
 
     @MainActor
     @Test("available operating modes match the active chat selection")
     func availableOperatingModesMatchTheActiveSelection() async {
         await withResetInferenceDefaults {
             let inference = InferenceState()
-            inference.setInstalledLocalTextModelIDs([
-                LocalTextModelID.qwen3_4B4Bit.rawValue,
-                LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
-            ])
-
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
-            #expect(inference.availableOperatingModes == [.fast])
-
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.llama32_3BInstruct4Bit.rawValue))
-            #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.appleIntelligence)
             #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
             // GPT-5.4-Mini legitimately supports Fast and Agent per its
-            // cloud capability manifest. The previous assertion expected
-            // `[.fast]` because `setPreferredChatModelSelection(.cloud(...))`
-            // used to silently revert to local when the provider had no
-            // API key in this test fixture — masking the real cloud
-            // capabilities. With that silent swap removed, the cloud
-            // selection is honored and the available-modes list reflects
-            // what the model actually offers.
+            // cloud capability manifest.
             #expect(inference.availableOperatingModes == [.fast, .agent])
         }
-    }
-
-    @Test("18 GB hardware supports both 4B and 9B local Qwen tiers")
-    func hardwareSupportIncludes9BOn18GBMachines() {
-        let snapshot = LocalHardwareCapabilitySnapshot(
-            physicalMemoryBytes: 18_000_000_000,
-            roundedMemoryGB: 18,
-            maxRecommendedLocalContentLength: 10_000
-        )
-
-        #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_4B4Bit.rawValue))
-        #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
     }
 
     @Test("landing no longer mounts runtime model selection")
@@ -1187,9 +1051,10 @@ struct RuntimeValidationTests {
         let embedAndSignHelper = try loadRepoTextFile("embed-and-sign-rust-dylib.sh")
         let bundleAssetsScript = try loadRepoTextFile("bundle-app-runtime-assets.sh")
 
+        // build-omega-ax.sh segment removed from the chain with cloud-only/Omega removal 2026-07-03
         #expect(
             project.contains(
-                "bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-syntax-core.sh\\\" && bash \\\"${SRCROOT}/build-omega-mcp.sh\\\" && bash \\\"${SRCROOT}/build-omega-ax.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""
+                "bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-syntax-core.sh\\\" && bash \\\"${SRCROOT}/build-omega-mcp.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""
             )
         )
         #expect(project.contains("Bundle Runtime Assets"))
@@ -1197,7 +1062,7 @@ struct RuntimeValidationTests {
         #expect(project.contains("-lepistemos_core"))
         #expect(project.contains("-lsyntax_core"))
         #expect(project.contains("-lomega_mcp"))
-        #expect(project.contains("-lomega_ax"))
+        #expect(!project.contains("-lomega_ax"))  // omega-ax removed with cloud-only/Omega removal 2026-07-03
         #expect(project.contains("epistemos_coreFFI"))
         #expect(project.contains("\"@executable_path\","))
         #expect(project.contains("\"@loader_path/../Frameworks\","))
@@ -1314,10 +1179,10 @@ struct RuntimeValidationTests {
         let graphEngine = try loadRepoTextFile("build-rust.sh")
         let syntaxCore = try loadRepoTextFile("build-syntax-core.sh")
         let omegaMcp = try loadRepoTextFile("build-omega-mcp.sh")
-        let omegaAx = try loadRepoTextFile("build-omega-ax.sh")
+        // build-omega-ax.sh removed with cloud-only/Omega removal 2026-07-03
         let epistemosCore = try loadRepoTextFile("build-epistemos-core.sh")
 
-        for script in [graphEngine, syntaxCore, omegaMcp, omegaAx, epistemosCore] {
+        for script in [graphEngine, syntaxCore, omegaMcp, epistemosCore] {
             #expect(script.contains("ENABLE_THREAD_SANITIZER"))
             #expect(script.contains("CARGO_PROFILE_DEV_PANIC=abort"))
             #expect(script.contains("RUSTFLAGS"))
@@ -1329,16 +1194,15 @@ struct RuntimeValidationTests {
     func omegaFFICratesBuildAndEmbedDylibsInsteadOfStaticArchives() throws {
         let project = try loadRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
         let omegaMcp = try loadRepoTextFile("build-omega-mcp.sh")
-        let omegaAx = try loadRepoTextFile("build-omega-ax.sh")
-
+        // build-omega-ax.sh + omega_ax link/FFI removed with cloud-only/Omega removal 2026-07-03
         #expect(project.contains("-lomega_mcp"))
-        #expect(project.contains("-lomega_ax"))
+        #expect(!project.contains("-lomega_ax"))
         #expect(project.contains("omega_mcpFFI"))
-        #expect(project.contains("omega_axFFI"))
+        #expect(!project.contains("omega_axFFI"))
         #expect(!project.contains("$(SRCROOT)/build-rust/libomega_mcp.a"))
         #expect(!project.contains("$(SRCROOT)/build-rust/libomega_ax.a"))
 
-        for script in [omegaMcp, omegaAx] {
+        for script in [omegaMcp] {
             #expect(script.contains("cargo build --target aarch64-apple-darwin"))
             #expect(script.contains("cargo build --target x86_64-apple-darwin"))
             #expect(script.contains("lipo -create"))
@@ -1827,17 +1691,9 @@ struct RuntimeValidationTests {
         #expect(utilityManager.contains("window.makeKeyAndOrderFront(nil)"))
     }
 
-    @Test("legacy omega utility routing surfaces home without deleted chat state")
-    func omegaUtilityRoutingForwardsIntoMainChat() throws {
-        let utilityManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
-
-        #expect(utilityManager.contains("if panel == .omega"))
-        #expect(utilityManager.contains("routeOmegaPanelToMainChat()"))
-        #expect(utilityManager.contains("bootstrap.uiState.setActivePanel(.home)"))
-        #expect(utilityManager.contains("bootstrap.uiState.homeTab = .home"))
-        #expect(!utilityManager.contains("bootstrap.chatState"))
-        #expect(utilityManager.contains("HomeWindowIdentity.surfaceHomeWindow()"))
-    }
+    // "legacy omega utility routing surfaces home without deleted chat state" removed with
+    // cloud-only/Omega removal 2026-07-03 — the .omega UtilityPanel and its routing handler
+    // (if panel == .omega / routeOmegaPanelToMainChat()) were deleted from UtilityWindowManager.
 
     @Test("bootstrap removes native agent chat state with deleted chat surface")
     func bootstrapRemovesNativeAgentChatStateWithDeletedChatSurface() throws {
@@ -2520,7 +2376,8 @@ struct RuntimeValidationTests {
     func graphSummariesStayAppleFirst() throws {
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
 
-        #expect(inspector.contains("Try Apple Intelligence first for a fast on-device summary, then local Qwen."))
+        // "…then local Qwen." copy assertion removed with cloud-only/Omega removal 2026-07-03 —
+        // the local-Qwen fallback clause is gone; graph summaries stay on Apple Intelligence (kept).
         #expect(inspector.contains("AppleIntelligenceService.shared.generate("))
     }
 
@@ -2651,11 +2508,12 @@ struct RuntimeValidationTests {
     func appleFallbackKeepsVisibleResponseWhenLocalFallbackFails() throws {
         let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
 
-        #expect(triage.contains("Log.engine.info(\"Local model fallback also failed — using Apple Intelligence response\")"))
+        // "Local model fallback also failed…" log + `localSelection: localSelection.selection`
+        // removed with cloud-only/Omega removal 2026-07-03 — the local-model fallback path was
+        // deleted; the Apple Intelligence response-preservation assertions below stay valid.
         #expect(triage.contains("continuation.yield(result)"))
         #expect(!triage.contains("if !Self.isRefusalResponse(result)"))
         #expect(triage.contains("selectedRoute: .appleIntelligence"))
-        #expect(triage.contains("localSelection: localSelection.selection"))
     }
 
     @Test("chat model selection can explicitly force Apple Intelligence")
@@ -4043,14 +3901,11 @@ struct RuntimeValidationTests {
     @Test("main actor capture and vault helpers offload blocking subprocess waits")
     func mainActorCaptureAndVaultHelpersOffloadBlockingSubprocessWaits() throws {
         let vaultMutator = try loadRepoTextFile("Epistemos/Vault/VaultChatMutator.swift")
-        let screenCapture = try loadRepoTextFile("Epistemos/Omega/Vision/ScreenCaptureService.swift")
+        // screenCapture (ScreenCaptureService.swift) removed with cloud-only/Omega removal 2026-07-03
 
         #expect(vaultMutator.contains("private nonisolated func runGitOffMain("))
         #expect(vaultMutator.contains("try await runGitOffMain("))
         #expect(vaultMutator.contains("DispatchQueue.global(qos: .utility).async"))
-
-        #expect(screenCapture.contains("private nonisolated func restartReplayd("))
-        #expect(screenCapture.contains("await restartReplayd("))
     }
 
     #if false
@@ -4071,16 +3926,9 @@ struct RuntimeValidationTests {
         #expect(appSupervisor.contains("catch is CancellationError"))
     }
 
-    @Test("Ambient capture runtime paths no longer swallow debounce or parse failures")
-    func ambientCaptureRuntimePathsNoLongerSwallowFailures() throws {
-        let ambientCapture = try loadRepoTextFile("Epistemos/State/AmbientCaptureService.swift")
-
-        #expect(!ambientCapture.contains("try? await Task.sleep(nanoseconds: 300_000_000)"))
-        #expect(!ambientCapture.contains("let tree = try? JSONSerialization.jsonObject(with: data) as? [String: Any]"))
-        #expect(!ambientCapture.contains("return patterns.compactMap { try? NSRegularExpression(pattern: $0) }"))
-        #expect(ambientCapture.contains("AmbientCapture: failed to decode AX tree JSON"))
-        #expect(ambientCapture.contains("failed to compile secret redaction pattern"))
-    }
+    // "Ambient capture runtime paths no longer swallow debounce or parse failures" removed
+    // with cloud-only/Omega removal 2026-07-03 — AmbientCaptureService.swift (Omega ambient
+    // capture chain: ScreenCapture -> Screen2AXFusion -> VisualVerifyLoop -> AmbientCapture) was deleted.
 
     @Test("duration formatters guard non-finite doubles before Int conversion")
     func durationFormattersGuardNonFiniteDoublesBeforeIntConversion() throws {
@@ -4151,25 +3999,9 @@ struct InferenceCloudSelectionTests {
         try await body()
     }
 
-    @MainActor
-    @Test("unconfigured cloud selection keeps a visible cloud intent while preserving the local fallback")
-    func unconfiguredCloudSelectionKeepsVisibleCloudIntentWhilePreservingLocalFallback() async {
-        await withResetInferenceDefaults {
-            let store = TestKeychainStore()
-            let inference = InferenceState(
-                keychainLoad: store.load(_:),
-                keychainSave: store.save(_:_:),
-                keychainDelete: store.delete(_:)
-            )
-            let fallback = ChatModelSelection.localMLX(inference.preferredLocalTextModelID)
-
-            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
-
-            #expect(inference.preferredChatModelSelection == fallback)
-            #expect(inference.inferenceMode == .api)
-            #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .cloud(.openAIGPT54))
-        }
-    }
+    // Cloud-only migration: "unconfigured cloud selection keeps a visible cloud
+    // intent while preserving the local fallback" removed — the local-fallback
+    // (.localMLX(preferredLocalTextModelID)) behavior it asserted was deleted.
 
     @MainActor
     @Test("curated provider cloud preferences normalize hidden models back to visible picker models")
@@ -4240,13 +4072,6 @@ struct InferenceCloudSelectionTests {
             #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeSonnet46))
 
             inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeOpus47))
-            inference.setActiveAIProvider(.localOnly)
-            #expect(inference.preferredChatModelSelection == .localMLX(inference.preferredLocalTextModelID))
-
-            inference.setActiveAIProvider(.anthropic)
-            #expect(inference.preferredChatModelSelection == .localMLX(inference.preferredLocalTextModelID))
-
-            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeOpus47))
             inference.setActiveAIProvider(.openAI)
             inference.setActiveAIProvider(.anthropic)
             #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeOpus47))
@@ -4278,7 +4103,6 @@ struct InferenceCloudSelectionTests {
 
             inference.setCloudModelsEnabled(false)
             #expect(inference.activeAIProvider == .localOnly)
-            #expect(inference.preferredChatModelSelection == .localMLX(inference.preferredLocalTextModelID))
 
             inference.setCloudModelsEnabled(true)
             #expect(inference.activeAIProvider == .anthropic)
@@ -4798,21 +4622,9 @@ struct InferenceCloudSelectionTests {
         #expect(!source.contains("case .zai:"))
     }
 
-    @Test("local model picker uses curated display names outside the unified qwen row")
-    func localModelPickerUsesCuratedDisplayNamesOutsideUnifiedQwenRow() throws {
-        let source = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/State/InferenceState.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(source.contains("return \"Qwen 3\""))
-        // The picker's route name (`localRouteDisplayName`) resolves the FULL
-        // displayName — with a GemmaQATRuntimeLadder fallback for gated GGUF —
-        // not the compact variant.
-        #expect(source.contains("func localRouteDisplayName"))
-        #expect(source.contains("LocalTextModelID(rawValue: modelID)?.displayName"))
-        #expect(!source.contains("localRouteDisplayName(for modelID: String) -> String {\n        LocalTextModelID(rawValue: modelID)?.compactDisplayName"))
-    }
+    // "local model picker uses curated display names outside the unified qwen row" removed
+    // with cloud-only/Omega removal 2026-07-03 — LocalTextModelID / localRouteDisplayName /
+    // the local display-name catalog ("Qwen 3", etc.) were deleted from InferenceState.
 
     @MainActor
     @Test("clearing the active cloud provider key sanitizes the selected chat model")
@@ -4824,7 +4636,9 @@ struct InferenceCloudSelectionTests {
 
         #expect(source.contains("guard let activeCloudProvider = provider.cloudProvider else"))
         #expect(source.contains("guard hasConfiguredCloudAccess(for: activeCloudProvider) else"))
-        #expect(source.contains("persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))"))
+        // persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID)) assert removed
+        // with cloud-only/Omega removal 2026-07-03 — preferredLocalTextModelID was deleted; the
+        // sanitizer now persists a cloud fallback selection.
     }
 
     #if false
@@ -4898,31 +4712,10 @@ struct InferenceCloudSelectionTests {
         #expect(!iMessageSettings.contains("write to the vault without prompting"))
     }
 
-    @Test("cloud fallback chains try the local runtime before Apple Intelligence")
-    func cloudFallbackChainsPreferLocalBeforeApple() throws {
-        let triage = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Engine/TriageService.swift",
-            testsFilePath: #filePath
-        )
-
-        let generateLocal = try #require(
-            triage.range(
-                of: "lastDecision = .localMLX\n                return try await localGenerateOrFallback("
-            )
-        )
-        let generateApple = try #require(triage.range(of: "if inference.appleIntelligenceAvailable {"))
-        #expect(generateLocal.lowerBound < generateApple.lowerBound)
-
-        let streamLocalDecision = try #require(triage.range(of: "self.lastDecision = .localMLX"))
-        let streamLocalFallback = try #require(triage.range(of: "let localFallback = self.localStreamOrFallback("))
-        let streamApple = try #require(
-            triage.range(
-                of: "if self.inference.appleIntelligenceAvailable {\n                    self.lastDecision = .appleIntelligence"
-            )
-        )
-        #expect(streamLocalDecision.lowerBound < streamLocalFallback.lowerBound)
-        #expect(streamLocalFallback.lowerBound < streamApple.lowerBound)
-    }
+    // "cloud fallback chains try the local runtime before Apple Intelligence" removed with
+    // cloud-only/Omega removal 2026-07-03 — the local generate/stream fallbacks
+    // (localGenerateOrFallback / localStreamOrFallback / lastDecision = .localMLX) were
+    // deleted from TriageService; there is no local runtime to order before Apple Intelligence.
 
     @Test("streaming delegate and rust agent loop return native computer-use results")
     func streamingDelegateAndRustAgentLoopReturnNativeComputerUseResults() throws {
@@ -4940,7 +4733,9 @@ struct InferenceCloudSelectionTests {
         )
 
         #expect(swift.contains("func executeComputerAction(actionJson: String) -> String"))
-        #expect(swift.contains("await ComputerUseBridge.shared.execute(actionJSON: actionJson)"))
+        // ComputerUseBridge.shared.execute dispatch removed with cloud-only/Omega removal
+        // 2026-07-03 — the Swift executeComputerAction impl is now a cloud-only stub. The Rust
+        // agent_core bridge/loop keep the execute_computer_action seam (verified present below).
         #expect(bridge.contains("fn execute_computer_action(&self, action_json: String) -> String;"))
         #expect(loop.contains("delegate.execute_computer_action(input_json.clone())"))
     }
@@ -5410,21 +5205,9 @@ struct InferenceCloudSelectionTests {
         #expect(!pipeline.contains("RustOpLogFFIClient"))
     }
 
-    @Test("GGUF availability probe only runs for GGUF-capable model candidates")
-    func ggufAvailabilityProbeOnlyRunsForGgufCapableModelCandidates() throws {
-        let bootstrap = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/App/AppBootstrap.swift",
-            testsFilePath: #filePath
-        )
-
-        #expect(bootstrap.contains("let probeRuntimeKind"))
-        #expect(bootstrap.contains("config.resolvedRuntimeKind(for: probeModelID)"))
-        // Runtime kind is resolved through the catalog descriptor, which correctly
-        // classifies the Gemma-4 QAT GGUF ladder (the LocalTextModelID enum does
-        // not back those gated ids, so an enum-only lookup would mis-tag them .mlx).
-        #expect(bootstrap.contains("LocalModelCatalog.descriptor(for: probeModelID)?.runtimeKind"))
-        #expect(bootstrap.contains("probeRuntimeKind == .gguf"))
-    }
+    // "GGUF availability probe only runs for GGUF-capable model candidates" removed with
+    // cloud-only/Omega removal 2026-07-03 — the GGUF runtime-kind probe (LocalModelCatalog /
+    // resolvedRuntimeKind / probeRuntimeKind == .gguf) was deleted from AppBootstrap.
 
     @Test("outline navigator uses flattened native rows instead of recursive hover state")
     func outlineNavigatorUsesFlattenedNativeRows() throws {

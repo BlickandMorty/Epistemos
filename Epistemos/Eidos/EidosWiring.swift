@@ -232,11 +232,11 @@ nonisolated public enum EidosBridge {
             )
             switch backend {
             case .fixture:
-                log.info("Eidos FIXTURE path active for query=\"\(query, privacy: .public)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) (Terminal 2 real-vault binding pending W-46.1; fall-through to RRF/legacy expected)")
+                log.info("Eidos FIXTURE path active for query=\"\(query, privacy: .private)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) (Terminal 2 real-vault binding pending W-46.1; fall-through to RRF/legacy expected)")
             case .real:
-                log.info("Eidos real-vault path active for query=\"\(query, privacy: .public)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) manifest=\(packet.manifestId.raw, privacy: .public)")
+                log.info("Eidos real-vault path active for query=\"\(query, privacy: .private)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) manifest=\(packet.manifestId.raw, privacy: .public)")
             case .unknown:
-                log.info("Eidos path returned unknown-backend packet for query=\"\(query, privacy: .public)\" manifest=\(packet.manifestId.raw, privacy: .public) hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+                log.info("Eidos path returned unknown-backend packet for query=\"\(query, privacy: .private)\" manifest=\(packet.manifestId.raw, privacy: .public) hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
             }
             return packet
         } catch {

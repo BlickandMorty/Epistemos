@@ -88,161 +88,6 @@ struct ResearchModeTests {
         #expect(OmegaToolRegistry.all.count == 56)
     }
 
-    // MARK: - Complexity Gate
-
-    @Test("Complexity gate routes explicit research prefixes")
-    func gateRoutesResearchPrefixes() {
-        #expect(ResearchComplexityGate.requiresResearch("research transformer architectures"))
-        #expect(ResearchComplexityGate.requiresResearch("research: Mamba-2 vs attention"))
-        #expect(ResearchComplexityGate.requiresResearch("/research climate change evidence"))
-        #expect(ResearchComplexityGate.requiresResearch("please research hegemony"))
-        #expect(ResearchComplexityGate.requiresResearch("can you research transformer scaling laws"))
-        #expect(ResearchComplexityGate.requiresResearch("find evidence for gene therapy"))
-        #expect(ResearchComplexityGate.requiresResearch("investigate supply chain issues"))
-    }
-
-    @Test("Complexity gate rejects simple queries")
-    func gateRejectsSimple() {
-        #expect(!ResearchComplexityGate.requiresResearch("what time is it"))
-        #expect(!ResearchComplexityGate.requiresResearch("hello"))
-        #expect(!ResearchComplexityGate.requiresResearch("create a note"))
-        #expect(!ResearchComplexityGate.requiresResearch("open safari"))
-    }
-
-    @Test("Complexity gate detects keyword clusters")
-    func gateDetectsKeywordClusters() {
-        // Single keyword is not enough
-        #expect(!ResearchComplexityGate.requiresResearch("what does the evidence say"))
-        // Two keywords should trigger
-        #expect(ResearchComplexityGate.requiresResearch("what peer-reviewed sources show evidence for"))
-        #expect(ResearchComplexityGate.requiresResearch("find papers with citations about this"))
-    }
-
-    @Test("Strip prefix removes research prefixes correctly")
-    func stripPrefix() {
-        #expect(ResearchComplexityGate.stripPrefix("/research climate change") == "climate change")
-        #expect(ResearchComplexityGate.stripPrefix("research: Mamba-2") == "Mamba-2")
-        #expect(ResearchComplexityGate.stripPrefix("research transformers") == "transformers")
-        #expect(ResearchComplexityGate.stripPrefix("hello world") == "hello world")
-    }
-
-    // MARK: - Evidence Scorer
-
-    @Test("Evidence scorer identifies arxiv as preprint tier")
-    func scorerArxiv() {
-        let tier = ResearchEvidenceScorer.tier(for: "https://arxiv.org/abs/2405.21060")
-        #expect(tier == .arxivPreprint)
-        #expect(tier.confidence == 0.70)
-    }
-
-    @Test("Evidence scorer identifies nature.com as peer-reviewed")
-    func scorerPeerReviewed() {
-        #expect(ResearchEvidenceScorer.tier(for: "https://www.nature.com/articles/s41586-024") == .peerReviewed)
-        #expect(ResearchEvidenceScorer.tier(for: "https://doi.org/10.1038/s41586") == .peerReviewed)
-        #expect(ResearchEvidenceScorer.tier(for: "https://pubmed.ncbi.nlm.nih.gov/12345") == .peerReviewed)
-    }
-
-    @Test("Evidence scorer identifies gov domains as primary data")
-    func scorerPrimary() {
-        #expect(ResearchEvidenceScorer.tier(for: "https://data.gov/dataset/climate") == .primaryData)
-        #expect(ResearchEvidenceScorer.tier(for: "https://www.cdc.gov/reports") == .primaryData)
-    }
-
-    @Test("Evidence scorer identifies news sources")
-    func scorerNews() {
-        #expect(ResearchEvidenceScorer.tier(for: "https://www.reuters.com/article") == .news)
-        #expect(ResearchEvidenceScorer.tier(for: "https://www.nytimes.com/2024") == .news)
-    }
-
-    @Test("Evidence scorer identifies blogs")
-    func scorerBlog() {
-        #expect(ResearchEvidenceScorer.tier(for: "https://medium.com/@user/post") == .blog)
-        #expect(ResearchEvidenceScorer.tier(for: "https://example.substack.com/p/article") == .blog)
-    }
-
-    @Test("Evidence scorer defaults to unknown for unrecognized URLs")
-    func scorerUnknown() {
-        let tier = ResearchEvidenceScorer.tier(for: "https://random-site.com/page")
-        #expect(tier == .unknown)
-        #expect(tier.confidence == 0.20)
-    }
-
-    @Test("Score method respects sourceType override")
-    func scoreOverride() {
-        let (tier, confidence) = ResearchEvidenceScorer.score(url: "https://random.com", sourceType: "peer_reviewed")
-        #expect(tier == .peerReviewed)
-        #expect(confidence == 0.85)
-    }
-
-    // MARK: - Confidence State
-
-    @Test("Empty confidence state reports zero confidence")
-    func confidenceEmpty() {
-        let state = ResearchConfidenceState()
-        #expect(state.overallConfidence == 0)
-        #expect(!state.hasDissonance)
-        #expect(!state.requiresPause)
-    }
-
-    @Test("Confidence state pauses on low evidence")
-    func confidencePausesOnLow() {
-        var state = ResearchConfidenceState()
-        state.addSnippet(text: "fact", url: "https://blog.com", confidence: 0.30)
-        #expect(state.overallConfidence == 0.30)
-        #expect(state.requiresPause)
-    }
-
-    @Test("Confidence state does not pause on good evidence")
-    func confidenceGoodEvidence() {
-        var state = ResearchConfidenceState()
-        state.addSnippet(text: "fact1", url: "https://nature.com/1", confidence: 0.85)
-        state.addSnippet(text: "fact2", url: "https://arxiv.org/2", confidence: 0.70)
-        state.addSnippet(text: "fact3", url: "https://doi.org/3", confidence: 0.85)
-        #expect(state.overallConfidence > 0.79)
-        #expect(!state.requiresPause)
-    }
-
-    @Test("Confidence state tracks contradictions")
-    func confidenceTracksContradictions() {
-        var state = ResearchConfidenceState()
-        state.addSnippet(text: "A", url: "https://a.com", confidence: 0.80)
-        state.addSnippet(text: "B", url: "https://b.com", confidence: 0.80)
-        #expect(!state.hasDissonance)
-        state.addContradiction(snippetA: "A", snippetB: "B", verdict: "contradict")
-        #expect(state.hasDissonance)
-    }
-
-    @Test("Confidence state pauses on few sources with contradiction")
-    func confidencePausesFewWithContradiction() {
-        var state = ResearchConfidenceState()
-        state.addSnippet(text: "X", url: "https://x.com", confidence: 0.70)
-        state.addContradiction(snippetA: "X", snippetB: "Y", verdict: "contradict")
-        #expect(state.requiresPause)
-    }
-
-    @Test("Confidence state reset clears all data")
-    func confidenceReset() {
-        var state = ResearchConfidenceState()
-        state.addSnippet(text: "A", url: "u", confidence: 0.5)
-        state.addContradiction(snippetA: "A", snippetB: "B", verdict: "contradict")
-        state.setSessionNoteId("note-1")
-        state.reset()
-        #expect(state.snippets.isEmpty)
-        #expect(state.contradictions.isEmpty)
-        #expect(state.sessionNoteId == nil)
-    }
-
-    // MARK: - Research Orchestrator
-
-    @Test("Research orchestrator detects research tasks")
-    func orchestratorDetectsResearch() {
-        #expect(ResearchOrchestrator.isResearchTask("research: transformers"))
-        #expect(ResearchOrchestrator.isResearchTask("research Mamba-2"))
-        #expect(ResearchOrchestrator.isResearchTask("investigate supply chain"))
-        #expect(!ResearchOrchestrator.isResearchTask("create a note"))
-        #expect(!ResearchOrchestrator.isResearchTask("open safari"))
-    }
-
     // MARK: - No Hidden Personas
 
     @Test("Research planning prompt does not contain blocked persona strings")
@@ -253,35 +98,13 @@ struct ResearchModeTests {
         #expect(!content.contains("You are a research"))
     }
 
-    @Test("New research files do not use blocked names")
-    func noBlockedFileNames() throws {
-        let projectSpec = try loadTextFile("project.yml")
-        let omegaRoot = repoRootURL().appendingPathComponent("Epistemos/Omega", isDirectory: true)
-
-        #expect(projectSpec.contains("type: syncedFolder"))
-
-        // These are blocked by projectDropsStandaloneResearchSubsystem.
-        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchState.swift").path))
-        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchService.swift").path))
-        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchIntents.swift").path))
-        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("PaperEntity.swift").path))
-        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchTypes.swift").path))
-
-        // New files should exist and are auto-included through the synced folder project layout.
-        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchOrchestrator.swift").path))
-        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchEvidenceScorer.swift").path))
-        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchConfidenceState.swift").path))
-        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchComplexityGate.swift").path))
-    }
+    // Omega-removal migration: "New research files do not use blocked names" removed
+    // — it asserted the deleted ResearchOrchestrator / ResearchEvidenceScorer /
+    // ResearchConfidenceState / ResearchComplexityGate.swift files still exist.
 
     // MARK: - Helpers
 
     private func loadTextFile(_ relativePath: String) throws -> String {
         try loadMirroredSourceTextFile(relativePath)
-    }
-
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
     }
 }

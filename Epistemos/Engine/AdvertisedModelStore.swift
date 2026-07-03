@@ -46,18 +46,6 @@ nonisolated struct ModelStackSource: Sendable, Equatable {
     let minimumRecommendedMemoryGB: Int
 }
 
-extension LocalModelDescriptor {
-    var stackSource: ModelStackSource {
-        ModelStackSource(
-            id: id,
-            displayName: displayName,
-            summary: summary,
-            approximateDownloadBytes: approximateDownloadBytes,
-            minimumRecommendedMemoryGB: minimumRecommendedMemoryGB
-        )
-    }
-}
-
 nonisolated enum ModelStackAssembler {
     static func sizeText(bytes: Int64) -> String { "0 KB" }
     static func ramText(gb: Int) -> String { "unavailable" }

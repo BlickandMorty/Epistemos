@@ -92,7 +92,6 @@ nonisolated enum InferenceTaskIntent: Sendable, Equatable {
 
 nonisolated enum InferenceRouteKind: String, Sendable, Equatable {
     case appleIntelligence
-    case localMLX
     case cloud
 }
 
@@ -142,29 +141,18 @@ nonisolated struct InferenceRequestProfile: Sendable, Equatable {
 }
 
 nonisolated struct InferencePolicyContext: Sendable, Equatable {
-    let routingMode: LocalRoutingMode
     let appleIntelligenceAvailable: Bool
     let cloudAutoRouteEnabled: Bool
     let hasConfiguredCloudModels: Bool
     let preferredChatModelSelection: ChatModelSelection
-    let preferredLocalTextModelID: String
-    let installedLocalTextModelIDs: Set<String>
-    let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
-    let runtimeConditions: LocalRuntimeConditions
 }
 
 nonisolated struct InferenceRouteDecision: Sendable, Equatable {
     let selectedRoute: InferenceRouteKind
     let selectedReasoningMode: LocalReasoningMode
-    let localSelection: LocalModelSelection?
-    let reuseWarmModel: Bool
     let complexityTier: InferenceComplexityTier
     let contextTier: InferenceContextTier
     let reasonCodes: Set<InferenceDecisionReasonCode>
-
-    var selectedLocalModelID: String? {
-        localSelection?.modelID
-    }
 }
 
 nonisolated struct InferencePolicyEngine {
@@ -178,44 +166,14 @@ nonisolated struct InferencePolicyEngine {
         let contextTier = self.contextTier(for: profile)
         var reasonCodes: Set<InferenceDecisionReasonCode> = []
 
-        let localSelection = localSelection(
-            for: profile,
-            context: context,
-            complexityTier: complexityTier,
-            contextTier: contextTier,
-            reasonCodes: &reasonCodes
-        )
-
-        if context.routingMode == .localOnly {
-            reasonCodes.insert(.localModeForced)
-            return InferenceRouteDecision(
-                selectedRoute: localRouteKind(
-                    for: localSelection.selection,
-                    context: context
-                ),
-                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
-                    for: profile,
-                    complexityTier: complexityTier,
-                    contextTier: contextTier
-                ),
-                localSelection: localSelection.selection,
-                reuseWarmModel: localSelection.reuseWarmModel,
-                complexityTier: complexityTier,
-                contextTier: contextTier,
-                reasonCodes: reasonCodes
-            )
-        }
-
-        if let explicitRoute = explicitRoute(for: profile, context: context, localSelection: localSelection.selection) {
+        if let explicitRoute = explicitRoute(for: profile, context: context) {
             return InferenceRouteDecision(
                 selectedRoute: explicitRoute,
-                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                selectedReasoningMode: reasoningMode(
                     for: profile,
                     complexityTier: complexityTier,
                     contextTier: contextTier
                 ),
-                localSelection: localSelection.selection,
-                reuseWarmModel: localSelection.reuseWarmModel,
                 complexityTier: complexityTier,
                 contextTier: contextTier,
                 reasonCodes: reasonCodes
@@ -225,42 +183,17 @@ nonisolated struct InferencePolicyEngine {
         if shouldAutoRouteToCloud(
             profile: profile,
             context: context,
-            localSelection: localSelection.selection,
             complexityTier: complexityTier,
             contextTier: contextTier,
             reasonCodes: &reasonCodes
         ) {
             return InferenceRouteDecision(
                 selectedRoute: .cloud,
-                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                selectedReasoningMode: reasoningMode(
                     for: profile,
                     complexityTier: complexityTier,
                     contextTier: contextTier
                 ),
-                localSelection: localSelection.selection,
-                reuseWarmModel: false,
-                complexityTier: complexityTier,
-                contextTier: contextTier,
-                reasonCodes: reasonCodes
-            )
-        }
-
-        if prefersDedicatedLocalChatRouting(
-            for: profile,
-            localSelection: localSelection.selection
-        ) {
-            return InferenceRouteDecision(
-                selectedRoute: localRouteKind(
-                    for: localSelection.selection,
-                    context: context
-                ),
-                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
-                    for: profile,
-                    complexityTier: complexityTier,
-                    contextTier: contextTier
-                ),
-                localSelection: localSelection.selection,
-                reuseWarmModel: localSelection.reuseWarmModel,
                 complexityTier: complexityTier,
                 contextTier: contextTier,
                 reasonCodes: reasonCodes
@@ -277,93 +210,27 @@ nonisolated struct InferencePolicyEngine {
             return InferenceRouteDecision(
                 selectedRoute: .appleIntelligence,
                 selectedReasoningMode: .fast,
-                localSelection: localSelection.selection,
-                reuseWarmModel: localSelection.reuseWarmModel,
                 complexityTier: complexityTier,
                 contextTier: contextTier,
                 reasonCodes: reasonCodes
             )
         }
 
+        // Cloud-only terminal fallback: no local runtime exists, so an
+        // unrouted request goes to the configured cloud provider (never a
+        // local route). Credential absence surfaces downstream as a cloud
+        // configuration error, not a silent "no model".
         return InferenceRouteDecision(
-            selectedRoute: localRouteKind(
-                for: localSelection.selection,
-                context: context
-            ),
-            selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+            selectedRoute: .cloud,
+            selectedReasoningMode: reasoningMode(
                 for: profile,
                 complexityTier: complexityTier,
                 contextTier: contextTier
             ),
-            localSelection: localSelection.selection,
-            reuseWarmModel: localSelection.reuseWarmModel,
             complexityTier: complexityTier,
             contextTier: contextTier,
             reasonCodes: reasonCodes
         )
-    }
-
-    func resolvedPreferredLocalSelection(
-        in context: InferencePolicyContext,
-        reasoningMode: LocalReasoningMode? = nil
-    ) -> LocalModelSelection? {
-        // Gemma QAT GGUF route-integration candidates are descriptor-only ids
-        // (NOT LocalTextModelID enum cases). The enum lookup below returns nil for
-        // them, so the caller used to fall through to an automatic (Qwen)
-        // selection — i.e. picking a GGUF Gemma in the model picker silently
-        // routed to Qwen. Resolve them explicitly: if the preferred id is an
-        // installed product-route-integration candidate, route to it. The local
-        // backend dispatches by descriptor.runtimeKind == .gguf to the GGUF
-        // runtime. Gemma stays non-agent (LocalModelSelection.canActAsAgent is
-        // false for a non-enum id), preserving honest capability gating.
-        if LocalTextModelID(rawValue: context.preferredLocalTextModelID) == nil,
-           let candidate = GemmaQATRuntimeLadder.candidate(forID: context.preferredLocalTextModelID),
-           candidate.isProductRouteIntegrationCandidate,
-           context.installedLocalTextModelIDs.contains(candidate.id) {
-            return LocalModelSelection(
-                modelID: candidate.id,
-                reasoningMode: reasoningMode ?? .fast,
-                // Conservative budget that fits the GGUF context window (E2B/E4B
-                // run at ctx 4096; ~4k chars ≈ 1k tokens leaves room to generate).
-                contentBudget: 4_000
-            )
-        }
-
-        let installedModels = supportedInstalledModels(in: context)
-        guard !installedModels.isEmpty else { return nil }
-
-        guard let preferredModel = LocalTextModelID(rawValue: context.preferredLocalTextModelID),
-              installedModels.contains(preferredModel) else {
-            return nil
-        }
-
-        let selectedReasoningMode = reasoningMode ?? .fast
-        if selectedReasoningMode == .fast, preferredModel.cannotDisableThinkingInFast {
-            return nil
-        }
-        return LocalModelSelection(
-            modelID: preferredModel.rawValue,
-            reasoningMode: selectedReasoningMode,
-            contentBudget: context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
-                for: preferredModel,
-                conditions: context.runtimeConditions,
-                reasoningMode: selectedReasoningMode
-            )
-        )
-    }
-
-    func localSelection(
-        for profile: InferenceRequestProfile,
-        context: InferencePolicyContext
-    ) -> LocalModelSelection? {
-        var reasonCodes: Set<InferenceDecisionReasonCode> = []
-        return localSelection(
-            for: profile,
-            context: context,
-            complexityTier: complexityTier(for: profile),
-            contextTier: contextTier(for: profile),
-            reasonCodes: &reasonCodes
-        ).selection
     }
 
     private func appleEligible(
@@ -411,81 +278,6 @@ nonisolated struct InferencePolicyEngine {
         }
     }
 
-    private func localSelection(
-        for profile: InferenceRequestProfile,
-        context: InferencePolicyContext,
-        complexityTier: InferenceComplexityTier,
-        contextTier: InferenceContextTier,
-        reasonCodes: inout Set<InferenceDecisionReasonCode>
-    ) -> (selection: LocalModelSelection?, reuseWarmModel: Bool) {
-        let selectedReasoningMode = reasoningMode(
-            for: profile,
-            complexityTier: complexityTier,
-            contextTier: contextTier
-        )
-        let installedModels = supportedInstalledModels(in: context)
-        guard !installedModels.isEmpty else {
-            reasonCodes.insert(.noInstalledLocalModel)
-            return (nil, false)
-        }
-
-        if shouldUseAutomaticLocalRouting(for: context) {
-            return (
-                automaticLocalSelection(
-                    for: profile,
-                    context: context,
-                    installedModels: installedModels,
-                    reasoningMode: selectedReasoningMode,
-                    complexityTier: complexityTier,
-                    contextTier: contextTier
-                ),
-                false
-            )
-        }
-
-        let preferred = resolvedPreferredLocalSelection(
-            in: context,
-            reasoningMode: selectedReasoningMode
-        )
-        if preferred != nil {
-            reasonCodes.insert(.preferredLocalModelUsed)
-            return (preferred, false)
-        }
-
-        // The user EXPLICITLY picked a local model — this branch is only reached when the
-        // selection is `.localMLX` (cloud / Apple Intelligence took the automatic-routing
-        // branch above). The pick could not be resolved (not installed, or can't run in the
-        // requested mode). DO NOT silently fall back to an automatic (Qwen-3-4B) selection:
-        // that is the owner-reported "everything routes to Qwen 3 4B regardless of what I
-        // pick" bug. Surface the honest unavailability (nil) so the caller can tell the user
-        // to install the model or choose another — the SELECTED model runs, or an honest
-        // error shows, never a silent substitute. `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1`
-        // restores the old auto-substitution for anyone who wants smart fallback.
-        reasonCodes.insert(.preferredLocalModelUnavailable)
-        if Self.autoSubstituteUnavailableLocalModel {
-            return (
-                automaticLocalSelection(
-                    for: profile,
-                    context: context,
-                    installedModels: installedModels,
-                    reasoningMode: selectedReasoningMode,
-                    complexityTier: complexityTier,
-                    contextTier: contextTier
-                ),
-                false
-            )
-        }
-        return (nil, false)
-    }
-
-    /// Owner 2026-06-19: when an EXPLICITLY-selected local model can't be resolved, honor the
-    /// pick with an honest "unavailable" instead of silently substituting another model
-    /// (the Qwen-3-4B pinning bug). Off by default = no silent substitution. Set
-    /// `EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL=1` to restore the legacy auto-substitute.
-    nonisolated static var autoSubstituteUnavailableLocalModel: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_AUTOSUBSTITUTE_LOCAL_MODEL"] == "1"
-    }
-
     private func reasoningMode(
         for profile: InferenceRequestProfile,
         complexityTier: InferenceComplexityTier,
@@ -503,27 +295,18 @@ nonisolated struct InferencePolicyEngine {
         return .fast
     }
 
-    private func localRouteKind(
-        for selection: LocalModelSelection?,
-        context: InferencePolicyContext
-    ) -> InferenceRouteKind {
-        _ = selection
-        _ = context
-        return .localMLX
-    }
-
     private func explicitRoute(
         for profile: InferenceRequestProfile,
-        context: InferencePolicyContext,
-        localSelection: LocalModelSelection?
+        context: InferencePolicyContext
     ) -> InferenceRouteKind? {
         _ = profile
         switch context.preferredChatModelSelection {
         case .appleIntelligence:
             return context.appleIntelligenceAvailable ? .appleIntelligence : nil
-        case .localMLX(_):
-            return localSelection != nil ? .localMLX : nil
-        case .cloud(_):
+        case .localMLX:
+            // Cloud-only: a stale local pin never routes locally — fall through.
+            return nil
+        case .cloud:
             return .cloud
         }
     }
@@ -531,7 +314,6 @@ nonisolated struct InferencePolicyEngine {
     private func shouldAutoRouteToCloud(
         profile: InferenceRequestProfile,
         context: InferencePolicyContext,
-        localSelection: LocalModelSelection?,
         complexityTier: InferenceComplexityTier,
         contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
@@ -554,252 +336,13 @@ nonisolated struct InferencePolicyEngine {
         // chat seam effectiveChatSurfaceSelection). The large/oversized-context
         // escalation above still applies — that is a genuine "local can't fit
         // this" case, not a silent preference for cloud.
-        if localSelection == nil && !context.appleIntelligenceAvailable {
+        if !context.appleIntelligenceAvailable {
             reasonCodes.insert(.cloudAutoRoute)
             return true
         }
         _ = complexityTier
         _ = profile.operatingMode
         return false
-    }
-
-    private func prefersDedicatedLocalChatRouting(
-        for profile: InferenceRequestProfile,
-        localSelection: LocalModelSelection?
-    ) -> Bool {
-        guard localSelection != nil else { return false }
-        switch profile.surface {
-        case .mainChat:
-            return true
-        case .noteAgentPortal, .graph:
-            return false
-        }
-    }
-
-    private func supportedInstalledModels(in context: InferencePolicyContext) -> [LocalTextModelID] {
-        let installedModels = context.installedLocalTextModelIDs
-            .compactMap(LocalTextModelID.init(rawValue:))
-            .filter {
-                context.hardwareCapabilitySnapshot.supportsInteractiveChatModel(textModelID: $0.rawValue)
-                    && !$0.isExperimentalForEpistemos
-            }
-            .sorted { lhs, rhs in
-                lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
-            }
-        let shippedModels = installedModels.filter(\.isEpistemosShippedLocalModel)
-        return shippedModels.isEmpty ? installedModels : shippedModels
-    }
-
-    private func shouldUseAutomaticLocalRouting(for context: InferencePolicyContext) -> Bool {
-        switch context.preferredChatModelSelection {
-        case .localMLX:
-            return false
-        case .appleIntelligence, .cloud:
-            return true
-        }
-    }
-
-    private func automaticLocalSelection(
-        for profile: InferenceRequestProfile,
-        context: InferencePolicyContext,
-        installedModels: [LocalTextModelID],
-        reasoningMode: LocalReasoningMode,
-        complexityTier: InferenceComplexityTier,
-        contextTier: InferenceContextTier
-    ) -> LocalModelSelection? {
-        guard let model = preferredAutomaticLocalModel(
-            for: profile,
-            installedModels: installedModels,
-            reasoningMode: reasoningMode,
-            complexityTier: complexityTier,
-            contextTier: contextTier
-        ) else {
-            return nil
-        }
-
-        let effectiveReasoningMode: LocalReasoningMode = {
-            guard reasoningMode == .thinking else { return .fast }
-            return model.supportsThinkingMode ? .thinking : .fast
-        }()
-
-        return LocalModelSelection(
-            modelID: model.rawValue,
-            reasoningMode: effectiveReasoningMode,
-            contentBudget: context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
-                for: model,
-                conditions: context.runtimeConditions,
-                reasoningMode: effectiveReasoningMode
-            )
-        )
-    }
-
-    private func preferredAutomaticLocalModel(
-        for profile: InferenceRequestProfile,
-        installedModels: [LocalTextModelID],
-        reasoningMode: LocalReasoningMode,
-        complexityTier: InferenceComplexityTier,
-        contextTier: InferenceContextTier
-    ) -> LocalTextModelID? {
-        let oversizedContext = contextTier == .oversized || profile.contextBlockCount >= 6
-        let heavyWork = complexityTier == .heavy || complexityTier == .extreme
-        let candidateModels: [LocalTextModelID]
-        switch profile.operatingMode {
-        case .agent:
-            candidateModels = installedModels.filter(\.canRunLocalAgentLoop)
-        default:
-            if reasoningMode == .thinking {
-                candidateModels = installedModels.filter(\.supportsThinkingMode)
-            } else {
-                candidateModels = installedModels
-            }
-        }
-        let fastEligibleCandidateModels =
-            reasoningMode == .fast
-            ? candidateModels.filter { !$0.cannotDisableThinkingInFast }
-            : candidateModels
-        if reasoningMode == .fast && fastEligibleCandidateModels.isEmpty {
-            return nil
-        }
-        let effectiveCandidateModels =
-            reasoningMode == .fast ? fastEligibleCandidateModels : candidateModels
-        guard !effectiveCandidateModels.isEmpty else {
-            return nil
-        }
-
-        // Stack refresh 2026-04-18 (see docs/MASTER_MODEL_STACK_PLAN.md).
-        // Preferred orders now prefer, in priority order:
-        //   - Qwen 3 Coder Next / 30B A3B for coding (Qwen 3 generation
-        //     with native tool-calling).
-        //   - DeepSeek R1 7B for reasoning (until OpenThinker3-7B is
-        //     converted to MLX 4-bit and lands next session).
-        //   - LocalAgent 4.3 36B for on-device agent/function-calling work.
-        //   - Qwen 3.6 35B A3B (Unsloth UD preferred, DWQ secondary) for
-        //     flagship generalist.
-        //   - Qwen 3 4B + Bonsai for fast/light work.
-        // Gemma 4 family remains excluded from every automatic order
-        // until the MLX-Swift Gemma 4 loader is ported from
-        // SharpAI/SwiftLM (tracked in MASTER_MODEL_STACK_PLAN §3a).
-        // Legacy mlx-community Qwen 3.6 4-bit stays as the last-resort
-        // installed fallback so existing installs don't break. Qwen 2.5
-        // Coder 7B is held out while the freeze mitigation is active.
-        let preferredOrder: [LocalTextModelID]
-        switch profile.operatingMode {
-        case .agent:
-            switch profile.intent {
-            case .coding, .debugging:
-                preferredOrder = [
-                    .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
-                    .localAgent43_36B4Bit, .localAgent43_36B3Bit,
-                    .deepseekR1Distill7B,
-                ]
-            default:
-                preferredOrder = [
-                    .localAgent43_36B4Bit, .localAgent43_36B3Bit,
-                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3_8B4Bit,
-                    .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
-                    .deepseekR1Distill7B,
-                ]
-            }
-        case .pro:
-            switch profile.intent {
-            case .coding, .debugging:
-                preferredOrder = [
-                    .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
-                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .deepseekR1Distill7B,
-                ]
-            default:
-                preferredOrder = [
-                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3_8B4Bit,
-                    .deepseekR1Distill7B, .localAgent43_36B4Bit,
-                    .gemma3_27BQAT4Bit, .gemma3_4BQAT4Bit,
-                    .qwen3_4B4Bit,
-                ]
-            }
-        case .thinking:
-            switch profile.intent {
-            case .coding, .debugging:
-                preferredOrder = [
-                    .qwqFlagship32B4Bit, .deepseekR1Distill7B,
-                    .qwen3Coder30BA3B4Bit,
-                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3_8B4Bit, .qwen3_4BThinking25074Bit,
-                ]
-            default:
-                preferredOrder = [
-                    // QwQ 32B leads thinking mode — comparable reasoning
-                    // quality to DeepSeek R1 at 32B on harder prompts.
-                    .qwqFlagship32B4Bit, .deepseekR1Distill7B,
-                    .qwen3_4BThinking25074Bit, .qwen3_8B4Bit,
-                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3_4B4Bit,
-                ]
-            }
-        case .fast:
-            switch profile.intent {
-            case .coding, .debugging:
-                preferredOrder = [
-                    .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
-                    .qwen3_8B4Bit, .deepseekR1Distill7B,
-                    .qwen3_4B4Bit, .bonsai8B2Bit, .bonsai4B2Bit,
-                ]
-            case .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
-                preferredOrder = [
-                    .qwen3_8B4Bit, .deepseekR1Distill7B,
-                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .gemma3_4BQAT4Bit, .qwen3_4B4Bit, .qwen3CoderNext4Bit,
-                    .bonsai8B2Bit, .bonsai4B2Bit,
-                ]
-            case .rewrite, .summarize, .simpleAsk, .brainstorm:
-                if oversizedContext || heavyWork {
-                    preferredOrder = [
-                        .qwen3_8B4Bit,
-                        .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                        .deepseekR1Distill7B, .gemma3_4BQAT4Bit, .qwen3_4B4Bit,
-                        .llama32_3BInstruct4Bit, .bonsai8B2Bit, .bonsai4B2Bit,
-                    ]
-                } else {
-                    preferredOrder = [
-                        .qwen3_4B4Bit, .llama32_3BInstruct4Bit, .gemma3_4BQAT4Bit,
-                        .bonsai4B2Bit, .bonsai8B2Bit,
-                        .qwen3_8B4Bit, .deepseekR1Distill7B,
-                        .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    ]
-                }
-            }
-        }
-
-        for candidate in preferredOrder where effectiveCandidateModels.contains(candidate) {
-            if reasoningMode != .thinking || candidate.supportsThinkingMode {
-                return candidate
-            }
-        }
-
-        // Triage-ready candidates: same as the input list minus tiers we know
-        // cannot load today. The native Apple Gemma 4 port (Gemma4Text.swift)
-        // is dense-only, so the dense E2B/E4B tiers load cleanly and are safe
-        // fallback picks — only the 26B-A4B Mixture-of-Experts tier (no Swift
-        // Router/Experts) and the 31B-JANG third-party fine-tune (unverified
-        // config, oversized) still reproduce the "Unsupported model type" /
-        // load-failure path, so they stay excluded. Gemma 4 is intentionally
-        // kept out of preferredOrder above; the validated default stays Qwen.
-        // This filter mirrors LocalTextModelID.isAwaitingSwiftRuntimeLoader,
-        // and ALSO honors isHeldOutOfAutomaticLocalRouting so the whole Gemma 4
-        // family stays out of automatic selection now that the dense E2B/E4B
-        // tiers have a runnable loader (native MLX port + GGUF lane). Gemma 4 is
-        // only ever picked when the user explicitly pins it via
-        // resolvedPreferredLocalSelection — never as a silent auto fallback.
-        let triageReadyCandidates = effectiveCandidateModels.filter { candidate in
-            !candidate.isAwaitingSwiftRuntimeLoader
-                && !candidate.isHeldOutOfAutomaticLocalRouting
-        }
-
-        if let shippedInstalled = triageReadyCandidates.first(where: \.isEpistemosShippedLocalModel) {
-            return shippedInstalled
-        }
-        return triageReadyCandidates.first
     }
 
     private func complexityTier(for profile: InferenceRequestProfile) -> InferenceComplexityTier {
@@ -893,12 +436,11 @@ nonisolated struct InferencePolicyEngine {
 
 nonisolated enum TriageDecision: Sendable, Equatable {
     case appleIntelligence
-    case localMLX
     case cloud
 
     var isOnDevice: Bool {
         switch self {
-        case .appleIntelligence, .localMLX:
+        case .appleIntelligence:
             true
         case .cloud:
             false
@@ -908,7 +450,6 @@ nonisolated enum TriageDecision: Sendable, Equatable {
     var label: String {
         switch self {
         case .appleIntelligence: "On-device"
-        case .localMLX:          "Local Model"
         case .cloud:             "Cloud Model"
         }
     }
@@ -916,41 +457,7 @@ nonisolated enum TriageDecision: Sendable, Equatable {
     var icon: String {
         switch self {
         case .appleIntelligence: "cpu"
-        case .localMLX:          "memorychip"
         case .cloud:             "cloud"
-        }
-    }
-}
-
-nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
-    case modelRequired
-    case runtimeUnavailable
-    case fastModeUnsupported(modelID: String)
-    /// Thrown when code tries to load a model whose Swift MLX decoder
-    /// isn't ported yet (see `LocalTextModelID.isAwaitingSwiftRuntimeLoader`
-    /// — currently the Gemma 4 family). Distinct from
-    /// `runtimeUnavailable` so the UI can surface a clearer message than
-    /// the opaque "Unsupported model type: gemma4" that mlx-swift-lm
-    /// would otherwise emit.
-    case modelLoaderUnavailable(modelID: String)
-    /// Thrown when a local model never finishes loading into memory. This is
-    /// distinct from a generic request timeout so the chat can tell the user
-    /// the model load stalled and suggest a smaller model.
-    case modelLoadStalled(modelID: String)
-    /// Thrown BEFORE we ask MLX to load a model when the OS says we don't have
-    /// enough available unified memory to hold it. Refusing up-front beats the
-    /// alternative (SSD swap thrash, hard freeze, or a jetsam kill) by a mile.
-    case insufficientMemory(modelID: String, requiredGB: Int, availableGB: Int)
-
-    var errorDescription: String? {
-        switch self {
-        case .modelRequired,
-             .runtimeUnavailable,
-             .fastModeUnsupported,
-             .modelLoaderUnavailable,
-             .modelLoadStalled,
-             .insufficientMemory:
-            return "Epistemos app-local model generation has been removed. Use Work/OpenCode or Goose for model-backed chat."
         }
     }
 }
@@ -971,38 +478,6 @@ nonisolated enum CloudRoutingError: LocalizedError {
 /// and cloud paths while keeping the local runtime first in the automatic flow.
 @MainActor @Observable
 final class TriageService {
-    private static let localMLXBaselineSystemPrompt = """
-    You are Epistemos' local on-device assistant.
-    Answer directly and clearly.
-    \(ChatResponseStyleGuide.mainChatSystemInstruction)
-    Do not narrate tool plans, function calls, or internal reasoning in the visible answer.
-    Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
-    Do not claim to be a different model.
-    If asked about your identity, say you are the local Epistemos assistant running on-device.
-    If the answer is uncertain, say so plainly instead of fabricating confidence.
-    """
-
-    /// Shorter system prompt for abliterated models (JANG, etc.).
-    /// No refusal-coaching lines that conflict with the model's fine-tuning.
-    private static let localAbliteratedBaselineSystemPrompt = """
-    You are Epistemos' local on-device assistant.
-    Answer directly and clearly.
-    \(ChatResponseStyleGuide.mainChatSystemInstruction)
-    """
-
-    /// Compact system prompt for small on-device GGUF models (the Gemma QAT GGUF
-    /// route-integration lane). The full localMLXBaselineSystemPrompt — with its
-    /// provenance, tool-lookup, capability-disclaimer, and "do not narrate"
-    /// paragraphs — overloads a small non-agent model: it reasons ABOUT the
-    /// instructions (echoing "Keep provenance explicit… analyze the constraints")
-    /// instead of answering the actual question. Keep it to the essentials.
-    private static let localCompactBaselineSystemPrompt = """
-    You are Epistemos' local on-device assistant.
-    Answer the user's question directly and concisely.
-    Give only the final answer — do not restate these instructions, narrate tool plans, or expose your own reasoning.
-    If you are unsure, say so briefly instead of guessing.
-    """
-
     private static let cloudBaselineSystemPrompt = """
     You are a helpful assistant inside Epistemos, a personal knowledge management app.
     Answer directly and clearly.
@@ -1211,18 +686,8 @@ final class TriageService {
         case .appleIntelligence:
             return userFacingStream(
                 appleIntelligenceStreamWithFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                localSelection: decision.localSelection
-                ),
-                reasoningSink: reasoningSink
-            )
-        case .localMLX:
-            return userFacingStream(
-                localStreamOrFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                selection: decision.localSelection
+                    prompt: prompt,
+                    systemPrompt: systemPrompt
                 ),
                 reasoningSink: reasoningSink
             )
@@ -1290,33 +755,10 @@ final class TriageService {
         switch triageDecision {
         case .appleIntelligence:
             let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
-            do {
-                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if Self.shouldRetryWithLocalModel(result) {
-                    Log.engine.info("Apple Intelligence response inadequate, falling back to the local model path")
-                    lastDecision = .localMLX
-                    return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt,
-                        selection: decision.localSelection
-                    ))
-                }
-                return UserFacingModelOutput.finalVisibleText(from: result)
-            } catch {
-                Log.engine.warning("Apple Intelligence failed, falling back to the local model path: \(error.localizedDescription, privacy: .public)")
-                lastDecision = .localMLX
-                return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    selection: decision.localSelection
-                ))
-            }
-        case .localMLX:
-            return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                selection: decision.localSelection
-            ))
+            // Cloud-only: no local model to retry with — return the on-device
+            // Apple Intelligence response (or propagate its error).
+            let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
+            return UserFacingModelOutput.finalVisibleText(from: result)
         case .cloud:
             guard let model = selectedCloudModel(for: operatingMode) else {
                 throw CloudLLMError.modelRequired
@@ -1328,37 +770,6 @@ final class TriageService {
                 operatingMode: operatingMode
             ))
         }
-    }
-
-    // MARK: - Raw Local Generation (for Knowledge Fusion pipeline)
-
-    /// Generates text using the local model directly, returning raw output without
-    /// `finalVisibleText` stripping. Used by the Knowledge Fusion synthetic data
-    /// pipeline where we need the full model response including structured content.
-    func generateRawLocal(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int = 0,
-        modelID: String? = nil
-    ) async throws -> String {
-        guard let localLLMService else {
-            throw LocalInferenceRoutingError.runtimeUnavailable
-        }
-        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
-            systemPrompt,
-            modelID: modelID,
-            reasoningMode: .fast
-        )
-        if let configurable = localLLMService as? any LocalConfigurableLLMClient {
-            return try await configurable.generate(
-                prompt: prompt,
-                systemPrompt: effectiveSystemPrompt,
-                maxTokens: maxTokens,
-                reasoningMode: .fast,
-                modelID: modelID
-            )
-        }
-        return try await localLLMService.generate(prompt: prompt, systemPrompt: effectiveSystemPrompt)
     }
 
     // MARK: - General Triage Logic
@@ -1405,20 +816,8 @@ final class TriageService {
         case .appleIntelligence:
             return userFacingStream(
                 appleIntelligenceStreamWithFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                localSelection: decision.localSelection,
-                steeringHintsJSON: steeringHintsJSON
-                ),
-                reasoningSink: reasoningSink
-            )
-        case .localMLX:
-            return userFacingStream(
-                localStreamOrFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                selection: decision.localSelection,
-                steeringHintsJSON: steeringHintsJSON
+                    prompt: prompt,
+                    systemPrompt: systemPrompt
                 ),
                 reasoningSink: reasoningSink
             )
@@ -1451,36 +850,6 @@ final class TriageService {
         }
     }
 
-    func streamGeneralLocally(
-        prompt: String,
-        systemPrompt: String? = nil,
-        operation: GeneralOperation,
-        contentLength: Int,
-        operatingMode: EpistemosOperatingMode = .fast,
-        localSurface: LocalModelSelectionSurface = .mainChat,
-        steeringHintsJSON: String? = nil,
-        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
-    ) -> AsyncThrowingStream<String, Error> {
-        prepareForRouting()
-        let decision = routeDecisionForGeneral(
-            operation: operation,
-            contentLength: contentLength,
-            operatingMode: operatingMode,
-            localSurface: localSurface
-        )
-        lastDecision = .localMLX
-        Log.engine.info("Triage: \(operation.displayName) → Local Model (forced local execution) (content: \(contentLength) chars)")
-        return userFacingStream(
-            localStreamOrFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                selection: decision.localSelection,
-                steeringHintsJSON: steeringHintsJSON
-            ),
-            reasoningSink: reasoningSink
-        )
-    }
-
     func generateGeneral(
         prompt: String,
         systemPrompt: String? = nil,
@@ -1504,36 +873,10 @@ final class TriageService {
         switch triageDecision {
         case .appleIntelligence:
             let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
-            do {
-                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if Self.shouldRetryWithLocalModel(result) {
-                    Log.engine.info("Apple Intelligence response inadequate (general), falling back to the local model path")
-                    lastDecision = .localMLX
-                    return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt,
-                        selection: decision.localSelection,
-                        steeringHintsJSON: steeringHintsJSON
-                    ))
-                }
-                return UserFacingModelOutput.finalVisibleText(from: result)
-            } catch {
-                Log.engine.warning("Apple Intelligence failed (general), falling back to the local model path: \(error.localizedDescription, privacy: .public)")
-                lastDecision = .localMLX
-                return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    selection: decision.localSelection,
-                    steeringHintsJSON: steeringHintsJSON
-                ))
-            }
-        case .localMLX:
-            return UserFacingModelOutput.finalVisibleText(from: try await localGenerateOrFallback(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                selection: decision.localSelection,
-                steeringHintsJSON: steeringHintsJSON
-            ))
+            // Cloud-only: no local model to retry with — return the on-device
+            // Apple Intelligence response (or propagate its error).
+            let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
+            return UserFacingModelOutput.finalVisibleText(from: result)
         case .cloud:
             guard let model = selectedCloudModel(for: operatingMode) else {
                 throw CloudLLMError.modelRequired
@@ -1549,77 +892,27 @@ final class TriageService {
 
     // MARK: - Apple Intelligence Stream with Fallback
 
-    /// Streams from Apple Intelligence, falling back to the local model path seamlessly if:
-    /// - Apple Intelligence throws an error (timeout, unavailable)
-    /// - The response is a polite refusal ("I can't help with that")
-    /// - The response appears truncated (stops mid-sentence)
-    /// The user never sees the failed response — fallback replaces it entirely.
+    /// Streams from Apple Intelligence (the on-device path). Cloud-only build:
+    /// there is no local model to fall back to, so the Apple response is surfaced
+    /// as-is, and a thrown Apple error finishes the stream with that error.
     private func appleIntelligenceStreamWithFallback(
         prompt: String,
-        systemPrompt: String?,
-        localSelection: LocalModelSelection?,
-        steeringHintsJSON: String? = nil
+        systemPrompt: String?
     ) -> AsyncThrowingStream<String, Error> {
         let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
 
         return StreamingBufferPolicy.throwingStream { continuation in
-            let task = Task { [weak self] in
+            let task = Task {
                 do {
                     let result = try await AppleIntelligenceService.shared.generate(
                         prompt: aiPrompt,
                         systemPrompt: aiSystem
                     )
-
-                    // Check for refusal, truncation, or suspiciously short response
-                    if Self.shouldRetryWithLocalModel(result) {
-                        Log.engine.info("Apple Intelligence response inadequate (stream), falling back to the local model path")
-                        await MainActor.run { self?.lastDecision = .localMLX }
-                        do {
-                            guard let self else {
-                                continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
-                                return
-                            }
-                            let fallbackStream = self.localStreamOrFallback(
-                                prompt: prompt,
-                                systemPrompt: systemPrompt,
-                                selection: localSelection,
-                                steeringHintsJSON: steeringHintsJSON
-                            )
-                            for try await chunk in fallbackStream {
-                                continuation.yield(chunk)
-                            }
-                            continuation.finish()
-                        } catch {
-                            Log.engine.info("Local model fallback also failed — using Apple Intelligence response")
-                            continuation.yield(result)
-                            continuation.finish()
-                        }
-                        return
-                    }
-
                     continuation.yield(result)
                     continuation.finish()
                 } catch {
-                    Log.engine.warning("Apple Intelligence failed (stream), falling back to the local model path: \(error.localizedDescription, privacy: .public)")
-                    await MainActor.run { self?.lastDecision = .localMLX }
-                    do {
-                        guard let self else {
-                            continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
-                            return
-                        }
-                        let fallbackStream = self.localStreamOrFallback(
-                            prompt: prompt,
-                            systemPrompt: systemPrompt,
-                            selection: localSelection,
-                            steeringHintsJSON: steeringHintsJSON
-                        )
-                        for try await chunk in fallbackStream {
-                            continuation.yield(chunk)
-                        }
-                        continuation.finish()
-                    } catch {
-                        continuation.finish(throwing: error)
-                    }
+                    Log.engine.warning("Apple Intelligence failed (stream): \(error.localizedDescription, privacy: .public)")
+                    continuation.finish(throwing: error)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -1787,8 +1080,6 @@ final class TriageService {
         switch route {
         case .appleIntelligence:
             .appleIntelligence
-        case .localMLX:
-            .localMLX
         case .cloud:
             .cloud
         }
@@ -1979,352 +1270,6 @@ final class TriageService {
         )
     }
 
-    private func generateWithCloudFallbackChain(
-        prompt: String,
-        systemPrompt: String?,
-        operatingMode: EpistemosOperatingMode,
-        localSelection: LocalModelSelection?,
-        steeringHintsJSON: String? = nil
-    ) async throws -> String {
-        let fallbackChain = inference.cloudFallbackChain(for: operatingMode)
-        let useAutoFallback = inference.cloudAutoFallback
-        let modelsToTry = useAutoFallback ? fallbackChain : Array(fallbackChain.prefix(1))
-        var lastCloudError: Error?
-
-        for model in modelsToTry {
-            do {
-                lastDecision = .cloud
-                return try await cloudGenerate(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    model: model,
-                    operatingMode: operatingMode
-                )
-            } catch {
-                lastCloudError = error
-                Log.engine.warning(
-                    "Cloud route \(model.vendorModelID, privacy: .public) failed, trying the next fallback: \(error.localizedDescription, privacy: .public)"
-                )
-            }
-        }
-
-        guard useAutoFallback else {
-            if let cloudError = lastCloudError as? CloudLLMError {
-                throw cloudError
-            }
-            if let llmError = lastCloudError as? LLMError {
-                throw llmError
-            }
-
-            let modelName = modelsToTry.first?.vendorModelID ?? "unknown"
-            let reason = lastCloudError?.localizedDescription ?? "Unknown error"
-            throw CloudRoutingError.modelFailed("\(modelName) failed: \(reason)")
-        }
-
-        var lastLocalError: Error?
-
-        if localSelection != nil {
-            do {
-                lastDecision = .localMLX
-                return try await localGenerateOrFallback(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    selection: localSelection,
-                    steeringHintsJSON: steeringHintsJSON
-                )
-            } catch {
-                lastLocalError = error
-                Log.engine.warning(
-                    "Local fallback failed after cloud retries, trying Apple Intelligence next: \(error.localizedDescription, privacy: .public)"
-                )
-            }
-        }
-
-        if inference.appleIntelligenceAvailable {
-            let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
-            do {
-                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
-                if !Self.shouldRetryWithLocalModel(result) {
-                    lastDecision = .appleIntelligence
-                    return result
-                }
-                Log.engine.info("Apple Intelligence fallback response was inadequate after cloud/local retries")
-            } catch {
-                Log.engine.warning(
-                    "Apple Intelligence fallback failed after cloud/local retries: \(error.localizedDescription, privacy: .public)"
-                )
-            }
-        }
-
-        // Surface cloud error first when cloud was the user's primary
-        // pick and both sides fail (see the stream-path equivalent for the
-        // full reasoning — users can't debug the real cloud failure when
-        // we hand them the local fallback's memory error instead).
-        if let lastCloudError {
-            throw lastCloudError
-        }
-        if let lastLocalError {
-            throw lastLocalError
-        }
-        throw LocalInferenceRoutingError.modelRequired
-    }
-
-    private func streamWithCloudFallbackChain(
-        prompt: String,
-        systemPrompt: String?,
-        operatingMode: EpistemosOperatingMode,
-        localSelection: LocalModelSelection?,
-        steeringHintsJSON: String? = nil
-    ) -> AsyncThrowingStream<String, Error> {
-        StreamingBufferPolicy.throwingStream { continuation in
-            let task = Task { [weak self] in
-                guard let self else {
-                    continuation.finish()
-                    return
-                }
-
-                let fallbackChain = self.inference.cloudFallbackChain(for: operatingMode)
-                let useAutoFallback = self.inference.cloudAutoFallback
-
-                // In manual mode, only try the first model (the user's selection).
-                // In auto mode, try all models in the fallback chain.
-                let modelsToTry = useAutoFallback ? fallbackChain : Array(fallbackChain.prefix(1))
-                var lastCloudError: Error?
-
-                for model in modelsToTry {
-                    var emittedAnyTokens = false
-                    do {
-                        self.lastDecision = .cloud
-                        Log.engine.info("Cloud request → \(model.vendorModelID, privacy: .public) (\(model.provider.displayName, privacy: .public))")
-                        let stream = self.cloudStream(
-                            prompt: prompt,
-                            systemPrompt: systemPrompt,
-                            model: model,
-                            operatingMode: operatingMode
-                        )
-                        for try await chunk in stream {
-                            emittedAnyTokens = true
-                            continuation.yield(chunk)
-                        }
-                        continuation.finish()
-                        return
-                    } catch {
-                        lastCloudError = error
-                        if emittedAnyTokens {
-                            continuation.finish(throwing: error)
-                            return
-                        }
-                        Log.engine.warning(
-                            "Cloud stream route \(model.vendorModelID, privacy: .public) failed before yielding output: \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                }
-
-                // Manual mode: fail with descriptive error, no silent fallback
-                guard useAutoFallback else {
-                    if let cloudError = lastCloudError as? CloudLLMError {
-                        continuation.finish(throwing: cloudError)
-                        return
-                    }
-                    if let llmError = lastCloudError as? LLMError {
-                        continuation.finish(throwing: llmError)
-                        return
-                    }
-
-                    let modelName = modelsToTry.first?.vendorModelID ?? "unknown"
-                    let reason = lastCloudError?.localizedDescription ?? "Unknown error"
-                    let message = """
-                    \(modelName) failed: \(reason)
-
-                    Suggestions:
-                    • Check your API key in Settings → AI
-                    • Verify your account has access to this model
-                    • Enable "Auto-route" in Settings to try other models automatically
-                    """
-                    continuation.finish(throwing: CloudRoutingError.modelFailed(message))
-                    return
-                }
-
-                var lastLocalError: Error?
-                if localSelection != nil {
-                    self.lastDecision = .localMLX
-                    let localFallback = self.localStreamOrFallback(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt,
-                        selection: localSelection,
-                        steeringHintsJSON: steeringHintsJSON
-                    )
-                    var emittedLocalTokens = false
-                    do {
-                        for try await chunk in localFallback {
-                            emittedLocalTokens = true
-                            continuation.yield(chunk)
-                        }
-                        continuation.finish()
-                        return
-                    } catch {
-                        lastLocalError = error
-                        if emittedLocalTokens {
-                            continuation.finish(throwing: error)
-                            return
-                        }
-                        Log.engine.warning(
-                            "Local stream fallback failed after cloud retries, trying Apple Intelligence next: \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                }
-
-                if self.inference.appleIntelligenceAvailable {
-                    self.lastDecision = .appleIntelligence
-                    let appleFallback = self.appleIntelligenceStreamWithFallback(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt,
-                        localSelection: lastLocalError == nil ? localSelection : nil,
-                        steeringHintsJSON: steeringHintsJSON
-                    )
-                    do {
-                        for try await chunk in appleFallback {
-                            continuation.yield(chunk)
-                        }
-                        continuation.finish()
-                    } catch {
-                        continuation.finish(throwing: error)
-                    }
-                    return
-                }
-
-                // Surface the cloud error first when cloud was the user's
-                // primary pick and both sides fail. The local-fallback error
-                // (typically `insufficientMemory` for a large model the user
-                // didn't ask for this turn) is almost never the explanation
-                // the user needs — if they picked GPT-5.4 and see
-                // "DeepSeek R1 7B needs 12 GB" with no mention of the cloud
-                // failure, they can't debug the real issue (missing API key,
-                // rate limit, network).
-                continuation.finish(throwing: lastCloudError ?? lastLocalError ?? LocalInferenceRoutingError.modelRequired)
-            }
-
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
-
-    // MARK: - Local MLX Fallback
-
-    private func vaultAugmentedLocalSystemPrompt(_ systemPrompt: String?, modelID: String?) async -> String? {
-        _ = modelID
-        return systemPrompt
-    }
-
-    private func localGenerateOrFallback(
-        prompt: String,
-        systemPrompt: String?,
-        selection: LocalModelSelection?,
-        steeringHintsJSON: String? = nil
-    ) async throws -> String {
-        guard let selection else {
-            throw LocalInferenceRoutingError.modelRequired
-        }
-        guard let localLLMService else {
-            throw LocalInferenceRoutingError.runtimeUnavailable
-        }
-
-        let vaultSystemPrompt = await vaultAugmentedLocalSystemPrompt(
-            systemPrompt, modelID: selection.modelID)
-        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
-            vaultSystemPrompt,
-            modelID: selection.modelID,
-            reasoningMode: selection.reasoningMode
-        )
-
-        do {
-            if let configurable = localLLMService as? any LocalConfigurableLLMClient {
-                return try await configurable.generate(
-                    prompt: prompt,
-                    systemPrompt: effectiveSystemPrompt,
-                    maxTokens: resolvedLocalOutputTokens(
-                        for: selection.reasoningMode,
-                        steeringHintsJSON: steeringHintsJSON
-                    ),
-                    reasoningMode: selection.reasoningMode,
-                    modelID: selection.modelID,
-                    steeringHintsJSON: steeringHintsJSON
-                )
-            }
-            return try await localLLMService.generate(prompt: prompt, systemPrompt: effectiveSystemPrompt)
-        } catch {
-            throw error
-        }
-    }
-
-    private func localStreamOrFallback(
-        prompt: String,
-        systemPrompt: String?,
-        selection: LocalModelSelection?,
-        steeringHintsJSON: String? = nil
-    ) -> AsyncThrowingStream<String, Error> {
-        // If local isn't available, fall back to Apple Intelligence (on-device
-        // and always present on macOS 26+ after the system model is downloaded).
-        // This means a user with no configured local model and no cloud key
-        // still gets a real answer instead of an opaque "modelRequired" error.
-        guard let selection else {
-            if inference.appleIntelligenceAvailable {
-                return appleIntelligenceOnlyStream(prompt: prompt, systemPrompt: systemPrompt)
-            }
-            return StreamingBufferPolicy.throwingStream { continuation in
-                continuation.finish(throwing: LocalInferenceRoutingError.modelRequired)
-            }
-        }
-        guard let localLLMService else {
-            if inference.appleIntelligenceAvailable {
-                return appleIntelligenceOnlyStream(prompt: prompt, systemPrompt: systemPrompt)
-            }
-            return StreamingBufferPolicy.throwingStream { continuation in
-                continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
-            }
-        }
-        let resolvedLocalLLMService = localLLMService
-        return StreamingBufferPolicy.throwingStream { continuation in
-            let task = Task {
-                do {
-                    // SS-MV (2): enrich with the model's vault INSIDE the async task — the
-                    // actor-isolated augment needs await, which this sync stream factory can't.
-                    let vaultSystemPrompt = await self.vaultAugmentedLocalSystemPrompt(
-                        systemPrompt, modelID: selection.modelID)
-                    let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
-                        vaultSystemPrompt,
-                        modelID: selection.modelID,
-                        reasoningMode: selection.reasoningMode
-                    )
-                    let stream: AsyncThrowingStream<String, Error>
-                    if let configurable = resolvedLocalLLMService as? any LocalConfigurableLLMClient {
-                        stream = configurable.stream(
-                            prompt: prompt,
-                            systemPrompt: effectiveSystemPrompt,
-                            maxTokens: self.resolvedLocalOutputTokens(
-                                for: selection.reasoningMode,
-                                steeringHintsJSON: steeringHintsJSON
-                            ),
-                            reasoningMode: selection.reasoningMode,
-                            modelID: selection.modelID,
-                            steeringHintsJSON: steeringHintsJSON
-                        )
-                    } else {
-                        stream = resolvedLocalLLMService.stream(prompt: prompt, systemPrompt: effectiveSystemPrompt)
-                    }
-                    for try await chunk in stream {
-                        continuation.yield(chunk)
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
-    }
-
     /// Stream wrapper around Apple Intelligence's non-streaming `generate(...)`.
     /// Used when the user has no configured local or cloud model but Apple
     /// Intelligence is available — the on-device model still answers the turn
@@ -2355,89 +1300,6 @@ final class TriageService {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
-    }
-
-    private static func effectiveLocalSystemPrompt(
-        _ systemPrompt: String?,
-        modelID: String? = nil,
-        reasoningMode: LocalReasoningMode = .fast
-    ) -> String {
-        // Pick the baseline by model class. Small on-device GGUF models (the
-        // Gemma QAT GGUF lane — descriptor-only ids, NOT LocalTextModelID enum
-        // cases) get the compact prompt so they answer instead of reasoning
-        // about heavy meta-instructions. Abliterated models skip refusal
-        // coaching. Everything else gets the full baseline.
-        let baseline: String
-        if let modelID,
-           LocalTextModelID(rawValue: modelID) == nil,
-           GemmaQATRuntimeLadder.candidate(forID: modelID) != nil {
-            baseline = localCompactBaselineSystemPrompt
-        } else if let modelID,
-           LocalTextModelID(rawValue: modelID)?.isAbliterated == true {
-            baseline = localAbliteratedBaselineSystemPrompt
-        } else {
-            baseline = localMLXBaselineSystemPrompt
-        }
-        var parts = [baseline]
-        if reasoningMode == .fast {
-            parts.append("If your template supports it, treat this turn as /no_think and return only the final answer.")
-        }
-        if let modelSpecificPrompt = localModelSpecificSystemPrompt(
-            modelID: modelID,
-            reasoningMode: reasoningMode
-        ) {
-            parts.append(modelSpecificPrompt)
-        }
-        guard let systemPrompt,
-              !systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return parts.joined(separator: "\n\n")
-        }
-        parts.append(systemPrompt)
-        return parts.joined(separator: "\n\n")
-    }
-
-    private static func localModelSpecificSystemPrompt(
-        modelID: String?,
-        reasoningMode: LocalReasoningMode
-    ) -> String? {
-        guard let modelID,
-              let model = LocalTextModelID(rawValue: modelID) else {
-            return nil
-        }
-
-        var parts: [String] = []
-
-        switch model.primaryUseCase {
-        case .routing:
-            parts.append("Favor concise, decisive answers and lightweight classification over long digressions.")
-        case .reasoning:
-            parts.append("Use deeper reasoning when it materially helps, then present a clean final answer without exposing raw chain-of-thought.")
-        case .coding:
-            parts.append("Prioritize concrete, runnable code, minimal diffs, exact commands, and precise debugging steps.")
-        case .multimodal:
-            parts.append("If image attachments are present, use them as first-class evidence instead of ignoring them.")
-        case .general:
-            break
-        }
-
-        if model.supportsNativeToolCalling {
-            parts.append("When tools are actually available through this runtime, prefer structured tool use over narrating imaginary tool plans.")
-        }
-
-        if model.supportsVision,
-           !parts.contains(where: { $0.contains("If image attachments are present") }) {
-            parts.append("If image attachments are present, ground claims in the visible content and say when the evidence is ambiguous.")
-        }
-
-        if reasoningMode == .thinking, model.supportsThinkingMode {
-            parts.append("Keep the visible answer polished and concise even when the model reasons more deeply internally.")
-            parts.append("When Thinking mode is enabled, emit that reasoning inside <think>...</think> tags so the UI can show it in the separate thinking panel.")
-            parts.append("Put the final user-facing answer only after </think>.")
-            parts.append("Never place raw reasoning, self-talk, or analysis notes outside <think>...</think>.")
-        }
-
-        guard !parts.isEmpty else { return nil }
-        return parts.joined(separator: "\n")
     }
 
     private func userFacingStream(
@@ -2560,29 +1422,6 @@ final class TriageService {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
-    }
-
-    private func resolvedLocalOutputTokens(
-        for reasoningMode: LocalReasoningMode,
-        steeringHintsJSON: String? = nil
-    ) -> Int {
-        let configuredTokens = inference.chatOutputTokens
-        let defaultTokens: Int
-        if configuredTokens > 0 {
-            defaultTokens = configuredTokens
-        } else {
-            defaultTokens = switch reasoningMode {
-            case .fast:
-                4_096
-            case .thinking:
-                8_192
-            }
-        }
-
-        guard let steeringLimit = Self.maxOutputTokens(fromSteeringHintsJSON: steeringHintsJSON) else {
-            return defaultTokens
-        }
-        return min(defaultTokens, steeringLimit)
     }
 
     nonisolated static func maxOutputTokens(fromSteeringHintsJSON steeringHintsJSON: String?) -> Int? {

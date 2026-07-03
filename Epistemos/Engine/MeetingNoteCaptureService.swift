@@ -46,7 +46,14 @@ nonisolated enum MeetingCaptureDiagnostics {
 @MainActor
 @Observable
 final class MeetingNoteCaptureService {
-    nonisolated static let maxTranscriptCharacters = TextCapturePipeline.maxCleanedTextCharacters
+    /// Full meeting transcripts routinely run for the length of a meeting, so this
+    /// is only a safety cap against pathological / runaway input — NOT a per-meeting
+    /// budget. Previously this aliased `TextCapturePipeline.maxCleanedTextCharacters`
+    /// (10k, meant for a per-capture cleaned SUMMARY), which silently dropped the
+    /// second half of any meeting past ~12 minutes while the UI still showed
+    /// "Recording" (MEET-1). 2,000,000 chars is ~30+ hours of continuous speech;
+    /// hitting it is surfaced visibly via `boundedTranscript`, never silently.
+    nonisolated static let maxTranscriptCharacters = 2_000_000
 
     enum State: Equatable, Sendable {
         case idle
@@ -277,9 +284,20 @@ final class MeetingNoteCaptureService {
             guard isCurrentCapture(finalizeGeneration) else {
                 return result
             }
+            // MEET-2 (hardening 2026-07-02): finalize always requests persistence
+            // (a ModelContext is always passed through), so a nil/empty
+            // createdNoteID means persistNote failed and TextCapturePipeline.run
+            // swallowed the throw. Surface it as an error and KEEP the transcript
+            // so the user can retry, instead of reporting a phantom "Saved" and
+            // silently destroying the meeting note.
+            guard let noteID = result.createdNoteID, !noteID.isEmpty else {
+                let message = "Meeting note could not be saved. Your transcript is kept — tap Save to try again."
+                state = .error(VoiceCapturePresentationBounds.statusMessage(message))
+                throw TextCaptureError.persistenceFailed("meeting note was not persisted")
+            }
             savedResult = result
             state = .saved(
-                pageID: result.createdNoteID ?? "",
+                pageID: noteID,
                 title: result.title
             )
             return result
@@ -392,7 +410,12 @@ final class MeetingNoteCaptureService {
 
     private static func boundedTranscript(_ text: String) -> String {
         guard text.count > maxTranscriptCharacters else { return text }
-        return String(text.prefix(maxTranscriptCharacters))
+        // Never drop content silently (MEET-1): keep as much as the cap allows and
+        // append a visible marker so the user knows the transcript was truncated.
+        let marker = "\n\n[Transcript truncated — this capture exceeded the "
+            + "\(maxTranscriptCharacters)-character limit. Content above is preserved.]"
+        let keep = max(0, maxTranscriptCharacters - marker.count)
+        return String(text.prefix(keep)) + marker
     }
 
     private static func segment(_ candidate: String, extends existing: String) -> Bool {

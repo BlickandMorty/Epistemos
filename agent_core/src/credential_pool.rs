@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 /// A pool of API keys for a single provider, with rotation tracking.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProviderCredentialPool {
     provider: String,
     keys: Vec<String>,
@@ -19,6 +19,22 @@ pub struct ProviderCredentialPool {
     exhausted: Vec<usize>,
     /// Maximum rotation attempts before giving up on this provider.
     max_rotations: usize,
+}
+
+// RUST-5 (hardening 2026-07-02): redact the raw API keys in Debug output. A
+// derived Debug would dump every key in `keys` on any future `{:?}` sink; the
+// manual impl surfaces only the count so the pool stays diagnosable without
+// leaking credentials.
+impl std::fmt::Debug for ProviderCredentialPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProviderCredentialPool")
+            .field("provider", &self.provider)
+            .field("key_count", &self.keys.len())
+            .field("current_index", &self.current_index)
+            .field("exhausted", &self.exhausted)
+            .field("max_rotations", &self.max_rotations)
+            .finish()
+    }
 }
 
 impl ProviderCredentialPool {

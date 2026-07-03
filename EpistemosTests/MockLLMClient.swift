@@ -29,6 +29,6 @@ final class MockLLMClient: LLMClientProtocol {
     }
 
     func configSnapshot() -> LLMSnapshot {
-        LLMSnapshot(provider: .openAI, model: "mock", reasoningMode: .fast)
+        LLMSnapshot(provider: .openAI, model: "mock")
     }
 }

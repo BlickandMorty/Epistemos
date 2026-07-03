@@ -951,6 +951,34 @@ impl VaultStore {
         if !absolute.starts_with(&self.vault_root) {
             return Err(VaultError::PathTraversal(relative.to_string()));
         }
+
+        // RUST-8 (hardening 2026-07-02): the component checks above stop `..` but
+        // NOT symlinks. Canonicalize the deepest existing ancestor of the target
+        // and confirm it still resolves inside the canonical vault root, so an
+        // in-vault symlink pointing outside the vault cannot escape containment
+        // (the wikilink resolver already canonicalizes; this closes the gap on
+        // the primary read/write path).
+        let canonical_root =
+            std::fs::canonicalize(&self.vault_root).unwrap_or_else(|_| self.vault_root.clone());
+        let mut probe: &Path = &absolute;
+        loop {
+            match std::fs::canonicalize(probe) {
+                Ok(canonical) => {
+                    if !canonical.starts_with(&canonical_root) {
+                        return Err(VaultError::PathTraversal(relative.to_string()));
+                    }
+                    break;
+                }
+                // Not-yet-created leaf components can't be canonicalized; walk up
+                // to the nearest existing ancestor. Stop at the vault root, whose
+                // containment the lexical check already proved.
+                Err(_) => match probe.parent() {
+                    Some(parent) if parent.starts_with(&self.vault_root) => probe = parent,
+                    _ => break,
+                },
+            }
+        }
+
         Ok(absolute)
     }
 
@@ -2099,6 +2127,41 @@ mod tests {
                 .all(|candidate| !candidate.selection_reason.trim().is_empty()),
             "default T21 traces must explain why each retained vault candidate was selected"
         );
+    }
+
+    /// RUST-8 (hardening 2026-07-02): an in-vault symlink that points OUTSIDE
+    /// the vault must not let `resolve_path` escape containment, even though the
+    /// requested path is lexically inside the vault. Regression guard for the
+    /// canonicalize-nearest-existing-ancestor check.
+    #[cfg(unix)]
+    #[test]
+    fn resolve_path_rejects_in_vault_symlink_escape() {
+        use super::{VaultError, VaultStore};
+        let vault_root = tempfile::tempdir().expect("vault dir");
+        let outside = tempfile::tempdir().expect("outside dir");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        // <vault>/escape -> <outside> (a symlink living inside the vault).
+        std::os::unix::fs::symlink(outside.path(), vault_root.path().join("escape"))
+            .expect("create symlink");
+
+        // The symlinked directory itself is rejected...
+        let via_dir = store.resolve_path("escape");
+        assert!(
+            matches!(via_dir, Err(VaultError::PathTraversal(_))),
+            "symlinked dir must be rejected, got {via_dir:?}"
+        );
+        // ...and so is a not-yet-created leaf reached through the symlink.
+        let via_leaf = store.resolve_path("escape/secret.md");
+        assert!(
+            matches!(via_leaf, Err(VaultError::PathTraversal(_))),
+            "path through symlinked dir must be rejected, got {via_leaf:?}"
+        );
+
+        // A normal in-vault path (no symlink) still resolves.
+        let ok = store.resolve_path("notes/note.md");
+        assert!(ok.is_ok(), "normal in-vault path should resolve: {ok:?}");
     }
 
     /// T21 Fix C contract test (2026-05-18): `hybrid_search` MUST NOT clamp

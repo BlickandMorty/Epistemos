@@ -550,112 +550,11 @@ final class OverseerComplexityRouter {
         operatingMode: EpistemosOperatingMode,
         hasExplicitContext: Bool,
         attachmentCount: Int
-    ) -> OverseerExecutionRoute {
-        let hasUsableLocalRuntime = if operatingMode == .agent {
-            inference.effectiveLocalAgentTextModelID != nil
-        } else {
-            inference.effectiveLocalTextModelID != nil
-        }
-
-        guard hasUsableLocalRuntime else {
-            return .managedAgentSession
-        }
-
-        let effectiveSelection = inference.effectiveChatSurfaceSelection(for: operatingMode)
-        let effectiveIntentPrediction = ChatCapability.predictIntent(
-            text: query,
-            isCloudProvider: {
-                if case .cloud = effectiveSelection {
-                    return true
-                }
-                return false
-            }()
-        )
-        let cloudSelectionSupportsManagedTools: Bool = {
-            if case .cloud(let model) = effectiveSelection {
-                return model.provider.supportsAgentTier
-            }
-            return false
-        }()
-        // NOTE: tool-planning is intentionally NOT gated on the CHAT model's
-        // canActAsAgent here — the overseer escalates fast-mode tool work to a
-        // HIDDEN agent-capable local tier (see PipelineService.localToolTier /
-        // "hidden local agent tier backs fast-mode tool execution"), so a
-        // non-agent chat model (e.g. Gemma) legitimately reaches
-        // .overseerLocalExecution and the tool loop runs on an agent-capable
-        // backing model, not on the chat model itself. The user's "Gemma
-        // emitted <file.search> XML" symptom is that the hidden tier didn't back
-        // the GGUF selection — the fix belongs in the execution-model resolution
-        // (back GGUF Gemma with an agent tier, else fall to localOnly), tracked
-        // separately. The leaked-XML safety net (stripDottedToolWrappers) covers
-        // the visible damage in the meantime.
-        let shouldPlanToolsInChat = shouldUseOverseerLocalExecution(
-            query: query,
-            analysis: analysis,
-            intent: intent,
-            hasExplicitContext: hasExplicitContext,
-            attachmentCount: attachmentCount,
-            contentLength: contentLength
-        )
-
-        if isManagedAgentQuery(
-            query: query,
-            analysis: analysis,
-            contentLength: contentLength,
-            attachmentCount: attachmentCount
-        ) {
-            if case .cloud = effectiveSelection {
-                return .managedAgentSession
-            }
-            if shouldUseManagedAgentForLongRunningWork(query: query) || !shouldPlanToolsInChat {
-                return .managedAgentSession
-            }
-        }
-
-        if operatingMode == .fast,
-           !hasExplicitContext,
-           attachmentCount == 0,
-           contentLength < 2_000,
-           !shouldPlanToolsInChat {
-            return .localOnly
-        }
-
-        switch effectiveSelection {
-        case .cloud(let model):
-            if model.provider.supportsAgentTier,
-               (operatingMode == .agent
-                    || effectiveIntentPrediction.predicted == .agent
-                    || effectiveIntentPrediction.predicted == .research
-                    || shouldPlanToolsInChat) {
-                return .managedAgentSession
-            }
-        case .localMLX, .appleIntelligence:
-            // Per user 2026-05-11: local chat with an attached note
-            // or @-mention also needs the tool path so it can
-            // actually read/edit/search the attached resource. The
-            // cloud branch already OR'd in shouldPlanToolsInChat —
-            // local was missing it and silently degraded to direct
-            // stream, which is why attaching a note for "live edit"
-            // wasn't doing anything in MAS.
-            if effectiveIntentPrediction.predicted == .agent
-                || effectiveIntentPrediction.predicted == .research
-                || shouldPlanToolsInChat {
-                return .overseerLocalExecution
-            }
-        }
-
-        if operatingMode == .agent {
-            return .overseerLocalExecution
-        }
-
-        if shouldPlanToolsInChat {
-            if cloudSelectionSupportsManagedTools {
-                return .managedAgentSession
-            }
-            return .overseerLocalExecution
-        }
-
-        return .localOnly
+    ) -> OverseerExecutionRoute  {
+        // Cloud-only build: no local runtime exists, so routing always resolves
+        // to the managed agent session (preserves the prior runtime behavior of
+        // "no usable local model ⇒ managed agent").
+        return .managedAgentSession
     }
 
     private func shouldUseManagedAgentForLongRunningWork(query: String) -> Bool {

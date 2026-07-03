@@ -70,7 +70,8 @@ struct BrowserUseWebUIView: View {
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     init(
-        supervisor: BrowserUseRuntimeSupervisor? = BrowserUseRuntimeSupervisor(),
+        // BUP-2: default to the shared supervisor so page + panel drive one server.
+        supervisor: BrowserUseRuntimeSupervisor? = BrowserUseRuntimeSupervisor.shared,
         settingsStore: BrowserUseSettingsStore = BrowserUseSettingsStore(),
         host: String = "127.0.0.1",
         port: Int = 7788,

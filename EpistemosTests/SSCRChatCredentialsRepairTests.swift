@@ -32,71 +32,17 @@ struct SSCRChatCredentialsRepairTests {
         #expect(inference.apiKey(for: provider) == "sk-test-credential-123")
     }
 
-    // MARK: Fix 1 — a LOCAL pick must NEVER resolve to .cloud
+    // Cloud-only migration: the two "a LOCAL pick must never resolve to .cloud" behavior
+    // tests (Fix 1) were removed — they exercised deleted local-model machinery
+    // (LocalTextModelID / setInstalledLocalTextModelIDs / setPreferredLocalTextModelID).
 
-    @MainActor
-    @Test("a local pick never resolves to .cloud — even with a pending unavailable-cloud selection")
-    func localPickNeverRoutesToCloud() throws {
-        // No cloud access anywhere (Keychain returns nil); bootstrap skipped for determinism.
-        let inference = InferenceState(
-            keychainLoad: { _ in nil },
-            skipCloudCredentialBootstrapOnLaunch: true
-        )
-        let qwen = LocalTextModelID.qwen3_4B4Bit.rawValue
-        inference.setInstalledLocalTextModelIDs([qwen])
-        inference.setPreferredLocalTextModelID(qwen)
-
-        // Pick a cloud model with NO configured access → pins .localMLX + sets the pending
-        // "reconnect to use X" badge state (the exact trigger of the live bug).
-        let cloudModel = try #require(inference.cloudFallbackChain(for: .fast).first)
-        inference.setPreferredChatModelSelection(.cloud(cloudModel))
-
-        // EXECUTION must stay on the runnable local pin across every tier — the pending
-        // selection is UI-only and must not override routing.
-        for mode in [EpistemosOperatingMode.fast, .thinking, .pro, .agent] {
-            let resolved = inference.effectiveChatSurfaceSelection(for: mode)
-            if case .cloud = resolved {
-                Issue.record("local pick routed to .cloud for \(mode) — the credentials-rejected bug")
-            }
-        }
-    }
-
-    @MainActor
-    @Test("with no cloud access, auto-route never escalates a local surface to .cloud")
-    func noCloudAccessNeverEscalatesToCloud() {
-        let inference = InferenceState(
-            keychainLoad: { _ in nil },
-            skipCloudCredentialBootstrapOnLaunch: true
-        )
-        // A runnable local model is installed and pinned → cloud must never appear.
-        let qwen = LocalTextModelID.qwen3_4B4Bit.rawValue
-        inference.setInstalledLocalTextModelIDs([qwen])
-        inference.setPreferredLocalTextModelID(qwen)
-        for mode in [EpistemosOperatingMode.fast, .thinking, .pro, .agent] {
-            if case .cloud = inference.effectiveChatSurfaceSelection(for: mode) {
-                Issue.record("escalated to .cloud without configured cloud access for \(mode)")
-            }
-        }
-    }
-
-    // MARK: Fix 2 + Fix 3 — structural guards (defense-in-depth)
+    // MARK: Fix 2 — structural cloud-access guard (defense-in-depth)
 
     @Test("auto-cloud escalation is gated on configured cloud access (Fix 2)")
     func autoCloudGatedOnConfiguredAccess() throws {
         let src = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
         // Every cloud auto-escalation guard requires hasConfiguredCloudAccess(autoModel.provider).
         #expect(src.contains("hasConfiguredCloudAccess(for: autoModel.provider)"))
-    }
-
-    @Test("a foundation tier whose model isn't installed degrades to a runnable baseline (Fix 3)")
-    func foundationTierDegradesToRunnableBaseline() throws {
-        let src = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
-        // The not-installed-tier branch returns the installed Fast baseline, not nil.
-        // The P0 FIX (owner 2026-06-20) wrapped the return in an `if let` so it only
-        // returns the baseline when one actually EXISTS (else it falls through to the
-        // runnable-local branch instead of stranding chat on nil) — assert that form.
-        #expect(src.contains("if let fastBaseline = installedFoundationModelID(for: .fast)"))
-        #expect(src.contains("return fastBaseline"))
     }
 
     @Test("apiKey gates the missing-set early-return on !isBootstrappingCloudCredentials (Fix 4)")

@@ -381,7 +381,6 @@ struct GraphPhysicsSettingsAuditTests {
                     baseModelID: nil,
                     baseSnapshotPath: nil,
                     mergeOutputPath: nil,
-                    mlxOutputPath: nil,
                     downloadPath: retrieverPath.path,
                     status: "downloaded",
                     trustRemoteCode: false

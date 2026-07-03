@@ -651,7 +651,9 @@ private func zero(_ array: MLMultiArray) {
     case .float32:
         byteCount = array.count * MemoryLayout<Float>.size
     case .float16:
-        byteCount = array.count * MemoryLayout<Float16>.size
+        // UInt16 stands in for Float16's 2-byte size; Swift's Float16 type is
+        // unavailable on x86_64 macOS and only the byte width matters here.
+        byteCount = array.count * MemoryLayout<UInt16>.size
     case .double:
         byteCount = array.count * MemoryLayout<Double>.size
     case .int32:

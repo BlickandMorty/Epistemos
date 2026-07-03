@@ -19,6 +19,12 @@ nonisolated final class SyntaxCoreService: @unchecked Sendable {
 
     private static let log = Logger(subsystem: "com.epistemos.syntax", category: "SyntaxCoreService")
 
+    // CONC-13: the Rust `syntax_document_*` FFI is not thread-safe and this class is
+    // `nonisolated` (callable from any thread) — a concurrent edit()/tokensForViewport()
+    // on the same `document` is Rust UB. Serialize every FFI access behind this lock;
+    // the prior "single-threaded confinement" was a contract, not enforced. (init is
+    // pre-escape and deinit runs at refcount 0, so neither needs the lock.)
+    private let lock = NSLock()
     nonisolated(unsafe) private var document: OpaquePointer?
     private let language: String
     private let docId: UInt64
@@ -44,14 +50,19 @@ nonisolated final class SyntaxCoreService: @unchecked Sendable {
         }
     }
 
-    var isValid: Bool { document != nil }
+    var isValid: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return document != nil
+    }
 
     var generation: UInt64 {
+        lock.lock(); defer { lock.unlock() }
         guard let doc = document else { return 0 }
         return syntax_document_generation(doc)
     }
 
     var handle: SyntaxDocumentHandle {
+        lock.lock(); defer { lock.unlock() }
         guard let doc = document else {
             return SyntaxDocumentHandle(doc_id: 0, generation: 0)
         }
@@ -59,6 +70,7 @@ nonisolated final class SyntaxCoreService: @unchecked Sendable {
     }
 
     var stats: SyntaxSnapshotStats {
+        lock.lock(); defer { lock.unlock() }
         guard let doc = document else {
             return SyntaxSnapshotStats(doc_id: 0, generation: 0, node_count: 0, error_count: 0, parse_time_us: 0)
         }
@@ -68,6 +80,7 @@ nonisolated final class SyntaxCoreService: @unchecked Sendable {
     /// Apply an edit delta and trigger incremental reparse.
     @discardableResult
     func edit(byteStart: UInt64, oldLen: UInt64, newText: String) -> SyntaxEditDelta {
+        lock.lock(); defer { lock.unlock() }
         guard let doc = document else {
             return SyntaxEditDelta(doc_id: 0, from_generation: 0, to_generation: 0, byte_offset: 0, old_len: 0, new_len: 0)
         }
@@ -84,6 +97,7 @@ nonisolated final class SyntaxCoreService: @unchecked Sendable {
     /// Returns `nil` when the id isn't registered for this document.
     /// `id == 0` returns the literal string `"unknown"`.
     func kindName(for id: UInt16) -> String? {
+        lock.lock(); defer { lock.unlock() }
         guard let doc = document else { return nil }
         // 64 bytes is comfortably larger than every capture name
         // syntax-core's GENERIC_HIGHLIGHTS_QUERY emits today
@@ -100,6 +114,7 @@ nonisolated final class SyntaxCoreService: @unchecked Sendable {
     /// Generate syntax tokens for the given byte range (typically the visible viewport).
     /// Returns an array of `SyntaxTokenSpan` with document-global UTF-16 offsets.
     func tokensForViewport(byteStart: UInt64, byteEnd: UInt64, maxTokens: Int = 8192) -> [SyntaxTokenSpan] {
+        lock.lock(); defer { lock.unlock() }
         guard let doc = document else { return [] }
 
         let buffer = UnsafeMutablePointer<SyntaxTokenSpan>.allocate(capacity: maxTokens)

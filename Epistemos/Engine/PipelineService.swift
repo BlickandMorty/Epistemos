@@ -20,7 +20,7 @@ nonisolated enum PipelineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noLLMService: "Epistemos app-local model generation has been removed. Use Work/OpenCode or Goose for model-backed chat."
+        case .noLLMService: "No cloud provider is configured. Open Settings → AI to connect a provider for model-backed chat."
         case .analysisFailure(let msg): msg
         }
     }
@@ -60,8 +60,8 @@ nonisolated enum UserFacingChatError {
     static func classify(_ error: Error) -> UserFacingChatErrorKind {
         switch error {
         case PipelineError.noLLMService,
-             LocalInferenceRoutingError.modelRequired,
-             LocalInferenceRoutingError.runtimeUnavailable:
+             CloudLLMError.modelRequired,
+             CloudLLMError.runtimeUnavailable:
             return .modelNotReady
         case is CancellationError:
             return .cancelled
@@ -99,7 +99,7 @@ nonisolated enum UserFacingChatError {
     static func message(for kind: UserFacingChatErrorKind, fallback: String = "") -> String {
         switch kind {
         case .modelNotReady:
-            return "No provider surface is ready to answer yet. Use Work/OpenCode or Goose for model-backed chat."
+            return "No provider surface is ready to answer yet. Open Settings → AI to connect a cloud provider."
         case .authFailure:
             return "The provider rejected your credentials. Open Settings → AI to re-authenticate."
         case .rateLimited:
@@ -145,8 +145,6 @@ final class PipelineService {
     private let triageService: TriageService
     private let inference: InferenceState
     private let eventBus: EventBus
-    private let localModelClient: (any LocalConfigurableLLMClient)?
-    private let constrainedDecoding: ConstrainedDecodingService?
     private let vaultPathProvider: @MainActor () -> String?
     private let skillNamesProvider: @MainActor () -> [String]
     /// L1187 — deterministic vault-ranking answer provider. Given the user's query it returns a
@@ -163,8 +161,6 @@ final class PipelineService {
         triageService: TriageService,
         inference: InferenceState,
         eventBus: EventBus,
-        localModelClient: (any LocalConfigurableLLMClient)? = nil,
-        constrainedDecoding: ConstrainedDecodingService? = nil,
         vaultPathProvider: @escaping @MainActor () -> String? = { nil },
         skillNamesProvider: @escaping @MainActor () -> [String] = { [] },
         vaultRankingSearchProvider: (@MainActor (String) -> String?)? = nil
@@ -174,8 +170,6 @@ final class PipelineService {
         self.triageService = triageService
         self.inference = inference
         self.eventBus = eventBus
-        self.localModelClient = localModelClient
-        self.constrainedDecoding = constrainedDecoding
         self.vaultPathProvider = vaultPathProvider
         self.skillNamesProvider = skillNamesProvider
         self.vaultRankingSearchProvider = vaultRankingSearchProvider
@@ -239,73 +233,25 @@ final class PipelineService {
                         return
                     }
 
-                    let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
-                        for: operatingMode
-                    )
-
-                    let useToolLoop = shouldUseToolLoop(
-                        query: query,
-                        operatingMode: operatingMode,
-                        executionPlan: executionPlan,
-                        effectiveChatSelection: effectiveChatSelection
-                    )
-                    let isLocalModelSelected: Bool = {
-                        if case .localMLX = effectiveChatSelection { return true }
-                        return false
-                    }()
                     var emittedVisibleText = ""
 
-                    if useToolLoop,
-                       isLocalModelSelected,
-                       let localClient = localModelClient {
-                        let vaultPath = resolvedManagedToolRuntimeVaultPath()
-                        var streamedToolLoopText = ""
-                        // Tool-enabled local path: LocalAgentLoop handles
-                        // multi-turn tool execution via the Rust FFI.
-                        let toolLoopOutput = try await runToolLoop(
-                            runID: runID,
-                            query: query,
-                            notesContext: notesContext,
-                            conversationHistory: conversationHistory,
-                            operatingMode: operatingMode,
-                            executionPlan: executionPlan,
-                            vaultPath: vaultPath,
-                            localClient: localClient,
-                            toolEventHandler: toolEventHandler,
-                            toolApprovalHandler: toolApprovalHandler,
-                            modelInputCaptureHandler: modelInputCaptureHandler,
-                            onToken: { token in
-                                streamedToolLoopText += token
-                                continuation.yield(.textDelta(token))
-                            }
-                        )
-                        let reconciledToolLoopOutput = Self.reconcileToolLoopVisibleText(
-                            streamedText: streamedToolLoopText,
-                            finalOutput: toolLoopOutput
-                        )
-                        emittedVisibleText = reconciledToolLoopOutput.completedText
-                        if let missingDelta = reconciledToolLoopOutput.missingDelta {
-                            continuation.yield(.textDelta(missingDelta))
-                        }
-                    } else {
-                        // Legacy direct-stream path (cloud models in non-agent
-                        // mode, or when localClient / vault aren't available).
-                        let directStream = generateDirectStream(
-                            query: query,
-                            notesContext: notesContext,
-                            conversationHistory: conversationHistory,
-                            operatingMode: operatingMode,
-                            executionPlan: executionPlan,
-                            modelInputCaptureHandler: modelInputCaptureHandler,
-                            reasoningEventHandler: { delta in
-                                continuation.yield(.thinkingDelta(delta))
-                            },
-                            toolEventHandler: toolEventHandler
-                        )
-                        for try await token in directStream {
-                            emittedVisibleText += token
-                            continuation.yield(.textDelta(token))
-                        }
+                    // Cloud-only: direct-stream path (cloud models / Apple
+                    // Intelligence). Local tool-loop removed.
+                    let directStream = generateDirectStream(
+                        query: query,
+                        notesContext: notesContext,
+                        conversationHistory: conversationHistory,
+                        operatingMode: operatingMode,
+                        executionPlan: executionPlan,
+                        modelInputCaptureHandler: modelInputCaptureHandler,
+                        reasoningEventHandler: { delta in
+                            continuation.yield(.thinkingDelta(delta))
+                        },
+                        toolEventHandler: toolEventHandler
+                    )
+                    for try await token in directStream {
+                        emittedVisibleText += token
+                        continuation.yield(.textDelta(token))
                     }
 
                     guard !Task.isCancelled else {
@@ -559,59 +505,6 @@ final class PipelineService {
         return (completedText: finalOutput, missingDelta: nil)
     }
 
-    /// Tool-enabled local-model path. Builds a tier-filtered tool registry
-    /// via the Rust FFI, then drives a LocalAgentLoop with the incoming
-    /// query. Tokens are forwarded to the caller via `onToken`.
-    private func runToolLoop(
-        runID: UUID,
-        query: String,
-        notesContext: String?,
-        conversationHistory: String?,
-        operatingMode: EpistemosOperatingMode,
-        executionPlan: OverseerComplexityRouter.ExecutionPlan?,
-        vaultPath: String,
-        localClient: any LocalConfigurableLLMClient,
-        toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)?,
-        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)?,
-        modelInputCaptureHandler: (@MainActor @Sendable (CapturedModelInput) -> Void)?,
-        onToken: @escaping @MainActor (String) -> Void
-    ) async throws -> String {
-        let tier = Self.localToolTier(
-            for: operatingMode,
-            executionPlan: executionPlan
-        )
-        let bridge = ToolTierBridge(vaultPath: vaultPath, tier: tier)
-        let tools = filteredTools(
-            bridge.loadTools(),
-            using: executionPlan
-        )
-
-        // If no tools loaded (bindings missing, empty registry), fall back
-        // to the legacy stream so we don't break builds that haven't linked
-        // the Rust FFI yet.
-        if tools.isEmpty {
-            Log.pipeline.warning("No tools available for tier \(tier.rawValue) — falling back to direct stream")
-            var accumulated = ""
-            let stream = generateDirectStream(
-                query: query,
-                notesContext: notesContext,
-                conversationHistory: conversationHistory,
-                operatingMode: operatingMode,
-                executionPlan: executionPlan,
-                modelInputCaptureHandler: modelInputCaptureHandler,
-                toolEventHandler: toolEventHandler
-            )
-            for try await token in stream {
-                accumulated += token
-                onToken(token)
-            }
-            return accumulated
-        }
-
-        _ = (runID, query, notesContext, conversationHistory, operatingMode, executionPlan, vaultPath)
-        _ = (localClient, toolEventHandler, toolApprovalHandler, modelInputCaptureHandler, onToken)
-        throw LocalInferenceRoutingError.runtimeUnavailable
-    }
 
     func observedToolExecutor(
         _ baseExecutor: @escaping LocalAgentToolExecutor,
@@ -1011,26 +904,6 @@ final class PipelineService {
         let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
             for: operatingMode
         )
-        let shouldForceDirectLocalStream = executionPlan?.forcesLocalExecution == true
-            && {
-                if case .localMLX = effectiveChatSelection {
-                    return true
-                }
-                return false
-            }()
-
-        if shouldForceDirectLocalStream {
-            return triageService.streamGeneralLocally(
-                prompt: finalPrompt,
-                systemPrompt: systemPrompt,
-                operation: .chatResponse(query: query),
-                contentLength: finalPrompt.count,
-                operatingMode: operatingMode,
-                localSurface: .mainChat,
-                steeringHintsJSON: executionPlan?.steeringHintsJSON,
-                reasoningSink: reasoningEventHandler
-            )
-        }
 
         return triageService.streamGeneral(
             prompt: finalPrompt,

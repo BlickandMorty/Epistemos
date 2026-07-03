@@ -49,19 +49,9 @@ struct GhostComputerAgentReachabilityGuardTests {
         }
     }
 
-    @Test("shipping computer-use path stays on ComputerUseBridge")
-    func shippingComputerUsePathStaysOnComputerUseBridge() throws {
-        let phase4Bridge = try loadMirroredSourceTextFile("Epistemos/Bridge/Phase4Bridge.swift")
-        let streamingDelegate = try loadMirroredSourceTextFile("Epistemos/Bridge/StreamingDelegate.swift")
-        let agentLoop = try loadMirroredSourceTextFile("agent_core/src/agent_loop.rs")
-
-        #expect(phase4Bridge.contains("ComputerUseBridge.shared.execute(actionJSON: actionJson)"),
-                "Phase4Bridge computer-use dispatch must stay on the instrumented ComputerUseBridge path")
-        #expect(streamingDelegate.contains("ComputerUseBridge.shared.execute(actionJSON: actionJson)"),
-                "StreamingDelegate computer tool dispatch must stay on the instrumented ComputerUseBridge path")
-        #expect(agentLoop.contains("if name == \"computer\""),
-                "Rust agent loop must keep delegating computer-use as the canonical native tool marker")
-    }
+    // Cloud-only / Omega-removal migration: "shipping computer-use path stays on
+    // ComputerUseBridge" removed — ComputerUseBridge + Phase4Bridge (the native
+    // computer-use dispatch stack) were deleted, so there is no bridge path to lock.
 
     @Test("GhostComputerAgent source stays deleted")
     func ghostComputerAgentSourceStaysDeleted() throws {

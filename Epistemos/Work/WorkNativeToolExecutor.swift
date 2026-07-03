@@ -116,10 +116,13 @@ nonisolated enum WorkNativeToolExecutor {
         }
     }
 
-    /// Hop to the main actor to run the @MainActor `ComputerUseBridge`.
+    /// Computer-use removed with the Omega lane (cloud-only build): `ComputerUseBridge`
+    /// no longer exists, so this returns an unavailable result. (Work/OpenCode itself
+    /// is kept; only its dead computer-use tool ref is stubbed.)
     @MainActor
     private static func executeComputerAction(actionJSON: String) async -> String {
-        await ComputerUseBridge.shared.execute(actionJSON: actionJSON)
+        _ = actionJSON
+        return "{\"success\":false,\"error\":\"computer action unavailable\"}"
     }
 
     /// `ComputerUseBridge.execute` parses a single `"action"`-keyed object; the MCP catalog exposes see/click/type/…

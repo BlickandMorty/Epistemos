@@ -298,10 +298,10 @@ struct NoteWindowManagerTests {
         #expect(panel.toolbarStyle == .unifiedCompact)
     }
 
-    @Test("Utility panels include notes, omega, and a detached settings window")
+    @Test("Utility panels include notes and a detached settings window")
     func utilityPanelsIncludeDetachedSettingsWindow() {
         #expect(UtilityPanel.allCases.contains(.notes))
-        #expect(UtilityPanel.allCases.contains(.omega))
+        // Cloud-only migration: `.omega` panel case removed (Omega deleted).
         #expect(UtilityPanel.allCases.contains(.settings))
         #expect(UtilityPanel.statusBarPanels == [.notes, .settings])
         #expect(UtilityPanel.notes.title == "Notes")

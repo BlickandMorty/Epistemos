@@ -22,11 +22,6 @@ struct VisualVerifyLoopBootstrapDeadCodeGuardTests {
         #expect(!source.contains("bootstrap.visualVerifyLoop"))
     }
 
-    @Test("ComputerUseBridge does not claim visual verification without wiring it")
-    func computerUseBridgeDoesNotReferenceVisualVerifyLoop() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Bridge/ComputerUseBridge.swift")
-
-        #expect(!source.contains("VisualVerifyLoop"))
-        #expect(!source.contains(".verify("))
-    }
+    // Cloud-only / Omega-removal migration: "ComputerUseBridge does not claim visual
+    // verification without wiring it" removed — ComputerUseBridge.swift was deleted.
 }

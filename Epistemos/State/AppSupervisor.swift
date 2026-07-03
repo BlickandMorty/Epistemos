@@ -646,10 +646,12 @@ final class AppSupervisor {
     // MARK: - Private Checks
 
     private func checkInference() async -> Bool {
-        // Check both inference breakers
-        let fmOpen = await breakers.foundationModels.isOpen
-        let mlxOpen = await breakers.mlx.isOpen
-        if fmOpen && mlxOpen { return false }
+        // Cloud-only: inference is healthy when the cloud provider path is up,
+        // or Apple Intelligence is available. Local MLX inference removed.
+        let cloudOpen = await breakers.cloud.isOpen
+        if !cloudOpen {
+            return true
+        }
 
         if let bootstrap = AppBootstrap.shared {
             if bootstrap.inferenceState.appleIntelligenceAvailable {

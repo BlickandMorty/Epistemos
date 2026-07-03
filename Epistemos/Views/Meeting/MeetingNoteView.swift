@@ -76,6 +76,12 @@ struct MeetingNoteView: View {
                 pendingStartAfterDiscardConfirmation = false
             }
         }
+        // MEET-4: report unsaved capture up to HomeEmbeddedPage so its
+        // back-to-home chip confirms before discarding a recording/transcript.
+        .preference(
+            key: HomeEmbeddedLeaveGuardKey.self,
+            value: isRecording || canDiscard
+        )
     }
 
     private var toolbar: some View {

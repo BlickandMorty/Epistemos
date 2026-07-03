@@ -405,7 +405,7 @@ final class RetrievalRuntime {
                 ).map(\.node)
             } catch {
                 Log.ffiBoundary.error(
-                    "QueryRuntime: fusedSearch failed for '\(query, privacy: .public)': \(error.localizedDescription, privacy: .public). Falling back to legacy per-index dispatch."
+                    "QueryRuntime: fusedSearch failed for '\(query, privacy: .private)': \(error.localizedDescription, privacy: .public). Falling back to legacy per-index dispatch."
                 )
                 // Fall through to legacy path below.
             }
@@ -426,7 +426,7 @@ final class RetrievalRuntime {
                 }
             } catch {
                 Log.ffiBoundary.error(
-                    "QueryRuntime: failed to search note index for '\(query, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                    "QueryRuntime: failed to search note index for '\(query, privacy: .private)': \(error.localizedDescription, privacy: .public)"
                 )
             }
         }
@@ -446,7 +446,7 @@ final class RetrievalRuntime {
                 }
             } catch {
                 Log.ffiBoundary.error(
-                    "QueryRuntime: failed to search block index for '\(query, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                    "QueryRuntime: failed to search block index for '\(query, privacy: .private)': \(error.localizedDescription, privacy: .public)"
                 )
             }
         }

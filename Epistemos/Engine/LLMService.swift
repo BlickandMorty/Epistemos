@@ -37,26 +37,6 @@ protocol LLMClientProtocol: AnyObject {
 }
 
 @MainActor
-protocol LocalConfigurableLLMClient: LLMClientProtocol {
-    func generate(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode,
-        modelID: String?,
-        steeringHintsJSON: String?
-    ) async throws -> String
-    func stream(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode,
-        modelID: String?,
-        steeringHintsJSON: String?
-    ) -> AsyncThrowingStream<String, Error>
-}
-
-@MainActor
 protocol CloudConfigurableLLMClient: LLMClientProtocol {
     func generate(
         prompt: String,
@@ -173,74 +153,6 @@ extension CloudConfigurableLLMClient {
     }
 }
 
-extension LocalConfigurableLLMClient {
-    func generate(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode
-    ) async throws -> String {
-        try await generate(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            reasoningMode: reasoningMode,
-            modelID: nil,
-            steeringHintsJSON: nil
-        )
-    }
-
-    func stream(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode
-    ) -> AsyncThrowingStream<String, Error> {
-        stream(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            reasoningMode: reasoningMode,
-            modelID: nil,
-            steeringHintsJSON: nil
-        )
-    }
-
-    func generate(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode,
-        modelID: String?
-    ) async throws -> String {
-        try await generate(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            reasoningMode: reasoningMode,
-            modelID: modelID,
-            steeringHintsJSON: nil
-        )
-    }
-
-    func stream(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode,
-        modelID: String?
-    ) -> AsyncThrowingStream<String, Error> {
-        stream(
-            prompt: prompt,
-            systemPrompt: systemPrompt,
-            maxTokens: maxTokens,
-            reasoningMode: reasoningMode,
-            modelID: modelID,
-            steeringHintsJSON: nil
-        )
-    }
-}
-
 extension LLMClientProtocol {
     func generate(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 4096) async throws -> String {
         try await generate(prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens)
@@ -252,24 +164,6 @@ extension LLMClientProtocol {
 }
 
 // MARK: - LLM Service
-
-extension LLMProviderType {
-    nonisolated static func localProvider(runtimeKind: BackendRuntimeKind) -> Self {
-        switch runtimeKind {
-        case .gguf:
-            .localGGUF
-        case .mlx, .remote:
-            .localMLX
-        }
-    }
-
-    nonisolated static func localProvider(modelID: String?) -> Self {
-        guard let modelID, let localModel = LocalTextModelID(rawValue: modelID) else {
-            return .localMLX
-        }
-        return localProvider(runtimeKind: localModel.runtimeKind)
-    }
-}
 
 /// Shared text generation gateway for older subsystems that still expect
 /// a single generation service, without duplicating the higher-level triage engine.
@@ -338,27 +232,7 @@ final class LLMService: LLMClientProtocol {
             }
 
         case .localGGUF, .localMLX:
-            guard let localLLMClient else {
-                return StreamingBufferPolicy.throwingStream { continuation in
-                    continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
-                }
-            }
-
-            if let configurable = localLLMClient as? any LocalConfigurableLLMClient {
-                return configurable.stream(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    maxTokens: maxTokens,
-                    reasoningMode: snapshot.reasoningMode,
-                    modelID: snapshot.model.isEmpty ? nil : snapshot.model
-                )
-            }
-
-            return localLLMClient.stream(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens
-            )
+            return StreamingBufferPolicy.throwingStream { $0.finish(throwing: CloudLLMError.runtimeUnavailable) }
         case .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek:
             guard let cloudLLMClient else {
                 return StreamingBufferPolicy.throwingStream { continuation in
@@ -377,11 +251,6 @@ final class LLMService: LLMClientProtocol {
         if case .cloud = inference.preferredChatModelSelection,
            let cloudLLMClient {
             return await cloudLLMClient.testConnection()
-        }
-
-        if inference.hasUsableLocalTextModel,
-           let localLLMClient {
-            return await localLLMClient.testConnection()
         }
 
         let availability = AppleIntelligenceService.shared.checkAvailability()
@@ -406,30 +275,13 @@ final class LLMService: LLMClientProtocol {
         if case .cloud(let model) = inference.preferredChatModelSelection {
             return LLMSnapshot(
                 provider: model.provider.llmProviderType,
-                model: model.vendorModelID,
-                reasoningMode: .fast
-            )
-        }
-
-        if let localLLMClient {
-            let localSnapshot = localLLMClient.configSnapshot()
-            if localSnapshot.provider != .appleIntelligence || inference.hasUsableLocalTextModel {
-                return localSnapshot
-            }
-        }
-
-        if let modelID = inference.activeLocalTextModelID {
-            return LLMSnapshot(
-                provider: .localProvider(modelID: modelID),
-                model: modelID,
-                reasoningMode: .fast
+                model: model.vendorModelID
             )
         }
 
         return LLMSnapshot(
             provider: .appleIntelligence,
-            model: "",
-            reasoningMode: .fast
+            model: ""
         )
     }
 
@@ -449,13 +301,7 @@ final class LLMService: LLMClientProtocol {
             )
 
         case .localGGUF, .localMLX:
-            return try await sharedLocalGenerate(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens,
-                reasoningMode: snapshot.reasoningMode,
-                modelID: snapshot.model.isEmpty ? nil : snapshot.model
-            )
+            throw CloudLLMError.runtimeUnavailable
         case .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek:
             return try await sharedCloudGenerate(
                 prompt: prompt,
@@ -463,18 +309,6 @@ final class LLMService: LLMClientProtocol {
                 maxTokens: maxTokens
             )
         }
-    }
-
-    @MainActor
-    private static func sharedLocalGenerate(
-        prompt: String,
-        systemPrompt: String?,
-        maxTokens: Int,
-        reasoningMode: LocalReasoningMode,
-        modelID: String?
-    ) async throws -> String {
-        _ = (prompt, systemPrompt, maxTokens, reasoningMode, modelID)
-        throw LocalInferenceRoutingError.runtimeUnavailable
     }
 
     @MainActor
@@ -500,7 +334,6 @@ final class LLMService: LLMClientProtocol {
 nonisolated struct LLMSnapshot: Sendable {
     let provider: LLMProviderType
     let model: String
-    let reasoningMode: LocalReasoningMode
 }
 
 nonisolated struct ProcessActivityToken: Sendable {
@@ -676,9 +509,23 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     /// a "cache 78%" badge. Same ownership contract as reasoningSink.
     var usageSink: (@Sendable (_ inputTokens: Int, _ outputTokens: Int, _ cacheReadTokens: Int) -> Void)?
 
+    /// SEC-3: dedicated session for cloud LLM transport. `URLSession.shared` has no
+    /// explicit timeouts (7-day default resource timeout) — a hung POST or a trickling /
+    /// stalled SSE could occupy a turn indefinitely. This caps the idle-between-bytes
+    /// wait (request timeout; a healthy stream sends tokens/keepalives well within it)
+    /// and the total transfer, without truncating long agent turns.
+    // `nonisolated` so it can be referenced from the init's default argument (evaluated
+    // in the caller's isolation); URLSession is Sendable, so this is sound.
+    nonisolated static let defaultCloudSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120       // max idle between received bytes
+        config.timeoutIntervalForResource = 1800      // hard cap per turn's transfer (30 min)
+        return URLSession(configuration: config)
+    }()
+
     init(
         inference: InferenceState,
-        urlSession: URLSession = .shared,
+        urlSession: URLSession = CloudLLMClient.defaultCloudSession,
         agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
     ) {
         self.inference = inference
@@ -1205,12 +1052,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     func configSnapshot() -> LLMSnapshot {
         guard let model = try? selectedCloudModel() else {
-            return LLMSnapshot(provider: .openAI, model: "", reasoningMode: .fast)
+            return LLMSnapshot(provider: .openAI, model: "")
         }
         return LLMSnapshot(
             provider: model.provider.llmProviderType,
-            model: model.vendorModelID,
-            reasoningMode: .fast
+            model: model.vendorModelID
         )
     }
 

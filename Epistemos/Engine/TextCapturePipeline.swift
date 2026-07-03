@@ -176,6 +176,15 @@ extension TraceEvent {
         )
     }
 
+    /// MEET-7: the note title is derived from the first transcript line (meeting
+    /// content). Hash it so the persisted trace records correlation, not the user's
+    /// words, in `traces/production/*.jsonl` (which has no retention limit / user delete).
+    private static func redactedTitleHash(_ title: String) -> String {
+        guard !title.isEmpty else { return "(empty)" }
+        let hex = SHA256.hash(data: Data(title.utf8)).map { String(format: "%02x", $0) }.joined()
+        return String(hex.prefix(16))
+    }
+
     static func structureGenerated(
         sessionId: String, traceId: String,
         entityCount: Int, taskCount: Int, title: String
@@ -185,7 +194,7 @@ extension TraceEvent {
             harnessVersion: "capture-v1", turn: nil,
             provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
             exitCode: nil, durationMs: nil,
-            content: "title=\(String(title.prefix(80))) entities=\(entityCount) tasks=\(taskCount)",
+            content: "title_sha256=\(redactedTitleHash(title)) entities=\(entityCount) tasks=\(taskCount)",
             tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
             checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
             thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil

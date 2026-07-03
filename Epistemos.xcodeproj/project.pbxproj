@@ -12,81 +12,61 @@
 		063FBBFF8F084AFDD50D87BA /* EpistemosSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4713439484B07EC2D84E457 /* EpistemosSidecar.swift */; };
 		08F333D4BF84ADD28C3B3873 /* CognitiveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169A8DC98B20151778A8196C /* CognitiveIntents.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
-		0C5366D178FA4AA37B07FBC7 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = B13F202AC1BF0231DEF14824 /* AppKitControls */; };
-		149EE7731805C0B0CD8AB0EF /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 152E3DBC8E6BBCFBA8489486 /* TextCompletion */; };
 		14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
-		161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */ = {isa = PBXBuildFile; productRef = 48BA6B15F3E86D3F10699011 /* AXorcist */; };
-		1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FA1346421A48DF0E99CA1280 /* GRDB */; };
+		161F4C5CC609D325639A5D99 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FA1346421A48DF0E99CA1280 /* GRDB */; };
+		1ADDFDA4FEF38784F3172BED /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = D22E3A58030016B71ABF4392 /* Grape */; };
 		1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */; };
-		1F6C25A17E7934B000E8B6FF /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = C38C0526B12EAEB10976C5B1 /* SettingsUI */; };
-		20C7276D2435E3F4E16C195A /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9F7E743E103DA1BED82C903 /* MarkEditKit */; };
 		226F765E554D4FB43B088278 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
-		249B4E89B585641244080171 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */; };
-		301862415C67ECCA61078688 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
-		30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 538CE08807F3177D13D01160 /* VMLXHuggingFace */; };
+		30E13BBA08D4E40824E55896 /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
 		3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
-		3BDE702EBE7513A75F05E85F /* VMLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */; };
-		3D23A5C1D009CE91D4E42985 /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
-		3D4942A386C554B19DB941FE /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = 992412F140C574B1E0283AEA /* Previewer */; };
-		3F21FFDC8F385A6DEC3412FF /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
+		3BDE702EBE7513A75F05E85F /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = D8818F7A8F2FF6B520C10B42 /* FontPicker */; };
+		3F21FFDC8F385A6DEC3412FF /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = DF6711EF9A00AF3A68ED8143 /* FileDrop */; };
 		46243D23E5333064943D5310 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		47EC22FDE2094C0AD988091C /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0A2D551363AE61A7F5B1B898 /* GRDB */; };
 		4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
-		54FEAA196B99035E42E8B0B6 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
+		54FEAA196B99035E42E8B0B6 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
 		5B1557CE7B5BE6FA4FD1DCC2 /* SidecarCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA1101E0D8741618C93599C /* SidecarCache.swift */; };
-		5BD2F1107633AD6B41B0C58B /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
-		5CBEBB6A03FDBD156286FB7C /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 6E17340F4F4FFCF08C0E672D /* Statistics */; };
+		5BD2F1107633AD6B41B0C58B /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
 		5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		61C8116B784756491A5EC96D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
-		65469464345B2215552A655D /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
 		6807228E4B5A4998F227E8EA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 13D3E6E9629BE150EEFC32BE /* Security.framework */; };
-		6B99BA67FAE58757352A15B7 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 970856BAED7F66F3D3CAEF36 /* TextBundle */; };
 		6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */; };
-		74959B01F628EBAA2FBB4B29 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
-		7BA33DAD72F26B5969AF58A4 /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */; };
-		7E04502E94924A57934605BE /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
+		7BA33DAD72F26B5969AF58A4 /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3FF61CC7613816DCD256501A /* MarkEditKit */; };
+		7E04502E94924A57934605BE /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 104F667588B6B74771455F14 /* Statistics */; };
 		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
 		80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */; };
-		81716E83E67308AE0E10312D /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = D22E3A58030016B71ABF4392 /* Grape */; };
-		836B564E870EDF34873B3A58 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 910D0543E7FCC403D8235BC8 /* MLXNN */; };
-		83C58597C91DDDB52684C5AA /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 1387824EA0DAA6D702EFD7BA /* AppKitExtensions */; };
-		8AB7C1B0CD7A76FC5E9D1AB6 /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = D8818F7A8F2FF6B520C10B42 /* FontPicker */; };
-		9292AF4A39B39412A3ECF79E /* FontPicker in Frameworks */ = {isa = PBXBuildFile; productRef = DD9553A30739FBFA2CD51437 /* FontPicker */; };
-		9306CA2B6D16680A144B5317 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 335D46D689DC43CC5B86CBE9 /* MLXLMCommon */; };
-		95AA3894CE199C5C626B7EF8 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 16CC623C4E71A4DF3F6DBDBC /* TextBundle */; };
-		96A9F4DDD32CF7F954327D2C /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
+		81716E83E67308AE0E10312D /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 135D935B56D44B67D290BC44 /* SwiftTerm */; };
+		836B564E870EDF34873B3A58 /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = B5565EA54F11316CA03FCE0A /* MarkEditCore */; };
+		9306CA2B6D16680A144B5317 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = 929E3F8673D5E6BA76C7D611 /* AppKitControls */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
-		A105AB197896C116C097EB9E /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = A5223DF8B66054B397B8063A /* MarkEditCore */; };
-		A4EADC574B8E36EB1327DA66 /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C0F23953DF52141112B079EB /* GGUFRuntimeBridge */; };
-		A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = B1EB8622EB43550A22C16D72 /* VMLXTokenizers */; };
-		A9CF38DAF4867513C3D4E99C /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = B8E0559AD19EF2A9B70D952C /* FileVersion */; };
-		AE1D502E41AEB5C7A7D1C8E0 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = DF6711EF9A00AF3A68ED8143 /* FileDrop */; };
-		B131CB2C4E4E857765F2366F /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 135D935B56D44B67D290BC44 /* SwiftTerm */; };
-		B6058CDDBAC6D239758DE0BE /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = ACAC129448E9C89398D377EA /* MLXLLM */; };
+		A105AB197896C116C097EB9E /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 152E3DBC8E6BBCFBA8489486 /* TextCompletion */; };
+		A4EADC574B8E36EB1327DA66 /* Statistics in Frameworks */ = {isa = PBXBuildFile; productRef = 6E17340F4F4FFCF08C0E672D /* Statistics */; };
+		A5782539EAC785740C793CCA /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = 992412F140C574B1E0283AEA /* Previewer */; };
+		B131CB2C4E4E857765F2366F /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = C38C0526B12EAEB10976C5B1 /* SettingsUI */; };
+		B6058CDDBAC6D239758DE0BE /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 21E9EC38054CF698E1778CBE /* AppKitExtensions */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
 		BDA83B0079DB6B1F90AD4093 /* ConversationStateClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */; };
-		BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */; };
-		BFE34268D83FB96D10840B4D /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 3DB8D6F40492AA0EBD6805FA /* MLXNN */; };
-		C18BD6A1E86E5CE754EC3C02 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = B919CFE16BDE19DE0CD70F2E /* MLX */; };
-		D78DB160002E1ADAA6A29A47 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 43820B4F7DE581D5047F0349 /* KokoroPipeline */; };
+		BE22FF112091A73278DA1574 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = F8EFC969F569F143FA21C59C /* FileVersion */; };
+		BFE34268D83FB96D10840B4D /* MarkEditCore in Frameworks */ = {isa = PBXBuildFile; productRef = A5223DF8B66054B397B8063A /* MarkEditCore */; };
+		C18BD6A1E86E5CE754EC3C02 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 43820B4F7DE581D5047F0349 /* KokoroPipeline */; };
+		D78DB160002E1ADAA6A29A47 /* TextBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 970856BAED7F66F3D3CAEF36 /* TextBundle */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
-		DF83A55045962D57B510A3AE /* MLXOptimizers in Frameworks */ = {isa = PBXBuildFile; productRef = 6C5604E44D34114D4C65A436 /* MLXOptimizers */; };
-		E1411145209B0CCD99C5C608 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = EE721F274D3687D9B714DFE8 /* MLXVLM */; };
+		DF83A55045962D57B510A3AE /* MarkEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = E9F7E743E103DA1BED82C903 /* MarkEditKit */; };
+		E1411145209B0CCD99C5C608 /* FileDrop in Frameworks */ = {isa = PBXBuildFile; productRef = C5C43578924D958FD0F10AEA /* FileDrop */; };
 		E5C918B7DB7D7E04D07548A6 /* EpistemosSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */; };
-		E5F98A62361C1EBB82523B92 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
-		E70B453353C9AB5E24A29DFA /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 10AF46C8B7755E4D5270CE5D /* MLX */; };
+		E5F98A62361C1EBB82523B92 /* AppKitExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 1387824EA0DAA6D702EFD7BA /* AppKitExtensions */; };
+		E70B453353C9AB5E24A29DFA /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
-		F179F5290BD109FC06F77403 /* KokoroPipeline in Frameworks */ = {isa = PBXBuildFile; productRef = 50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */; };
-		F17AA91C0BB197EE4008CED8 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
+		F179F5290BD109FC06F77403 /* SettingsUI in Frameworks */ = {isa = PBXBuildFile; productRef = 40094AE6591C1C7FEA3D49B6 /* SettingsUI */; };
+		F17AA91C0BB197EE4008CED8 /* AppKitControls in Frameworks */ = {isa = PBXBuildFile; productRef = B13F202AC1BF0231DEF14824 /* AppKitControls */; };
 		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
-		F4FD9C1FBB3D7E66B93DD4B4 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */; };
-		F528A98E7E5ECBD7455DEF81 /* TextCompletion in Frameworks */ = {isa = PBXBuildFile; productRef = 88BCB3EA6698A7750855E06F /* TextCompletion */; };
-		F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */; };
+		F4FD9C1FBB3D7E66B93DD4B4 /* FileVersion in Frameworks */ = {isa = PBXBuildFile; productRef = B8E0559AD19EF2A9B70D952C /* FileVersion */; };
+		F5784C6AD6DA3C05A246766E /* Previewer in Frameworks */ = {isa = PBXBuildFile; productRef = F5DBC24422FD519A6BED081F /* Previewer */; };
 		F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 /* End PBXBuildFile section */
 
@@ -115,9 +95,7 @@
 		57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Epistemos-AppStore.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTelemetryClassifier.swift; sourceTree = "<group>"; };
 		5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KokoroPipeline; path = LocalPackages/KokoroPipeline; sourceTree = SOURCE_ROOT; };
-		672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GGUFRuntimeBridge; path = LocalPackages/GGUFRuntimeBridge; sourceTree = SOURCE_ROOT; };
 		689A6C418AA4456CEBAE5A31 /* Modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Modules; path = LocalPackages/MarkEdit/MarkEditMac/Modules; sourceTree = SOURCE_ROOT; };
-		757586A90674D2FF8AC3ACF8 /* vmlx-swift */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "vmlx-swift"; path = "LocalPackages/vmlx-swift"; sourceTree = SOURCE_ROOT; };
 		7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStateClassifier.swift; sourceTree = "<group>"; };
 		7EA1101E0D8741618C93599C /* SidecarCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarCache.swift; sourceTree = "<group>"; };
 		A0DEC64ED9ED804781639E05 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
@@ -143,10 +121,6 @@
 				epistemos_coreFFI,
 				epistemos_coreFFI.h,
 				epistemos_coreFFI.modulemap,
-				omega_ax.swift,
-				omega_axFFI,
-				omega_axFFI.h,
-				omega_axFFI.modulemap,
 				omega_mcpFFI,
 				omega_mcpFFI.h,
 				omega_mcpFFI.modulemap,
@@ -157,8 +131,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
-				Omega/Knowledge/ODIATraceGenerator.swift,
-				Omega/Knowledge/TraceDataMixer.swift,
 				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
 				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/clike-B9uivgTg.js",
@@ -235,9 +207,6 @@
 				epistemos_coreFFI,
 				epistemos_coreFFI.h,
 				epistemos_coreFFI.modulemap,
-				omega_axFFI,
-				omega_axFFI.h,
-				omega_axFFI.modulemap,
 				omega_mcpFFI,
 				omega_mcpFFI.h,
 				omega_mcpFFI.modulemap,
@@ -248,8 +217,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
-				Omega/Knowledge/ODIATraceGenerator.swift,
-				Omega/Knowledge/TraceDataMixer.swift,
 				"Resources/CoreEditor/chunks/SF-Mono-Bold-GoU_0vk_.woff2",
 				"Resources/CoreEditor/chunks/SF-Mono-Regular-DrcY-UX1.woff2",
 				"Resources/CoreEditor/chunks/clike-B9uivgTg.js",
@@ -344,33 +311,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */,
-				1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */,
-				81716E83E67308AE0E10312D /* Grape in Frameworks */,
-				C18BD6A1E86E5CE754EC3C02 /* MLX in Frameworks */,
-				BFE34268D83FB96D10840B4D /* MLXNN in Frameworks */,
-				DF83A55045962D57B510A3AE /* MLXOptimizers in Frameworks */,
-				F17AA91C0BB197EE4008CED8 /* MLXLMCommon in Frameworks */,
-				E5F98A62361C1EBB82523B92 /* MLXLLM in Frameworks */,
-				3F21FFDC8F385A6DEC3412FF /* MLXVLM in Frameworks */,
-				F4FD9C1FBB3D7E66B93DD4B4 /* MLXHuggingFace in Frameworks */,
-				3BDE702EBE7513A75F05E85F /* VMLXHuggingFace in Frameworks */,
-				A5782539EAC785740C793CCA /* VMLXTokenizers in Frameworks */,
-				B131CB2C4E4E857765F2366F /* SwiftTerm in Frameworks */,
-				A4EADC574B8E36EB1327DA66 /* GGUFRuntimeBridge in Frameworks */,
-				D78DB160002E1ADAA6A29A47 /* KokoroPipeline in Frameworks */,
-				A105AB197896C116C097EB9E /* MarkEditCore in Frameworks */,
-				20C7276D2435E3F4E16C195A /* MarkEditKit in Frameworks */,
-				0C5366D178FA4AA37B07FBC7 /* AppKitControls in Frameworks */,
-				83C58597C91DDDB52684C5AA /* AppKitExtensions in Frameworks */,
-				AE1D502E41AEB5C7A7D1C8E0 /* FileDrop in Frameworks */,
-				A9CF38DAF4867513C3D4E99C /* FileVersion in Frameworks */,
-				8AB7C1B0CD7A76FC5E9D1AB6 /* FontPicker in Frameworks */,
-				3D4942A386C554B19DB941FE /* Previewer in Frameworks */,
-				1F6C25A17E7934B000E8B6FF /* SettingsUI in Frameworks */,
-				5CBEBB6A03FDBD156286FB7C /* Statistics in Frameworks */,
-				6B99BA67FAE58757352A15B7 /* TextBundle in Frameworks */,
-				149EE7731805C0B0CD8AB0EF /* TextCompletion in Frameworks */,
+				161F4C5CC609D325639A5D99 /* GRDB in Frameworks */,
+				1ADDFDA4FEF38784F3172BED /* Grape in Frameworks */,
+				81716E83E67308AE0E10312D /* SwiftTerm in Frameworks */,
+				C18BD6A1E86E5CE754EC3C02 /* KokoroPipeline in Frameworks */,
+				BFE34268D83FB96D10840B4D /* MarkEditCore in Frameworks */,
+				DF83A55045962D57B510A3AE /* MarkEditKit in Frameworks */,
+				F17AA91C0BB197EE4008CED8 /* AppKitControls in Frameworks */,
+				E5F98A62361C1EBB82523B92 /* AppKitExtensions in Frameworks */,
+				3F21FFDC8F385A6DEC3412FF /* FileDrop in Frameworks */,
+				F4FD9C1FBB3D7E66B93DD4B4 /* FileVersion in Frameworks */,
+				3BDE702EBE7513A75F05E85F /* FontPicker in Frameworks */,
+				A5782539EAC785740C793CCA /* Previewer in Frameworks */,
+				B131CB2C4E4E857765F2366F /* SettingsUI in Frameworks */,
+				A4EADC574B8E36EB1327DA66 /* Statistics in Frameworks */,
+				D78DB160002E1ADAA6A29A47 /* TextBundle in Frameworks */,
+				A105AB197896C116C097EB9E /* TextCompletion in Frameworks */,
 				0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */,
 				61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */,
 				DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */,
@@ -399,28 +355,19 @@
 			files = (
 				47EC22FDE2094C0AD988091C /* GRDB in Frameworks */,
 				BAAEE4E38661F000D998F186 /* Grape in Frameworks */,
-				E70B453353C9AB5E24A29DFA /* MLX in Frameworks */,
-				836B564E870EDF34873B3A58 /* MLXNN in Frameworks */,
-				7BA33DAD72F26B5969AF58A4 /* MLXOptimizers in Frameworks */,
-				9306CA2B6D16680A144B5317 /* MLXLMCommon in Frameworks */,
-				B6058CDDBAC6D239758DE0BE /* MLXLLM in Frameworks */,
-				E1411145209B0CCD99C5C608 /* MLXVLM in Frameworks */,
-				BE22FF112091A73278DA1574 /* MLXHuggingFace in Frameworks */,
-				30E13BBA08D4E40824E55896 /* VMLXHuggingFace in Frameworks */,
-				F5784C6AD6DA3C05A246766E /* VMLXTokenizers in Frameworks */,
-				F179F5290BD109FC06F77403 /* KokoroPipeline in Frameworks */,
-				7E04502E94924A57934605BE /* MarkEditCore in Frameworks */,
-				5BD2F1107633AD6B41B0C58B /* MarkEditKit in Frameworks */,
-				54FEAA196B99035E42E8B0B6 /* AppKitControls in Frameworks */,
-				74959B01F628EBAA2FBB4B29 /* AppKitExtensions in Frameworks */,
-				249B4E89B585641244080171 /* FileDrop in Frameworks */,
-				301862415C67ECCA61078688 /* FileVersion in Frameworks */,
-				9292AF4A39B39412A3ECF79E /* FontPicker in Frameworks */,
-				65469464345B2215552A655D /* Previewer in Frameworks */,
-				96A9F4DDD32CF7F954327D2C /* SettingsUI in Frameworks */,
-				3D23A5C1D009CE91D4E42985 /* Statistics in Frameworks */,
-				95AA3894CE199C5C626B7EF8 /* TextBundle in Frameworks */,
-				F528A98E7E5ECBD7455DEF81 /* TextCompletion in Frameworks */,
+				E70B453353C9AB5E24A29DFA /* KokoroPipeline in Frameworks */,
+				836B564E870EDF34873B3A58 /* MarkEditCore in Frameworks */,
+				7BA33DAD72F26B5969AF58A4 /* MarkEditKit in Frameworks */,
+				9306CA2B6D16680A144B5317 /* AppKitControls in Frameworks */,
+				B6058CDDBAC6D239758DE0BE /* AppKitExtensions in Frameworks */,
+				E1411145209B0CCD99C5C608 /* FileDrop in Frameworks */,
+				BE22FF112091A73278DA1574 /* FileVersion in Frameworks */,
+				30E13BBA08D4E40824E55896 /* FontPicker in Frameworks */,
+				F5784C6AD6DA3C05A246766E /* Previewer in Frameworks */,
+				F179F5290BD109FC06F77403 /* SettingsUI in Frameworks */,
+				7E04502E94924A57934605BE /* Statistics in Frameworks */,
+				5BD2F1107633AD6B41B0C58B /* TextBundle in Frameworks */,
+				54FEAA196B99035E42E8B0B6 /* TextCompletion in Frameworks */,
 				0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */,
 				2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */,
 				14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */,
@@ -508,13 +455,11 @@
 		CDE9EC77D799DAC3B605278D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */,
 				5CA1ADD76D0A683D0954DDB5 /* KokoroPipeline */,
 				0C22103FC04EC48867600235 /* MarkEditCore */,
 				FC737BC198BF4E5BEADB7BC8 /* MarkEditKit */,
 				689A6C418AA4456CEBAE5A31 /* Modules */,
 				061AF947F49EEBA6858FF0E5 /* SwiftTerm */,
-				757586A90674D2FF8AC3ACF8 /* vmlx-swift */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -588,20 +533,9 @@
 			);
 			name = Epistemos;
 			packageProductDependencies = (
-				48BA6B15F3E86D3F10699011 /* AXorcist */,
 				FA1346421A48DF0E99CA1280 /* GRDB */,
 				D22E3A58030016B71ABF4392 /* Grape */,
-				B919CFE16BDE19DE0CD70F2E /* MLX */,
-				3DB8D6F40492AA0EBD6805FA /* MLXNN */,
-				6C5604E44D34114D4C65A436 /* MLXOptimizers */,
-				C1632F27423B91A7F3261950 /* MLXLMCommon */,
-				F463DB33C39F4AB6E0BB6518 /* MLXLLM */,
-				B459E8918D8198BA7803E476 /* MLXVLM */,
-				7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */,
-				51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */,
-				B1EB8622EB43550A22C16D72 /* VMLXTokenizers */,
 				135D935B56D44B67D290BC44 /* SwiftTerm */,
-				C0F23953DF52141112B079EB /* GGUFRuntimeBridge */,
 				43820B4F7DE581D5047F0349 /* KokoroPipeline */,
 				A5223DF8B66054B397B8063A /* MarkEditCore */,
 				E9F7E743E103DA1BED82C903 /* MarkEditKit */,
@@ -644,15 +578,6 @@
 			packageProductDependencies = (
 				0A2D551363AE61A7F5B1B898 /* GRDB */,
 				A7B4A33EDFA6CDF19164E100 /* Grape */,
-				10AF46C8B7755E4D5270CE5D /* MLX */,
-				910D0543E7FCC403D8235BC8 /* MLXNN */,
-				9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */,
-				335D46D689DC43CC5B86CBE9 /* MLXLMCommon */,
-				ACAC129448E9C89398D377EA /* MLXLLM */,
-				EE721F274D3687D9B714DFE8 /* MLXVLM */,
-				45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */,
-				538CE08807F3177D13D01160 /* VMLXHuggingFace */,
-				D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */,
 				50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */,
 				B5565EA54F11316CA03FCE0A /* MarkEditCore */,
 				3FF61CC7613816DCD256501A /* MarkEditKit */,
@@ -708,16 +633,13 @@
 			mainGroup = 6F9EC009019D0F4E92530E7F;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */,
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
-				7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */,
 				9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */,
 				364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */,
 				B1BD229D7BC4AA1455B53515 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditKit" */,
 				C613EEA98847AB76DEFBB315 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditMac/Modules" */,
 				02D05642BEB6B90C91949BBE /* XCLocalSwiftPackageReference "LocalPackages/SwiftTerm" */,
-				1D564185EDCCCC1D338E57E3 /* XCLocalSwiftPackageReference "LocalPackages/vmlx-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 21C2583A1AFD8B5552357491 /* Products */;
@@ -819,7 +741,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nrm -f \"${frameworks_dir}/libomega_ax.dylib\"\nrm -rf \"${frameworks_dir}/AXorcist.framework\"\nrm -rf \"${frameworks_dir}/llama.framework\"\n";
+			shellScript = "set -euo pipefail\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\n";
 		};
 		9ECE8015F787406179285179 /* Build Rust Engine */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -838,7 +760,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\"";
 		};
 		E7F099267B00E856637856A5 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -876,7 +798,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\noutput_dir=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror\"\nmkdir -p \"${output_dir}\"\n\nprune_artifact_directories() {\n  local destination_root=\"$1\"\n\n  if [ ! -d \"${destination_root}\" ]; then\n    return 0\n  fi\n\n  find \"${destination_root}\" -type d \\( \\\n    -name 'target' -o \\\n    -name '.build' -o \\\n    -name 'build' -o \\\n    -name 'DerivedData' -o \\\n    -name '.git' -o \\\n    -name 'node_modules' -o \\\n    -name '.venv' -o \\\n    -name 'venv' -o \\\n    -name '__pycache__' \\\n  \\) -prune -exec rm -rf {} +\n}\n\ncopy_tree() {\n  local relative_root=\"$1\"\n  local source_root=\"${PROJECT_DIR}/${relative_root}\"\n  local destination_root=\"${output_dir}/${relative_root}\"\n\n  if [ ! -d \"${source_root}\" ]; then\n    rm -rf \"${destination_root}\"\n    return 0\n  fi\n\n  mkdir -p \"${destination_root}\"\n  prune_artifact_directories \"${destination_root}\"\n  rsync -a --delete --prune-empty-dirs \\\n    --exclude='target/' \\\n    --exclude='.build/' \\\n    --exclude='build/' \\\n    --exclude='DerivedData/' \\\n    --exclude='.git/' \\\n    --exclude='node_modules/' \\\n    --exclude='vendor/browser-use/' \\\n    --exclude='.venv/' \\\n    --exclude='venv/' \\\n    --exclude='__pycache__/' \\\n    --include='*/' \\\n    --include='*.swift' \\\n    --include='*.rs' \\\n    --include='*.py' \\\n    --include='*.ts' \\\n    --include='*.tsx' \\\n    --include='*.css' \\\n    --include='*.html' \\\n    --include='*.sh' \\\n    --include='*.yml' \\\n    --include='*.yaml' \\\n    --include='*.toml' \\\n    --include='*.h' \\\n    --include='*.pbxproj' \\\n    --include='*.plist' \\\n    --include='*.md' \\\n    --include='*.json' \\\n    --include='*.jsonl' \\\n    --include='*.png' \\\n    --include='lean-toolchain' \\\n    --include='*.lean' \\\n    --include='*.metal' \\\n    --include='*.xcprivacy' \\\n    --include='*.entitlements' \\\n    --include='*.udl' \\\n    --include='*.xcscheme' \\\n    --include='*.xcworkspacedata' \\\n    --exclude='*' \\\n    \"${source_root}/\" \"${destination_root}/\"\n}\n\ncopy_file() {\n  local relative_path=\"$1\"\n  local source_path=\"${PROJECT_DIR}/${relative_path}\"\n  local destination_path=\"${output_dir}/${relative_path}\"\n\n  if [ ! -f \"${source_path}\" ]; then\n    rm -f \"${destination_path}\"\n    return 0\n  fi\n\n  mkdir -p \"$(dirname \"${destination_path}\")\"\n  rsync -a \"${source_path}\" \"${destination_path}\"\n}\n\ncopy_tree \"Epistemos\"\ncopy_tree \"EpistemosTests\"\ncopy_tree \"XPCServices\"\ncopy_tree \"agent_core\"\ncopy_tree \"artifacts/falsifiers/page_gather\"\ncopy_tree \"artifacts/falsifiers/ulp_oracle\"\ncopy_tree \"artifacts/lattice-coordinate-explainer\"\ncopy_tree \"epistemos-code-index\"\ncopy_tree \"epistemos-shadow\"\ncopy_tree \"graph-engine\"\ncopy_tree \"graph-engine-bridge\"\ncopy_tree \"epistemos-core\"\ncopy_tree \"epistemos-research\"\ncopy_tree \"epistemos-vault\"\ncopy_tree \"lean\"\ncopy_tree \"omega-ax\"\ncopy_tree \"omega-mcp\"\ncopy_tree \"substrate-core\"\ncopy_tree \"substrate-rt\"\ncopy_tree \"syntax-core\"\ncopy_tree \"syntax-core-bridge\"\ncopy_tree \"js-editor/src\"\ncopy_file \"js-editor/package.json\"\ncopy_file \"js-editor/webpack.config.js\"\ncopy_tree \"scripts\"\ncopy_tree \"Tools\"\ncopy_tree \"docs\"\ncopy_tree \".agents\"\ncopy_tree \".github\"\ncopy_tree \"config\"\ncopy_tree \"LocalPackages\"\ncopy_tree \"Epistemos.xcodeproj\"\n\ncopy_file \"AGENTS.md\"\ncopy_file \"CLAUDE.md\"\ncopy_file \"EPISTEMOS-NORTH-STAR.md\"\ncopy_file \"Epistemos-Bridging-Header.h\"\ncopy_file \"Epistemos-Info.plist\"\ncopy_file \"Epistemos-AppStore-Info.plist\"\ncopy_file \"project.yml\"\ncopy_file \"Makefile\"\ncopy_file \"TESTING_GUIDE.md\"\ncopy_file \"patch-uniffi-bindings.py\"\ncopy_file \"bundle-app-runtime-assets.sh\"\ncopy_file \"embed-and-sign-rust-dylib.sh\"\ncopy_file \"build-rust.sh\"\ncopy_file \"build-syntax-core.sh\"\ncopy_file \"build-omega-mcp.sh\"\ncopy_file \"build-omega-ax.sh\"\ncopy_file \"build-epistemos-core.sh\"\ncopy_file \"build-agent-core.sh\"\ncopy_file \"build-epistemos-shadow.sh\"\ncopy_file \"build-epistemos-code-index.sh\"\ncopy_file \"build-substrate-rt.sh\"\ncopy_file \"build-tiptap-bundle.sh\"\ncopy_file \"build-coreeditor-bundle.sh\"\n";
+			shellScript = "set -euo pipefail\noutput_dir=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror\"\nmkdir -p \"${output_dir}\"\n\nprune_artifact_directories() {\n  local destination_root=\"$1\"\n\n  if [ ! -d \"${destination_root}\" ]; then\n    return 0\n  fi\n\n  find \"${destination_root}\" -type d \\( \\\n    -name 'target' -o \\\n    -name '.build' -o \\\n    -name 'build' -o \\\n    -name 'DerivedData' -o \\\n    -name '.git' -o \\\n    -name 'node_modules' -o \\\n    -name '.venv' -o \\\n    -name 'venv' -o \\\n    -name '__pycache__' \\\n  \\) -prune -exec rm -rf {} +\n}\n\ncopy_tree() {\n  local relative_root=\"$1\"\n  local source_root=\"${PROJECT_DIR}/${relative_root}\"\n  local destination_root=\"${output_dir}/${relative_root}\"\n\n  if [ ! -d \"${source_root}\" ]; then\n    rm -rf \"${destination_root}\"\n    return 0\n  fi\n\n  mkdir -p \"${destination_root}\"\n  prune_artifact_directories \"${destination_root}\"\n  rsync -a --delete --prune-empty-dirs \\\n    --exclude='target/' \\\n    --exclude='.build/' \\\n    --exclude='build/' \\\n    --exclude='DerivedData/' \\\n    --exclude='.git/' \\\n    --exclude='node_modules/' \\\n    --exclude='vendor/browser-use/' \\\n    --exclude='.venv/' \\\n    --exclude='venv/' \\\n    --exclude='__pycache__/' \\\n    --include='*/' \\\n    --include='*.swift' \\\n    --include='*.rs' \\\n    --include='*.py' \\\n    --include='*.ts' \\\n    --include='*.tsx' \\\n    --include='*.css' \\\n    --include='*.html' \\\n    --include='*.sh' \\\n    --include='*.yml' \\\n    --include='*.yaml' \\\n    --include='*.toml' \\\n    --include='*.h' \\\n    --include='*.pbxproj' \\\n    --include='*.plist' \\\n    --include='*.md' \\\n    --include='*.json' \\\n    --include='*.jsonl' \\\n    --include='*.png' \\\n    --include='lean-toolchain' \\\n    --include='*.lean' \\\n    --include='*.metal' \\\n    --include='*.xcprivacy' \\\n    --include='*.entitlements' \\\n    --include='*.udl' \\\n    --include='*.xcscheme' \\\n    --include='*.xcworkspacedata' \\\n    --exclude='*' \\\n    \"${source_root}/\" \"${destination_root}/\"\n}\n\ncopy_file() {\n  local relative_path=\"$1\"\n  local source_path=\"${PROJECT_DIR}/${relative_path}\"\n  local destination_path=\"${output_dir}/${relative_path}\"\n\n  if [ ! -f \"${source_path}\" ]; then\n    rm -f \"${destination_path}\"\n    return 0\n  fi\n\n  mkdir -p \"$(dirname \"${destination_path}\")\"\n  rsync -a \"${source_path}\" \"${destination_path}\"\n}\n\ncopy_tree \"Epistemos\"\ncopy_tree \"EpistemosTests\"\ncopy_tree \"XPCServices\"\ncopy_tree \"agent_core\"\ncopy_tree \"artifacts/falsifiers/page_gather\"\ncopy_tree \"artifacts/falsifiers/ulp_oracle\"\ncopy_tree \"artifacts/lattice-coordinate-explainer\"\ncopy_tree \"epistemos-code-index\"\ncopy_tree \"epistemos-shadow\"\ncopy_tree \"graph-engine\"\ncopy_tree \"graph-engine-bridge\"\ncopy_tree \"epistemos-core\"\ncopy_tree \"epistemos-research\"\ncopy_tree \"epistemos-vault\"\ncopy_tree \"lean\"\ncopy_tree \"omega-mcp\"\ncopy_tree \"substrate-core\"\ncopy_tree \"substrate-rt\"\ncopy_tree \"syntax-core\"\ncopy_tree \"syntax-core-bridge\"\ncopy_tree \"js-editor/src\"\ncopy_file \"js-editor/package.json\"\ncopy_file \"js-editor/webpack.config.js\"\ncopy_tree \"scripts\"\ncopy_tree \"Tools\"\ncopy_tree \"docs\"\ncopy_tree \".agents\"\ncopy_tree \".github\"\ncopy_tree \"config\"\ncopy_tree \"LocalPackages\"\ncopy_tree \"Epistemos.xcodeproj\"\n\ncopy_file \"AGENTS.md\"\ncopy_file \"CLAUDE.md\"\ncopy_file \"EPISTEMOS-NORTH-STAR.md\"\ncopy_file \"Epistemos-Bridging-Header.h\"\ncopy_file \"Epistemos-Info.plist\"\ncopy_file \"Epistemos-AppStore-Info.plist\"\ncopy_file \"project.yml\"\ncopy_file \"Makefile\"\ncopy_file \"TESTING_GUIDE.md\"\ncopy_file \"patch-uniffi-bindings.py\"\ncopy_file \"bundle-app-runtime-assets.sh\"\ncopy_file \"embed-and-sign-rust-dylib.sh\"\ncopy_file \"build-rust.sh\"\ncopy_file \"build-syntax-core.sh\"\ncopy_file \"build-omega-mcp.sh\"\ncopy_file \"build-epistemos-core.sh\"\ncopy_file \"build-agent-core.sh\"\ncopy_file \"build-epistemos-shadow.sh\"\ncopy_file \"build-epistemos-code-index.sh\"\ncopy_file \"build-substrate-rt.sh\"\ncopy_file \"build-tiptap-bundle.sh\"\ncopy_file \"build-coreeditor-bundle.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1065,7 +987,7 @@
 				PRODUCT_MODULE_NAME = EpistemosTests;
 				PRODUCT_NAME = EpistemosTests;
 				SDKROOT = macosx;
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
 			};
@@ -1145,12 +1067,12 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 			};
 			name = Release;
@@ -1174,12 +1096,12 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 			};
 			name = Debug;
@@ -1273,7 +1195,7 @@
 				PRODUCT_MODULE_NAME = EpistemosTests;
 				PRODUCT_NAME = EpistemosTests;
 				SDKROOT = macosx;
-				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
 			};
@@ -1334,17 +1256,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/SwiftTerm;
 		};
-		1D564185EDCCCC1D338E57E3 /* XCLocalSwiftPackageReference "LocalPackages/vmlx-swift" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "LocalPackages/vmlx-swift";
-		};
 		364B6F662E4418B1727D73D1 /* XCLocalSwiftPackageReference "LocalPackages/MarkEdit/MarkEditCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LocalPackages/MarkEdit/MarkEditCore;
-		};
-		7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = LocalPackages/GGUFRuntimeBridge;
 		};
 		9780EB52E9DBAAAEE6416DCF /* XCLocalSwiftPackageReference "LocalPackages/KokoroPipeline" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -1369,14 +1283,6 @@
 				minimumVersion = 1.1.0;
 			};
 		};
-		ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/steipete/AXorcist.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.0;
-			};
-		};
 		C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift.git";
@@ -1396,10 +1302,6 @@
 		104F667588B6B74771455F14 /* Statistics */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Statistics;
-		};
-		10AF46C8B7755E4D5270CE5D /* MLX */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLX;
 		};
 		135D935B56D44B67D290BC44 /* SwiftTerm */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1421,14 +1323,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = AppKitExtensions;
 		};
-		335D46D689DC43CC5B86CBE9 /* MLXLMCommon */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXLMCommon;
-		};
-		3DB8D6F40492AA0EBD6805FA /* MLXNN */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXNN;
-		};
 		3FF61CC7613816DCD256501A /* MarkEditKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkEditKit;
@@ -1441,46 +1335,17 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = KokoroPipeline;
 		};
-		45F3B0916BEF16D8E506DFB6 /* MLXHuggingFace */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXHuggingFace;
-		};
-		48BA6B15F3E86D3F10699011 /* AXorcist */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */;
-			productName = AXorcist;
-		};
 		50B3E6C32EB3B81C620C2FA2 /* KokoroPipeline */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KokoroPipeline;
-		};
-		51290B7360265FC0DBE8E8B7 /* VMLXHuggingFace */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = VMLXHuggingFace;
-		};
-		538CE08807F3177D13D01160 /* VMLXHuggingFace */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = VMLXHuggingFace;
-		};
-		6C5604E44D34114D4C65A436 /* MLXOptimizers */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXOptimizers;
 		};
 		6E17340F4F4FFCF08C0E672D /* Statistics */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Statistics;
 		};
-		7BCACB9528EFFD3C0EB0A305 /* MLXHuggingFace */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXHuggingFace;
-		};
 		88BCB3EA6698A7750855E06F /* TextCompletion */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TextCompletion;
-		};
-		910D0543E7FCC403D8235BC8 /* MLXNN */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXNN;
 		};
 		929E3F8673D5E6BA76C7D611 /* AppKitControls */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1494,10 +1359,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = Previewer;
 		};
-		9B5DEA59D2D52613968FDFD7 /* MLXOptimizers */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXOptimizers;
-		};
 		A5223DF8B66054B397B8063A /* MarkEditCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkEditCore;
@@ -1507,21 +1368,9 @@
 			package = 524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */;
 			productName = Grape;
 		};
-		ACAC129448E9C89398D377EA /* MLXLLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXLLM;
-		};
 		B13F202AC1BF0231DEF14824 /* AppKitControls */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppKitControls;
-		};
-		B1EB8622EB43550A22C16D72 /* VMLXTokenizers */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = VMLXTokenizers;
-		};
-		B459E8918D8198BA7803E476 /* MLXVLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXVLM;
 		};
 		B5565EA54F11316CA03FCE0A /* MarkEditCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1531,18 +1380,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = FileVersion;
 		};
-		B919CFE16BDE19DE0CD70F2E /* MLX */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLX;
-		};
-		C0F23953DF52141112B079EB /* GGUFRuntimeBridge */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GGUFRuntimeBridge;
-		};
-		C1632F27423B91A7F3261950 /* MLXLMCommon */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXLMCommon;
-		};
 		C38C0526B12EAEB10976C5B1 /* SettingsUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SettingsUI;
@@ -1550,10 +1387,6 @@
 		C5C43578924D958FD0F10AEA /* FileDrop */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FileDrop;
-		};
-		D09DCA3B8B09FC5FB1F735D1 /* VMLXTokenizers */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = VMLXTokenizers;
 		};
 		D22E3A58030016B71ABF4392 /* Grape */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1575,14 +1408,6 @@
 		E9F7E743E103DA1BED82C903 /* MarkEditKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MarkEditKit;
-		};
-		EE721F274D3687D9B714DFE8 /* MLXVLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXVLM;
-		};
-		F463DB33C39F4AB6E0BB6518 /* MLXLLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXLLM;
 		};
 		F5DBC24422FD519A6BED081F /* Previewer */ = {
 			isa = XCSwiftPackageProductDependency;

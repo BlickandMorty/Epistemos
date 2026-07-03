@@ -6,7 +6,7 @@ set -e
 # Builds a fat libepistemos_shadow.dylib covering both arm64 and
 # x86_64 macOS architectures, then installs it next to the executable
 # via embed-and-sign-rust-dylib.sh — the same canonical pattern
-# epistemos-core, agent-core, omega-mcp, and omega-ax already use.
+# epistemos-core, agent-core, and omega-mcp already use.
 #
 # Why dylib (W8.7 follow-up): epistemos-shadow depends on `usearch`,
 # whose cxxbridge generates C++ symbols (NativeIndex::*,

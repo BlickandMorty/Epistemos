@@ -21,6 +21,29 @@ struct BrowserUseRuntimeSupervisorTests {
         #expect(readiness.message.contains("payload not packaged"))
     }
 
+    @Test("BUP-1: cleanupStaleEnvironmentFiles removes the keyed env file + orphaned temps, keeps other files")
+    func cleanupStaleEnvironmentFilesRemovesSecrets() throws {
+        let paths = try runtimeFixture(packaged: false)
+        defer { removeFixture(paths) }
+        let fm = FileManager.default
+        try fm.createDirectory(at: paths.stateRoot, withIntermediateDirectories: true)
+        // A crash-leftover .env (holds Keychain API keys) + an orphaned atomic-write temp.
+        try "OPENAI_API_KEY=sk-secret".write(to: paths.environmentFileURL, atomically: true, encoding: .utf8)
+        let staleTemp = paths.stateRoot.appendingPathComponent(".env.\(UUID().uuidString).tmp", isDirectory: false)
+        try "OPENAI_API_KEY=sk-secret".write(to: staleTemp, atomically: true, encoding: .utf8)
+        // An unrelated file that must survive the cleanup.
+        let keep = paths.stateRoot.appendingPathComponent("keepme.txt", isDirectory: false)
+        try "keep".write(to: keep, atomically: true, encoding: .utf8)
+        #expect(fm.fileExists(atPath: paths.environmentFileURL.path))
+        #expect(fm.fileExists(atPath: staleTemp.path))
+
+        paths.cleanupStaleEnvironmentFiles()
+
+        #expect(!fm.fileExists(atPath: paths.environmentFileURL.path))
+        #expect(!fm.fileExists(atPath: staleTemp.path))
+        #expect(fm.fileExists(atPath: keep.path))
+    }
+
     @Test("ready launch plan preserves web-ui entrypoint, loopback, settings, and Keychain secrets")
     func readyLaunchPlanPreservesWebUIEntrypointLoopbackSettingsAndSecrets() throws {
         let paths = try runtimeFixture(packaged: true)

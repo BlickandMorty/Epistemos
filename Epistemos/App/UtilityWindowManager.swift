@@ -98,7 +98,6 @@ enum UtilityPanel: String, CaseIterable {
     case browser
     case browserUsePro
     case meetingNote
-    case omega
     case settings
 
     static var statusBarPanels: [UtilityPanel] {
@@ -111,7 +110,6 @@ enum UtilityPanel: String, CaseIterable {
         case .browser: "Browser"
         case .browserUsePro: "browser-use Pro"
         case .meetingNote: "Meeting Note"
-        case .omega: "Tools Runtime"
         case .settings: "Settings"
         }
     }
@@ -122,7 +120,6 @@ enum UtilityPanel: String, CaseIterable {
         case .browser: "safari"
         case .browserUsePro: "network"
         case .meetingNote: "waveform"
-        case .omega: "waveform.path.ecg.rectangle"
         case .settings: "gearshape"
         }
     }
@@ -133,7 +130,6 @@ enum UtilityPanel: String, CaseIterable {
         case .browser: NSSize(width: 1024, height: 720)
         case .browserUsePro: NSSize(width: 1120, height: 760)
         case .meetingNote: NSSize(width: 760, height: 560)
-        case .omega: NSSize(width: 680, height: 560)
         case .settings: NSSize(width: 900, height: 680)
         }
     }
@@ -144,7 +140,6 @@ enum UtilityPanel: String, CaseIterable {
         case .browser: NSSize(width: 620, height: 420)
         case .browserUsePro: NSSize(width: 720, height: 520)
         case .meetingNote: NSSize(width: 520, height: 420)
-        case .omega: NSSize(width: 420, height: 320)
         case .settings: NSSize(width: 680, height: 420)
         }
     }
@@ -152,7 +147,7 @@ enum UtilityPanel: String, CaseIterable {
     var maximumSize: NSSize? {
         switch self {
         case .notes: NSSize(width: 520, height: 720)
-        case .browser, .browserUsePro, .meetingNote, .omega: nil
+        case .browser, .browserUsePro, .meetingNote: nil
         case .settings: NSSize(width: 1040, height: 760)
         }
     }
@@ -167,8 +162,6 @@ enum UtilityPanelChrome {
         case .notes:
             applySidebarChrome(to: panel)
         case .browser, .browserUsePro, .meetingNote:
-            applyOmegaChrome(to: panel)
-        case .omega:
             applyOmegaChrome(to: panel)
         case .settings:
             applySettingsChrome(to: panel)
@@ -235,10 +228,6 @@ final class UtilityWindowManager {
     // MARK: - Public API
 
     func show(_ panel: UtilityPanel) {
-        if panel == .omega {
-            routeOmegaPanelToMainChat()
-            return
-        }
         let window = getOrCreateWindow(panel)
         if let uiState = AppBootstrap.shared?.uiState {
             WindowThemeStyler.apply(to: window, uiState: uiState)
@@ -264,10 +253,6 @@ final class UtilityWindowManager {
     }
 
     func toggle(_ panel: UtilityPanel) {
-        if panel == .omega {
-            routeOmegaPanelToMainChat()
-            return
-        }
         let window = getOrCreateWindow(panel)
         if window.isVisible {
             window.orderOut(nil)
@@ -280,9 +265,6 @@ final class UtilityWindowManager {
     }
 
     func isVisible(_ panel: UtilityPanel) -> Bool {
-        if panel == .omega {
-            return false
-        }
         return windowFor(panel)?.isVisible ?? false
     }
 
@@ -300,16 +282,6 @@ final class UtilityWindowManager {
         panels[panel]
     }
 
-    private func routeOmegaPanelToMainChat() {
-        guard let bootstrap = AppBootstrap.shared else {
-            HomeWindowIdentity.surfaceHomeWindow()
-            return
-        }
-
-        bootstrap.uiState.setActivePanel(.home)
-        bootstrap.uiState.homeTab = .home
-        HomeWindowIdentity.surfaceHomeWindow()
-    }
 
     // MARK: - Panel Creation
 
@@ -416,8 +388,6 @@ private struct ThemedUtilityRoot: View {
                 BrowserUseWebUIView()
             case .meetingNote:
                 MeetingNoteView()
-            case .omega:
-                OmegaPanel()
             case .settings:
                 SettingsView(initialSelection: initialSettingsSection)
             }

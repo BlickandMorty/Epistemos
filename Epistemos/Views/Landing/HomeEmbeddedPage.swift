@@ -1,5 +1,16 @@
 import SwiftUI
 
+/// Set by an embedded surface (e.g. the meeting page) to signal it currently
+/// holds unsaved work. `HomeEmbeddedPage`'s back-to-home chip reads it and
+/// confirms before tearing the surface down. Default `false` → no confirmation
+/// (arXiv / browser have nothing to lose on navigation). MEET-4.
+struct HomeEmbeddedLeaveGuardKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
 /// Wraps a feature surface (Meeting, arXiv, Goose, …) embedded as a PAGE inside
 /// the home window — the owner's "press a feature → it animates to a page in the
 /// home window, like the old chat" model. Provides a lightweight, consistent
@@ -12,22 +23,35 @@ struct HomeEmbeddedPage<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
 
+    /// Presented when the embedded surface reports unsaved work via
+    /// `HomeEmbeddedLeaveGuardKey` and the user taps the back chip (MEET-4).
+    @State private var showingLeaveConfirmation = false
+
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay(alignment: .topLeading) { backChip }
+            .overlayPreferenceValue(HomeEmbeddedLeaveGuardKey.self) { needsLeaveConfirmation in
+                backChip(needsLeaveConfirmation: needsLeaveConfirmation)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
     }
 
     @ViewBuilder
-    private var backChip: some View {
+    private func backChip(needsLeaveConfirmation: Bool) -> some View {
         if title != "Goose" {
-            legacyBackChipButton
+            legacyBackChipButton(needsLeaveConfirmation: needsLeaveConfirmation)
         }
     }
 
-    private var legacyBackChipButton: some View {
+    private func legacyBackChipButton(needsLeaveConfirmation: Bool) -> some View {
         Button {
-            goHome()
+            // MEET-4: don't silently destroy an active recording / unsaved
+            // transcript. Confirm first when the surface reports unsaved work.
+            if needsLeaveConfirmation {
+                showingLeaveConfirmation = true
+            } else {
+                goHome()
+            }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "chevron.left")
@@ -44,6 +68,16 @@ struct HomeEmbeddedPage<Content: View>: View {
         .padding(.top, 12)
         .accessibilityLabel("Back to Home")
         .help("Back to Home (\(title))")
+        .confirmationDialog(
+            "Leave \(title)?",
+            isPresented: $showingLeaveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Leave and Discard", role: .destructive) { goHome() }
+            Button("Stay", role: .cancel) {}
+        } message: {
+            Text("A recording or unsaved transcript is in progress on this page. Leaving will discard it.")
+        }
     }
 
     private func goHome() {

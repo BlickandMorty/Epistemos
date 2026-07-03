@@ -255,7 +255,6 @@ extension TimeoutError: CircuitBreakerIgnorable {
 enum BreakerDomain: String, Sendable, CaseIterable {
     case cloud
     case foundationModels
-    case mlx
     case vault
 }
 
@@ -301,15 +300,6 @@ nonisolated func breakerConfig(for domain: BreakerDomain) -> BreakerConfig {
                 String(describing: error).contains("contextWindowExceeded")
                     || String(describing: error).contains("exceededContextWindowSize")
             }]
-        )
-    case .mlx:
-        BreakerConfig(
-            capacity: 16,
-            failureRateThreshold: 0.80,
-            resetTimeout: 15.0,
-            requiredHalfOpenSuccesses: 2,
-            degradedMode: .degradedAI,
-            additionalNeutralErrors: []
         )
     case .vault:
         BreakerConfig(
@@ -639,7 +629,6 @@ final class BreakerRegistry {
 
     let cloud = AgentCircuitBreaker(domain: .cloud)
     let foundationModels = AgentCircuitBreaker(domain: .foundationModels)
-    let mlx = AgentCircuitBreaker(domain: .mlx)
     let vault = AgentCircuitBreaker(domain: .vault)
 
     /// Get breaker by domain enum.
@@ -647,14 +636,13 @@ final class BreakerRegistry {
         switch domain {
         case .cloud: cloud
         case .foundationModels: foundationModels
-        case .mlx: mlx
         case .vault: vault
         }
     }
 
     /// Wire all breakers to the mode machine for degradation notifications.
     func wireModeMachine(_ machine: ModeMachine) {
-        let allBreakers = [cloud, foundationModels, mlx, vault]
+        let allBreakers = [cloud, foundationModels, vault]
         for breaker in allBreakers {
             Task { await breaker.setModeMachine(machine) }
         }
@@ -662,7 +650,7 @@ final class BreakerRegistry {
 
     /// All domain breakers for iteration.
     var allBreakers: [AgentCircuitBreaker] {
-        [cloud, foundationModels, mlx, vault]
+        [cloud, foundationModels, vault]
     }
 }
 

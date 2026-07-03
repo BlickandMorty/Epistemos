@@ -1318,12 +1318,12 @@ struct SanitizedEnvironmentTests {
         let completionChecker = try loadMirroredSourceTextFile("Epistemos/Harness/CompletionChecker.swift")
         let harnessLab = try loadMirroredSourceTextFile("Epistemos/Harness/HarnessLab.swift")
         let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
-        let screenCapture = try loadMirroredSourceTextFile("Epistemos/Omega/Vision/ScreenCaptureService.swift")
+        // Cloud-only / Omega-removal migration: ScreenCaptureService.swift (Omega Vision)
+        // was deleted, so its sanitized-launcher assertion is removed here.
 
         #expect(completionChecker.contains("process.environment = SanitizedEnvironment.build()"))
         #expect(harnessLab.contains("process.environment = SanitizedEnvironment.build()"))
         #expect(vaultSync.contains("process.environment = SanitizedEnvironment.build()"))
-        #expect(screenCapture.contains("kickTask.environment = SanitizedEnvironment.build()"))
     }
 }
 

@@ -21,13 +21,12 @@
 # Current measurements (2026-04-25): listed in trailing comments.
 #
 # Why per-dylib instead of one combined number: a regression in agent_core
-# (HTTP / inference / tools) should not be masked by a savings in omega-ax,
+# (HTTP / inference / tools) should not be masked by a savings in another crate,
 # and vice versa. Each dylib is an independent compilation unit shipped
 # separately into Pro and (where applicable) MAS variants.
 libagent_core_mb_max     = 16   # actual 14.3
 libepistemos_core_mb_max = 6    # actual 3.8
 libomega_mcp_mb_max      = 4    # actual 2.3
-libomega_ax_mb_max       = 1    # actual 0.4
 
 # substrate-rt is the dpp-Sprint-4 carve-out (Wave 5). Until that crate
 # ships, this budget exists as a TARGET only — the parser must not fail

@@ -80,10 +80,14 @@ public func floatValues(from array: MLMultiArray, limit: Int? = nil) -> [Float] 
         let ptr = array.dataPointer.assumingMemoryBound(to: Float.self)
         return stridedValues(from: ptr, shape: shape, strides: strides, limit: count) { $0 }
     }
+    #if arch(arm64)
+    // Swift's Float16 type does not exist on x86_64 macOS; Intel builds take the
+    // generic NSNumber subscript path below, which handles .float16 correctly.
     if array.dataType == .float16 {
         let ptr = array.dataPointer.assumingMemoryBound(to: Float16.self)
         return stridedValues(from: ptr, shape: shape, strides: strides, limit: count) { Float($0) }
     }
+    #endif
 
     var values = [Float]()
     values.reserveCapacity(count)

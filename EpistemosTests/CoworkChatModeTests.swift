@@ -50,26 +50,8 @@ struct CoworkChatModeTests {
         #expect(CoworkChatMode.chat.operatingMode(rememberedTier: .agent) == .fast)
     }
 
-    @MainActor
-    @Test("local Qwen selection normalizes away after native local pruning")
-    func localQwenDoesNotFakeActWithZeroCloud() {
-        let inference = InferenceState(
-            keychainLoad: { _ in nil },
-            skipCloudCredentialBootstrapOnLaunch: true
-        )
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
-        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
-
-        #expect(LocalTextModelID.qwen3_4B4Bit.agentToolTier == .fullAgent)
-        #expect(!LocalTextModelID.qwen3_4B4Bit.canRunLocalAgentLoop)
-        #expect(inference.effectiveLocalAgentTextModelID == nil)
-        #expect(inference.preferredChatModelSelection == .cloud(.openAIGPT54))
-        #expect(!inference.isChatSurfaceRuntimeReady(for: .agent))
-
-        let actSelection = inference.effectiveChatSurfaceSelection(for: .agent)
-        if case .localMLX = actSelection {
-            Issue.record("native-local-pruned Act resolved to a local model")
-        }
-    }
+    // Cloud-only migration: "local Qwen selection normalizes away …" removed — it
+    // exercised deleted local-model machinery (setInstalledLocalTextModelIDs,
+    // LocalTextModelID, effectiveLocalAgentTextModelID). The Chat/Act depth model
+    // (a kept feature) stays covered by the tests above.
 }

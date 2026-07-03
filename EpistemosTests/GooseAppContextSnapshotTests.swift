@@ -62,8 +62,8 @@ struct GooseAppContextSnapshotTests {
 
     @MainActor
     @Test("missing app bootstrap reports unavailable context")
-    func missingBootstrapReportsUnavailable() {
-        let snapshot = GooseAppContextSnapshot.current(bootstrap: nil)
+    func missingBootstrapReportsUnavailable() async {
+        let snapshot = await GooseAppContextSnapshot.current(bootstrap: nil)
         #expect(snapshot.available == false)
         #expect(snapshot.activeNote == nil)
         #expect(snapshot.graph == nil)
@@ -102,8 +102,13 @@ struct GooseAppContextSnapshotTests {
         #expect(bootShim.contains("snapshot: epistemosContextSnapshot"))
 
         let bridge = try loadMirroredSourceTextFile("Epistemos/Goose/GooseWebNativeAffordanceBridge.swift")
-        #expect(bridge.contains(#"case "epistemos.context.snapshot":"#))
-        #expect(bridge.contains("return GooseAppContextSnapshot.current().dictionary"))
+        #expect(bridge.contains(#"if name == "epistemos.context.snapshot""#))
+        #expect(bridge.contains("replyHandler(await GooseAppContextSnapshot.current().dictionary, nil)"))
+        #expect(!bridge.contains(#"case "epistemos.context.snapshot":"#))
+        #expect(!bridge.contains("return GooseAppContextSnapshot.current().dictionary"))
+        #expect(snapshotSource.contains("NoteWindowManager.shared.editorBody(for: page.id)"))
+        #expect(snapshotSource.contains("Task.detached(priority: .utility)"))
+        #expect(snapshotSource.contains("NoteFileStorage.readBody(pageId: readPageId, mapped: true, fast: false)"))
 
         let staging = try loadMirroredSourceTextFile("stage-goose-web-ui.sh")
         #expect(staging.contains("src/epistemos/contextBridge.ts"))

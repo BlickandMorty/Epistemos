@@ -54,7 +54,6 @@ struct LandingView: View {
 
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
-    @Environment(OrchestratorState.self) private var orchestrator
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(WorkspaceService.self) private var workspaceService
     @Environment(DailyBriefState.self) private var dailyBrief

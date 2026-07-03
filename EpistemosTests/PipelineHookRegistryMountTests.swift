@@ -12,17 +12,8 @@ struct PipelineHookRegistryMountTests {
         #expect(source.contains("hook_cancelled"))
     }
 
-    @Test("HookRegistry production mount stays out of forbidden runtime surfaces")
-    func hookRegistryProductionMountStaysOutOfForbiddenRuntimeSurfaces() throws {
-        let forbiddenSources = [
-            "Epistemos/Omega/OmegaPermissions.swift",
-            "Epistemos/Omega/Vision/TCCPermissionState.swift",
-            "Epistemos/Omega/iMessageDriver/IMessageDriverService.swift",
-        ]
-
-        for relativePath in forbiddenSources {
-            let source = try loadMirroredSourceTextFile(relativePath)
-            #expect(!source.contains("HookRegistry.shared"))
-        }
-    }
+    // "HookRegistry production mount stays out of forbidden runtime surfaces" removed with
+    // cloud-only/Omega removal 2026-07-03 — all three forbidden surfaces (OmegaPermissions.swift,
+    // Vision/TCCPermissionState.swift, and iMessageDriver/IMessageDriverService.swift) were deleted
+    // from app source, so there is no forbidden surface left to guard.
 }

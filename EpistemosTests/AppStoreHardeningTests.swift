@@ -199,9 +199,10 @@ struct AppStoreHardeningTests {
         // subset / superset pair.
         let plist = try loadEntitlements(named: "Epistemos.entitlements")
         let proRequired = [
-            "com.apple.security.cs.allow-unsigned-executable-memory",
+            // allow-unsigned-executable-memory (MLX) + automation.apple-events (Omega) dropped from
+            // the Pro entitlements with cloud-only/Omega removal 2026-07-03; disable-library-validation
+            // stays (required to load the embedded Rust dylibs).
             "com.apple.security.cs.disable-library-validation",
-            "com.apple.security.automation.apple-events",
         ]
         for key in proRequired {
             let message: Comment = "Pro plist is missing '\(key)'. The Pro deployment profile exists to carry these; losing one means either Pro has narrowed in scope (update this test) or the plist drifted (fix the plist)."
@@ -354,14 +355,9 @@ struct AppStoreHardeningTests {
         )
     }
 
-    @Test("App Store build patch disables MLX CPU JIT shell helper")
-    func appStoreBuildPatchDisablesMLXCPUJITShellHelper() throws {
-        let source = try loadMirroredSourceTextFile("scripts/patch_mlx_metal_warnings.sh")
-
-        #expect(source.contains("Source/Cmlx/mlx/mlx/backend/cpu/jit_compiler.cpp"))
-        #expect(source.contains("FILE* pipe = popen"))
-        #expect(source.contains("Epistemos patch: MLX CPU JIT disabled."))
-    }
+    // "App Store build patch disables MLX CPU JIT shell helper" removed with cloud-only/Omega
+    // removal 2026-07-03 — the MLX dependency stack was deleted, so scripts/patch_mlx_metal_warnings.sh
+    // no longer exists and there is no MLX CPU JIT to disable.
 
     @Test("App Store target does not link GGUF llama runtime")
     func appStoreTargetDoesNotLinkGGUFLlamaRuntime() throws {
@@ -384,12 +380,15 @@ struct AppStoreHardeningTests {
             endingBefore: "/* End PBXNativeTarget section */"
         )
 
-        #expect(proTarget?.contains("GGUFRuntimeBridge") == true)
+        // GGUFRuntimeBridge + the llama.framework rm-step removed with cloud-only/Omega removal
+        // 2026-07-03 — the GGUF/llama runtime is gone from BOTH targets (project.yml has no
+        // GGUFRuntimeBridge or llama.framework), so the Pro-vs-AppStore split collapses to "absent everywhere".
+        #expect(proTarget?.contains("GGUFRuntimeBridge") == false)
         #expect(appStoreTarget != nil)
         #expect(appStorePBXTarget != nil)
         #expect(appStoreTarget?.contains("GGUFRuntimeBridge") == false)
         #expect(appStorePBXTarget?.contains("GGUFRuntimeBridge") == false)
-        #expect(appStoreTarget?.contains("rm -rf \"${frameworks_dir}/llama.framework\"") == true)
+        #expect(appStoreTarget?.contains("rm -rf \"${frameworks_dir}/llama.framework\"") == false)
     }
 
     @Test("App Store source cannot canImport the GGUF runtime from shared DerivedData")

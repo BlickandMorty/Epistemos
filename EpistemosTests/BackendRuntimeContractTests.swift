@@ -125,13 +125,13 @@ struct BackendRuntimeContractTests {
             request: BackendModelLoadRequest(
                 requestedRuntimeKind: nil,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini"
             )
         )
 
         #expect(handle.runtimeKind == .mlx)
-        #expect(handle.modelID == LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        #expect(handle.modelID == "qwen35-35b-a3b-4bit")
         #expect(handle.artifactID == "qwen35-35b-a3b-apexmini")
     }
 
@@ -150,7 +150,7 @@ struct BackendRuntimeContractTests {
                 requestID: "req-1",
                 requestedRuntimeKind: .gguf,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini",
                 modelHandleID: nil,
                 prompt: "Hello",
@@ -186,7 +186,7 @@ struct BackendRuntimeContractTests {
                 requestedReasoningProfile: .deep,
                 resolvedReasoningProfile: .deep,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini",
                 executionPolicyID: "policy.deep_graph.local",
                 fallbackMode: "resident",
@@ -252,7 +252,7 @@ struct BackendRuntimeContractTests {
                 requestID: "req-default-policy",
                 requestedRuntimeKind: .gguf,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini",
                 modelHandleID: nil,
                 prompt: "Hello",
@@ -301,7 +301,7 @@ struct BackendRuntimeContractTests {
                     requestID: "req-token-budget",
                     requestedRuntimeKind: .gguf,
                     executionMode: .local,
-                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    modelID: "qwen35-35b-a3b-4bit",
                     artifactID: "qwen35-35b-a3b-apexmini",
                     modelHandleID: nil,
                     prompt: "Hello",
@@ -339,7 +339,7 @@ struct BackendRuntimeContractTests {
                 requestID: "req-budget-trim",
                 requestedRuntimeKind: .gguf,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini",
                 modelHandleID: nil,
                 prompt: "Hello",
@@ -379,7 +379,7 @@ struct BackendRuntimeContractTests {
             request: BackendModelLoadRequest(
                 requestedRuntimeKind: .mlx,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+                modelID: "qwen35-4b-4bit",
                 artifactID: nil
             )
         )
@@ -390,7 +390,7 @@ struct BackendRuntimeContractTests {
                     requestID: "req-cross-runtime",
                     requestedRuntimeKind: .gguf,
                     executionMode: .local,
-                    modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+                    modelID: "qwen35-4b-4bit",
                     artifactID: nil,
                     modelHandleID: handle.id,
                     prompt: "Test",
@@ -480,7 +480,7 @@ struct BackendRuntimeContractTests {
                     requestID: "req-adaptive",
                     requestedRuntimeKind: .gguf,
                     executionMode: .local,
-                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    modelID: "qwen35-35b-a3b-4bit",
                     artifactID: "qwen35-35b-a3b-apexmini",
                     modelHandleID: nil,
                     prompt: "Hello",
@@ -506,7 +506,7 @@ struct BackendRuntimeContractTests {
                     requestID: "req-visual-sidecar",
                     requestedRuntimeKind: .mlx,
                     executionMode: .local,
-                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    modelID: "qwen35-35b-a3b-4bit",
                     artifactID: "qwen35-35b-a3b-apexmini",
                     modelHandleID: nil,
                     prompt: "Hello",
@@ -543,7 +543,7 @@ struct BackendRuntimeContractTests {
                     requestID: "req-mismatched-policy",
                     requestedRuntimeKind: .gguf,
                     executionMode: .local,
-                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    modelID: "qwen35-35b-a3b-4bit",
                     artifactID: "qwen35-35b-a3b-apexmini",
                     modelHandleID: nil,
                     prompt: "Hello",
@@ -579,7 +579,7 @@ struct BackendRuntimeContractTests {
                 requestID: "req-terminal",
                 requestedRuntimeKind: nil,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini",
                 modelHandleID: nil,
                 prompt: "Hello",
@@ -608,7 +608,7 @@ struct BackendRuntimeContractTests {
                 requestedReasoningProfile: .standard,
                 resolvedReasoningProfile: .standard,
                 executionMode: .local,
-                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                modelID: "qwen35-35b-a3b-4bit",
                 artifactID: "qwen35-35b-a3b-apexmini",
                 executionPolicyID: nil,
                 fallbackMode: "resident",
@@ -700,7 +700,7 @@ struct BackendRuntimeContractTests {
             requestID: requestID,
             requestedRuntimeKind: nil,
             executionMode: .local,
-            modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+            modelID: "qwen35-35b-a3b-4bit",
             artifactID: "qwen35-35b-a3b-apexmini",
             modelHandleID: nil,
             prompt: "Hello",
@@ -731,7 +731,7 @@ struct BackendRuntimeContractTests {
             requestedReasoningProfile: .standard,
             resolvedReasoningProfile: .standard,
             executionMode: .local,
-            modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+            modelID: "qwen35-35b-a3b-4bit",
             artifactID: "qwen35-35b-a3b-apexmini",
             executionPolicyID: nil,
             fallbackMode: "resident",

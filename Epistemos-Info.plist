@@ -18,19 +18,12 @@
 	<string>1.0.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
-	<key>NSAccessibilityUsageDescription</key>
-	<string>Epistemos uses Accessibility to read screen content for Omega desktop automation when you enable it.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Epistemos uses the microphone to dictate quick captures using local models.</string>
+	<string>Epistemos uses the microphone to dictate quick captures and transcribe meetings on-device.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Epistemos uses speech recognition to transcribe voice input into your notes and chats.</string>
-	<!-- Fix: [Issue 3 - TCC Permissions] — Screen Recording usage description -->
-	<key>NSScreenCaptureUsageDescription</key>
-	<string>Epistemos uses Screen Recording to capture screenshots for the Omega agent's visual verification loop.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>Epistemos uses Apple Events to automate Safari and System Events when you enable Omega desktop control.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
 	<string>Epistemos needs access to your Documents folder to read and manage your knowledge vault.</string>
 	<key>NSDesktopFolderUsageDescription</key>

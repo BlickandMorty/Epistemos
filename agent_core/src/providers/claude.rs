@@ -34,10 +34,23 @@ const ANTHROPIC_OAUTH_AUTH_MODE_ENV: &str = "ANTHROPIC_AUTH_MODE";
 const ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV: &str = "ANTHROPIC_ACCESS_TOKEN";
 const ANTHROPIC_OAUTH_AUTH_MODE: &str = "oauth";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 enum ClaudeAuth {
     ApiKey(String),
     OAuthAccessToken(String),
+}
+
+// RUST-5 (hardening 2026-07-02): redact the secret in Debug output. A derived
+// Debug would print the raw API key / OAuth access token verbatim on any future
+// `{:?}` sink (structured log, error wrapper, panic message). Variant shape is
+// preserved for diagnostics; the credential itself never renders.
+impl std::fmt::Debug for ClaudeAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClaudeAuth::ApiKey(_) => f.write_str("ApiKey(***)"),
+            ClaudeAuth::OAuthAccessToken(_) => f.write_str("OAuthAccessToken(***)"),
+        }
+    }
 }
 
 pub struct ClaudeProvider {

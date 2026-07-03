@@ -642,26 +642,9 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func executeComputerAction(actionJson: String) -> String {
-        dispatchPrecondition(condition: .notOnQueue(.main))
-        let interval = Log.ffiPerf.beginInterval("executeComputerAction")
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox(
-            "{\"success\":false,\"error\":\"Timed out waiting for native computer action.\"}"
-        )
-
-        Task { @MainActor in
-            let executed = await ComputerUseBridge.shared.execute(actionJSON: actionJson)
-            result.set(executed)
-            semaphore.signal()
-        }
-
-        let waitResult = semaphore.wait(timeout: .now() + permissionTimeout)
-        Log.ffiPerf.endInterval("executeComputerAction", interval)
-        guard waitResult != .timedOut else {
-            return result.get()
-        }
-
-        return result.get()
+        // Computer-use removed — cloud-only build (protocol shared with Goose).
+        _ = actionJson
+        return "{\"success\":false,\"error\":\"computer action unavailable\"}"
     }
 
     func waitForPermission(permissionId: String) -> Bool {
@@ -736,88 +719,45 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// Routes through `Screen2AXFusion.perceive(appName:)` on the main actor
     /// using a semaphore so the Rust side can call this from any thread.
     func perceiveApp(appName: String, depth: String) -> String {
-        dispatchPrecondition(condition: .notOnQueue(.main))
-        let interval = Log.ffiPerf.beginInterval("perceiveApp")
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox("{\"elements\":[],\"error\":\"perceive bridge unavailable\"}")
-        Task { @MainActor in
-            let payload = await Phase4Bridge.shared.perceive(appName: appName, depth: depth)
-            result.set(payload)
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + permissionTimeout)
-        Log.ffiPerf.endInterval("perceiveApp", interval)
-        return result.get()
+        // Computer-use (screen/AX perception) removed — cloud-only build. This
+        // protocol method is shared with the Goose ACP surface, so it stays and
+        // returns the same "unavailable" stub Goose's App Store backend does.
+        _ = (appName, depth)
+        return "{\"elements\":[],\"error\":\"perceive bridge unavailable\"}"
     }
 
     /// Phase 4 Specialty A2: interact with a macOS app via AX + CGEvent.
     /// Decodes the action JSON and routes to `Phase4Bridge.interact`.
     func interactWithApp(actionJson: String) -> String {
-        dispatchPrecondition(condition: .notOnQueue(.main))
-        let interval = Log.ffiPerf.beginInterval("interactWithApp")
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox("{\"success\":false,\"error\":\"interact bridge unavailable\"}")
-        Task { @MainActor in
-            let payload = await Phase4Bridge.shared.interact(actionJson: actionJson)
-            result.set(payload)
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + permissionTimeout)
-        Log.ffiPerf.endInterval("interactWithApp", interval)
-        return result.get()
+        // Computer-use removed — cloud-only build (protocol shared with Goose).
+        _ = actionJson
+        return "{\"success\":false,\"error\":\"interact bridge unavailable\"}"
     }
 
     /// Phase 4 Specialty A3: block until a screen / file / AX condition
     /// triggers. Routes through `Phase4Bridge.startScreenWatch` which polls
     /// the supplied target until the condition matches or the timeout fires.
     func startScreenWatch(watchJson: String) -> String {
-        dispatchPrecondition(condition: .notOnQueue(.main))
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox("{\"triggered\":false,\"error\":\"screen_watch bridge unavailable\"}")
-        Task { @MainActor in
-            let payload = await Phase4Bridge.shared.startScreenWatch(watchJson: watchJson)
-            result.set(payload)
-            semaphore.signal()
-        }
-        // Watches can take a while — give them up to 5 minutes.
-        _ = semaphore.wait(timeout: .now() + 300)
-        return result.get()
+        // Computer-use removed — cloud-only build (protocol shared with Goose).
+        _ = watchJson
+        return "{\"triggered\":false,\"error\":\"screen_watch bridge unavailable\"}"
     }
 
     /// Phase 5 Specialty C1: save/load/list/prune Mamba-2 SSM hidden state
     /// via `SSMStateService`. Routes through Phase5Bridge so the FFI
     /// thread can wait on the @MainActor service synchronously.
     func manageSsmState(actionJson: String) -> String {
-        dispatchPrecondition(condition: .notOnQueue(.main))
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox("{\"success\":false,\"error\":\"ssm bridge unavailable\"}")
-        Task { @MainActor in
-            let payload = await Phase5Bridge.shared.manageSsmState(actionJson: actionJson)
-            result.set(payload)
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + permissionTimeout)
-        return result.get()
+        // Local SSM/Mamba state removed — cloud-only build (protocol shared with Goose).
+        _ = actionJson
+        return "{\"success\":false,\"error\":\"ssm bridge unavailable\"}"
     }
 
     /// Phase 5 Specialty C2: constrained decoding against the local MLX
     /// model. Routes through `ConstrainedDecodingService` via Phase5Bridge.
     func generateConstrained(prompt: String, grammarJson: String) -> String {
-        dispatchPrecondition(condition: .notOnQueue(.main))
-        let semaphore = DispatchSemaphore(value: 0)
-        let result = LockedStringBox("{\"output\":\"\",\"error\":\"constrained bridge unavailable\"}")
-        Task { @MainActor in
-            let payload = await Phase5Bridge.shared.generateConstrained(
-                prompt: prompt,
-                grammarJson: grammarJson
-            )
-            result.set(payload)
-            semaphore.signal()
-        }
-        // Constrained decoding can take a while on big prompts — wait up to
-        // five minutes before giving up.
-        _ = semaphore.wait(timeout: .now() + 300)
-        return result.get()
+        // Local constrained decoding removed — cloud-only build (protocol shared with Goose).
+        _ = (prompt, grammarJson)
+        return "{\"output\":\"\",\"error\":\"constrained bridge unavailable\"}"
     }
 
     /// Native local image generation was removed with the local model stack.

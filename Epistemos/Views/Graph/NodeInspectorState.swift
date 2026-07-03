@@ -377,10 +377,6 @@ final class NodeInspectorState {
                             summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                         }
                         startSummaryReveal()
-                    } catch let error as LocalInferenceRoutingError {
-                        guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                        summaryText = UserFacingChatError.message(from: error)
-                        startSummaryReveal()
                     } catch {
                         guard !Task.isCancelled, selectedNodeId == node.id else { return }
                         Log.engine.info("Configured provider summary also unavailable: \(error.localizedDescription, privacy: .public)")

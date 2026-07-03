@@ -262,25 +262,10 @@ struct AnswerPacketEmitterTests {
         #expect(total == 10)
     }
 
-    @Test("Resolver: SSM local model → .staticFallback")
-    func resolverSSMModelMapsToStaticFallback() {
-        // Mamba2 is SSM (recurrent fixed-state, not quadratic attention).
-        let mode = AnswerPacketEmitter.resolveAttentionMode(
-            selection: .localMLX(LocalTextModelID.mamba2_2B4Bit.rawValue)
-        )
-        #expect(mode == .staticFallback,
-            "Mamba2 must resolve as .staticFallback per V6.2 §1.4; got \(mode)")
-    }
-
-    @Test("Resolver: non-SSM local model → .dynamic")
-    func resolverNonSSMModelMapsToDynamic() {
-        // Qwen3 is a transformer with quadratic attention.
-        let mode = AnswerPacketEmitter.resolveAttentionMode(
-            selection: .localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue)
-        )
-        #expect(mode == .dynamic,
-            "Transformer must resolve as .dynamic per V6.2 §1.4; got \(mode)")
-    }
+    // Cloud-only migration: the two local-model attention-resolver tests (SSM Mamba2
+    // → .staticFallback, non-SSM Qwen → .dynamic) were removed — they referenced the
+    // deleted LocalTextModelID catalog. Cloud / Apple Intelligence / unknown-id
+    // resolution is kept below.
 
     @Test("Resolver: cloud model → .dynamic")
     func resolverCloudModelMapsToDynamic() {

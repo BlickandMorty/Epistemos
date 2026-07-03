@@ -262,15 +262,6 @@ private let canonicalSchemas: [StructureSchemaDescriptor] = [
         maturity: .raw,
         summary: "Gap G6 — extract Tiptap/ProseMirror DOM into structured @Generable EpdocBlock[] (code, headings, links, transclusions) on .epdoc package save."
     ),
-    .init(
-        id: "screen_element",
-        surface: "screen_capture",
-        storage: .inMemory,
-        swiftType: "ScreenElement",
-        profiles: [.pro],
-        maturity: .raw,
-        summary: "Gap G8 (Pro only) — Screen2AXFusion → @Generable ScreenElement[] with role / label / bounding box / inferred semantic. AX permission-gated."
-    ),
     // MARK: - N1 — Prompt Tree (JSPF + PTF) shape descriptors
     //
     // The prompt itself is structured data the app produces. Cataloging

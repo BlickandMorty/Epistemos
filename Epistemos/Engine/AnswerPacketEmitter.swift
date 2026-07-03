@@ -463,11 +463,8 @@ extension AnswerPacketEmitter {
             return .dynamic
         case .cloud:
             return .dynamic
-        case .localMLX(let id):
-            guard let modelID = LocalTextModelID(rawValue: id) else {
-                return .unavailable
-            }
-            return modelID.isSSM ? .staticFallback : .dynamic
+        case .localMLX:
+            return .unavailable
         }
     }
 }

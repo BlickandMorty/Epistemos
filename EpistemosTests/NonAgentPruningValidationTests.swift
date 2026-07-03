@@ -278,14 +278,13 @@ struct NonAgentPruningValidationTests {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
         let shortcuts = try loadRepoTextFile("Epistemos/Intents/EpistemosShortcutsProvider.swift")
-        let omegaIntent = try loadRepoTextFile("Epistemos/Intents/Custom/OmegaIntent.swift")
+        // omegaIntent (Intents/Custom/OmegaIntent.swift) removed with cloud-only/Omega removal
+        // 2026-07-03 — the intent no longer exists (stronger than the prior "not discoverable" guard).
         let uiState = try loadRepoTextFile("Epistemos/State/UIState.swift")
 
         #expect(!rootView.contains("omegaToolbarButton"))
         #expect(!app.contains("Button(\"Show Omega\")"))
         #expect(!shortcuts.contains("OmegaTaskIntent"))
-        #expect(omegaIntent.contains("static var isDiscoverable: Bool { false }"))
-        #expect(omegaIntent.contains("Agent Runtime shortcuts aren't available in this build"))
         #expect(!uiState.contains("Knowledge Fusion trains a model on your writing style"))
         #expect(uiState.contains("daily briefs summarize recent notes and conversations"))
     }

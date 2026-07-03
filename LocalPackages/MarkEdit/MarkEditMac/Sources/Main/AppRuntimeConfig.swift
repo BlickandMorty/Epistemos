@@ -249,8 +249,11 @@ enum AppRuntimeConfig {
   }
 
   static var disableCorsRestrictions: Bool {
-    // CORS restrictions are disabled by default; we're a local editor, not a browser
-    currentDefinition?.disableCorsRestrictions ?? true
+    // WEB-3 (Epistemos hardening): DEFAULT to ENFORCING CORS. The notes editor renders
+    // local content via a custom scheme; disabling CORS (_setCORSDisablingPatterns *://*/*)
+    // would let editor-context JS read cross-origin response bodies — an exfiltration
+    // amplifier if any injection foothold appears. Re-apply on MarkEdit re-vendor.
+    currentDefinition?.disableCorsRestrictions ?? false
   }
 
   static var disabledWebKitFeatures: [String] {
@@ -319,7 +322,8 @@ private extension AppRuntimeConfig {
     defaultOpenDirectory: nil,
     defaultSaveDirectory: nil,
     disableOpenPanelOptions: nil, // [macOS 26] Future macOS with the fix can be opted out
-    disableCorsRestrictions: true,
+    disableCorsRestrictions: false, // WEB-3 (Epistemos): enforce CORS on the local notes editor
+
     disabledWebKitFeatures: nil,
     preferredTerminalApp: nil,
     mainWindowHotKey: .init(key: "M", modifiers: ["Shift", "Command", "Option"])

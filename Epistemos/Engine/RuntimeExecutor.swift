@@ -44,8 +44,6 @@ import Foundation
 /// reason about Claude vs. OpenAI vs. Gemini vs. Perplexity as
 /// distinct lanes with their own capability surfaces.
 nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
-    case mlx
-    case gguf
     case appleIntelligence
     case cloud(provider: String)
     case stub
@@ -53,8 +51,6 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
     /// Stable string identity for logs, metrics, defaults storage.
     public var stableID: String {
         switch self {
-        case .mlx: return "mlx"
-        case .gguf: return "gguf"
         case .appleIntelligence: return "apple_intelligence"
         case .cloud(let provider): return "cloud:\(provider)"
         case .stub: return "stub"
@@ -63,8 +59,6 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
 
     public var displayName: String {
         switch self {
-        case .mlx: return "MLX (local)"
-        case .gguf: return "GGUF / llama.cpp"
         case .appleIntelligence: return "Apple Intelligence"
         case .cloud(let provider): return "Cloud · \(provider)"
         case .stub: return "Stub"
@@ -76,8 +70,6 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
     /// registered — that is the honest signal "lane present, no
     /// executor wired" rather than a silent omission.
     public static let knownLanes: [RuntimeLane] = [
-        .mlx,
-        .gguf,
         .appleIntelligence,
         .cloud(provider: "claude"),
         .cloud(provider: "openai"),

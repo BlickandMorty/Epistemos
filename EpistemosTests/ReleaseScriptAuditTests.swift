@@ -388,50 +388,14 @@ struct ReleaseScriptAuditTests {
         #expect(!script.contains("-derivedDataPath \"$DERIVED_DATA_PATH\" \\\n    -destination 'platform=macOS' \\\n    test"))
     }
 
-    @Test("xcodebuild wrapper patches MLX package checkouts after resolution")
-    func xcodebuildWrapperPatchesMLXPackageCheckoutsAfterResolution() throws {
-        let wrapper = try loadReleaseScript("scripts/xcodebuild_epistemos.sh")
-        let patcher = try loadReleaseScript("scripts/patch_mlx_metal_warnings.sh")
+    // "xcodebuild wrapper patches MLX package checkouts after resolution" removed with
+    // cloud-only/Omega removal 2026-07-03 — scripts/patch_mlx_metal_warnings.sh was deleted with
+    // the MLX dependency stack. (NOTE for owner: scripts/xcodebuild_epistemos.sh still calls the
+    // deleted patcher via patch_mlx_package_checkouts() — a build-script cleanup outside test scope.)
 
-        #expect(wrapper.contains("resolve_package_dependencies \"$@\""))
-        #expect(wrapper.contains("patch_mlx_package_checkouts"))
-        #expect(wrapper.contains("EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR"))
-        #expect(patcher.contains("EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR"))
-        #expect(patcher.contains("Source/Cmlx/mlx/mlx/backend/cpu/jit_compiler.cpp"))
-        #expect(patcher.contains("prepare_swiftlint_plugin_output_dirs"))
-        #expect(patcher.contains("codeeditsourceeditor.output/CodeEditSourceEditor"))
-        #expect(patcher.contains("codeedittextview.output/CodeEditTextView"))
-        #expect(patcher.contains("SwiftLint/Output"))
-    }
-
-    @Test("mlx swift lm stays vendored in repo with the epistemos runtime patches")
-    func mlxSwiftLMPackageStaysVendoredAndPatched() throws {
-        let projectYAML = try loadReleaseScript("project.yml")
-        let pbxproj = try loadReleaseScript("Epistemos.xcodeproj/project.pbxproj")
-        let chatSession = try loadReleaseScript("LocalPackages/mlx-swift-lm/Libraries/MLXLMCommon/ChatSession.swift")
-        let llmModelFactory = try loadReleaseScript("LocalPackages/mlx-swift-lm/Libraries/MLXLLM/LLMModelFactory.swift")
-
-        #expect(projectYAML.contains("path: LocalPackages/mlx-swift-lm"))
-        #expect(!projectYAML.contains("url: https://github.com/ml-explore/mlx-swift-lm"))
-        #expect(pbxproj.contains("XCLocalSwiftPackageReference \"LocalPackages/mlx-swift-lm\""))
-        #expect(!pbxproj.contains("XCRemoteSwiftPackageReference \"mlx-swift-lm\""))
-        #expect(pbxproj.contains("relativePath = \"LocalPackages/mlx-swift-lm\";"))
-        #expect(pbxproj.contains("productName = MLXLMCommon;"))
-        #expect(pbxproj.contains("productName = MLXLLM;"))
-        #expect(pbxproj.contains("productName = MLXVLM;"))
-        #expect(chatSession.contains("public func extractKVCache() async -> [KVCache]?"))
-        #expect(chatSession.contains("public func injectKVCache(_ kvCache: [KVCache]) async -> Bool"))
-        #expect(chatSession.contains("CacheList<"))
-        #expect(llmModelFactory.contains("\"mamba2\": create(Mamba2Configuration.self, Mamba2Model.init)"))
-    }
-
-    @Test("vendored mlx swift lm cache injection avoids non sendable captures")
-    func mlxSwiftLMCacheInjectionAvoidsNonSendableCaptures() throws {
-        let chatSession = try loadReleaseScript("LocalPackages/mlx-swift-lm/Libraries/MLXLMCommon/ChatSession.swift")
-
-        #expect(chatSession.contains("let injectedCache = SendableBox(kvCache)"))
-        #expect(chatSession.contains("c = .kvcache(injectedCache.consume())"))
-    }
+    // "mlx swift lm stays vendored…" + "vendored mlx swift lm cache injection…" removed with
+    // cloud-only/Omega removal 2026-07-03 — LocalPackages/mlx-swift-lm (the vendored MLX stack)
+    // was deleted from LocalPackages/ and project.yml; there is no vendored MLX package to guard.
 
     @Test("reliability quality gates script supports DERIVED_DATA_ROOT and protected-folder defaulting")
     func reliabilityQualityGatesScriptSupportsDerivedDataRootAndProtectedFolderDefaulting() throws {

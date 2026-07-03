@@ -123,6 +123,25 @@ struct AuditFixRegressionTests {
     }
 
     @MainActor
+    @Test("CONC-4: an unresolved approval times out view-independently (no modal render)")
+    func chatApprovalQueueTimesOutWithoutModalRender() async throws {
+        let queue = ChatApprovalQueue()
+        // Enqueue with a short deadline; call NO resolve() and render NO modal/TimelineView.
+        // Only the view-independent deadline task can end this — the old code, whose only
+        // timeout lived in the on-screen TimelineView, would hang the continuation forever.
+        let result = await queue.enqueue(
+            sessionId: "session-view-independent-timeout",
+            toolName: "shell.execute",
+            argsJSON: "{}",
+            deadline: Date().addingTimeInterval(0.3),
+            summary: nil,
+            authorityCategoryLabel: nil
+        )
+        #expect(result == .deny)          // timedOut resolves to .deny
+        #expect(queue.pendingApproval == nil)
+    }
+
+    @MainActor
     @Test("chat approval queue dedupes approved args and appends audit JSONL")
     func chatApprovalQueueDedupesApprovedArgsAndAppendsAuditJSONL() async throws {
         let queue = ChatApprovalQueue()
@@ -233,10 +252,14 @@ struct AuditFixRegressionTests {
             to: "var compactDisplayName: String {"
         )
 
+        // Cloud-only removal (2026-07-03, owner-approved): the entire local-model
+        // display-name catalog was deleted from InferenceState, so NO local labels
+        // survive — retired or otherwise. (Was: Hermes/Gemma retired, Qwen/Ternary kept;
+        // all local models are now gone, so every local label must be absent.)
         #expect(!displayNames.contains("Hermes 3 8B"))
-        #expect(!displayNames.contains("\"Gemma 4 4B\""))
-        #expect(displayNames.contains("\"Qwen 3 4B\""))
-        #expect(displayNames.contains("\"Ternary Bonsai 4B\""))
+        #expect(!displayNames.contains("Gemma 4 4B"))
+        #expect(!displayNames.contains("Qwen 3 4B"))
+        #expect(!displayNames.contains("Ternary Bonsai 4B"))
     }
 
     @Test("release archive no longer strips linked agent dylibs or disables agent services")
@@ -246,8 +269,8 @@ struct AuditFixRegressionTests {
 
         #expect(spec.contains(#"bash \"${SRCROOT}/build-rust.sh\""#))
         #expect(spec.contains(#"bash \"${SRCROOT}/build-syntax-core.sh\""#))
-        #expect(spec.contains(#"bash \"${SRCROOT}/build-omega-mcp.sh\""#))
-        #expect(spec.contains(#"bash \"${SRCROOT}/build-omega-ax.sh\""#))
+        #expect(spec.contains(#"bash \"${SRCROOT}/build-omega-mcp.sh\""#))  // tool bus — KEPT
+        // build-omega-ax.sh removed with the Omega/computer-use lane (cloud-only, 2026-07-03).
         #expect(spec.contains(#"bash \"${SRCROOT}/build-epistemos-core.sh\""#))
         #expect(spec.contains(#"bash \"${SRCROOT}/build-agent-core.sh\""#))
         #expect(!spec.contains("SHIP_MODE=release"))

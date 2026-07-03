@@ -18,22 +18,8 @@ private func loadProductionHardeningRepoTextFile(
 @Suite("Per-Domain Breakers — execute<T>() API")
 struct PerDomainBreakerTests {
 
-    @Test("Each domain has independent breaker")
-    @MainActor func domainsAreIndependent() async {
-        let registry = BreakerRegistry.shared
-        let cloud = registry.cloud
-        let mlx = registry.mlx
-        await cloud.reset()
-        await mlx.reset()
-
-        // Trip the cloud breaker
-        for _ in 0..<32 {
-            await cloud.recordFailure() // Use internal for setup
-        }
-        #expect(await cloud.isOpen)
-        let mlxOpen = await mlx.isOpen
-        #expect(!mlxOpen, "MLX breaker must not be affected by cloud failures")
-    }
+    // Cloud-only migration: "Each domain has independent breaker" removed — it
+    // exercised the deleted `.mlx` breaker domain (registry.mlx).
 
     @Test("execute<T>() records success on completion")
     func executeRecordsSuccess() async throws {
@@ -85,7 +71,7 @@ struct PerDomainBreakerTests {
 
     @Test("Thermal errors are neutral — do not trip breaker")
     func thermalErrorsAreNeutral() async {
-        let breaker = AgentCircuitBreaker(domain: .mlx)
+        let breaker = AgentCircuitBreaker(domain: .foundationModels)
         // Send many thermal errors
         for _ in 0..<16 {
             do {
@@ -263,12 +249,8 @@ struct BreakerConfigTests {
         #expect(config.degradedMode == .degradedAI)
     }
 
-    @Test("MLX breaker has highest tolerance")
-    func mlxConfig() {
-        let config = breakerConfig(for: .mlx)
-        #expect(config.failureRateThreshold == 0.80)
-        #expect(config.degradedMode == .degradedAI)
-    }
+    // Cloud-only migration: "MLX breaker has highest tolerance" removed —
+    // breakerConfig(for: .mlx) no longer exists (`.mlx` BreakerDomain deleted).
 
     @Test("Vault breaker uses compact buffer and read-only degradation")
     func vaultCompactConfig() {
@@ -458,7 +440,6 @@ struct BreakerRegistryTests {
         }
         #expect(await registry.cloud.isOpen == false)
         #expect(await registry.foundationModels.isOpen == false)
-        #expect(await registry.mlx.isOpen == false)
         #expect(await registry.vault.isOpen == false)
     }
 
@@ -475,7 +456,7 @@ struct BreakerRegistryTests {
     @Test("allBreakers returns all four")
     func allBreakersCount() {
         let registry = BreakerRegistry.shared
-        #expect(registry.allBreakers.count == 4)
+        #expect(registry.allBreakers.count == 3)
     }
 }
 
@@ -608,70 +589,10 @@ struct ReleasePackagingHardeningTests {
         #expect(authority.contains("return [.askFirst, .neverAllow]"))
     }
 
-    @Test("App Store target does not link native computer-use automation stack")
-    func appStoreTargetDoesNotLinkNativeComputerUseAutomationStack() throws {
-        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
-        let appStoreTarget = try #require(projectSpec.range(of: "  Epistemos-AppStore:"))
-        let testsTarget = try #require(projectSpec.range(of: "  EpistemosTests:"))
-        let appStoreSpec = String(projectSpec[appStoreTarget.lowerBound..<testsTarget.lowerBound])
-
-        #expect(!appStoreSpec.contains("package: AXorcist"))
-        #expect(!appStoreSpec.contains("-lomega_ax"))
-        #expect(!appStoreSpec.contains("omega_axFFI"))
-        #expect(!appStoreSpec.contains("build-omega-ax.sh"))
-        #expect(appStoreSpec.contains("- omega_ax.swift"))
-        #expect(appStoreSpec.contains("Scrub Pro Frameworks"))
-        #expect(appStoreSpec.contains(#"rm -f "${frameworks_dir}/libomega_ax.dylib""#))
-        #expect(appStoreSpec.contains(#"rm -rf "${frameworks_dir}/AXorcist.framework""#))
-
-        for wrappedPath in [
-            "Epistemos/Bridge/ComputerUseBridge.swift",
-            "Epistemos/Bridge/Phase4Bridge.swift",
-            "Epistemos/Omega/Vision/AXMutationDetector.swift",
-            "Epistemos/Omega/Vision/AXorcistBridge.swift",
-            "Epistemos/Omega/Vision/Screen2AXFusion.swift",
-            "Epistemos/Omega/Vision/ScreenCaptureService.swift",
-            "Epistemos/Omega/Vision/VisualVerifyLoop.swift",
-        ] {
-            let source = try loadProductionHardeningRepoTextFile(wrappedPath)
-            #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
-        }
-        let deletedGhostAgent = try sourceMirrorURL(for: "Epistemos/Omega/Agents/GhostComputerAgent.swift")
-        #expect(!FileManager.default.fileExists(atPath: deletedGhostAgent.path))
-
-        let omegaPermissions = try loadProductionHardeningRepoTextFile("Epistemos/Omega/OmegaPermissions.swift")
-        let masGate = try #require(omegaPermissions.range(of: "#if EPISTEMOS_APP_STORE"))
-        let proGate = try #require(omegaPermissions.range(of: "#else"))
-        let masOmegaPermissions = String(omegaPermissions[masGate.lowerBound..<proGate.lowerBound])
-        let proOmegaPermissions = String(omegaPermissions[proGate.lowerBound...])
-        #expect(masOmegaPermissions.contains("final class OmegaPermissions"))
-        #expect(!masOmegaPermissions.contains("ScreenCaptureKit"))
-        #expect(!masOmegaPermissions.contains("SCShareableContent"))
-        #expect(!masOmegaPermissions.contains("AEDeterminePermissionToAutomateTarget"))
-        #expect(proOmegaPermissions.contains("import ScreenCaptureKit"))
-        #expect(proOmegaPermissions.contains("AEDeterminePermissionToAutomateTarget"))
-
-        let tccPermissionState = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Vision/TCCPermissionState.swift")
-        let tccMasGate = try #require(tccPermissionState.range(of: "#if EPISTEMOS_APP_STORE"))
-        let tccProGate = try #require(tccPermissionState.range(of: "#else"))
-        let masTCCPermissionState = String(tccPermissionState[tccMasGate.lowerBound..<tccProGate.lowerBound])
-        let proTCCPermissionState = String(tccPermissionState[tccProGate.lowerBound...])
-        #expect(masTCCPermissionState.contains("final class TCCPermissionState"))
-        #expect(!masTCCPermissionState.contains("ScreenCaptureKit"))
-        #expect(!masTCCPermissionState.contains("SCShareableContent"))
-        #expect(proTCCPermissionState.contains("import ScreenCaptureKit"))
-        #expect(proTCCPermissionState.contains("SCShareableContent"))
-
-        let stubs = try loadProductionHardeningRepoTextFile("Epistemos/AppStore/AppStoreComputerUseStubs.swift")
-        #expect(stubs.contains("#if EPISTEMOS_APP_STORE"))
-        #expect(stubs.contains("Native computer-use automation is unavailable in the App Store build."))
-        #expect(stubs.contains("final class ComputerUseBridge"))
-        #expect(stubs.contains("final class Phase4Bridge"))
-        #expect(stubs.contains("final class Screen2AXFusion"))
-        #expect(stubs.contains("nonisolated func checkPermissions() -> PermissionStatus"))
-        #expect(stubs.contains("nonisolated func walkAxTreeJson(pid: Int64) -> String"))
-    }
-
+    // Cloud-only / Omega-removal migration: "App Store target does not link native
+    // computer-use automation stack" removed — ComputerUseBridge / Phase4Bridge /
+    // Screen2AXFusion / OmegaPermissions / TCCPermissionState / AppStoreComputerUseStubs
+    // were all deleted, so there is no native computer-use stack to gate.
     @Test("App Store bootstrap skips Pro-only iMessage and training runtime startup")
 	func appStoreBootstrapSkipsProOnlyRuntimeStartup() throws {
 		let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
@@ -739,7 +660,7 @@ struct ReleasePackagingHardeningTests {
         let scripts = [
             "build-agent-core.sh": "libagent_core",
             "build-omega-mcp.sh": "libomega_mcp",
-            "build-omega-ax.sh": "libomega_ax",
+            // "build-omega-ax.sh": "libomega_ax" removed with cloud-only/Omega removal 2026-07-03
             "build-epistemos-core.sh": "libepistemos_core",
             "build-epistemos-shadow.sh": "libepistemos_shadow",
         ]
@@ -846,7 +767,6 @@ struct ReleasePackagingHardeningTests {
         #expect(source.contains("if !Self.isRunningTests && !PowerGuard.shared.shouldDisableBackground {"))
         #expect(source.contains("MainThreadWatchdog.install()"))
         #expect(source.contains("if !Self.isRunningTests {"))
-        #expect(source.contains("wireLocalRuntimeLifecycle()"))
     }
 
     @Test("test hosts skip startup auto-discovery credential imports")
@@ -1012,10 +932,9 @@ struct AuditHardeningRegressionTests {
     @Test("main-actor inference bridges use timeout-guarded continuations")
     func mainActorInferenceBridgesUseTimeoutGuard() throws {
         let timeoutUtility = try loadProductionHardeningRepoTextFile("Epistemos/State/TimeoutUtility.swift")
-        let deviceAgent = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
+        // deviceAgent (DeviceAgentService.swift) removed with cloud-only/Omega removal 2026-07-03
 
         #expect(timeoutUtility.contains("func withTimedMainActorBridge"))
-        #expect(deviceAgent.contains("withTimedMainActorBridge"))
     }
 
     @Test("Regex-backed helpers avoid force-try compilation")
@@ -1243,8 +1162,7 @@ private final class AuditCapturingStreamingLLMClient: LLMClientProtocol {
     func configSnapshot() -> LLMSnapshot {
         LLMSnapshot(
             provider: .localMLX,
-            model: LocalTextModelID.qwen35_4B4Bit.rawValue,
-            reasoningMode: .fast
+            model: "mock-local"
         )
     }
 }

@@ -192,6 +192,16 @@ public final class EpistemosSpeechAnalyzer {
         // Drain transcriber.results into the public LiveResult stream.
         let (resultsStream, resultsCont) = AsyncStream<LiveResult>
             .makeStream(bufferingPolicy: .bufferingNewest(256))
+        // CONC-5 (hardening 2026-07-02): honor the documented "stop by cancelling
+        // the consuming Task" contract. Without this, a consumer that stops
+        // iterating leaves the mic tap + AVAudioEngine + analyzer running — the
+        // system mic indicator stays lit and the meeting keeps recording until an
+        // explicit stop(). onTermination fires on consumer-cancel AND on natural
+        // finish; stopInternal() is @MainActor and idempotent, so the redundant
+        // call on the normal stop() path is a safe no-op.
+        resultsCont.onTermination = { [weak self] _ in
+            Task { @MainActor in self?.stopInternal() }
+        }
         self.resultsTask = Task {
             do {
                 for try await r in transcriber.results {

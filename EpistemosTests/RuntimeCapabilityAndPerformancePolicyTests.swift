@@ -5,18 +5,8 @@ import AppKit
 
 @Suite("Runtime Capability And Performance Policies")
 struct RuntimeCapabilityAndPerformancePolicyTests {
-    @Test("mamba2 warms the custom runtime but keeps agent mode hidden until fully validated")
-    func mamba2CustomRuntimeProfileAndReleaseGating() throws {
-        let model = LocalTextModelID.mamba2_2B4Bit
-        let profile = try #require(model.ssmRuntimeProfile)
-
-        #expect(profile.warmsCustomMetalRuntime == CustomSSMRuntimeSupport.isAvailable)
-        #expect(profile.chunkLength == 128)
-        #expect(profile.recommendedHeapSizeBytes >= 16 * 1_024 * 1_024)
-        #expect(model.agentToolTier == .readOnly)
-        #expect(!model.canActAsAgent)
-        #expect(!model.supportsAgentMode)
-    }
+    // Cloud-only migration: "mamba2 warms the custom runtime …" removed — it tested
+    // the deleted LocalTextModelID.mamba2_2B4Bit SSM runtime profile.
 
     @Test("cloud model identifiers stay unique across providers")
     func cloudModelIdentifiersAreUnique() {
@@ -162,30 +152,10 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(cinematicPixels > 5_900_000)
     }
 
-    @Test("HardwareTier doctrine cross-reference to HELIOS HardwareProfile survives renames")
-    func hardwareTierCarriesHELIOSDoctrineCrossReference() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Omega/Inference/HardwareTierManager.swift")
-
-        // The doctrine block must name each canonical HELIOS profile so renaming
-        // a HardwareProfile case in epistemos-research/src/hardware_profile.rs
-        // forces a corresponding update in the active app.
-        #expect(source.contains("HELIOS doctrine cross-reference"))
-        #expect(source.contains("HardwareProfile"))
-        #expect(source.contains("M2Pro16Gb"))
-        #expect(source.contains("M2Pro18Gb"))
-        #expect(source.contains("M3Max36Gb"))
-        #expect(source.contains("M2Max64Gb"))
-        #expect(source.contains("M3Ultra256Gb"))
-
-        // The drift gate test name must also appear so the cross-reference
-        // points to the canonical alignment authority in epistemos-research.
-        #expect(source.contains("helios_swift_dual_budget_alignment_table"))
-
-        // The `0.60` fraction is the Swift-side input to the drift gate.
-        // If this is ever changed, the alignment table in hardware_profile.rs
-        // must change alongside it.
-        #expect(source.contains("totalBytes) * 0.60"))
-    }
+    // "HardwareTier doctrine cross-reference to HELIOS HardwareProfile survives renames" removed
+    // with cloud-only/Omega removal 2026-07-03 — HardwareTierManager.swift (the Swift local-model
+    // hardware-tier surface) was deleted, so there is no Swift consumer to keep in sync with the
+    // epistemos-research Rust HardwareProfile table.
 
     @Test("cinematic mode renders at full native Retina regardless of node count")
     func graphDrawableResolutionPolicyKeepsCinematicNativeAtAllVaultSizes() {
@@ -483,12 +453,9 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         let source = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
         let environment = try loadMirroredSourceTextFile("Epistemos/App/AppEnvironment.swift")
 
-        #expect(source.contains("private var _screenCapture: ScreenCaptureService?"))
-        #expect(source.contains("var screenCapture: ScreenCaptureService {"))
-        #expect(source.contains("private var _screen2AXFusion: Screen2AXFusion?"))
-        #expect(source.contains("var screen2AXFusion: Screen2AXFusion {"))
-        #expect(source.contains("private var _ambientCapture: AmbientCaptureService?"))
-        #expect(source.contains("var ambientCapture: AmbientCaptureService {"))
+        // The lazy Omega capture chain (ScreenCaptureService / Screen2AXFusion /
+        // AmbientCaptureService accessors) was removed with cloud-only/Omega removal 2026-07-03;
+        // only the absence guards below remain valid.
         #expect(!source.contains("screenCapture: screenCapture,\n            perception: screen2AXFusion"))
         #expect(!environment.contains(".environment(bootstrap.screen2AXFusion)"))
     }

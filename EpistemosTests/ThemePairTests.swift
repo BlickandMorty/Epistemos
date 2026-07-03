@@ -1262,12 +1262,9 @@ struct ThemePairTests {
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        // The struct definition still lives in RootView.swift so other surfaces can reuse it.
-        #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
-        #expect(rootView.contains("ASCIIRippleText("))
-        #expect(rootView.contains("AnchoredPopoverButton("))
-        #expect(rootView.contains("inference.setPreferredChatModelSelection(.localMLX(model.id))"))
-        #expect(rootView.contains("Button(\"Open Settings\")"))
+        // LocalModelToolbarMenu struct + `.localMLX(model.id)` producer (and its ASCIIRippleText/
+        // AnchoredPopoverButton/Open Settings body) removed with cloud-only/Omega removal
+        // 2026-07-03; the absence guards below stay valid.
         #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
         #expect(!rootView.contains("InferenceControlPopoverButton"))
 
@@ -1547,7 +1544,7 @@ struct ThemePairTests {
             "-lgraph_engine",
             "-lsyntax_core",
             "-lomega_mcp",
-            "-lomega_ax",
+            // "-lomega_ax" removed with cloud-only/Omega removal 2026-07-03
             "-lepistemos_core",
             "-lagent_core",
             "-lepistemos_shadow",
@@ -2115,13 +2112,13 @@ LD_RUNPATH_SEARCH_PATHS = (
         let inferenceState = try loadTextFile("Epistemos/State/InferenceState.swift")
         let environment = try loadTextFile("Epistemos/App/AppEnvironment.swift")
 
-        #expect(settings.contains("Routing Mode"))
-        #expect(settings.contains("Active Local Model"))
+        // Local routing/model-name asserts (Routing Mode / Active Local Model / Qwen 3.5 / Qwen 3.6 /
+        // Recommended Baseline / Gemma 4 E4B / DeepSeek R1 7B / Qwen 2.5 Coder 7B) removed with
+        // cloud-only/Omega removal 2026-07-03 — the curated local routing stack was deleted; the
+        // no-local/no-voice-residue absence guards below stay valid.
         #expect(!settings.contains("Show Thinking Panel"))
         #expect(!settings.contains("Automatic Model Selection"))
         #expect(!settings.contains("Local Response Mode"))
-        #expect(inferenceState.contains("Qwen 3.5"))
-        #expect(inferenceState.contains("Qwen 3.6"))
         #expect(inferenceState.contains("Local Only"))
         #expect(!environment.contains("localSidecarState"))
         #expect(!inferenceState.contains("Cloud Only"))
@@ -2129,10 +2126,6 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!settings.contains("Voice Playback"))
         #expect(!settings.contains("Auto-download core local pack"))
         #expect(!settings.contains("Chatterbox"))
-        #expect(settings.contains("Recommended Baseline"))
-        #expect(inferenceState.contains("Gemma 4 E4B"))
-        #expect(settings.contains("DeepSeek R1 7B"))
-        #expect(settings.contains("Qwen 2.5 Coder 7B"))
     }
 
     @Test("UIState source keeps the typewriter toggle and drops liquid greeting state")

@@ -89,14 +89,14 @@ private struct KaTeXWebView: NSViewRepresentable {
 
     func updateNSView(_ view: WKWebView, context: Context) {
         // Re-render whenever the formula or mode changes.
-        let escaped = formula
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
+        // WEB-5: use the shared JS string-literal encoder (handles \ " \n \r \t and
+        // the U+2028/U+2029 line separators) instead of hand-rolled escaping that
+        // missed \r + the JS line-terminator code points and could break the call.
+        let escaped = jsStringLiteral(formula)
         let displayFlag = displayMode == .display ? "true" : "false"
         let js = """
         try {
-          const out = katex.renderToString("\(escaped)", { displayMode: \(displayFlag), throwOnError: false });
+          const out = katex.renderToString(\(escaped), { displayMode: \(displayFlag), throwOnError: false });
           document.getElementById('preview').innerHTML = out;
         } catch (e) {
           document.getElementById('preview').textContent = String(e);

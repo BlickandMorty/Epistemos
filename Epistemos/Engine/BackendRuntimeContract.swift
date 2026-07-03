@@ -19,15 +19,6 @@ nonisolated enum BackendReasoningProfile: String, Codable, Sendable, CaseIterabl
     case experimental
     case visualSidecar = "visual_sidecar"
 
-    init(localReasoningMode: LocalReasoningMode) {
-        switch localReasoningMode {
-        case .fast:
-            self = .standard
-        case .thinking:
-            self = .deep
-        }
-    }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let value = try container.decode(String.self)

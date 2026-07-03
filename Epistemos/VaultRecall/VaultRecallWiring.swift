@@ -594,7 +594,7 @@ nonisolated public enum VaultRecallBridge {
                 if let trace = try provider(query) {
                     return recordTrace(trace, query: query, started: started)
                 }
-                log.info("VaultRecall production provider returned nil for query=\"\(query, privacy: .public)\"; falling back to scaffold")
+                log.info("VaultRecall production provider returned nil for query=\"\(query, privacy: .private)\"; falling back to scaffold")
             } catch {
                 VaultRecallMetrics.shared.recordError(error)
                 let message = RetrievalDiagnostics.statusMessage(
@@ -631,7 +631,7 @@ nonisolated public enum VaultRecallBridge {
     public static func recordProductionTrace(_ trace: VaultRecallTrace, latencyMs: Double) {
         let backend = detectedBackend(from: trace)
         VaultRecallMetrics.shared.record(latencyMs: latencyMs, trace: trace, backend: backend)
-        log.info("VaultRecall production trace recorded query=\"\(trace.query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public) backend=\(backend.rawValue, privacy: .public)")
+        log.info("VaultRecall production trace recorded query=\"\(trace.query, privacy: .private)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public) backend=\(backend.rawValue, privacy: .public)")
     }
 
     private static func recordTrace(
@@ -644,11 +644,11 @@ nonisolated public enum VaultRecallBridge {
         VaultRecallMetrics.shared.record(latencyMs: latencyMs, trace: trace, backend: backend)
         switch backend {
         case .stub:
-            log.info("VaultRecall STUB path active for query=\"\(query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public) (no production provider installed; candidates do not reflect user vault)")
+            log.info("VaultRecall STUB path active for query=\"\(query, privacy: .private)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public) (no production provider installed; candidates do not reflect user vault)")
         case .real:
-            log.info("VaultRecall real-backend path active for query=\"\(query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            log.info("VaultRecall real-backend path active for query=\"\(query, privacy: .private)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
         case .unknown:
-            log.info("VaultRecall path returned unknown-backend trace for query=\"\(query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            log.info("VaultRecall path returned unknown-backend trace for query=\"\(query, privacy: .private)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
         }
         return trace
     }

@@ -130,21 +130,9 @@ resolve_package_dependencies() {
   xcodebuild "${resolve_args[@]}" -resolvePackageDependencies
 }
 
-patch_mlx_package_checkouts() {
-  local build_dir="${BUILD_DIR:-}"
-  local source_packages_dir="${cloned_source_packages_path}"
-
-  if [[ -n "${derived_data_path}" ]]; then
-    build_dir="${derived_data_path}"
-    if [[ -z "${source_packages_dir}" ]]; then
-      source_packages_dir="${derived_data_path}/SourcePackages"
-    fi
-  fi
-
-  BUILD_DIR="${build_dir}" \
-    EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR="${source_packages_dir}" \
-    bash "${ROOT_DIR}/scripts/patch_mlx_metal_warnings.sh"
-}
+# patch_mlx_package_checkouts removed with the MLX/local-model removal (cloud-only,
+# 2026-07-03): it patched mlx-swift package checkouts via scripts/patch_mlx_metal_warnings.sh,
+# both of which are deleted. Leaving the call in made this wrapper exit 127.
 
 index=0
 args=("$@")
@@ -220,7 +208,6 @@ fi
 
 if [[ "${main_invocation_is_package_resolution}" != "1" ]]; then
   resolve_package_dependencies "$@"
-  patch_mlx_package_checkouts
 fi
 
 if [[ "${#extra_xcodebuild_args[@]}" -gt 0 ]]; then

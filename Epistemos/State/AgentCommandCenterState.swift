@@ -316,21 +316,7 @@ final class AgentCommandCenterState {
     func refreshBrainCatalog(from inference: InferenceState) {
         var brains: [ACCBrainSelection] = []
 
-        // Local models — only installed, release-validated interactive
-        // chat tiers. Preview-gated families like Gemma 4 should never
-        // surface here because ACC submits real interactive turns.
-        for modelId in LocalTextModelID.allCases where inference.installedLocalTextModelIDs.contains(modelId.rawValue) {
-            guard modelId.isReleaseValidatedForInteractiveChat else { continue }
-            brains.append(.local(
-                modelId: modelId.rawValue,
-                displayName: modelId.compactDisplayName,
-                supportsThinking: modelId.supportsThinkingMode,
-                supportsVision: modelId.supportsVision,
-                supportsTools: modelId.supportsNativeToolCalling
-            ))
-        }
-
-        // Apple Intelligence
+        // Apple Intelligence (on-device baseline for a cloud-only build)
         brains.append(.appleIntelligence)
 
         // Cloud providers with configured keys
@@ -590,32 +576,12 @@ final class AgentCommandCenterState {
 
     private func recommendedBrain(for command: ACCSlashCommand) -> ACCBrainSelection? {
         switch command {
-        case .notes:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen3_4B4Bit, .bonsai8B2Bit])
-                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? availableBrains.first
-        case .code:
-            return localBrain(preferredModels: [.qwen36_35BA3B4Bit, .deepseekR1Distill7B])
-                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? availableBrains.first
-        case .debug:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen36_35BA3B4Bit])
-                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? availableBrains.first
-        case .plan, .review:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen3_4B4Bit, .qwen36_35BA3B4Bit])
-                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? availableBrains.first
-        case .research, .securityReview:
+        case .notes, .code, .debug, .plan, .review, .research, .securityReview,
+             .ask, .summarize, .explain, .readBranch, .todo:
+            // Cloud-only build: every command recommends the configured cloud
+            // workhorse (Apple Intelligence remains selectable in the catalog).
             return cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? localBrain(preferredModels: [.deepseekR1Distill7B, .qwen36_35BA3B4Bit])
                 ?? availableBrains.first
-        case .ask, .summarize, .explain, .readBranch:
-            return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit, .deepseekR1Distill7B])
-                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? availableBrains.first
-        case .todo:
-            return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit])
         case .image:
             // Image gen runs through the `media.image_generate` tool, not a
             // chat brain. Return nil so the picker defers to whichever
@@ -623,57 +589,6 @@ final class AgentCommandCenterState {
             // doesn't care which model the outer agent is.
             return nil
         }
-    }
-
-    /// Foundation-recommend flag (`EPISTEMOS_FOUNDATION_RECOMMEND_V0`). FLIPPED ON by
-    /// default 2026-06-19 (owner: auto-mode should pick the foundation model, not
-    /// Qwen): an installed FOUNDATION-tier brain (Gemma / VibeThinker / coder) is
-    /// preferred first — the legacy `[LocalTextModelID]` lists are enum cases that
-    /// STRUCTURALLY cannot express the foundation GGUF lineup (descriptor ids), so
-    /// without this auto-mode could never recommend a foundation model and defaulted
-    /// to Qwen. When NO foundation is installed it still falls to the legacy list
-    /// (so no behaviour change there). Set the env var to `0` for the legacy
-    /// Qwen-first recommendation.
-    nonisolated static var foundationRecommendArmed: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_FOUNDATION_RECOMMEND_V0"] != "0"
-    }
-
-    /// Pure auto-mode local-brain recommendation policy (foundation pivot). When
-    /// `armed`, prefer the FIRST available local id that is in `foundationIDs`;
-    /// otherwise (and when no foundation model is installed) fall to the FIRST
-    /// `legacyPreferred` id that is available — exactly the legacy behaviour, since
-    /// `matches(localModel:)` is id-equality. Returns nil when neither yields a hit
-    /// (the caller then uses its existing "first local brain" fallback). Pure →
-    /// unit-testable without constructing `AgentCommandCenterState`.
-    nonisolated static func preferredLocalBrainID(
-        foundationIDs: Set<String>,
-        availableLocalIDs: [String],
-        legacyPreferred: [String],
-        armed: Bool
-    ) -> String? {
-        if armed, let foundation = availableLocalIDs.first(where: { foundationIDs.contains($0) }) {
-            return foundation
-        }
-        return legacyPreferred.first(where: { availableLocalIDs.contains($0) })
-    }
-
-    private func localBrain(preferredModels: [LocalTextModelID]) -> ACCBrainSelection? {
-        let availableLocalIDs: [String] = availableBrains.compactMap { brain in
-            if case .local(let modelId, _, _, _, _) = brain { return modelId }
-            return nil
-        }
-        if let chosenID = Self.preferredLocalBrainID(
-            foundationIDs: EpistemosFoundationLineup.foundationModelIDs,
-            availableLocalIDs: availableLocalIDs,
-            legacyPreferred: preferredModels.map(\.rawValue),
-            armed: Self.foundationRecommendArmed
-        ), let match = availableBrains.first(where: { brain in
-            if case .local(let modelId, _, _, _, _) = brain { return modelId == chosenID }
-            return false
-        }) {
-            return match
-        }
-        return availableBrains.first(where: \.isLocal)
     }
 
     private func cloudBrain(preferredProviders: [CloudModelProvider]) -> ACCBrainSelection? {
@@ -840,7 +755,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .image:
             // C.11 close-out 2026-05-14: hide `/image` from the slash
             // menu in ALL builds until a real provider route lands
-            // (MLX Flux on-device OR Fal cloud opt-in). Both
+            // (Fal cloud opt-in). Both
             // `is_user_visible_tool` (Rust) + `coreAppStoreAllowedToolNames`
             // (Swift MAS list) classify `image_generate` as scaffold
             // today — surfacing the slash command without a runtime
@@ -896,9 +811,9 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .explain:
             "Turn complex context into a clearer explanation anchored in your notes."
         case .todo:
-            "Work directly with the native task ledger that backs LocalAgent-compatible /todo commands."
+            "Work directly with the native task ledger that backs /todo commands."
         case .image:
-            "Generate an image on-device via MLX Flux, or explicitly route to Fal when asked."
+            "Generate an image via the Fal image-generation service."
         }
     }
 
@@ -981,7 +896,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .todo:
             "Local task ledger preferred"
         case .image:
-            "MLX Flux preferred (Fal when explicit)"
+            "Fal image generation"
         }
     }
 
@@ -1254,23 +1169,7 @@ enum ACCBrainSelection: Hashable, Identifiable {
 
     var supportedOperatingModes: [EpistemosOperatingMode] {
         switch self {
-        case .local(let modelId, _, let supportsThinking, _, let supportsTools):
-            if let model = LocalTextModelID(rawValue: modelId) {
-                var modes: [EpistemosOperatingMode] = []
-                if !model.cannotDisableThinkingInFast {
-                    modes.append(.fast)
-                }
-                if model.supportsThinkingMode {
-                    modes.append(.thinking)
-                } else if supportsThinking {
-                    modes.append(.thinking)
-                }
-                if model.supportsAgentMode || supportsTools {
-                    modes.append(.agent)
-                }
-                return modes.isEmpty ? [.fast] : modes
-            }
-
+        case .local(_, _, let supportsThinking, _, let supportsTools):
             var modes: [EpistemosOperatingMode] = [.fast]
             if supportsThinking {
                 modes.append(.thinking)
@@ -1308,12 +1207,6 @@ enum ACCBrainSelection: Hashable, Identifiable {
         return false
     }
 
-    func matches(localModel: LocalTextModelID) -> Bool {
-        if case .local(let modelId, _, _, _, _) = self {
-            return modelId == localModel.rawValue
-        }
-        return false
-    }
 
     func matches(cloudProvider: CloudModelProvider) -> Bool {
         if case .cloud(let provider) = self {

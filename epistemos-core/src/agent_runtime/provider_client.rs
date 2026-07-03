@@ -38,7 +38,17 @@ pub struct ProviderHttpClient {
 
 impl ProviderHttpClient {
     pub fn new() -> Result<Self, ProviderClientError> {
+        // RUST-4 (hardening 2026-07-02): bound connect + per-read time so a hung
+        // or silently-stalled provider cannot block the calling thread (this
+        // client is driven from a blocking current-thread runtime, reachable
+        // from the panic=abort FFI dylib, so an unbounded stall presents as an
+        // app hang). read_timeout caps idle gaps mid-SSE-stream WITHOUT
+        // truncating legitimately long turns; connect_timeout catches
+        // unreachable endpoints. Mirrors agent_core's bounded-network posture
+        // (providers/claude.rs:53).
         let client = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .read_timeout(std::time::Duration::from_secs(120))
             .build()
             .map_err(ProviderClientError::Http)?;
         Ok(Self { client })

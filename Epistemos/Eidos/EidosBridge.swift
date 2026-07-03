@@ -142,7 +142,7 @@ nonisolated extension EidosBridge {
             switch backend {
             case .real:
                 prodLog.info(
-                    "Eidos production vault retrieve query=\"\(query, privacy: .public)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) manifest=\(packet.manifestId.raw, privacy: .public)"
+                    "Eidos production vault retrieve query=\"\(query, privacy: .private)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) manifest=\(packet.manifestId.raw, privacy: .public)"
                 )
             case .fixture:
                 prodLog.notice(

@@ -892,6 +892,27 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             applyThemeScript(theme, to: webView)
         }
 
+        // WEB-1: the Epdoc editor webview exposes the `epdoc` bridge (contentDidChange /
+        // storeImageAsset). Without a navigation policy it default-allows navigation, so a
+        // main-frame nav to a remote origin could drive those handlers. Allow only the
+        // editor's own scheme + about:; cancel everything else (mirrors WebKitCodeEditorView).
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+        ) {
+            guard !isDetached else {
+                decisionHandler(.cancel)
+                return
+            }
+            let scheme = navigationAction.request.url?.scheme
+            if scheme == "about" || scheme == epdocEditorURLScheme {
+                decisionHandler(.allow)
+                return
+            }
+            decisionHandler(.cancel)
+        }
+
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             lastAppliedTheme = nil
             if let requestedTheme {

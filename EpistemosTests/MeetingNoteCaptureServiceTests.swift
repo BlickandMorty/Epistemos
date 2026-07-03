@@ -55,19 +55,29 @@ struct MeetingNoteCaptureServiceTests {
         #expect(service.transcriptText == "First decision\n\nSecond decision")
     }
 
-    @Test("transcript buffer is capped to the capture pipeline envelope")
-    func transcriptBufferIsCappedToCapturePipelineEnvelope() {
+    // MEET-1 fix (2026-07-03): the transcript bound was 10k, aliased from the
+    // per-capture cleaned-SUMMARY bound, which silently dropped the second half of
+    // any meeting past ~12 min. It is now a 2M-char safety cap (~30+ hrs) and any
+    // truncation at that cap is surfaced visibly. These two tests replace the old
+    // "capped to the capture pipeline envelope" test, which asserted the bug.
+    @Test("MEET-1: a long meeting transcript past the old 10k bound is preserved in full")
+    func longTranscriptIsNotSilentlyTruncated() {
         let service = MeetingNoteCaptureService(voiceInput: FakeMeetingVoiceInput())
-        let prefix = String(repeating: "a", count: MeetingNoteCaptureService.maxTranscriptCharacters - 2)
+        let firstHalf = String(repeating: "a", count: 12_000)   // past the old 10k cap
+        let secondHalf = String(repeating: "b", count: 12_000)
+        service.recordFinal(firstHalf)
+        service.recordFinal(secondHalf)
+        #expect(service.transcriptText.contains(firstHalf))
+        #expect(service.transcriptText.contains(secondHalf))
+        #expect(service.transcriptText.count >= 24_000)
+    }
 
-        service.recordFinal(prefix)
-        service.recordFinal("tail segment that should not extend the saved transcript")
-        service.recordPartial("live partial that should also stay outside the capped display")
-
-        #expect(service.transcriptText.count == MeetingNoteCaptureService.maxTranscriptCharacters)
-        #expect(service.transcriptText.hasPrefix(prefix))
-        #expect(!service.transcriptText.contains("tail segment"))
-        #expect(!service.transcriptText.contains("live partial"))
+    @Test("MEET-1: at the safety cap the transcript is truncated visibly, not silently")
+    func transcriptTruncationAtCapIsVisible() {
+        let service = MeetingNoteCaptureService(voiceInput: FakeMeetingVoiceInput())
+        service.recordFinal(String(repeating: "a", count: MeetingNoteCaptureService.maxTranscriptCharacters + 5_000))
+        #expect(service.transcriptText.count <= MeetingNoteCaptureService.maxTranscriptCharacters)
+        #expect(service.transcriptText.contains("Transcript truncated"))
     }
 
     @Test("refresh consumes LiveVoiceInputService-shaped final transcript")
@@ -194,6 +204,56 @@ struct MeetingNoteCaptureServiceTests {
         }
         #expect(pageID == page.id)
         #expect(title == result.title)
+    }
+
+    @Test("finalize surfaces persistence failure and keeps the transcript recoverable")
+    func finalizeSurfacesPersistenceFailureWithoutLosingTranscript() async throws {
+        // MEET-2 regression guard: if TextCapturePipeline.run swallows a
+        // persistence error (returns a structured result with no createdNoteID),
+        // finalize must report .error and KEEP the transcript — never a phantom
+        // .saved that discards the meeting note.
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let voice = FakeMeetingVoiceInput()
+        let service = MeetingNoteCaptureService(
+            voiceInput: voice,
+            pipelineRunner: { transcription, _, _ in
+                CaptureResult(
+                    rawText: transcription,
+                    cleanedText: transcription,
+                    title: "Untitled",
+                    summary: "",
+                    entities: [],
+                    tasks: [],
+                    sourceSpans: [],
+                    createdNoteID: nil,
+                    draftNoteID: nil,
+                    graphWriteSummary: GraphWriteSummary(
+                        noteNodeCreated: false,
+                        entityNodesCreated: 0,
+                        edgesCreated: 0,
+                        skippedReason: "note not persisted"
+                    ),
+                    mutationEnvelope: nil,
+                    mutationEnvelopePersisted: false,
+                    traceID: "test-trace"
+                )
+            }
+        )
+
+        await service.start()
+        service.recordFinal("Important meeting decisions that must not be lost.")
+
+        await #expect(throws: TextCaptureError.self) {
+            _ = try await service.finalize(modelContext: context)
+        }
+
+        guard case .error = service.state else {
+            Issue.record("Expected error state on persistence failure, got \(service.state)")
+            return
+        }
+        // The transcript must survive so the user can retry Save.
+        #expect(service.transcriptText == "Important meeting decisions that must not be lost.")
     }
 
     @Test("stopping freezes meeting duration before delayed save")

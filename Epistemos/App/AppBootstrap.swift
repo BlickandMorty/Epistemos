@@ -863,7 +863,6 @@ final class AppBootstrap {
     let graphState = GraphState()
     let queryEngine = QueryEngine()
     let physicsCoordinator = PhysicsCoordinator()
-    let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
     /// Patch 7 / AMBIENT_RECALL_WIRING_PLAN.md §5 — Contextual Shadows V0
     /// state container (recall hits + panel visibility). Hidden behind
@@ -889,38 +888,7 @@ final class AppBootstrap {
     }
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
-    let constrainedDecoding = ConstrainedDecodingService()
-    let hardwareTierManager = HardwareTierManager()
-    private var _deviceAgent: DeviceAgentService?
-    var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
-    // Computer-use chain: lazy. ScreenCaptureService, Screen2AXFusion, and
-    // AmbientCaptureService form a dependency graph. None are read at
-    // app launch unless the user (a) opens a computer-use agent task,
-    // or (b) opts into ambient capture. For typical sessions that don't
-    // trigger either path, the eager construct burned ~8-12 MB on
-    // AX-listener buffers + AVF
-    // scaffolding for nothing. First access builds only the dependency
-    // subtree each service needs; subsequent reads are O(1).
-    private var _screenCapture: ScreenCaptureService?
-    var screenCapture: ScreenCaptureService {
-        if let existing = _screenCapture { return existing }
-        let new = ScreenCaptureService()
-        _screenCapture = new
-        return new
-    }
-    private var _screen2AXFusion: Screen2AXFusion?
-    var screen2AXFusion: Screen2AXFusion {
-        if let existing = _screen2AXFusion { return existing }
-        let new = Screen2AXFusion(screenCapture: screenCapture)
-        _screen2AXFusion = new
-        return new
-    }
-    private var _agentGraphMemory: AgentGraphMemory?
-    var agentGraphMemory: AgentGraphMemory { Self.requireInitialized(_agentGraphMemory, name: "agentGraphMemory") }
-    private var _recipeGraphSkills: RecipeGraphSkills?
-    var recipeGraphSkills: RecipeGraphSkills { Self.requireInitialized(_recipeGraphSkills, name: "recipeGraphSkills") }
-    private var _ghostBrainCoauthor: GhostBrainCoauthor?
-    var ghostBrainCoauthor: GhostBrainCoauthor { Self.requireInitialized(_ghostBrainCoauthor, name: "ghostBrainCoauthor") }
+    // Computer-use (screen capture / AX automation / device agent) removed — cloud-only build.
     private var _reasoningLoopService: ReasoningLoopService?
     var reasoningLoopService: ReasoningLoopService { Self.requireInitialized(_reasoningLoopService, name: "reasoningLoopService") }
     let instantRecallService = InstantRecallService()
@@ -946,13 +914,6 @@ final class AppBootstrap {
 
     // MARK: - Cognitive Substrates
     let epistemosConfig = EpistemosConfig()
-    private var _ambientCapture: AmbientCaptureService?
-    var ambientCapture: AmbientCaptureService {
-        if let existing = _ambientCapture { return existing }
-        let new = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
-        _ambientCapture = new
-        return new
-    }
     private var _frictionMonitor: FrictionMonitorService?
     var frictionMonitor: FrictionMonitorService { Self.requireInitialized(_frictionMonitor, name: "frictionMonitor") }
 
@@ -964,13 +925,7 @@ final class AppBootstrap {
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
-    private struct LocalRuntimeObserverToken {
-        let center: NotificationCenter
-        let token: NSObjectProtocol
-    }
 
-    private var localRuntimeObserverTokens: [LocalRuntimeObserverToken] = []
-    private var localRuntimeActivationTask: Task<Void, Never>?
     private var preparedRetrievalRefreshTask: Task<Void, Never>?
     private var startupIntegrityReport: StartupIntegrityReport?
     private var didStartPrimaryLaunchInitialization = false
@@ -1414,7 +1369,6 @@ final class AppBootstrap {
     let vaultSync: VaultSyncService
     let vaultChatMutator: VaultChatMutator
     let liveNoteScheduler = LiveNoteSchedulerService()
-    let ssmStateService: SSMStateService
     // Lazy: NoteInsightService construct is deferred until the first
     // user action that needs it (notes reindex, dialogue insight fetch).
     // Most sessions never trigger these paths; the eager construct held
@@ -1556,7 +1510,6 @@ final class AppBootstrap {
         // InferenceState reads Keychain + checks Apple Intelligence availability
         let inference = InferenceState()
         self.inferenceState = inference
-        inference.setAvailableLocalGenerationRuntimeKinds([])
 
         let embeddingService = graphState.embeddingService
         let localRuntimeControlPlane = BackendRuntimeControlPlane(
@@ -1634,13 +1587,6 @@ final class AppBootstrap {
             autoCommitInAgentMode: false
         )
 
-        // SSMStateService — Mamba/SSM hidden state persistence for vault memory
-        let ssmStateRoot = applicationSupportDirectory
-            .appendingPathComponent("Epistemos", isDirectory: true)
-        let ssmStateService = SSMStateService(stateRoot: ssmStateRoot)
-        ssmStateService.activate(enabled: epistemosConfig.ssmStatePersistenceEnabled)
-        self.ssmStateService = ssmStateService
-
         // Meaning Anchor Service — generates structured chat snapshots for graph intelligence
         self.meaningAnchorService = MeaningAnchorService(
             triageService: triage,
@@ -1655,7 +1601,6 @@ final class AppBootstrap {
             triageService: triage,
             inference: inference,
             eventBus: eventBus,
-            constrainedDecoding: constrainedDecoding,
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
             },
@@ -1736,21 +1681,7 @@ final class AppBootstrap {
         reasoning.onTracesGenerated = { _ in }
         self._reasoningLoopService = reasoning
 
-        // Initialize device-action infrastructure without binding it to the
-        // retired app-local chat/model backend.
-        self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
-        if let coreMLBackend = CoreMLActionBackendLoader.loadIfAvailable() {
-            deviceAgent.setBackend(coreMLBackend)
-        }
-        // Device-agent contextual embeddings stay lazy. Constructing the Apple
-        // NL contextual resolver during passive launch can load language assets
-        // before the user asks for computer-use/device-action work.
-
-        // ScreenCaptureService, Screen2AXFusion, and AmbientCaptureService now
-        // build lazily on first access via the computed-getter pattern declared
-        // on the class. Sessions that never open a computer-use agent or enable
-        // ambient capture skip ~8-12 MB of AX-listener buffers + AVF
-        // scaffolding entirely.
+        // Device-action / computer-use infrastructure removed — cloud-only build.
 
         // Initialize the persistent event store (separate SQLite database with WAL mode).
         EventStore.shared = EventStore()
@@ -1765,8 +1696,8 @@ final class AppBootstrap {
         self._timeMachineService = TimeMachineService(modelContainer: container)
         self.workspaceService.timeMachineService = timeMachineService
 
-        // Cognitive substrates (Phase 0). FrictionMonitor stays eager
-        // (read by RootView at startup); AmbientCapture is lazy.
+        // FrictionMonitor stays eager — read by RootView at startup.
+        // (AmbientCapture and the rest of the Omega ambient/cognitive chain were removed.)
         self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
 
         // Phase 6.5: Text capture pipeline — capture → structure → memory → evidence → trace
@@ -1857,21 +1788,6 @@ final class AppBootstrap {
         // `initializeRustResourceServiceIfReady()`.
         wireR3VaultSwitchObserver()
 
-        // Register Omega specialist agents and wire LLM planning
-        orchestratorState.registerAgents(
-            vaultURL: vaultSync.vaultURL,
-            modelContainer: container,
-            triageService: triage,
-            vaultSync: vaultSync,
-            mcpBridge: mcpBridge,
-            constrainedDecoding: constrainedDecoding
-        )
-
-        // Initialize knowledge graph integration (Ω14)
-        self._agentGraphMemory = AgentGraphMemory(graphStore: graphState.store, graphState: graphState)
-        self._recipeGraphSkills = RecipeGraphSkills(graphStore: graphState.store, mcpBridge: mcpBridge)
-        self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
-        orchestratorState.agentGraphMemory = agentGraphMemory
 
         // Instant recall has a warm idle path so the first typed sentence does
         // not pay vault hydration. The actual rebuild still runs off-main.
@@ -2329,9 +2245,6 @@ final class AppBootstrap {
             // once the deferred runtime services bring themselves online.
             self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
 
-            if self.epistemosConfig.captureEnabled {
-                await self.ambientCapture.start()
-            }
         }
     }
 
@@ -2461,7 +2374,6 @@ final class AppBootstrap {
         }
 
         preparedModelRegistryState.apply(snapshot)
-        inferenceState.setPreparedLocalTextModelIDs([])
         applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
     }
 
@@ -2472,7 +2384,6 @@ final class AppBootstrap {
         }
 
         preparedModelRegistryState.apply(error: error)
-        inferenceState.setPreparedLocalTextModelIDs([])
         applyPreparedRetrievalRuntimeConfiguration(nil)
     }
 
@@ -2715,7 +2626,6 @@ final class AppBootstrap {
             clearWorkspaceRestore: true
         )
 
-        inferenceState.setRoutingMode(.auto)
         if let provider = inferenceState.activeCloudProvider ?? inferenceState.preferredAutoRouteCloudProvider {
             inferenceState.setPreferredChatModelSelection(.cloud(inferenceState.preferredCloudModel(for: provider)))
         } else {
@@ -2870,76 +2780,7 @@ final class AppBootstrap {
         }
     }
 
-    private func wireLocalRuntimeLifecycle() {
-        let center = NotificationCenter.default
-        localRuntimeObserverTokens = [
-            LocalRuntimeObserverToken(
-                center: center,
-                token: center.addObserver(
-                forName: NSApplication.didBecomeActiveNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.localRuntimeActivationTask?.cancel()
-                    self?.localRuntimeActivationTask = Task(priority: .utility) { [weak self] in
-                        try? await Task.sleep(for: .milliseconds(150))
-                        guard !Task.isCancelled else { return }
-                        self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
-                        self?.syncLocalRuntimeConditions(appActive: true)
-                        self?.localRuntimeActivationTask = nil
-                    }
-                }
-            }
-            ),
-            LocalRuntimeObserverToken(
-                center: center,
-                token: center.addObserver(
-                forName: NSApplication.didResignActiveNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.localRuntimeActivationTask?.cancel()
-                    self?.localRuntimeActivationTask = nil
-                    self?.syncLocalRuntimeConditions(appActive: false)
-                }
-            }
-            ),
-            LocalRuntimeObserverToken(
-                center: center,
-                token: center.addObserver(
-                forName: .NSProcessInfoPowerStateDidChange,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.syncLocalRuntimeConditions(appActive: nil)
-                }
-            }
-            ),
-            LocalRuntimeObserverToken(
-                center: center,
-                token: center.addObserver(
-                forName: ProcessInfo.thermalStateDidChangeNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.syncLocalRuntimeConditions(appActive: nil)
-                }
-            }
-            ),
-        ]
-        syncLocalRuntimeConditions(appActive: NSApp?.isActive ?? true)
-    }
 
-    private func syncLocalRuntimeConditions(appActive: Bool?) {
-        let conditions = LocalRuntimeConditions.current(
-            appActive: appActive ?? (NSApp?.isActive ?? true)
-        )
-        inferenceState.setLocalRuntimeConditions(conditions)
-    }
 
     /// Phase R.3 boot activation — initialize the Rust
     /// `VaultResourceService` so the canonical gateway FFI surface is
@@ -3616,11 +3457,6 @@ final class AppBootstrap {
             commandCenterGlobalHotkeyMonitor = nil
         }
 
-        for observer in localRuntimeObserverTokens {
-            observer.center.removeObserver(observer.token)
-        }
-        localRuntimeObserverTokens.removeAll()
-        localRuntimeActivationTask?.cancel()
     }
 }
 

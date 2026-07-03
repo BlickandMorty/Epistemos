@@ -5,139 +5,6 @@ import Observation
 // types keep graph/search prepared-retrieval code buildable while every chat /
 // agent local-model catalog path fails closed.
 
-nonisolated enum LocalModelKind: String, Codable, Sendable, CaseIterable {
-    case text
-}
-
-nonisolated enum ModelCapabilityRole: String, Codable, Hashable, Sendable, CaseIterable {
-    case generalist
-
-    var displayName: String { "Generalist" }
-    var shortSummary: String { "App-owned local generation models are removed." }
-}
-
-nonisolated struct LocalModelDescriptor: Identifiable, Codable, Hashable, Sendable {
-    let id: String
-    let kind: LocalModelKind
-    let displayName: String
-    let familyName: String
-    let summary: String
-    let approximateDownloadBytes: Int64
-    let minimumRecommendedMemoryGB: Int
-    let revision: String
-    let matchingGlobs: [String]
-    let capabilityRole: ModelCapabilityRole?
-
-    init(
-        id: String,
-        kind: LocalModelKind = .text,
-        displayName: String,
-        familyName: String = "Removed",
-        summary: String = "App-owned local generation models are removed.",
-        approximateDownloadBytes: Int64 = 0,
-        minimumRecommendedMemoryGB: Int = Int.max,
-        revision: String = "removed",
-        matchingGlobs: [String] = [],
-        capabilityRole: ModelCapabilityRole? = nil
-    ) {
-        self.id = id
-        self.kind = kind
-        self.displayName = displayName
-        self.familyName = familyName
-        self.summary = summary
-        self.approximateDownloadBytes = approximateDownloadBytes
-        self.minimumRecommendedMemoryGB = minimumRecommendedMemoryGB
-        self.revision = revision
-        self.matchingGlobs = matchingGlobs
-        self.capabilityRole = capabilityRole
-    }
-
-    var slug: String { id.replacingOccurrences(of: "/", with: "--") }
-    var approximateDownloadLabel: String { "0 KB" }
-    var runtimeKind: BackendRuntimeKind { .remote }
-}
-
-nonisolated enum GemmaQATRuntimeStage: String, Codable, Sendable, CaseIterable {
-    case removed
-
-    var displayName: String { "Removed" }
-    var epistemosTier: EpistemosModelTier { .fast }
-}
-
-nonisolated struct GemmaQATRuntimeCandidate: Identifiable, Codable, Hashable, Sendable {
-    let id: String
-    let displayName: String
-    let sourceRepo: String
-    let sourceURL: String
-    let sourceRevision: String
-    let expectedFilename: String
-    let expectedFileBytes: Int64
-    let expectedSHA256: String
-    let blobID: String
-    let runtimeLane: String
-    let stage: GemmaQATRuntimeStage
-    let localExecutionProofArtifactRef: String?
-    let runtimeRouterAdmissionArtifactRef: String?
-    let systemGDryRunArtifactRef: String?
-    let routeAnswerPacketVisibilityArtifactRef: String?
-    let settingsDiagnosticsWRVArtifactRef: String?
-    let releaseGateRef: String
-
-    var isReleaseSelectableForInteractiveChat: Bool { false }
-    var allowsDefaultRouteMutation: Bool { false }
-    var expectedByteCountLabel: String { "0 KB" }
-    var proofStatusLabel: String { "removed" }
-    var hasCompleteRouteEvidencePacketChain: Bool { false }
-    var isProductRouteIntegrationCandidate: Bool { false }
-    var routeIntegrationStatusLabel: String { "removed" }
-    var acquisitionLaneArgument: String { "removed" }
-    var minimumRecommendedMemoryGB: Int { Int.max }
-    var catalogSummary: String { "App-owned local generation models are removed." }
-    var familyName: String { "Removed" }
-    var stackSource: ModelStackSource {
-        ModelStackSource(
-            id: id,
-            displayName: displayName,
-            summary: catalogSummary,
-            approximateDownloadBytes: expectedFileBytes,
-            minimumRecommendedMemoryGB: minimumRecommendedMemoryGB
-        )
-    }
-    var localModelDescriptor: LocalModelDescriptor {
-        LocalModelDescriptor(id: id, displayName: displayName)
-    }
-}
-
-nonisolated enum GemmaQATRuntimeLadder {
-    static let productRouteIntegrationCursor = "removed"
-    static let candidates: [GemmaQATRuntimeCandidate] = []
-    static func candidate(forID id: String) -> GemmaQATRuntimeCandidate? { nil }
-}
-
-enum LocalModelCatalog {
-    nonisolated static let curatedBaselineModelIDs: [String] = []
-    nonisolated static let optionalBaselineModelIDs: [String] = []
-    nonisolated static let experimentalModelIDs: [String] = []
-    nonisolated static let advancedModelIDs: [String] = []
-    nonisolated static let fallbackPrimaryAgentModel: LocalTextModelID? = nil
-    nonisolated static let optInPrimaryAgentModel: LocalTextModelID? = nil
-    nonisolated static var defaultPrimaryAgentModel: LocalTextModelID? { nil }
-    nonisolated static var textDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static var allDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static var curatedBaselineDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static var optionalBaselineDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static var experimentalDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static var advancedDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static var gemmaQATGGUFDescriptors: [LocalModelDescriptor] { [] }
-    nonisolated static func descriptors(forRole role: ModelCapabilityRole) -> [LocalModelDescriptor] { [] }
-    nonisolated static func preferredDescriptor(forRole role: ModelCapabilityRole) -> LocalModelDescriptor? { nil }
-    nonisolated static func descriptor(for modelID: String) -> LocalModelDescriptor? { nil }
-}
-
-extension LocalHardwareCapabilitySnapshot {
-    nonisolated func supports(descriptor: LocalModelDescriptor) -> Bool { false }
-}
-
 nonisolated enum PreparedModelRole: String, Codable, Sendable, CaseIterable {
     case retriever
     case generator
@@ -157,7 +24,6 @@ nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
     let baseModelID: String?
     let baseSnapshotPath: String?
     let mergeOutputPath: String?
-    let mlxOutputPath: String?
     let downloadPath: String?
     let status: String?
     let trustRemoteCode: Bool
@@ -175,7 +41,6 @@ nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
         baseModelID: String? = nil,
         baseSnapshotPath: String? = nil,
         mergeOutputPath: String? = nil,
-        mlxOutputPath: String? = nil,
         downloadPath: String? = nil,
         status: String? = nil,
         trustRemoteCode: Bool = false
@@ -192,29 +57,9 @@ nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
         self.baseModelID = baseModelID
         self.baseSnapshotPath = baseSnapshotPath
         self.mergeOutputPath = mergeOutputPath
-        self.mlxOutputPath = mlxOutputPath
         self.downloadPath = downloadPath
         self.status = status
         self.trustRemoteCode = trustRemoteCode
-    }
-
-    var runtimeKind: BackendRuntimeKind {
-        if let declaredRuntimeKind {
-            return declaredRuntimeKind
-        }
-        if let servedModel = LocalTextModelID(rawValue: servedModelID) {
-            return servedModel.runtimeKind
-        }
-        if let modelID, let model = LocalTextModelID(rawValue: modelID) {
-            return model.runtimeKind
-        }
-        if let artifactID, artifactID.localizedCaseInsensitiveContains("gguf") {
-            return .gguf
-        }
-        if let downloadPath, downloadPath.localizedCaseInsensitiveContains(".gguf") {
-            return .gguf
-        }
-        return .mlx
     }
 
     var resolvedAdapterPath: String? {
@@ -223,21 +68,6 @@ nonisolated struct PreparedModelDescriptor: Hashable, Sendable {
 
     var resolvedDownloadPath: String? {
         Self.expandPath(downloadPath)
-    }
-
-    var resolvedMLXOutputPath: String? {
-        Self.expandPath(mlxOutputPath)
-    }
-
-    func matchesSidecarModelID(_ modelID: String) -> Bool {
-        if servedModelID == modelID {
-            return true
-        }
-
-        guard let resolvedMLXOutputPath else { return false }
-        let lhs = URL(fileURLWithPath: resolvedMLXOutputPath).standardizedFileURL.path
-        let rhs = URL(fileURLWithPath: modelID).standardizedFileURL.path
-        return lhs == rhs
     }
 
     private static func expandPath(_ rawPath: String?) -> String? {
@@ -258,26 +88,10 @@ nonisolated struct PreparedModelRegistrySnapshot: Sendable, Equatable {
         entry(named: "retriever_primary")
     }
 
-    var primaryGenerator: PreparedModelDescriptor? {
-        entry(named: "generator_primary")
-    }
-
-    var speculativeDraftGenerator: PreparedModelDescriptor? {
-        entry(named: "generator_speculative_draft")
-    }
-
     var retrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
         guard let primaryRetriever else { return nil }
         return PreparedRetrievalRuntimeConfiguration(
             retriever: primaryRetriever
-        )
-    }
-
-    var generationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration? {
-        guard let primaryGenerator else { return nil }
-        return PreparedGenerationRuntimeConfiguration(
-            primaryGenerator: primaryGenerator,
-            speculativeDraftGenerator: speculativeDraftGenerator
         )
     }
 }
@@ -311,96 +125,6 @@ nonisolated struct PreparedRetrievalRuntimeConfiguration: Sendable, Equatable {
     private static func assetExists(at path: String?) -> Bool {
         guard let path, !path.isEmpty else { return false }
         return FileManager.default.fileExists(atPath: path)
-    }
-}
-
-nonisolated struct PreparedGenerationRuntimeConfiguration: Sendable, Equatable {
-    let primaryGenerator: PreparedModelDescriptor
-    let speculativeDraftGenerator: PreparedModelDescriptor?
-
-    var primaryResolvedModelDirectory: URL? {
-        resolvedModelDirectory(for: primaryGenerator)
-    }
-
-    var speculativeDraftResolvedModelDirectory: URL? {
-        guard let speculativeDraftGenerator else { return nil }
-        return resolvedModelDirectory(for: speculativeDraftGenerator)
-    }
-
-    func resolvedModelDirectory(for modelID: String) -> URL? {
-        if primaryGenerator.matchesSidecarModelID(modelID) {
-            return primaryResolvedModelDirectory
-        }
-        if let speculativeDraftGenerator,
-           speculativeDraftGenerator.matchesSidecarModelID(modelID) {
-            return speculativeDraftResolvedModelDirectory
-        }
-        return nil
-    }
-
-    func resolvedArtifactID(for modelID: String) -> String? {
-        if primaryGenerator.matchesSidecarModelID(modelID) {
-            return primaryGenerator.artifactID
-        }
-        if let speculativeDraftGenerator,
-           speculativeDraftGenerator.matchesSidecarModelID(modelID) {
-            return speculativeDraftGenerator.artifactID
-        }
-        return nil
-    }
-
-    func resolvedRuntimeKind(for modelID: String) -> BackendRuntimeKind? {
-        if primaryGenerator.matchesSidecarModelID(modelID) {
-            return primaryGenerator.runtimeKind
-        }
-        if let speculativeDraftGenerator,
-           speculativeDraftGenerator.matchesSidecarModelID(modelID) {
-            return speculativeDraftGenerator.runtimeKind
-        }
-        return nil
-    }
-
-    func hasUsablePreparedRuntime(
-        for modelID: String,
-        fileManager: FileManager = .default
-    ) -> Bool {
-        guard resolvedRuntimeKind(for: modelID) != nil,
-              let resolvedDirectory = resolvedModelDirectory(for: modelID) else {
-            return false
-        }
-        return fileManager.fileExists(atPath: resolvedDirectory.path)
-    }
-
-    func interactiveLocalTextModelIDs(
-        availableRuntimeKinds: Set<BackendRuntimeKind> = [.mlx, .gguf],
-        fileManager: FileManager = .default
-    ) -> Set<String> {
-        if primaryGenerator.runtimeKind == .gguf {
-            guard availableRuntimeKinds.contains(.gguf) else {
-                return []
-            }
-            guard primaryGenerator.artifactID?.isEmpty == false || !primaryGenerator.servedModelID.isEmpty else {
-                return []
-            }
-            return [primaryGenerator.servedModelID]
-        }
-
-        guard let primaryResolvedModelDirectory,
-              availableRuntimeKinds.contains(primaryGenerator.runtimeKind),
-              fileManager.fileExists(atPath: primaryResolvedModelDirectory.path) else {
-            return []
-        }
-        return [primaryGenerator.servedModelID]
-    }
-
-    private func resolvedModelDirectory(for descriptor: PreparedModelDescriptor) -> URL? {
-        if let outputPath = descriptor.resolvedMLXOutputPath {
-            return URL(fileURLWithPath: outputPath).standardizedFileURL
-        }
-        if let downloadPath = descriptor.resolvedDownloadPath {
-            return URL(fileURLWithPath: downloadPath).standardizedFileURL
-        }
-        return nil
     }
 }
 
@@ -674,26 +398,10 @@ final class PreparedModelRegistryState {
         entry(named: "retriever_primary")
     }
 
-    var primaryGenerator: PreparedModelDescriptor? {
-        entry(named: "generator_primary")
-    }
-
-    var speculativeDraftGenerator: PreparedModelDescriptor? {
-        entry(named: "generator_speculative_draft")
-    }
-
     var retrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration? {
         guard let primaryRetriever else { return nil }
         return PreparedRetrievalRuntimeConfiguration(
             retriever: primaryRetriever
-        )
-    }
-
-    var generationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration? {
-        guard let primaryGenerator else { return nil }
-        return PreparedGenerationRuntimeConfiguration(
-            primaryGenerator: primaryGenerator,
-            speculativeDraftGenerator: speculativeDraftGenerator
         )
     }
 }
@@ -716,7 +424,6 @@ final class PreparedModelRegistry {
         let baseModelID: String?
         let baseSnapshotPath: String?
         let mergeOutputPath: String?
-        let mlxOutputPath: String?
         let downloadPath: String?
         let status: String?
         let trustRemoteCode: Bool?
@@ -733,7 +440,6 @@ final class PreparedModelRegistry {
             case baseModelID = "base_model_id"
             case baseSnapshotPath = "base_snapshot_path"
             case mergeOutputPath = "merge_output_path"
-            case mlxOutputPath = "mlx_output_path"
             case downloadPath = "download_path"
             case status
             case trustRemoteCode = "trust_remote_code"
@@ -782,7 +488,6 @@ final class PreparedModelRegistry {
                     baseModelID: entry.baseModelID,
                     baseSnapshotPath: entry.baseSnapshotPath,
                     mergeOutputPath: entry.mergeOutputPath,
-                    mlxOutputPath: entry.mlxOutputPath,
                     downloadPath: entry.downloadPath,
                     status: entry.status,
                     trustRemoteCode: entry.trustRemoteCode ?? false

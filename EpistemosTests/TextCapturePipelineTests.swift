@@ -1124,4 +1124,20 @@ struct TextCapturePipelineTests {
         #expect(!source.contains("bootstrap.chatState"))
         #expect(source.contains("anchor: Self.activeContextAnchor()"))
     }
+
+    @Test("MEET-7: structureGenerated hashes the title out of the persisted trace content")
+    func structureGeneratedHashesTitleForTracePrivacy() throws {
+        let secret = "Q3 layoffs and the acquisition target"
+        let event = TraceEvent.structureGenerated(
+            sessionId: "s", traceId: "t", entityCount: 3, taskCount: 2, title: secret
+        )
+        let content = try #require(event.content)
+        // The meeting-content-derived title must NOT appear in the persisted trace.
+        #expect(!content.contains(secret))
+        #expect(!content.contains("layoffs"))
+        // A stable correlatable hash + the non-content counts are still present.
+        #expect(content.contains("title_sha256="))
+        #expect(content.contains("entities=3"))
+        #expect(content.contains("tasks=2"))
+    }
 }

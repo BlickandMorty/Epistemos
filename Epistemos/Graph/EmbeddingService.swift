@@ -302,10 +302,27 @@ final class EmbeddingService {
     private var embeddingCacheCapacityOverride: Int?
     private let fallbackEmbeddingLookup: any TextEmbeddingLookup
     private let preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving
-    // SAFETY: written only on MainActor (applyPreparedRetrievalRuntimeConfiguration),
-    // read from nonisolated embedding functions — the values are effectively immutable
-    // between configuration changes.
-    nonisolated(unsafe) private var activeEmbeddingLookup: any TextEmbeddingLookup
+    // CONC-15: `activeEmbeddingLookup` is a multi-word existential written on MainActor
+    // (init / applyPreparedRetrievalRuntimeConfiguration) and read from nonisolated
+    // embedding functions. "Effectively immutable between changes" is NOT a mechanism —
+    // an overlapping read during a write tears the existential (witness-table / value
+    // mismatch → crash), TSan-visible. Every access now goes through `embeddingLookupLock`.
+    private let embeddingLookupLock = NSLock()
+    // SAFETY: only touched inside `embeddingLookupLock` via the `activeEmbeddingLookup`
+    // computed accessor below; the sole direct use is `init` before the instance escapes.
+    nonisolated(unsafe) private var _activeEmbeddingLookup: any TextEmbeddingLookup
+    nonisolated private var activeEmbeddingLookup: any TextEmbeddingLookup {
+        get {
+            embeddingLookupLock.lock()
+            defer { embeddingLookupLock.unlock() }
+            return _activeEmbeddingLookup
+        }
+        set {
+            embeddingLookupLock.lock()
+            defer { embeddingLookupLock.unlock() }
+            _activeEmbeddingLookup = newValue
+        }
+    }
     nonisolated(unsafe) private var swiftEmbeddingFallbackActive = true
     nonisolated(unsafe) private var preparedQueryEmbeddingActive = false
     private(set) var preparedRetrievalRuntimeConfiguration: PreparedRetrievalRuntimeConfiguration?
@@ -331,7 +348,7 @@ final class EmbeddingService {
         self.defaultEmbeddingCacheCapacity = max(0, maxCacheEntries)
         fallbackEmbeddingLookup = embeddingLookup
         self.preparedRetrievalRuntimeResolver = preparedRetrievalRuntimeResolver
-        activeEmbeddingLookup = embeddingLookup
+        _activeEmbeddingLookup = embeddingLookup  // CONC-15: direct backing-store init (pre-escape)
     }
 
     func prepareForEngineUse() {

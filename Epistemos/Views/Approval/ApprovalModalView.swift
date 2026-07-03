@@ -352,6 +352,8 @@ public final class ChatApprovalQueue {
     @ObservationIgnored public var auditLogDirectoryOverride: URL?
 
     @ObservationIgnored private var pendingContinuations: [String: CheckedContinuation<ChatApprovalResolution, Never>] = [:]
+    // CONC-4: view-independent deadline enforcement (see scheduleDeadlineTimeout).
+    @ObservationIgnored private var deadlineTimeoutTask: Task<Void, Never>?
     @ObservationIgnored private var approvedHashesBySession: [String: Set<String>] = [:]
     @ObservationIgnored private let auditLog: ChatApprovalAuditLog
     @ObservationIgnored private let log = Logger(subsystem: "com.epistemos", category: "ChatApprovalQueue")
@@ -446,6 +448,24 @@ public final class ChatApprovalQueue {
         return await withCheckedContinuation { continuation in
             pendingContinuations[approval.id] = continuation
             pendingApproval = approval
+            scheduleDeadlineTimeout(for: approval)
+        }
+    }
+
+    /// CONC-4: the on-screen `TimelineView` only enforces the deadline while the modal is
+    /// RENDERED. An approval enqueued while the modal is occluded / the window is
+    /// backgrounded would otherwise hang the agent bridge forever (tool-approval hot path).
+    /// This view-independent task fires the timeout regardless of render state. `resolve` is
+    /// idempotent (removeValue guard), so it's a no-op if the user resolves first.
+    private func scheduleDeadlineTimeout(for approval: ApprovalModalView.PendingApproval) {
+        deadlineTimeoutTask?.cancel()
+        let interval = max(0, approval.deadline.timeIntervalSinceNow)
+        deadlineTimeoutTask = Task { [weak self] in
+            if interval > 0 {
+                try? await Task.sleep(for: .seconds(interval))
+            }
+            guard !Task.isCancelled else { return }
+            self?.resolve(approval, decision: .timedOut)
         }
     }
 
@@ -478,6 +498,8 @@ public final class ChatApprovalQueue {
             break
         }
         pendingApproval = nil
+        deadlineTimeoutTask?.cancel()
+        deadlineTimeoutTask = nil
         continuation.resume(returning: resolution)
     }
 

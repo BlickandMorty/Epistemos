@@ -15,6 +15,16 @@ nonisolated enum BrowserURLGuard {
         "tel",
     ]
 
+    /// BRW-2: schemes we hand off to the system default handler (Mail, Phone)
+    /// instead of loading in-webview. Deliberately a tight allowlist — NOT
+    /// data/file/javascript, which stay hard-blocked.
+    private static let externalHandoffSchemes: Set<String> = ["mailto", "tel"]
+
+    static func isExternalHandoff(url: URL?) -> Bool {
+        guard let scheme = url?.scheme?.lowercased() else { return false }
+        return externalHandoffSchemes.contains(scheme)
+    }
+
     static func resolve(raw: String, searchTemplate: String = Self.searchTemplate) -> URL? {
         let bounded = String(raw.prefix(maxRawInputLength + 1))
         let trimmed = bounded.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -445,7 +455,7 @@ private struct BrowserWebView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
         private weak var webView: WKWebView?
         private weak var tab: BrowserTab?
         private var observations: [NSKeyValueObservation] = []
@@ -535,7 +545,14 @@ private struct BrowserWebView: NSViewRepresentable {
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
             guard BrowserURLGuard.allows(url: navigationAction.request.url) else {
-                tab?.lastError = "Blocked non-web navigation."
+                // BRW-2: hand mailto:/tel: to the system default app (Mail/Phone) instead
+                // of dead-ending as "Blocked". data:/file:/javascript: stay hard-blocked.
+                if let url = navigationAction.request.url, BrowserURLGuard.isExternalHandoff(url: url) {
+                    NSWorkspace.shared.open(url)
+                    tab?.lastError = nil
+                } else {
+                    tab?.lastError = "Blocked non-web navigation."
+                }
                 decisionHandler(.cancel)
                 return
             }
@@ -552,7 +569,54 @@ private struct BrowserWebView: NSViewRepresentable {
                 decisionHandler(.cancel)
                 return
             }
+            // BRW-1: a response WebKit cannot render (attachment PDF, .zip, .dmg, …)
+            // would otherwise silently dead-end. Route it to a download instead.
+            if !navigationResponse.canShowMIMEType {
+                decisionHandler(.download)
+                return
+            }
             decisionHandler(.allow)
+        }
+
+        // BRW-1: adopt the download once WebKit converts the response/action.
+        func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+            download.delegate = self
+        }
+
+        func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+            download.delegate = self
+        }
+
+        // MARK: - WKDownloadDelegate (BRW-1)
+
+        func download(
+            _ download: WKDownload,
+            decideDestinationUsing response: URLResponse,
+            suggestedFilename: String,
+            completionHandler: @escaping @MainActor @Sendable (URL?) -> Void
+        ) {
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = suggestedFilename
+            panel.canCreateDirectories = true
+            guard panel.runModal() == .OK, let url = panel.url else {
+                completionHandler(nil)  // user cancelled → WebKit cancels the download
+                return
+            }
+            // WKDownload requires the destination to not already exist.
+            try? FileManager.default.removeItem(at: url)
+            tab?.lastError = "Downloading \(suggestedFilename)…"
+            completionHandler(url)
+        }
+
+        func downloadDidFinish(_ download: WKDownload) {
+            tab?.lastError = nil
+        }
+
+        func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+            // Mirror the navigation-error convention: a fixed domain+code format only,
+            // never the raw localized error text (which can leak file paths / user content).
+            let nsError = error as NSError
+            tab?.lastError = "Download failed (domain=\(nsError.domain) code=\(nsError.code))"
         }
 
         func webView(

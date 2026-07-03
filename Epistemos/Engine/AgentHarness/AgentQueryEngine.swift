@@ -156,8 +156,11 @@ actor AgentQueryEngine {
     /// Submit a user prompt and stream incremental events. The stream ends
     /// with exactly one `.sessionComplete(result:)` event.
     func submitMessage(_ prompt: String) -> AsyncThrowingStream<AgentQueryEngineEvent, Error> {
-        AsyncThrowingStream { continuation in
-            Task {
+        // CONC-2: bounded buffer (never .unbounded) + cancel the producer Task when the
+        // consumer stops iterating, so a cancelled/aborted turn doesn't leave the SSE
+        // stream + tool calls running and the event buffer growing without bound.
+        StreamingBufferPolicy.throwingStream(limit: StreamingBufferPolicy.textLimit) { continuation in
+            let task = Task {
                 do {
                     try await self.runTurn(prompt: prompt, continuation: continuation)
                     continuation.finish()
@@ -165,6 +168,7 @@ actor AgentQueryEngine {
                     continuation.finish(throwing: error)
                 }
             }
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 

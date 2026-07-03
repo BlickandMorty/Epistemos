@@ -47,6 +47,21 @@ nonisolated struct BrowserUseRuntimePaths: Equatable, Sendable {
         stateRoot.appendingPathComponent(".env", isDirectory: false)
     }
 
+    /// BUP-1: purge any environment file left behind by a prior crash / force-quit
+    /// that bypassed the normal `stopLocked` cleanup. The file is 0600 but still
+    /// holds Keychain-sourced API keys, so it must not persist across sessions.
+    func cleanupStaleEnvironmentFiles(fileManager: FileManager = .default) {
+        try? fileManager.removeItem(at: environmentFileURL)
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: stateRoot,
+            includingPropertiesForKeys: nil
+        ) else { return }
+        for url in entries where url.lastPathComponent.hasPrefix(".env.")
+            && url.pathExtension == "tmp" {
+            try? fileManager.removeItem(at: url)
+        }
+    }
+
     var agentBrowserAdapterURL: URL {
         vendorRoot.appendingPathComponent("epistemos_agent_browser.py", isDirectory: false)
     }
@@ -636,6 +651,7 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
                 throw error
             }
             activeEnvironmentFileCleanup = cleanupEnvironmentFile
+            registerForAppTermination()  // BUP-1: reachable from applicationWillTerminate
             return plan
             #endif
         }
@@ -656,6 +672,53 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         #endif
     }
 
+    /// BUP-2: shared instance so the page + panel browser-use surfaces drive ONE
+    /// runtime/server (loopback :7788) instead of two conflicting supervisors that
+    /// race on the same port (a Stop in one couldn't reach the other; a second Start
+    /// health-probed green against the foreign server). Tests still inject their own
+    /// via `BrowserUseWebUIView(supervisor:)`.
+    static let shared = BrowserUseRuntimeSupervisor()
+
+    // MARK: - App-termination teardown (BUP-1)
+
+    private final class WeakBox {
+        weak var supervisor: BrowserUseRuntimeSupervisor?
+        init(_ supervisor: BrowserUseRuntimeSupervisor) { self.supervisor = supervisor }
+    }
+
+    private static let terminationRegistryLock = NSLock()
+    // SAFETY: every read/write is bracketed by `terminationRegistryLock`; the array is
+    // never touched without the lock, so `nonisolated(unsafe)` is sound (BUP-1).
+    nonisolated(unsafe) private static var terminationRegistry: [WeakBox] = []
+
+    /// Register a supervisor with a live process so `stopAllForAppTermination` can reach it.
+    private func registerForAppTermination() {
+        Self.terminationRegistryLock.lock()
+        defer { Self.terminationRegistryLock.unlock() }
+        Self.terminationRegistry.removeAll { $0.supervisor == nil }
+        if !Self.terminationRegistry.contains(where: { $0.supervisor === self }) {
+            Self.terminationRegistry.append(WeakBox(self))
+        }
+    }
+
+    /// BUP-1: called from `applicationWillTerminate` — SIGTERM every live browser-use
+    /// runtime (its python handler closes Chromium) and remove the 0600 keyed env file,
+    /// instead of orphaning the process tree + leaking secrets on quit.
+    static func stopAllForAppTermination() {
+        terminationRegistryLock.lock()
+        let boxes = terminationRegistry
+        terminationRegistry.removeAll()
+        terminationRegistryLock.unlock()
+        for box in boxes { box.supervisor?.stop() }
+    }
+
+    /// BUP-1: on launch, purge any env file a prior crash left behind (before any view
+    /// creates a supervisor), so Keychain-sourced API keys never persist on disk.
+    static func purgeStaleEnvironmentFilesAtLaunch(fileManager: FileManager = .default) {
+        guard let paths = BrowserUseRuntimePaths.defaultPaths(fileManager: fileManager) else { return }
+        paths.cleanupStaleEnvironmentFiles(fileManager: fileManager)
+    }
+
     private static func defaultLaunchProcess(_ plan: BrowserUseRuntimeLaunchPlan) throws -> BrowserUseRuntimeProcessHandle {
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         throw BrowserUseRuntimeSupervisorError.appStoreBuild
@@ -667,7 +730,15 @@ nonisolated final class BrowserUseRuntimeSupervisor: @unchecked Sendable {
         runtime.environment = plan.environment
         try runtime.run()
         return BrowserUseRuntimeProcessHandle {
-            runtime.terminate()
+            guard runtime.isRunning else { return }
+            let pid = runtime.processIdentifier
+            runtime.terminate()  // SIGTERM — browser-use's python closes its Chromium children
+            // BUP-1: escalate to SIGKILL off-thread if the runtime doesn't exit within
+            // the grace window, so a hung process is never orphaned and teardown never
+            // blocks the caller (view onDisappear / app quit).
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 4.0) {
+                if runtime.isRunning { kill(pid, SIGKILL) }
+            }
         }
         #endif
     }
