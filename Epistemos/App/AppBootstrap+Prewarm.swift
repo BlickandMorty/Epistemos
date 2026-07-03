@@ -73,11 +73,21 @@ extension AppBootstrap {
         modelContainer: ModelContainer,
         limit: Int = 5
     ) async -> Int {
-        let modelContext = ModelContext(modelContainer)
-        let descriptor = SDPage.recentDescriptor(limit: limit)
-        let pages: [SDPage]
+        // Concurrency audit 2026-07-03 (HIGH): a single ModelContext must not be
+        // touched across an `await` — the continuation resumes on a different
+        // cooperative-pool thread, violating CoreData thread-confinement (→ store
+        // corruption / EXC_BAD_ACCESS). Split into three phases so each ModelContext
+        // is used only inside ONE synchronous span: (1) fetch primitives, (2) load
+        // bodies async with NO context, (3) mirror + save on a fresh context.
+
+        // Phase 1: fetch recent page primitives (synchronous ModelContext use).
+        let snapshots: [(id: String, filePath: String?, body: String)]
         do {
-            pages = try modelContext.fetch(descriptor)
+            let fetchContext = ModelContext(modelContainer)
+            let descriptor = SDPage.recentDescriptor(limit: limit)
+            snapshots = try fetchContext.fetch(descriptor).map {
+                (id: $0.id, filePath: $0.filePath, body: $0.body)
+            }
         } catch {
             let message = PrewarmDiagnostics.logMessage(
                 for: error,
@@ -89,11 +99,8 @@ extension AppBootstrap {
             return 0
         }
 
-        let snapshots: [(id: String, filePath: String?, body: String)] = pages.map {
-            (id: $0.id, filePath: $0.filePath, body: $0.body)
-        }
-
-        var synced = 0
+        // Phase 2: load bodies (async) — NO ModelContext touched across these awaits.
+        var loaded: [(id: String, body: String)] = []
         var skippedEmpty = 0
         for snap in snapshots {
             let body = await SDPage.loadBodyAsyncFromPrimitives(
@@ -101,21 +108,24 @@ extension AppBootstrap {
                 filePath: snap.filePath,
                 inlineBody: snap.body
             )
-            guard !body.isEmpty else {
+            if body.isEmpty {
                 skippedEmpty += 1
                 continue
             }
-            BlockMirror.sync(
-                pageId: snap.id,
-                body: body,
-                modelContext: modelContext
-            )
-            synced += 1
+            loaded.append((id: snap.id, body: body))
         }
 
-        if synced > 0 {
+        // Phase 3: mirror + save in ONE synchronous ModelContext span (no await).
+        var synced = 0
+        if !loaded.isEmpty {
+            let writeContext = ModelContext(modelContainer)
+            writeContext.autosaveEnabled = false
+            for item in loaded {
+                BlockMirror.sync(pageId: item.id, body: item.body, modelContext: writeContext)
+                synced += 1
+            }
             do {
-                try modelContext.save()
+                try writeContext.save()
             } catch {
                 let message = PrewarmDiagnostics.logMessage(
                     for: error,

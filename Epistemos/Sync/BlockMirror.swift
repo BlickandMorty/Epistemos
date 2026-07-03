@@ -521,10 +521,16 @@ actor BlockMirrorSyncCoordinator {
 
             guard !Task.isCancelled else { return }
             BlockMirror.sync(pageId: pageId, body: body, modelContext: context)
+            // Concurrency audit 2026-07-03 (HIGH): do NOT `await` between creating the
+            // ModelContext above and saving it below. An await hops the continuation to
+            // another cooperative-pool thread, so `context.save()` would run off the
+            // context's owning thread — a CoreData thread-confinement violation that
+            // intermittently corrupts the store on this HOT autosave path. The block
+            // mirror is derivative (re-synced from the body on the next edit) and the
+            // pre-sync generation guard already drops clearly-stale work, so a rare
+            // superseded-generation save self-heals. `Task.isCancelled` is a synchronous
+            // check (no hop), so it is safe to keep.
             guard !Task.isCancelled else { return }
-            guard await coordinator.generationIsCurrent(pageId: pageId, generation: generation) else {
-                return
-            }
 
             do {
                 try context.save()

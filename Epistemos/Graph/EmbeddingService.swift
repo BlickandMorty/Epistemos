@@ -459,11 +459,20 @@ final class EmbeddingService {
             // Master plan target: <2 ms p99; ceiling 4 ms. If this exceeds budget,
             // move the push off MainActor with a Rust-side mutex audit first.
             let pushInterval = Log.graphPerf.beginInterval("graph.embed.push.ms")
-            await MainActor.run {
-                guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
-                    return
+            // Concurrency audit 2026-07-03 (HIGH): gate the FFI push with the same
+            // detachedEngineUseTracker as the KNN task below. Without it, a graph-view
+            // teardown (closeAndWait → graph_engine_destroy) that lands between the
+            // handle snapshot above and this push frees the engine underneath the
+            // FFI call → use-after-free. begin() returns false once teardown has
+            // started, so the push is safely skipped rather than racing the destroy.
+            if let pushTracker = self?.detachedEngineUseTracker, pushTracker.begin() {
+                defer { pushTracker.end() }
+                await MainActor.run {
+                    guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
+                        return
+                    }
+                    Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
                 }
-                Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
             }
             Log.graphPerf.endInterval("graph.embed.push.ms", pushInterval)
 
