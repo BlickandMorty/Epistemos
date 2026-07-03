@@ -1,5 +1,7 @@
 # Agent 3 — No-Bullshit Complete Audit (2026-06-29)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Audit findings on real code state are durable; the surface framing is re-scoped: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine (not "Goose-only / the one surface / Option 1"). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 This is the durable handoff for the Plan 3/capabilities agent and for any future session that receives the older
 pasted Plan 3 loop prompt. It records what was actually verified in the repo, what docs/plans were changed, and what
 must not be overclaimed.

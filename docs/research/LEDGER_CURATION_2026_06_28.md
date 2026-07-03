@@ -1,5 +1,7 @@
 # Big-Plan Curation — what to KEEP / MERGE / DEFER / CUT (2026-06-28)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** Curation KEEP/MERGE/DEFER/CUT calls largely stand, but any "reskin Goose / Goose-as-surface / Option 1 / Goose-only" item is re-scoped: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine. arXiv/Obscura kept dedicated (Obscura automation-vs-browser = open owner flag). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > ⚠️ **SUPERSEDED on key points by the 2026-06-28 owner decisions:** Goose-only (three-engine Chat/Act/Work + Osaurus-as-Act = CUT) · ColBERT = CUT · Obscura = CUT (→ browser-use) · local model-management (HF/BYOM/stack/vision/DeerFlow) = CUT. This doc is the historical 4,498-line ledger inventory; for the LIVE scope read the 3 plans (Goose / EDITOR_CANONICAL_PLAN / PLAN_3_CAPABILITIES).
 
 

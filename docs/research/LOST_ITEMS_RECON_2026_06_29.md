@@ -1,5 +1,7 @@
 # LOST ITEMS RECON — features that fell out of canon (2026-06-29)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The "lost features" inventory is durable + useful for the OpenChamber "nothing-lost" FEATURE LEDGER. Re-anchor surface/engine framing: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine (not Goose-only). arXiv/Obscura kept dedicated. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > 🛑 **OWNER GUARDRAIL (2026-06-30): SALVAGE ≠ RESURRECT REMOVED FEATURES.** This recon may ONLY route features that
 > *accidentally fell out* — it must **NEVER route a feature the OWNER DELIBERATELY REMOVED** back into any plan. The owner
 > removed (do NOT resurrect, anywhere): **triage / Review-Queue HUD, raw thoughts (RawThoughtsState), the old local+cloud
