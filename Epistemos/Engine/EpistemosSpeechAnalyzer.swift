@@ -2,6 +2,7 @@
 import Foundation
 import OSLog
 import Speech
+import Synchronization
 
 // MARK: - EpistemosSpeechAnalyzer
 //
@@ -85,6 +86,16 @@ public final class EpistemosSpeechAnalyzer {
     private var analyzerFormat: AVAudioFormat?
     private var configChangeObserver: NSObjectProtocol?
     private var permissionMonitorTask: Task<Void, Never>?
+    // MED-7 (audit 2026-07-03): counts audio buffers the input stream's bounded
+    // buffer drops under backpressure so silently-lost audio → transcript gaps can be
+    // surfaced. Lock-free (the real-time tap must never block); drained off-thread.
+    private let audioDropTracker = AudioDropTracker()
+
+    private final class AudioDropTracker: @unchecked Sendable {
+        private let dropped = Atomic<Int>(0)
+        func recordDrop() { dropped.wrappingAdd(1, ordering: .relaxed) }
+        func drain() -> Int { dropped.exchange(0, ordering: .relaxed) }
+    }
 
     private init() {}
 
@@ -300,6 +311,11 @@ public final class EpistemosSpeechAnalyzer {
                     Self.log.warning("audio engine stopped unexpectedly (interruption?); re-arming")
                     self.rearmInputTapAfterConfigurationChange()
                 }
+                // MED-7: surface any audio dropped by backpressure since the last tick
+                // (off the render thread) so a resulting transcript gap isn't invisible.
+                if let dropped = self?.audioDropTracker.drain(), dropped > 0 {
+                    Self.log.warning("\(dropped) audio buffer(s) dropped under backpressure — possible transcript gap")
+                }
             }
         }
 
@@ -350,9 +366,16 @@ public final class EpistemosSpeechAnalyzer {
         continuation: AsyncStream<AnalyzerInput>.Continuation,
         inputFormat: AVAudioFormat
     ) {
+        // Bound to a local so the render-thread tap captures only Sendable values
+        // (converter, continuation, tracker) — never `self`.
+        let dropTracker = audioDropTracker
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
             guard let input = converter.makeAnalyzerInput(from: buffer) else { return }
-            continuation.yield(input)
+            // MED-7: if the bounded input buffer drops this frame (backpressure), count
+            // it (lock-free) so the resulting transcript gap isn't silent.
+            if case .dropped = continuation.yield(input) {
+                dropTracker.recordDrop()
+            }
         }
         didInstallInputTap = true
     }
