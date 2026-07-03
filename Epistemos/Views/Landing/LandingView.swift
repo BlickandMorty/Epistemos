@@ -416,8 +416,16 @@ struct LandingView: View {
     }
 
     private var landingBackdrop: some View {
-        AppWindowBackdropStyle.background(for: theme)
-            .ignoresSafeArea()
+        // Owner 2026-07-03: the flat backdrop is now a subtle animated liquid aurora so
+        // the home feels alive (behind the hard-edged pixel panels — contrast, not clash).
+        // Gated by windowOccluded + Reduce Motion so it's zero-cost when idle/hidden.
+        LiquidMetalSurface(
+            base: AppWindowBackdropStyle.background(for: theme),
+            accent: theme.resolved.accent.color,
+            intensity: 0.14,
+            active: !ui.windowOccluded
+        )
+        .ignoresSafeArea()
     }
 
     private var landingAmbientFrequencyMediaChip: some View {
