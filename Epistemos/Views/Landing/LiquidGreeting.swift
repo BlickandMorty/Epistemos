@@ -142,11 +142,11 @@ struct LiquidGreeting: View {
         if AppCustomTheme.isActive {
             return text.uppercased()
         }
-        // Owner 2026-07-03: Classic's greeting now matches Ember's case treatment —
-        // line 1 ("Greetings,") uppercased, line 2 ("Researcher") lowercased. Scoped
-        // here (not the shared boxedLabelText/plainLabelText, which also drive panel
-        // and graph labels) so only the greeting changes.
-        if theme.themePair == .classic {
+        // Owner 2026-07-03: Classic AND Platinum greetings now match Ember's case
+        // treatment — line 1 ("Greetings,") uppercased, line 2 ("Researcher")
+        // lowercased. Scoped here (not the shared boxedLabelText/plainLabelText, which
+        // also drive panel + graph labels) so only the greeting changes.
+        if theme.themePair == .classic || theme.themePair == .platinumViolet {
             return boxed ? text.lowercased() : text.uppercased()
         }
         return boxed ? theme.boxedLabelText(text) : theme.plainLabelText(text)

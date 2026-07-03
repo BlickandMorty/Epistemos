@@ -51,15 +51,15 @@ enum LandingCommandTypography {
                 ?? AppDisplayTypography.matrixDisplayFontName
         }
         switch theme.themePair {
-        // Owner request 2026-07-03: Ember + Classic share Ember's landing-greeting
-        // hero font; Platinum keeps its own (matrix display) greeting identity.
-        case .classic, .ember:
+        // Owner request 2026-07-03 (revised): Ember, Classic AND Platinum all share
+        // Ember's landing-greeting hero font + the uppercase/lowercase case combo.
+        // (Platinum previously kept its own matrix display face; owner asked for it
+        // to match the others in both light and dark.)
+        case .classic, .ember, .platinumViolet:
             return theme.displayFontName
         case .custom:
             return AppDisplayTypography.storedHeadingFontOverride(level: 1)
                 ?? AppDisplayTypography.matrixDisplayFontName
-        case .platinumViolet:
-            return AppDisplayTypography.matrixDisplayFontName
         }
     }
 

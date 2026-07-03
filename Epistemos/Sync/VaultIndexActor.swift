@@ -1229,9 +1229,11 @@ actor VaultIndexActor {
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            FileManager.default.createFile(atPath: fileURL.path, contents: Data())
-        }
+        // LOW-4 (audit 2026-07-03): removed a redundant empty createFile() that ran
+        // BEFORE the atomic coordinatedWrite — a kill in that window left a 0-byte .md
+        // on disk. coordinatedWrite (NSFileCoordinator .forReplacing → temp-write +
+        // atomic rename) creates the file on its own, so the pre-creation is
+        // unnecessary and only adds a corruption window.
         try coordinatedWrite(output, to: fileURL)
 
         // Persist filePath back to the store so subsequent exports use the same path.

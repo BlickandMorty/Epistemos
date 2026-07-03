@@ -576,7 +576,13 @@ public struct EpdocEditorChromeView: View {
         }
         .commandPaletteHost()
         .background {
-            NoteWorkspaceSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()
+            // #35 (owner 2026-07-03): match the SwiftUI backdrop to the SOLID
+            // --epdoc-bg the editor body paints (#24). canvasBackground(for:) returns
+            // a TRANSLUCENT surface for blur (dark) themes, which left a two-tone in
+            // the margins/titlebar vs the solid editor body. Use the solid variant so
+            // both are identical on every theme.
+            MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other))
+                .ignoresSafeArea()
         }
     }
 
@@ -678,10 +684,17 @@ private enum EpdocEditorThemeStyle {
           adapt();
           if(!window.__epdocHeadingObserver){
             try{
+              // Coalesce bursts of mutations into ONE adapt per frame (avoids layout
+              // thrash while typing / loading / virtual-scrolling — owner reported the
+              // editor jumping to the bottom on scroll) and drop characterData (fired
+              // on every keystroke everywhere); only structural changes re-adapt.
+              var pending=false;
               window.__epdocHeadingObserver=new MutationObserver(function(){
-                window.requestAnimationFrame(adapt);
+                if(pending) return;
+                pending=true;
+                window.requestAnimationFrame(function(){ pending=false; adapt(); });
               });
-              window.__epdocHeadingObserver.observe(document.body,{childList:true,subtree:true,characterData:true});
+              window.__epdocHeadingObserver.observe(document.body,{childList:true,subtree:true});
             }catch(e){}
           }
         })();

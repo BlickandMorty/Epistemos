@@ -374,7 +374,11 @@ struct AdaptiveNotePreviewView2: View {
         if let surfaceBackground {
             surfaceBackground
         } else {
-            NoteWorkspaceSurfaceStyle.canvasBackground(for: theme)
+            // #15 (owner 2026-07-03): use the SOLID surface (matching
+            // previewChromeBackdrop + the editor body) so the title never reads as
+            // see-through on dark/blur themes, where canvasBackground(for:) is
+            // translucent and let the desktop/window show through behind the title.
+            MarkdownPreviewSurfaceStyle.solidFlatBackground(for: theme.surfaceVariant(.other))
         }
     }
 

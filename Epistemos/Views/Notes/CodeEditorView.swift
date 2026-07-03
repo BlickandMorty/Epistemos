@@ -1523,7 +1523,8 @@ struct CodeEditorView: View {
         filePath: String? = nil,
         onTextSnapshot: ((String) -> Void)? = nil,
         onContentChange: ((String) -> Void)? = nil,
-        allowsMarkEditWindowToolbar: Bool = true,
+        // Security default FALSE (bridge audit 2026-07-03) — see MarkEditCoreEditorView.
+        allowsMarkEditWindowToolbar: Bool = false,
         externalSelectionRequest: CoreEditorSelectionRequest? = nil,
         themeOverride: EpistemosTheme? = nil
     ) {

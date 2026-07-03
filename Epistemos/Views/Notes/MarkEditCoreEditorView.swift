@@ -70,7 +70,12 @@ struct MarkEditMarkdownEditorRepresentable: View {
     var tabWidth: Int
     var filePath: String?
     var selectionRequest: CoreEditorSelectionRequest?
-    var allowsMarkEditWindowToolbar: Bool = true
+    // Security (bridge audit 2026-07-03, latent HIGH): default FALSE. The `true`
+    // branch installs MarkEdit's full native file/service/clipboard API on a
+    // page-world "bridge" handler (arbitrary file read/write/delete, runService,
+    // pasteboard). Defaulting off keeps that capability from being silently exposed
+    // by a future caller; the only production caller already passes false.
+    var allowsMarkEditWindowToolbar: Bool = false
 
     var body: some View {
         #if canImport(MarkEditKit)

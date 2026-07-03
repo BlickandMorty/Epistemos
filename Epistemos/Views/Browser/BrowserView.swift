@@ -623,6 +623,15 @@ private struct BrowserWebView: NSViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
+            // Our custom pixel-art home page loads via loadHTMLString, whose document
+            // URL is about:blank. Allow the about: scheme so the guard doesn't block
+            // our OWN home page as a "non-web navigation" (owner reported the home
+            // showing "Blocked non-web navigation" 2026-07-03). about: cannot reach
+            // external content in WKWebView, so this is safe.
+            if navigationAction.request.url == nil || navigationAction.request.url?.scheme == "about" {
+                decisionHandler(.allow)
+                return
+            }
             guard BrowserURLGuard.allows(url: navigationAction.request.url) else {
                 // BRW-2: hand mailto:/tel: to the system default app (Mail/Phone) instead
                 // of dead-ending as "Blocked". data:/file:/javascript: stay hard-blocked.
@@ -643,6 +652,11 @@ private struct BrowserWebView: NSViewRepresentable {
             decidePolicyFor navigationResponse: WKNavigationResponse,
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
         ) {
+            // Allow the about: home-page document (loadHTMLString) — see navigationAction.
+            if navigationResponse.response.url == nil || navigationResponse.response.url?.scheme == "about" {
+                decisionHandler(.allow)
+                return
+            }
             guard BrowserURLGuard.allows(url: navigationResponse.response.url) else {
                 tab?.lastError = "Blocked non-web navigation."
                 decisionHandler(.cancel)
