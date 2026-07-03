@@ -1,5 +1,8 @@
 # PLAN 1 — Agent surface build prompt (paste to Codex)
 
+> ⛔⛔⛔ **RETIRED — DO NOT BUILD FROM THIS DOC (owner 2026-07-02).** Plan 1 is being **replaced wholesale** by a new, research-driven Agent-surface plan once the OpenChamber deep-research dossier is back. The body below is **reference only** (goose backend + verification discipline worth mining) — its UI approach (reskin Goose's own WebView, Goose-as-the-surface, Option 1, no native controls) is **DEAD**. Do NOT act on any instruction in this file. The live direction is the OpenChamber pivot: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`. When the research lands, DELETE this file and author the replacement.
+
+
 > 🔴🔴 **OWNER OVERRIDE — 2026-07-02 · THE OPENCHAMBER PIVOT (READ FIRST; SUPERSEDES THE ENTIRE PLAN BELOW WHERE THEY CONFLICT). Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.**
 > After ~13 failed rounds of reskinning Goose's own web UI, the agent surface is REBASED. This is the single largest change to Plan 1; treat the pre-2026-07-02 body below as HISTORICAL CONTEXT for the goose backend + verification discipline, NOT as the UI approach.
 > 1. **BASE = OpenChamber (github.com/openchamber/openchamber, MIT), vendored as a fork + `epistemos/` overlay.** OpenChamber's full UI IS the Agent surface. **Do NOT reskin Goose's web UI; do NOT retheme Goose's shadcn.** The old "reskin Goose's own WebUI / Option 1 / GOOSE = JUST THE GOOSE WEB UI" workstream is **CUT.**
