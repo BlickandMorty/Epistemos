@@ -1,42 +1,40 @@
 # Owner requests — complete tracked list (2026-07-03 overhaul session)
 
-Durable mirror of the task list so no request is ever lost. Status is verified against builds; "DONE" = build-verified (compiles + owner must relaunch to see). Pending items grouped by what they need.
+Durable mirror of every request so none is lost. "DONE" = build-verified (compiles; relaunch to see). Verified against builds this session.
 
-## ✅ DONE + build-verified (relaunch to see these)
-1. Commit the session work — committed a6927ac03.
+## ✅ DONE + build-verified (relaunch to see all of these)
+1. Commit the session work (a6927ac03 + follow-ups).
 2. Delete 4 landing buttons (vault MCP, extensions, provenance, voice).
 3. Delete the entire Browser-Use Pro lane (kept the lite browser).
 4. arXiv page — full-page layout + Home button in toolbar + liquid-glass/pixel polish.
 5. Meeting page — Home button in toolbar (with unsaved-transcript confirm) + polish.
 6. Browser — no Home button + URL bar as a floating liquid-glass bubble.
-7. Retire the HomeEmbeddedPage floating "← Home" chip (surfaces own their Home button).
-8. All non-custom themes share Ember's font faces (Platinum keeps its OWN landing-greeting font; Ember+Classic share Ember's greeting font).
-9. Platinum heading SIZE now matches the others (headingSizeMultiplier 0.72/0.82 → 1.0).
+7. Retire the HomeEmbeddedPage floating "← Home" chip.
+8. All non-custom themes share Ember's font faces (Platinum keeps its own greeting font).
+9. Platinum heading SIZE now matches the others (headingSizeMultiplier → 1.0). [This was the real Platinum issue, not the greeting.]
 10. Custom theme → EXPERIMENTAL + OFF by default (Settings toggle).
-11. Harden custom theme on web surfaces (KaTeX + appearance-aware HTMLWorkspace previews; full-custom-palette previews documented as a deferred experimental-edge case).
-12. Browser ↔ notes: "Save to notes" button + browser opens as a TAB sharing the notes window (like HTMLWorkspace/code editor).
-13. Browser forces the Epistemos palette + pixel font (headings) onto EVERY webpage, re-applied on theme change.
+11. Harden custom theme on web surfaces (KaTeX + appearance-aware previews).
+12. Browser ↔ notes: "Save to notes" + browser opens as a TAB sharing the notes window.
+13. Browser forces the Epistemos palette + pixel font (headings/links/bold/titles) onto EVERY webpage.
 14. Links (detected in notes/text) auto-open in the in-app themed browser.
-15. arXiv — auto-featured recent-AI/ML feed on open; "view paper" opens the abs page in the themed browser tab.
+15. arXiv — auto-featured recent-AI/ML feed on open + "view paper" in the themed browser tab.
+16. Reconcile tests broken by the overhaul (theme-pair reconciliation).
+17. Editor mode toolbar — native individual items + Circle selection (not the square box).
+18. Browser — pixel font on links + bold + page titles (not body text).
+19. Browser — custom pixel-art themed home/new-tab page + Google/DuckDuckGo picker.
+20. HTMLWorkspace + browser — open at a sensible larger size (not compressed).
+21. arXiv — blank-on-open fixed (loading state + robust feed) + category-browse chips (more features).
+22. Deep hardening pass — adversarial audit of the overhaul: no CRITICAL/HIGH, no MAS blockers; 3 LOW fixes + 1 documented.
+23. Epdoc adaptive header sizing (longer → smaller, mirrors prose) — runtime observer, all themes.
+24. Epdoc↔prose color match in the embedded graph — editor body now paints the explicit solid canvasBackground (was a transparent webview compositing darker on Ember dark).
+25. Platinum greeting — confirmed the real issue was headers (item 9), already fixed.
+26. Classic greeting case — "GREETINGS," uppercase + "researcher" lowercase (matches Ember).
 
-## ⏳ PENDING — in progress
-- **#16 Reconcile tests broken by the overhaul** (regression) — theme-test subagent running; then I fix LandingFeatureButtonsPlan3Tests:78 + broad confirmation pass. THE OVERHAUL IS NOT "DONE" UNTIL THIS IS TEST-GREEN.
+## ⏳ PARTIAL — needs your visual verification
+- **#15 preview title** — the top PADDING is deleted (0). The SEE-THROUGH-TITLE part is confirmed root-caused (note windows use `.fullSizeContentView` + `titlebarAppearsTransparent`, NoteWindowManager:32-34, so preview content sits under the translucent titlebar). The note PROSE preview already covers this with a solid `previewTopChrome` bar. The HTMLWorkspace preview (your .htmlworkspace screenshots) needs the same solid top chrome, but the code path shows its WKWebView already laid out below the toolbar/header — so the exact bleed needs verifying against the live view before I change the layout (not guessing blind, per your instruction). ACTION: after relaunch, tell me if the see-through is on the note prose preview or the HTMLWorkspace preview and I'll add the titlebar-inset-aware solid chrome to the exact one.
 
-## ⏳ PENDING — next batched UI build (I apply after #16 clears)
-- **#15** Prose preview (NotePreviewSurfaceView) — kill the top padding/space (HTMLWorkspace preview is fine per owner; it's the PROSE preview).
-- **#17** Editor mode toolbar — native individual items (not one `.regularMaterial` Capsule) + **Circle** selection instead of the square box.
-- **#18** Browser — apply the pixel font to links + bold + page titles (NOT body text).
-- **#19** Browser — custom pixel-art, theme-aware home/new-tab page ("Epistemos Browser") with a search box + easy Google/DuckDuckGo picker.
-- **#20** HTMLWorkspace + browser — start at a sensible larger size (they open compressed then snap on resize).
-- **#21** arXiv — fix blank-on-open (likely old build; make the feed robust + a visible loading state) + add much more functionality/features.
-- **#23** Epdoc — adaptive header sizing (longer header → smaller) to match prose for all themes. (Needs a js-editor/ npm bundle rebuild you'd run.)
-- **#24** Epdoc↔prose color match in the embedded home graph (fix the two-tone).
-
-## ⏳ PENDING — needs your visual confirm
-- **#25** Platinum landing greeting size — tune a per-theme multiplier if it reads small.
-
-## ⏳ PENDING — after all UI tasks
-- **#22** Deep hardening pass on the non-Goose app (security/concurrency/webview/robustness) for enterprise + MAS review.
+## ▶ NEXT (owner-directed): deep recursive hardening
+After the above, the owner asked for "deep deep hardening — beneath backend, frontend, engines." Proceeding autonomously through the EPISTEMOS_HARDENING_DIRECTIVE phases on the non-Goose app.
 
 ## KEY NOTE
-Most of what looks missing in your running app (arXiv feed, browser theming, note-tab, toolbar changes) is **already written + verified-compiling** but NOT in your running copy — I haven't shipped a final green build yet because the test-regression reconciliation (#16) is finishing. **Relaunch after the next green build** to see everything at once.
+Everything marked DONE is build-verified and committed but only visible after you RELAUNCH the app. Goose-owned code is excluded from all of this per your standing instruction.
