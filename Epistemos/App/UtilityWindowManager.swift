@@ -346,6 +346,27 @@ final class UtilityWindowManager {
         }
 
         panels[kind] = panel
+
+        // Meeting HIGH (audit 2026-07-03): closing the meeting window (Cmd-W / red
+        // button) must stop the microphone. This panel is cached + isReleasedWhenClosed
+        // = false, so SwiftUI's onDisappear may not fire on close, which would leave the
+        // shared capture service recording in a now-hidden window — a privacy + trust
+        // failure (mic indicator lit, no visible UI). Stop it explicitly on close; the
+        // cached view keeps the accumulated transcript for when the user reopens.
+        if kind == .meetingNote {
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: panel,
+                queue: .main
+            ) { _ in
+                MainActor.assumeIsolated {
+                    if LiveVoiceInputService.shared.isRecording {
+                        LiveVoiceInputService.shared.stop()
+                    }
+                }
+            }
+        }
+
         return panel
     }
 
