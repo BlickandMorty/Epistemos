@@ -1382,6 +1382,13 @@ final class AppBootstrap {
         let interval = Log.appPerf.beginInterval("bootstrapInit")
         defer { Log.appPerf.endInterval("bootstrapInit", interval) }
 
+        // NOTE-4 (audit 2026-07-03): recover any note crash-drafts left by an unclean
+        // shutdown, before editors load. Runs off-main (file I/O only, no SwiftData) so it
+        // doesn't extend the bootstrap; reconciles straight into the durable .md.
+        Task.detached(priority: .userInitiated) {
+            NoteDraftStore.reconcileOrphanedDrafts()
+        }
+
         // USER REPORT 2026-05-12 (ISSUE-12-011 diagnostics): per-step
         // wall-clock logging so the runtime trace shows exactly which
         // bootstrap sub-step is responsible for the startup hang. The

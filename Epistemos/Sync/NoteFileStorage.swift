@@ -252,6 +252,16 @@ enum NoteFileStorage {
         directory.appendingPathComponent("\(pageId).md")
     }
 
+    /// Last-modified time of the durable managed body file, or nil if absent.
+    /// Used by NoteDraftStore.reconcileOrphanedDrafts (NOTE-4) to decide whether a
+    /// crash draft is newer than the persisted body.
+    nonisolated static func bodyModificationDate(pageId: String) -> Date? {
+        guard isValidPageId(pageId) else { return nil }
+        let url = bodyURL(pageId: pageId, in: storageDirectory())
+        return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate
+    }
+
     /// SS-2S A3 (owner 2026-06-20): persist a Prose-inserted image as a managed asset so it
     /// survives save (the old in-memory NSTextAttachment was dropped on save = data loss).
     /// Notes are flat `<storageDirectory>/<pageId>.md`, so a shared `<storageDirectory>/assets/`

@@ -54,6 +54,7 @@ struct ProseEditorView: View {
     @State private var loadedBodyPageId: String?
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
+    @State private var draftTask: Task<Void, Never>?  // NOTE-4: crash-recovery draft debounce
     // noteReadAloud (owner 2026-06-20): one-shot guard so an opened note is auto-read at most once
     // (onAppear can re-fire on navigation; onChange fires on switch) — never re-read on re-render.
     @State private var lastAutoReadNoteId: String?
@@ -320,6 +321,7 @@ struct ProseEditorView: View {
             guard loadedBodyPageId == page.id else { return }
             guard newValue != lastPersistedBody else { return }
             debouncedSave(newValue)
+            scheduleDraftWrite(newValue)  // NOTE-4: crash-recovery draft on a shorter debounce
         }
         // Detect external body changes (restore-to-version, vault sync, etc.)
         // page.body is always "" for migrated notes, so it's useless as a change signal.
@@ -357,8 +359,10 @@ struct ProseEditorView: View {
             // survive quit regardless of teardown-observer ordering (the app delegate
             // registers before these views, so the performTeardown drain can run first).
             // writeBody is idempotent, so this is safe even if already persisted.
+            draftTask?.cancel()
             if loadedBodyPageId == page.id {
                 NoteFileStorage.writeBody(pageId: page.id, content: bodyText)
+                NoteDraftStore.delete(pageId: page.id)  // NOTE-4: clean quit persisted the body; clear the draft
             }
         }
     }
@@ -450,10 +454,25 @@ struct ProseEditorView: View {
             }
             scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
+            NoteDraftStore.delete(pageId: pageId)  // NOTE-4: durable body is current; clear the crash draft
             // Persist dirty flag AFTER file write. This ensures loadBody() returns
             // the new content if @Query refetch triggers view re-evaluation.
             page.needsVaultSync = true
             saveModelContext(reason: "debounced save for page \(pageId)")
+        }
+    }
+
+    /// NOTE-4 (audit 2026-07-03): write a lightweight crash-recovery draft on a shorter
+    /// debounce than the 5s durable save, so a HARD crash (no willTerminate fires) loses
+    /// at most ~1.5s of edits. The draft is deleted once the durable body catches up
+    /// (debouncedSave / quit); any surviving draft is reconciled at next launch.
+    private func scheduleDraftWrite(_ newValue: String) {
+        draftTask?.cancel()
+        let pageId = page.id
+        draftTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            NoteDraftStore.write(pageId: pageId, body: newValue)
         }
     }
 
