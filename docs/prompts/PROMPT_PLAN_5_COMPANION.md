@@ -10,8 +10,6 @@
 > 6. **OPEN QUESTION (preserve, do NOT auto-resolve):** companion CREATION flow — created from the LANDING page or inside OpenChamber? — and how landing↔OpenChamber connect for create + select + live status. Owner undecided; flag for a dedicated decision, do not pick one silently.
 > The EXISTING landing Farm code (`CompanionModel`/`CompanionView`/`Farm/`, `companions.rs` CompanionRegistry) is still the grounding for surface B — the gated-chat doctrine evolution below still applies. Only the "mini-Goose-chat panel / reskinned Goose WebView / Option-1" framing is replaced by the OpenChamber-state + mascot model above.
 
-# PLAN 5 — Companions (mini-Goose-chat: note companion + landing-Farm companions) build prompt (SAVED — paste later)
-
 > 🎨 **OWNER DESIGN DIRECTIVE — 2026-06-30 (CURRENT CANON, identical in EVERY plan):** the look = **HIGH-QUALITY FLAT · MINIMAL · THEME-AWARE · OPTIMIZED.** KEEP the Apple-native **FRAME** — rounded-corner window, vibrancy, traffic-lights, the calibrated springs (the curved-white native window the owner likes STAYS). **SURFACES (panels · buttons · lists · inputs) are FLAT + BORDERLESS:** NO thick outlines, NO hard box borders, NO 1px rules — differentiate by a subtle background tint + spacing + a very soft shadow only. NOT the old thick-outline pixel-art look, and NOT translucent-glass on every surface. **TOTAL THEME-AWARENESS:** every surface (native + editor-web + Goose-web) reads the Epistemos tokens for ALL palettes incl. the user CUSTOM palette; no hardcoded color; two-token-sources in lock-step. Full doctrine: `docs/research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md`.
 
 > 🛑 **SAVED / NOT YET ACTIVE (owner 2026-06-29).** Do NOT launch until the owner says go. Drafted to the same
