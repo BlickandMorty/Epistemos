@@ -1,5 +1,7 @@
 # AGENT LOOP WRAPPERS — REAL-WORK-FIRST (owner 2026-06-30; refreshed 2026-07-01)
 
+> 🟡 **PARTIAL-SUPERSEDE 2026-07-02 (OpenChamber pivot).** The loop-wrapper DISCIPLINE (real-work-first, verify-before-claim, commit-clean-points) is durable + still applies. STALE: any wrapper that points a build agent at "reskin Goose / Goose-as-surface / Option 1" — the agent surface is OpenChamber (Pro) / June+goose-in-process (MAS); Plan 1 is RETIRED pending the OpenChamber research-driven rewrite. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02`.
+
 > These are the **loop wrappers** to paste to each running build agent so it stays "in the zone": do the REAL /
 > user-visible work first and treat hardening as a capped, secondary fallback — never an infinite bound/redact sweep.
 > The actual plans (build order + hard gates + canon) live in `PROMPT_PLAN_1/2/3` — these wrappers point at them and

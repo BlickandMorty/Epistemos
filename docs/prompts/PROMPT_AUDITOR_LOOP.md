@@ -1,5 +1,7 @@
 # AUDITOR — canon-consistency loop prompt (paste to a 4th terminal; run with /loop)
 
+> 🔴 **SUPERSEDED-IN-FRAME 2026-07-02 (OpenChamber pivot).** This auditor loop checked consistency against the PRE-pivot canon (Goose-as-surface reskin / Option 1 / Goose-only). If re-run, it must audit against CURRENT canon instead: Agent surface = OpenChamber (Pro) / June+goose-in-process (MAS); goose = one engine of several; native pill + companion mascots wanted; arXiv/Obscura kept dedicated. Canon: memory `project_ui_base_pivot_openchamber_2026_07_02` + `project_product_shape_agent_center_2026_07_02`.
+
 > A continuous doc-auditor. It keeps the docs the 3 build agents read CONSISTENT during implementation — catching
 > drift like the native-chat/§7 staleness automatically. It edits ONLY docs (never code), never deletes a doc, and
 > never touches another agent's uncommitted work. Run it with `/loop 10m <paste below>` (or any cadence).
