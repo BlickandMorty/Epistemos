@@ -7,8 +7,10 @@ import SwiftUI
 // "4 separate toggles" suggestion with two orthogonal axes whose
 // natural cross-product gives all 4 useful combinations.
 //
-// Settings persist via @AppStorage so they survive app restarts and
-// are read at AppBootstrap time to gate startup behavior.
+// Settings persist via @AppStorage so they survive app restarts. The
+// behavioral wiring (reading these at AppBootstrap / idle-unload time) is
+// NOT yet connected — see Status below; PerformanceSettingsReader is the
+// intended read seam once those issues land.
 //
 // Status: UI shipped + flags persisted. The actual behavioral wiring
 // (graph pause unload, cache trimming, ProjectionCache warm-up)
@@ -142,7 +144,7 @@ public struct PerformanceSettingsSection: View {
             Image(systemName: "info.circle")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            Text("Some behaviors are still being wired up. Low Memory currently triggers known search-cache release paths; graph engine unload and cluster pyramid persistence land with the graph engine upgrade.")
+            Text("These modes persist your preference but are not yet wired to runtime behavior. Idle cache release currently runs on system memory pressure (not this toggle); startup-splash gating, graph engine unload, and cluster pyramid persistence land with their respective upgrades.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -163,8 +165,8 @@ public struct PerformanceSettingsSection: View {
 
 public enum PerformanceSettingsReader {
     /// Read the current startup mode. Safe to call from any thread.
-    /// Used by AppBootstrap to decide whether to fire the "Preparing
-    /// vault" splash.
+    /// Intended read seam for AppBootstrap's "Preparing vault" splash
+    /// decision — not yet wired (no caller today).
     public static var startupMode: StartupMode {
         let raw = UserDefaults.standard.string(forKey: "epistemos.startup.mode") ?? ""
         return StartupMode(rawValue: raw) ?? .instant
