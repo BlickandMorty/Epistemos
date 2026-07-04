@@ -880,6 +880,10 @@ private struct BrowserWebView: NSViewRepresentable {
 
         // MARK: - WKDownloadDelegate (BRW-1)
 
+        // RES-8: track the active download so its progress can be polled + shown.
+        private var activeDownload: WKDownload?
+        private var downloadProgressTask: Task<Void, Never>?
+
         func download(
             _ download: WKDownload,
             decideDestinationUsing response: URLResponse,
@@ -896,14 +900,31 @@ private struct BrowserWebView: NSViewRepresentable {
             // WKDownload requires the destination to not already exist.
             try? FileManager.default.removeItem(at: url)
             tab?.lastError = "Downloading \(suggestedFilename)…"
+            // RES-8: poll progress so a slow/stalled download shows a moving percentage
+            // instead of a static "Downloading…" that reads as stuck.
+            activeDownload = download
+            let downloadName = suggestedFilename
+            downloadProgressTask?.cancel()
+            downloadProgressTask = Task { @MainActor [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    guard !Task.isCancelled,
+                          let fraction = self?.activeDownload?.progress.fractionCompleted else { break }
+                    self?.tab?.lastError = "Downloading \(downloadName)… \(Int((fraction * 100).rounded()))%"
+                }
+            }
             completionHandler(url)
         }
 
         func downloadDidFinish(_ download: WKDownload) {
+            downloadProgressTask?.cancel()
+            activeDownload = nil
             tab?.lastError = nil
         }
 
         func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+            downloadProgressTask?.cancel()
+            activeDownload = nil
             // Mirror the navigation-error convention: a fixed domain+code format only,
             // never the raw localized error text (which can leak file paths / user content).
             let nsError = error as NSError
