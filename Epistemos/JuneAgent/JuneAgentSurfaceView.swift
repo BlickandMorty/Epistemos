@@ -114,7 +114,14 @@ final class JuneAgentSurfaceHolder {
         ucc.add(bridge, name: JuneAgentBridge.eventsChannel)
 
         let webView = WKWebView(frame: .zero, configuration: config)
-        webView.underPageBackgroundColor = .clear
+        // June's own canvas (main.css --background: light oklch 95.13% warm /
+        // dark oklch 16.5% warm) so overscroll + pre-paint match the SPA and
+        // the reveal is seamless in both appearances.
+        webView.underPageBackgroundColor = NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.138, green: 0.135, blue: 0.128, alpha: 1)
+                : NSColor(red: 0.925, green: 0.918, blue: 0.902, alpha: 1)
+        }
         bridge.runJS = { [weak webView] js in
             webView?.evaluateJavaScript(js) { _, error in
                 if let error {
@@ -169,18 +176,52 @@ private final class JuneNavigationDelegate: NSObject, WKNavigationDelegate {
     }
 }
 
+extension JuneNavigationDelegate: WKUIDelegate {
+    /// target=_blank / window.open: June routes its own externals through
+    /// invoke commands, but stray blank-target anchors (e.g. library links in
+    /// error UIs) must open in the default browser instead of dying silently.
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        if let url = navigationAction.request.url,
+           url.scheme == "http" || url.scheme == "https" {
+            NSWorkspace.shared.open(url)
+        }
+        return nil
+    }
+}
+
 struct JuneAgentSurfaceView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var revealed = false
     @State private var failureMessage: String?
+    @State private var retryAttempt = 0
+
+    /// June's own canvas (main.css --background) so the placeholder and the
+    /// painted SPA are indistinguishable at reveal in both appearances.
+    private var juneCanvas: Color {
+        colorScheme == .dark
+            ? Color(red: 0.138, green: 0.135, blue: 0.128)
+            : Color(red: 0.925, green: 0.918, blue: 0.902)
+    }
 
     var body: some View {
         ZStack {
+            juneCanvas.ignoresSafeArea()
             if let failureMessage {
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
                         .foregroundStyle(.secondary)
                     Text(failureMessage)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 360)
+                    Button("Try Again") { retryAttempt += 1 }
+                        .buttonStyle(.bordered)
                 }
             } else if let webView = JuneAgentSurfaceHolder.shared.webView {
                 JuneWebViewRepresentable(webView: webView)
@@ -190,9 +231,10 @@ struct JuneAgentSurfaceView: View {
             if failureMessage == nil && !revealed {
                 ProgressView()
                     .controlSize(.small)
+                    .tint(.secondary)
             }
         }
-        .task {
+        .task(id: retryAttempt) {
             let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared
             let isColdOpen = holder.webView == nil
@@ -209,6 +251,7 @@ struct JuneAgentSurfaceView: View {
                 }
             }
             holder.webView?.navigationDelegate = JuneNavigationDelegate.shared
+            holder.webView?.uiDelegate = JuneNavigationDelegate.shared
             // Re-mounts after the first paint reveal immediately (warm path).
             if holder.webView?.isLoading == false && holder.loadStarted {
                 revealed = true
