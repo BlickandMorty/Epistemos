@@ -8,8 +8,8 @@ import OSLog
 // no network.server). Every runner event becomes a timeline item; approvals
 // block the agent until the user decides (§3.3 approval sheet).
 
-nonisolated enum AgentTimelineItem: Identifiable, Equatable, Sendable {
-    struct ToolCall: Equatable, Sendable {
+nonisolated enum AgentTimelineItem: Identifiable, Equatable, Sendable, Codable {
+    struct ToolCall: Equatable, Sendable, Codable {
         let id: String
         let name: String
         let inputJson: String
@@ -45,7 +45,7 @@ nonisolated struct AgentApprovalRequest: Identifiable, Equatable, Sendable {
     let riskLevel: String
 }
 
-nonisolated struct AgentWorkspaceRun: Identifiable, Equatable, Sendable {
+nonisolated struct AgentWorkspaceRun: Identifiable, Equatable, Sendable, Codable {
     let id: UUID
     let objective: String
     let startedAt: Date
@@ -82,6 +82,45 @@ final class AgentWorkspaceSession {
 
     var activeRun: AgentWorkspaceRun? {
         runs.last(where: \.isActive) ?? runs.last
+    }
+
+    init() {
+        runs = Self.loadPersistedRuns()
+    }
+
+    // MARK: - Persistence (§3.1 — transcripts survive app restart)
+
+    private static let maxPersistedRuns = 50
+
+    private static func transcriptURL() -> URL? {
+        guard let base = try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true
+        ) else { return nil }
+        let dir = base.appendingPathComponent("AgentWorkspace", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("transcripts.json")
+    }
+
+    private static func loadPersistedRuns() -> [AgentWorkspaceRun] {
+        guard let url = transcriptURL(),
+              let data = try? Data(contentsOf: url),
+              var decoded = try? JSONDecoder().decode([AgentWorkspaceRun].self, from: data) else {
+            return []
+        }
+        // A run persisted mid-flight (crash/quit) is no longer active.
+        for index in decoded.indices { decoded[index].isActive = false }
+        return decoded
+    }
+
+    private func persistRuns() {
+        guard let url = Self.transcriptURL() else { return }
+        let bounded = Array(runs.suffix(Self.maxPersistedRuns))
+        // Encode off the main actor; the value type is Sendable.
+        Task.detached(priority: .utility) {
+            guard let data = try? JSONEncoder().encode(bounded) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     // MARK: - Run lifecycle
@@ -178,6 +217,7 @@ final class AgentWorkspaceSession {
         isRunning = false
         pendingApproval = nil
         streamTask = nil
+        persistRuns()
     }
 
     private func append(_ item: AgentTimelineItem, to runID: UUID) {

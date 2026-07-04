@@ -119,12 +119,43 @@ struct QuickChatStageView: View {
             Text("Ask anything. Answers are generated privately on this Mac.")
                 .font(.system(size: 12))
                 .foregroundStyle(theme.resolved.foreground.color.opacity(0.55))
-            if case .unavailable = controller.engineStatus {
+            switch controller.engineStatus {
+            case .unavailable:
+                // No engine at all — the download is the primary call to action.
                 modelDownloadOffer
+            case .ready(.appleFM):
+                // §9.2: FM works instantly; offer a quiet stronger-local upsell
+                // only when no local model is installed yet.
+                if controller.ggufBackend.resolvedEntry() == nil {
+                    quietLocalModelUpsell
+                }
+            case .ready:
+                EmptyView()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 6)
+    }
+
+    @ViewBuilder
+    private var quietLocalModelUpsell: some View {
+        let entry = GGUFModelCatalog.defaultEntry
+        switch downloads.state(for: entry) {
+        case .notInstalled:
+            Button {
+                downloads.beginDownload(entry)
+            } label: {
+                Label("Want a stronger local model? Download \(entry.displayName)", systemImage: "arrow.down.circle")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.45))
+            }
+            .buttonStyle(.plain)
+            .help("Optional. Runs entirely on this Mac; ~\(entry.approxDownloadBytes / 1_000_000_000) GB.")
+        case .downloading, .verifying, .failed:
+            modelDownloadOffer
+        case .installed:
+            EmptyView()
+        }
     }
 
     @ViewBuilder
