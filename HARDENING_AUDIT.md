@@ -329,3 +329,32 @@ PENDING FOR RESUME:
 - Browser page-inset + dark-mode need on-device verification (can't render-verify).
 - 2 untracked web-clip test artifacts (docs/research/Web Clips/Browser-1.md, Browser-2.md) — left for owner to keep/delete.
 - 3-agent lane split active (prompts in scratchpad AGENT_B/C_*.md); build coordination note at top of this file.
+
+## OWNER FEEDBACK 2026-07-04 (loop reactivated, cron cfed09a5)
+- LANDING regression FIXED: "no squares, no words." Root cause — the wake field's own
+  onContinuousHover can't fire (landingBackdrop is .allowsHitTesting(false)), and intensity
+  0.10 was invisible (esp. light). Fix: feed the shared cursorLocation to the wake field
+  (new `cursor` param + registerHover/endHover helpers), boost gradient intensity to
+  theme-adaptive 0.16 dark / 0.26 light, and wake-word opacity 0.30/0.34. (LandingView +
+  LandingASCIIWakeField).
+- BROWSER theming: added `:root{color-scheme:dark/light}` to BrowserThemeInjection so sites
+  with a dark theme (Google/YouTube) restyle their inner surfaces (the html/body override
+  only darkened the top level). Reinforces the webView.appearance signal. Sites with NO dark
+  theme still can't be forced without ugly full-invert.
+- KaTeX MATH REGRESSION (OPEN — needs owner confirm + decision): math no longer renders in
+  the Epdoc editor (owner: "particularly arXiv"; unconfirmed on non-arXiv). Investigation:
+  * @tiptap/extension-mathematics bumped 3.22.4 → 3.24.0 in commit 0ae91cca8 "Harden Tiptap
+    editor dependencies" — the prime suspect (Tiptap minor bumps break math in practice).
+  * The Tiptap bundle is FRESH (editor.js.br Jul 2, matches index.ts) — NOT stale.
+  * KaTeX CSS IS bundled (26.1 KiB, confirmed in webpack rebuild) — NOT a missing-CSS issue.
+  * The default import is valid (3.24 has an `as default` export) and `Mathematics`
+    aggregates InlineMath/BlockMath via addExtensions() — so the extension DOES register.
+  * ⇒ Regression is in 3.24's RUNTIME behavior, most likely markdown-LOAD parsing (loaded
+    `$...$` not converted to math nodes; the input rule only fires when TYPING).
+  * Revert to 3.22.4 is BLOCKED by peer-dep conflicts (sibling @tiptap pkgs pinned 3.24.x).
+  * NEXT: (1) owner confirm — does typing `$x^2$` in a NON-arXiv note render? (all-MD ⇒
+    editor/3.24 = my lane; arXiv-only ⇒ arXiv import math format = Agent-B lane). (2) If
+    editor-side: coordinated @tiptap downgrade (revert 0ae91cca8's package changes + npm ci
+    + rebuild) OR a 3.24 markdown-math config fix. Not rushed — needs the confirm + a
+    security-vs-functionality call on reverting the dep hardening.
+- RES-2 part 1 (bounded/abandonable PDF->Markdown conversion) IMPLEMENTED + APP-BUILD-VERIFIED 2026-07-04: new Epistemos/LiteParse/LiteParsePDFConversion.swift wraps the synchronous, uncancellable liteparse `importToMarkdown` FFI in a wall-clock timeout that ABANDONS a stuck conversion (single-resume NSLock latch driving a CheckedContinuation from whichever of {conversion, timeout, cancellation} settles first; justification in DECISIONS.md D-RES2). ArxivIngestService now routes its arXiv PDF parse through it and rejects with a "conversion timed out" message on TimedOut. EVIDENCE: app target COMPILED + LINKED (`Ld .../Epistemos.app/Contents/MacOS/Epistemos` @ build log line 5147; LiteParsePDFConversion.swift compiled clean @ 2830); the ONLY error in the whole build is a concurrent off-limits Goose/Work test file (WorkSPAServerTests.swift:227 'GooseWebSurfaceView' not in scope — a dirty Goose file mid-edit, NOT mine) that fails the EpistemosTests target link. My unit test EpistemosTests/LiteParsePDFConversionTests.swift (proves timeout-abandon + fast-path) COMPILES clean but could not RUN this cycle for that reason; it will run once the Goose lane's file compiles / in CI. RES-2 part 2 (LiteParsePDFImportController file-picker restructure to route its FFI through the same helper) = next cycle.

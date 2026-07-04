@@ -254,13 +254,19 @@ enum ArxivIngestService {
         let parseResult: LiteParseImportResult
         do {
             try Task.checkCancellation()
-            parseResult = try await runDetachedCancellable {
-                try Task.checkCancellation()
-                return importer.importToMarkdown(pdfPath: downloadedPDF.path)
-            }
+            // RES-2 (audit 2026-07-03): bound the synchronous, uncancellable liteparse FFI so a
+            // pathological/corrupt PDF can't hang the ingest row forever — on timeout the parse
+            // is abandoned (runs to completion off-task and is discarded) and we reject cleanly.
+            parseResult = try await LiteParsePDFConversion.importToMarkdown(
+                using: importer,
+                pdfPath: downloadedPDF.path)
             try Task.checkCancellation()
         } catch is CancellationError {
             return .rejected(.cancelled)
+        } catch is LiteParsePDFConversion.TimedOut {
+            return .rejected(.pdfImportRejected(.failed(
+                "arXiv PDF conversion timed out — the file may be corrupt or unusually complex."
+            )))
         } catch {
             return .rejected(.pdfImportRejected(.failed(
                 ArxivIngestDiagnostics.externalErrorDescription(error, fallback: "PDF import failed")

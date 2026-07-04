@@ -541,6 +541,10 @@ enum LandingASCIIWakeFieldEngine {
 struct LandingASCIIWakeField: View {
     let vocabulary: [String]
     let theme: EpistemosTheme
+    /// External cursor (landing-local). The landing backdrop is .allowsHitTesting(false),
+    /// so this view's own .onContinuousHover never fires — the landing feeds the shared
+    /// cursorLocation here instead so the wake still reveals words (owner 2026-07-04).
+    var cursor: CGPoint? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -591,7 +595,7 @@ struct LandingASCIIWakeField: View {
                         )
                         .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                         .lineSpacing(lineSpacing)
-                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.26 : 0.18))
+                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.30 : 0.34))  // owner 2026-07-04: more visible, esp. light
                     }
                 }
             }
@@ -625,36 +629,18 @@ struct LandingASCIIWakeField: View {
                 rebuildLayout(columns: columns, rows: rows)
             }
             .onContinuousHover { phase in
-                guard shouldAnimate else { return }
                 switch phase {
-                case .active(let location):
-                    let point = LandingASCIIWakeFieldEngine.TrailPoint(
-                        x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
-                        y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
-                    )
-                    let now = Date.timeIntervalSinceReferenceDate
-                    if let lastHoverPoint, lastHoverPoint != point {
-                        let eventDelta = lastHoverTime.map { now - $0 }
-                        let rawSamples = LandingASCIIWakeFieldEngine.streamTrailSamples(
-                            from: lastHoverPoint,
-                            to: point,
-                            eventDelta: eventDelta,
-                            configuration: configuration
-                        )
-                        appendTrailSamples(rawSamples, now: now, columns: columns, rows: rows)
-                    } else if lastHoverPoint == nil {
-                        appendTrailSamples(
-                            [LandingASCIIWakeFieldEngine.TrailSample(point: point, radiusScale: 1)],
-                            now: now,
-                            columns: columns,
-                            rows: rows
-                        )
-                    }
-                    lastHoverPoint = point
-                    lastHoverTime = now
-                case .ended:
-                    lastHoverPoint = nil
-                    lastHoverTime = nil
+                case .active(let location): registerHover(location, columns: columns, rows: rows)
+                case .ended: endHover()
+                }
+            }
+            // Owner 2026-07-04: the PRIMARY cursor path — the landing feeds cursorLocation
+            // here because the backdrop is non-hit-testing (the hover above won't fire).
+            .onChange(of: cursor) { _, newCursor in
+                if let newCursor {
+                    registerHover(newCursor, columns: columns, rows: rows)
+                } else {
+                    endHover()
                 }
             }
             .onChange(of: shouldAnimate) { _, newValue in
@@ -671,6 +657,34 @@ struct LandingASCIIWakeField: View {
             trailCleanupTask = nil
         }
         .allowsHitTesting(true)
+    }
+
+    /// Turn a cursor position (view-local) into wake trail samples. Called from the
+    /// external `cursor` feed (primary) and the local hover (fallback).
+    private func registerHover(_ location: CGPoint, columns: Int, rows: Int) {
+        guard shouldAnimate else { return }
+        let point = LandingASCIIWakeFieldEngine.TrailPoint(
+            x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
+            y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
+        )
+        let now = Date.timeIntervalSinceReferenceDate
+        if let lastHoverPoint, lastHoverPoint != point {
+            let eventDelta = lastHoverTime.map { now - $0 }
+            let rawSamples = LandingASCIIWakeFieldEngine.streamTrailSamples(
+                from: lastHoverPoint, to: point, eventDelta: eventDelta, configuration: configuration)
+            appendTrailSamples(rawSamples, now: now, columns: columns, rows: rows)
+        } else if lastHoverPoint == nil {
+            appendTrailSamples(
+                [LandingASCIIWakeFieldEngine.TrailSample(point: point, radiusScale: 1)],
+                now: now, columns: columns, rows: rows)
+        }
+        lastHoverPoint = point
+        lastHoverTime = now
+    }
+
+    private func endHover() {
+        lastHoverPoint = nil
+        lastHoverTime = nil
     }
 
     private func appendTrailSamples(

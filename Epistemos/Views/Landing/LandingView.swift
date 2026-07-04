@@ -425,12 +425,16 @@ struct LandingView: View {
             LiquidMetalSurface(
                 base: AppWindowBackdropStyle.background(for: theme),
                 accent: theme.resolved.accent.color,
-                intensity: 0.10,   // less intense shine (owner 2026-07-03)
+                // Owner 2026-07-04: more visible (squares were invisible at 0.10); brighter
+                // in LIGHT mode, where a subtle gradient over a light base barely reads.
+                intensity: theme.isDark ? 0.16 : 0.26,
                 active: !ui.windowOccluded,
                 cursor: cursorLocation
             )
             if !ui.windowOccluded {
-                LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme)
+                // Feed the shared cursor (backdrop is non-hit-testing, so the field's own
+                // hover can't fire) so the wake reveals words again.
+                LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme, cursor: cursorLocation)
             }
         }
         .ignoresSafeArea()
