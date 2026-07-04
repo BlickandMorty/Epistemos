@@ -814,6 +814,16 @@ final class RuntimeIssueMonitor {
         }
         metadata["webViewIdle"] = webViewIdle ? "true" : "false"
 
+        // MAS-agent (Plan 1-MAS, sibling note): release the resident GGUF model
+        // behind the June agent surface under CRITICAL pressure only — the sole
+        // sanctioned unload (§12 #5 keeps it warm otherwise). The method existed
+        // but had NO caller; a multi-GB model was never released under pressure.
+        // No-op when nothing loaded it.
+        if level == .critical {
+            LocalGGUFQuickChatBackend.shared.unloadForMemoryPressure()
+            metadata["ggufModelUnloaded"] = "true"
+        }
+
         RuntimeDiagnostics.record(
             level == .critical ? .fault : .warning,
             category: "Diagnostics",
