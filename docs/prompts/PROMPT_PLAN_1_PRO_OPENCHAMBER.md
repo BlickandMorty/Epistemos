@@ -42,9 +42,19 @@ DIFFERS by track (bar+gradient only here; full Surface-B design grammar there).
    typewriter greeting (landing headline swap only), native all-chats sheet, June message
    bar + theme-derived landing gradient, companion/mascot overlay hooks (native layer —
    spec in Plan 5, only the hook is Plan 1 scope).
-6. **Capability truth:** show the active engine's real capabilities only. Hide absent
-   features. Never fake parity. goose sessions group by directory/project — no fake
-   branch badges.
+6. **Capability truth + THE GOLDEN RULE (affirmative — owner 2026-07-04):** the moment an
+   engine is selected, **the ENTIRE app capability surface re-derives from THAT engine's
+   own LIVE endpoints — providers, models, skills/tools, recipes, scheduler, extensions/
+   MCP, apps/CLIs, sessions — never hardcoded, never a subset, never the other engine's.**
+   Select goose → load goose's *everything* (`GET /config/providers`, `agent/tools`,
+   `/recipes/*`, `/schedule/*`, `add_extension`, `list_apps`, …) and surface it: mapped into
+   OpenChamber's sidebar sections where a slot exists (skills/mcp/providers/usage), and as
+   **goose-only sections (badge-gated)** where OpenChamber has no slot (recipes, scheduler).
+   Switch back to OpenCode → the surface re-derives OpenCode's set. Hide what the active
+   engine genuinely lacks; never fake parity; goose sessions group by directory (no fake
+   branch badges). The composer bar, sidebar, and pickers are all engine-reactive — one
+   live source of truth per engine, zero cross-engine bleed (e.g. no OpenCode model alias
+   showing while goose is active).
 7. **Zero silent feature loss.** The feature ledger (§8) is a shipping gate.
 
 ---
