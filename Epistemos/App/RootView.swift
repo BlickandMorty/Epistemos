@@ -750,7 +750,7 @@ private enum GooseNativeThemePreference: String, CaseIterable, Identifiable {
 }
 
 private enum GooseNativeChromeMetrics {
-    static let barWidth: CGFloat = 910
+    static let barWidth: CGFloat = 1040
     static let barHeight: CGFloat = 44
     static let navSlotWidth: CGFloat = 42
     static let navSlotHeight: CGFloat = 38
@@ -930,7 +930,31 @@ private struct GooseNativeNavButton: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .leading) {
+            if expanded {
+                HStack(spacing: 2) {
+                    Spacer()
+                        .frame(width: GooseNativeChromeMetrics.navSlotWidth - 4)
+
+                    Text(labelText)
+                        .font(AppDisplayTypography.font(size: 10, weight: .semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: true)
+
+                    if isHovered && !isActive && cursorVisible {
+                        GooseNativeTypewriterCursor(color: theme.fontAccent)
+                    }
+
+                    Spacer(minLength: 10)
+                }
+                .foregroundStyle(foreground)
+                .frame(width: expandedWidth, height: GooseNativeChromeMetrics.navSlotHeight, alignment: .leading)
+                .background(background, in: Capsule())
+                .allowsHitTesting(false)
+                .transition(.opacity)
+                .zIndex(1)
+            }
+
             Button(action: action) {
                 Image(systemName: systemImage)
                     .font(.system(size: GooseNativeChromeMetrics.iconSize, weight: .semibold))
@@ -942,38 +966,14 @@ private struct GooseNativeNavButton: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-
-            if expanded {
-                HStack(spacing: 7) {
-                    Image(systemName: systemImage)
-                        .font(.system(size: GooseNativeChromeMetrics.iconSize, weight: .semibold))
-                        .foregroundStyle(iconColor)
-                        .frame(width: 19, height: 19)
-
-                    HStack(spacing: 2) {
-                        Text(labelText)
-                            .font(AppDisplayTypography.font(size: 10, weight: .semibold))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: true)
-                        if isHovered && !isActive && cursorVisible {
-                            GooseNativeTypewriterCursor(color: theme.fontAccent)
-                        }
-                    }
-                    .foregroundStyle(foreground)
-                }
-                .padding(.horizontal, 12)
-                .frame(width: expandedWidth, height: GooseNativeChromeMetrics.navSlotHeight)
-                .background(background, in: Capsule())
-                .allowsHitTesting(false)
-                .transition(.opacity)
-                .zIndex(2)
-            }
+            .zIndex(2)
         }
         .frame(width: GooseNativeChromeMetrics.navSlotWidth, height: GooseNativeChromeMetrics.navSlotHeight)
         .contentShape(Rectangle())
-        .buttonStyle(.plain)
+        .zIndex(expanded ? 10 : 0)
         .help(title)
         .accessibilityLabel(title)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
         .animation(.timingCurve(0.2, 0, 0, 1, duration: 0.25), value: expanded)
         .animation(.easeOut(duration: 0.16), value: isHovered)
         .animation(.easeOut(duration: 0.16), value: isActive)

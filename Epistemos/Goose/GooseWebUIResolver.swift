@@ -36,16 +36,21 @@ enum GooseWebUIResolver {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         includeBundledCandidates: Bool = true
     ) -> URL? {
-        for candidate in candidateIndexURLs(
+        var resolved: URL?
+        forEachCandidateIndexURL(
             bundle: bundle,
             appSupportDirectory: appSupportDirectory,
             currentDirectory: currentDirectory,
             environment: environment,
             includeBundledCandidates: includeBundledCandidates
-        ) where isACPModeArtifact(indexURL: candidate, fileManager: fileManager) {
-            return candidate
+        ) { candidate in
+            guard isACPModeArtifact(indexURL: candidate, fileManager: fileManager) else {
+                return false
+            }
+            resolved = candidate
+            return true
         }
-        return nil
+        return resolved
     }
 
     nonisolated static func diagnosticSummary(
@@ -92,21 +97,52 @@ enum GooseWebUIResolver {
         includeBundledCandidates: Bool
     ) -> [URL] {
         var candidates: [URL] = []
+        forEachCandidateIndexURL(
+            bundle: bundle,
+            appSupportDirectory: appSupportDirectory,
+            currentDirectory: currentDirectory,
+            environment: environment,
+            includeBundledCandidates: includeBundledCandidates
+        ) { candidate in
+            candidates.append(candidate)
+            return false
+        }
+        return candidates
+    }
+
+    nonisolated private static func forEachCandidateIndexURL(
+        bundle: Bundle?,
+        appSupportDirectory: URL?,
+        currentDirectory: String,
+        environment: [String: String],
+        includeBundledCandidates: Bool,
+        visit: (URL) -> Bool
+    ) {
+        var accumulator = UniqueURLAccumulator()
+
+        func emit(_ url: URL?) -> Bool {
+            guard let candidate = accumulator.append(url) else { return false }
+            return visit(candidate)
+        }
 
         if let explicitIndex = safeEnvironmentPath(environment[explicitIndexEnvironmentKey]) {
-            candidates.append(fileURL(explicitIndex))
+            if emit(fileURL(explicitIndex)) { return }
         }
 
         if let explicitDirectory = safeEnvironmentPath(environment[explicitDirectoryEnvironmentKey]) {
-            candidates.append(fileURL(explicitDirectory).appendingPathComponent("index.html"))
-        }
-
-        if includeBundledCandidates {
-            candidates.append(contentsOf: bundledIndexURLs(primary: bundle, environment: environment))
+            if emit(fileURL(explicitDirectory).appendingPathComponent("index.html")) { return }
         }
 
         if let appSupportDirectory {
-            candidates.append(appSupportDirectory.appendingPathComponent("Epistemos/GooseWebUI/index.html"))
+            if emit(appSupportDirectory.appendingPathComponent("Epistemos/GooseWebUI/index.html")) {
+                return
+            }
+        }
+
+        if includeBundledCandidates {
+            if forEachBundledIndexURL(primary: bundle, environment: environment, visit: emit) {
+                return
+            }
         }
 
         // The cwd-relative `.research-clones` index is loaded into the ACP-bridged
@@ -117,23 +153,34 @@ enum GooseWebUIResolver {
         // actually staged); DEBUG keeps the checkout index for local dev + the live
         // test suites. (Thermonuclear finding [11] remainder: web-index candidate safety.)
         #if DEBUG
-        candidates.append(
+        _ = emit(
             URL(fileURLWithPath: currentDirectory)
                 .appendingPathComponent(".research-clones/work/goose/ui/desktop/dist/index.html")
         )
         #endif
-
-        return candidates
     }
 
     nonisolated private static func bundledIndexURLs(primary: Bundle?, environment: [String: String]) -> [URL] {
         var urls: [URL] = []
-        appendBundleGooseWebUIIndexes(primary, to: &urls)
+        _ = forEachBundledIndexURL(primary: primary, environment: environment) { url in
+            guard let url else { return false }
+            urls.append(url)
+            return false
+        }
+        return urls
+    }
+
+    nonisolated private static func forEachBundledIndexURL(
+        primary: Bundle?,
+        environment: [String: String],
+        visit: (URL?) -> Bool
+    ) -> Bool {
+        if forEachBundleGooseWebUIIndex(primary, visit: visit) { return true }
         for executablePath in bundledExecutablePaths(environment: environment) {
-            appendUnique(appBundleGooseWebUIIndex(fromPathInsideBundle: executablePath), to: &urls)
+            if visit(appBundleGooseWebUIIndex(fromPathInsideBundle: executablePath)) { return true }
         }
         for resourceIndex in buildProductGooseWebUIIndexes(environment: environment) {
-            appendUnique(resourceIndex, to: &urls)
+            if visit(resourceIndex) { return true }
         }
 
         let bundles = (
@@ -145,40 +192,25 @@ enum GooseWebUIResolver {
             ] + Bundle.allBundles + Bundle.allFrameworks
         ).compactMap(\.self)
         for bundle in bundles {
-            appendBundleGooseWebUIIndexes(bundle, to: &urls)
+            if forEachBundleGooseWebUIIndex(bundle, visit: visit) { return true }
         }
-        return urls
+        return false
     }
 
-    nonisolated private static func appendBundleGooseWebUIIndexes(
+    nonisolated private static func forEachBundleGooseWebUIIndex(
         _ bundle: Bundle?,
-        to urls: inout [URL]
-    ) {
-        guard let bundle else { return }
-        appendUnique(
-            appBundleGooseWebUIIndex(fromPathInsideBundle: bundle.bundleURL.path),
-            to: &urls
-        )
-        appendUnique(
-            appBundleGooseWebUIIndex(fromPathInsideBundle: bundle.resourceURL?.path),
-            to: &urls
-        )
-        appendUnique(
-            appBundleGooseWebUIIndex(fromPathInsideBundle: bundle.executableURL?.path),
-            to: &urls
-        )
-        appendUnique(
-            bundle.url(forResource: "index", withExtension: "html", subdirectory: "goose-desktop"),
-            to: &urls
-        )
-        appendUnique(
-            bundle.url(forResource: "goose-desktop/index", withExtension: "html"),
-            to: &urls
-        )
-        appendUnique(
-            bundle.resourceURL?.appendingPathComponent("goose-desktop/index.html"),
-            to: &urls
-        )
+        visit: (URL?) -> Bool
+    ) -> Bool {
+        guard let bundle else { return false }
+        if visit(appBundleGooseWebUIIndex(fromPathInsideBundle: bundle.bundleURL.path)) { return true }
+        if visit(appBundleGooseWebUIIndex(fromPathInsideBundle: bundle.resourceURL?.path)) { return true }
+        if visit(appBundleGooseWebUIIndex(fromPathInsideBundle: bundle.executableURL?.path)) { return true }
+        if visit(bundle.url(forResource: "index", withExtension: "html", subdirectory: "goose-desktop")) {
+            return true
+        }
+        if visit(bundle.url(forResource: "goose-desktop/index", withExtension: "html")) { return true }
+        if visit(bundle.resourceURL?.appendingPathComponent("goose-desktop/index.html")) { return true }
+        return false
     }
 
     nonisolated private static func bundledExecutablePaths(environment: [String: String]) -> [String] {
@@ -193,19 +225,17 @@ enum GooseWebUIResolver {
     nonisolated private static func buildProductGooseWebUIIndexes(environment: [String: String]) -> [URL] {
         var urls: [URL] = []
         if let builtProducts = safeEnvironmentPath(environment["BUILT_PRODUCTS_DIR"]) {
-            appendUnique(
+            urls.append(
                 fileURL(builtProducts)
-                    .appendingPathComponent("Epistemos.app/Contents/Resources/goose-desktop/index.html"),
-                to: &urls
+                    .appendingPathComponent("Epistemos.app/Contents/Resources/goose-desktop/index.html")
             )
         }
         if let targetBuildDirectory = safeEnvironmentPath(environment["TARGET_BUILD_DIR"]),
            let wrapperName = safeEnvironmentPath(environment["WRAPPER_NAME"]) {
-            appendUnique(
+            urls.append(
                 fileURL(targetBuildDirectory)
                     .appendingPathComponent(wrapperName)
-                    .appendingPathComponent("Contents/Resources/goose-desktop/index.html"),
-                to: &urls
+                    .appendingPathComponent("Contents/Resources/goose-desktop/index.html")
             )
         }
         return urls
@@ -225,11 +255,27 @@ enum GooseWebUIResolver {
             .appendingPathComponent("Contents/Resources/goose-desktop/index.html")
     }
 
-    nonisolated private static func appendUnique(_ url: URL?, to urls: inout [URL]) {
-        guard let url else { return }
-        let path = url.standardizedFileURL.path
-        guard !urls.contains(where: { $0.standardizedFileURL.path == path }) else { return }
-        urls.append(url)
+    nonisolated private struct UniqueURLAccumulator {
+        private var seenPaths: Set<String> = []
+
+        mutating func append(_ url: URL?) -> URL? {
+            guard let url else { return nil }
+            let path = normalizedFilePath(url)
+            guard seenPaths.insert(path).inserted else { return nil }
+            return url
+        }
+    }
+
+    nonisolated private static func normalizedFilePath(_ url: URL) -> String {
+        (url.path as NSString).standardizingPath
+    }
+
+    nonisolated private static func isContainedInDirectory(_ fileURL: URL, rootPath: String) -> Bool {
+        let filePath = normalizedFilePath(fileURL)
+        if rootPath == "/" {
+            return filePath.hasPrefix("/") && filePath != "/"
+        }
+        return filePath.hasPrefix(rootPath + "/")
     }
 
     nonisolated private static func defaultAppSupportDirectory(fileManager: FileManager) -> URL? {
@@ -313,11 +359,12 @@ enum GooseWebUIResolver {
             return ["index-unreadable"]
         }
         let root = indexURL.deletingLastPathComponent()
+        let rootPath = normalizedFilePath(root)
         var missing: [String] = []
         for reference in localResourceReferences(in: html) {
             guard let path = localFilePath(from: reference) else { continue }
             let fileURL = root.appendingPathComponent(path)
-            guard fileURL.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/"),
+            guard isContainedInDirectory(fileURL, rootPath: rootPath),
                   fileManager.fileExists(atPath: fileURL.path) else {
                 missing.append(diagnosticValue(path))
                 continue
@@ -395,13 +442,14 @@ enum GooseWebUIResolver {
             return ["index-unreadable"]
         }
         let root = indexURL.deletingLastPathComponent()
+        let rootPath = normalizedFilePath(root)
         var missing = Set(requiredBridgeMarkers)
         removeRequiredBridgeMarkers(foundIn: html, from: &missing)
         for reference in localResourceReferences(in: html) {
             guard !missing.isEmpty else { break }
             guard let path = localFilePath(from: reference) else { continue }
             let fileURL = root.appendingPathComponent(path)
-            guard fileURL.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/"),
+            guard isContainedInDirectory(fileURL, rootPath: rootPath),
                   fileManager.fileExists(atPath: fileURL.path),
                   let text = readTextFile(fileURL, fileManager: fileManager) else {
                 continue

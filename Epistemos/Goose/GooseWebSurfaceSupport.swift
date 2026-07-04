@@ -267,6 +267,11 @@ extension GooseWebSurfaceView {
           style.textContent = \(jsStringLiteral(css));
           document.documentElement.appendChild(style);
           document.documentElement.dataset.epistemosTheme = \(jsStringLiteral(theme.rawValue));
+          window.__epistemosGooseNativeNav = true;
+          document.documentElement.dataset.epistemosNativeNav = 'enabled';
+          window.dispatchEvent(new CustomEvent('epistemos-goose-native-nav-changed', {
+            detail: { enabled: true }
+          }));
           const runtimeExtensibilityEnabled = window.__epistemosGooseRuntimeExtensibilityEnabled !== false;
           document.documentElement.dataset.epistemosRuntimeExtensibility = runtimeExtensibilityEnabled ? 'enabled' : 'disabled';
           document.documentElement.classList.toggle('dark', \(theme.isDark ? "true" : "false"));
@@ -309,6 +314,11 @@ extension GooseWebSurfaceView {
           }
           style.textContent = \(jsStringLiteral(css));
           document.documentElement.dataset.epistemosTheme = \(jsStringLiteral(theme.rawValue));
+          window.__epistemosGooseNativeNav = true;
+          document.documentElement.dataset.epistemosNativeNav = 'enabled';
+          window.dispatchEvent(new CustomEvent('epistemos-goose-native-nav-changed', {
+            detail: { enabled: true }
+          }));
           document.documentElement.classList.toggle('dark', \(theme.isDark ? "true" : "false"));
           document.documentElement.classList.toggle('light', \(theme.isDark ? "false" : "true"));
           document.documentElement.style.colorScheme = \(jsStringLiteral(webTheme));
@@ -320,6 +330,37 @@ extension GooseWebSurfaceView {
             });
           } catch {}
           return document.documentElement.dataset.epistemosTheme;
+        })();
+        """
+    }
+
+    static func nativeNavigationEventScript(path: String) -> String {
+        let normalizedPath = normalizedGooseRoute(path)
+        return nativeChromeIntentEventScript(type: "navigate", path: normalizedPath)
+    }
+
+    static func nativeChromeIntentEventScript(
+        type: String,
+        path: String? = nil,
+        themePreference: String? = nil
+    ) -> String {
+        let boundedType = String(type.prefix(96))
+        let normalizedPath = path.map(normalizedGooseRoute)
+        let boundedTheme = themePreference.map { String($0.prefix(32)) }
+        return """
+        return (() => {
+          const detail = {
+            type: \(jsStringLiteral(boundedType)),
+            path: \(normalizedPath.map { jsStringLiteral($0) } ?? "null"),
+            theme: \(boundedTheme.map { jsStringLiteral($0) } ?? "null")
+          };
+          window.dispatchEvent(new CustomEvent('epistemos-goose-native-intent', { detail }));
+          if (detail.type === 'navigate' && detail.path) {
+            window.dispatchEvent(new CustomEvent('epistemos-goose-native-navigate', {
+              detail: { path: detail.path }
+            }));
+          }
+          return detail.type;
         })();
         """
     }

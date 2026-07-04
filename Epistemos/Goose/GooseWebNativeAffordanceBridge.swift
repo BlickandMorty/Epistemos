@@ -45,6 +45,9 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
     nonisolated static let maxNativeSettingsEntries = 512
     nonisolated static let maxNativeSettingDepth = 32
     nonisolated static let maxNativeSettingCollectionEntries = 4_096
+    nonisolated static let maxNativeGooseRouteCharacters = 4_096
+    nonisolated static let maxNativeGooseSessionIDCharacters = 256
+    nonisolated static let maxNativeGooseThemeCharacters = 32
     nonisolated static let maxImportedApps = 32
     nonisolated static let maxImportedAppsStoreBytes = 64 * 1024 * 1024
     nonisolated static let maxImportedAppHTMLBytes = 16 * 1024 * 1024
@@ -463,6 +466,50 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             return hasAcceptedRecipeBefore(args.first)
         case "recordRecipeHash":
             return recordRecipeHash(args.first)
+        case "epistemos.goose.routeChanged":
+            guard let route = Self.boundedNativeGooseRoute(stringArgument(args, at: 0)) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            NotificationCenter.default.post(
+                name: .epistemosGooseWebRouteDidChange,
+                object: nil,
+                userInfo: ["path": route]
+            )
+            return true
+        case "epistemos.goose.chromeSnapshot":
+            guard let snapshot = dictionaryArgument(args, at: 0) else {
+                throw GooseWebNativeAffordanceBridgeError.missingArgument(name)
+            }
+            var userInfo: [String: Any] = [
+                "sessionTitle": Self.boundedNativeDialogText(
+                    snapshot["sessionTitle"] as? String,
+                    maxCharacters: Self.maxNativeDialogTitleCharacters,
+                    fallback: ""
+                ) ?? "",
+                "isStreaming": boolArgument(snapshot["isStreaming"]) ?? false,
+            ]
+            if let route = Self.boundedNativeGooseRoute(snapshot["route"] as? String) {
+                userInfo["route"] = route
+            }
+            if let sessionID = Self.boundedNativeGooseSessionID(snapshot["sessionId"] as? String) {
+                userInfo["sessionId"] = sessionID
+            }
+            if let themePreference = Self.boundedNativeGooseThemePreference(
+                snapshot["themePreference"] as? String
+            ) {
+                userInfo["themePreference"] = themePreference
+            }
+            if let resolvedTheme = Self.boundedNativeGooseResolvedTheme(
+                snapshot["resolvedTheme"] as? String
+            ) {
+                userInfo["resolvedTheme"] = resolvedTheme
+            }
+            NotificationCenter.default.post(
+                name: .epistemosGooseChromeSnapshotDidChange,
+                object: nil,
+                userInfo: userInfo
+            )
+            return true
         default:
             throw GooseWebNativeAffordanceBridgeError.unsupported(name)
         }
@@ -653,6 +700,51 @@ final class GooseWebNativeAffordanceBridge: NSObject, WKScriptMessageHandlerWith
             maxCharacters: maxNativeErrorMessageCharacters,
             fallback: fallback
         ) ?? fallback
+    }
+
+    nonisolated static func boundedNativeGooseRoute(_ rawRoute: String?) -> String? {
+        guard let rawRoute else { return nil }
+        let withoutControls = String(String.UnicodeScalarView(rawRoute.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "/" }
+        let bounded = String(trimmed.prefix(maxNativeGooseRouteCharacters))
+        return bounded.hasPrefix("/") ? bounded : "/\(bounded)"
+    }
+
+    nonisolated static func boundedNativeGooseSessionID(_ rawSessionID: String?) -> String? {
+        guard let rawSessionID else { return nil }
+        let withoutControls = String(String.UnicodeScalarView(rawSessionID.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = withoutControls.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxNativeGooseSessionIDCharacters))
+    }
+
+    nonisolated static func boundedNativeGooseThemePreference(_ rawTheme: String?) -> String? {
+        guard let rawTheme else { return nil }
+        let withoutControls = String(String.UnicodeScalarView(rawTheme.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = String(withoutControls
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(maxNativeGooseThemeCharacters))
+            .lowercased()
+        return ["system", "light", "dark"].contains(trimmed) ? trimmed : nil
+    }
+
+    nonisolated static func boundedNativeGooseResolvedTheme(_ rawTheme: String?) -> String? {
+        guard let rawTheme else { return nil }
+        let withoutControls = String(String.UnicodeScalarView(rawTheme.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+        }))
+        let trimmed = String(withoutControls
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(maxNativeGooseThemeCharacters))
+            .lowercased()
+        return ["light", "dark"].contains(trimmed) ? trimmed : nil
     }
 
     nonisolated static func nativeErrorMessage(

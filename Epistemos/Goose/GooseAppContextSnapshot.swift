@@ -66,12 +66,12 @@ struct GooseAppContextSnapshot: Codable, Equatable, Sendable {
     }
 
     @MainActor
-    static func current(bootstrap: AppBootstrap? = AppBootstrap.shared) -> GooseAppContextSnapshot {
+    static func current(bootstrap: AppBootstrap? = AppBootstrap.shared) async -> GooseAppContextSnapshot {
         guard let bootstrap else {
             return GooseAppContextSnapshot(promptContext: "No Epistemos app context is available yet.")
         }
 
-        let activeNote = activeNoteSnapshot(
+        let activeNote = await activeNoteSnapshot(
             pageId: bootstrap.notesUI.activePageId,
             bootstrap: bootstrap
         )
@@ -135,7 +135,7 @@ struct GooseAppContextSnapshot: Codable, Equatable, Sendable {
     private static func activeNoteSnapshot(
         pageId: String?,
         bootstrap: AppBootstrap
-    ) -> Note? {
+    ) async -> Note? {
         guard let pageId = clean(pageId, limit: maxTitleCharacters) else { return nil }
         var descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -151,7 +151,15 @@ struct GooseAppContextSnapshot: Codable, Equatable, Sendable {
                 wordCount: 0
             )
         }
-        let body = NoteWindowManager.shared.currentBody(for: page.id, mapped: true)
+        let body: String
+        if let liveBody = NoteWindowManager.shared.editorBody(for: page.id) {
+            body = liveBody
+        } else {
+            let readPageId = page.id
+            body = await Task.detached(priority: .utility) {
+                NoteFileStorage.readBody(pageId: readPageId, mapped: true, fast: false)
+            }.value
+        }
         return Note(
             id: page.id,
             title: clean(page.title, limit: maxTitleCharacters) ?? page.id,

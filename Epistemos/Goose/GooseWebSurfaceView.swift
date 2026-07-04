@@ -2,6 +2,14 @@ import Combine
 import SwiftUI
 import WebKit
 
+private nonisolated final class GooseWebUIIndexBox: @unchecked Sendable {
+    let value: URL?
+
+    init(value: URL?) {
+        self.value = value
+    }
+}
+
 struct GooseWebSurfaceView: View {
     nonisolated static let gooseUISurfaceCacheToken = UUID().uuidString
     nonisolated static let gooseUISchemeName =
@@ -37,6 +45,7 @@ struct GooseWebSurfaceView: View {
     @State private var runtimeHealthTask: Task<Void, Never>?
     @State private var trustedOrigins: GooseTrustedLoopbackOrigins
     @State private var pageBootstrapConnectionKey: String
+    @State private var pageGooseUIRootPath: String?
     @State private var runtimeRetryTask: Task<Void, Never>?
     @State private var runtimeRetryAttempt = 0
     @State private var webUILoadTask: Task<Void, Never>?
@@ -75,7 +84,7 @@ struct GooseWebSurfaceView: View {
         _activeWebRoute = State(initialValue: normalizedRoute)
         let page = Self.makePage(
             bootstrap: bootstrap,
-            gooseUIRoot: Self.resolvedGooseUIRoot(),
+            gooseUIRoot: nil,
             theme: theme,
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
@@ -84,6 +93,7 @@ struct GooseWebSurfaceView: View {
         _ = page.load(html: Self.placeholderHTML(status: Self.startingStatus, acpURL: ""))
         _page = State(initialValue: page)
         _pageBootstrapConnectionKey = State(initialValue: bootstrap.baseURL.absoluteString)
+        _pageGooseUIRootPath = State(initialValue: nil)
     }
 
     var body: some View {
@@ -114,6 +124,20 @@ struct GooseWebSurfaceView: View {
         ) { _ in
             scheduleCustomThemeReinject()
         }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .epistemosGooseNativeNavigate)
+                .receive(on: RunLoop.main)
+        ) { note in
+            handleNativeNavigationRequest(note)
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .epistemosGooseNativeChromeIntent)
+                .receive(on: RunLoop.main)
+        ) { note in
+            handleNativeChromeIntent(note)
+        }
         .onChange(of: acpBridge.status) { _, _ in
             handleBridgeStatusChange()
         }
@@ -121,19 +145,7 @@ struct GooseWebSurfaceView: View {
             reloadSurfaceAfterProviderSync()
         }
         .onDisappear {
-            runtimeHealthTask?.cancel()
-            runtimeRetryTask?.cancel()
-            runtimeRetryTask = nil
-            webUILoadTask?.cancel()
-            webUILoadTask = nil
-            themeReinjectTask?.cancel()
-            themeReinjectTask = nil
-            supervisor.stop()
-            gooseUIServer?.stop()
-            surfaceStarted = false
-            nativePromptBridge.cancelPendingPrompts()
-            nativeAffordanceBridge.closeAllApps()
-            Task { await acpBridge.disconnect() }
+            scheduleSurfaceTeardown()
         }
     }
 
@@ -273,7 +285,39 @@ struct GooseWebSurfaceView: View {
         }
     }
 
+    private func scheduleSurfaceTeardown() {
+        Task { @MainActor in
+            await Task.yield()
+            performSurfaceTeardown()
+        }
+    }
+
+    private func performSurfaceTeardown() {
+        runtimeHealthTask?.cancel()
+        runtimeRetryTask?.cancel()
+        runtimeRetryTask = nil
+        webUILoadTask?.cancel()
+        webUILoadTask = nil
+        themeReinjectTask?.cancel()
+        themeReinjectTask = nil
+        supervisor.stop()
+        gooseUIServer?.stop()
+        surfaceStarted = false
+        nativePromptBridge.cancelPendingPrompts()
+        nativeAffordanceBridge.closeAllApps()
+        Task { await acpBridge.disconnect() }
+    }
+
+    private nonisolated static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     private func startSurface() async {
+        guard !Self.isRunningTests else {
+            surfaceStarted = true
+            loadPlaceholder(status: "Goose runtime disabled under tests")
+            return
+        }
         guard !surfaceStarted else {
             if case .running(let connection) = supervisor.status {
                 driveSurface(connection: connection)
@@ -358,7 +402,6 @@ struct GooseWebSurfaceView: View {
     private func driveSurface(connection: GooseRuntimeConnection) {
         let key = connection.baseURL.absoluteString
         guard drivenConnectionKey != key else { return }
-        rebuildPageIfNeeded(for: connection)
         drivenConnectionKey = key
         connectNativeACP(connection: connection)
         webUILoadTask?.cancel()
@@ -434,9 +477,11 @@ struct GooseWebSurfaceView: View {
     }
 
     private func loadGooseUI(connection: GooseRuntimeConnection) async {
-        if let index = Self.resolvedGooseUIIndex() {
+        let index = await resolvedGooseUIIndexOffMain()
+        if let index {
             beginRuntimeHealthMonitor(connection: connection)
             let root = index.deletingLastPathComponent()
+            rebuildPageIfNeeded(for: connection, gooseUIRoot: root)
             let bootstrap = GooseWebBootstrap(baseURL: connection.baseURL, secretKey: secretKey)
             let staticRoutes = Self.gooseStaticCompatibilityRoutes(
                 bootstrappedIndexHTML: Self.bootstrappedGooseUIHTML(
@@ -467,8 +512,16 @@ struct GooseWebSurfaceView: View {
             }
             await loadGooseUIWhenReady(server, connection: connection, indexURL: index)
         } else {
+            rebuildPageIfNeeded(for: connection, gooseUIRoot: nil)
             _ = page.load(html: Self.placeholderHTML(status: statusLabel, acpURL: connection.acpWebSocketURL?.absoluteString ?? ""))
         }
+    }
+
+    private func resolvedGooseUIIndexOffMain() async -> URL? {
+        let box = await Task.detached(priority: .userInitiated) {
+            GooseWebUIIndexBox(value: Self.resolvedGooseUIIndex())
+        }.value
+        return box.value
     }
 
     private func beginRuntimeHealthMonitor(connection: GooseRuntimeConnection) {
@@ -517,6 +570,49 @@ struct GooseWebSurfaceView: View {
         }
     }
 
+    private func handleNativeNavigationRequest(_ note: Notification) {
+        guard let rawPath = note.userInfo?["path"] as? String else { return }
+        let normalizedPath = Self.normalizedGooseRoute(rawPath)
+        handleNativeChromeIntent(
+            Notification(
+                name: .epistemosGooseNativeChromeIntent,
+                object: note.object,
+                userInfo: ["type": "navigate", "path": normalizedPath]
+            )
+        )
+    }
+
+    private func handleNativeChromeIntent(_ note: Notification) {
+        guard let rawType = note.userInfo?["type"] as? String else { return }
+        let type = String(rawType.prefix(96))
+        let rawPath = note.userInfo?["path"] as? String
+        let rawTheme = note.userInfo?["theme"] as? String
+        let normalizedPath = rawPath.map(Self.normalizedGooseRoute)
+
+        switch type {
+        case "navigate":
+            if let normalizedPath {
+                activeWebRoute = normalizedPath
+            }
+        case "newChat":
+            activeWebRoute = "/"
+        default:
+            break
+        }
+
+        // Native toolbar actions must never load a new URL into the WKWebView:
+        // that would reload the SPA and sever active ACP/SSE streams. Once the
+        // Web UI is mounted, route/action/theme by injecting a client-side event only.
+        guard loadedUIForConnectionKey != nil else { return }
+        Task { @MainActor in
+            _ = try? await page.callJavaScript(Self.nativeChromeIntentEventScript(
+                type: type,
+                path: normalizedPath,
+                themePreference: rawTheme
+            ))
+        }
+    }
+
     /// A live custom-palette edit bumps AppCustomTheme's revision but never changes the `theme`
     /// enum, so `onChange(of: theme)` can't observe it. Re-inject the surface CSS — which reads the
     /// now-fresh `theme.resolved` custom colors — coalescing rapid color-picker drags into one
@@ -534,13 +630,14 @@ struct GooseWebSurfaceView: View {
         _ = page.load(html: Self.placeholderHTML(status: status ?? statusLabel, acpURL: acpURL))
     }
 
-    private func rebuildPageIfNeeded(for connection: GooseRuntimeConnection) {
+    private func rebuildPageIfNeeded(for connection: GooseRuntimeConnection, gooseUIRoot: URL?) {
         let key = connection.baseURL.absoluteString
-        guard pageBootstrapConnectionKey != key else { return }
+        let rootPath = gooseUIRoot?.path
+        guard pageBootstrapConnectionKey != key || pageGooseUIRootPath != rootPath else { return }
         let bootstrap = GooseWebBootstrap(baseURL: connection.baseURL, secretKey: secretKey)
         let nextPage = Self.makePage(
             bootstrap: bootstrap,
-            gooseUIRoot: Self.resolvedGooseUIRoot(),
+            gooseUIRoot: gooseUIRoot,
             theme: theme,
             nativePromptBridge: nativePromptBridge,
             nativeAffordanceBridge: nativeAffordanceBridge,
@@ -552,6 +649,7 @@ struct GooseWebSurfaceView: View {
         ))
         page = nextPage
         pageBootstrapConnectionKey = key
+        pageGooseUIRootPath = rootPath
     }
 
     private func scheduleRuntimeRetry(reason _: String) {
@@ -576,6 +674,10 @@ struct GooseWebSurfaceView: View {
             gooseUIServer = nil
             await acpBridge.disconnect()
             nativePromptBridge.cancelPendingPrompts()
+            guard !Self.isRunningTests else {
+                loadPlaceholder(status: "Goose runtime disabled under tests")
+                return
+            }
             loadPlaceholder(status: Self.startingStatus)
             supervisor.stop()
             supervisor.start(secretKey: secretKey, allowPortFallback: true)

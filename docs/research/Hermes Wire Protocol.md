@@ -1,20 +1,29 @@
+---
+id: 2C35E29B-0D4E-49B0-A5DA-0B7D68F6109B
+title: Hermes Wire Protocol
+---
+
 # Hermes Wire Protocol
 
-> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
-> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+> [!INFO]
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).  
+> Classified in `docs/_INDEX.md §14`. Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
 
 
 
 ## Overview
+
 Defines the structure for Swift-to-Hermes and Hermes-to-Swift remote procedure calls traversing local `127.0.0.1`.
 
 ## Bootstrapping Stage
+
 **POST** `/v1/epistemos/bootstrap`
 **Headers:** 
 `Authorization: Bearer <swift_csprng_token>`
 `Host: 127.0.0.1`
 
 **Body:**
+
 ```json
 {
   "vaultRoot": "/Users/user/Vaults/Default",
@@ -26,9 +35,12 @@ Defines the structure for Swift-to-Hermes and Hermes-to-Swift remote procedure c
 ```
 
 ## SSE Event Stream
+
 Event types streaming from the Hermes subprocess to Swift UI state:
+
 - `task.start`: Indicates agent initialization, populates `SDHermesTask`.
 - `thought.append`: Streaming chunks of reasoning for the Think block.
 - `tool_call.begin / tool_call.progress / tool_call.end`: Yields payloads for `ToolCallCard`. 
 - `approval.require`: Requires Swift layer intervention, pushes modal to user.
-- `task.done`: Indicates structural completion, triggers `UNUserNotificationCenter` if >20 seconds passed.
+- `task.done`: Indicates structural completion, triggers `UNUserNotificationCenter` if &gt;20 seconds passed.
+
