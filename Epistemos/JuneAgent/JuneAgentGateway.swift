@@ -25,6 +25,9 @@ final class JuneSessionStore {
         var lastActive: String
         var messageCount: Int
         var preview: String
+        /// Engine lane chosen for this session (JuneModelID); optional so
+        /// records persisted before this field decode unchanged.
+        var model: String?
     }
 
     private static let log = Logger(subsystem: "com.epistemos", category: "JuneSessionStore")
@@ -64,13 +67,20 @@ final class JuneSessionStore {
         }
     }
 
-    func createSession(id: String, title: String) {
+    func createSession(id: String, title: String, model: String? = nil) {
         let now = ISO8601DateFormatter().string(from: Date())
         sessions.insert(
-            Session(id: id, title: title, startedAt: now, lastActive: now, messageCount: 0, preview: ""),
+            Session(
+                id: id, title: title, startedAt: now, lastActive: now,
+                messageCount: 0, preview: "", model: model
+            ),
             at: 0
         )
         persistIndex()
+    }
+
+    func model(for sessionID: String) -> String? {
+        sessions.first { $0.id == sessionID }?.model
     }
 
     func renameSession(id: String, title: String) {
@@ -221,10 +231,12 @@ final class JuneAgentGateway {
         case "session.create":
             let sessionID = UUID().uuidString
             let title = (params["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "New session"
-            store.createSession(id: sessionID, title: title)
+            var chosenModel: String?
             if let model = params["model"] as? String, availableModelIDs().contains(model) {
                 sessionModels[sessionID] = model
+                chosenModel = model
             }
+            store.createSession(id: sessionID, title: title, model: chosenModel)
             reply(id: id, result: ["session_id": sessionID])
         case "session.resume":
             guard let sessionID = params["session_id"] as? String else {
@@ -266,7 +278,13 @@ final class JuneAgentGateway {
     private func startTurn(sessionID: String, prompt: String) {
         store.appendMessage(sessionID: sessionID, role: "user", content: prompt)
         emit(type: "message.start", sessionID: sessionID, payload: [:])
-        let modelID = sessionModels[sessionID] ?? currentDefaultModelID()
+        // Lane resolution survives relaunch: in-memory choice, then the
+        // persisted record (revalidated — a lane can disappear, e.g. an
+        // uninstalled GGUF), then the default.
+        let persisted = store.model(for: sessionID).flatMap {
+            availableModelIDs().contains($0) ? $0 : nil
+        }
+        let modelID = sessionModels[sessionID] ?? persisted ?? currentDefaultModelID()
 
         let submittedAt = Date()
         let turn = Task { [weak self] in
@@ -354,6 +372,13 @@ final class JuneAgentGateway {
     }
 
     // MARK: - Model catalog (drives June's composer model chip)
+
+    /// Drops per-session state when a session is deleted (bridge delete path).
+    func forgetSession(_ sessionID: String) {
+        sessionModels.removeValue(forKey: sessionID)
+        runningTurns[sessionID]?.cancel()
+        runningTurns[sessionID] = nil
+    }
 
     func availableModelIDs() -> [String] {
         var ids: [String] = []

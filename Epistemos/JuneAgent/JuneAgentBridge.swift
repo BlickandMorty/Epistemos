@@ -153,6 +153,7 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             return NSNull()
         case "delete_hermes_bridge_session":
             if let sessionID = request["sessionId"] as? String {
+                gateway.forgetSession(sessionID)
                 gateway.store.deleteSession(id: sessionID)
             }
             return NSNull()
