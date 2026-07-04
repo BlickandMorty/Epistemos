@@ -489,6 +489,18 @@ struct BrowserView: View {
                 tab.navigate(to: url)
             }
         }
+        .background {
+            // ⌘L: focus the address bar + force-show the toolbar. Standard browser shortcut,
+            // and a keyboard escape so the URL bar can always be reached — a page could
+            // otherwise spoof the (harmless) scroll bridge to keep the toolbar hidden.
+            Button("") {
+                tab.toolbarHidden = false
+                addressFocused = true
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .opacity(0)
+            .accessibilityHidden(true)
+        }
     }
 
     // GAP-22 (audit 2026-07-03): copy the current page URL to the pasteboard.
