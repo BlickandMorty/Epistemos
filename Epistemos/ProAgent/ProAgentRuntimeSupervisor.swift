@@ -28,6 +28,30 @@ private struct ProAgentSpawnBox: @unchecked Sendable {
     let process: Process
 }
 
+/// Resumes a `CheckedContinuation` exactly ONCE across a race, from `@Sendable`
+/// contexts. `CheckedContinuation` is not `Sendable`, so it can't be captured
+/// directly in a detached task under Swift 6 strict concurrency — this box
+/// (`@unchecked Sendable`, guarded by an `NSLock`) wraps it and swallows every
+/// resume after the first (the losers of the race).
+private nonisolated final class ProAgentContinuationBox<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<T, Never>?
+    init(_ continuation: CheckedContinuation<T, Never>) {
+        self.continuation = continuation
+    }
+    /// Resume with `value` if this is the first call; no-op otherwise.
+    /// Returns true iff this call won the race (actually resumed).
+    @discardableResult
+    func resolve(_ value: T) -> Bool {
+        lock.lock()
+        let cont = continuation
+        continuation = nil
+        lock.unlock()
+        cont?.resume(returning: value)
+        return cont != nil
+    }
+}
+
 /// Supervises the Pro agent surface's child processes (Plan 1-PRO §1/§12 R3-R4):
 /// the OpenChamber web server (node) + the opencode engine, with a goosed slot
 /// reserved for Phase 3. Modeled on `GooseRuntimeSupervisor`'s proven lifecycle
@@ -249,12 +273,23 @@ final class ProAgentRuntimeSupervisor {
         var opencodeEnv = Self.childEnvironment(binaryDirectories: [
             opencodeBinary.deletingLastPathComponent(),
         ])
-        // MED-10: read provider keys OFF the main actor. A locked/contended
-        // Keychain makes these ~10 synchronous loads stall the main thread on
-        // the cold-open path the off-main spawn exists to protect.
-        let providerEnv = await Task.detached(priority: .userInitiated) {
-            Self.bridgedProviderEnvironment()
-        }.value
+        // MED-10 + cold-start hang fix: read provider keys OFF the main actor
+        // AND time-bounded. A locked/contended Keychain — or a first-launch ACL
+        // authorization prompt on a freshly-built binary — makes these
+        // synchronous loads block forever; awaiting them unbounded wedges the
+        // ENTIRE child-spawn sequence (spindump-confirmed). Bound the wait so a
+        // stuck Keychain degrades to "spawn without bridged keys" instead of a
+        // dead agent surface.
+        let providerEnv = await Self.bridgedProviderEnvironment(
+            timeout: .seconds(4),
+            onTimeout: { [weak self] in
+                Task { @MainActor in
+                    self?.recordDiagnostic(
+                        "[provider-env] Keychain bridge timed out (>4s) — spawning opencode WITHOUT bridged provider keys. "
+                        + "The Keychain is likely awaiting ACL authorization; grant it once so provider keys reach opencode.")
+                }
+            }
+        )
         if Task.isCancelled { return }
         for (envVar, value) in providerEnv {
             opencodeEnv[envVar] = value
@@ -903,6 +938,39 @@ final class ProAgentRuntimeSupervisor {
             env[envVar] = value
         }
         return env
+    }
+
+    /// Time-bounded provider-env bridge. `bridgedProviderEnvironment` performs a
+    /// handful of SYNCHRONOUS Keychain reads (`SecItemCopyMatching`), and on a
+    /// freshly-built / re-signed binary the first read can trigger an ACL
+    /// authorization prompt that blocks INDEFINITELY (measured: a cold-launch
+    /// spindump showed the entire child-spawn thread parked in `Keychain.load`,
+    /// so opencode + node + goosed never started and the surface hung on
+    /// "Agent starting"). Off-main (MED-10) alone doesn't help: `run()` awaits
+    /// this before spawning, so an unbounded read wedges the whole runtime.
+    ///
+    /// Race the (uncancellable) reads against a deadline via detached, UNawaited
+    /// tasks + a checked continuation resumed exactly once by a latch — a
+    /// structured task group can't be used because it would suspend at scope
+    /// exit waiting for the still-blocked read. On timeout we spawn WITHOUT the
+    /// bridged keys: goose never uses them, and opencode can authenticate
+    /// interactively. The blocked read is harmless — it no-ops when it returns.
+    nonisolated static func bridgedProviderEnvironment(
+        timeout: Duration,
+        onTimeout: @escaping @Sendable () -> Void
+    ) async -> [String: String] {
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[String: String], Never>) in
+            let box = ProAgentContinuationBox(continuation)
+            Task.detached(priority: .userInitiated) {
+                box.resolve(bridgedProviderEnvironment())
+            }
+            Task.detached {
+                try? await Task.sleep(for: timeout)
+                // Only announce the timeout if WE won the race (the keychain
+                // read hadn't already resolved the continuation).
+                if box.resolve([:]) { onTimeout() }
+            }
+        }
     }
 }
 #endif
