@@ -73,15 +73,40 @@ struct ProAgentSurfaceView: View {
     nonisolated static let startingStatus = "Agent starting. Booting the workspace runtime."
 
     /// Ready when React has replaced the donor's #initial-loading placeholder
-    /// inside #root (the mount contract verified in the vendored dist).
+    /// inside #root (the mount contract verified in the vendored dist). On a
+    /// non-ready result, append any page errors captured by the trap script so
+    /// a blank surface reports its own root cause.
+    /// NOTE: WebPage.callJavaScript runs this as a FUNCTION BODY (async-JS
+    /// semantics), so the value must be `return`ed — an IIFE's result is
+    /// discarded and bridges to nil ("unexpected-probe-result", found in the
+    /// first instrumented acceptance run).
     nonisolated static let renderProbeScript = """
-    (() => {
-      const root = document.getElementById('root');
-      if (!root) return 'no-root';
-      if (document.getElementById('initial-loading')) return 'initial-loading';
-      if (root.children.length === 0) return 'empty-root';
-      return 'ready';
-    })()
+    const errors = (window.__epistemosPageErrors || []).slice(0, 3).join(' | ');
+    const suffix = errors ? ' errors: ' + errors : '';
+    const root = document.getElementById('root');
+    if (!root) return 'no-root [' + document.readyState + ']' + suffix;
+    if (document.getElementById('initial-loading')) return 'initial-loading' + suffix;
+    if (root.children.length === 0) return 'empty-root' + suffix;
+    return 'ready';
+    """
+
+    /// Injected at document start: records uncaught errors + rejections so the
+    /// render probe can surface them (WKWebView has no attached Web Inspector
+    /// in acceptance runs).
+    nonisolated static let errorTrapScript = """
+    window.__epistemosPageErrors = [];
+    window.addEventListener('error', (event) => {
+      try {
+        const source = event && event.filename ? ' @' + String(event.filename).split('/').pop() + ':' + event.lineno : '';
+        window.__epistemosPageErrors.push(String((event && event.message) || event) + source);
+      } catch (_) {}
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      try {
+        const reason = event && event.reason;
+        window.__epistemosPageErrors.push('rejection: ' + String((reason && reason.message) || reason));
+      } catch (_) {}
+    });
     """
 
     var theme: EpistemosTheme = .nativeDefault
@@ -95,6 +120,7 @@ struct ProAgentSurfaceView: View {
     @State private var retryTask: Task<Void, Never>?
     @State private var retryAttempt = 0
     @State private var overlayStatus: String?
+    @State private var lastProbeResult: String?
 
     private var supervisor: ProAgentRuntimeSupervisor { .shared }
 
@@ -104,6 +130,13 @@ struct ProAgentSurfaceView: View {
         var configuration = WebPage.Configuration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.defaultNavigationPreferences.allowsContentJavaScript = true
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: Self.errorTrapScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
         let page = WebPage(
             configuration: configuration,
             navigationDecider: ProAgentNavigationDecider(trustedOrigins: trustedOrigins)
@@ -264,7 +297,8 @@ struct ProAgentSurfaceView: View {
             // White-screen class of failure: retry the load with backoff instead
             // of stranding a blank surface (the root-caused startup race fix).
             renderAttempt += 1
-            overlayStatus = "Agent workspace stayed blank. Retry \(renderAttempt)."
+            let probeDetail = (lastProbeResult ?? "no probe result").prefix(220)
+            overlayStatus = "Agent workspace stayed blank (\(probeDetail)). Retry \(renderAttempt)."
             let delay = min(
                 Self.initialRetryDelayNanoseconds << UInt64(min(renderAttempt, 4)),
                 Self.maximumRetryDelayNanoseconds
@@ -276,7 +310,9 @@ struct ProAgentSurfaceView: View {
     private func waitForRenderedUI() async -> Bool {
         for _ in 0..<Self.renderProbeCount {
             guard !Task.isCancelled else { return false }
-            if await renderProbe() == "ready" { return true }
+            let result = await renderProbe()
+            lastProbeResult = result
+            if result == "ready" { return true }
             try? await Task.sleep(nanoseconds: Self.renderProbeIntervalNanoseconds)
         }
         return false
