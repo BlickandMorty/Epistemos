@@ -2530,6 +2530,15 @@ struct NoteDetailWorkspaceView: View {
                 } label: {
                     Label("Reveal in Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }
+                // DISC-1 (audit 2026-07-03): Focus Mode was reachable ONLY via a hidden ⌘⇧F
+                // button with no visible affordance. Surface it as a menu toggle (the hidden
+                // shortcut button stays, so ⌘⇧F is unchanged).
+                Button {
+                    notesUI.isFocusMode.toggle()
+                } label: {
+                    Label(notesUI.isFocusMode ? "Exit Focus Mode (⌘⇧F)" : "Focus Mode (⌘⇧F)",
+                          systemImage: "rectangle.center.inset.filled")
+                }
             }
 
             Divider()
