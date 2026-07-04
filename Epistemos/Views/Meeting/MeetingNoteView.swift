@@ -199,8 +199,15 @@ struct MeetingNoteView: View {
     private var footer: some View {
         HStack(spacing: 10) {
             if let progress = service.modelDownloadProgress {
-                ProgressView(value: progress)
-                    .frame(width: 120)
+                // RES-1: label + moving bar so the (slow, one-time) speech-model download
+                // reads as progress, not a hang.
+                HStack(spacing: 6) {
+                    Text("Downloading speech model…")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+                    ProgressView(value: progress)
+                        .frame(width: 120)
+                }
             }
             Text(durationLabel)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))

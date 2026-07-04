@@ -170,10 +170,24 @@ public final class EpistemosSpeechAnalyzer {
             // a Progress object; downstream UI can observe it via the
             // callback.
             onModelDownload?(0.0)
+            // RES-1 (audit 2026-07-03): observe the request's Progress so the UI shows a
+            // MOVING bar during the (potentially slow) first-run model download instead of
+            // a frozen 0% that reads as a hang. Poll on the MainActor (this class is
+            // @MainActor); the task is cancelled the moment the download resolves.
+            let downloadProgress = request.progress
+            let progressTask = Task { @MainActor in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    guard !Task.isCancelled else { break }
+                    onModelDownload?(downloadProgress.fractionCompleted)
+                }
+            }
             do {
                 try await request.downloadAndInstall()
+                progressTask.cancel()
                 onModelDownload?(1.0)
             } catch {
+                progressTask.cancel()
                 throw SpeechError.downloadFailed(
                     VoiceCaptureDiagnostics.externalErrorDescription(error, fallback: "model download failed")
                 )
