@@ -639,10 +639,24 @@ actor VaultIndexActor {
         }
 
         // ── 2. Enumerate vault files on disk ──
+        // errorHandler: without it, the 3-arg overload SILENTLY skips any subtree it
+        // cannot read (a permission blip, an iCloud/network eviction of a whole
+        // folder) and returns FEWER files with NO error — which the destructive
+        // "delete pages whose files vanished" pass below would misread as deletions
+        // and silently remove the user's notes. Flag a partial scan so that pass is
+        // skipped (like the 0-file / cancelled cases); the readable files still import.
+        // Capture the Sendable Logger (not self) into the escaping errorHandler.
+        let scanLog = log
+        var scanHadEnumerationError = false
         let enumerator = fm.enumerator(
             at: url,
             includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            options: [.skipsHiddenFiles, .skipsPackageDescendants],
+            errorHandler: { errorURL, error in
+                scanLog.warning("Vault enumerate: unreadable path \(errorURL.path, privacy: .private) — \(error.localizedDescription, privacy: .public); marking scan partial (deletion pass skipped)")
+                scanHadEnumerationError = true
+                return true
+            }
         )
 
         guard let enumerator else {
@@ -936,7 +950,7 @@ actor VaultIndexActor {
         }
 
         // ── 3. Delete pages whose files no longer exist on disk ──
-        if completedScan && deleteMissingFiles {
+        if completedScan && !scanHadEnumerationError && deleteMissingFiles {
             let deletedPaths = allExistingPaths.filter { path in
                 !diskPathAliases.contains(path)
                     && !diskPathAliases.contains(Self.canonicalFilePath(path))
@@ -949,6 +963,8 @@ actor VaultIndexActor {
                     deleteCount += 1
                 }
             }
+        } else if scanHadEnumerationError {
+            log.warning("Vault import: enumeration hit an unreadable subtree (partial scan) — skipping deletion pass to avoid over-deleting notes whose folder was transiently unreadable")
         } else if !completedScan {
             log.info("Vault import incomplete — skipping deletion pass for tracked pages")
         } else {
