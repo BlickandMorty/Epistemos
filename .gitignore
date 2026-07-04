@@ -89,3 +89,8 @@ Epistemos/Resources/opencode-runtime/
 
 # Reference-only third-party clones (never committed)
 .research-clones/
+
+# llama.cpp pinned XCFramework — fetched per-checkout by
+# scripts/fetch-llama-xcframework.sh (sha256-verified), never committed
+LocalPackages/EpistemosLlama/Binary/llama.xcframework/
+LocalPackages/EpistemosLlama/Binary/.llama-*.sha256-ok
