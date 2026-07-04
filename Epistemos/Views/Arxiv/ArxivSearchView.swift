@@ -278,6 +278,10 @@ struct ArxivSearchView: View {
             } catch is CancellationError {
                 return
             } catch {
+                // ARX-UX-1: clear the selection on failure so the category chip doesn't stay
+                // highlighted over stale (previous) results — the highlight would falsely imply
+                // "showing \(label)". Un-highlighting matches the "tap again to retry" message.
+                selectedCategory = nil
                 statusMessage = "Couldn't load \(label) papers. Tap again to retry."
             }
         }
