@@ -62,6 +62,16 @@ in the ledger as an open `[ ]` item — not left to rot in git history. These ar
   Metal layer beneath graph+landing (main lag fixed 6fbb052fd), AND a NEW regression — the full-screen Hologram
   overlay graph splits the screen ~halfway on node click (home-page embedded graph is fine).
 
+- **Editor content-process-crash auto-recovery** (EpdocEditorChromeView + MarkEditCoreEditorCoordinator +
+  WebKitCodeEditorView): none of the note editors implement `webViewWebContentProcessDidTerminate`, so a rare
+  WKWebView content-process crash (OOM / JS fault) leaves a BLANK editor until the user closes + reopens the
+  note. LOW-MED severity — no data loss (note is autosaved) + manually recoverable. Correct fix is NOT a bare
+  reload: `flushInitialContentIfPossible` guards on `!didPushInitialContent` and `initialContentJSON` is
+  load-time content, so recovery must re-read the LATEST saved note body, reset the flush state
+  (`didPushInitialContent`/`editorIsReady`/`bridgeDispatchInstalled`), reload, then re-push. Needs runtime
+  testing (a content-process crash can't be triggered headless) — deferred as a careful, verified change, not
+  a rushed one on the core editor.
+
 ## Standing rule (added to SS-CLEAN)
 Every loop commit that writes an "honest pending / next increment / deferred / not-faked / owner-flip" note
 must have that note captured as an open `[ ]` ledger item (+ here) in the SAME or the next monitor pass — so
