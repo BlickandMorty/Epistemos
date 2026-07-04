@@ -172,3 +172,39 @@ session-survival glance. First-run gotcha recorded: a microphone TCC prompt
 intercepts the first agent-tile click on a fresh container (denied for
 `com.epistemos.appstore`; re-enable in System Settings if dictation testing is
 ever wanted in the MAS test build).
+
+## 2026-07-04 ~17:20 — FIX 1 theme witness (contention-free) + FIX 2 picker fix
+
+**FIX 1 (June follows the FULL Epistemos theme) — visually witnessed across 4
+themes.** `JuneThemeBridge` (commit `653f06b58`) maps the resolved
+`EpistemosTheme` onto June's own token seam (`--brand` = accent + the core
+surface palette), seeded at document-start and re-applied live on `ui.theme`
+change. Witnessed by rendering June's REAL dist under the actual
+`EpistemosTheme.resolved` palettes via a headless spike
+(`epistemos/spike/JuneThemeSpike.swift`, fork overlay — same
+`__EPISTEMOS_THEME_APPLY__` contract and payload mapping the live surface
+uses), run in isolation so a concurrent sibling app can't contend for the GUI:
+
+- `05-theme-white.png` — White: white surface, near-black accents.
+- `06-theme-tan.png` — Tan: warm beige surface, brown text/accents.
+- `07-theme-platinum-violet.png` — Platinum Violet: cool grey, navy accents.
+- `08-theme-platinum-violet-dark.png` — Platinum Violet Dark: **dark** surface,
+  white text, violet accents.
+
+The dark render is the decisive one: the host OS is in **light** mode, yet June
+renders **dark** because the *Epistemos theme* is dark — proving June now
+follows the app's theme (accent + palette + light/dark), not just the OS color
+scheme (the exact gap the owner reported after the earlier r8
+prefers-color-scheme pin). Still pending: the in-app *live* `ui.theme`→bridge
+witness (code-verified via `.onChange`), deferred to a window with no
+concurrent sibling Pro app.
+
+**FIX 2 (model picker shows/switches real GGUF) — fix `2af51cff6`, partial
+witness.** Local models (Apple Intelligence + 3 GGUF, incl. installed Qwen3-4B)
+now appear in June's picker (witnessed — the "on-device" filter returned zero
+rows before the fix). June's *composer* quick-switch honestly refuses no-tools
+models as the agent model (`handleSelectGenerationModel`, June src — not
+editable, not fakeable), but the *Settings* text-model picker
+(`selectVeniceModel`, no tool-guard) can set a local model as the generation
+default, which June then uses. Remaining: the in-app Settings→GGUF-turn witness,
+deferred to a solo-app window.
