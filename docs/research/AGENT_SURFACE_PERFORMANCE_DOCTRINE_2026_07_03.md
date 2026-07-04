@@ -145,7 +145,7 @@ does. "Works but janky" is not done.
 
 - Budgets: `docs/perf-budgets.toml` (`[agent_surface]` new; `[binary]`/`[runtime]` existing).
 - Existing native perf infra: `docs/PERF_BASELINE.md`, `docs/PERF_HANDOFF_TO_CODEX_2026-04-29.md`,
-  `docs/SS-PERF_PERFORMANCE_MEMORY_2026_06_19.md`, `docs/SS-PERF2_REMAINING_PERF_WINS_2026_06_20.md`,
+  `docs/research/SS-PERF_PERFORMANCE_MEMORY_2026_06_19.md`, `docs/research/SS-PERF2_REMAINING_PERF_WINS_2026_06_20.md`,
   and the perf-hardening waves in `CLAUDE.md` (2026-04-28/29: shared process pool, memory-pressure
   FFI, idle model unload, lazy-init services, bounded caches).
 - Instant-open recipe (source of truth): Plan 1-PRO §13 + Plan 1-MAS §12 (+ the goose files
