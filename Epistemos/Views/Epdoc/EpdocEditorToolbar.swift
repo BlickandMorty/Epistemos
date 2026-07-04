@@ -147,7 +147,7 @@ public struct EpdocEditorToolbar: View {
     @ViewBuilder
     private var extendedFormattingGroup: some View {
         toolButton(symbol: "function",      shortcut: "⌘M",
-                   tip: "Inline math",    command: .insertSlashChoice(blockType: "math-display"))
+                   tip: "Display math",   command: .insertSlashChoice(blockType: "math-display"))  // DISC-14: was mislabeled "Inline math"
         toolButton(symbol: "link",          shortcut: "⌘⇧K",
                    tip: "Link") {
             promptAndDispatchLink()

@@ -660,7 +660,8 @@ struct LandingView: View {
                 theme: theme,
                 accent: Color(hex: 0x4C8DFF),
                 haptic: .workspace,
-                isActive: activeLandingInlineCommand == .workspaces
+                isActive: activeLandingInlineCommand == .workspaces,
+                help: "Save & restore whole window layouts."
             ) {
                 showLandingInlineCommand(.workspaces)
             }
@@ -694,7 +695,8 @@ struct LandingView: View {
                 glyph: .notes,
                 theme: theme,
                 accent: Color(hex: 0x7E8CE0),
-                haptic: .notes
+                haptic: .notes,
+                help: "Browse and search all your notes."
             ) {
                 UtilityWindowManager.shared.show(.notes)
             }
@@ -705,6 +707,7 @@ struct LandingView: View {
                 theme: theme,
                 accent: Color(hex: 0x8ABF5D),
                 haptic: .newNote,
+                help: "Create and open a new Markdown note.",
                 action: createAndOpenNote
             )
             PixelLandingCommandTile(
@@ -713,7 +716,8 @@ struct LandingView: View {
                 glyph: .code,
                 theme: theme,
                 accent: Color(hex: 0x8C7AF5),
-                haptic: .document
+                haptic: .document,
+                help: "Create a syntax-highlighted code file in your vault."
             ) {
                 showingNewCodeFileSheet = true
             }

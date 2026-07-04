@@ -48,6 +48,7 @@ struct BlockPropertySheet: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.borderless)
+                        .help("Remove property")  // DISC-15
                     }
                 }
 
@@ -71,6 +72,7 @@ struct BlockPropertySheet: View {
                     }
                     .buttonStyle(.borderless)
                     .disabled(newKey.isEmpty)
+                    .help("Add property")  // DISC-15
                 }
             }
             .listStyle(.plain)

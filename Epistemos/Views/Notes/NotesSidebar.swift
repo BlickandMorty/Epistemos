@@ -2450,6 +2450,20 @@ private struct VaultHeader: View {
                 .tracking(AppHeadingRole.section.tracking)
                 .lineLimit(1)
             Spacer()
+            // DISC-7 (audit): once notes exist the sidebar had NO visible new-note button —
+            // creation needed ⌘N or a folder right-click. Surface it in the header.
+            Button {
+                onAction(.createNewPage)
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+            .help("New note (⌘N)")
+            .accessibilityLabel("New note")
             if hasExpandedFolders {
                 Button {
                     onAction(.collapseAll)
