@@ -98,6 +98,32 @@ final class JuneSessionStore {
         persistIndex()
     }
 
+    /// Derives a title from the first user message when the session title is
+    /// still a placeholder. June backfills its OWN title in local React state
+    /// (sessionTitleOverridesRef) without a bridge round-trip, so the store —
+    /// which the native all-chats reads and which survives relaunch — would
+    /// otherwise keep "New session". This keeps the persisted title connected
+    /// to the actual conversation, matching June's derivation.
+    func autoTitleIfPlaceholder(sessionID: String, from prompt: String) {
+        guard let idx = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
+        let current = sessions[idx].title.trimmingCharacters(in: .whitespaces)
+        guard current.isEmpty || current == "New session" else { return }
+        let derived = Self.deriveTitle(from: prompt)
+        guard !derived.isEmpty else { return }
+        sessions[idx].title = derived
+        persistIndex()
+    }
+
+    /// First ~6 words, capped — mirrors JuneAgentBridge.deriveTitle so a
+    /// store-side and a June-side title agree.
+    static func deriveTitle(from prompt: String) -> String {
+        let words = prompt
+            .replacingOccurrences(of: "\n", with: " ")
+            .split(separator: " ", omittingEmptySubsequences: true)
+            .prefix(6)
+        return boundedTitle(words.joined(separator: " "))
+    }
+
     func deleteSession(id: String) {
         sessions.removeAll { $0.id == id }
         try? FileManager.default.removeItem(at: messagesURL(id))
@@ -283,6 +309,10 @@ final class JuneAgentGateway {
 
     private func startTurn(sessionID: String, prompt: String) {
         store.appendMessage(sessionID: sessionID, role: "user", content: prompt)
+        // Keep the persisted title connected to the conversation (see
+        // JuneSessionStore.autoTitleIfPlaceholder) — the native all-chats +
+        // relaunch read the store, and June's own backfill never writes it.
+        store.autoTitleIfPlaceholder(sessionID: sessionID, from: prompt)
         emit(type: "message.start", sessionID: sessionID, payload: [:])
         // Lane resolution from the persisted record (single source of truth —
         // written at session.create, survives relaunch), revalidated because a
@@ -292,12 +322,18 @@ final class JuneAgentGateway {
         }
         let modelID = persisted ?? currentDefaultModelID()
 
+        // Give the engine the conversation, not just the latest message — a
+        // chat agent with no history is amnesiac. Bounded to the most recent
+        // turns so a long thread can't overflow a local model's context (the
+        // backend also guards via exceededContextWindow).
+        let history = Self.boundedHistory(store.loadMessages(sessionID: sessionID))
+
         let submittedAt = Date()
         let turn = Task { [weak self] in
             guard let self else { return }
             var full = ""
             do {
-                var stream = try self.makeStream(prompt: prompt, modelID: modelID)
+                var stream = try self.makeStream(prompt: prompt, history: history, modelID: modelID)
                 do {
                     for try await delta in stream {
                         if Task.isCancelled { break }
@@ -325,7 +361,9 @@ final class JuneAgentGateway {
                         payload: ["text": "Switched to the on-device model for this reply."]
                     )
                     stream = self.localGGUF.stream(
-                        prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024
+                        prompt: prompt,
+                        instructions: Self.localInstructions(withHistory: history),
+                        maxNewTokens: 1024
                     )
                     for try await delta in stream {
                         if Task.isCancelled { break }
@@ -355,26 +393,76 @@ final class JuneAgentGateway {
     }
 
     /// Engine routing (Plan 1-MAS §2): the session's chosen lane, defaulting
-    /// to the best available local engine.
-    private func makeStream(prompt: String, modelID: String) throws -> AsyncThrowingStream<String, Error> {
+    /// to the best available local engine. `history` is the bounded recent
+    /// conversation (including the current user message); local lanes fold it
+    /// into the system context (the QuickChat backends take a single prompt —
+    /// composed at the adapter, never modifying the engine), cloud sends it as
+    /// a real role-tagged message array.
+    private func makeStream(
+        prompt: String, history: [JuneSessionStore.Message], modelID: String
+    ) throws -> AsyncThrowingStream<String, Error> {
         switch modelID {
         case JuneModelID.appleFM:
-            return appleFM.stream(prompt: prompt, instructions: Self.instructions)
+            return appleFM.stream(prompt: prompt, instructions: Self.localInstructions(withHistory: history))
         case JuneModelID.localGGUF:
-            return localGGUF.stream(prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024)
+            return localGGUF.stream(
+                prompt: prompt,
+                instructions: Self.localInstructions(withHistory: history),
+                maxNewTokens: 1024
+            )
         case JuneModelID.cloud:
             // Honest gate (Plan 1-MAS §0.5/§5): a real Keychain session token
             // (minted by the Phase-4 StoreKit receipt exchange) is required —
             // never fake a cloud turn. With a session, this streams from the
             // receipt-gated proxy; without one, JuneCloudEngine throws
             // .notSubscribed and June shows the honest error.
-            return JuneCloudEngine.shared.stream(prompt: prompt, instructions: Self.instructions)
+            return JuneCloudEngine.shared.stream(
+                messages: Self.cloudMessages(instructions: Self.instructions, history: history)
+            )
         default:
+            let instructions = Self.localInstructions(withHistory: history)
             if AppleFMQuickChatBackend.unavailability() == nil {
-                return appleFM.stream(prompt: prompt, instructions: Self.instructions)
+                return appleFM.stream(prompt: prompt, instructions: instructions)
             }
-            return localGGUF.stream(prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024)
+            return localGGUF.stream(prompt: prompt, instructions: instructions, maxNewTokens: 1024)
         }
+    }
+
+    // MARK: - History composition
+
+    /// Most-recent turns only, so a long thread can't overflow a local model's
+    /// context window.
+    private static let maxHistoryMessages = 20
+
+    static func boundedHistory(_ messages: [JuneSessionStore.Message]) -> [JuneSessionStore.Message] {
+        messages.count <= maxHistoryMessages ? messages : Array(messages.suffix(maxHistoryMessages))
+    }
+
+    /// Local engines take a single prompt; the prior conversation (everything
+    /// but the just-appended current message) is folded into the system
+    /// instructions as plain text so the on-device model has context.
+    private static func localInstructions(withHistory history: [JuneSessionStore.Message]) -> String {
+        let prior = history.dropLast() // the current user message is the live prompt
+        guard !prior.isEmpty else { return instructions }
+        let transcript = prior.map { msg -> String in
+            let who = msg.role == "assistant" ? "June" : "User"
+            return "\(who): \(msg.content)"
+        }.joined(separator: "\n")
+        // Interpolation (not `+`) to avoid a String/SQL operator-overload
+        // ambiguity from GRDB's SQL type being in scope.
+        return "\(instructions)\n\nConversation so far:\n\(transcript)"
+    }
+
+    /// OpenAI-compatible role-tagged messages for the cloud proxy: a system
+    /// turn plus the real conversation.
+    static func cloudMessages(
+        instructions: String, history: [JuneSessionStore.Message]
+    ) -> [[String: String]] {
+        var out: [[String: String]] = [["role": "system", "content": instructions]]
+        for msg in history {
+            out.append(["role": msg.role == "assistant" ? "assistant" : "user", "content": msg.content])
+        }
+        return out
     }
 
     // MARK: - Model catalog (drives June's composer model chip)

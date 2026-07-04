@@ -127,14 +127,21 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             ]
         case "os_accounts_status":
             // Local free lane (Plan 1-MAS §0.6): no account required. The
-            // StoreKit-backed cloud gate replaces this in Phase 4.
+            // `subscription` field is DELIBERATELY OMITTED: June's funding gate
+            // (account-gate.ts shouldBlockOnFunding) blocks when it sees a
+            // known non-live subscription with depleted credits, and
+            // `subscribed:false` counts as "known non-live" — leaving the free
+            // lane reachable only by the accidental absence of a `credits`
+            // field. Omitting subscription makes hasKnownNonLiveSubscription
+            // return false, so the gate can NEVER block the free lane. Honest:
+            // MAS subscriptions are StoreKit-managed (Phase 4), independent of
+            // the OS-Accounts view, so subscription state here is genuinely N/A.
             return [
                 "signedIn": true,
                 "configured": true,
                 "localDev": true,
                 "user": ["id": "local-user", "handle": "you", "displayName": "You"],
                 "balance": ["usdMillis": 0],
-                "subscription": ["subscribed": false],
             ]
         case "hermes_bridge_status", "start_hermes_bridge":
             return Self.bridgeStatusPayload
@@ -292,13 +299,10 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     }()
 
     private static func deriveTitle(from prompt: String) -> String {
-        let words = prompt
-            .replacingOccurrences(of: "\n", with: " ")
-            .split(separator: " ", omittingEmptySubsequences: true)
-            .prefix(6)
-        let title = words.joined(separator: " ")
-        if title.isEmpty { return "New session" }
-        return String(title.prefix(60))
+        // Single source of truth for title derivation (shared with the store's
+        // auto-title), so a suggested title and a store-side title never diverge.
+        let derived = JuneSessionStore.deriveTitle(from: prompt)
+        return derived.isEmpty ? "New session" : derived
     }
 
     /// Escapes a Swift string into a double-quoted JS string literal —

@@ -30,11 +30,14 @@ nonisolated final class JuneCloudEngine: @unchecked Sendable {
 
     private init() {}
 
-    func stream(prompt: String, instructions: String?) -> AsyncThrowingStream<String, Error> {
+    /// `messages` is the OpenAI-compatible role-tagged conversation (system +
+    /// history), so the cloud agent sees the full thread, not just the latest
+    /// message.
+    func stream(messages: [[String: String]]) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    try await self.run(prompt: prompt, instructions: instructions, continuation: continuation)
+                    try await self.run(messages: messages, continuation: continuation)
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -45,8 +48,7 @@ nonisolated final class JuneCloudEngine: @unchecked Sendable {
     }
 
     private func run(
-        prompt: String,
-        instructions: String?,
+        messages: [[String: String]],
         continuation: AsyncThrowingStream<String, Error>.Continuation
     ) async throws {
         guard let base = EpistemosProxyClient.chatCompletionsBaseURL else {
@@ -63,11 +65,6 @@ nonisolated final class JuneCloudEngine: @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
 
-        var messages: [[String: String]] = []
-        if let instructions, !instructions.isEmpty {
-            messages.append(["role": "system", "content": instructions])
-        }
-        messages.append(["role": "user", "content": prompt])
         let body: [String: Any] = [
             "model": "epistemos-default", // the proxy resolves the concrete provider model
             "stream": true,
