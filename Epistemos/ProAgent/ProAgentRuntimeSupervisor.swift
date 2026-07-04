@@ -67,6 +67,15 @@ final class ProAgentRuntimeSupervisor {
     nonisolated private static let subprocessEnvironmentAllowlist: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
     ]
+    /// Provider env keys bridged Keychain -> opencode child env at spawn
+    /// (Plan 1-PRO §4.5 — keys live in Keychain, never in the binary or
+    /// webview JS; the env crosses exactly one process boundary). Resolution
+    /// rides the canonical AppBootstrap envVar->keychainKey mapping.
+    nonisolated static let bridgedProviderEnvironmentKeys: [String] = [
+        "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "PERPLEXITY_API_KEY",
+        "OPENROUTER_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
+        "DEEPSEEK_API_KEY", "HF_TOKEN",
+    ]
     nonisolated private static let canonicalToolPathDirectories: [String] = [
         "/opt/homebrew/bin", "/opt/homebrew/sbin",
         "/usr/local/bin", "/usr/local/sbin",
@@ -202,9 +211,13 @@ final class ProAgentRuntimeSupervisor {
         opencodeProc.executableURL = opencodeBinary
         opencodeProc.arguments = ["serve", "--hostname", Self.loopbackHost, "--port", String(opencodePort)]
         opencodeProc.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        opencodeProc.environment = Self.childEnvironment(binaryDirectories: [
+        var opencodeEnv = Self.childEnvironment(binaryDirectories: [
             opencodeBinary.deletingLastPathComponent(),
         ])
+        for (envVar, value) in Self.bridgedProviderEnvironment() {
+            opencodeEnv[envVar] = value
+        }
+        opencodeProc.environment = opencodeEnv
 
         // Child 2 (optional): goosed, env-configured per the R4 matrix — figment
         // GOOSE_* keys, TLS explicitly off (it DEFAULTS ON upstream), per-launch
@@ -639,6 +652,23 @@ final class ProAgentRuntimeSupervisor {
             return candidate
         }
         return nil
+    }
+
+    /// Keychain -> env bridge for the opencode child (goosed keeps its own
+    /// config/keyring path — never fed keys through env, matching the goose
+    /// supervisor's denylist doctrine).
+    nonisolated static func bridgedProviderEnvironment(
+        keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
+    ) -> [String: String] {
+        var env: [String: String] = [:]
+        for envVar in bridgedProviderEnvironmentKeys {
+            guard let keychainKey = AppBootstrap.agentCoreKeychainKey(forEnvironmentKey: envVar),
+                  let raw = keychainLoad(keychainKey) else { continue }
+            let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, value.utf8.count <= 4_096, !value.utf8.contains(0) else { continue }
+            env[envVar] = value
+        }
+        return env
     }
 }
 #endif

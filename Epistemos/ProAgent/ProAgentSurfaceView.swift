@@ -121,6 +121,7 @@ struct ProAgentSurfaceView: View {
     @State private var retryAttempt = 0
     @State private var overlayStatus: String?
     @State private var lastProbeResult: String?
+    @State private var showAllChatsSheet = false
 
     private var supervisor: ProAgentRuntimeSupervisor { .shared }
 
@@ -153,11 +154,50 @@ struct ProAgentSurfaceView: View {
             if let overlayStatus {
                 loadingOverlay(status: overlayStatus)
             }
+            // Companion/mascot overlay HOOK (Plan 1-PRO §5 — hook only; the
+            // full mascot spec is Plan 5). Native layer ABOVE the WebView,
+            // never inside donor DOM.
+            ProAgentMascotOverlayHook()
+                .allowsHitTesting(false)
         }
         .ignoresSafeArea()
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .epistemosProAgentChromeIntent)
+                .receive(on: RunLoop.main)
+        ) { note in
+            handleChromeIntent(note)
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .epistemosProAgentAllChats)
+                .receive(on: RunLoop.main)
+        ) { _ in
+            showAllChatsSheet = true
+        }
+        .sheet(isPresented: $showAllChatsSheet) {
+            ProAgentAllChatsSheet(
+                theme: theme,
+                uiBaseURL: { () -> URL? in
+                    if case .running(let connection) = supervisor.status {
+                        return connection.uiBaseURL
+                    }
+                    return nil
+                }(),
+                onSelect: { sessionId in
+                    showAllChatsSheet = false
+                    NotificationCenter.default.post(
+                        name: .epistemosProAgentChromeIntent,
+                        object: nil,
+                        userInfo: ["type": ProAgentChromeIntent.selectSession, "sessionId": sessionId]
+                    )
+                },
+                onDismiss: { showAllChatsSheet = false }
+            )
         }
         .onDisappear {
             // Keep-alive rule (§13.5): tear down ONLY view-local monitors. The
@@ -364,6 +404,23 @@ struct ProAgentSurfaceView: View {
             supervisor.stop()
             supervisor.start()
             await loadWhenReady()
+        }
+    }
+
+    /// Pill-nav rule (§13.5): native chrome intents become a window
+    /// CustomEvent inside the LIVE page — never a URL load.
+    private func handleChromeIntent(_ note: Notification) {
+        guard loadedConnectionKey != nil,
+              let rawType = note.userInfo?["type"] as? String else { return }
+        let type = String(rawType.prefix(64))
+        let sessionId = (note.userInfo?["sessionId"] as? String).map { String($0.prefix(128)) }
+        var detail: [String: String] = ["type": type]
+        if let sessionId { detail["sessionId"] = sessionId }
+        guard let payload = try? JSONSerialization.data(withJSONObject: detail),
+              let json = String(data: payload, encoding: .utf8) else { return }
+        let script = "window.dispatchEvent(new CustomEvent('epistemos-chrome-intent', { detail: \(json) }));"
+        Task { @MainActor in
+            _ = try? await page.callJavaScript(script)
         }
     }
 

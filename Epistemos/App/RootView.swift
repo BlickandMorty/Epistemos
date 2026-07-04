@@ -232,6 +232,15 @@ struct RootView: View {
         embeddedHomeGraphCanvasVisible
     }
 
+    /// Pro agent surface pill (Plan 1-PRO §5 owner signature).
+    private var showProAgentToolbarControls: Bool {
+        #if EPISTEMOS_APP_STORE
+        return false
+        #else
+        return ui.homeTab == .home && ui.homeContent == .agent
+        #endif
+    }
+
     /// Canonical toolbar glass visibility — deterministic from app state.
     /// For non-Home tabs: always visible.
     /// For Home landing: always hidden.
@@ -444,6 +453,28 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
+            #if !EPISTEMOS_APP_STORE
+            if showProAgentToolbarControls {
+                ProAgentNavBar(
+                    theme: ui.theme,
+                    onReturnHome: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                            ui.homeContent = .greeting
+                        }
+                    },
+                    onNewChat: {
+                        NotificationCenter.default.post(
+                            name: .epistemosProAgentChromeIntent,
+                            object: nil,
+                            userInfo: ["type": ProAgentChromeIntent.newChat]
+                        )
+                    },
+                    onAllChats: {
+                        NotificationCenter.default.post(name: .epistemosProAgentAllChats, object: nil)
+                    }
+                )
+            }
+            #endif
             if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
                 // Keep the pill mounted on the graph — a principal ToolbarItem is load-bearing
                 // for the window's curved corners. Settings and greeting controls remain on
