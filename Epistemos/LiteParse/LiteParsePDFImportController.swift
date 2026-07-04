@@ -30,14 +30,38 @@ enum LiteParsePDFImportController {
             return .rejected(.failed("PDF parsing is disabled in Settings. The original PDF was not converted."))
         }
 
+        // RES-2 (audit 2026-07-04): validate + convert the source PDF FIRST, with the
+        // conversion BOUNDED by LiteParsePDFConversion — the liteparse FFI is a synchronous,
+        // uncancellable call, so a pathological/corrupt PDF would otherwise hang the import
+        // with no escape. Running it before any vault files exist means a timeout/failure
+        // needs no cleanup. Only on real markdown do we materialize (honest: never a fake note).
+        let markdown: String
+        do {
+            try Task.checkCancellation()
+            if let failure = LiteParsePDFSignature.validationFailure(forPath: pdfPath) {
+                return .rejected(failure)
+            }
+            let result = try await LiteParsePDFConversion.importToMarkdown(using: importer, pdfPath: pdfPath)
+            guard case let .markdown(converted) = result else {
+                return .rejected(result) // honest — no note created
+            }
+            markdown = converted
+        } catch is CancellationError {
+            return .rejected(.failed(Self.cancelledMessage))
+        } catch is LiteParsePDFConversion.TimedOut {
+            return .rejected(.failed("PDF conversion timed out — the file may be corrupt or unusually complex."))
+        } catch {
+            return .rejected(.failed(LiteParseImportDiagnostics.failureMessage("PDF import failed", error: error)))
+        }
+
         let preparedImport: PreparedPDFImport
         do {
             try Task.checkCancellation()
             preparedImport = try await runDetachedCancellable {
                 try materializeImportedFiles(
                     pdfPath: pdfPath,
-                    vaultURL: vaultURL,
-                    importer: importer
+                    markdown: markdown,
+                    vaultURL: vaultURL
                 )
             }
         } catch is CancellationError {
@@ -111,13 +135,10 @@ enum LiteParsePDFImportController {
 
     nonisolated private static func materializeImportedFiles(
         pdfPath: String,
-        vaultURL: URL,
-        importer: LiteParsePDFImporter
+        markdown: String,
+        vaultURL: URL
     ) throws -> PreparedPDFImport {
         try Task.checkCancellation()
-        if let failure = LiteParsePDFSignature.validationFailure(forPath: pdfPath) {
-            return .rejected(failure)
-        }
 
         let baseName = ((pdfPath as NSString).lastPathComponent as NSString).deletingPathExtension
         let title = baseName.isEmpty ? "Imported PDF" : baseName
@@ -157,11 +178,8 @@ enum LiteParsePDFImportController {
             try Task.checkCancellation()
             try Plan3ImportFileIO.copyFileContents(from: URL(fileURLWithPath: pdfPath), toReservedFile: urls.pdfURL)
             try Task.checkCancellation()
-            let result = importer.importToMarkdown(pdfPath: urls.pdfURL.path)
-            try Task.checkCancellation()
-            guard case let .markdown(markdown) = result else {
-                return .rejected(result)
-            }
+            // RES-2: markdown was already produced by the bounded conversion in importPage;
+            // materialize just persists the note + source PDF (no FFI here).
             try Plan3ImportFileIO.writeData(Data(markdown.utf8), toReservedFile: urls.noteURL)
             try Task.checkCancellation()
             keepMaterializedFiles = true
