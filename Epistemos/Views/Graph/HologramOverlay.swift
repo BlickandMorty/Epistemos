@@ -1437,6 +1437,18 @@ final class HologramOverlay {
             graph_engine_set_force_alive(engineHandle, hasPinned ? 1 : 0)
         }
 
+        // PERF-8-REFINE (audit 2026-07-03): the 30fps timer runs the whole time the overlay is
+        // open. Skip the per-tick FFI position queries + frame updates when there's nothing to
+        // place — no pinned panels (and none left to clean up), or the window is occluded/hidden
+        // so the panels aren't visible anyway (the render loop pauses on occlusion for the same
+        // reason). Force-alive is reconciled above; pinned positions re-sync on the next eligible tick.
+        if pinnedInspectorViews.isEmpty && !hasPinned {
+            return
+        }
+        if let window, !window.occlusionState.contains(.visible) {
+            return
+        }
+
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let bounds = contentView.bounds
 
