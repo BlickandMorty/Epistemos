@@ -11,12 +11,29 @@ nonisolated protocol ArxivPDFDownloading: Sendable {
 nonisolated struct URLSessionArxivPDFDownloader: ArxivPDFDownloading {
     static let maxDownloadedPDFBytes = 128 * 1024 * 1024
 
+    // RES-3 (audit 2026-07-03): the PDF download used `URLSession.shared`, whose default
+    // `timeoutIntervalForResource` is 7 days — a stalled or trickling arXiv response could
+    // keep an ingest row spinning effectively forever (the metadata fetch in ArxivClient
+    // already caps at 15s, so this was an inconsistency). A dedicated ephemeral session
+    // bounds it: 60s idle-between-bytes cap + a 300s hard ceiling per download. The enforced
+    // 128 MiB max PDF still fits a slow-but-live link (~3.5 Mbps) inside that ceiling; a
+    // stalled one now fails fast. Task cancellation still cancels the in-flight transfer.
+    private static let downloadSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 300
+        config.waitsForConnectivity = false
+        config.urlCache = nil
+        config.httpCookieStorage = nil
+        return URLSession(configuration: config)
+    }()
+
     func download(from url: URL) async throws -> URL {
         guard let downloadURL = ArxivPDFURLPolicy.normalizedAllowedURL(url) else {
             throw ArxivIngestError.downloadFailed(ArxivPDFURLPolicy.rejectedMessage)
         }
 
-        let (fileURL, response) = try await URLSession.shared.download(from: downloadURL)
+        let (fileURL, response) = try await Self.downloadSession.download(from: downloadURL)
         try Self.validateDownloadResponse(response, requestURL: downloadURL, downloadedFileURL: fileURL)
         return try Self.prepareDownloadedPDF(from: fileURL)
     }
