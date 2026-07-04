@@ -677,6 +677,10 @@ private struct BrowserWebView: NSViewRepresentable {
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.userContentController = WKUserContentController()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        // Enterprise/App Store: pin Safe-Browsing phishing/malware warnings ON explicitly. WebKit
+        // defaults this true, but the browser is a user-trust surface, so make the posture explicit
+        // + refactor-proof. Complements the app-level BrowserURLGuard (allowlist + phishing blocks).
+        configuration.preferences.isFraudulentWebsiteWarningEnabled = true
         BrowserTrackerContentBlocker.install(on: configuration.userContentController)
         // Force the Epistemos theme (palette + pixel heading font) onto every
         // page that loads — browsing stays canon with the app (owner 2026-07-03).
