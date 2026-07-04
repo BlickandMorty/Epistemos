@@ -194,6 +194,33 @@ struct SearchIndexServiceFusionTests {
         )
     }
 
+    // Sync#1 — indexed_blocks previously had NO production writer, so block search
+    // + the RRF `block` source returned empty. VaultIndexActor.reindexBlocks now
+    // drives replaceBlocksForPage on every save; this pins the write→search chain
+    // (insert, edit-via-ON-CONFLICT, delete) so the feature can't silently regress.
+    @Test("Block index: replaceBlocksForPage wires block search + edit/delete (Sync#1)")
+    func replaceBlocksForPageWiresBlockSearch() throws {
+        let (service, _) = try makeService()
+        try service.replaceBlocksForPage(pageId: "page-A", blocks: [
+            (blockId: "blk-A1", content: "the quick brown fox"),
+            (blockId: "blk-A2", content: "jumps over the lazy dog")
+        ])
+        // Block search returns the matching block with its stable SDBlock id.
+        #expect(try service.searchBlocks(query: "brown").contains { $0.blockId == "blk-A1" })
+        #expect(try service.searchBlocks(query: "lazy").contains { $0.blockId == "blk-A2" })
+        // An edit (INSERT ... ON CONFLICT UPDATE) re-indexes via the FTS au trigger:
+        // the old term drops and the new one matches.
+        try service.replaceBlocksForPage(pageId: "page-A", blocks: [
+            (blockId: "blk-A1", content: "the slow green turtle"),
+            (blockId: "blk-A2", content: "jumps over the lazy dog")
+        ])
+        #expect(try service.searchBlocks(query: "brown").isEmpty)
+        #expect(try service.searchBlocks(query: "turtle").contains { $0.blockId == "blk-A1" })
+        // deleteBlocksForPage removes the page's block rows (ad trigger clears FTS).
+        try service.deleteBlocksForPage(pageId: "page-A")
+        #expect(try service.searchBlocks(query: "lazy").isEmpty)
+    }
+
     @Test("Startup repairs missing readable_blocks_fts and rebuilds existing rows")
     func startupRepairsMissingReadableBlocksFTSAndRebuildsRows() throws {
         let databaseURL = makeDatabaseURL()
