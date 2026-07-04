@@ -1,6 +1,7 @@
 #if !EPISTEMOS_APP_STORE
 import SwiftUI
 import WebKit
+import UserNotifications
 
 /// SECURITY (ports the goose-surface deep-hardening H1 posture): the OpenChamber
 /// web server origin is the ONLY http origin this surface may navigate to in the
@@ -50,6 +51,69 @@ private struct ProAgentNavigationDecider: WebPage.NavigationDeciding {
         default:
             return .cancel
         }
+    }
+}
+
+/// EPISTEMOS ProAgent JS->Swift desktop bridge. The vendored OpenChamber SPA
+/// already calls window.__OPENCHAMBER_DESKTOP__.invoke(...) (lib/desktop.ts);
+/// with no host implementation, native OS notifications on agent-turn completion
+/// silently no-op. Implements desktop_notify -> UNUserNotificationCenter. One-way
+/// handler (proven JuneAgentBridge pattern); injected invoke returns
+/// Promise.resolve(true) so notifyWithDesktop's await resolves (best-effort).
+/// Untrusted webview input validated: dict body, whitelisted command, capped strings.
+@MainActor
+final class EpistemosDesktopBridge: NSObject, WKScriptMessageHandler {
+    static let shared = EpistemosDesktopBridge()
+    static let handlerName = "epistemosDesktop"
+
+    static let injectScript = """
+    (function () {
+      if (window.__OPENCHAMBER_DESKTOP__) { return; }
+      window.__OPENCHAMBER_DESKTOP__ = {
+        invoke: function (command, args) {
+          try { window.webkit.messageHandlers.epistemosDesktop.postMessage({ command: command, args: args || {} }); } catch (e) {}
+          return Promise.resolve(true);
+        }
+      };
+    })();
+    """
+
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard let body = message.body as? [String: Any],
+              let command = body["command"] as? String
+        else { return }
+        let args = body["args"] as? [String: Any] ?? [:]
+        switch command {
+        case "desktop_notify":
+            postNotification(args: args)
+        default:
+            break
+        }
+    }
+
+    private func postNotification(args: [String: Any]) {
+        let payload = args["payload"] as? [String: Any] ?? [:]
+        let title = Self.capped((payload["title"] as? String) ?? "Epistemos", 120)
+        let bodyText = Self.capped((payload["body"] as? String) ?? "", 500)
+        Task {
+            let center = UNUserNotificationCenter.current()
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            if !bodyText.isEmpty { content.body = bodyText }
+            content.sound = .default
+            try? await center.add(
+                UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            )
+        }
+    }
+
+    private static func capped(_ value: String, _ limit: Int) -> String {
+        value.count <= limit ? value : String(value.prefix(limit))
     }
 }
 
@@ -137,6 +201,18 @@ struct ProAgentSurfaceView: View {
         configuration.userContentController.addUserScript(
             WKUserScript(
                 source: Self.errorTrapScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+        // EPISTEMOS: JS->Swift desktop bridge (native OS notifications).
+        configuration.userContentController.add(
+            EpistemosDesktopBridge.shared,
+            name: EpistemosDesktopBridge.handlerName
+        )
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: EpistemosDesktopBridge.injectScript,
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )
