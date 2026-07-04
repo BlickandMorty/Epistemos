@@ -36,6 +36,10 @@ struct SetupAssistantView: View {
                 }
                 .padding(.top, 20)
                 .padding(.bottom, 12)
+                // DISC-17: the step dots were unlabeled to VoiceOver — expose them as one
+                // progress element.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Onboarding progress: step \((SetupStep.allCases.firstIndex(of: currentStep) ?? 0) + 1) of \(SetupStep.allCases.count)")
 
                 Group {
                     switch currentStep {
