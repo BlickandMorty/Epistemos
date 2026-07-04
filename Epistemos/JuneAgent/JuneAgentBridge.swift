@@ -23,7 +23,6 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     static let eventsChannel = "epistemosEvents"
 
     private static let log = Logger(subsystem: "com.epistemos", category: "JuneAgentBridge")
-    private static let maxBodyBytes = 2_000_000
 
     let gateway = JuneAgentGateway()
 
