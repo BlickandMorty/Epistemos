@@ -113,9 +113,11 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             synth.stop()
             return
         }
-        // Bound the payload defensively (webview frames aren't trusted); the
-        // synthesizer also enforces its own input cap.
-        _ = synth.speak(String(text.prefix(8000)))
+        // Bound to the engine's OWN input cap (not an arbitrary smaller number)
+        // so a long reply reads in full up to what Kokoro supports, while still
+        // defending against untrusted webview payloads. Anything within the cap
+        // never trips speak()'s length guard.
+        _ = synth.speak(String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
     }
 
     private func resolveInvoke(callId: Int, result: Any?) {
