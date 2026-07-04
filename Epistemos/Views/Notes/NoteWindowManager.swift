@@ -431,7 +431,7 @@ final class NoteWindowManager {
         window.makeKeyAndOrderFront(nil)
         windows[page.id] = window
 
-        Self.log.info("Opened note tab for: \(page.title, privacy: .public)")
+        Self.log.info("Opened note tab for: \(page.title, privacy: .private)")
         AppBootstrap.shared?.activityTracker.recordNoteOpened(pageId: page.id, title: page.title)
     }
 

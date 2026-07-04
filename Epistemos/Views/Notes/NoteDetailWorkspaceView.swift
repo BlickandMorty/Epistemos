@@ -1217,7 +1217,7 @@ struct NoteDetailWorkspaceView: View {
         }
 
         guard let vaultURL = vaultSync.vaultURL else {
-            Log.app.error("CodeEditor: failed to save code file because no active vault contains \(filePath, privacy: .public)")
+            Log.app.error("CodeEditor: failed to save code file because no active vault contains \(filePath, privacy: .private)")
             return
         }
 
@@ -1338,7 +1338,7 @@ struct NoteDetailWorkspaceView: View {
             }
 
             guard let vaultURL = vaultSync.vaultURL else {
-                Log.app.error("CodeEditor: saved markdown Source note state without an active vault for \(filePath, privacy: .public)")
+                Log.app.error("CodeEditor: saved markdown Source note state without an active vault for \(filePath, privacy: .private)")
                 return
             }
 
@@ -1404,7 +1404,7 @@ struct NoteDetailWorkspaceView: View {
     private func codeFileServiceForActiveVault(filePath: String) -> CodeFileService? {
         guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
-                "NoteDetailWorkspaceView: refusing code file IO with no active vault for \(filePath, privacy: .public)"
+                "NoteDetailWorkspaceView: refusing code file IO with no active vault for \(filePath, privacy: .private)"
             )
             return nil
         }
@@ -2113,7 +2113,7 @@ struct NoteDetailWorkspaceView: View {
 
         guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
-                "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .public)"
+                "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .private)"
             )
             if !isMarkdownSource {
                 codeFileBodySnapshot = CodeFileBodySnapshot(
@@ -2166,7 +2166,7 @@ struct NoteDetailWorkspaceView: View {
                 guard !Task.isCancelled,
                       currentSourceRouteMatches(pageId: pageId, filePath: filePath) else { return }
                 Log.notes.error(
-                    "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .private): \(error.localizedDescription, privacy: .public)"
                 )
             }
         }
