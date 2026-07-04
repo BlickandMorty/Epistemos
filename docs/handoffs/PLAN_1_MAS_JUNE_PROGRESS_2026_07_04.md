@@ -6,6 +6,38 @@ backend swapped to in-process engines.** Fork: `~/dev/june-epistemos` pinned at
 upstream `a626597` + `epistemos/` overlay (all Epistemos changes are NEW files;
 one PATCH_LEDGER row: bun.lock).
 
+## Post-build polish + hardening pass (2026-07-04, own-lane recursive loop)
+
+After Phases 0-3 landed, a deep-verify loop (7 gaps found+fixed, 2 clean passes)
+then a recursive integration-polish loop ran, own-lane only. **12 polish/
+hardening rounds landed**, each on a gated green build + four-lens mini-pass:
+
+1. Seamless shell — placeholder + WebView background use June's own canvas
+   colours (both appearances); styled failure state + working Try Again;
+   `window.open`/`target=_blank` externals open in the default browser.
+2. Per-session engine lane persists across relaunch (`Session.model`), revalidated;
+   delete forgets state + cancels the running turn.
+3. All-chats sheet updates live (`@Observable` store).
+4. Keyboard focus hands off to June on Agent-tab entry (window-attached guard).
+5. `sessionModels` dict eliminated — the persisted record is the source of truth
+   (unbounded growth structurally gone).
+6. Relative timestamps in the all-chats rows — parity with June's own sidebar.
+7. Mascot "agent working" signal verified wired end-to-end (not a dead path).
+8. June's `prefers-color-scheme` pinned to the Epistemos theme, not the OS
+   (a dark app theme on a light OS no longer renders June light).
+9. Shim `hostInvoke` 30s timeout — a native non-reply degrades, never hangs June.
+10. Accessibility labels on the loading + failure states.
+11. Reveal fade honours Reduce Motion, matching app-wide behaviour.
+12. Session titles capped at the store boundary (both create + rename paths).
+
+Also: Apple-FM guardrail trip now falls back to GGUF (§2); honest external-open
+commands wired; a CSP (same-origin only) on the `june://` page; user-facing
+engine-error copy; a stale-`failureMessage` retry bug fixed. Hardening
+disposition across the pass: **0 HIGH, 0 open real MED** (proxy circuit breaker
+deferred-with-rationale to the Phase-4 proxy wiring). The own-lane surface is
+polished + hardened end-to-end; the only substantive remaining work is
+owner-gated (see below).
+
 ## Phase status (§9)
 
 | Phase | Code | Build | Runtime evidence | Acceptance |
