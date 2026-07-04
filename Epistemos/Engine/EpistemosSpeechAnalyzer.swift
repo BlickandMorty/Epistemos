@@ -306,6 +306,7 @@ public final class EpistemosSpeechAnalyzer {
         // stop (ending the results stream) if it's revoked, so the stall isn't silent —
         // the meeting ends and the user can re-grant permission and restart.
         permissionMonitorTask = Task { @MainActor [weak self] in
+            var rearmAttempts = 0  // RES-4: give up after several consecutive failed rearms
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(4))
                 guard !Task.isCancelled else { return }
@@ -322,8 +323,20 @@ public final class EpistemosSpeechAnalyzer {
                 // re-arm it (rearm handles its own errors, so a permanently-gone device
                 // just retries every few seconds rather than looping tightly).
                 if let self, self.didInstallInputTap, !self.engine.isRunning {
-                    Self.log.warning("audio engine stopped unexpectedly (interruption?); re-arming")
+                    rearmAttempts += 1
+                    if rearmAttempts >= 3 {
+                        // RES-4 (audit 2026-07-03): audio input couldn't be restored after
+                        // several attempts (device physically removed?) — stop instead of
+                        // looping forever behind a "Recording" indicator that's lying. Ending
+                        // the stream stops the meeting so the user can restart.
+                        Self.log.error("audio engine could not be restarted after \(rearmAttempts) attempts; stopping capture")
+                        self.stopInternal()
+                        return
+                    }
+                    Self.log.warning("audio engine stopped unexpectedly (interruption?); re-arming (attempt \(rearmAttempts))")
                     self.rearmInputTapAfterConfigurationChange()
+                } else {
+                    rearmAttempts = 0  // engine healthy again → reset the give-up counter
                 }
                 // MED-7: surface any audio dropped by backpressure since the last tick
                 // (off the render thread) so a resulting transcript gap isn't invisible.

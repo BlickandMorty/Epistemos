@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 /// Durable incremental persistence for in-progress meeting transcripts.
 ///
@@ -19,6 +20,7 @@ import Foundation
 nonisolated enum MeetingDraftStore {
     private static let directoryName = "Epistemos/MeetingDrafts"
     private static let fileExtension = "txt"
+    private static let log = Logger(subsystem: "Epistemos", category: "MeetingDraftStore")
 
     private static func directory(create: Bool) -> URL? {
         guard let base = try? FileManager.default.url(
@@ -43,7 +45,14 @@ nonisolated enum MeetingDraftStore {
     static func write(sessionId: String, transcript: String) {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let url = url(for: sessionId, create: true) else { return }
-        try? Data(transcript.utf8).write(to: url, options: .atomic)
+        // RES-9 (audit 2026-07-03): a full/unwritable disk would otherwise silently produce
+        // no draft — the crash-recovery safety net absent without a trace. Best-effort still
+        // (its failure doesn't worsen state), but log so support can diagnose.
+        do {
+            try Data(transcript.utf8).write(to: url, options: .atomic)
+        } catch {
+            log.warning("meeting crash-draft write failed — recovery may be unavailable: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Remove a session's draft — called once the meeting is saved.
