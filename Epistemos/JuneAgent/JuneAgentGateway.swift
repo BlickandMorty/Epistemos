@@ -69,11 +69,18 @@ final class JuneSessionStore {
         }
     }
 
+    /// Titles arrive from webview frames (only 1MB-bounded overall); cap at the
+    /// store boundary so no path can bloat the persisted index or the all-chats
+    /// row. Matches the bridge's deriveTitle convention.
+    private static func boundedTitle(_ title: String) -> String {
+        String(title.prefix(120))
+    }
+
     func createSession(id: String, title: String, model: String? = nil) {
         let now = ISO8601DateFormatter().string(from: Date())
         sessions.insert(
             Session(
-                id: id, title: title, startedAt: now, lastActive: now,
+                id: id, title: Self.boundedTitle(title), startedAt: now, lastActive: now,
                 messageCount: 0, preview: "", model: model
             ),
             at: 0
@@ -87,7 +94,7 @@ final class JuneSessionStore {
 
     func renameSession(id: String, title: String) {
         guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
-        sessions[idx].title = title
+        sessions[idx].title = Self.boundedTitle(title)
         persistIndex()
     }
 
