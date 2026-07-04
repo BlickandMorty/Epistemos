@@ -244,3 +244,24 @@ GGUF ✓ (default-lane + Settings path), real answer streams ✓, turn survives 
 Composer quick-switch still honestly refuses no-tools models (June's
 tool-agent design). Cloud stays notSubscribed (Phase-4), audio honest-gated —
 both left as-is per directive.
+
+## 2026-07-04 ~17:48 — FIX 1 confirmed in the REAL running app (not just the spike)
+
+Pre-set the Epistemos theme pair before launch
+(`defaults write com.epistemos.appstore epistemos.theme.pair ember`) so the
+whole app — and June — booted under the Ember (warm tan) theme, exercising the
+live `JuneThemeBridge` in the actual product rather than the isolated spike:
+
+- `11-inapp-ember-landing.png` — the Epistemos landing itself in Ember (warm
+  beige surface, brown "GREETINGS, RESEARCHER").
+- `12-inapp-ember-june-surface.png` — **June's real surface** (sidebar,
+  composer, session view, and the model picker listing all four local models)
+  rendered in the matching warm-tan Ember palette.
+
+So June visibly matches the live Epistemos theme in the running app — the exact
+FIX-1 requirement. Combined with the earlier 4-theme spike render (incl. the
+decisive dark-on-light-OS case), FIX 1 is witnessed both in isolation and in
+the real product. Owner theme pair restored to `classic` after. (The in-app
+`.onChange` *live-switch-while-open* path remains code-verified but not
+separately screenshotted — the seed path here and the onChange path call the
+same `JuneThemeBridge.payloadJSON`.)
