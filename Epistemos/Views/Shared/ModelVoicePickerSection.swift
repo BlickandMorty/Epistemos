@@ -113,7 +113,9 @@ public struct ModelVoicePickerSection: View {
     }
 
     private func refreshVoicesAndHints() {
-        voices = EpistemosSpeechSynthesizer.availableVoices(language: "en")
+        // Kokoro-only shipped TTS: list the installed Kokoro voice packs (was legacy AVSpeech).
+        // These identifiers are bare Kokoro voice names that speak()/renderRawText now honor.
+        voices = EpistemosSpeechSynthesizer.installedKokoroVoices()
         qualityHint = EpistemosSpeechSynthesizer.voiceQualityHint()
         personalVoiceAuthorization = EpistemosSpeechSynthesizer.personalVoiceAuthorization()
     }

@@ -540,6 +540,70 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }
     }
 
+    /// Installed Kokoro voice packs (voices/*.bin in the model dir) as pickable options — the
+    /// SHIPPED TTS voices. (availableVoices returns legacy AVSpeech voices for compat only.)
+    /// Empty when Kokoro isn't installed. Display name + language are derived from the Kokoro
+    /// naming convention <lang><gender>_<label> (e.g. af_heart = American English · Female · "Heart").
+    nonisolated static func installedKokoroVoices(
+        modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
+        fileManager: FileManager = .default
+    ) -> [VoiceOption] {
+        guard let modelRoot else { return [] }
+        let voicesDir = modelRoot
+            .appendingPathComponent(KokoroVoiceGateStatus.modelDirectoryName, isDirectory: true)
+            .appendingPathComponent("voices", isDirectory: true)
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: voicesDir,
+            includingPropertiesForKeys: nil
+        ) else { return [] }
+        let names = entries
+            .filter { $0.pathExtension == "bin" }
+            .map { $0.deletingPathExtension().lastPathComponent }
+            .filter(isSafeKokoroVoiceName)
+            .sorted()
+        return names.map { name in
+            let meta = kokoroVoiceMetadata(for: name)
+            return VoiceOption(
+                identifier: name,
+                displayName: meta.displayName,
+                language: meta.language,
+                quality: .premium
+            )
+        }
+    }
+
+    private nonisolated static func isSafeKokoroVoiceName(_ name: String) -> Bool {
+        !name.isEmpty && name.count <= 64
+            && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }
+    }
+
+    private nonisolated static func kokoroVoiceMetadata(for name: String) -> (displayName: String, language: String) {
+        let parts = name.split(separator: "_", maxSplits: 1)
+        let prefix = String(parts.first ?? "")
+        let label = parts.count > 1 ? String(parts[1]) : name
+        let displayName = label.isEmpty ? name : label.prefix(1).uppercased() + label.dropFirst()
+        let language: String
+        switch prefix.first {
+        case "a": language = "American English"
+        case "b": language = "British English"
+        case "e": language = "Spanish"
+        case "f": language = "French"
+        case "h": language = "Hindi"
+        case "i": language = "Italian"
+        case "j": language = "Japanese"
+        case "p": language = "Portuguese"
+        case "z": language = "Chinese"
+        default:  language = "Kokoro"
+        }
+        let gender: String
+        switch prefix.dropFirst().first {
+        case "f": gender = " · Female"
+        case "m": gender = " · Male"
+        default:  gender = ""
+        }
+        return (String(displayName), language + gender)
+    }
+
     /// Group a voice list by quality tier (Premium > Enhanced > Default), dropping empty tiers.
     /// Shared by the Settings picker (ModelVoicePickerSection) and the Quick Capture point-of-use
     /// picker so there's ONE grouping rule, not duplicated logic. Pure → headless-testable.
