@@ -370,3 +370,17 @@ FLAG (Agent A meeting domain): EpistemosApp.performTeardown doesn't stop live me
 
 - KaTeX REFINED 2026-07-04: the 3.24 InlineMath/BlockMath extensions DO carry parseMarkdown/renderMarkdown storage and katexOptions is optional (defaults undefined) — so the editor side looks CORRECT. This LEANS the regression toward the arXiv import mangling math delimiters (a corpus file showed malformed `$$where $`), which is Agent-B lane, NOT the editor. Still need owner confirm: does typed `$x^2$` render in a plain note? If yes → arXiv-import (Agent B); if no → editor/3.24 (my lane).
 - RES-2 part 2 (LiteParse file-picker import) IMPLEMENTED + APP-BUILD-VERIFIED 2026-07-04 (commit 9d53f898a): LiteParsePDFImportController.importPage now validates + converts the SOURCE PDF via LiteParsePDFConversion (bounded/abandonable) BEFORE creating any vault files, so a stuck synchronous FFI times out cleanly with no partial-file cleanup; materializeImportedFiles drops the FFI and takes the pre-computed markdown (copy/write/defer-cleanup otherwise unchanged). Closes for the manual file-picker path the same reliability gap RES-2 part 1 closed for arXiv. EVIDENCE: app COMPILED + LINKED (Ld .../Epistemos.app @ build log 5147), LiteParsePDFImportController.swift compiled clean @ 2838; the ONLY build error is the off-limits Goose test WorkSPAServerTests->GooseWebSurfaceView (a dirty Goose file mid-edit) which fails the shared test-target link tree-wide — NOT mine. RES-2 now COMPLETE (both arXiv ingest + manual file-picker paths bounded). NOTE: the scheme builds the test target on plain `build`, so this Goose breakage currently blocks green builds for ALL lanes until that lane fixes GooseWebSurfaceView.
+
+## KaTeX DIAGNOSIS RESOLVED (arXiv part) 2026-07-04
+Verified: arXiv import downloads the PDF (ArxivIngestService: ArxivPDFURLPolicy +
+downloadSession.download) → LiteParse PDF→MD. LiteParse does NOT emit `$...$` math — its
+only math handling DROPS equation labels (vendor/liteparse .../headings.rs:162,642). So
+arXiv "math not rendering" is INHERENT to PDF→MD (you cannot recover LaTeX source from a
+rendered PDF) — NOT a regression, NOT the Epdoc editor. This is arXiv-import lane (Agent B).
+  * REAL FIX for arXiv math (Agent B): import the arXiv `.tex` e-print SOURCE (arxiv.org
+    provides it; it has real `$...$`) instead of/alongside the PDF, OR run a PDF-math OCR
+    (pix2tex/nougat) — both out of Front&Feel scope.
+  * EDITOR side (my lane): 3.24 InlineMath/BlockMath carry parseMarkdown → clean `$...$`
+    renders. STILL NEED owner confirm: does typed `$x^2$` in a PLAIN note render? If NO →
+    real 3.24 editor regression (coordinated @tiptap downgrade); if YES → editor is fine and
+    the whole KaTeX complaint is the arXiv-PDF limitation above.
