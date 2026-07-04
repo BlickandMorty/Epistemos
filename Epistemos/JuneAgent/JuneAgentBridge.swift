@@ -18,6 +18,8 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     static let invokeChannel = "epistemosInvoke"
     static let gatewayChannel = "epistemosGateway"
     static let consoleChannel = "epistemosConsole"
+    /// June → native chrome: june:menu-bar:* emits forwarded by the shim.
+    static let eventsChannel = "epistemosEvents"
 
     private static let log = Logger(subsystem: "com.epistemos", category: "JuneAgentBridge")
     private static let maxBodyBytes = 2_000_000
@@ -64,6 +66,19 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             let args = body["args"] as? [String: Any] ?? [:]
             let result = handleInvoke(cmd: cmd, args: args)
             resolveInvoke(callId: callId, result: result)
+        case Self.eventsChannel:
+            guard
+                let body = message.body as? [String: Any],
+                let event = body["event"] as? String,
+                event.hasPrefix("june:menu-bar:")
+            else {
+                Self.log.warning("events message failed shape validation")
+                return
+            }
+            if event == "june:menu-bar:agent-state",
+               let payload = body["payload"] as? [String: Any] {
+                JuneAgentActivityModel.shared.apply(statePayload: payload)
+            }
         case Self.consoleChannel:
             #if DEBUG
             if let line = message.body as? String {

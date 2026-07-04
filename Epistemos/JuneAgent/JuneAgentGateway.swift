@@ -108,6 +108,9 @@ final class JuneSessionStore {
         return (try? JSONDecoder().decode([Message].self, from: data)) ?? []
     }
 
+    /// Newest-first snapshot for native chrome (the all-chats sheet).
+    func allSessions() -> [Session] { sessions }
+
     /// JSON shape for the `hermes_bridge_sessions` invoke.
     func sessionsPayload() -> [String: Any] {
         let rows: [[String: Any]] = sessions.map { s in

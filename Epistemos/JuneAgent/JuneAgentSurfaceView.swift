@@ -108,6 +108,7 @@ final class JuneAgentSurfaceHolder {
         #endif
         ucc.add(bridge, name: JuneAgentBridge.invokeChannel)
         ucc.add(bridge, name: JuneAgentBridge.gatewayChannel)
+        ucc.add(bridge, name: JuneAgentBridge.eventsChannel)
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.underPageBackgroundColor = .clear
@@ -181,6 +182,7 @@ struct JuneAgentSurfaceView: View {
             } else if let webView = JuneAgentSurfaceHolder.shared.webView {
                 JuneWebViewRepresentable(webView: webView)
                     .opacity(revealed ? 1 : 0)
+                    .overlay { JuneAgentMascotOverlayHook() }
             }
             if failureMessage == nil && !revealed {
                 ProgressView()
