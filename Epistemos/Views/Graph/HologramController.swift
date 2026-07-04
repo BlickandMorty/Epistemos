@@ -245,11 +245,15 @@ final class HologramController {
     }
 
     private func presentFullOverlay() {
-        // Owner 2026-07-04: restore() is a dead no-op (see toggle()) — routing
-        // the minimized state through it meant show()/revealPage() silently
-        // failed while minimized or soft-hidden. show() is the canonical
-        // presenter for the unified mini window (warm fast path + cold start).
-        overlay?.show()
+        // Owner 2026-07-04: restore() is LIVE again (full-screen frame at
+        // .floatingPanel level). A minimized companion square expands back
+        // to full; everything else presents via show() (warm fast path +
+        // cold start).
+        if overlay?.isMinimized == true, overlay?.isVisible == true {
+            overlay?.restore()
+        } else {
+            overlay?.show()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 

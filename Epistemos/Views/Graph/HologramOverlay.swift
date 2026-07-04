@@ -787,13 +787,16 @@ final class HologramOverlay {
     /// Restore the mini panel back to the full-screen overlay.
     /// The same window transforms to full-screen — no Metal view reparenting.
     ///
-    /// Per user 2026-05-10: the unified graph is always in mini ontology;
-    /// there is no full-screen mode to restore to. This function is kept
-    /// as a no-op for any legacy callers (the expand button infrastructure
-    /// has been removed but the symbol may still be referenced). Returns
-    /// immediately without changing state.
+    /// Owner 2026-07-04: REVIVED. The 2026-05-10 mini-ontology pass had made
+    /// this a `guard false` no-op, which silently broke the mini panel's
+    /// "Restore to full size" button and left the overlay stuck as the
+    /// right-pinned ~900pt square — the window's left edge lands at the
+    /// screen's horizontal midpoint, so any note/inspector content inside
+    /// it read as "splits the screen halfway" (the owner's regression
+    /// report). The May decision's actual perf complaint — `.screenSaver`
+    /// window level compositing lag on retina — stays fixed: this restore
+    /// keeps the `.floatingPanel` presentation and only changes the frame.
     func restore() {
-        guard false else { return }
         guard let metalView, let window, isMinimized else { return }
 
         // Cold-started in mini mode (e.g., via command palette) — no full-screen window exists.
@@ -849,7 +852,11 @@ final class HologramOverlay {
         window.contentView?.layer?.masksToBounds = true
 
         // 5. Animate frame change to full screen.
-        window.applyPresentation(.immersiveOverlay)
+        // .floatingPanel, NOT .immersiveOverlay: the `.screenSaver` window
+        // level was the actual source of the 2026-05-10 "full-screen graph
+        // is laggy on retina" complaint. Full-size frame at floating level
+        // keeps the compositor path identical to the mini panel's.
+        window.applyPresentation(.floatingPanel)
         guard let screen = NSScreen.main else { return }
 
         setWindowFrame(window, to: screen.visibleFrame, duration: 0.3)
@@ -2318,16 +2325,17 @@ final class HologramOverlay {
 
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
-        // Per user 2026-05-10: the unified graph (mini ontology) wires the
-        // same observers + parent-window attachment + pinned-panel timer
-        // that the old `minimize()` path used to set up. The external
-        // mini inspector panel is now the default node-selection inspector.
-        // `isMinimized = true` keeps every existing "is the graph in mini
-        // mode" check truthy — minimize/restore is no longer a user-facing
-        // state machine; the graph IS the mini.
-        isMinimized = true
+        // Owner 2026-07-04: cold start is the FULL-SCREEN presentation again
+        // (prepareImmersiveOverlayWindow frames fresh opens to visibleFrame),
+        // so isMinimized starts FALSE. The old `isMinimized = true` ("the
+        // graph IS the mini") would break the floating-controls minimize
+        // button on a fresh open — minimize() guards on !isMinimized and
+        // returned early. minimize()/restore() are a live state machine
+        // again; observers + parent attachment + pinned-panel timer wiring
+        // are unchanged.
+        isMinimized = false
         attachFloatingPanelToMainWindow(window)
-        self.miniPanel = window
+        self.miniPanel = nil
         observeNodeSelection()
         startPinnedPanelTimer()
 
@@ -2498,12 +2506,15 @@ final class HologramOverlay {
         // applies the correct .floatingPanel presentation.
     }
 
-    /// Per user 2026-05-10: the single unified graph (mini ontology) always
-    /// presents as a `.floatingPanel` at the GraphMiniPanelLayout size.
-    /// This function used to switch the window into `.immersiveOverlay`
-    /// + full-screen frame, which is what caused the `.screenSaver`-level
-    /// compositor lag. Now both cold-start and warm-reopen paths produce
-    /// the same floating-panel configuration.
+    /// Owner 2026-07-04: the overlay opens FULL-SCREEN again (visibleFrame,
+    /// still `.floatingPanel` level — the 2026-05-10 lag was the
+    /// `.screenSaver` window LEVEL, not the frame size). The mini-ontology
+    /// pass had this re-frame every fresh open to the right-pinned ~900pt
+    /// GraphMiniPanelLayout square, whose left edge lands at the screen's
+    /// horizontal midpoint — so the note/inspector content inside the
+    /// overlay read as "splits the screen halfway" on every node open.
+    /// The square remains available via minimize(); restore() brings the
+    /// full frame back.
     private func prepareImmersiveOverlayWindow(_ window: GraphOverlayPanel, screen: NSScreen?) {
         if let parent = window.parent {
             parent.removeChildWindow(window)
@@ -2511,11 +2522,10 @@ final class HologramOverlay {
         window.applyPresentation(.floatingPanel)
         if let screen,
            !window.isVisible || window.frame.size == screen.frame.size {
-            // Only re-frame to the mini layout when the window hasn't
-            // been user-resized. The user can drag-resize the panel to
-            // whatever size they want; we shouldn't snap it back on
-            // every show().
-            window.setFrame(GraphMiniPanelLayout.frame(in: screen.visibleFrame), display: true)
+            // Only re-frame when the window isn't currently visible (fresh
+            // open) or carries the legacy menubar-covering screen.frame.
+            // A visible, user-drag-resized panel keeps its size.
+            window.setFrame(screen.visibleFrame, display: true)
         }
     }
 
