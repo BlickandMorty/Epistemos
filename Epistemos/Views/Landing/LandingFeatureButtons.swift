@@ -166,11 +166,11 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .browser:
             return true
         case .agent:
-            #if EPISTEMOS_APP_STORE
-            return false
-            #else
+            // Available on BOTH targets: MAS mounts the vendored June agent
+            // room (Plan 1-MAS, LandingView case .agent → JuneAgentSurfaceView);
+            // Pro mounts its own agent workspace. The old MAS `false` predated
+            // the June surface and left it unreachable at runtime.
             return true
-            #endif
         }
     }
 
@@ -207,7 +207,11 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .meetingNote:
             return "Record a meeting and capture a live, auto-saved transcript."
         case .agent:
+            #if EPISTEMOS_APP_STORE
+            return "The agent room — chat with June, streaming real answers from on-device models."
+            #else
             return "The agent workspace — chat with coding agents over your projects, with files, git, diffs, and a terminal."
+            #endif
         }
     }
 
