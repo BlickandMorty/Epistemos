@@ -318,11 +318,11 @@ final class JuneAgentGateway {
                     self.store.appendMessage(sessionID: sessionID, role: "assistant", content: full)
                 }
             } catch {
-                Self.log.error("local turn failed: \(error.localizedDescription, privacy: .public)")
-                let message = "Error: the local engine could not answer (\(error.localizedDescription))."
+                let described = Self.describeEngineError(error)
+                Self.log.error("local turn failed: \(described, privacy: .public)")
                 self.emit(
                     type: "message.complete", sessionID: sessionID,
-                    payload: ["text": full.isEmpty ? message : full, "status": "error"]
+                    payload: ["text": full.isEmpty ? "Error: \(described)" : full, "status": "error"]
                 )
             }
             self.runningTurns[sessionID] = nil
@@ -410,6 +410,26 @@ final class JuneAgentGateway {
             "capabilities": ["supportsFunctionCalling"],
         ])
         return rows
+    }
+
+    /// User-facing engine-error text: QuickChatError carries no LocalizedError
+    /// conformance, so localizedDescription would render "(…error 2.)" in the
+    /// transcript. Translate the cases we own; pass real LocalizedErrors
+    /// (cloud engine, gateway) through untouched.
+    private static func describeEngineError(_ error: Error) -> String {
+        if let quickChat = error as? QuickChatError {
+            switch quickChat {
+            case .guardrailBlocked:
+                return "The on-device model declined this request."
+            case .exceededContextWindow:
+                return "This conversation is too long for the on-device model. Start a new session."
+            case .engineUnavailable(let reason):
+                return reason.userCopy
+            case .generationFailed(let detail):
+                return "The on-device model failed to answer (\(detail))."
+            }
+        }
+        return error.localizedDescription
     }
 
     private func emit(type: String, sessionID: String, payload: [String: Any]) {
