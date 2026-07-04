@@ -52,6 +52,9 @@ struct ProseEditorView: View {
     /// Snapshot of the last body persisted to disk. Avoids disk reads on every keystroke.
     @State private var lastPersistedBody: String = ""
     @State private var loadedBodyPageId: String?
+    /// NOTE-5: throttle prose version snapshots to ~90s so active typing doesn't spawn a
+    /// version every save; captureVersionIfNeeded itself skips unchanged bodies.
+    @State private var lastVersionCaptureAt: TimeInterval = 0
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
     @State private var draftTask: Task<Void, Never>?  // NOTE-4: crash-recovery draft debounce
@@ -481,6 +484,14 @@ struct ProseEditorView: View {
             // the new content if @Query refetch triggers view re-evaluation.
             page.needsVaultSync = true
             saveModelContext(reason: "debounced save for page \(pageId)")
+            // NOTE-5: periodic version snapshot for prose-only editing — the code-editor path
+            // captures versions but prose didn't, leaving prose users with no recovery
+            // history. Throttled to ~90s (captureVersionIfNeeded self-dedups on unchanged body).
+            let versionNow = Date.timeIntervalSinceReferenceDate
+            if versionNow - lastVersionCaptureAt > 90 {
+                lastVersionCaptureAt = versionNow
+                vaultSync.captureVersionIfNeeded(pageId: pageId)
+            }
             // NOTE-2: notify sibling editors of this note so they pick up our save — a CLEAN
             // sibling reloads it (reads DISK via preferDisk), a DIRTY sibling defers and keeps
             // its edits (NOTE-3 guard). Our own editor no-ops via the skip-unchanged guard
