@@ -377,3 +377,39 @@ prompt, RAM gate refuses an oversized load gracefully. P3 = sandbox-StoreKit pur
 token → cloud turn end-to-end. P4 = approval sheet blocks a tool; bounded-tools
 explainer visible; 5.1.2(i) consent sheet appears before the first cloud send. Each
 phase ends in a commit + an owner-visual checkpoint.
+
+---
+
+## §12 CARRY-FORWARD — instant-open (owner-loved; PRESERVE, adapted for native)
+
+The current goose surface opens **instantly** when clicked (recipe in
+`Epistemos/Goose/GooseWebSurfaceView.swift` + `GooseRuntimeSupervisor.swift`) — the owner
+wants that felt-speed kept. MAS is **native SwiftUI**, so some mechanisms change shape, but
+the principle carries fully: **never block the main actor, keep the expensive thing warm,
+show a loading state — never a hang.**
+
+- **Native views are already instant.** Surface A (wave chat) + Surface B (native
+  workspace) render immediately — no WebView, no server to boot. Don't add either.
+- **The expensive resource is the LOCAL MODEL, not the UI.** Apple Foundation Models is
+  **zero-load (instant)** — so Surface A defaulting to Apple FM when available IS the
+  instant-open path. The llama.cpp GGUF lane is the only heavy load.
+- **#2 off-main init (KEEP — load-bearing).** Init `agent_core` and load any GGUF model in
+  `Task.detached(.userInitiated)`, NEVER on `@MainActor` — same reason the goose spawn had
+  to move off-main (`GooseRuntimeSupervisor.swift:421-427`): heavy init / signature
+  validation freezes the UI inline.
+- **#3 lazy on first appear (KEEP).** Start the agent_core session / model load from
+  `.task` on the surface, not at app launch.
+- **#4 loading state, not a hang (KEEP).** While the model loads or agent_core inits, show
+  a warm loading view (the wave landing itself, or a shimmer); poll readiness, then swap in
+  the live surface — mirror `loadWhenReady` (`GooseWebSurfaceView.swift:446-472`).
+- **#5 keep the runtime + model WARM across tab switches (KEEP — the native analog of
+  WebView keep-alive).** Do NOT unload the GGUF model or tear down the agent_core session
+  when the user switches away from Agent and back — only pause. Re-entering is instant
+  because the model is already resident. (Respect the existing idle-unload memory-pressure
+  policy: warm on tab-switch, unload only under real pressure.)
+- **#6 inject-at-render (KEEP).** Inject theme/config at render time; preload static assets
+  into memory; no per-open disk walk.
+
+Net: Surface A is instant by leaning on Apple FM (zero-load) with a warm GGUF fallback that
+survives tab-switches; Surface B is instant because it's native + a warm in-process
+agent_core. Same felt-speed as goose today, achieved natively.

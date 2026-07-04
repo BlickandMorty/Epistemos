@@ -378,3 +378,48 @@ green through opencode. P2 = pill/typewriter/all-chats/June bar+wash visible; gr
 derives correctly on ≥3 themes incl. one custom. P3 = goose conversation streams via
 the adapter; engine badges + directory-grouping degradation honest; absent capabilities
 hidden. Each phase ends in a commit + an owner-visual checkpoint.
+
+---
+
+## §13 CARRY-FORWARD — the "instant-open" recipe (owner-loved; PRESERVE exactly)
+
+The current goose surface opens **instantly** when clicked — the owner specifically wants
+this preserved. It is NOT one trick; it's a **6-part recipe** in
+`Epistemos/Goose/GooseWebSurfaceView.swift` + `GooseRuntimeSupervisor.swift`. This Pro
+surface is the **same architecture** (WKWebView over a supervised localhost server), so
+port ALL of it. Read the real code — don't approximate.
+
+1. **Eager WebView + instant placeholder.** Create the WKWebView in the view's `init()`,
+   hold it in `@State`, and load a placeholder HTML **immediately** — before any async
+   start (`GooseWebSurfaceView.swift:85-94, :93`). WebKit warms + paints while the backend
+   boots, so the click feels instant.
+2. **Spawn servers OFF the main actor.** Start the OpenChamber web server + opencode +
+   goosed in `Task.detached(priority: .userInitiated)` — process spawn blocks on OS
+   code-signature validation of the notarized binaries for hundreds of ms–seconds; an
+   inline @MainActor spawn **froze the UI on the goose transition** (real hang-trace fix,
+   `GooseRuntimeSupervisor.swift:421-427`). NEVER spawn on the main actor.
+3. **Lazy start on first appear.** Fire startup from `.task` on the Agent view, not at app
+   launch (`GooseWebSurfaceView.swift:109`) — no boot cost for users who never open Agent.
+4. **Poll-wait for readiness, placeholder in parallel.** Show the placeholder, poll the
+   supervisor `.status` for `.running`, then drive the real load
+   (`GooseWebSurfaceView.swift:345-347, :446-472`). Warm loading state, never a hang/blank.
+5. **KEEP THE WEBVIEW ALIVE across tab switches — this is the "instant re-open."** The
+   `@State`-owned WebView survives tab hide; `onDisappear` tears down ONLY surface logic
+   (supervisor/servers/bridges), never the WKWebView (`GooseWebSurfaceView.swift:42,
+   :147-149, :295-309`). ⚠️ **DOUBLE-CRITICAL for OpenChamber:** its SPA boots a live
+   session — re-loading the URL reboots the SPA and KILLS the session. Keep the WebView
+   alive AND drive navigation via injected intent events, never by reloading the URL (this
+   is already the pill-nav rule in canon — same reason).
+6. **Non-persistent data store + fast asset serving.** `WKWebsiteDataStore.nonPersistent()`
+   (`GooseWebSurfaceSupport.swift:32`). The goose surface serves its bundle from RAM via a
+   custom scheme handler (`:44-49`); OpenChamber serves its SPA from its own web server, so
+   keep the non-persistent store and just ensure the web server is warm before the load
+   (poll `/` readiness — mechanism #4).
+
+**Escalation for the heavier stack (recommended given 3 child processes):** OpenChamber's
+boot (Node server + opencode + goosed) is heavier than `goose serve`, so first-open may lag
+even with the placeholder. If it does, **eager-pre-warm the web server + opencode at app
+bootstrap** (`AppBootstrap`, off-main, `.utility` priority) so the server is already
+`.running` by the time the user first hits Agent — making first-open instant too. Keep the
+lazy fallback (if pre-warm hasn't finished, placeholder + poll still cover it). This is the
+one place to go *beyond* the goose recipe, because the stack is heavier.
