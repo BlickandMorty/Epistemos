@@ -23,6 +23,7 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
 
     private let stateLock = NSLock()
     private var loadedModelID: String?
+    private var preferredModelID: String?
     #if canImport(EpistemosLlama)
     private let engine = LlamaLocalChatEngine()
     #endif
@@ -38,9 +39,21 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
     }
 
     /// The entry that would serve a request right now, if any.
+    /// The gateway's chosen model (June's picker). Honored by resolvedEntry
+    /// when that model is installed, so a user who picks a specific local model
+    /// runs THAT one — not just whichever happened to load first.
+    func setPreferredModel(_ id: String?) {
+        stateLock.withLock { preferredModelID = id }
+    }
+
     func resolvedEntry() -> GGUFCatalogEntry? {
         guard isAvailableInThisBuild else { return nil }
-        if let loadedModelID, let entry = GGUFModelCatalog.entry(id: loadedModelID) {
+        let (preferred, loaded) = stateLock.withLock { (preferredModelID, loadedModelID) }
+        if let preferred, let entry = GGUFModelCatalog.entry(id: preferred),
+           GGUFModelCatalog.installedURL(for: entry) != nil {
+            return entry
+        }
+        if let loaded, let entry = GGUFModelCatalog.entry(id: loaded) {
             return entry
         }
         return GGUFModelCatalog.installedEntries().first

@@ -60,8 +60,24 @@ final class JuneSessionStore {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: indexURL) else { return }
-        sessions = (try? JSONDecoder().decode([Session].self, from: data)) ?? []
+        sessions = decodeOrQuarantine([Session].self, at: indexURL) ?? []
+    }
+
+    /// Data-integrity guard: decode persisted JSON, but if the bytes are present
+    /// yet CORRUPT, move the bad file aside (`…corrupt-<epoch>`) rather than
+    /// letting the caller treat it as "empty" — which would overwrite the only
+    /// copy on the next save and turn one bad file into permanent data loss.
+    /// Absent file = legitimately empty (returns nil quietly); corrupt file =
+    /// quarantined + logged so it can be recovered/inspected.
+    private func decodeOrQuarantine<T: Decodable>(_ type: T.Type, at url: URL) -> T? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        if let value = try? JSONDecoder().decode(type, from: data) { return value }
+        let quarantine = url.appendingPathExtension("corrupt-\(Int(Date().timeIntervalSince1970))")
+        try? FileManager.default.moveItem(at: url, to: quarantine)
+        Self.log.error(
+            "corrupt store file quarantined: \(url.lastPathComponent, privacy: .public) → \(quarantine.lastPathComponent, privacy: .public)"
+        )
+        return nil
     }
 
     private func persistIndex() {
@@ -153,8 +169,7 @@ final class JuneSessionStore {
     }
 
     func loadMessages(sessionID: String) -> [Message] {
-        guard let data = try? Data(contentsOf: messagesURL(sessionID)) else { return [] }
-        return (try? JSONDecoder().decode([Message].self, from: data)) ?? []
+        decodeOrQuarantine([Message].self, at: messagesURL(sessionID)) ?? []
     }
 
     /// Newest-first snapshot for native chrome (the all-chats sheet).
@@ -207,11 +222,14 @@ nonisolated enum JuneModelID {
 
 nonisolated enum JuneGatewayError: LocalizedError {
     case cloudNotConfigured
+    case modelPreparing(String)
 
     var errorDescription: String? {
         switch self {
         case .cloudNotConfigured:
             return "Epistemos Cloud isn't available yet in this build. Pick an on-device model to continue."
+        case .modelPreparing(let detail):
+            return detail
         }
     }
 }
@@ -238,6 +256,9 @@ final class JuneAgentGateway {
     // tab churn (warm invariant, mas_model_retained_on_switch). A private
     // instance here would double-load the model.
     private let localGGUF = LocalGGUFQuickChatBackend.shared
+    /// Drives download-on-select from June's model picker: the catalog's GGUF
+    /// models are shown even when not installed, and picking one downloads it.
+    let downloads = QuickChatModelDownloadManager()
     private var runningTurns: [String: Task<Void, Never>] = [:]
     /// Generous for a single-user app (one active + a few background) yet a
     /// hard ceiling against a runaway/compromised page.
@@ -335,7 +356,10 @@ final class JuneAgentGateway {
         // written at session.create, survives relaunch), revalidated because a
         // lane can disappear (e.g. an uninstalled GGUF), else the default.
         let persisted = store.model(for: sessionID).flatMap {
-            availableModelIDs().contains($0) ? $0 : nil
+            // Selectable (not just installed): a session pinned to a model that
+            // is still downloading keeps it, and the turn surfaces the honest
+            // download state rather than silently switching models.
+            selectableModelIDs().contains($0) ? $0 : nil
         }
         let modelID = persisted ?? currentDefaultModelID()
 
@@ -425,12 +449,6 @@ final class JuneAgentGateway {
         switch modelID {
         case JuneModelID.appleFM:
             return appleFM.stream(prompt: prompt, instructions: Self.localInstructions(withHistory: history))
-        case JuneModelID.localGGUF:
-            return localGGUF.stream(
-                prompt: prompt,
-                instructions: Self.localInstructions(withHistory: history),
-                maxNewTokens: 1024
-            )
         case JuneModelID.cloud:
             // Honest gate (Plan 1-MAS §0.5/§5): a real Keychain session token
             // (minted by the Phase-4 StoreKit receipt exchange) is required —
@@ -442,6 +460,27 @@ final class JuneAgentGateway {
             )
         default:
             let instructions = Self.localInstructions(withHistory: history)
+            // A specific GGUF model the user picked: run it when installed,
+            // otherwise surface the honest download state (never a cryptic
+            // engine error, never a silent fallback to a different model).
+            if let entry = GGUFModelCatalog.entry(id: modelID) {
+                localGGUF.setPreferredModel(modelID)
+                switch downloads.state(for: entry) {
+                case .installed:
+                    return localGGUF.stream(prompt: prompt, instructions: instructions, maxNewTokens: 1024)
+                case .downloading(let p):
+                    throw JuneGatewayError.modelPreparing("\(entry.displayName) is downloading (\(Int(p * 100))%). Try again in a moment.")
+                case .verifying:
+                    throw JuneGatewayError.modelPreparing("\(entry.displayName) is finishing its download. Try again in a moment.")
+                case .failed(let why):
+                    throw JuneGatewayError.modelPreparing("\(entry.displayName) couldn't be downloaded (\(why)). Re-select it to retry.")
+                case .notInstalled:
+                    downloads.beginDownload(entry)
+                    throw JuneGatewayError.modelPreparing("Downloading \(entry.displayName) now — try again once it's ready.")
+                }
+            }
+            // Legacy/unknown local id (e.g. the old single local-gguf lane):
+            // best available on-device lane.
             if AppleFMQuickChatBackend.unavailability() == nil {
                 return appleFM.stream(prompt: prompt, instructions: instructions)
             }
@@ -494,28 +533,53 @@ final class JuneAgentGateway {
         runningTurns[sessionID] = nil
     }
 
+    /// Runnable-now lanes: Apple FM (if the device supports it), each INSTALLED
+    /// GGUF model by its catalog id, and cloud.
     func availableModelIDs() -> [String] {
         var ids: [String] = []
         if AppleFMQuickChatBackend.unavailability() == nil { ids.append(JuneModelID.appleFM) }
-        if localGGUF.unavailability() == nil { ids.append(JuneModelID.localGGUF) }
+        if localGGUF.isAvailableInThisBuild {
+            ids.append(contentsOf: GGUFModelCatalog.installedEntries().map(\.id))
+        }
+        ids.append(JuneModelID.cloud)
+        return ids
+    }
+
+    /// Everything the picker offers — the runnable lanes PLUS the not-yet-
+    /// installed GGUF models (picking one downloads it). Selecting a
+    /// downloadable model must persist, so it becomes active once it lands.
+    func selectableModelIDs() -> [String] {
+        var ids: [String] = []
+        if AppleFMQuickChatBackend.unavailability() == nil { ids.append(JuneModelID.appleFM) }
+        if localGGUF.isAvailableInThisBuild {
+            ids.append(contentsOf: GGUFModelCatalog.entries.map(\.id))
+        }
         ids.append(JuneModelID.cloud)
         return ids
     }
 
     func currentDefaultModelID() -> String {
-        let available = availableModelIDs()
         if let saved = UserDefaults.standard.string(forKey: Self.defaultModelKey),
-           available.contains(saved) {
+           selectableModelIDs().contains(saved) {
             return saved
         }
-        // Best local lane first; cloud is never a silent default.
+        // Best runnable local lane first; cloud is never a silent default.
+        let available = availableModelIDs()
         return available.first { $0 != JuneModelID.cloud } ?? JuneModelID.cloud
     }
 
     @discardableResult
     func setDefaultModel(_ id: String) -> Bool {
-        guard availableModelIDs().contains(id) else { return false }
+        guard selectableModelIDs().contains(id) else { return false }
         UserDefaults.standard.set(id, forKey: Self.defaultModelKey)
+        // A GGUF pick steers the local lane and, if it isn't downloaded yet,
+        // starts the download so the next turn can run it.
+        if let entry = GGUFModelCatalog.entry(id: id) {
+            localGGUF.setPreferredModel(id)
+            if GGUFModelCatalog.installedURL(for: entry) == nil {
+                downloads.beginDownload(entry)
+            }
+        }
         return true
     }
 
@@ -532,14 +596,33 @@ final class JuneAgentGateway {
                 "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
             ])
         }
-        if localGGUF.unavailability() == nil, let entry = localGGUF.resolvedEntry() {
-            rows.append([
-                "provider": "epistemos", "id": JuneModelID.localGGUF,
-                "name": "\(entry.displayName) (on-device)", "modelType": "text",
-                "description": "\(entry.subtitle). Runs locally, free, fully private. Chat only — no agent tools.",
-                "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
-                "contextTokens": entry.defaultContextTokens,
-            ])
+        // Every catalog GGUF model, installed or not — picking a not-yet-
+        // installed one downloads it (see setDefaultModel). The description
+        // carries the honest state so the user knows what selecting will do.
+        if localGGUF.isAvailableInThisBuild {
+            for entry in GGUFModelCatalog.entries {
+                let state = downloads.state(for: entry)
+                let detail: String
+                switch state {
+                case .installed:
+                    detail = "\(entry.subtitle). Runs locally, free, fully private. Chat only — no agent tools."
+                case .downloading(let p):
+                    detail = "\(entry.subtitle). Downloading \(Int(p * 100))%…"
+                case .verifying:
+                    detail = "\(entry.subtitle). Verifying download…"
+                case .failed:
+                    detail = "\(entry.subtitle). Download failed — select to retry."
+                case .notInstalled:
+                    detail = "\(entry.subtitle). Select to download (~\(Self.sizeText(entry.approxDownloadBytes))), then runs locally & fully private."
+                }
+                rows.append([
+                    "provider": "epistemos", "id": entry.id,
+                    "name": "\(entry.displayName) (on-device)", "modelType": "text",
+                    "description": detail,
+                    "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
+                    "contextTokens": entry.defaultContextTokens,
+                ])
+            }
         }
         rows.append([
             "provider": "epistemos", "id": JuneModelID.cloud,
@@ -549,6 +632,12 @@ final class JuneAgentGateway {
             "capabilities": ["supportsFunctionCalling"],
         ])
         return rows
+    }
+
+    private static func sizeText(_ bytes: Int64) -> String {
+        let gb = Double(bytes) / 1_073_741_824
+        if gb >= 1 { return String(format: "%.1f GB", gb) }
+        return String(format: "%.0f MB", Double(bytes) / 1_048_576)
     }
 
     /// User-facing engine-error text: QuickChatError carries no LocalizedError
