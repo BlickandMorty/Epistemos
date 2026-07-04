@@ -82,10 +82,23 @@ final class JuneSchemeHandler: NSObject, WKURLSchemeHandler {
         activeTasks.removeValue(forKey: ObjectIdentifier(urlSchemeTask))
     }
 
+    /// Hardening doctrine §3.A: no external hosts from the webview. All
+    /// legitimate networking (engines, proxy) is Swift-side; page JS gets
+    /// same-origin only. Inline script/style stay allowed (Vite output and
+    /// React style attributes need them); user scripts bypass CSP by design.
+    private static let contentSecurityPolicy =
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
+        "font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; " +
+        "object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+
     private func respond(to task: WKURLSchemeTask, url: URL, status: Int, mime: String?, data: Data?) {
         var headers: [String: String] = [:]
         if let mime { headers["Content-Type"] = mime }
         if let data { headers["Content-Length"] = String(data.count) }
+        if mime == "text/html" {
+            headers["Content-Security-Policy"] = Self.contentSecurityPolicy
+        }
         guard let response = HTTPURLResponse(
             url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers
         ) else { return }
