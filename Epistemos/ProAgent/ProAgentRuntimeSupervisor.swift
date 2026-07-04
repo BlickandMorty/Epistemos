@@ -267,6 +267,17 @@ final class ProAgentRuntimeSupervisor {
         // GOOSE_* keys, TLS explicitly off (it DEFAULTS ON upstream), per-launch
         // secret held Swift-side + handed only to the proxy. Reuses the proven
         // GooseRuntimeSupervisor environment builder.
+        // OPT-IN keyring bypass (default OFF): with the keyring on (matching the
+        // proven GooseRuntimeSupervisor default), goosed prompts for the macOS
+        // 'goose' keychain ACL on each launch of an unsigned/re-signed build,
+        // which blocks a provider (e.g. cursor-agent, which has its own CLI
+        // auth and needs no keychain secret). The owner may opt into reading
+        // goose's own secret store from config instead —
+        // EPISTEMOS_PRO_GOOSE_DISABLE_KEYRING=1 — to run/verify a goose turn
+        // without the prompt. Production posture is UNCHANGED (flag absent →
+        // keyring on); this does not touch Epistemos's Keychain-held keys.
+        let proGooseDisableKeyring =
+            ProcessInfo.processInfo.environment["EPISTEMOS_PRO_GOOSE_DISABLE_KEYRING"] == "1"
         var goosedProc: Process?
         if let gooseChild {
             let proc = Process()
@@ -276,6 +287,7 @@ final class ProAgentRuntimeSupervisor {
             proc.environment = GooseRuntimeSupervisor.processEnvironment(
                 binary: gooseChild.binary,
                 secretKey: gooseChild.secret,
+                disableKeyring: proGooseDisableKeyring,
                 goosedConfig: (host: Self.loopbackHost, port: gooseChild.port, tls: false)
             )
             goosedProc = proc
