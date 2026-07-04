@@ -21,6 +21,8 @@ private enum LandingInlineCommand: Equatable {
     case workspaces
     case saveWorkspace
     case timeMachine
+    case quickChat
+    case agentWorkspace
 
     var minStageHeight: CGFloat {
         switch self {
@@ -28,6 +30,8 @@ private enum LandingInlineCommand: Equatable {
         case .workspaces: 380
         case .saveWorkspace: 380
         case .timeMachine: 420
+        case .quickChat: 470
+        case .agentWorkspace: 580
         }
     }
 }
@@ -94,6 +98,11 @@ struct LandingView: View {
     @State private var cursorLocation: CGPoint?
     /// Landing size, so the greeting's cursor parallax is relative to the landing center.
     @State private var landingSize: CGSize = .zero
+    // Surface A quick chat (Plan 1-MAS §2): transcript state lives at the
+    // landing level so closing the stage keeps the conversation; the GGUF
+    // engine itself is app-lifetime (LocalGGUFQuickChatBackend.shared).
+    @State private var quickChatController = QuickChatController()
+    @State private var quickChatDownloads = QuickChatModelDownloadManager()
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -585,6 +594,18 @@ struct LandingView: View {
             case .timeMachine:
                 TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))
                     .frame(width: 760, height: 410)
+            case .quickChat:
+                QuickChatStageView(
+                    isPresented: landingInlineCommandBinding(for: .quickChat),
+                    theme: theme,
+                    controller: quickChatController,
+                    downloads: quickChatDownloads
+                )
+                .frame(width: 640, height: 460)
+            case .agentWorkspace:
+                AgentWorkspaceView()
+                    .frame(width: 940, height: 560)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
         .preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)
@@ -595,6 +616,17 @@ struct LandingView: View {
             columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
             spacing: 8
         ) {
+            PixelLandingCommandTile(
+                title: "ask",
+                shortcut: nil,
+                glyph: .chat,
+                theme: theme,
+                accent: theme.resolved.accent.color,
+                haptic: .capture,
+                isActive: activeLandingInlineCommand == .quickChat,
+                help: "Ask anything — answered privately on this Mac.",
+                action: { showLandingInlineCommand(.quickChat) }
+            )
             PixelLandingCommandTile(
                 title: "quick capture",
                 shortcut: "\u{2318}\u{21E7}N",
@@ -607,16 +639,17 @@ struct LandingView: View {
                 action: { showLandingInlineCommand(.quickCapture) }
             )
             PixelLandingCommandTile(
-                title: "agent rebuilding",
+                title: "agent",
                 shortcut: nil,
                 glyph: .agent,
                 theme: theme,
                 accent: theme.resolved.accent.color,
                 haptic: .agent,
-                help: "Agent surface is rebuilding."
-            ) {}
-            .disabled(true)
-            .opacity(0.48)
+                isActive: activeLandingInlineCommand == .agentWorkspace,
+                help: "Open the agent workspace — multi-step research and edits with your approval."
+            ) {
+                showLandingInlineCommand(.agentWorkspace)
+            }
             PixelLandingCommandTile(
                 title: "workspaces",
                 shortcut: "^\u{2318}W",

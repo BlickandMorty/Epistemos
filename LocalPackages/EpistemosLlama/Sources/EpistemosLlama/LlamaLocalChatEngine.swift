@@ -393,6 +393,7 @@ struct UTF8PieceAccumulator {
     }
 
     mutating func flush() -> String? {
+        guard !pending.isEmpty else { return nil }
         defer { pending.removeAll() }
         return String(bytes: pending, encoding: .utf8)
             ?? String(decoding: pending, as: UTF8.self)

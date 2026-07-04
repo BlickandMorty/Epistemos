@@ -37,5 +37,10 @@ let package = Package(
             dependencies: ["EpistemosLlama"],
             path: "Sources/LlamaSpike"
         ),
+        .testTarget(
+            name: "EpistemosLlamaTests",
+            dependencies: ["EpistemosLlama"],
+            path: "Tests/EpistemosLlamaTests"
+        ),
     ]
 )
