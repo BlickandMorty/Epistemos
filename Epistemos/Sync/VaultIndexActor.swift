@@ -1178,6 +1178,11 @@ actor VaultIndexActor {
             return nil
         }
 
+        // Track whether this export is CREATING a new vault file (page had no
+        // filePath). Used to roll back on a post-write save failure (below) so a
+        // freshly-written .md whose path never persisted cannot re-import as a
+        // duplicate on the next export/launch.
+        let isNewFile = page.filePath == nil
         let fileURL: URL
         if let existingPath = page.filePath {
             fileURL = URL(filePath: existingPath)
@@ -1239,7 +1244,22 @@ actor VaultIndexActor {
         // Persist filePath back to the store so subsequent exports use the same path.
         // Without this save, the filePath only exists in the background actor's memory
         // and the mainContext never sees it — causing duplicate file creation.
-        try saveContext("exported page file path")
+        do {
+            try saveContext("exported page file path")
+        } catch {
+            // Mirror the movePage MED #2 rollback (VaultSyncService): for a NEW
+            // file the .md is already on disk but its path never persisted, so on
+            // the next export the nil filePath makes the dedup loop write a
+            // DUPLICATE .md. Delete the just-written file and clear the in-memory
+            // filePath so disk, actor memory, and the (unchanged) store all agree.
+            // The authored body is safe — it still lives in the store / managed
+            // body, and the next successful export rewrites the file.
+            if isNewFile {
+                try? FileManager.default.removeItem(at: fileURL)
+                page.filePath = nil
+            }
+            throw error
+        }
         upsertSearchIndex(page: page, body: body)
 
         log.debug("Exported: \(fileURL.lastPathComponent, privacy: .public)")

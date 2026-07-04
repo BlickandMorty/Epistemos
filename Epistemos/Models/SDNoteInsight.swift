@@ -9,23 +9,30 @@ final class SDNoteInsight {
     // and currently lives in the app's local SwiftData store, so a uniqueness constraint
     // on pageId is intentional to preserve the 1:1 cache invariant.
     @Attribute(.unique) var pageId: String
-    var contentHash: String
-    var lastAnalyzedAt: Date
+    // Inline defaults on every stored property preserve the codebase-wide
+    // SwiftData lightweight-migration invariant (EpistemosSchema.swift relies on
+    // "adding a defaulted property" migrating automatically). A non-optional
+    // attribute added later WITHOUT a default fails migration on existing stores
+    // → ModelContainer throws → AppBootstrap falls into in-memory recovery,
+    // silently hiding the entire store. pageId is the required identity key and
+    // is always supplied by the initializer, so it intentionally has no default.
+    var contentHash: String = ""
+    var lastAnalyzedAt: Date = Date.now
 
     // ML signals
-    var sentiment: Double
-    var formality: Double
-    var vocabDiversity: Double
-    var questionDensity: Double
+    var sentiment: Double = 0
+    var formality: Double = 0
+    var vocabDiversity: Double = 0
+    var questionDensity: Double = 0
 
     // Extracted content (JSON-encoded)
-    var entityKeywordsJSON: String
-    var topicNounsJSON: String
+    var entityKeywordsJSON: String = "[]"
+    var topicNounsJSON: String = "[]"
 
     // Cross-note relatedness (JSON-encoded, max 5)
-    var relatedNoteIdsJSON: String
-    var relatednessScoresJSON: String
-    var relatednessReasonsJSON: String
+    var relatedNoteIdsJSON: String = "[]"
+    var relatednessScoresJSON: String = "[]"
+    var relatednessReasonsJSON: String = "[]"
 
     init(
         pageId: String,
