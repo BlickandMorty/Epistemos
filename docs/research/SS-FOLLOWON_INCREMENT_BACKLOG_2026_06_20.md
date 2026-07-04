@@ -62,15 +62,16 @@ in the ledger as an open `[ ]` item — not left to rot in git history. These ar
   Metal layer beneath graph+landing (main lag fixed 6fbb052fd), AND a NEW regression — the full-screen Hologram
   overlay graph splits the screen ~halfway on node click (home-page embedded graph is fine).
 
-- **Editor content-process-crash auto-recovery** (EpdocEditorChromeView + MarkEditCoreEditorCoordinator +
-  WebKitCodeEditorView): none of the note editors implement `webViewWebContentProcessDidTerminate`, so a rare
-  WKWebView content-process crash (OOM / JS fault) leaves a BLANK editor until the user closes + reopens the
-  note. LOW-MED severity — no data loss (note is autosaved) + manually recoverable. Correct fix is NOT a bare
-  reload: `flushInitialContentIfPossible` guards on `!didPushInitialContent` and `initialContentJSON` is
-  load-time content, so recovery must re-read the LATEST saved note body, reset the flush state
-  (`didPushInitialContent`/`editorIsReady`/`bridgeDispatchInstalled`), reload, then re-push. Needs runtime
-  testing (a content-process crash can't be triggered headless) — deferred as a careful, verified change, not
-  a rushed one on the core editor.
+- **Editor content-process-crash auto-recovery** (EpdocEditorChromeView now has a DIAGNOSTIC-only handler;
+  MarkEditCoreEditorCoordinator + WebKitCodeEditorView still lack even that): a rare WKWebView content-process
+  crash (OOM / JS fault) leaves a BLANK editor. **IMPORTANT nuance (2026-07-04):** the current dead-blank is
+  SAFE — the crashed process can't type or autosave, so nothing overwrites the note, and reopening loads fresh
+  from disk. A NAIVE `reload()` is DANGEROUS — it respawns a FUNCTIONAL but EMPTY editor, and the first
+  keystroke autosave-overwrites the note with empty content (real data loss). Safe auto-recovery must re-push
+  the LIVE `latestMarkdownSnapshot` (confirmed fresh — updated on every `markdownDidChange`, EpdocEditorChromeView:363)
+  BEFORE re-enabling input, via reset-flush-state + reload + re-flush. Unverifiable headless (can't trigger a
+  content-process crash) — deferred as a careful, runtime-tested change. Epdoc now at least LOGS the crash
+  (`Log.notes`) for enterprise crash telemetry; the browser variant WAS safe to fix and is done.
 
 ## Standing rule (added to SS-CLEAN)
 Every loop commit that writes an "honest pending / next increment / deferred / not-faked / owner-flip" note

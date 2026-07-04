@@ -955,6 +955,20 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             outboundQueue.removeAll(keepingCapacity: true)
         }
 
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            // The editor's web content process crashed (OOM / renderer fault) — the webview is now a
+            // dead, non-functional blank. We deliberately do NOT auto-reload: a bare reload respawns a
+            // FUNCTIONAL but EMPTY editor, and the first keystroke would autosave-overwrite the note
+            // with empty content (real data loss). The current dead-blank is SAFE — a crashed process
+            // can't type or autosave, and reopening the note reloads fresh from disk. Safe auto-recovery
+            // (re-push the live `latestMarkdownSnapshot` BEFORE re-enabling input) is deferred to the
+            // SS-FOLLOWON ledger. Log the crash so it is visible in enterprise crash telemetry.
+            pendingTheme = nil
+            outboundQueue.removeAll(keepingCapacity: true)
+            Log.notes.error(
+                "Epdoc editor web content process terminated \u{2014} editor blanked; reopen the note to recover")
+        }
+
         /// Tear-down counterpart called from `dismantleNSView` when the
         /// representable is removed from the SwiftUI hierarchy. Drops:
         ///
