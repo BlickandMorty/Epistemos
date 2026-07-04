@@ -442,7 +442,7 @@ struct OutlineNavigatorView: View {
                         .font(.system(size: 10))
                 }
                 .buttonStyle(.plain)
-                .help("Expand All")
+                .help("Expand / Collapse All")  // DISC-10: button toggles, not expand-only
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)

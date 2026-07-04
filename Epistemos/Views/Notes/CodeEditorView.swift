@@ -2695,6 +2695,7 @@ struct CodeEditorView: View {
         // menu still opens on click; functionality unchanged.
         .menuIndicator(.hidden)
         .frame(width: toolbarMenuWidth)
+        .help("Editor settings")  // DISC-5: icon-only gear had no tooltip
     }
 
     // MARK: - View Options Menu
@@ -2717,6 +2718,7 @@ struct CodeEditorView: View {
         // menu still opens on click; functionality unchanged.
         .menuIndicator(.hidden)
         .frame(width: toolbarMenuWidth)
+        .help("View options")  // DISC-4: icon-only eye had no tooltip
     }
 
     // MARK: - Hybrid Features
@@ -4601,6 +4603,7 @@ struct SearchBar: View {
             }
             .buttonStyle(.plain)
             .disabled(query.isEmpty)
+            .help("Previous match")  // DISC-13
             
             Button {
                 onFindNext()
@@ -4609,6 +4612,7 @@ struct SearchBar: View {
             }
             .buttonStyle(.plain)
             .disabled(query.isEmpty)
+            .help("Next match")  // DISC-13
             
             Button {
                 onClose()

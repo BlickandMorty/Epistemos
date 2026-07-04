@@ -183,6 +183,7 @@ struct MeetingNoteView: View {
             }
             .keyboardShortcut("s", modifiers: [.command])
             .disabled(!canSave)
+            .help("Save note (⌘S)")  // DISC-16
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
