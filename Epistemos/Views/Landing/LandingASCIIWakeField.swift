@@ -34,7 +34,8 @@ struct LandingASCIIWakeFieldConfiguration: Equatable {
     var scrambleCharacters = ASCIIRippleConfiguration().characters
     var surfaceCharacters: [Character] = Array(repeating: "·", count: 32)
     var restingSurfaceOpacity: Double = 0
-    var maxTrailCount = 176
+    var maxTrailCount = 48  // owner 2026-07-04: was 176 — overlayText iterates every trail per
+                            // frame, so a long trail lags/hangs on movement. Short subtle wake.
     var streamTailLength: CGFloat = 3.4
     var streamLongDragDistance: CGFloat = 4.8
     var streamVelocityReference: CGFloat = 26
@@ -595,7 +596,7 @@ struct LandingASCIIWakeField: View {
                         )
                         .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                         .lineSpacing(lineSpacing)
-                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.30 : 0.34))  // owner 2026-07-04: more visible, esp. light
+                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.14 : 0.12))  // owner 2026-07-04: barely visible — blend into the waves
                     }
                 }
             }
@@ -668,6 +669,9 @@ struct LandingASCIIWakeField: View {
             y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
         )
         let now = Date.timeIntervalSinceReferenceDate
+        // Throttle trail generation to ~25 Hz — fast cursor movement otherwise floods the
+        // trail buffer that the overlay iterates every frame (owner 2026-07-04: lag/hang fix).
+        if let lastHoverTime, now - lastHoverTime < 0.04 { return }
         if let lastHoverPoint, lastHoverPoint != point {
             let eventDelta = lastHoverTime.map { now - $0 }
             let rawSamples = LandingASCIIWakeFieldEngine.streamTrailSamples(
