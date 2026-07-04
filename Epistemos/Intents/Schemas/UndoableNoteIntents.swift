@@ -81,6 +81,10 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
         let snapshotId = note.id
         let snapshotTitle = note.title
         let snapshotContent = note.content
+        // Preserve the PRE-op archived state so undo restores it faithfully — an
+        // unconditional isArchived=false would "un-archive" a note that was already
+        // archived before this delete (deleting an archived note, then Cmd-Z).
+        let snapshotWasArchived = Self.currentIsArchived(id: snapshotId)
 
         // Record the undo action against the system-supplied
         // UndoManager. The closure captures the pre-delete snapshot
@@ -92,7 +96,8 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
                     await Self.restoreNote(
                         id: snapshotId,
                         title: snapshotTitle,
-                        content: snapshotContent
+                        content: snapshotContent,
+                        wasArchived: snapshotWasArchived
                     )
                 }
             }
@@ -134,11 +139,22 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
         }
     }
 
+    /// Read a page's current archived state so an undo can restore it exactly
+    /// rather than unconditionally un-archiving.
+    @MainActor
+    private static func currentIsArchived(id: String) -> Bool {
+        guard let bootstrap = AppBootstrap.shared else { return false }
+        let context = bootstrap.modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
+        return ((try? context.fetch(descriptor).first)?.isArchived) ?? false
+    }
+
     @MainActor
     private static func restoreNote(
         id: String,
         title: String,
-        content: String?
+        content: String?,
+        wasArchived: Bool
     ) async {
         guard let bootstrap = AppBootstrap.shared else { return }
         let context = bootstrap.modelContainer.mainContext
@@ -146,7 +162,7 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
             predicate: #Predicate { $0.id == id }
         )
         if let page = try? context.fetch(descriptor).first {
-            page.isArchived = false
+            page.isArchived = wasArchived
             try? context.save()
         }
         undoableLog.info("Restored note id=\(id, privacy: .public)")
@@ -176,6 +192,9 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
         let snapshotId = note.id
         let snapshotTitle = note.title
         let snapshotContent = note.content
+        // Preserve the pre-op archived state so undo restores it exactly (archiving
+        // an already-archived note, then Cmd-Z, should leave it archived).
+        let snapshotWasArchived = Self.currentIsArchived(id: snapshotId)
 
         if let undoManager {
             undoManager.registerUndo(withTarget: UndoableIntentTarget.shared) { _ in
@@ -183,7 +202,8 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
                     await Self.unarchiveNote(
                         id: snapshotId,
                         title: snapshotTitle,
-                        content: snapshotContent
+                        content: snapshotContent,
+                        wasArchived: snapshotWasArchived
                     )
                 }
             }
@@ -215,11 +235,21 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
         }
     }
 
+    /// Read a page's current archived state so an undo can restore it exactly.
+    @MainActor
+    private static func currentIsArchived(id: String) -> Bool {
+        guard let bootstrap = AppBootstrap.shared else { return false }
+        let context = bootstrap.modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
+        return ((try? context.fetch(descriptor).first)?.isArchived) ?? false
+    }
+
     @MainActor
     private static func unarchiveNote(
         id: String,
         title: String,
-        content: String?
+        content: String?,
+        wasArchived: Bool
     ) async {
         guard let bootstrap = AppBootstrap.shared else { return }
         let context = bootstrap.modelContainer.mainContext
@@ -227,7 +257,7 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
             predicate: #Predicate { $0.id == id }
         )
         if let page = try? context.fetch(descriptor).first {
-            page.isArchived = false
+            page.isArchived = wasArchived
             try? context.save()
         }
     }
