@@ -534,6 +534,27 @@ final class EmbeddingService {
         detachedEngineUseTracker.closeAndWait()
     }
 
+    /// Off-main teardown for MetalGraphView.deinit (which runs on the MAIN thread). Cancels
+    /// pending work synchronously, then spawns ONE detached task that drains detached engine
+    /// users and destroys the engine handle AFTER the drain — so the main-thread deinit returns
+    /// immediately and never blocks on group.wait() (a synchronous main-thread stall that froze
+    /// the WHOLE UI — graph AND landing — amplified ~10-50x by the Debug -Onone Run scheme, and
+    /// re-fired on every view recreation). UAF-safe: the engine is destroyed only AFTER the
+    /// tracked embedding work drains, just not on the main thread. The SendableEngineHandle wrap
+    /// keeps the pointer capture Sendable-clean; owning the whole spawn here avoids capturing the
+    /// main-actor-isolated EmbeddingService into the deinit's detached closure.
+    nonisolated func drainAndDestroyEngineOffMain(_ engine: OpaquePointer?) {
+        cancelPendingTask()
+        let tracker = detachedEngineUseTracker
+        let handle = engine.map { SendableEngineHandle(raw: $0) }
+        Task.detached(priority: .utility) {
+            await tracker.closeAndWaitAsync()
+            if let handle {
+                graph_engine_destroy(handle.raw)
+            }
+        }
+    }
+
     /// Get embedding for a specific node (for hybrid search).
     func embedding(for nodeId: String) -> [Float]? {
         guard let vector = embeddings[nodeId] else {

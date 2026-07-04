@@ -2749,14 +2749,17 @@ final class MetalGraphNSView: NSView {
         if let link = activeDisplayLink {
             link.invalidate()
         }
-        // Cancel embedding work and drain detached engine users BEFORE destroying the engine.
-        graphState?.embeddingService.prepareForEngineDestroy()
         // Nil out engineHandle synchronously so any already-enqueued MainActor.run block
         // sees nil and skips FFI calls. engineHandle is nonisolated(unsafe) for this reason.
         graphState?.engineHandle = nil
-        if let engine {
-            graph_engine_destroy(engine)
-        }
+        // PERF (2026-07-04): prepareForEngineDestroy()'s group.wait() BLOCKED THE MAIN THREAD
+        // until detached embedding work drained — a synchronous main-thread stall that froze the
+        // WHOLE UI (graph AND landing — anything main-thread-driven, incl. the landing's Metal
+        // TimelineView), amplified ~10-50x by the Debug -Onone Run scheme and re-fired on every
+        // view recreation (ongoing lag, not just a close-hang). Hand the drain + engine destroy
+        // to EmbeddingService, which spawns ONE detached task to drain THEN destroy off-main —
+        // UAF-safe (destroy only after the tracked work drains), and the deinit returns instantly.
+        graphState?.embeddingService.drainAndDestroyEngineOffMain(engine)
     }
 }
 
