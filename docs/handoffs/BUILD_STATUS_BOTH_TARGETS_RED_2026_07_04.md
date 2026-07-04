@@ -4,7 +4,13 @@
 compile either. Neither failure is in the Front & Feel lane — both are from concurrently-working
 agent lanes (Pro / Goose). Surfacing per "no known critical breakage undocumented."
 
-## 1. APP TARGET — RED (Pro-agent lane)
+## 1. APP TARGET — ✅ RESOLVED (was RED, Pro-agent lane)
+**Update ~17:10: the app target now builds GREEN.** The Pro-agent landed the fix after ~5 iterations
+(claim() → ProAgentContinuationBox → nonisolated + Sendable value). Front & Feel work that was held on
+the red build has since committed build-verified (NoteLinkClassifier security refactor 36f2f1195; #52
+read-aloud tooltip 6a745937d). Original diagnosis kept below for the record.
+
+### (original)
 ```
 ProAgentRuntimeSupervisor.swift:957:26 :: main actor-isolated instance method 'claim()' cannot be
                                           called from outside of the actor
