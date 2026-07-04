@@ -419,6 +419,30 @@ public actor FSRSDecayStore {
         try loadPersistedRows()
     }
 
+    /// Point the shared store at a dedicated GRDB database in Application Support so enrollments
+    /// survive relaunch. Without this the store is in-memory and the review queue resets on every
+    /// launch (which made the feature hollow). Called once at bootstrap; idempotent; failures are
+    /// logged, not fatal — review degrades to in-memory rather than crashing the app.
+    public func configureDefaultPersistence() {
+        guard databaseWriter == nil else { return }
+        do {
+            let appSupport = try FileManager.default.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            ).appendingPathComponent("Epistemos", isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: appSupport, withIntermediateDirectories: true)
+            let databaseURL = appSupport.appendingPathComponent("fsrs.sqlite")
+            let pool = try DatabasePool(path: databaseURL.path)
+            try configurePersistence(pool)
+        } catch {
+            Self.log.error(
+                "FSRSDecayStore: default persistence setup failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     private func loadPersistedRows() throws {
         guard let databaseWriter else { return }
         let persisted = try databaseWriter.read { db in

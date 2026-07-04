@@ -699,6 +699,10 @@ private struct GeneralDetailView: View {
     // "Welcome Back" summary is REGENERATED on each launch vs. showing the last
     // saved one (read at AppBootstrap.refreshWelcomeBackSummary:2176). Default off.
     @AppStorage("epistemos.enableLaunchWelcomeBackModelRefresh") private var regenerateWelcomeBackOnLaunch = false
+    // epistemos.fsrs.autoEnroll gates whether an imported paper (arXiv/PDF) is enrolled into FSRS
+    // spaced-repetition review (read at ArxivIngestService after import save). Off by default —
+    // auto-enrolling every import is a personal-workflow choice.
+    @AppStorage("epistemos.fsrs.autoEnroll") private var fsrsAutoEnroll = false
     private var settingsTheme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
@@ -769,6 +773,13 @@ private struct GeneralDetailView: View {
                     .onChange(of: liveNotesEnabled) { _, _ in
                         AppBootstrap.shared?.refreshLiveNoteScheduler()
                     }
+            }
+
+            Section("Review") {
+                SettingsDescriptionText(
+                    text: "Add papers you import (arXiv, PDF) to spaced-repetition review, so they resurface in the Review queue over time. Off by default — enrollment is a personal-workflow choice."
+                )
+                Toggle("Add imported papers to review", isOn: $fsrsAutoEnroll)
             }
 
             Section("Data Retention") {

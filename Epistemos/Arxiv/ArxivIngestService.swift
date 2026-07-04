@@ -358,6 +358,12 @@ enum ArxivIngestService {
             // wasn't recallable until a rebuild. Index it now — same lineage as GAP-1 (FTS) + INT-3
             // (Spotlight); the body is in hand (no extra disk read).
             AppBootstrap.shared?.instantRecallService.indexNote(noteId: page.id, text: note.markdownBody)
+            // FSRS (opt-in): enroll the imported paper into spaced-repetition review IF the user
+            // turned it on in Settings. OFF by default — auto-enrolling every import is a product
+            // choice, so it's gated on epistemos.fsrs.autoEnroll (default false).
+            if UserDefaults.standard.bool(forKey: "epistemos.fsrs.autoEnroll") {
+                _ = await FSRSDecayStore.shared.ensure(noteId: page.id)
+            }
             return .imported(
                 pageID: page.id,
                 title: page.title,

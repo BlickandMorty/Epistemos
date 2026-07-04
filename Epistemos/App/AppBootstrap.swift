@@ -1563,6 +1563,10 @@ final class AppBootstrap {
         // Start centralized thermal authority before any inference work.
         Task { await ThermalGuard.shared.start() }
 
+        // Persist FSRS spaced-repetition enrollments across launches (opt-in feature; the store is
+        // in-memory until this points it at its dedicated Application Support database).
+        Task { await FSRSDecayStore.shared.configureDefaultPersistence() }
+
         supervisor.start()
 
         // TriageService keeps foundation retrieval available while app-local generation stays removed.
