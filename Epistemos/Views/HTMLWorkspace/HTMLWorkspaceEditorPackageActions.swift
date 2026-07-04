@@ -143,21 +143,26 @@ extension HTMLWorkspaceEditorView {
             statusText = "Asset unchanged"
             return
         }
+        let name = url.lastPathComponent
 
-        do {
-            let data = try Data(contentsOf: url)
-            let name = url.lastPathComponent
-            package = try HTMLWorkspacePatchApplier.apply(
-                .addAsset(HTMLWorkspaceAsset(name: name, data: data)),
-                to: package
-            )
-            previewPackage = package
-            liveDOMSnapshot = nil
-            selectedPane = .assets
-            layoutMode = .split
-            statusText = "Asset \(name) added"
-        } catch {
-            statusText = failedStatus("Asset", error: error)
+        // HW-PKG-1 (audit 2026-07-04): read the (unbounded, user-picked) asset bytes off the main
+        // thread — Data(contentsOf:) here runs on @MainActor, so a large image/font/media file
+        // would stall the UI. The package patch stays on main.
+        Task {
+            do {
+                let data = try await Task.detached { try Data(contentsOf: url) }.value
+                package = try HTMLWorkspacePatchApplier.apply(
+                    .addAsset(HTMLWorkspaceAsset(name: name, data: data)),
+                    to: package
+                )
+                previewPackage = package
+                liveDOMSnapshot = nil
+                selectedPane = .assets
+                layoutMode = .split
+                statusText = "Asset \(name) added"
+            } catch {
+                statusText = failedStatus("Asset", error: error)
+            }
         }
     }
 
@@ -296,26 +301,31 @@ extension HTMLWorkspaceEditorView {
             statusText = "Import cancelled"
             return
         }
-        do {
-            let source = try String(contentsOf: url, encoding: .utf8)
-            let imported = HTMLWorkspaceHTMLImporter.importSources(from: source)
-            package.indexHTML = imported.html
-            if !imported.css.isEmpty {
-                package.styleCSS = imported.css
+        // HW-PKG-1 (audit 2026-07-04): read the (unbounded, user-picked) HTML off the main thread —
+        // String(contentsOf:) here runs on @MainActor and a large doc would stall the UI. The parse
+        // + package mutations stay on main.
+        Task {
+            do {
+                let source = try await Task.detached { try String(contentsOf: url, encoding: .utf8) }.value
+                let imported = HTMLWorkspaceHTMLImporter.importSources(from: source)
+                package.indexHTML = imported.html
+                if !imported.css.isEmpty {
+                    package.styleCSS = imported.css
+                }
+                if !imported.js.isEmpty {
+                    package.scriptJS = imported.js
+                }
+                if !imported.dataJSON.isEmpty {
+                    package.dataJSON = imported.dataJSON
+                }
+                if package.manifest.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                    package.manifest.title == "Untitled HTML Workspace" {
+                    package.manifest.title = url.deletingPathExtension().lastPathComponent
+                }
+                statusText = "HTML imported"
+            } catch {
+                statusText = failedStatus("Import", error: error)
             }
-            if !imported.js.isEmpty {
-                package.scriptJS = imported.js
-            }
-            if !imported.dataJSON.isEmpty {
-                package.dataJSON = imported.dataJSON
-            }
-            if package.manifest.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                package.manifest.title == "Untitled HTML Workspace" {
-                package.manifest.title = url.deletingPathExtension().lastPathComponent
-            }
-            statusText = "HTML imported"
-        } catch {
-            statusText = failedStatus("Import", error: error)
         }
     }
 

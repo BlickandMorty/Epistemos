@@ -1,6 +1,10 @@
 import Darwin
 import Foundation
+import os
 import SwiftData
+
+// ARX-IDX-1 (audit 2026-07-04): diagnostics for the best-effort post-ingest search-index upsert.
+private let arxivIngestLog = Logger(subsystem: "com.epistemos.app", category: "arxiv-ingest")
 
 nonisolated protocol ArxivPDFDownloading: Sendable {
     /// Returns a caller-owned temporary PDF file. `ArxivIngestService` removes it
@@ -323,13 +327,22 @@ enum ArxivIngestService {
             // export-path search index — so a saved paper is unfindable in content search
             // until relaunch. Index it directly now (saveBody wrote the body sync).
             if let searchService = AppBootstrap.shared?.vaultSync.searchService {
-                try? searchService.upsert(
-                    id: page.id,
-                    title: page.title,
-                    body: NoteFileStorage.readBody(pageId: page.id),
-                    tags: page.tags.joined(separator: " "),
-                    updatedAt: page.updatedAt
-                )
+                // ARX-IDX-1 (audit 2026-07-04): use the markdown already in hand instead of a
+                // synchronous NoteFileStorage.readBody disk read here (this runs on @MainActor, and
+                // the body was written to disk milliseconds ago — the read is redundant); and log on
+                // failure instead of swallowing it with try? (a silent failure re-opens the GAP-1
+                // symptom — the paper is unfindable in content search until relaunch/reindex).
+                do {
+                    try searchService.upsert(
+                        id: page.id,
+                        title: page.title,
+                        body: note.markdownBody,
+                        tags: page.tags.joined(separator: " "),
+                        updatedAt: page.updatedAt
+                    )
+                } catch {
+                    arxivIngestLog.warning("arXiv note search-index upsert failed: \(error, privacy: .public)")
+                }
             }
             SpotlightIndexer.index(page)  // INT-3: donate to Spotlight too (macOS system search)
             return .imported(
