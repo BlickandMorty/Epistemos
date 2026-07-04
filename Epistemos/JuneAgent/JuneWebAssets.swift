@@ -3,9 +3,9 @@ import Foundation
 import os
 
 /// Locates the vendored June web bundle (Plan 1-MAS §1). Resolution order:
-/// 1. Bundled resources (`Resources/JuneWeb/dist`) — the shipping path, staged
-///    by a future build script from the pinned fork.
-/// 2. `EPISTEMOS_JUNE_WEBROOT` env override (points at a `dist/`).
+/// 1. Bundled resources (`Resources/JuneWeb/dist`) — the shipping path, the
+///    ONLY source a RELEASE/MAS build ever uses (self-contained, signed).
+/// 2. DEBUG-only: `EPISTEMOS_JUNE_WEBROOT` env override (points at a `dist/`).
 /// 3. DEBUG-only: the development fork working copy.
 /// The Tauri-internals shim ships next to the dist in the fork's `epistemos/`
 /// overlay and is resolved relative to it (or bundled under `JuneWeb/`).
@@ -33,6 +33,11 @@ nonisolated enum JuneWebAssets {
             ))
         }
 
+        // DEV-ONLY sources. A shipped MAS build loads June's UI ONLY from the
+        // bundled, signed JuneWeb above — never from an env-pointed external
+        // directory (self-containment / Guideline 2.5.2, and it removes a
+        // theoretical supply-chain redirect if the bundled copy were missing).
+        #if DEBUG
         if let override = ProcessInfo.processInfo.environment["EPISTEMOS_JUNE_WEBROOT"],
            !override.isEmpty {
             let dist = URL(fileURLWithPath: override, isDirectory: true)
@@ -43,7 +48,6 @@ nonisolated enum JuneWebAssets {
             ))
         }
 
-        #if DEBUG
         candidates.append((
             dist: devForkRoot.appendingPathComponent("dist", isDirectory: true),
             shim: devForkRoot.appendingPathComponent("epistemos/tauri-internals-shim.js")
