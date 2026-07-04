@@ -2515,6 +2515,19 @@ struct NoteDetailWorkspaceView: View {
                         page.isFavorite ? "Unfavorite" : "Favorite",
                         systemImage: page.isFavorite ? "star.fill" : "star")
                 }
+                // GAP-24 (audit 2026-07-03): common note actions the menu was missing.
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("[[\(page.title)]]", forType: .string)
+                } label: {
+                    Label("Copy Wikilink", systemImage: "link.badge.plus")
+                }
+                Button {
+                    (NSApp.delegate as? EpistemosAppDelegate)?
+                        .revealCurrentDocumentInKnowledgeGraph(nil)
+                } label: {
+                    Label("Reveal in Graph", systemImage: "point.3.connected.trianglepath.dotted")
+                }
             }
 
             Divider()
