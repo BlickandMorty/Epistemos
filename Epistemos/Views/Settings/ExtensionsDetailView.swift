@@ -23,6 +23,8 @@ struct ExtensionsDetailView: View {
                 switch selectedTab {
                 case .skills:
                     SkillsDetailView()
+                case .evolution:
+                    SkillEvolutionView()
                 case .mcpServers:
                     MCPServersDetailView()
                 case .connectors:
@@ -54,6 +56,7 @@ struct ExtensionsDetailView: View {
 
 private enum ExtensionsSettingsTab: String, CaseIterable, Identifiable {
     case skills
+    case evolution
     case mcpServers
     case connectors
 
@@ -62,6 +65,7 @@ private enum ExtensionsSettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .skills: "Skills"
+        case .evolution: "Evolution"
         case .mcpServers: "MCP Servers"
         case .connectors: "Connectors"
         }
