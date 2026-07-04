@@ -1,0 +1,21 @@
+{
+  "name": "epistemos-mas-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference receipt-gated proxy for the Epistemos MAS Surface B paywall (Plan 1-MAS §5)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "start": "node src/index.ts",
+    "dev": "node --watch src/index.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
+  }
+}
