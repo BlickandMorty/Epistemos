@@ -239,6 +239,17 @@ struct ProAgentSurfaceView: View {
                 forMainFrameOnly: true
             )
         )
+        // EPISTEMOS theme bridge (owner 2026-07-04): pin the OpenChamber
+        // palette + accent to the LIVE Epistemos theme from the first paint —
+        // light, dark, and custom (JuneThemeBridge precedent). Later theme
+        // switches re-apply via .onChange(of: theme.resolved).
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: ProAgentThemeBridge.userScript(for: theme),
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
         let page = WebPage(
             configuration: configuration,
             navigationDecider: ProAgentNavigationDecider(trustedOrigins: trustedOrigins)
@@ -262,9 +273,18 @@ struct ProAgentSurfaceView: View {
                 .allowsHitTesting(false)
         }
         .ignoresSafeArea()
+        // Pin prefers-color-scheme to the THEME's own darkness (not the OS
+        // setting) so the SPA's system mode always matches the app theme.
+        .colorScheme(theme.resolved.isDark ? .dark : .light)
         .task { await startSurface() }
         .onChange(of: supervisor.status) { _, status in
             handleRuntimeStatusChange(status)
+        }
+        .onChange(of: theme.resolved) { _, _ in
+            // Live theme switch: re-project the Epistemos palette onto the
+            // already-loaded SPA (no reload; inline vars win the cascade).
+            let script = ProAgentThemeBridge.applyScript(for: theme)
+            Task { _ = try? await page.callJavaScript(script) }
         }
         .onReceive(
             NotificationCenter.default
