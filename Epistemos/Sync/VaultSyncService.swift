@@ -2716,6 +2716,13 @@ final class VaultSyncService {
             try context.save()
             Log.vault.info("Cleared all vault + graph data from SwiftData")
         } catch {
+            // A partial delete before the single save() can leave staged bulk
+            // deletes armed on the SHARED mainContext; a later unrelated save()
+            // (e.g. savePage) would then flush them, dropping data this clear
+            // never committed. Roll back so a failed clear leaves the context
+            // clean rather than dirty (no-op if delete(model:) committed
+            // immediately).
+            context.rollback()
             Log.vault.error("Failed to clear vault data: \(error.localizedDescription, privacy: .public)")
         }
 
