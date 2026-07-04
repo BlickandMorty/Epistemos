@@ -1670,22 +1670,66 @@ actor SearchIndexService {
     /// self-heals on the next save. Block ids are the stable SDBlock.id so
     /// "jump to block" from a search hit resolves.
     nonisolated func replaceBlocksForPage(pageId: String, blocks: [(blockId: String, content: String)]) throws {
+        // RECONCILE, not truncate-reload. The incoming SDBlock.ids are STABLE across
+        // edits (BlockMirror preserves them), so we touch only rows whose content
+        // actually changed. indexed_blocks is external-content FTS5 with per-row
+        // ai/ad triggers that re-tokenize on every INSERT/DELETE — so a blind
+        // DELETE-all + INSERT-all made a save that changed 1 of N blocks pay ~2N
+        // tokenizations. With this reconcile it pays ~2 (matters for the 100-500+
+        // block long-form docs this index targets). End state is byte-identical to
+        // the truncate-reload because the ids match.
+        var didChange = false
         try dbPool.write { db in
-            try db.execute(sql: "DELETE FROM indexed_blocks WHERE page_id = ?", arguments: [pageId])
+            var existing: [String: String] = [:]
+            let existingRows = try Row.fetchAll(
+                db,
+                sql: "SELECT block_id, content FROM indexed_blocks WHERE page_id = ?",
+                arguments: [pageId]
+            )
+            for row in existingRows {
+                let blockId: String = row["block_id"]
+                let content: String = row["content"]
+                existing[blockId] = content
+            }
+            let incomingIds = Set(blocks.map(\.blockId))
+            // Drop rows whose block no longer exists on the page.
+            for blockId in existing.keys where !incomingIds.contains(blockId) {
+                try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
+                didChange = true
+            }
+            // Insert new blocks; update only content-changed ones; skip unchanged
+            // (their FTS rows are never re-tokenized).
             for block in blocks {
-                try db.execute(
-                    sql: """
-                        INSERT INTO indexed_blocks (block_id, page_id, content)
-                        VALUES (?, ?, ?)
-                        ON CONFLICT(block_id) DO UPDATE SET
-                            page_id = excluded.page_id,
-                            content = excluded.content
-                    """,
-                    arguments: [block.blockId, pageId, block.content]
-                )
+                if let current = existing[block.blockId] {
+                    if current != block.content {
+                        try db.execute(
+                            sql: "UPDATE indexed_blocks SET content = ?, page_id = ? WHERE block_id = ?",
+                            arguments: [block.content, pageId, block.blockId]
+                        )
+                        didChange = true
+                    }
+                    // else: unchanged — leave the row (and its FTS entry) untouched.
+                } else {
+                    // New to this page. ON CONFLICT covers a block that moved in from
+                    // another page: it keeps its stable id, gets this page_id.
+                    try db.execute(
+                        sql: """
+                            INSERT INTO indexed_blocks (block_id, page_id, content)
+                            VALUES (?, ?, ?)
+                            ON CONFLICT(block_id) DO UPDATE SET
+                                page_id = excluded.page_id,
+                                content = excluded.content
+                        """,
+                        arguments: [block.blockId, pageId, block.content]
+                    )
+                    didChange = true
+                }
             }
         }
-        Self.notifyIndexChanged([.searchBlocks])
+        // Only wake block-search observers when the index actually moved.
+        if didChange {
+            Self.notifyIndexChanged([.searchBlocks])
+        }
     }
 
     /// Remove all block rows for a page (on page delete) — the block-index analogue
