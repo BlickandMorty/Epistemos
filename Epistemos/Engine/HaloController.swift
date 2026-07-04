@@ -343,17 +343,24 @@ public final class HaloController {
     /// best on a paragraph-sized chunk, not the full document.
     public static func extractQueryContext(from text: String) -> String {
         if text.isEmpty { return "" }
-        // Take the trailing paragraph by splitting on the last
-        // double-newline. If none, use the trailing 256 chars.
-        if let lastDouble = text.range(of: "\n\n", options: .backwards) {
-            let tail = text[lastDouble.upperBound...]
-            return String(tail).trimmingCharacters(in: .whitespacesAndNewlines)
+        // HC-2/HC-3: bound ALL work to the trailing ~2048 chars instead of scanning the WHOLE
+        // document on every keystroke. This runs per-keystroke (before the debounce), and the old
+        // `text.range(of: "\n\n", .backwards)` scanned the entire doc when no double-newline was
+        // near the end, while `text.count` is itself O(n) — both meant typing lag in a large note.
+        // 2048 captures any realistic trailing paragraph (and caps a pathological one, which also
+        // bounds the search query); walk back with `limitedBy` so we never do an O(n) count.
+        let tailStart = text.index(text.endIndex, offsetBy: -2048, limitedBy: text.startIndex)
+            ?? text.startIndex
+        let tail = text[tailStart...]
+        // Trailing paragraph: split on the last double-newline WITHIN the bounded tail.
+        if let lastDouble = tail.range(of: "\n\n", options: .backwards) {
+            return String(tail[lastDouble.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if text.count <= 256 {
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        let start = text.index(text.endIndex, offsetBy: -256)
-        return String(text[start...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        // No paragraph break in the tail — use the trailing 256 chars (same fallback as before).
+        let contextStart = tail.index(tail.endIndex, offsetBy: -256, limitedBy: tail.startIndex)
+            ?? tail.startIndex
+        return String(tail[contextStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Whether the (extracted) query context has enough non-stop-word
