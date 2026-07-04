@@ -273,17 +273,41 @@ final class JuneAgentGateway {
             guard let self else { return }
             var full = ""
             do {
-                let stream = try self.makeStream(prompt: prompt, modelID: modelID)
-                for try await delta in stream {
-                    if Task.isCancelled { break }
-                    if full.isEmpty {
-                        // Budget contract [agent_surface].first_token_ms_max.
-                        JuneAgentPerfMetrics.shared.recordFirstToken(
-                            milliseconds: Date().timeIntervalSince(submittedAt) * 1000
-                        )
+                var stream = try self.makeStream(prompt: prompt, modelID: modelID)
+                do {
+                    for try await delta in stream {
+                        if Task.isCancelled { break }
+                        if full.isEmpty {
+                            // Budget contract [agent_surface].first_token_ms_max.
+                            JuneAgentPerfMetrics.shared.recordFirstToken(
+                                milliseconds: Date().timeIntervalSince(submittedAt) * 1000
+                            )
+                        }
+                        full += delta
+                        self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
                     }
-                    full += delta
-                    self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
+                } catch let error as QuickChatError {
+                    // Plan 1-MAS §2: an Apple FM guardrail trip falls back to the
+                    // embedded GGUF lane instead of failing the turn — but only
+                    // when nothing streamed yet and a local model is installed.
+                    guard case .guardrailBlocked = error,
+                          full.isEmpty,
+                          self.localGGUF.unavailability() == nil else {
+                        throw error
+                    }
+                    Self.log.info("Apple FM guardrail tripped; falling back to GGUF")
+                    self.emit(
+                        type: "status.update", sessionID: sessionID,
+                        payload: ["text": "Switched to the on-device model for this reply."]
+                    )
+                    stream = self.localGGUF.stream(
+                        prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024
+                    )
+                    for try await delta in stream {
+                        if Task.isCancelled { break }
+                        full += delta
+                        self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
+                    }
                 }
                 let status = Task.isCancelled ? "cancelled" : "ok"
                 self.emit(
