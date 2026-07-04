@@ -345,6 +345,11 @@ enum ArxivIngestService {
                 }
             }
             SpotlightIndexer.index(page)  // INT-3: donate to Spotlight too (macOS system search)
+            // GAP-RECALL-1 (audit 2026-07-04): imports also skip the vault-sync export path that
+            // indexes notes into instant/ambient recall (VaultSyncService), so an imported paper
+            // wasn't recallable until a rebuild. Index it now — same lineage as GAP-1 (FTS) + INT-3
+            // (Spotlight); the body is in hand (no extra disk read).
+            AppBootstrap.shared?.instantRecallService.indexNote(noteId: page.id, text: note.markdownBody)
             return .imported(
                 pageID: page.id,
                 title: page.title,
