@@ -72,6 +72,21 @@ struct JuneAllChatsSheet: View {
         JuneAgentSurfaceHolder.shared.bridge?.gateway.store.allSessions() ?? []
     }
 
+    private static let iso = ISO8601DateFormatter()
+    private static let relative: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+
+    /// "now"/"2m"/"3h" trailing label — parity with June's own session
+    /// sidebar so the native sheet and the web list read the same.
+    private func relativeLabel(_ iso8601: String) -> String? {
+        guard let date = Self.iso.date(from: iso8601) else { return nil }
+        if Date().timeIntervalSince(date) < 45 { return "now" }
+        return Self.relative.localizedString(for: date, relativeTo: Date())
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -87,14 +102,23 @@ struct JuneAllChatsSheet: View {
                             JuneAgentIntents.openSession(id: session.id)
                             dismiss()
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.title)
-                                    .lineLimit(1)
-                                if !session.preview.isEmpty {
-                                    Text(session.preview)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.title)
                                         .lineLimit(1)
+                                    if !session.preview.isEmpty {
+                                        Text(session.preview)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                Spacer(minLength: 8)
+                                if let label = relativeLabel(session.lastActive) {
+                                    Text(label)
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                        .monospacedDigit()
                                 }
                             }
                         }
