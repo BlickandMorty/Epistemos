@@ -154,7 +154,13 @@ public final class HaloController {
     public func editorTextDidChange(_ text: String, domain: ShadowDomain = .notes) {
         let queryContext = Self.extractQueryContext(from: text)
         lastQueryContext = queryContext
-        self.domain = domain
+        // HC-1 (audit 2026-07-04): guard equality before assigning — HaloController is @Observable,
+        // so an unguarded per-keystroke reassignment re-publishes `domain` and invalidates observing
+        // views every character even though it almost never changes (siblings selectDomain/transition
+        // already guard). scheduleSearch uses the `domain` parameter, not self.domain — no behavior change.
+        if self.domain != domain {
+            self.domain = domain
+        }
 
         guard isMeaningful(queryContext) else {
             clearSearch()
