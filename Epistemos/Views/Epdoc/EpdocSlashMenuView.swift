@@ -108,6 +108,16 @@ public struct EpdocSlashMenuView: View {
                         }
                 }
             }
+            // DISC-8: the slash menu is a power feature that's otherwise silent about how to
+            // use it — teach type-to-filter + the keys.
+            if !matches.isEmpty {
+                Divider().padding(.vertical, 2)
+                Text("↑↓ navigate · type to filter · ↵ insert")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 2)
+            }
         }
         .frame(width: 280)
         .padding(.vertical, 4)
