@@ -17,6 +17,14 @@ nonisolated let vaultFoldersRepairedNotification = Notification.Name("VaultFolde
 actor VaultIndexActor {
     typealias VaultImportProgressHandler = @Sendable (VaultImportProgressSnapshot) async -> Void
 
+    /// Paths reserved by an in-flight new-file exportPage between filename
+    /// resolution and the actual write. @ModelActor serializes only at entry,
+    /// not across `await`, so without this two concurrent new-file exports whose
+    /// titles sanitize to the same base name both pass the on-disk fileExists
+    /// check (neither has written yet) and resolve the identical path, silently
+    /// overwriting one note. Reserved synchronously before the first suspension.
+    private var inFlightExportPaths: Set<String> = []
+
     struct SpotlightReindexSnapshot: Sendable {
         let lastIndexDate: Date
         let changedPageCount: Int
@@ -1201,7 +1209,8 @@ actor VaultIndexActor {
             // Falls back to UUID suffix after 100 attempts to guarantee uniqueness.
             var candidate = parentURL.appendingPathComponent("\(baseName).md")
             var suffix = 1
-            while FileManager.default.fileExists(atPath: candidate.path) {
+            while FileManager.default.fileExists(atPath: candidate.path)
+                || inFlightExportPaths.contains(candidate.path) {
                 if suffix > 100 {
                     let uuid8 = UUID().uuidString.prefix(8)
                     candidate = parentURL.appendingPathComponent("\(baseName)-\(uuid8).md")
@@ -1212,6 +1221,14 @@ actor VaultIndexActor {
             }
             fileURL = candidate
             page.filePath = fileURL.path
+            // Reserve the resolved path synchronously (before the first `await`
+            // below) so a concurrent new-file export cannot resolve the same
+            // name across the suspension (TOCTOU). Released by the defer below.
+            inFlightExportPaths.insert(fileURL.path)
+        }
+        // Release the in-flight new-file reservation on every exit path.
+        defer {
+            if isNewFile { inFlightExportPaths.remove(fileURL.path) }
         }
 
         // Build content — markdown front-matter only for markdown note files.
