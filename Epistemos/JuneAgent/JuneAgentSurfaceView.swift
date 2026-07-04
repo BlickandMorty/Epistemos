@@ -216,6 +216,7 @@ struct JuneAgentSurfaceView: View {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.title2)
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     Text(failureMessage)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -223,6 +224,7 @@ struct JuneAgentSurfaceView: View {
                     Button("Try Again") { retryAttempt += 1 }
                         .buttonStyle(.bordered)
                 }
+                .accessibilityElement(children: .combine)
             } else if let webView = JuneAgentSurfaceHolder.shared.webView {
                 JuneWebViewRepresentable(webView: webView)
                     .opacity(revealed ? 1 : 0)
@@ -232,6 +234,7 @@ struct JuneAgentSurfaceView: View {
                 ProgressView()
                     .controlSize(.small)
                     .tint(.secondary)
+                    .accessibilityLabel("Loading the agent")
             }
         }
         .onChange(of: colorScheme) { _, scheme in
