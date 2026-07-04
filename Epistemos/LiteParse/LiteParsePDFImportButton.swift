@@ -23,6 +23,7 @@ struct LiteParsePDFImportButton: View {
     @State private var showingStatus = false
     @State private var importTask: Task<Void, Never>?
     @State private var importProgress: ImportProgress?
+    @State private var pdfSheet: SourcePDFViewerPresentation?
 
     private struct ImportProgress: Equatable {
         var done: Int
@@ -38,6 +39,10 @@ struct LiteParsePDFImportButton: View {
                     Button("OK", role: .cancel) {}
                 } message: {
                     Text(statusMessage ?? "")
+                }
+                // #5 (audit 2026-07-03): honor defaultOpenForImportedPDF == .originalPDF.
+                .sheet(item: $pdfSheet) { presentation in
+                    SourcePDFViewerSheet(url: presentation.url)
                 }
         }
     }
@@ -103,6 +108,7 @@ struct LiteParsePDFImportButton: View {
             var imported = 0
             var lines: [String] = []
             var cancelled = false
+            var singleImport: (pageID: String, sourcePDFRelativePath: String)?
             for (index, url) in urls.enumerated() {
                 if Task.isCancelled {
                     cancelled = true
@@ -122,8 +128,9 @@ struct LiteParsePDFImportButton: View {
                     graphState: graphState
                 )
                 switch outcome {
-                case let .imported(_, title, sourcePDFRelativePath):
+                case let .imported(pageID, title, sourcePDFRelativePath):
                     imported += 1
+                    singleImport = (pageID, sourcePDFRelativePath)
                     appendStatusLine(
                         "✓ \(Self.displayName(title, fallback: "Imported PDF")) - Source PDF: \(Self.displayName(sourcePDFRelativePath, fallback: "source PDF"))",
                         to: &lines
@@ -142,8 +149,23 @@ struct LiteParsePDFImportButton: View {
             let header = cancelled
                 ? "Cancelled — imported \(imported)/\(urls.count)."
                 : "Imported \(imported)/\(urls.count)."
-            statusMessage = Self.boundedStatusMessage(header + "\n" + lines.joined(separator: "\n"))
-            showingStatus = true
+
+            // #5 (audit 2026-07-03): honor the previously-unconsumed `defaultOpenForImportedPDF`
+            // setting. A single successful import auto-opens its result — the parsed note
+            // (openPage) or the original PDF (viewer sheet); the open IS the feedback, so we skip
+            // the redundant summary alert. A bulk import can't pick one target, so it keeps the alert.
+            if !cancelled, urls.count == 1, imported == 1, let singleImport {
+                switch LiteParseImportSettings.defaultOpenForImportedPDF() {
+                case .parsedNote:
+                    AppBootstrap.shared?.notesUI.openPage(singleImport.pageID)
+                case .originalPDF:
+                    pdfSheet = SourcePDFViewerPresentation(
+                        url: vaultURL.appendingPathComponent(singleImport.sourcePDFRelativePath))
+                }
+            } else {
+                statusMessage = Self.boundedStatusMessage(header + "\n" + lines.joined(separator: "\n"))
+                showingStatus = true
+            }
         }
     }
 
