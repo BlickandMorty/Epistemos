@@ -61,6 +61,11 @@ extension HTMLWorkspaceDataFeedContextSources {
         var provenance: String
     }
 
+    // HW-CHAT-1 (audit 2026-07-04): hoisted — was allocated fresh per candidate row. The enclosing
+    // enum is MainActor-isolated (unmarked under MainActor-default) + recentChatCandidate runs on
+    // MainActor, so a plain static formatter is concurrency-safe (no nonisolated(unsafe) needed).
+    private static let chatUpdatedAtISO8601 = ISO8601DateFormatter()
+
     private static func recentChatCandidate(from chat: SDChat, terms: [String]) -> RecentChatCandidate? {
         let title = normalizedChatText(chat.title).isEmpty ? "Untitled chat" : chat.title
         let preview = ChatPreviewText.preview(for: chat) ?? ""
@@ -77,7 +82,7 @@ extension HTMLWorkspaceDataFeedContextSources {
         let provenanceParts = [
             "SDChat",
             normalizedChatText(chat.chatType),
-            "updated_at:\(ISO8601DateFormatter().string(from: chat.updatedAt))",
+            "updated_at:\(Self.chatUpdatedAtISO8601.string(from: chat.updatedAt))",
         ].filter { !$0.isEmpty }
         return RecentChatCandidate(
             chatID: chat.id,
