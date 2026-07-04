@@ -243,6 +243,7 @@ struct JuneAgentSurfaceView: View {
             guard failureMessage == nil else { return }
             JuneNavigationDelegate.shared.onFirstPaint = {
                 withAnimation(.easeIn(duration: 0.15)) { revealed = true }
+                Self.handOffFocus(to: holder.webView)
                 if isColdOpen, let startedAt = holder.loadStartedAt {
                     // Budget contract [agent_surface].cold_open_ms_max (doctrine §4).
                     JuneAgentPerfMetrics.shared.recordColdOpen(
@@ -255,6 +256,7 @@ struct JuneAgentSurfaceView: View {
             // Re-mounts after the first paint reveal immediately (warm path).
             if holder.webView?.isLoading == false && holder.loadStarted {
                 revealed = true
+                Self.handOffFocus(to: holder.webView)
                 JuneAgentPerfMetrics.shared.recordWarmReopen(
                     milliseconds: Date().timeIntervalSince(mountedAt) * 1000
                 )
@@ -262,6 +264,17 @@ struct JuneAgentSurfaceView: View {
         }
         // Deliberately no teardown on disappear: the WebView stays warm across
         // tab switches (perf doctrine §1.5 / §3.2).
+    }
+
+    /// Entering the Agent room hands keyboard focus to June so the composer is
+    /// immediately typeable — deferred a tick so the representable is attached
+    /// to the window, and only when it actually is (never steals focus from
+    /// another window).
+    private static func handOffFocus(to webView: WKWebView?) {
+        DispatchQueue.main.async {
+            guard let webView, let window = webView.window else { return }
+            window.makeFirstResponder(webView)
+        }
     }
 }
 
