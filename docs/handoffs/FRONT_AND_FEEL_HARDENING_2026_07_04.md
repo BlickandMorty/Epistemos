@@ -45,6 +45,27 @@ Systematic sweeps, each found clean (or fixed above):
    block observers are centrally cleaned (handleWindowClose + resetForVaultRebuild).
 6. Deep-link / custom-URL-scheme — no `epistemos://` handler exists; only the Spotlight continuation
    (opens a note by the app's own donated pageId, graceful on miss). No unvalidated entry.
+7. Privacy/logging — **FIXED 6 leaks** (`a4d73c170`): note title + file paths were `.public` →
+   `.private` (NoteWindowManager, NoteDetailWorkspaceView ×5). Browser/meeting/Epdoc verified: no
+   content logged `.public`. FOLLOW-UP for Agent-C (Sync lane): VaultIndexActor + VaultSyncService
+   log `lastPathComponent` (note filenames) `.public` at ~10 sites — same class, not mine to touch.
+8. WKWebView config — no dangerous flags (no universal-file-access / arbitrary-loads); browser has a
+   non-persistent data store + tracker content-blocker + WeakScriptMessageHandler; pinned the
+   Safe-Browsing fraud warning explicit (`d6c396e9d`).
+9. Permission-denial — meeting mic denial is graceful (status check + Privacy › Microphone
+   deep-link); onboarding requests no permissions (lazy/in-context).
+10. Sensitive data on disk — the meeting **never writes audio to disk**: on-device SpeechAnalyzer
+    transcribes buffers in-memory, only the text transcript is persisted. No audio file to leak.
+11. Untrusted-link execution — **FIXED** (`194a74c90`): the Prose (TextKit) editor opened ANY URL
+    scheme from note content via NSWorkspace (a `[x](file:///…app)` link could launch an app). Now
+    http/https/mailto only; everything else consumed. Browser (mailto/tel allowlist, file/data/js
+    hard-blocked) + Epdoc (cancels non-editor-scheme navigation) verified safe.
+12. HTML / stored-XSS — no Front & Feel webview loads raw user HTML; KaTeX uses the shared
+    `jsStringLiteral` encoder (no JS-string breakout) + `trust` unset (false → dangerous `\href`
+    blocked) + sanitized output via innerHTML + errors via textContent.
+13. Silent save-failure / data loss — QuickCapture surfaces every persistence/transcription failure
+    (errorMessage) and deliberately does NOT report a secondary audit-log miss (avoids
+    retry→duplicate-note); meeting has crash-draft + recovery banner; Prose has NOTE-8.
 
 ## Deferred — DOCUMENTED, not unpatched-and-undocumented
 
