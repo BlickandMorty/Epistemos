@@ -269,7 +269,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         inflight.removeAll()
         state = .idle
 
-        _ = voiceIdentifier
+        // Voice SELECTION: passed to Kokoro (renderRawText loads the matching voice pack, or
+        // falls back to the starter voice for nil/unknown). Was previously ignored.
+        let selectedVoice = voiceIdentifier
         _ = pitch
         let utteranceID = UUID().uuidString
         activeKokoroUtteranceID = utteranceID
@@ -284,7 +286,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             guard let self else { return }
             do {
                 let rendered = try await Task.detached(priority: .userInitiated) {
-                    try KokoroCoreMLSynthesizer.renderRawText(cleaned, speed: speed)
+                    try KokoroCoreMLSynthesizer.renderRawText(cleaned, speed: speed, voiceIdentifier: selectedVoice)
                 }.value
                 try Task.checkCancellation()
                 try self.playKokoroAudio(

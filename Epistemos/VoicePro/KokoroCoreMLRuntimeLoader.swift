@@ -128,6 +128,24 @@ nonisolated enum KokoroCoreMLRuntimeLoader {
         )
     }
 
+    /// Load + validate a specific installed voice embedding by its bare Kokoro voice name
+    /// (e.g. "af_heart", "am_adam"). Returns nil for an unsafe / unknown / invalid voice so the
+    /// caller falls back to the starter voice — voice SELECTION must never break synthesis.
+    /// The embedding is validated identically to the starter (same [rows, 256] shape), so a
+    /// valid voice pack renders through the exact same reference-style path.
+    static func voiceEmbedding(named voiceName: String, in modelDirectoryURL: URL) -> [Float]? {
+        guard isSafeVoiceName(voiceName) else { return nil }
+        let url = modelDirectoryURL.appendingPathComponent("voices/\(voiceName).bin", isDirectory: false)
+        return try? validateStarterVoice(at: url)
+    }
+
+    /// A bare voice name — no path separators / traversal, ASCII alphanumeric + underscore only.
+    private static func isSafeVoiceName(_ name: String) -> Bool {
+        !name.isEmpty
+            && name.count <= 64
+            && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }
+    }
+
     static func runtimeResourceShapeProblem(modelDirectoryURL: URL) -> String? {
         let manifestURL = modelDirectoryURL.appendingPathComponent(
             KokoroVoiceGateStatus.manifestFileName,

@@ -41,6 +41,7 @@ nonisolated enum KokoroCoreMLSynthesizer {
     static func renderRawText(
         _ text: String,
         speed: Float = 1.0,
+        voiceIdentifier: String? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
         fileManager: FileManager = .default
@@ -59,6 +60,18 @@ nonisolated enum KokoroCoreMLSynthesizer {
             modelRoot: modelRoot,
             fileManager: fileManager
         )
+        // Voice SELECTION: use the chosen installed voice if it loads + validates, else fall
+        // back to the starter voice — a bad/unknown selection must never break synthesis.
+        let voiceEmbedding: [Float]
+        if let voiceIdentifier,
+           let selected = KokoroCoreMLRuntimeLoader.voiceEmbedding(
+               named: voiceIdentifier,
+               in: resources.modelDirectoryURL
+           ) {
+            voiceEmbedding = selected
+        } else {
+            voiceEmbedding = resources.starterVoiceEmbedding
+        }
         let pipeline = try KokoroCoreMLRuntimeLoader.loadPipeline(resources: resources)
         let chunks = try rawVocabularyChunks(
             for: cleaned,
@@ -72,7 +85,7 @@ nonisolated enum KokoroCoreMLSynthesizer {
             // length. chunk.inputIDs is [0] + phonemeIDs + [0], so the phoneme
             // count is inputIDs.count - 2.
             let refS = Self.referenceStyleVector(
-                from: resources.starterVoiceEmbedding,
+                from: voiceEmbedding,
                 phonemeCount: chunk.inputIDs.count - 2
             )
             do {
