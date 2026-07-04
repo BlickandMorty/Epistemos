@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import os
 import SwiftUI
 import WebKit
 
@@ -193,9 +194,33 @@ nonisolated enum BrowserNavigationErrorPolicy {
            nsError.code == NSURLErrorCancelled {
             return nil
         }
+        // RES-5: map common URL errors to plain language so a normal user isn't left with
+        // a bare "domain=… code=…".
+        if nsError.domain == NSURLErrorDomain,
+           let plain = plainLanguage(forURLErrorCode: nsError.code) {
+            return BrowserDisplayPolicy.error(plain)
+        }
         return BrowserDisplayPolicy.error(
             "Navigation failed (domain=\(safeDomain(nsError.domain)) code=\(nsError.code))"
         )
+    }
+
+    private static func plainLanguage(forURLErrorCode code: Int) -> String? {
+        switch code {
+        case NSURLErrorNotConnectedToInternet: return "You're offline — check your internet connection."
+        case NSURLErrorTimedOut: return "The connection timed out. Try again."
+        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: return "Server not found — check the address."
+        case NSURLErrorCannotConnectToHost: return "Couldn't connect to the server."
+        case NSURLErrorNetworkConnectionLost: return "The network connection was lost."
+        case NSURLErrorSecureConnectionFailed,
+             NSURLErrorServerCertificateUntrusted,
+             NSURLErrorServerCertificateHasBadDate,
+             NSURLErrorServerCertificateNotYetValid,
+             NSURLErrorServerCertificateHasUnknownRoot:
+            return "This site's security certificate isn't valid."
+        case NSURLErrorUnsupportedURL: return "That address can't be opened."
+        default: return nil
+        }
     }
 
     private static func safeDomain(_ domain: String) -> String {
@@ -479,7 +504,24 @@ struct BrowserView: View {
         Task { @MainActor in
             let captured: (html: String?, text: String?)? = await withCheckedContinuation { continuation in
                 guard let capture else { continuation.resume(returning: nil); return }
-                capture { html, text in continuation.resume(returning: (html, text)) }
+                // RES-7: the capture completion may never fire if the webView is torn down
+                // mid-capture — without a timeout the continuation would leak and
+                // isSavingToNotes would stay true forever (Save-to-notes permanently
+                // disabled). Resume exactly once: from the capture OR a 4s timeout (→ stub).
+                let resumed = OSAllocatedUnfairLock(initialState: false)
+                @Sendable func resumeOnce(_ value: (String?, String?)?) {
+                    let shouldResume = resumed.withLock { done -> Bool in
+                        if done { return false }
+                        done = true
+                        return true
+                    }
+                    if shouldResume { continuation.resume(returning: value) }
+                }
+                capture { html, text in resumeOnce((html, text)) }
+                Task {
+                    try? await Task.sleep(for: .seconds(4))
+                    resumeOnce(nil)
+                }
             }
 
             let docTitle: String
@@ -907,6 +949,7 @@ private struct BrowserWebView: NSViewRepresentable {
                 return
             }
             tab?.lastError = message
+            tab?.toolbarHidden = false  // RES-5: force-show so the error isn't hidden by scroll-hide
         }
     }
 }
