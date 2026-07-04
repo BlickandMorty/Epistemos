@@ -22,15 +22,32 @@ struct ProAgentChatRow: Identifiable, Equatable, Sendable {
 /// opencode via the donor's own /api/experimental/session, goose via the
 /// adapter's durable /goose-index. No webview involvement — the sheet is
 /// native chrome and works even while the SPA streams.
+/// Result of a merged all-chats load. `anyFailed` distinguishes a genuine
+/// "no chats" (both sources returned empty) from a fetch FAILURE (a transient
+/// web-server/goose blip) — a silent `[]` on failure would tell the user their
+/// chats vanished (CLAUDE.md: "distinguish fetch failure from empty success").
+struct ProAgentChatListResult {
+    let rows: [ProAgentChatRow]
+    let anyFailed: Bool
+}
+
 enum ProAgentChatListFetcher {
-    static func fetchMergedRows(uiBaseURL: URL) async -> [ProAgentChatRow] {
+    static func fetchMergedRows(uiBaseURL: URL) async -> ProAgentChatListResult {
         async let opencodeRows = fetchOpencodeRows(uiBaseURL: uiBaseURL)
         async let gooseRows = fetchGooseRows(uiBaseURL: uiBaseURL)
-        let merged = await opencodeRows + gooseRows
-        return merged.sorted { $0.updatedAtSeconds > $1.updatedAtSeconds }
+        let opencode = await opencodeRows
+        let goose = await gooseRows
+        // nil = the fetch FAILED (network/non-200/parse). An opencode-only run
+        // returns goose == [] (404 => not configured), which is NOT a failure.
+        let merged = (opencode ?? []) + (goose ?? [])
+        return ProAgentChatListResult(
+            rows: merged.sorted { $0.updatedAtSeconds > $1.updatedAtSeconds },
+            anyFailed: opencode == nil || goose == nil
+        )
     }
 
-    private static func fetchOpencodeRows(uiBaseURL: URL) async -> [ProAgentChatRow] {
+    /// nil = fetch failed (surface an error); [] = loaded, genuinely empty.
+    private static func fetchOpencodeRows(uiBaseURL: URL) async -> [ProAgentChatRow]? {
         var components = URLComponents(
             url: uiBaseURL.appendingPathComponent("api/experimental/session"),
             resolvingAgainstBaseURL: false
@@ -39,12 +56,14 @@ enum ProAgentChatListFetcher {
             URLQueryItem(name: "limit", value: "200"),
             URLQueryItem(name: "archived", value: "false"),
         ]
-        guard let url = components?.url else { return [] }
+        guard let url = components?.url else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 6
+        // nil on any transport/status/parse failure — do NOT masquerade a
+        // failed fetch as an empty session list.
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200,
-              let payload = try? JSONSerialization.jsonObject(with: data) else { return [] }
+              let payload = try? JSONSerialization.jsonObject(with: data) else { return nil }
         // The endpoint answers either a bare array or {sessions:[...]}-ish
         // envelopes depending on version; accept both shapes tolerantly.
         let items: [[String: Any]]
@@ -71,12 +90,17 @@ enum ProAgentChatListFetcher {
         }
     }
 
-    private static func fetchGooseRows(uiBaseURL: URL) async -> [ProAgentChatRow] {
+    /// nil = fetch failed; [] = loaded empty OR goose not configured (404).
+    private static func fetchGooseRows(uiBaseURL: URL) async -> [ProAgentChatRow]? {
         var request = URLRequest(url: uiBaseURL.appendingPathComponent("goose-index"))
         request.timeoutInterval = 4
         guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+              let http = response as? HTTPURLResponse else { return nil }
+        // 404 => the goose proxy isn't registered (opencode-only run): a valid
+        // empty, NOT a failure. Any other non-200 or a parse error IS a failure.
+        if http.statusCode == 404 { return [] }
+        guard http.statusCode == 200,
+              let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
         return items.compactMap { item in
             guard let id = item["id"] as? String else { return nil }
             let updatedMs = (item["updatedAt"] as? Double) ?? (item["updatedAt"] as? Int).map(Double.init) ?? 0
@@ -102,6 +126,7 @@ struct ProAgentAllChatsSheet: View {
 
     @State private var rows: [ProAgentChatRow] = []
     @State private var isLoading = true
+    @State private var loadFailed = false
 
     private var groupedRows: [(directory: String, rows: [ProAgentChatRow])] {
         let groups = Dictionary(grouping: rows) { $0.directory }
@@ -136,6 +161,19 @@ struct ProAgentAllChatsSheet: View {
             if isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if rows.isEmpty && loadFailed {
+                // A fetch FAILED (not a genuine empty) — say so + offer retry,
+                // rather than telling the user they have no chats.
+                VStack(spacing: 10) {
+                    Text("Couldn't load chats.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(theme.textPrimary.opacity(0.7))
+                    Button("Retry") { Task { await reload() } }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.textPrimary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if rows.isEmpty {
                 Text("No chats yet.")
                     .font(.system(size: 13))
@@ -201,7 +239,10 @@ struct ProAgentAllChatsSheet: View {
             isLoading = false
             return
         }
-        rows = await ProAgentChatListFetcher.fetchMergedRows(uiBaseURL: uiBaseURL)
+        isLoading = true
+        let result = await ProAgentChatListFetcher.fetchMergedRows(uiBaseURL: uiBaseURL)
+        rows = result.rows
+        loadFailed = result.anyFailed
         isLoading = false
     }
 }
