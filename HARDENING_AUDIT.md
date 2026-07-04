@@ -413,3 +413,20 @@ Silent-data-loss single-lens auditor verdict: the save/index lane is GENUINELY W
 - DEFERRED (LOW/by-design): VaultIndexActor:1594-1626 preserveBody keeps the newer managed body but still overwrites title/tags/emoji/frontMatter from the older vault file (conscious last-writer-wins metadata policy). Flag only.
 
 BUILD-ENV RESOLVED: the isolated -derivedDataPath (/tmp/agentC-dd) is the durable workaround for the shared-DD build-database attach contention (4-5 concurrent lane builds). It reached a full clean ** BUILD SUCCEEDED **, RETRO-VERIFYING the CJK/SDGraphNode/Sessions/FINDING-1 batches (previously compile/inspection-verified under contention). SRCH-2 (RRF rollup) EXPLAIN-test concern CLOSED by static analysis: the window-function rewrite is in rolled_up (post-FTS unioned data), not the FTS hits CTEs, so RRFFusionQueryTests' FTS-acceleration EXPLAIN gate + the recency source-string assertions are unaffected.
+
+## NOTE-2 (HIGH, same note in two editors) — partial + documented 2026-07-04
+- LANDED: loadBodyIfNeeded now SKIPS a no-op reload (if the reloaded body == the editor's
+  current bodyText for an already-loaded page, don't re-apply → no cursor/undo/block reset).
+  Safe robustness win + prerequisite for sibling-sync. (ProseEditorView, build-verified.)
+- DEFERRED (needs care, do not rush): full sibling-sync. To make editor A learn of editor
+  B's save, the debounced save (ProseEditorView.debouncedSave ~470) must post
+  pageBodyDidChange after writeBodyAsync. BUT loadBodyIfNeeded prefers the LIVE
+  NoteWindowManager.editorBody(for:) over disk (line 126) — with two editors of one pageId
+  it's ambiguous which body editorBody returns, so a naive post could make a sibling reload
+  the WRONG (its own/stale) body. Correct fix: on an EXTERNAL-change reload, read DISK
+  (authoritative saved state), not editorBody; then post-on-save + the NOTE-3 dirty guard
+  give: clean sibling → reloads B's save; dirty sibling → preserves its edits. Verify
+  editorBody's multi-editor semantics first.
+- BUILD-INFRA NOTE: `build-rust/` is SHARED across all agents (not isolated by -derivedDataPath),
+  so the "Build Rust Engine" phase can race (`mktemp ... libgraph_engine.XXXXXX.a: File
+  exists`). Recovery: `rm -f build-rust/libgraph_engine.*.a` + retry the build.

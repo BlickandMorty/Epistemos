@@ -140,6 +140,14 @@ struct ProseEditorView: View {
             pageId: pageId,
             pageTitle: pageTitle
         )
+        // NOTE-2 companion: skip a no-op reload — if the reloaded body already matches what's
+        // in this editor for this page, don't re-apply it (which would reset cursor/undo/
+        // blocks). Keep lastPersistedBody synced so dirty-detection stays correct. This lets
+        // the saving editor safely ignore its own pageBodyDidChange post.
+        if loadedBodyPageId == pageId, sanitizedBody == bodyText {
+            lastPersistedBody = sanitizedBody
+            return
+        }
         bodyText = sanitizedBody
         lastPersistedBody = sanitizedBody
         loadedBodyPageId = pageId
