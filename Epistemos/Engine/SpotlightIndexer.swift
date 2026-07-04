@@ -143,6 +143,10 @@ enum SpotlightIndexer {
     /// The work is dispatched onto the current MainActor Task so the
     /// public call signature stays sync; inside the task we await per
     /// page.
+    // SI-1 (audit 2026-07-04): holds the in-flight bulk reindex so a newer reindexAll (e.g. a vault
+    // switch) can supersede a stale one. MainActor-isolated (the enum is MainActor under the default).
+    private static var currentReindexTask: Task<Void, Never>?
+
     static func reindexAll(_ pages: [SDPage]) {
         let batchSize = 50
         let total = pages.count
@@ -162,8 +166,13 @@ enum SpotlightIndexer {
         // CSSearchableIndex is thread-safe — the whole loop is safe
         // off-main on a background task. Vault-load interaction stays
         // responsive even on 10k+ note vaults.
-        Task.detached(priority: .utility) {
+        // SI-1 (audit 2026-07-04): supersede a stale reindex — a vault switch mid-reindex previously
+        // kept indexing the OLD vault's pages (the detached task had no cancellation). Cancel the
+        // prior run and check isCancelled per batch so a newer reindexAll wins.
+        currentReindexTask?.cancel()
+        currentReindexTask = Task.detached(priority: .utility) {
             for batchStart in stride(from: 0, to: total, by: batchSize) {
+                if Task.isCancelled { return }
                 let batchEnd = min(batchStart + batchSize, total)
                 let batch = Array(stages[batchStart..<batchEnd])
 
