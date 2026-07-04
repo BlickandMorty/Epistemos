@@ -149,6 +149,18 @@ struct HexViewerView: View {
 
     private func loadFile() {
         do {
+            // Guard against an unbounded read: Data(contentsOf:) below pulls the WHOLE file into
+            // memory (plus an Array copy and Rust FFI over it) on the MAIN actor (.onAppear), so a
+            // very large file would freeze the UI and risk OOM. 50 MB is generous for a corrupted
+            // note/attachment recovery tool; larger files are refused with a clear message rather
+            // than partial-read (a partial repair would be worse than none).
+            let maxHexViewBytes = 50 * 1024 * 1024
+            if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+               fileSize > maxHexViewBytes {
+                loadError = "File is too large to hex-view safely "
+                    + "(\(fileSize / (1024 * 1024)) MB; max 50 MB)."
+                return
+            }
             rawBytes = try Data(contentsOf: fileURL)
 
             // Use Rust FFI for detection and repair
