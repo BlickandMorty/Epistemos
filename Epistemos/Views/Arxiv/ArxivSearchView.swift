@@ -56,6 +56,7 @@ struct ArxivSearchView: View {
     @State private var importedIDs: Set<String> = []
     @State private var searchTask: Task<Void, Never>?
     @State private var didLoadFeaturedFeed = false
+    @State private var featuredFeedFailed = false
     @State private var ingestTasks: [String: Task<Void, Never>] = [:]
     @State private var selectedCategory: String?
 
@@ -135,18 +136,25 @@ struct ArxivSearchView: View {
                         startSearch()
                     }
 
+                // #4 (audit 2026-07-03): while a search/category load is in flight the button
+                // becomes an enabled Stop that cancels it — previously it was a disabled hourglass,
+                // so a slow/stuck search could only be escaped by navigating away.
                 ToolbarCapsuleButton(
                     title: nil,
-                    systemImage: isSearching ? "hourglass" : "magnifyingglass",
+                    systemImage: isSearching ? "xmark" : "magnifyingglass",
                     role: .primaryAction,
                     isActive: isSearching,
                     chromePolicy: .alwaysSurface,
-                    helpText: "Search arXiv",
-                    accessibilityLabel: "Search arXiv"
+                    helpText: isSearching ? "Stop searching" : "Search arXiv",
+                    accessibilityLabel: isSearching ? "Stop searching arXiv" : "Search arXiv"
                 ) {
-                    startSearch()
+                    if isSearching {
+                        cancelSearch()
+                    } else {
+                        startSearch()
+                    }
                 }
-                .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSearching)
+                .disabled(!isSearching && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
             categoryChips
@@ -172,6 +180,19 @@ struct ArxivSearchView: View {
                         Text("Loading featured papers…")
                             .font(.callout)
                             .foregroundStyle(mutedTint)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 220)
+                } else if featuredFeedFailed && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    // #6 (audit 2026-07-03): a featured-feed load that failed at cold start
+                    // (offline on open) previously dead-ended — the one-shot guard is set before
+                    // the fetch, so it never retried and offered no Retry. Now it surfaces one.
+                    ContentUnavailableView {
+                        Label("Couldn't reach arXiv", systemImage: "wifi.exclamationmark")
+                    } description: {
+                        Text("Check your connection, then retry — or search above.")
+                    } actions: {
+                        Button("Retry") { retryFeaturedFeed() }
+                            .buttonStyle(.borderedProminent)
                     }
                     .frame(maxWidth: .infinity, minHeight: 220)
                 } else {
@@ -295,7 +316,9 @@ struct ArxivSearchView: View {
             // Navigated away mid-load — normal cancellation, not an error.
             return
         } catch {
-            // Never fail silently to a blank screen — tell the user what happened.
+            // #6: never fail silently to a blank screen — tell the user AND surface a Retry
+            // affordance (the empty state reads `featuredFeedFailed`) instead of dead-ending.
+            featuredFeedFailed = true
             statusMessage = "Couldn't reach arXiv (\(ArxivSearchPresentation.status("\(error)"))). Search above to try again."
         }
     }
@@ -417,8 +440,28 @@ struct ArxivSearchView: View {
         guard !isSearching else { return }
         searchTask?.cancel()
         selectedCategory = nil
+        featuredFeedFailed = false
         searchTask = Task {
             await search()
+            searchTask = nil
+        }
+    }
+
+    /// #4: cancel an in-flight search/category load from the Stop button. We only cancel —
+    /// the running task's own `defer { isSearching = false }` flips the button back when it
+    /// unwinds on CancellationError, which avoids a start-while-cancelling race on searchTask.
+    private func cancelSearch() {
+        searchTask?.cancel()
+    }
+
+    /// #6: retry the featured feed after a cold-start network failure. Resets the one-shot
+    /// guard and re-runs the loader; the result (or another failure) updates the empty state.
+    private func retryFeaturedFeed() {
+        featuredFeedFailed = false
+        didLoadFeaturedFeed = false
+        searchTask?.cancel()
+        searchTask = Task {
+            await loadFeaturedFeedIfNeeded()
             searchTask = nil
         }
     }
