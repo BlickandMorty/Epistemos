@@ -137,35 +137,78 @@ nonisolated struct AppleContextualEmbeddingLookup: TextEmbeddingLookup, @uncheck
     }
 }
 
-/// Shared, lock-guarded owner of the non-thread-safe `NLContextualEmbedding`.
-/// A reference type so all value-copies of `AppleContextualEmbeddingLookup`
-/// share one instance + one lock; the lock serializes every framework call so
-/// overlapping background tasks can never enter `embeddingResult` concurrently.
-/// Mean-pooling runs inside the lock too, because the result can alias the
-/// embedding's internal token state.
+/// Pooled owner of the non-thread-safe `NLContextualEmbedding`. A reference type so all
+/// value-copies of `AppleContextualEmbeddingLookup` share one pool.
+///
+/// PERF (2026-07-04): `NLContextualEmbedding` is NOT thread-safe — concurrent calls on ONE
+/// instance corrupt its internal `NLTagger` (EXC_BAD_ACCESS, verified 2026-06-12). The prior fix
+/// was a single shared instance + a lock around every call: crash-safe, but it SERIALIZES the
+/// `SemanticClusterService.concurrentPerform` fan-out and erases its ~3-4x parallelism (the graph
+/// clustering perf the owner is missing). Instead, keep a POOL and hand each concurrent caller an
+/// EXCLUSIVE instance for the duration of its call: no instance is ever touched by two threads at
+/// once (still crash-safe — per-instance isolation is the standard pattern for non-thread-safe
+/// resources), and `embeddingResult` + mean-pool run OUTSIDE the pool lock, so callers embed in
+/// parallel again. A semaphore caps live instances so a large vault can't balloon memory — Apple's
+/// NL frameworks share the underlying model assets across instances (per-instance cost is the small
+/// tagger state), and the cap keeps the worst case bounded on 16 GB machines.
 private nonisolated final class ContextualEmbeddingStorage: @unchecked Sendable {
-    private let lock = NSLock()
-    private let embedding: NLContextualEmbedding?
+    private let poolLock = NSLock()
+    private var idle: [NLContextualEmbedding]
+    private let permits: DispatchSemaphore
+    private let language: NLLanguage
+    private let assetsAvailable: Bool
+    private let pinnedDimension: Int
 
     init(language: NLLanguage) {
-        self.embedding = NLContextualEmbedding(language: language)
+        self.language = language
+        self.permits = DispatchSemaphore(
+            value: max(2, min(4, ProcessInfo.processInfo.activeProcessorCount)))
+        // Prime one instance to read dimension + asset availability up front.
+        let primed = NLContextualEmbedding(language: language)
+        if let primed, primed.hasAvailableAssets {
+            self.assetsAvailable = true
+            self.pinnedDimension = Int(primed.dimension)
+            self.idle = [primed]
+        } else {
+            self.assetsAvailable = false
+            self.pinnedDimension = 0
+            self.idle = []
+        }
     }
 
-    var dimension: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let embedding, embedding.hasAvailableAssets else { return 0 }
-        return Int(embedding.dimension)
-    }
+    /// Immutable snapshot taken at init — no lock. Assets don't appear mid-session; the hybrid
+    /// lookup pins dimension at construction and documents a cache restart to pick up a
+    /// word→contextual transition after assets finish downloading.
+    var dimension: Int { pinnedDimension }
 
     func textVector(for text: String, language: NLLanguage) -> [Float]? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let embedding, embedding.hasAvailableAssets else { return nil }
-        guard let result = try? embedding.embeddingResult(for: text, language: language) else {
+        guard assetsAvailable else { return nil }
+        permits.wait()                       // bound live instances -> bound memory
+        defer { permits.signal() }
+        guard let instance = checkOut() else { return nil }
+        // Return the instance only AFTER mean-pool below: the result aliases the instance's
+        // internal token state, so it must stay exclusively held through the pooling.
+        defer { checkIn(instance) }
+        guard instance.hasAvailableAssets,
+              let result = try? instance.embeddingResult(for: text, language: language) else {
             return nil
         }
-        return AppleContextualEmbeddingLookup.meanPool(result, dimension: Int(embedding.dimension))
+        return AppleContextualEmbeddingLookup.meanPool(result, dimension: Int(instance.dimension))
+    }
+
+    /// Borrow an idle instance or mint one. The lock is held only for the O(1) pop — never across
+    /// the framework call — so concurrent callers run their embeddings in parallel.
+    private func checkOut() -> NLContextualEmbedding? {
+        poolLock.lock()
+        let reused = idle.popLast()
+        poolLock.unlock()
+        return reused ?? NLContextualEmbedding(language: language)
+    }
+
+    private func checkIn(_ instance: NLContextualEmbedding) {
+        poolLock.lock()
+        idle.append(instance)
+        poolLock.unlock()
     }
 }
 
