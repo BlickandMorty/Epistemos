@@ -112,7 +112,7 @@ struct ProseEditorView: View {
         return String(body[..<dividerRange.lowerBound])
     }
 
-    private func loadBodyIfNeeded(force: Bool) async {
+    private func loadBodyIfNeeded(force: Bool, preferDisk: Bool = false) async {
         let pageId = page.id
         let pageTitle = page.title
         let fallbackBody = page.body
@@ -123,7 +123,10 @@ struct ProseEditorView: View {
         if let initialBodyOverride {
             rawBody = initialBodyOverride
             shouldPersistInlineRepair = false
-        } else if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
+        } else if !preferDisk, let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
+            // NOTE-2: on an EXTERNAL-change reload (preferDisk) skip the live editorBody —
+            // it's ambiguous when a note is open in two editors — and read the authoritative
+            // saved DISK state below instead.
             rawBody = liveBody
             shouldPersistInlineRepair = false
         } else {
@@ -350,7 +353,7 @@ struct ProseEditorView: View {
                 saveTask?.cancel()
                 loadedBodyPageId = nil
                 Task { @MainActor in
-                    await loadBodyIfNeeded(force: true)
+                    await loadBodyIfNeeded(force: true, preferDisk: true)
                 }
             } else {
                 Self.log.warning("NOTE-3: external body change for \(page.id, privacy: .public) deferred — editor has unsaved edits")
@@ -478,6 +481,15 @@ struct ProseEditorView: View {
             // the new content if @Query refetch triggers view re-evaluation.
             page.needsVaultSync = true
             saveModelContext(reason: "debounced save for page \(pageId)")
+            // NOTE-2: notify sibling editors of this note so they pick up our save — a CLEAN
+            // sibling reloads it (reads DISK via preferDisk), a DIRTY sibling defers and keeps
+            // its edits (NOTE-3 guard). Our own editor no-ops via the skip-unchanged guard
+            // (disk == our just-saved bodyText), so this can't loop.
+            NotificationCenter.default.post(
+                name: NoteFileStorage.pageBodyDidChange,
+                object: nil,
+                userInfo: ["pageId": pageId]
+            )
         }
     }
 

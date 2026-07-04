@@ -430,3 +430,13 @@ BUILD-ENV RESOLVED: the isolated -derivedDataPath (/tmp/agentC-dd) is the durabl
 - BUILD-INFRA NOTE: `build-rust/` is SHARED across all agents (not isolated by -derivedDataPath),
   so the "Build Rust Engine" phase can race (`mktemp ... libgraph_engine.XXXXXX.a: File
   exists`). Recovery: `rm -f build-rust/libgraph_engine.*.a` + retry the build.
+
+## NOTE-2 (HIGH) FULLY FIXED 2026-07-04
+Sibling-sync landed. debouncedSave now posts pageBodyDidChange after writeBodyAsync; the
+pageBodyDidChange reload reads DISK (loadBodyIfNeeded preferDisk:true) not the ambiguous
+live editorBody. Result for the SAME note open in two editors: A saves → B (clean) reloads
+A's disk save; B (dirty) keeps its edits + defers (NOTE-3 guard); A itself no-ops
+(skip-unchanged, disk == just-saved bodyText). No loop (synced sibling has
+bodyText==lastPersistedBody → no re-save). Build-verified. Remaining note items: NOTE-5
+(prose-only version snapshots, MED), NOTE-7/8 (LOW). The two HIGH clobbers (NOTE-2 + NOTE-3)
+are both closed.
