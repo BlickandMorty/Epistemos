@@ -296,6 +296,10 @@ struct BrowserView: View {
     @State private var tab: BrowserTab
     @State private var isSavingToNotes = false
     @State private var showingLimits = false
+    /// Measured height of the floating toolbar → inset the page below it (owner 2026-07-03:
+    /// "page below the bar" — the page is no longer hidden behind the URL bar; when the
+    /// toolbar hides on scroll the inset collapses to 0 so the page still goes full-window).
+    @State private var toolbarHeight: CGFloat = 0
     @FocusState private var addressFocused: Bool
 
     init(initialAddress: String? = nil) {
@@ -318,6 +322,10 @@ struct BrowserView: View {
             BrowserWebView(tab: tab, theme: theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipShape(Rectangle())
+                // Page sits BELOW the toolbar (owner: "page below the bar"); collapses to
+                // full-window when the toolbar hides on scroll.
+                .padding(.top, tab.toolbarHidden ? 0 : toolbarHeight)
+                .animation(.easeInOut(duration: 0.28), value: tab.toolbarHidden)
 
             // Floating, flat toolbar.
             VStack(spacing: 0) {
@@ -466,6 +474,7 @@ struct BrowserView: View {
 
             }
             .frame(maxWidth: .infinity, alignment: .top)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { toolbarHeight = $0 }
             .background(.ultraThinMaterial)
             .allowsHitTesting(!tab.toolbarHidden)
             .opacity(tab.toolbarHidden ? 0 : 1)
@@ -664,6 +673,11 @@ private struct BrowserWebView: NSViewRepresentable {
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
         webView.setValue(false, forKey: "drawsBackground")
+        // Task 2 (owner 2026-07-03: "websites themselves stay light"): report the app's
+        // light/dark to pages via the webview appearance, so sites that support dark mode
+        // (Google, YouTube, most modern sites) honor prefers-color-scheme: dark and render
+        // dark. Sites with NO dark styling can't be forced dark without weird full-invert.
+        webView.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
 
         context.coordinator.attach(webView: webView, tab: tab)
         if BrowserHomePage.isHome(tab.address) {
@@ -684,6 +698,7 @@ private struct BrowserWebView: NSViewRepresentable {
         let key = BrowserThemeInjection.themeKey(for: theme)
         if context.coordinator.lastThemeKey != key {
             context.coordinator.lastThemeKey = key
+            webView.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)  // Task 2: keep dark signal in sync
             webView.evaluateJavaScript(BrowserThemeInjection.applyThemeJS(for: theme), completionHandler: nil)
         }
     }
