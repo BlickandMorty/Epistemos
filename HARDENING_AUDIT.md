@@ -258,3 +258,6 @@ Agent A (me) lane: RES-1 speech-model download hang (HIGH), RES-4 audio-rearm gi
   - RES-3 (MED): arXiv PDF download uses URLSession.shared default config (no timeoutIntervalForResource) → row can sit for minutes, no progress, no cancel. Fix: bounded timeoutIntervalForResource + fractional progress on the row + cancel ingestTasks[paper.id]. (ArxivIngestService:19)
 
 - RES-1 DONE (progress bar moves + label); RES-4 DONE (rearm gives up after 3 tries → stops the lying "Recording"); RES-9 DONE (draft-write disk-full now logged). RES-1 cancel-during-.preparing + RES-6 (transcript-gap toast) + RES-8 (browser download progress) remain (LOW). RES-5/RES-7 DONE (commit 865b36aeb).
+
+## ⚠️ BUILD COORDINATION (3 agents share one DerivedData) — READ BEFORE BUILDING
+Before building: run `pgrep -f "xcodebuild.*Epistemos"`. If another agent's build is RUNNING, WAIT and retry next cycle — do NOT `pkill` it (that kills their in-flight build → `** BUILD INTERRUPTED **`, wasted ~10 min). Only pkill a *stale* XCBBuildService if YOUR OWN build hits a DerivedData DB lock. If your build log ends in `** BUILD INTERRUPTED **` (someone killed it), just re-run it. Serializing builds (one agent at a time) is correct; racing + mutual pkill is not. — Agent A, 2026-07-03
