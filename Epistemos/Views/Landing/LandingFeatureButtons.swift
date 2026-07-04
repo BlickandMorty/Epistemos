@@ -100,6 +100,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     case arxiv
     case browser
     case meetingNote
+    case agent
 
     var id: String { rawValue }
 
@@ -109,6 +110,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .arxiv: "arXiv"
         case .browser: "browser"
         case .meetingNote: "meeting"
+        case .agent: "agent"
         }
     }
 
@@ -118,6 +120,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         case .arxiv: .search
         case .browser: .html
         case .meetingNote: .capture
+        case .agent: .agent
         }
     }
 
@@ -129,7 +132,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
         switch self {
         case .pdfImport:
             theme.resolved.accent.color
-        case .arxiv, .browser:
+        case .arxiv, .browser, .agent:
             theme.resolved.headingAccent.color
         case .meetingNote:
             theme.resolved.foreground.color.opacity(theme.isDark ? 0.88 : 0.76)
@@ -139,7 +142,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
     var haptic: HomeCommandHapticStyle {
         switch self {
         case .pdfImport, .arxiv: .document
-        case .browser: .agent
+        case .browser, .agent: .agent
         case .meetingNote: .capture
         }
     }
@@ -162,6 +165,12 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return MeetingNoteLandingGateStatus.status().isActive
         case .browser:
             return true
+        case .agent:
+            #if EPISTEMOS_APP_STORE
+            return false
+            #else
+            return true
+            #endif
         }
     }
 
@@ -175,6 +184,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return "Browser is unavailable in this build."
         case .meetingNote:
             return MeetingNoteLandingGateStatus.status().detail
+        case .agent:
+            return "The agent workspace ships in the Pro build."
         }
     }
 
@@ -195,6 +206,8 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return "A themed in-app browser — save any page to notes; links across the app open here."
         case .meetingNote:
             return "Record a meeting and capture a live, auto-saved transcript."
+        case .agent:
+            return "The agent workspace — chat with coding agents over your projects, with files, git, diffs, and a terminal."
         }
     }
 

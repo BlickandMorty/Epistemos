@@ -363,6 +363,10 @@ final class UIState {
         case meeting
         case arxiv
         case browser
+        /// Agent surface home page (Plan 1 2026-07-03): the Pro build mounts
+        /// the OpenChamber surface; the MAS build mounts its June-native
+        /// surface on this same case when that track lands.
+        case agent
     }
 
     var homeContent: HomeContent = .greeting

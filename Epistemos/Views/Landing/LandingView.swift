@@ -172,6 +172,17 @@ struct LandingView: View {
             case .browser:
                 HomeEmbeddedPage(title: "Browser") { BrowserView() }
                     .transition(Self.homePageTransition).zIndex(1)
+            case .agent:
+                HomeEmbeddedPage(title: "Agent") {
+                    #if EPISTEMOS_APP_STORE
+                    // MAS mounts its June-native agent surface here (separate track).
+                    Text("Agent is not available in this build yet.")
+                        .foregroundStyle(.secondary)
+                    #else
+                    ProAgentSurfaceView(theme: theme)
+                    #endif
+                }
+                .transition(Self.homePageTransition).zIndex(1)
             }
 
             // Companion dock — hidden when the embedded graph is up so it
@@ -717,6 +728,10 @@ struct LandingView: View {
         case .meetingNote:
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
                 ui.homeContent = .meeting
+            }
+        case .agent:
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                ui.homeContent = .agent
             }
         }
     }
