@@ -51,7 +51,13 @@ NOW → Plan 1-PRO (OpenChamber)  ─┐  the two agent surfaces (run in paralle
 - **Performance:** [`../research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md`](../research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md)
   — the owner-loved "instant open" recipe + **web-side** (OpenChamber SPA) and **app-side**
   (native) optimization, made a per-phase shipping gate; budgets in `../perf-budgets.toml`
-  `[agent_surface]`. Both Plan 1 tracks reference it (Pro §13, MAS §12).
+  `[agent_surface]`. (Pro §13, MAS §12.)
+- **Hardening:** [`../research/AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`](../research/AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md)
+  — the four audit lenses + the discovered robustness patterns (FFI truth boundary,
+  supervision-not-polling, ring-buffer circuit breaker, thermal↔breaker, loopback-origin
+  pinning, agent-destructive-op safety, untrusted-ingest, data-core integrity) made a
+  per-phase gate. Tailored top-risks baked into each new plan (Pro §14, MAS §13, ResearchHub
+  §12, Data §11). A hardening HIGH blocks a phase commit like a broken build.
 - **Look/feel:** `../research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md` (all plans).
 
 ## Notes on relationships

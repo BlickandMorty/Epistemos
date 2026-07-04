@@ -421,3 +421,26 @@ handlers, lazy-init) + §5 (perf is a per-phase gate). Budgets in `docs/perf-bud
 resident across an Agent tab-switch; unloading on switch is a regression). MAS's agent
 surface is native (no web bundle), so §2 web-side rules apply only to the app's editor/
 KaTeX WebViews, not here. A perf regression blocks the phase commit like a broken build.
+
+---
+
+## §13 HARDENING (baked in, per-phase gate — READ-FIRST `AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`)
+
+Each phase ends with a bounded four-lens hardening pass (security · memory-leak · data-leak ·
+robustness/fluidity) reported thermonuclear-shape; a HIGH blocks the phase commit. This
+surface's specific top risks:
+1. **FFI truth boundary** (doctrine §2 — the historical #1 flaw): verify `agent_core`'s panic
+   strategy vs its unwinding assumption so no Rust panic SIGTRAPs the process across UniFFI;
+   `mem::forget` extracted payloads. UniFFI callbacks hop main via `async`, never `.sync`.
+2. **llama.cpp OOM guard:** the RAM gate must refuse an oversized model/context load gracefully
+   (never limp into swap or crash); model unloads under memory pressure; keep-warm on
+   tab-switch is the perf invariant, unload only under real pressure.
+3. **Supervision, not polling** of the in-process runtime + honest `.failed` states;
+   circuit breaker (ring buffer, N-consecutive half-open) on the cloud proxy; thermal pause =
+   breaker no-op; Apple FM `guardrailViolation` → GGUF fallback (already core).
+4. **Ingest = untrusted input** (doctrine §3C): a malformed receipt/PDF/CSV must not crash the
+   parser or corrupt a table; OCR'd/parsed text is DATA the agent never executes; provenance on
+   every ingested record; the instruction-source boundary on the Data/chat agent.
+5. **Secrets in Keychain**, provider keys server-side only; parameterized SQL for any GRDB the
+   surface adds. Every unsafe block `// SAFETY:`; no `try!`/force-unwrap/`print()` in prod.
+   Perf AND hardening HIGHs both block the commit.

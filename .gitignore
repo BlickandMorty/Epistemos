@@ -94,3 +94,5 @@ Epistemos/Resources/opencode-runtime/
 # scripts/fetch-llama-xcframework.sh (sha256-verified), never committed
 LocalPackages/EpistemosLlama/Binary/llama.xcframework/
 LocalPackages/EpistemosLlama/Binary/.llama-*.sha256-ok
+LocalPackages/EpistemosLlama/.gguf-probe-cache/
+.gguf-probe-cache/

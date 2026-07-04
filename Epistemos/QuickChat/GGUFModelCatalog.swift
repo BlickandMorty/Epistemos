@@ -71,8 +71,11 @@ nonisolated enum GGUFModelCatalog {
             id: "qwen3-4b-instruct-q4km",
             displayName: "Qwen3 4B",
             subtitle: "Default — best quality per GB for reading and quick answers",
-            huggingFaceRepo: "Qwen/Qwen3-4B-Instruct-2507-GGUF",
-            fileName: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+            // Verified 2026-07-03 against the HF API: the official Qwen org
+            // publishes the single-file Q4_K_M here; the "-Instruct-2507-GGUF"
+            // variant is community-only and would 404.
+            huggingFaceRepo: "Qwen/Qwen3-4B-GGUF",
+            fileName: "Qwen3-4B-Q4_K_M.gguf",
             approxDownloadBytes: 2_500_000_000,
             kvBytesPerToken: 147_456,
             minimumPhysicalMemoryGB: 8,
@@ -101,8 +104,12 @@ nonisolated enum GGUFModelCatalog {
             id: "qwen2.5-7b-instruct-q4km",
             displayName: "Qwen2.5 7B (long documents)",
             subtitle: "Lowest memory per page — reads whole papers comfortably",
-            huggingFaceRepo: "Qwen/Qwen2.5-7B-Instruct-GGUF",
-            fileName: "qwen2.5-7b-instruct-q4_k_m.gguf",
+            // The official Qwen2.5-7B-Instruct-GGUF ships Q4_K_M SPLIT across
+            // two files, which the single-file download manager can't assemble.
+            // bartowski publishes a verified single-file Q4_K_M (Apache-2.0
+            // weights, MIT quant tooling). Verified 2026-07-03 via HF API.
+            huggingFaceRepo: "bartowski/Qwen2.5-7B-Instruct-GGUF",
+            fileName: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
             approxDownloadBytes: 4_680_000_000,
             kvBytesPerToken: 57_344,
             minimumPhysicalMemoryGB: 16,

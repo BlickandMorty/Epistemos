@@ -225,3 +225,29 @@ Per phase, each ends in a commit + owner-visual checkpoint:
   (both schemes), BUILD SUCCEEDED before commit; no worktrees; commit per phase.
 - Don't start the agent-facing phases (B+) until Plan 1-PRO and Plan 1-MAS are
   owner-verified — the mascot + tool integration needs real agents.
+
+---
+
+## §12 HARDENING (baked in, per-phase gate — READ-FIRST `docs/research/AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`)
+
+ResearchHub ingests the open internet, so **untrusted-content + prompt-injection hardening is
+this plan's defining risk** — run the four lenses (security · memory-leak · data-leak ·
+robustness/fluidity) per phase, thermonuclear-shape; a HIGH blocks the phase commit. Top risks:
+1. **The instruction-source boundary is load-bearing here** (doctrine §1/§3B): every fetched
+   post/paper/thread/README is DATA, never commands. An agent that "reads my ResearchHub" must
+   NEVER act on instructions embedded in the content it read (forward emails, change settings,
+   exfiltrate the vault). Quote-and-confirm, never auto-execute content-borne instructions.
+2. **Untrusted rendering** (doctrine §3C): native adaptive cards render third-party text/media —
+   sanitize, no script execution, no injection through a card; link previews/quoted posts are
+   inert; media is tap-to-play, not auto-fetching trackers.
+3. **Data-leak:** never send vault/personal data to a source, URL, or endpoint suggested by
+   fetched content; no PII in query params; honor the **Reddit/X 48h-delete** retention rule
+   (a periodic purge job); NSFW filter for Reddit (App Review). Saved third-party content is
+   quarantined with provenance until the user saves it.
+4. **Per-source resilience:** each adapter gets rate-limit + backoff + a **circuit breaker**
+   (ring buffer; a source being down or throttling never breaks the feed — degrade that lane,
+   keep the rest). BYO-credential keys in Keychain only; the Raindrop `client_secret` stays in
+   the proxy, never the client.
+5. Feed memory: virtualized lists + bounded caches (N items OR M bytes); teardown paths for any
+   WebView the tab opens; the agent tool surface shares Plan 9's dry-run/confirm discipline for
+   any write. Hardening HIGHs block the commit like a broken build.

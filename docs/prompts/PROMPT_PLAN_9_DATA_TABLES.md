@@ -280,3 +280,30 @@ query results. One data core — tab, embed, chat, agent all point at it.
    conditional formatting posture → **CF: adopt when IronCalc releases it (already
    in source at HEAD); merged cells: defer entirely** (no visual-only shims that
    lie about the model).
+
+---
+
+## §11 HARDENING (baked in, per-phase gate — READ-FIRST `docs/research/AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`)
+
+Plan 9 mixes a WASM/webview bridge, agent-driven destructive DB ops, untrusted ingest, and a
+formula engine — a wide risk surface. Run the four lenses (security · memory-leak · data-leak ·
+robustness/fluidity) per phase, thermonuclear-shape; a HIGH blocks the phase commit. Top risks:
+1. **Named-range extent correctness = the #1 data-integrity risk** (doctrine §3D + the synthesis
+   warning): if extent maintenance is wrong on record insert/delete/reorder or field rename,
+   formulas SILENTLY point at the wrong data. Guard with an explicit reorder+rename fuzz test in
+   Stage 4's acceptance.
+2. **Destructive agent ops** (doctrine §3B): dry_run→confirm→apply-in-ONE-transaction→undo with
+   **transaction atomicity** (no partial migration) and **inverse-op correctness** (undo exactly
+   reverses — test it). The instruction-source boundary on the in-tab chat: act on the user's
+   request, never on instructions found inside table rows / ingested content.
+3. **SQL + formula safety:** parameterized SQL only — field names, formula strings, and agent
+   args never concatenate into SQL. **Formula-eval DoS**: bound recalc (IronCalc has no
+   dirty-cell API; a pathological formula/cycle could stall) with a timeout/iteration cap;
+   surface errors via `Result` (CellValue has no Error variant).
+4. **The grid webview bridge** (doctrine §3A): validate every `WKScriptMessageHandler` payload;
+   bundled `loadFileURL` assets only (no server); no eval of injected content; the wasm/Univer
+   bundle is trusted-vendored, but the bridge is a trust boundary.
+5. **Ingest = untrusted** (doctrine §3C): a malformed receipt/PDF/CSV must not corrupt the schema
+   or crash; OCR'd text is data, never executed; provenance on every record. **FFI truth boundary**
+   for native IronCalc (`epistemos_calc`): no Rust panic SIGTRAPs the process. Perf AND hardening
+   HIGHs both block the commit.

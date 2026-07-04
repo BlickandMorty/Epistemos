@@ -19,12 +19,15 @@ let maxNewTokens = arguments.count >= 4 ? Int(arguments[3]) ?? 48 : 48
 let sandboxContainerID = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"]
 print("SPIKE sandboxed=\(sandboxContainerID != nil ? 1 : 0) container=\(sandboxContainerID ?? "-") model=\((modelPath as NSString).lastPathComponent)")
 
-// Minimal instruct wrapping so -it models answer instead of continuing the
-// text. Gemma-family markers; other models get the raw prompt (fine for a
-// token-generation proof).
+// Instruct wrapping so -it models answer instead of continuing the text.
+// Mirrors the app's GGUFChatTemplateFamily: Gemma turns for gemma-*, ChatML
+// for qwen-* (the app's Qwen catalog default), raw otherwise.
+let lowerPath = modelPath.lowercased()
 let prompt: String
-if modelPath.lowercased().contains("gemma") {
+if lowerPath.contains("gemma") {
     prompt = "<start_of_turn>user\n\(userPrompt)<end_of_turn>\n<start_of_turn>model\n"
+} else if lowerPath.contains("qwen") {
+    prompt = "<|im_start|>user\n\(userPrompt)<|im_end|>\n<|im_start|>assistant\n"
 } else {
     prompt = userPrompt
 }

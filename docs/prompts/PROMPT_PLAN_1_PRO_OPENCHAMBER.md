@@ -433,3 +433,26 @@ of it — plus the per-phase perf gate + budgets — is canon in
 **`docs/research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md` §2 (READ-FIRST)** and
 enforced via `docs/perf-budgets.toml` `[agent_surface]`. Perf is a phase gate: a regression
 blocks the commit like a broken build.
+
+---
+
+## §14 HARDENING (baked in, per-phase gate — READ-FIRST `AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`)
+
+Each phase ends with a bounded hardening pass over what it touched (the four lenses:
+security · memory-leak · data-leak · robustness/fluidity), reported in the thermonuclear
+shape (`N HIGH / N MED / N LOW`, file:line, FIXED/DEFERRED). A HIGH blocks the phase commit
+like a broken build. This surface's specific top risks:
+1. **Loopback-origin pinning — NEVER weaken** (doctrine §3A; the goose H1 finding): a foreign
+   local page inheriting the boot shim leaks `getSecretKey()` + the native FS bridge. Pin to
+   the exact registered ports; navigation decider trusts only them.
+2. **No engine secret in webview JS** — X-Secret-Key / OPENCODE_SERVER_PASSWORD live Swift-side
+   + in the same-origin `/goose/*` proxy; the SPA never sees them. Validate every
+   `WKScriptMessageHandler` payload (untrusted).
+3. **Supervision, not polling** (doctrine §2): the 3 children (web server, opencode, goosed)
+   get real restart policy + backoff + honest `.failed` + zombie/process-group cleanup +
+   occupied-port honesty. Reuse the proven `GooseRuntimeSupervisor` patterns.
+4. **Circuit breaker** (ring buffer, N-consecutive half-open) on the engine/proxy calls;
+   thermal pause = breaker no-op.
+5. Web-memory teardown (shared process pool, non-persistent store, dismantle handlers);
+   CSP no-external-hosts; SW + self-updater OFF; the instruction-source boundary on anything
+   the agent reads through a tool. Perf AND hardening HIGHs both block the commit.
