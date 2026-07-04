@@ -123,3 +123,52 @@ june-agent-turn}.png`. Fork commits: `46476c3`→`f86d833`+ (overlay). Epistemos
 commits: `4b977aab5`, `a36858133`, `c69a97ddf`, `3163a174d`, `bfafb7875`,
 `28b757a51`, `38a7c9a1e`. Live agent-facing ledger: memory
 `plan1-mas-june-loop-state`.
+
+## 2026-07-04 ~16:00 — IN-APP WITNESS LANDED (the never-proven item is proven)
+
+**June returns real answers inside the actual running, sandboxed App Store
+build.** Witnessed live, not spike-inferred:
+
+- Launched `Epistemos-AppStore` (properly **signed** this time — the earlier
+  witness binary was `CODE_SIGNING_ALLOWED=NO` = unsandboxed; builds now carry
+  the real `com.apple.security.app-sandbox` entitlement).
+- Landing → agent tile → **June's full shell rendered** (sidebar, composer,
+  Sandboxed chip, model chip defaulting to "Apple Intelligence (on-device)").
+- Sent a prompt on the LOCAL lane → **real streamed answer** in June's
+  transcript ("The capital of France is Paris."), Thinking→answer lifecycle
+  captured. A second, longer turn also completed (twelve numbers, one per
+  line) — **multi-turn, zero crashes** (no new DiagnosticReports).
+- Durable store proof in the sandbox container
+  (`…/Application Support/Epistemos/JuneAgent/`): `sessions.json` records the
+  session with `"model":"epistemos.apple-fm"`, `messageCount: 4`, auto-title
+  "List the Numbers One Through Twelve"; the messages file holds all four real
+  messages.
+- Screenshots: `assets/june-witness-2026-07-04/01…04*.png`.
+
+**Two fixes landed en route (each per-step committed):**
+
+1. `653f06b58` — **Full Epistemos theme bridge** (owner: June must match the
+   app's palette + accent, not just light/dark). `JuneThemeBridge` maps the
+   resolved `EpistemosTheme` onto June's own theming seam — `--brand` (June's
+   single runtime accent lever) plus the core surface tokens — seeded at
+   documentStart, re-applied live on `ui.theme` change. Placeholder canvas +
+   `underPageBackgroundColor` follow the theme. Pixel check on the witnessed
+   run: June canvas `#161416` (bridged Classic-dark) vs June stock warm-rose
+   dark — the bridge is live. Decisive multi-theme visual (Ember/tan,
+   Platinum Violet) still queued behind UI-drive windows.
+2. `c2621cbc2` — **Landing agent tile un-gated on MAS.** Root cause of "June
+   never renders": `LandingFeatureButtons` returned `false` for `.agent` under
+   `EPISTEMOS_APP_STORE` ("ships in the Pro build") — predating the June
+   surface, leaving the room unreachable at runtime. Shared file; 2 surgical
+   hunks; Pro path unchanged.
+
+**Also real now:** Qwen3-4B-Q4_K_M (2.49 GB) is fully installed in the sandbox
+catalog (downloaded live in-app during a sibling session) → the June model
+picker's GGUF lane has an installed model for the switch witness.
+
+**Still queued (UI-drive windows only — no code gaps):** model-picker popover +
+real GGUF turn; Ember/Platinum-Violet visual theme checks; relaunch
+session-survival glance. First-run gotcha recorded: a microphone TCC prompt
+intercepts the first agent-tile click on a fresh container (denied for
+`com.epistemos.appstore`; re-enable in System Settings if dictation testing is
+ever wanted in the MAS test build).
