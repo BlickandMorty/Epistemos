@@ -254,6 +254,9 @@ final class BrowserTab {
     /// scroll-up so the page can take the full window. Driven by an injected scroll
     /// listener that posts direction to the `browserScroll` message handler.
     var toolbarHidden = false
+    /// RES-8 follow-up: the in-progress download so the UI can offer Cancel — a stalled
+    /// download must not trap the user. Set by the coordinator; cleared on finish/fail/cancel.
+    var activeDownload: WKDownload?
 
     @ObservationIgnored var loadURL: ((URL) -> Void)?
     @ObservationIgnored var goBack: (() -> Void)?
@@ -464,6 +467,15 @@ struct BrowserView: View {
                     Text(error)
                         .lineLimit(2)
                     Spacer(minLength: 0)
+                    if tab.activeDownload != nil {
+                        Button("Cancel") {
+                            tab.activeDownload?.cancel { _ in }
+                            tab.activeDownload = nil
+                            tab.lastError = nil
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(warningTint)
@@ -930,6 +942,7 @@ private struct BrowserWebView: NSViewRepresentable {
             // RES-8: poll progress so a slow/stalled download shows a moving percentage
             // instead of a static "Downloading…" that reads as stuck.
             activeDownload = download
+            tab?.activeDownload = download  // expose to the UI Cancel affordance
             let downloadName = suggestedFilename
             downloadProgressTask?.cancel()
             downloadProgressTask = Task { @MainActor [weak self] in
@@ -946,15 +959,22 @@ private struct BrowserWebView: NSViewRepresentable {
         func downloadDidFinish(_ download: WKDownload) {
             downloadProgressTask?.cancel()
             activeDownload = nil
+            tab?.activeDownload = nil
             tab?.lastError = nil
         }
 
         func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
             downloadProgressTask?.cancel()
             activeDownload = nil
+            tab?.activeDownload = nil
             // Mirror the navigation-error convention: a fixed domain+code format only,
             // never the raw localized error text (which can leak file paths / user content).
             let nsError = error as NSError
+            // A user-initiated Cancel surfaces as a cancellation, not a failure — clear quietly.
+            if nsError.code == NSURLErrorCancelled {
+                tab?.lastError = nil
+                return
+            }
             tab?.lastError = "Download failed (domain=\(nsError.domain) code=\(nsError.code))"
         }
 
