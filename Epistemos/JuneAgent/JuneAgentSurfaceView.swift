@@ -25,7 +25,9 @@ final class JuneAgentSurfaceHolder {
     private init() {}
 
     /// Idempotent: builds the webview + bridge once and starts the load.
-    func ensureStarted() {
+    /// `theme` seeds the Epistemos-theme bridge at creation; later switches
+    /// re-apply live via `JuneAgentSurfaceView.applyEpistemosTheme(_:)`.
+    func ensureStarted(theme: EpistemosTheme) {
         // A prior failed attempt must not shadow a later successful one — the
         // message reflects only the CURRENT attempt (stale-failure bug).
         failureMessage = nil
@@ -67,6 +69,27 @@ final class JuneAgentSurfaceHolder {
               localStorage.setItem("june.onboarding.completedVersion", "7");
               localStorage.setItem("june.agent.riskAcknowledged", "true");
             } catch (e) {}
+            """,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        // FULL Epistemos-theme bridge (owner 2026-07-04: June must visibly
+        // match the app's theme — palette + accent, not just color scheme).
+        // June's own Appearance picker re-themes the whole SPA from --brand
+        // plus a per-scheme neutral ramp, so we override exactly that seam.
+        // The localStorage write pins June's theme.ts to an explicit scheme so
+        // its prefers-color-scheme listener never fights the bridge.
+        ucc.addUserScript(WKUserScript(
+            source: """
+            window.__EPISTEMOS_THEME_APPLY__ = function (t) {
+              try {
+                var root = document.documentElement;
+                var scheme = t.dark ? "dark" : "light";
+                root.setAttribute("data-theme", scheme);
+                try { localStorage.setItem("os-june:theme", scheme); } catch (e) {}
+                for (var k in t.vars) root.style.setProperty(k, t.vars[k]);
+              } catch (e) {}
+            };
+            window.__EPISTEMOS_THEME_APPLY__(\(JuneThemeBridge.payloadJSON(for: theme)));
             """,
             injectionTime: .atDocumentStart, forMainFrameOnly: true
         ))
@@ -258,14 +281,12 @@ final class JuneAgentSurfaceHolder {
         ucc.add(bridge, name: JuneAgentBridge.speakChannel)
 
         let webView = WKWebView(frame: .zero, configuration: config)
-        // June's own canvas (main.css --background: light oklch 95.13% warm /
-        // dark oklch 16.5% warm) so overscroll + pre-paint match the SPA and
-        // the reveal is seamless in both appearances.
-        webView.underPageBackgroundColor = NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(red: 0.138, green: 0.135, blue: 0.128, alpha: 1)
-                : NSColor(red: 0.925, green: 0.918, blue: 0.902, alpha: 1)
-        }
+        // The bridged --background IS the Epistemos theme canvas, so overscroll
+        // + pre-paint match the SPA exactly and the reveal stays seamless.
+        webView.underPageBackgroundColor = JuneThemeBridge.backgroundNSColor(for: theme)
+        // Pin prefers-color-scheme to the theme's own darkness from the first
+        // paint (the .task re-pin lands later in the same runloop turn).
+        webView.appearance = NSAppearance(named: theme.resolved.isDark ? .darkAqua : .aqua)
         bridge.runJS = { [weak webView] js in
             webView?.evaluateJavaScript(js) { _, error in
                 if let error {
@@ -338,19 +359,114 @@ extension JuneNavigationDelegate: WKUIDelegate {
     }
 }
 
+/// Maps the resolved Epistemos theme onto June's CSS token system.
+///
+/// June's own Appearance picker re-themes the entire SPA by overriding ONE
+/// custom property (`--brand`) over a per-scheme neutral ramp (tokens.css), so
+/// this bridge speaks exactly that language: `--brand` carries the Epistemos
+/// accent and the core surface tokens carry the theme's palette. Every derived
+/// tint/wash/hover in June (color-mix over --brand and the ramp) then follows
+/// automatically. Values are concrete sRGB colors resolved natively — no June
+/// source edits, no stylesheet patching.
+@MainActor
+enum JuneThemeBridge {
+    /// JSON payload for `window.__EPISTEMOS_THEME_APPLY__`:
+    /// `{"dark": Bool, "vars": {"--token": "rgb(...)"}}`.
+    static func payloadJSON(for theme: EpistemosTheme) -> String {
+        let resolved = theme.resolved
+        let dark = resolved.isDark
+        let background = cssColor(resolved.background, dark: dark)
+        let foreground = cssColor(resolved.foreground, dark: dark)
+        let card = cssColor(resolved.card, dark: dark)
+        let muted = cssColor(resolved.muted, dark: dark)
+        let border = cssColor(resolved.border, dark: dark)
+        let vars: [String: String] = [
+            "--brand": cssColor(resolved.accent, dark: dark),
+            "--background": background,
+            "--foreground": foreground,
+            "--card": card,
+            "--card-foreground": foreground,
+            "--popover": card,
+            "--popover-foreground": foreground,
+            // June's primary = near-foreground fill with inverse text; mapping
+            // to the theme's own fg/bg keeps that contrast on every palette.
+            "--primary": foreground,
+            "--primary-foreground": background,
+            "--secondary": muted,
+            "--secondary-foreground": foreground,
+            "--muted": muted,
+            "--muted-foreground": cssColor(resolved.mutedForeground, dark: dark),
+            // June's --accent is its quiet hover FILL (not the brand color).
+            "--accent": muted,
+            "--accent-foreground": foreground,
+            "--border": border,
+            "--input": border,
+            "--ring": border,
+            "--selection": muted,
+            "--sidebar": background,
+            "--sidebar-foreground": foreground,
+            "--sidebar-accent": muted,
+            "--sidebar-border": border,
+        ]
+        let object: [String: Any] = ["dark": dark, "vars": vars]
+        guard let data = try? JSONSerialization.data(withJSONObject: object),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{\"dark\":\(dark ? "true" : "false"),\"vars\":{}}"
+        }
+        return json
+    }
+
+    /// The theme's canvas as a concrete sRGB color — shared by the placeholder,
+    /// the webview underpage, and June's bridged `--background`.
+    static func backgroundNSColor(for theme: EpistemosTheme) -> NSColor {
+        let resolved = theme.resolved
+        return sRGB(resolved.background.nsColor, dark: resolved.isDark)
+    }
+
+    private static func cssColor(_ token: EpistemosTheme.ResolvedColorToken, dark: Bool) -> String {
+        let color = sRGB(token.nsColor, dark: dark)
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        let alpha = color.alphaComponent
+        if alpha >= 0.999 { return "rgb(\(red), \(green), \(blue))" }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
+    }
+
+    /// System-dynamic tokens (windowBackground / controlBackground) resolve
+    /// per-appearance, so snapshot under the theme's own appearance.
+    private static func sRGB(_ color: NSColor, dark: Bool) -> NSColor {
+        var converted: NSColor?
+        if let appearance = NSAppearance(named: dark ? .darkAqua : .aqua) {
+            appearance.performAsCurrentDrawingAppearance {
+                converted = color.usingColorSpace(.sRGB)
+            }
+        } else {
+            converted = color.usingColorSpace(.sRGB)
+        }
+        // Unconvertible colors (pattern/catalog edge cases) fall back to June's
+        // stock neutral canvas rather than crashing or going transparent.
+        return converted ?? NSColor(
+            red: dark ? 0.138 : 0.925,
+            green: dark ? 0.135 : 0.918,
+            blue: dark ? 0.128 : 0.902,
+            alpha: 1
+        )
+    }
+}
+
 struct JuneAgentSurfaceView: View {
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = false
     @State private var failureMessage: String?
     @State private var retryAttempt = 0
 
-    /// June's own canvas (main.css --background) so the placeholder and the
-    /// painted SPA are indistinguishable at reveal in both appearances.
+    /// The live Epistemos theme canvas — identical to the bridged June
+    /// `--background`, so the placeholder and the painted SPA are
+    /// indistinguishable at reveal under every theme.
     private var juneCanvas: Color {
-        colorScheme == .dark
-            ? Color(red: 0.138, green: 0.135, blue: 0.128)
-            : Color(red: 0.925, green: 0.918, blue: 0.902)
+        Color(nsColor: JuneThemeBridge.backgroundNSColor(for: ui.theme))
     }
 
     var body: some View {
@@ -382,15 +498,15 @@ struct JuneAgentSurfaceView: View {
                     .accessibilityLabel("Loading the agent")
             }
         }
-        .onChange(of: colorScheme) { _, scheme in
-            Self.applyAppearance(scheme, to: JuneAgentSurfaceHolder.shared.webView)
+        .onChange(of: ui.theme) { _, newTheme in
+            Self.applyEpistemosTheme(newTheme)
         }
         .onAppear { Self.refreshReadAloudAvailability() }
         .task(id: retryAttempt) {
             let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared
             let isColdOpen = holder.webView == nil
-            holder.ensureStarted()
+            holder.ensureStarted(theme: ui.theme)
             failureMessage = holder.failureMessage
             guard failureMessage == nil else { return }
             JuneNavigationDelegate.shared.onFirstPaint = {
@@ -407,10 +523,10 @@ struct JuneAgentSurfaceView: View {
             }
             holder.webView?.navigationDelegate = JuneNavigationDelegate.shared
             holder.webView?.uiDelegate = JuneNavigationDelegate.shared
-            // Pin June's prefers-color-scheme to the app's resolved theme
-            // (RootView .preferredColorScheme), NOT the OS — otherwise a dark
-            // Epistemos theme on a light OS would render June light.
-            Self.applyAppearance(colorScheme, to: holder.webView)
+            // Re-push the live theme on every mount: the seed script covers the
+            // cold boot, but a theme switched while another room was open must
+            // land the moment the Agent room reappears.
+            Self.applyEpistemosTheme(ui.theme)
             // Re-mounts after the first paint reveal immediately (warm path).
             if holder.webView?.isLoading == false && holder.loadStarted {
                 revealed = true
@@ -424,14 +540,18 @@ struct JuneAgentSurfaceView: View {
         // tab switches (perf doctrine §1.5 / §3.2).
     }
 
-    /// Entering the Agent room hands keyboard focus to June so the composer is
-    /// immediately typeable — deferred a tick so the representable is attached
-    /// to the window, and only when it actually is (never steals focus from
-    /// another window).
-    /// Makes June's `prefers-color-scheme` follow the Epistemos theme by
-    /// pinning the webview's NSAppearance to the SwiftUI-resolved scheme.
-    private static func applyAppearance(_ scheme: ColorScheme, to webView: WKWebView?) {
-        webView?.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+    /// Pushes the live Epistemos theme into June: the NSAppearance pin (drives
+    /// prefers-color-scheme from the THEME's own darkness, not the OS), the
+    /// underpage canvas, and the full token-override payload. Idempotent —
+    /// re-applying the same theme is a no-op visually.
+    private static func applyEpistemosTheme(_ theme: EpistemosTheme) {
+        let holder = JuneAgentSurfaceHolder.shared
+        guard let webView = holder.webView else { return }
+        webView.appearance = NSAppearance(named: theme.resolved.isDark ? .darkAqua : .aqua)
+        webView.underPageBackgroundColor = JuneThemeBridge.backgroundNSColor(for: theme)
+        holder.bridge?.runJS?(
+            "window.__EPISTEMOS_THEME_APPLY__ && window.__EPISTEMOS_THEME_APPLY__(\(JuneThemeBridge.payloadJSON(for: theme)));"
+        )
     }
 
     /// Re-push live TTS availability whenever the Agent room appears, so
