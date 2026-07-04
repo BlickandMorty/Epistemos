@@ -586,6 +586,7 @@ struct LandingASCIIWakeField: View {
 
                 if shouldAnimate, !trails.isEmpty {
                     TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
+                        let t = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600)
                         Text(
                             LandingASCIIWakeFieldEngine.overlayText(
                                 layout: layout,
@@ -597,6 +598,12 @@ struct LandingASCIIWakeField: View {
                         .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                         .lineSpacing(lineSpacing)
                         .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.10 : 0.09))  // owner 2026-07-04: barely visible — blend into the waves
+                        // owner 2026-07-04: the revealed wake UNDULATES with the field (a
+                        // gentle traveling distortion) so it feels part of the gradient animation.
+                        .distortionEffect(
+                            ShaderLibrary.asciiWave(.float(Float(t))),
+                            maxSampleOffset: CGSize(width: 4, height: 6)
+                        )
                     }
                 }
             }

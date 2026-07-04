@@ -95,6 +95,15 @@ static inline float fbm(float2 p) {
     return half4(mix(color.rgb, grad.rgb, a), color.a);
 }
 
+// ASCII WAVE — a gentle traveling distortion so the revealed word-wake UNDULATES as part of
+// the gradient field, not as a flat overlay (owner 2026-07-04). Applied via .distortionEffect.
+[[ stitchable ]] float2 asciiWave(float2 position, float time) {
+    float y = sin(position.x * 0.035 + time * 1.3) * 2.4
+            + sin(position.x * 0.017 - time * 0.7) * 1.2;
+    float x = sin(position.y * 0.04 + time * 0.9) * 1.0;
+    return position + float2(x, y);
+}
+
 // C) SUBTLE DOMAIN-WARP GRADIENT — wobbling vertical theme gradient (panels/text).
 // intensity ~0.14.
 [[ stitchable ]] half4 domainWarpGradient(float2 position, half4 color,
