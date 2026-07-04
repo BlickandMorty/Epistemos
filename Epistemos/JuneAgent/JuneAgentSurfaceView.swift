@@ -26,6 +26,9 @@ final class JuneAgentSurfaceHolder {
 
     /// Idempotent: builds the webview + bridge once and starts the load.
     func ensureStarted() {
+        // A prior failed attempt must not shadow a later successful one — the
+        // message reflects only the CURRENT attempt (stale-failure bug).
+        failureMessage = nil
         guard webView == nil else { return }
         guard let location = JuneWebAssets.resolve() else {
             failureMessage = "The June agent bundle is missing from this build."
