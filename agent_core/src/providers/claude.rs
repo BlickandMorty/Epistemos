@@ -103,22 +103,21 @@ impl ClaudeProvider {
 struct ThinkingConfig {
     #[serde(rename = "type")]
     thinking_type: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    effort: Option<&'static str>,
 }
 
 impl ThinkingConfig {
-    fn adaptive_with_effort(effort: &'static str) -> Self {
+    // Adaptive thinking takes NO inline fields — the API rejects
+    // "thinking.adaptive.effort: Extra inputs are not permitted". Effort is a
+    // sibling request field: "output_config": {"effort": ...}.
+    fn adaptive() -> Self {
         Self {
             thinking_type: "adaptive",
-            effort: Some(effort),
         }
     }
 
     fn disabled() -> Self {
         Self {
             thinking_type: "disabled",
-            effort: None,
         }
     }
 }
@@ -250,15 +249,18 @@ impl AgentProvider for ClaudeProvider {
         }
 
         let thinking = if config.enable_thinking && self.model != "claude-haiku-4-5" {
-            ThinkingConfig::adaptive_with_effort(match config.effort {
-                Effort::Low => "low",
-                Effort::Medium => "medium",
-                Effort::High => "high",
-                Effort::Max => "max",
-            })
+            ThinkingConfig::adaptive()
         } else {
             ThinkingConfig::disabled()
         };
+        // Effort lives in output_config (GA, no beta header) and is not
+        // supported on Haiku 4.5 — omit it there.
+        let effort_level = (self.model != "claude-haiku-4-5").then(|| match config.effort {
+            Effort::Low => "low",
+            Effort::Medium => "medium",
+            Effort::High => "high",
+            Effort::Max => "max",
+        });
 
         let mut api_tools: Vec<Value> = tools.iter().map(tool_definition_to_claude_json).collect();
         if config.enable_web_search {
@@ -303,7 +305,7 @@ impl AgentProvider for ClaudeProvider {
             .filter(|servers| !servers.is_empty())
             .map(mcp_servers_to_anthropic_json);
 
-        let body = json!({
+        let mut body = json!({
             "model": self.model,
             "max_tokens": config.max_output_tokens.unwrap_or(16_384),
             "thinking": serde_json::to_value(&thinking)
@@ -312,8 +314,15 @@ impl AgentProvider for ClaudeProvider {
             "tools": api_tools,
             "stream": true,
             "system": system_value,
-            "mcp_servers": mcp_server_values,
         });
+        // The API rejects "mcp_servers": null ("Input should be a valid
+        // array") — include the key only when servers are configured.
+        if let Some(values) = mcp_server_values {
+            body["mcp_servers"] = serde_json::Value::Array(values);
+        }
+        if let Some(effort) = effort_level {
+            body["output_config"] = json!({ "effort": effort });
+        }
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();

@@ -386,7 +386,10 @@ impl AgentConfig {
             enable_web_search: false,
             enable_web_fetch: false,
             enable_code_execution: false,
-            enable_computer_use: true,
+            // Computer use is Pro-only (Accessibility/screen control — MAS
+            // tool-boundary canon). Declaring it on MAS builds also trips the
+            // API's tool-type validation before any turn can stream.
+            enable_computer_use: cfg!(feature = "pro-build"),
             // Tunnel B.1 — discover URL-based MCP servers from
             // ~/.config/mcp/url_servers.json (+ project override). Anthropic's
             // API handles the connection remotely, so every tool those
