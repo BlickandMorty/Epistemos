@@ -358,6 +358,16 @@ struct ProAgentSurfaceView: View {
                         + Double(elapsed.components.attoseconds) / 1e15
                 )
                 beginHealthMonitor(connection: connection)
+                #if DEBUG
+                // Repeatable acceptance affordance (R7): auto-present the native
+                // all-chats sheet once the surface is live, so the merged-list
+                // render + dual-engine fetch can be screenshot-verified without
+                // a human click (the SwiftUI pill is opaque to scripted AX).
+                if ProcessInfo.processInfo.environment["EPISTEMOS_OPEN_ALLCHATS"] == "1" {
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    showAllChatsSheet = true
+                }
+                #endif
                 return
             }
             // White-screen class of failure: retry the load with backoff instead
