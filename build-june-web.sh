@@ -50,6 +50,10 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 EXCLUDES=()
 for font in "${UNLICENSED_FONTS[@]}"; do EXCLUDES+=(--exclude "$font"); done
+# Never ship source maps: they leak June's original (commercial) source into the
+# bundle and bloat it. The scheme handler would even serve them as JSON. Exclude
+# defensively so a sourcemap-enabled Vite build can't leak through.
+EXCLUDES+=(--exclude "*.map")
 rsync -a "${EXCLUDES[@]}" "$FORK/dist/" "$STAGE/dist/"
 cp "$FORK/epistemos/tauri-internals-shim.js" "$STAGE/tauri-internals-shim.js"
 # Self-ignoring: the staged tree never enters the Epistemos git history.
