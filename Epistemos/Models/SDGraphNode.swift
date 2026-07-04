@@ -63,18 +63,23 @@ final class SDGraphNode {
     }
 
     /// Cached metadata — avoids JSON decode/encode on every access.
-    /// Same pattern as SDPage.frontMatter.
+    /// Same pattern as SDPage.frontMatter: the cache is keyed on the backing
+    /// Data so a direct write to `metadata` (e.g. GraphBuilder.persist diff-apply,
+    /// which bypasses the `meta` setter) invalidates it instead of returning a
+    /// stale value for the rest of the session.
     @Transient private var _metaCache: GraphNodeMetadata?
+    @Transient private var _metaCacheData: Data?
 
     private static let log = Logger(subsystem: "com.epistemos", category: "SDGraphNode")
 
     var meta: GraphNodeMetadata {
         get {
-            if let cached = _metaCache { return cached }
+            if let cached = _metaCache, _metaCacheData == metadata { return cached }
             guard let data = metadata else { return GraphNodeMetadata() }
             do {
                 let decoded = try JSONDecoder().decode(GraphNodeMetadata.self, from: data)
                 _metaCache = decoded
+                _metaCacheData = data
                 return decoded
             } catch {
                 Self.log.error("SDGraphNode: metadata decode failed: \(error.localizedDescription, privacy: .public)")
@@ -86,6 +91,7 @@ final class SDGraphNode {
                 let encoded = try JSONEncoder().encode(newValue)
                 metadata = encoded
                 _metaCache = newValue
+                _metaCacheData = encoded
             } catch {
                 Self.log.error("SDGraphNode: metadata encode failed: \(error.localizedDescription, privacy: .public)")
             }

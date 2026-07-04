@@ -2336,7 +2336,14 @@ actor SearchIndexService {
         let capped = raw.count > 500 ? String(raw.prefix(500)) : raw
         let terms = capped.lowercased()
             .components(separatedBy: .alphanumerics.inverted)
-            .filter { $0.count >= 2 }
+            .filter { token in
+                // Keep 2+ character tokens. Also keep a SINGLE-character token
+                // whose scalar is non-ASCII (CJK/ideographic and other scripts
+                // where one character is a whole word) so e.g. "水" is searchable
+                // instead of silently returning nothing; ASCII singletons
+                // ("a", "i") stay dropped as low-signal noise.
+                token.count >= 2 || token.unicodeScalars.contains { $0.value > 0x7F }
+            }
             .map { $0.replacingOccurrences(of: "\"", with: "") }
             .filter { !$0.isEmpty }
         return uniqueSearchTerms(vaultRecallSignalTerms(from: terms), limit: 20)
