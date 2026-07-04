@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftData
 import SwiftUI
 
@@ -213,6 +214,17 @@ struct MeetingNoteView: View {
             Text(durationLabel)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+            if microphoneAccessDenied {
+                Button {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    Label("Open Microphone Settings", systemImage: "gearshape")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.link)
+            }
             Spacer()
             ToolbarCapsuleButton(
                 title: "Discard",
@@ -310,6 +322,15 @@ struct MeetingNoteView: View {
         case .error(let message):
             return message
         }
+    }
+
+    /// Audit 2026-07-04: the meeting is errored AND the mic is actually denied/restricted —
+    /// offer a one-click deep-link to Privacy > Microphone so a denied permission is
+    /// recoverable in place, not a dead end. Status check (not string match) is robust.
+    private var microphoneAccessDenied: Bool {
+        guard case .error = service.state else { return false }
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        return status == .denied || status == .restricted
     }
 
     private var durationLabel: String {
