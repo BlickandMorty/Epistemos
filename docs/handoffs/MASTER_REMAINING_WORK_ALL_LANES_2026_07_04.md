@@ -40,6 +40,22 @@ Pro / MAS / Graph agents are actively working). Doc paths are given so an agent 
   both graphs — graph+editor), SS-GE(C) (Metal appearance control — graph lane), SS-LT (local multi-tool
   — agent lane), SUBSTRATE RuntimeRouter LIVE flip (agent lane).
 
+**NEWLY FOUND (deep-check 2026-07-04 — were MISSING from the first compile):**
+- **BUG B — Note editor main-thread FREEZE (HIGH, likely STILL OPEN)** — notes display content but the
+  editor FREEZES on open. Last-known-unfixed in `GOOSE_HANG_AND_NOTE_FREEZE_HANDOFF_2026_07_01.md` (the
+  empty-seed "blank" attempt was reverted `3e33eb271`; the freeze itself remains, and no freeze-fix
+  commit has landed since). Prescribed fix = **load-before-mount** in `Epistemos/Views/Notes/ProseEditorView.swift`
+  (it currently loads the body in `onAppear` / `.task(id: page.id)` AFTER mount). MEASURE with a spindump
+  during the freeze — don't guess.
+- **Startup DATA-INTEGRITY toast false-positive (NEW, investigated this session)** — see the separate
+  diagnosis; the "found N notes with no body file or vault source" warning can fire when the vault is
+  temporarily inaccessible at check time. `AppBootstrap.performStartupIntegrityCheck`.
+- **Plan-2 editor deferrals** (`PLAN_2_FINALIZATION_HANDOFF_2026_07_01.md`, app-gated on a green tree):
+  **#7** dark/light theme-flip keystroke-loss (MED); **#6** per-section native `.onDrop` target (MED);
+  **#5** context fetch off @MainActor (perf, LOW); **#14** CoreEditor custom/accent theme (LOW).
+- **HOME_EMBED plan** (`HOME_EMBED_AND_FIXES_PLAN_2026_07_01.md`) — §B bugs/broken features, §C landing
+  cleanup, §D HTML-Workspace messiness (partly Front & Feel; cross-check which are still open).
+
 ---
 ## B. GRAPH agent lane
 - **Hologram content-alignment UNRESOLVED** — the overlay graph's node content still misaligns; prime
