@@ -206,6 +206,13 @@ final class ProAgentRuntimeSupervisor {
         opencodePort: Int,
         gooseChild: (binary: URL, port: Int, secret: String)?
     ) async {
+        // Phase-5: reap children a CRASHED previous instance left behind
+        // (identity-checked by pid + kernel start time; TERM then KILL).
+        await ProAgentChildLedger.sweepStaleChildren { [weak self] message in
+            Task { @MainActor in self?.recordDiagnostic(message) }
+        }
+        if Task.isCancelled { return }
+
         // Child 1: opencode engine (attach mode — the web server never spawns it).
         let opencodeProc = Process()
         opencodeProc.executableURL = opencodeBinary
@@ -306,6 +313,13 @@ final class ProAgentRuntimeSupervisor {
                 AppBootstrap.shared?.orphanCleanup.track(goosedProc)
             }
             #endif
+            // Crash-durable child ledger (Phase 5): survives THIS process
+            // dying so the next start can sweep.
+            ProAgentChildLedger.record(pid: pid_t(opencodeProc.processIdentifier), name: "opencode")
+            ProAgentChildLedger.record(pid: pid_t(webProc.processIdentifier), name: "openchamber-web")
+            if let goosedProc {
+                ProAgentChildLedger.record(pid: pid_t(goosedProc.processIdentifier), name: "goosed")
+            }
         } catch {
             status = .failed(GooseRuntimeSupervisor.boundedStatusMessage(
                 "Failed to launch the agent runtime: \(error.localizedDescription)"
@@ -472,6 +486,7 @@ final class ProAgentRuntimeSupervisor {
         let pid = pid_t(process.processIdentifier)
         guard pid > 0 else { return }
         AppBootstrap.shared?.orphanCleanup.untrack(pid)
+        ProAgentChildLedger.forget(pid: pid)
     }
 
     private func beginDiagnosticsCapture(opencodePipe: Pipe, webPipe: Pipe, goosedPipe: Pipe?) {
