@@ -22,7 +22,6 @@ private enum LandingInlineCommand: Equatable {
     case saveWorkspace
     case timeMachine
     case quickChat
-    case agentWorkspace
 
     var minStageHeight: CGFloat {
         switch self {
@@ -31,7 +30,6 @@ private enum LandingInlineCommand: Equatable {
         case .saveWorkspace: 380
         case .timeMachine: 420
         case .quickChat: 470
-        case .agentWorkspace: 580
         }
     }
 }
@@ -101,8 +99,12 @@ struct LandingView: View {
     // Surface A quick chat (Plan 1-MAS §2): transcript state lives at the
     // landing level so closing the stage keeps the conversation; the GGUF
     // engine itself is app-lifetime (LocalGGUFQuickChatBackend.shared).
+    // MAS-ONLY (owner 2026-07-04): Pro has exactly ONE agent surface — the
+    // OpenChamber room on HomeContent.agent.
+    #if EPISTEMOS_APP_STORE
     @State private var quickChatController = QuickChatController()
     @State private var quickChatDownloads = QuickChatModelDownloadManager()
+    #endif
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -420,11 +422,16 @@ struct LandingView: View {
         // REMOVED (again, per owner) — its per-frame overlay rebuild + asciiWave distortion
         // regressed landing performance. Dark 0.11, light 0.13.
         // Gated by windowOccluded + Reduce Motion so it's zero-cost when idle/hidden.
+        // Also paused while the embedded graph is up: HomeGraphEmbeddedView paints
+        // this same AppWindowBackdropStyle color as a full opaque cover (zIndex 1),
+        // so the two 30Hz stitchable shader layers were pure hidden GPU work in
+        // `.graph` mode. The inactive branch renders the identical `base` color,
+        // so the swap is invisible even through any residual alpha.
         LiquidMetalSurface(
             base: AppWindowBackdropStyle.background(for: theme),
             accent: theme.resolved.accent.color,
             intensity: theme.isDark ? 0.11 : 0.13,
-            active: !ui.windowOccluded,
+            active: !ui.windowOccluded && ui.homeContent != .graph,
             cursor: cursorLocation
         )
         .ignoresSafeArea()
@@ -576,6 +583,7 @@ struct LandingView: View {
                 TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))
                     .frame(width: 760, height: 410)
             case .quickChat:
+                #if EPISTEMOS_APP_STORE
                 QuickChatStageView(
                     isPresented: landingInlineCommandBinding(for: .quickChat),
                     theme: theme,
@@ -583,10 +591,10 @@ struct LandingView: View {
                     downloads: quickChatDownloads
                 )
                 .frame(width: 640, height: 460)
-            case .agentWorkspace:
-                AgentWorkspaceView()
-                    .frame(width: 940, height: 560)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                #else
+                // Pro: QuickChat is MAS-only; unreachable (no tile routes here).
+                EmptyView()
+                #endif
             }
         }
         .preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)
@@ -597,6 +605,9 @@ struct LandingView: View {
             columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
             spacing: 8
         ) {
+            // MAS-ONLY (owner 2026-07-04): QuickChat "ask" tile. Pro routes all
+            // agent work to the single OpenChamber room (HomeContent.agent).
+            #if EPISTEMOS_APP_STORE
             PixelLandingCommandTile(
                 title: "ask",
                 shortcut: nil,
@@ -608,6 +619,7 @@ struct LandingView: View {
                 help: "Ask anything — answered privately on this Mac.",
                 action: { showLandingInlineCommand(.quickChat) }
             )
+            #endif
             PixelLandingCommandTile(
                 title: "quick capture",
                 shortcut: "\u{2318}\u{21E7}N",
@@ -619,18 +631,6 @@ struct LandingView: View {
                 help: "Jot a quick note or idea without leaving the home screen.",
                 action: { showLandingInlineCommand(.quickCapture) }
             )
-            PixelLandingCommandTile(
-                title: "agent",
-                shortcut: nil,
-                glyph: .agent,
-                theme: theme,
-                accent: theme.resolved.accent.color,
-                haptic: .agent,
-                isActive: activeLandingInlineCommand == .agentWorkspace,
-                help: "Open the agent workspace — multi-step research and edits with your approval."
-            ) {
-                showLandingInlineCommand(.agentWorkspace)
-            }
             PixelLandingCommandTile(
                 title: "workspaces",
                 shortcut: "^\u{2318}W",
