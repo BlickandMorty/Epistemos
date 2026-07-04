@@ -265,6 +265,7 @@ final class JuneAgentGateway {
         emit(type: "message.start", sessionID: sessionID, payload: [:])
         let modelID = sessionModels[sessionID] ?? currentDefaultModelID()
 
+        let submittedAt = Date()
         let turn = Task { [weak self] in
             guard let self else { return }
             var full = ""
@@ -272,6 +273,12 @@ final class JuneAgentGateway {
                 let stream = try self.makeStream(prompt: prompt, modelID: modelID)
                 for try await delta in stream {
                     if Task.isCancelled { break }
+                    if full.isEmpty {
+                        // Budget contract [agent_surface].first_token_ms_max.
+                        JuneAgentPerfMetrics.shared.recordFirstToken(
+                            milliseconds: Date().timeIntervalSince(submittedAt) * 1000
+                        )
+                    }
                     full += delta
                     self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
                 }

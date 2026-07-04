@@ -49,6 +49,9 @@ public struct SubstrateHealthPanel: View {
                     // Plan 1-PRO agent surface diagnostics (Pro-only; renders
                     // nothing on MAS).
                     ProAgentHealthRow()
+                    // Plan 1-MAS June surface diagnostics (MAS-only; renders
+                    // nothing on Pro).
+                    JuneAgentHealthRow()
                     WorkOpenCodeShellHealthRow()
                     WorkBackendHealthRow()
                     LiteParseImportHealthRow()

@@ -19,6 +19,7 @@ final class JuneAgentSurfaceHolder {
     private(set) var webView: WKWebView?
     private(set) var bridge: JuneAgentBridge?
     private(set) var loadStarted = false
+    private(set) var loadStartedAt: Date?
     var failureMessage: String?
 
     private init() {}
@@ -127,6 +128,7 @@ final class JuneAgentSurfaceHolder {
         }
         webView.load(URLRequest(url: entry))
         loadStarted = true
+        loadStartedAt = Date()
         Self.log.info("June surface load started (root: \(location.distRoot.path, privacy: .public))")
     }
 }
@@ -186,17 +188,28 @@ struct JuneAgentSurfaceView: View {
             }
         }
         .task {
+            let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared
+            let isColdOpen = holder.webView == nil
             holder.ensureStarted()
             failureMessage = holder.failureMessage
             guard failureMessage == nil else { return }
             JuneNavigationDelegate.shared.onFirstPaint = {
                 withAnimation(.easeIn(duration: 0.15)) { revealed = true }
+                if isColdOpen, let startedAt = holder.loadStartedAt {
+                    // Budget contract [agent_surface].cold_open_ms_max (doctrine §4).
+                    JuneAgentPerfMetrics.shared.recordColdOpen(
+                        milliseconds: Date().timeIntervalSince(startedAt) * 1000
+                    )
+                }
             }
             holder.webView?.navigationDelegate = JuneNavigationDelegate.shared
             // Re-mounts after the first paint reveal immediately (warm path).
             if holder.webView?.isLoading == false && holder.loadStarted {
                 revealed = true
+                JuneAgentPerfMetrics.shared.recordWarmReopen(
+                    milliseconds: Date().timeIntervalSince(mountedAt) * 1000
+                )
             }
         }
         // Deliberately no teardown on disappear: the WebView stays warm across
