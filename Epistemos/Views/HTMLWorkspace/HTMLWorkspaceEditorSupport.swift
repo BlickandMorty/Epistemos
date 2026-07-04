@@ -497,7 +497,10 @@ struct HTMLWorkspaceSiteFolderExportSummary: Equatable {
     }
 }
 
-enum HTMLWorkspaceSiteFolderExporter {
+// HW-EXPORT-1b (audit 2026-07-04): nonisolated so exportSiteFolder can run it off the main thread —
+// it renders every route (N+1) + writes all files/assets to disk. All its work is nonisolated-safe
+// (writeString/writeAssets are pure I/O; HTMLWorkspacePackage + render + validate are nonisolated).
+nonisolated enum HTMLWorkspaceSiteFolderExporter {
     @discardableResult
     static func export(
         package: HTMLWorkspacePackage,

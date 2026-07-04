@@ -362,15 +362,24 @@ extension HTMLWorkspaceEditorView {
             statusText = "Site export cancelled"
             return
         }
-        do {
-            let summary = try HTMLWorkspaceSiteFolderExporter.export(
-                package: package,
-                theme: previewTheme,
-                to: destination
-            )
-            statusText = summary.statusText
-        } catch {
-            statusText = failedStatus("Site export", error: error)
+        // HW-EXPORT-1b (audit 2026-07-04): the site-folder export renders EVERY route (N+1 renders)
+        // + writes all files/assets to disk — previously synchronous on @MainActor. The exporter is
+        // now nonisolated, so run it off-main and hop the status back (matches HW-EXPORT-1a / exportPDF).
+        let exportPackage = package
+        let theme = previewTheme
+        Task {
+            do {
+                let summary = try await Task.detached {
+                    try HTMLWorkspaceSiteFolderExporter.export(
+                        package: exportPackage,
+                        theme: theme,
+                        to: destination
+                    )
+                }.value
+                statusText = summary.statusText
+            } catch {
+                statusText = failedStatus("Site export", error: error)
+            }
         }
     }
 
