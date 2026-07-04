@@ -312,13 +312,12 @@ final class JuneAgentGateway {
         case JuneModelID.localGGUF:
             return localGGUF.stream(prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024)
         case JuneModelID.cloud:
-            // Honest gate: the receipt-verified proxy session is Phase-2/4
-            // wiring; never fake a cloud turn (Plan 1-MAS §0.5/§5).
-            guard EpistemosProxyClient.baseURL != nil,
-                  EpistemosProxyClient.shared.currentSession() != nil else {
-                throw JuneGatewayError.cloudNotConfigured
-            }
-            throw JuneGatewayError.cloudNotConfigured // streaming call lands with Phase-2 proxy wiring
+            // Honest gate (Plan 1-MAS §0.5/§5): a real Keychain session token
+            // (minted by the Phase-4 StoreKit receipt exchange) is required —
+            // never fake a cloud turn. With a session, this streams from the
+            // receipt-gated proxy; without one, JuneCloudEngine throws
+            // .notSubscribed and June shows the honest error.
+            return JuneCloudEngine.shared.stream(prompt: prompt, instructions: Self.instructions)
         default:
             if AppleFMQuickChatBackend.unavailability() == nil {
                 return appleFM.stream(prompt: prompt, instructions: Self.instructions)
@@ -379,7 +378,7 @@ final class JuneAgentGateway {
         rows.append([
             "provider": "epistemos", "id": JuneModelID.cloud,
             "name": "Epistemos Cloud", "modelType": "text",
-            "description": "Full agent capability via the Epistemos cloud. Requires a subscription (coming soon in this build).",
+            "description": "Full agent capability via the Epistemos cloud. Requires an active subscription.",
             "privacy": "anonymous", "traits": ["cloud"],
             "capabilities": ["supportsFunctionCalling"],
         ])
