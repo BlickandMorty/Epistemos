@@ -196,6 +196,7 @@ extension JuneNavigationDelegate: WKUIDelegate {
 
 struct JuneAgentSurfaceView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = false
     @State private var failureMessage: String?
     @State private var retryAttempt = 0
@@ -248,7 +249,9 @@ struct JuneAgentSurfaceView: View {
             failureMessage = holder.failureMessage
             guard failureMessage == nil else { return }
             JuneNavigationDelegate.shared.onFirstPaint = {
-                withAnimation(.easeIn(duration: 0.15)) { revealed = true }
+                // Honor Reduce Motion like the rest of the app (LandingView) —
+                // reveal instantly instead of fading.
+                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { revealed = true }
                 Self.handOffFocus(to: holder.webView)
                 if isColdOpen, let startedAt = holder.loadStartedAt {
                     // Budget contract [agent_surface].cold_open_ms_max (doctrine §4).
