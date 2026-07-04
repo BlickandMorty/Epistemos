@@ -211,10 +211,12 @@ actor ConversationPersistence {
     private func loadTurns(sessionID: UUID) throws -> [ConversationTurn] {
         let sessionFileURL = self.sessionFileURL(for: sessionID)
         let contents = try String(contentsOf: sessionFileURL, encoding: .utf8)
-        return try contents
+        return contents
             .split(separator: "\n", omittingEmptySubsequences: true)
-            .map { line in
-                try decoder.decode(ConversationTurn.self, from: Data(line.utf8))
+            .compactMap { line in
+                // Skip a corrupt line instead of aborting the WHOLE transcript — one bad
+                // .jsonl line must not lose the entire conversation.
+                try? decoder.decode(ConversationTurn.self, from: Data(line.utf8))
             }
     }
 
