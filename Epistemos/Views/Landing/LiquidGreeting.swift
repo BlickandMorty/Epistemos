@@ -263,9 +263,9 @@ struct LiquidGreeting: View {
                         : Color.black.opacity(0.06))),
             radius: compact ? 0 : (theme.isDark ? 8 : (theme.headingGlows ? 6 : 5))
         )
-        // Owner 2026-07-03: a subtle liquid sheen sweeps across the hero — makes the
-        // "LiquidGreeting" name real. Gated by shouldAnimate (!windowOccluded) + Reduce Motion.
-        .liquidShimmer(sheen: theme.fontAccent, active: shouldAnimate)
+        // Owner 2026-07-03: removed the liquidShimmer sheen here — its visualEffect swept
+        // over the boxed hero line and read as a "weird box." The greeting's cursor-reactive
+        // motion is the parallax offset applied in LandingView, which stays.
     }
 
     @ViewBuilder

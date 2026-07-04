@@ -64,26 +64,34 @@ static inline float fbm(float2 p) {
     float2 sz = max(size, float2(1.0, 1.0));
     float2 uv = position / sz;
 
-    // Quantize to a grid of square cells (the pixel-art look).
-    const float cells = 20.0;
-    float2 cellCenter = (floor(uv * cells) + 0.5) / cells;
-
-    // Slow drifting diagonal gradient value per cell.
-    float g = 0.5 + 0.5 * sin((cellCenter.x + cellCenter.y) * 5.0 + time * 0.30);
-
-    // Cursor reactivity: cells near the mouse brighten + ripple, so the field feels
-    // pulled toward the cursor as it moves.
-    float cursorAmt = 0.0;
+    // Cursor = a vector WAKE, not a ball of light. A radial train of decaying crests
+    // emanates from the pointer and DISPLACES the grid, so the squares themselves ripple
+    // and interfere with the drifting gradient — a fluid wake running through the vectors.
+    // No bright core: the pointer's presence reads only as ripples in the field.
+    float wake = 0.0;
     if (cursor.x >= 0.0) {
         float2 cur = cursor / sz;
-        float d = distance(cellCenter, cur);
-        float prox = smoothstep(0.34, 0.0, d);          // 1 at cursor → 0 far
-        g += prox * 0.30 * sin(time * 1.4 - d * 10.0);
-        cursorAmt = prox;
+        float2 delta = uv - cur;
+        float d = length(delta);
+        float2 dir = (d > 1e-4) ? delta / d : float2(0.0);
+        wake = (sin(d * 40.0 - time * 4.0) + 0.5 * sin(d * 22.0 - time * 2.6)) * exp(-d * 5.0);
+        uv += dir * wake * 0.022;   // push the grid along the radial → the cells ripple
     }
 
+    // Quantize to square cells (pixel-art). Middle size — smaller than the original,
+    // a touch larger than the previous pass.
+    const float cells = 28.0;
+    float2 cellCenter = (floor(uv * cells) + 0.5) / cells;
+
+    // Multi-wave drift → several THIN, shifting bands instead of one thick streak.
+    float g = 0.5
+        + 0.30 * sin((cellCenter.x + cellCenter.y) * 6.0 + time * 0.30)
+        + 0.14 * sin((cellCenter.x - cellCenter.y) * 9.0 - time * 0.22)
+        + 0.10 * sin(cellCenter.y * 15.0 + time * 0.17);
+    g += wake * 0.10;   // the wake reads as a brightness ripple IN the vectors (no bright ball)
+
     half4 grad = mix(tintA, tintB, half(clamp(g, 0.0, 1.0)));
-    half a = half(intensity * (1.0 + cursorAmt * 1.2)) * grad.a;   // stronger under the cursor
+    half a = half(intensity) * grad.a;   // uniform — no hotspot under the cursor
     return half4(mix(color.rgb, grad.rgb, a), color.a);
 }
 

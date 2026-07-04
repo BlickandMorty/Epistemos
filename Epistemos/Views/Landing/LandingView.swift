@@ -429,16 +429,23 @@ struct LandingView: View {
     }
 
     private var landingBackdrop: some View {
-        // Owner 2026-07-03: the flat backdrop is now a subtle animated liquid aurora so
-        // the home feels alive (behind the hard-edged pixel panels — contrast, not clash).
+        // Owner 2026-07-03: the flat backdrop is a subtle animated liquid pixel gradient so
+        // the home feels alive (behind the hard-edged pixel panels — contrast, not clash),
+        // with a revived word-revealing WAKE layer over it — the cursor's fluid trail
+        // uncovers vocabulary from the field, integrated into the vector ontology.
         // Gated by windowOccluded + Reduce Motion so it's zero-cost when idle/hidden.
-        LiquidMetalSurface(
-            base: AppWindowBackdropStyle.background(for: theme),
-            accent: theme.resolved.accent.color,
-            intensity: 0.14,
-            active: !ui.windowOccluded,
-            cursor: cursorLocation
-        )
+        ZStack {
+            LiquidMetalSurface(
+                base: AppWindowBackdropStyle.background(for: theme),
+                accent: theme.resolved.accent.color,
+                intensity: 0.10,   // less intense shine (owner 2026-07-03)
+                active: !ui.windowOccluded,
+                cursor: cursorLocation
+            )
+            if !ui.windowOccluded {
+                LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme)
+            }
+        }
         .ignoresSafeArea()
     }
 
@@ -518,6 +525,18 @@ struct LandingView: View {
             .padding(.horizontal, Spacing.xxl)
             .padding(.bottom, 28)
         }
+    }
+
+    /// Owner 2026-07-03: word pool the wake layer reveals — app vocabulary + recent note
+    /// titles (deduped/normalized by the wake engine).
+    private var landingWakeVocabulary: [String] {
+        LandingASCIIWakeFieldEngine.normalizedVocabulary(
+            from: [
+                "Epistemos", "Research", "Knowledge Graph", "Command Palette",
+                "New Note", "Daily Brief", "Apple Intelligence", "Sources",
+                "Claims", "Concepts", "Questions",
+            ] + allPages.prefix(36).map(\.title)
+        )
     }
 
     /// Owner 2026-07-03: subtle cursor parallax for the greeting (drifts toward the mouse,
