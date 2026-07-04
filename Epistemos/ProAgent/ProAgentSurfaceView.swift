@@ -89,6 +89,19 @@ final class EpistemosDesktopBridge: NSObject, WKScriptMessageHandler {
         switch command {
         case "desktop_notify":
             postNotification(args: args)
+        case "speak":
+            // Read-aloud: synthesize NATIVE-SIDE via the shared on-device engine.
+            // CONSUME EpistemosSpeechSynthesizer (owned by the app-wide voice
+            // agent) — never edit it, never put voice/audio code in the webview.
+            // Honest gate: speak() itself refuses when the model isn't ready (no
+            // AVSpeech fallback); nil voice uses the user's ModelVoicePicker pick.
+            let text = (args["text"] as? String) ?? ""
+            if !text.isEmpty {
+                _ = EpistemosSpeechSynthesizer.shared.speak(
+                    String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
+            }
+        case "speak_stop":
+            EpistemosSpeechSynthesizer.shared.stop()
         default:
             break
         }
@@ -213,6 +226,15 @@ struct ProAgentSurfaceView: View {
         configuration.userContentController.addUserScript(
             WKUserScript(
                 source: EpistemosDesktopBridge.injectScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+        // EPISTEMOS read-aloud: expose TTS availability so the OpenChamber overlay
+        // honest-gates the button (shared engine; no voice/audio code in JS).
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: "window.__EPISTEMOS_TTS_AVAILABLE__ = \(EpistemosSpeechSynthesizer.isTextToSpeechAvailable() ? "true" : "false");",
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )
