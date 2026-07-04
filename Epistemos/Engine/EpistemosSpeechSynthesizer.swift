@@ -159,8 +159,14 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             modelRoot: modelRoot,
             fileManager: fileManager
         )
-        guard nativeKokoroSynthesisEngineLinked, status.isReady else {
+        guard nativeKokoroSynthesisEngineLinked else {
             return kokoroOnlyUnavailableMessage
+        }
+        guard status.isReady else {
+            // Engine is linked; only the voice model is missing. Point the user to the install flow
+            // instead of the technical package message, so a disabled read-aloud button reads as
+            // "install me" rather than "broken". (#52)
+            return "Read-aloud needs the Kokoro voice \u{2014} install it in Settings \u{2192} Voice."
         }
         return status.headline
     }
