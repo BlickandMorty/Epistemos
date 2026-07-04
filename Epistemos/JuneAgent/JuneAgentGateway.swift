@@ -50,9 +50,13 @@ final class JuneSessionStore {
     private var indexURL: URL { rootDir.appendingPathComponent("sessions.json") }
 
     private func messagesURL(_ sessionID: String) -> URL {
-        // Session ids are UUIDs we minted; keep the path safe regardless.
-        let safe = sessionID.replacingOccurrences(of: "/", with: "_")
-        return rootDir.appendingPathComponent("messages-\(safe).json")
+        // Session ids originate from webview frames (hermes_bridge_session_
+        // messages / session.resume). We mint them as UUIDs, but a compromised
+        // page could send anything — so strictly allowlist to UUID-safe chars
+        // (defense-in-depth: no path separator, no traversal, no odd bytes can
+        // reach the filesystem). Legitimate UUIDs pass through unchanged.
+        let safe = sessionID.filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        return rootDir.appendingPathComponent("messages-\(safe.isEmpty ? "unknown" : safe).json")
     }
 
     private func load() {
@@ -235,6 +239,12 @@ final class JuneAgentGateway {
     // instance here would double-load the model.
     private let localGGUF = LocalGGUFQuickChatBackend.shared
     private var runningTurns: [String: Task<Void, Never>] = [:]
+    /// Generous for a single-user app (one active + a few background) yet a
+    /// hard ceiling against a runaway/compromised page.
+    private static let maxConcurrentTurns = 8
+    /// Runaway-response ceiling (very generous for a chat reply): bounds memory
+    /// if a local model loops or a cloud stream misbehaves.
+    private static let maxResponseBytes = 512 * 1024
     private static let defaultModelKey = "epistemos.june.generationModel"
 
     // Local-lane instructions: honest capability tier per Plan 1-MAS §0.5.
@@ -288,6 +298,13 @@ final class JuneAgentGateway {
             guard runningTurns[sessionID] == nil else {
                 // 4009 = "session busy", the code June's UI branches on.
                 replyError(id: id, code: 4009, message: "session busy")
+                return
+            }
+            // Defense-in-depth: bound total concurrent turns so a compromised
+            // page can't exhaust memory/CPU by spawning unbounded engine Tasks
+            // across many sessions (the per-session gate above only bounds one).
+            guard runningTurns.count < Self.maxConcurrentTurns else {
+                replyError(id: id, code: 4009, message: "too many active turns")
                 return
             }
             reply(id: id, result: [String: Any]())
@@ -345,6 +362,9 @@ final class JuneAgentGateway {
                         }
                         full += delta
                         self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
+                        // Runaway guard: a stuck local loop or a broken/hostile
+                        // cloud stream can't grow the response without bound.
+                        if full.utf8.count > Self.maxResponseBytes { break }
                     }
                 } catch let error as QuickChatError {
                     // Plan 1-MAS §2: an Apple FM guardrail trip falls back to the
@@ -369,6 +389,7 @@ final class JuneAgentGateway {
                         if Task.isCancelled { break }
                         full += delta
                         self.emit(type: "message.delta", sessionID: sessionID, payload: ["text": delta])
+                        if full.utf8.count > Self.maxResponseBytes { break }
                     }
                 }
                 let status = Task.isCancelled ? "cancelled" : "ok"

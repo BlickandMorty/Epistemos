@@ -165,7 +165,10 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             }
             return NSNull()
         case "suggest_agent_session_title":
-            let prompt = (request["prompt"] as? String) ?? ""
+            // Invoke args aren't frame-size-bounded like gateway frames; cap the
+            // prompt before deriving (a title is only the first few words, so
+            // never scan a megabyte-sized string from a hostile page).
+            let prompt = String(((request["prompt"] as? String) ?? "").prefix(4000))
             return ["title": Self.deriveTitle(from: prompt)]
         case "hermes_agent_cli_access":
             return ["enabled": false]
