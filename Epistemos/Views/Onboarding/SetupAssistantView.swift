@@ -59,7 +59,15 @@ struct SetupAssistantView: View {
         }
         .frame(width: 620, height: 620)
         .background {
-            PixelSetupBackground(theme: theme)
+            // Owner 2026-07-03: dynamic Metal backdrop (same pixel-art gradient as the
+            // landing) instead of a static grid — the onboarding's "static backdrop = fake"
+            // tell. Perf-gated (Reduce Motion + window-occluded).
+            LiquidMetalSurface(
+                base: theme.resolved.background.color,
+                accent: theme.resolved.accent.color,
+                intensity: 0.14,
+                active: !ui.windowOccluded
+            )
         }
     }
 
