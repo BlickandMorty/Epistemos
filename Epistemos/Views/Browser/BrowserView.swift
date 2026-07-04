@@ -1016,6 +1016,25 @@ private struct BrowserWebView: NSViewRepresentable {
             recordNavigationFailure(error)
         }
 
+        /// Timestamp of the last renderer-crash reload, to break a reload loop.
+        private var lastCrashReload: Date?
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            // The web content process crashed (OOM / renderer fault) — the page goes blank with NO
+            // navigation error. Reload once to recover (Apple-recommended). Guard against a reload loop
+            // from a page that reliably kills the renderer: if it crashes again within 3s, stop and
+            // surface an error instead of a silent blank or an infinite reload.
+            guard webView.url != nil else { return }
+            let now = Date()
+            if let last = lastCrashReload, now.timeIntervalSince(last) < 3 {
+                tab?.lastError = "This page crashed and couldn't be reloaded."
+                tab?.toolbarHidden = false
+                return
+            }
+            lastCrashReload = now
+            webView.reload()
+        }
+
         private func recordNavigationFailure(_ error: Error) {
             guard let message = BrowserNavigationErrorPolicy.userVisibleMessage(for: error) else {
                 return
