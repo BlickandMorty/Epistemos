@@ -416,29 +416,20 @@ struct LandingView: View {
     }
 
     private var landingBackdrop: some View {
-        // Owner 2026-07-03: the flat backdrop is a subtle animated liquid pixel gradient so
-        // the home feels alive (behind the hard-edged pixel panels — contrast, not clash),
-        // with a revived word-revealing WAKE layer over it — the cursor's fluid trail
-        // uncovers vocabulary from the field, integrated into the vector ontology.
+        // Owner 2026-07-04: JUST the subtle animated liquid pixel gradient — the home feels
+        // alive behind the hard-edged pixel panels (contrast, not clash). The word-revealing
+        // ASCII wake layer was REMOVED per owner: gradient only, no words.
         // Gated by windowOccluded + Reduce Motion so it's zero-cost when idle/hidden.
-        ZStack {
-            LiquidMetalSurface(
-                base: AppWindowBackdropStyle.background(for: theme),
-                accent: theme.resolved.accent.color,
-                // Owner 2026-07-04: slightly less noticeable in BOTH modes (light dialed down
-                // more — a bright base needs less); still visible, just calmer.
-                intensity: theme.isDark ? 0.11 : 0.15,
-                active: !ui.windowOccluded,
-                cursor: cursorLocation
-            )
-            if !ui.windowOccluded {
-                // Feed the shared cursor (backdrop is non-hit-testing, so the field's own
-                // hover can't fire) so the wake reveals words again.
-                LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme, cursor: cursorLocation)
-                    // owner 2026-07-04: removed .plusLighter — additive blend made the wake POP
-                    // brighter, not blend. It stays subtle via very low opacity instead.
-            }
-        }
+        LiquidMetalSurface(
+            base: AppWindowBackdropStyle.background(for: theme),
+            accent: theme.resolved.accent.color,
+            // Owner 2026-07-04: dark is good (0.11 — DO NOT TOUCH). Light dialed way down
+            // (0.08) so the gradient/shine reads as integrated with the theme, not an
+            // overlay on the bright base.
+            intensity: theme.isDark ? 0.11 : 0.08,
+            active: !ui.windowOccluded,
+            cursor: cursorLocation
+        )
         .ignoresSafeArea()
     }
 
@@ -518,18 +509,6 @@ struct LandingView: View {
             .padding(.horizontal, Spacing.xxl)
             .padding(.bottom, 28)
         }
-    }
-
-    /// Owner 2026-07-03: word pool the wake layer reveals — app vocabulary + recent note
-    /// titles (deduped/normalized by the wake engine).
-    private var landingWakeVocabulary: [String] {
-        LandingASCIIWakeFieldEngine.normalizedVocabulary(
-            from: [
-                "Epistemos", "Research", "Knowledge Graph", "Command Palette",
-                "New Note", "Daily Brief", "Apple Intelligence", "Sources",
-                "Claims", "Concepts", "Questions",
-            ] + allPages.prefix(36).map(\.title)
-        )
     }
 
     /// Owner 2026-07-03: subtle cursor parallax for the greeting (drifts toward the mouse,
