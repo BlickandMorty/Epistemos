@@ -1838,7 +1838,7 @@ final class EventStore: Sendable {
                        mean_pause_duration_ms, mean_burst_length_chars, burst_length_cv,
                        deletion_density, regression_frequency, friction_score
                 FROM friction_windows
-                ORDER BY window_start ASC
+                ORDER BY window_start DESC
                 LIMIT ?;
             """
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }

@@ -38,6 +38,7 @@ public struct SubstrateHealthPanel: View {
                     VaultRecallHealthRow()
                     SearchFusionHealthRow()
                     EditorBundleHealthRow()
+                    FrictionHealthRow()
                 }
 
                 foundationSection("Honesty and Provenance") {
