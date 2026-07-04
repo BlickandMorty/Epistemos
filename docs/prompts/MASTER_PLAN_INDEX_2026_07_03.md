@@ -5,6 +5,17 @@ it references, which build (MAS/Pro/both) it targets, and where it sits in the s
 Come back here to pick up any plan. Each `PROMPT_PLAN_*.md` file **is** the paste-to-agent
 prompt for that plan.
 
+**Kicking off the two Plan-1 agents:** paste the matching wrapper from
+[`PLAN_1_AGENT_KICKOFF_WRAPPERS.md`](PLAN_1_AGENT_KICKOFF_WRAPPERS.md) above the plan
+(territory split, shared-repo rules, never-concurrent-xcodebuild). Precondition already
+done: dead goose surface excised (`0b10f728b`, recovery tag `pre-agent-rebuild-2026-07-03`).
+
+**Raw research corpora (provenance, DO-NOT-BUILD):** `../research/
+{OPENCHAMBER,MAS,PLAN9}_RESEARCH_CORPUS_RAW_*.md` + `RESEARCHHUB_WORKFLOW_RAW_*` — every
+research pass of this cycle is preserved verbatim on disk. Verification clones live in
+`.research-clones/` (git-ignored): goose, openchamber, june, ironcalc, univer, teable,
+baserow.
+
 ## Build sequence (owner rule: strict-sequential, one at a time, owner-verified — never concurrent)
 
 ```
@@ -34,7 +45,7 @@ NOW → Plan 1-PRO (OpenChamber)  ─┐  the two agent surfaces (run in paralle
 | **6** | Quick Capture | [`PROMPT_PLAN_6_QUICKCAPTURE.md`](PROMPT_PLAN_6_QUICKCAPTURE.md) | both | fast capture → vault; capture→Epdoc seeding | memory `project_quick_capture_salvage_triage` |
 | **7** | Sync + quality gate | [`PROMPT_PLAN_7_SYNC.md`](PROMPT_PLAN_7_SYNC.md) | both | vault sync + the v1 release quality gate | — |
 | **8** | **ResearchHub** (NEW) | [`PROMPT_PLAN_8_RESEARCHHUB.md`](PROMPT_PLAN_8_RESEARCHHUB.md) | both | multi-source research feed (papers/X/Reddit/HN/GitHub/HF/journals/…) as a dedicated room + agent capability; adaptive-card native timeline; deep Notes + Agent + graph integration | **dossier `RESEARCHHUB_SOURCE_DOSSIER_2026_07_03.md`** (+ raw `RESEARCHHUB_WORKFLOW_RAW_*`); template `Epistemos/Arxiv/ArxivIngestService.swift`; generalizes Plan 3's arXiv |
-| **9** | **Data tab** (NEW) | [`PROMPT_PLAN_9_DATA_TABLES.md`](PROMPT_PLAN_9_DATA_TABLES.md) | both | agent-native spreadsheet+database room: **silent-Univer renderer** (formula engine off) × **IronCalc single calc authority** (WASM in-webview + native UniFFI), SQLite/GRDB truth, dual-zone formula freedom w/ named-range durable refs, native views (kanban/gallery/calendar/form) + **in-tab agent chat**, dry-run→confirm→undo agent restructuring, Vision/PDF ingest | adjudication `PLAN9_ADJUDICATION_WORKING_2026_07_03.md` (clone-verified: ironcalc/univer/teable/baserow in `.research-clones/work/`); intent frame `PROMPT_PLAN_9_DATA_TABLES_RESEARCH.md`; agent seam = Plan 8's |
+| **9** | **Data tab** (NEW) | [`PROMPT_PLAN_9_DATA_TABLES.md`](PROMPT_PLAN_9_DATA_TABLES.md) | both | agent-native spreadsheet+database room: **silent-Univer renderer** (formula engine off) × **IronCalc single calc authority** (WASM in-webview + native UniFFI), SQLite/GRDB truth, dual-zone formula freedom w/ named-range durable refs, native views (kanban/gallery/calendar/form) + **in-tab agent chat**, dry-run→confirm→undo agent restructuring, Vision/PDF ingest | adjudication `PLAN9_ADJUDICATION_WORKING_2026_07_03.md` (clone-verified: ironcalc/univer/teable/baserow in `.research-clones/work/`); raw corpus `PLAN9_RESEARCH_CORPUS_RAW_2026_07_03.md`; intent frame `PROMPT_PLAN_9_DATA_TABLES_RESEARCH.md`; agent seam = Plan 8's |
 
 ## Cross-cutting doctrines (read-first for the relevant plans)
 - **Performance:** [`../research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md`](../research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md)
