@@ -21,11 +21,50 @@ struct LiteParsePDFImportButton: View {
 
     @State private var statusMessage: String?
     @State private var showingStatus = false
+    @State private var importTask: Task<Void, Never>?
+    @State private var importProgress: ImportProgress?
+
+    private struct ImportProgress: Equatable {
+        var done: Int
+        var total: Int
+    }
 
     private var isVisible: Bool { LiteParseImportGateStatus.status().isActive }
 
     var body: some View {
         if isVisible {
+            content
+                .alert("PDF Import", isPresented: $showingStatus) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(statusMessage ?? "")
+                }
+        }
+    }
+
+    // #3 (audit 2026-07-03): a bulk import previously showed no progress and no cancel — one
+    // slow/bad PDF stalled the whole batch with zero feedback. While importing, the button
+    // becomes a live "done/total" spinner + Stop that cancels the remaining files.
+    @ViewBuilder
+    private var content: some View {
+        if let progress = importProgress {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("\(progress.done)/\(progress.total)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                ToolbarCapsuleButton(
+                    title: nil,
+                    systemImage: "xmark",
+                    role: .toolbarUtility,
+                    chromePolicy: .alwaysSurface,
+                    helpText: "Cancel import (\(progress.done) of \(progress.total) done)",
+                    accessibilityLabel: "Cancel PDF import"
+                ) {
+                    importTask?.cancel()
+                }
+            }
+        } else {
             ToolbarCapsuleButton(
                 title: nil,
                 systemImage: "doc.badge.arrow.up",
@@ -36,16 +75,12 @@ struct LiteParsePDFImportButton: View {
             ) {
                 runImport()
             }
-            .alert("PDF Import", isPresented: $showingStatus) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(statusMessage ?? "")
-            }
         }
     }
 
     @MainActor
     private func runImport() {
+        guard importTask == nil else { return } // an import is already running
         guard let vaultURL = vaultSync.vaultURL else {
             statusMessage = "Connect a vault first, then import."
             showingStatus = true
@@ -59,10 +94,21 @@ struct LiteParsePDFImportButton: View {
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
         let urls = panel.urls
 
-        Task { @MainActor in
+        importProgress = ImportProgress(done: 0, total: urls.count)
+        importTask = Task { @MainActor in
+            defer {
+                importProgress = nil
+                importTask = nil
+            }
             var imported = 0
             var lines: [String] = []
-            for url in urls {
+            var cancelled = false
+            for (index, url) in urls.enumerated() {
+                if Task.isCancelled {
+                    cancelled = true
+                    break
+                }
+                importProgress = ImportProgress(done: index, total: urls.count)
                 let gainedSecurityScope = url.startAccessingSecurityScopedResource()
                 defer {
                     if gainedSecurityScope {
@@ -93,7 +139,10 @@ struct LiteParsePDFImportButton: View {
                     allowOverflowMarker: true
                 )
             }
-            statusMessage = Self.boundedStatusMessage("Imported \(imported)/\(urls.count).\n" + lines.joined(separator: "\n"))
+            let header = cancelled
+                ? "Cancelled — imported \(imported)/\(urls.count)."
+                : "Imported \(imported)/\(urls.count)."
+            statusMessage = Self.boundedStatusMessage(header + "\n" + lines.joined(separator: "\n"))
             showingStatus = true
         }
     }
