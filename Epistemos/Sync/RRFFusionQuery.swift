@@ -387,28 +387,46 @@ nonisolated public enum RRFFusionQuery {
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM readable_hits
           ),
-          rolled_up AS (
-            -- SQLite "bare columns in aggregate queries" extension —
-            -- when MIN(rnk) selects one row per group, snippet_block_id,
-            -- snippet_text, and entity_kind come from THAT same row.
-            -- Documented at https://sqlite.org/lang_select.html#bareagg
+          -- Rank rows within each entity so the surfaced entity_kind /
+          -- snippet_block_id / snippet_text come deterministically from the
+          -- BEST-rank (MIN rnk) row. The old GROUP BY relied on SQLite's
+          -- bare-column-in-aggregate extension, which only takes bare columns
+          -- from the min/max row when there is EXACTLY ONE min/max aggregate —
+          -- this query has three (2x MAX + MIN), so per SQLite's documented
+          -- rule the bare columns came from an ARBITRARY row (wrong snippet,
+          -- broken scroll-to-block). Window aggregates keep the group
+          -- MIN(rnk) / MAX(updated_at) / SUM(score) intact.
+          ranked AS (
             SELECT
-              entity_id,
-              MAX(parent_doc_id)              AS parent_doc_id,
-              entity_kind,
-              MAX(updated_at_unix)            AS updated_at_unix,
-              snippet_block_id,
-              snippet_text,
-              MIN(rnk)                        AS best_source_rank,
+              entity_id, parent_doc_id, entity_kind, source,
+              snippet_block_id, snippet_text, updated_at_unix, rnk,
+              ROW_NUMBER() OVER (
+                PARTITION BY entity_id ORDER BY rnk ASC, source ASC
+              )                                        AS rn,
+              MIN(rnk) OVER (PARTITION BY entity_id)   AS best_source_rank,
+              MAX(updated_at_unix) OVER (PARTITION BY entity_id)
+                                                       AS group_updated_at_unix,
               SUM(
                 CASE source
                   WHEN 'page'           THEN :w_page      / (:k + rnk)
                   WHEN 'block'          THEN :w_block     / (:k + rnk)
                   WHEN 'readable_block' THEN :w_universal / (:k + rnk)
                 END
-              )                               AS raw_fused_score
+              ) OVER (PARTITION BY entity_id)          AS raw_fused_score
             FROM unioned
-            GROUP BY entity_id
+          ),
+          rolled_up AS (
+            SELECT
+              entity_id,
+              parent_doc_id,
+              entity_kind,
+              group_updated_at_unix          AS updated_at_unix,
+              snippet_block_id,
+              snippet_text,
+              best_source_rank,
+              raw_fused_score
+            FROM ranked
+            WHERE rn = 1
           )
         SELECT
           entity_id,
@@ -479,23 +497,39 @@ nonisolated public enum RRFFusionQuery {
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM block_hits
           ),
-          rolled_up AS (
+          -- See the main query: window aggregates + rn=1 take the best-rank
+          -- row's bare columns deterministically (the bare-column-in-aggregate
+          -- trick is unsound here with two min/max aggregates).
+          ranked AS (
             SELECT
-              entity_id,
-              MAX(parent_doc_id)              AS parent_doc_id,
-              entity_kind,
-              MAX(updated_at_unix)            AS updated_at_unix,
-              snippet_block_id,
-              snippet_text,
-              MIN(rnk)                        AS best_source_rank,
+              entity_id, parent_doc_id, entity_kind, source,
+              snippet_block_id, snippet_text, updated_at_unix, rnk,
+              ROW_NUMBER() OVER (
+                PARTITION BY entity_id ORDER BY rnk ASC, source ASC
+              )                                        AS rn,
+              MIN(rnk) OVER (PARTITION BY entity_id)   AS best_source_rank,
+              MAX(updated_at_unix) OVER (PARTITION BY entity_id)
+                                                       AS group_updated_at_unix,
               SUM(
                 CASE source
                   WHEN 'page'  THEN :w_page  / (:k + rnk)
                   WHEN 'block' THEN :w_block / (:k + rnk)
                 END
-              )                               AS raw_fused_score
+              ) OVER (PARTITION BY entity_id)          AS raw_fused_score
             FROM unioned
-            GROUP BY entity_id
+          ),
+          rolled_up AS (
+            SELECT
+              entity_id,
+              parent_doc_id,
+              entity_kind,
+              group_updated_at_unix          AS updated_at_unix,
+              snippet_block_id,
+              snippet_text,
+              best_source_rank,
+              raw_fused_score
+            FROM ranked
+            WHERE rn = 1
           )
         SELECT
           entity_id,
