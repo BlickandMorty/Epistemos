@@ -58,6 +58,10 @@ struct ProseEditorView: View {
     /// NOTE-8: true when the last durable disk write FAILED — surfaced to the user. The body
     /// is still safe (in-memory + crash draft) and the next save retries.
     @State private var saveError = false
+    /// NOTE-3: true when an external change to this note was DEFERRED because the editor had
+    /// unsaved edits (the user's edits are kept). Surfaced so a conflict isn't silent; cleared
+    /// on the next successful save (the user's version wins + is now durable).
+    @State private var externalChangeDeferred = false
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
     @State private var draftTask: Task<Void, Never>?  // NOTE-4: crash-recovery draft debounce
@@ -116,6 +120,19 @@ struct ProseEditorView: View {
         let resolvedTitle = title.isEmpty ? pageId : title
         log.warning("Found orphaned AI divider in note \(resolvedTitle, privacy: .public) — stripping")
         return String(body[..<dividerRange.lowerBound])
+    }
+
+    /// Shared bottom-trailing status chip for editor save/conflict states (NOTE-3 / NOTE-8).
+    private func editorStatusChip(_ text: String, systemImage: String, tint: Color) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.regularMaterial, in: Capsule())
+            .padding(12)
+            .transition(.opacity)
+            .accessibilityAddTraits(.isStaticText)
     }
 
     private func loadBodyIfNeeded(force: Bool, preferDisk: Bool = false) async {
@@ -321,16 +338,13 @@ struct ProseEditorView: View {
                 // only logging it — reassure the user their work is safe + will retry.
                 .overlay(alignment: .bottomTrailing) {
                     if saveError {
-                        Label("Couldn't save to disk — your work is kept and will retry",
-                              systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.regularMaterial, in: Capsule())
-                            .padding(12)
-                            .transition(.opacity)
-                            .accessibilityAddTraits(.isStaticText)
+                        editorStatusChip("Couldn't save to disk — your work is kept and will retry",
+                                         systemImage: "exclamationmark.triangle.fill", tint: .orange)
+                    } else if externalChangeDeferred {
+                        // NOTE-3: the note changed elsewhere while the user had unsaved edits —
+                        // their edits win + are kept; surface the conflict so it isn't silent.
+                        editorStatusChip("This note also changed elsewhere — your edits are kept",
+                                         systemImage: "arrow.triangle.2.circlepath", tint: .blue)
                     }
                 }
             } else {
@@ -379,6 +393,7 @@ struct ProseEditorView: View {
                 }
             } else {
                 Self.log.warning("NOTE-3: external body change for \(page.id, privacy: .public) deferred — editor has unsaved edits")
+                withAnimation { externalChangeDeferred = true }
             }
         }
         // Flush in-memory edits to disk when another editor is about to read our body
@@ -498,6 +513,7 @@ struct ProseEditorView: View {
                 return
             }
             if saveError { withAnimation { saveError = false } }  // NOTE-8: durable write recovered
+            if externalChangeDeferred { withAnimation { externalChangeDeferred = false } }  // NOTE-3: conflict resolved (our version is now durable)
             scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
             NoteDraftStore.delete(pageId: pageId)  // NOTE-4: durable body is current; clear the crash draft
