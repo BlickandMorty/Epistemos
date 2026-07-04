@@ -1772,6 +1772,16 @@ final class ProseTextView2: NSTextView {
         Task { @MainActor [weak self] in
             guard let self else { return }
 
+            // Guard against an unbounded read of a pasted/dropped image on the main thread — both
+            // the persist path (Data(contentsOf:) below) and the fallback (loadDisplayImage) read
+            // the whole file, so a huge/malicious image would hitch the editor and risk OOM. Matches
+            // the 20 MB cap the Epdoc image picker already enforces; oversized images are refused
+            // (silently, like that picker) before either path rather than freezing the editor.
+            if let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+               fileSize > 20 * 1024 * 1024 {
+                return
+            }
+
             // SS-2S A3: persist the image as a managed asset and insert `![](assets/<name>)`
             // md so it SURVIVES SAVE (the legacy NSTextAttachment below was dropped on save =
             // data loss). The md then renders via the A1/A2 image path.
