@@ -74,11 +74,17 @@ struct NoteBacklinksPopover: View {
                 }
 
                 if backlinks.isEmpty {
-                    Text("No backlinks found")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.quaternary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
+                    // DISC-9: teach how backlinks form instead of a bare "none".
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("No backlinks found")
+                            .foregroundStyle(.quaternary)
+                        Text("Reference this note from another with a [[wikilink]] to see it here.")
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                 }
             }
             .padding(6)

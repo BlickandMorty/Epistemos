@@ -227,6 +227,11 @@ struct SetupAssistantView: View {
                 .font(captionFont)
                 .foregroundStyle(theme.textTertiary)
 
+            // DISC-11: teach the key shortcuts at the perfect first-run moment.
+            Text("Tip: ⌘N new note · ⌘K commands · ⌘2 your notes")
+                .font(captionFont)
+                .foregroundStyle(theme.textSecondary)
+
             Spacer()
 
             Button("Start Using Epistemos") {
