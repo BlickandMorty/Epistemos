@@ -58,6 +58,7 @@ struct ProAgentNavBar: View {
             .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
             .help("Back to Epistemos")
             .accessibilityLabel("Back to Epistemos")
+            .accessibilityIdentifier("proAgentPill.home")
 
             Divider()
                 .frame(height: 22)
@@ -85,6 +86,7 @@ struct ProAgentNavBar: View {
             .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
             .help("New chat")
             .accessibilityLabel("New chat")
+            .accessibilityIdentifier("proAgentPill.newChat")
 
             Button(action: onAllChats) {
                 HStack(spacing: 5) {
@@ -102,6 +104,7 @@ struct ProAgentNavBar: View {
             .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
             .help("All chats")
             .accessibilityLabel("All chats")
+            .accessibilityIdentifier("proAgentPill.allChats")
         }
         .frame(height: Metrics.barHeight)
         .fixedSize()
