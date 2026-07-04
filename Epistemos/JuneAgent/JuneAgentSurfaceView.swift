@@ -114,7 +114,10 @@ final class JuneAgentSurfaceHolder {
                 pill = document.createElement("button");
                 pill.type = "button";
                 pill.className = "epistemos-read-selection";
-                pill.style.cssText = "position:fixed;z-index:2147483647;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:none;background:rgba(30,30,32,0.94);color:#fff;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.28);";
+                // Subtle light border so the dark pill stays delineated on
+                // June's dark canvas (oklch 16.5% ≈ the pill's own tone) as well
+                // as on light — the shadow alone is invisible in dark mode.
+                pill.style.cssText = "position:fixed;z-index:2147483647;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:0.5px solid rgba(255,255,255,0.18);background:rgba(30,30,32,0.94);color:#fff;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.28);";
                 pill.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg><span>Read aloud</span>';
                 pill.addEventListener("mousedown", function (e) { e.preventDefault(); });
                 pill.addEventListener("click", function (e) {
@@ -146,6 +149,12 @@ final class JuneAgentSurfaceHolder {
                 document.addEventListener("scroll", hidePill, true);
                 document.addEventListener("mousedown", function (e) {
                   if (pill && e.target !== pill && !pill.contains(e.target)) hidePill();
+                });
+                // Dismiss on ANY deselect, incl. keyboard (arrow keys) — hide
+                // only when the selection clears, so it never flickers mid-drag.
+                document.addEventListener("selectionchange", function () {
+                  var s = window.getSelection();
+                  if (!s || !s.toString().trim()) hidePill();
                 });
               }
               function addButton(turn) {
