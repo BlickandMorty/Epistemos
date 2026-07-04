@@ -407,7 +407,10 @@ struct QuickCaptureView: View {
                 // read-aloud affordance remains visible but disabled until
                 // native Kokoro synthesis is wired; no Apple voice picker or
                 // AVSpeech fallback is surfaced here.
-                ReadAloudButton(text: captureText, style: .iconWithProgress)
+                ReadAloudButton(
+                    text: EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: captureText),
+                    style: .iconWithProgress
+                )
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .background {
