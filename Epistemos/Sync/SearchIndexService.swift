@@ -1661,6 +1661,42 @@ actor SearchIndexService {
         Self.notifyIndexChanged([.searchBlocks])
     }
 
+    /// Atomically replace ALL block rows for a page: delete the page's prior rows,
+    /// then insert its current SDBlock set. `block_search` (FTS5) is trigger-
+    /// maintained on `indexed_blocks`, so the ad/ai triggers keep the FTS mirror
+    /// consistent. This is the block-index write seam: previously `indexed_blocks`
+    /// had NO production writer, so block search + the RRF `block` source returned
+    /// empty. Derivative index — a failure here degrades block search only, and
+    /// self-heals on the next save. Block ids are the stable SDBlock.id so
+    /// "jump to block" from a search hit resolves.
+    nonisolated func replaceBlocksForPage(pageId: String, blocks: [(blockId: String, content: String)]) throws {
+        try dbPool.write { db in
+            try db.execute(sql: "DELETE FROM indexed_blocks WHERE page_id = ?", arguments: [pageId])
+            for block in blocks {
+                try db.execute(
+                    sql: """
+                        INSERT INTO indexed_blocks (block_id, page_id, content)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(block_id) DO UPDATE SET
+                            page_id = excluded.page_id,
+                            content = excluded.content
+                    """,
+                    arguments: [block.blockId, pageId, block.content]
+                )
+            }
+        }
+        Self.notifyIndexChanged([.searchBlocks])
+    }
+
+    /// Remove all block rows for a page (on page delete) — the block-index analogue
+    /// of `delete(pageId:)`.
+    nonisolated func deleteBlocksForPage(pageId: String) throws {
+        try dbPool.write { db in
+            try db.execute(sql: "DELETE FROM indexed_blocks WHERE page_id = ?", arguments: [pageId])
+        }
+        Self.notifyIndexChanged([.searchBlocks])
+    }
+
     // MARK: - Upsert / Delete
 
     nonisolated func upsert(id: String, title: String, body: String, tags: String, updatedAt: Date) throws {

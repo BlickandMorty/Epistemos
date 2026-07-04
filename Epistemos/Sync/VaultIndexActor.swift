@@ -526,6 +526,7 @@ actor VaultIndexActor {
 
             do {
                 try searchService?.delete(pageId: pageID)
+                try? searchService?.deleteBlocksForPage(pageId: pageID)
             } catch {
                 log.error(
                     "VaultIndex: failed to remove search row for discarded imported page \(pageID, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -1361,6 +1362,7 @@ actor VaultIndexActor {
         for page in existing {
             do {
                 try searchService?.delete(pageId: page.id)
+                try? searchService?.deleteBlocksForPage(pageId: page.id)
             } catch {
                 log.error("FTS5 delete failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
@@ -1447,6 +1449,7 @@ actor VaultIndexActor {
         SpotlightIndexer.deindex(pageId)
         do {
             try searchService?.delete(pageId: pageId)
+            try? searchService?.deleteBlocksForPage(pageId: pageId)
         } catch {
             log.error(
                 "VaultIndex: failed to remove search row for duplicate page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -2227,6 +2230,30 @@ actor VaultIndexActor {
             )
         } catch {
             log.error("FTS5 upsert failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+        reindexBlocks(forPageId: pageId)
+    }
+
+    /// Mirror a page's SDBlocks into the block search index (indexed_blocks /
+    /// block_search FTS). SDBlocks are maintained by BlockMirror.sync, which runs
+    /// before upsertSearchIndex in the save paths, so we fetch the current set
+    /// (stable SDBlock.ids, so "jump to block" from a hit resolves) and atomically
+    /// replace this page's block rows. Without this, indexed_blocks had NO writer,
+    /// so block search + the RRF `block` fusion source returned empty. Derivative
+    /// index — a failure is logged and self-heals on the next save.
+    private func reindexBlocks(forPageId pageId: String) {
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.order)]
+        )
+        guard let blocks = try? modelContext.fetch(descriptor) else { return }
+        do {
+            try searchService?.replaceBlocksForPage(
+                pageId: pageId,
+                blocks: blocks.map { (blockId: $0.id, content: $0.content) }
+            )
+        } catch {
+            log.error("Block index reindex failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
 
