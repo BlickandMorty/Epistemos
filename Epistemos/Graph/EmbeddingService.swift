@@ -401,7 +401,7 @@ final class EmbeddingService {
         preparedRetrievalRuntimeConfiguration?.assetLayout?.indexManifestPath
     }
 
-    // SAFETY: accessed from nonisolated cancelPendingTask/prepareForEngineDestroy only after
+    // SAFETY: accessed from nonisolated cancelPendingTask/drainAndDestroyEngineOffMain only after
     // the MainActor task that writes it has completed or been cancelled.
     nonisolated(unsafe) private var computeTask: Task<Void, Never>?
     private let detachedEngineUseTracker = DetachedEngineUseTracker()
@@ -570,11 +570,6 @@ final class EmbeddingService {
     nonisolated func cancelPendingTask() {
         computeTask?.cancel()
         computeTask = nil
-    }
-
-    nonisolated func prepareForEngineDestroy() {
-        cancelPendingTask()
-        detachedEngineUseTracker.closeAndWait()
     }
 
     /// Off-main teardown for MetalGraphView.deinit (which runs on the MAIN thread). Cancels
