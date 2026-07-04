@@ -28,6 +28,35 @@ in the ledger as an open `[ ]` item — not left to rot in git history. These ar
   STAGE-2 selection contract at the `compile()` marker site (flip `EPISTEMOS_RUNTIMEROUTER_LIVE_V0`) so the
   router lane becomes authoritative live. Parity-gated; the contract + tests already landed.
 
+### 2026-07-04 — Front & Feel hardening loop (unbounded agent)
+- **#40 Recall "Open Chat" no-op** (NoteDetailWorkspaceView:950 `case .chat: break`): needs a chat-navigation
+  mechanism (open-chat-by-id / a MiniChat window controller) that doesn't exist — a chat-lane build, not a wire.
+  OWNER-GATED (off-limits mount).
+- **#41 DataviewService ```dataview``` renderer** (Notes/Epdoc): DQL engine exists (0 callers); rendering a
+  fenced dataview block needs a NEW Tiptap JS node/handler + `build-tiptap-bundle.sh` rebuild (npm) + WKWebView
+  runtime verification (not possible headless). Epdoc feature-build, not a wire.
+- **#42 EpdocBlockTemplateStore → slash menu**: surface user block-templates in the Epdoc slash menu. The slash
+  insert is a JS `blockType` contract (`insertSlashChoice`) with no path for arbitrary template content — needs
+  a new JS node/handler + bundle rebuild + runtime verification. Epdoc feature-build.
+- **#46 VaultIndexActor FTS-delete ordering restructure** (MED): app's most-critical data path; the test suite
+  is Goose-blocked (WorkSPAServerTests references a removed Goose symbol), so a restructure ships build-verified
+  but NOT test-verified. RISKY — needs owner sign-off + a test unblock.
+- **DATA-IMPORT-1 child-context UNVERIFIED headless** (29fd7b891): arXiv import now uses a child ModelContext;
+  the race + cross-context visibility need an IN-APP import spot-check before trusting (unverifiable headless).
+- **Default/Debug entitlements stale allow-jit + disable-library-validation** (Epistemos.entitlements): almost
+  certainly stale from the dead MLX/GGUF stack (AppStore entitlements already dropped them). Removable from
+  Developer-ID/direct builds — but a build-config change whose RUNTIME JIT need can't be verified headless.
+- **`com.apple.security.network.server` in shipping entitlements**: a note/research app declaring a network
+  SERVER entitlement is a guaranteed App Store reviewer question. It's for the excluded Goose/Work local web
+  surface — GOOSE-LANE. Justify in review notes or drop if that surface isn't in the App Store build.
+- **Agent-C Sync-lane privacy log leaks** (a4d73c170 follow-up): VaultIndexActor + VaultSyncService log
+  `lastPathComponent` (= note filenames → leak titles) `.public` at ~10 sites. Same class as the Notes-lane fix,
+  AGENT-C's Sync lane — not mine to touch.
+- **Graph/landing MORE-perf + overlay-graph node-click "halfway" regression**
+  (docs/handoffs/PROMPT_GRAPH_LANDING_PERF_AND_OVERLAY_NODE_REGRESSION.md): owner wants more perf from the shared
+  Metal layer beneath graph+landing (main lag fixed 6fbb052fd), AND a NEW regression — the full-screen Hologram
+  overlay graph splits the screen ~halfway on node click (home-page embedded graph is fine).
+
 ## Standing rule (added to SS-CLEAN)
 Every loop commit that writes an "honest pending / next increment / deferred / not-faked / owner-flip" note
 must have that note captured as an open `[ ]` ledger item (+ here) in the SAME or the next monitor pass — so
