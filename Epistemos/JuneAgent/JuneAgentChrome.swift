@@ -76,6 +76,14 @@ final class JuneAgentActivityModel {
 struct JuneAllChatsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
+    // Confirm before an irreversible delete (drops the messages file, no undo).
+    @State private var pendingDelete: JuneSessionStore.Session?
+
+    /// The conversation June currently shows — marked in the list so the sheet
+    /// orients the user like June's own sidebar (read once on present).
+    private var currentSessionID: String? {
+        JuneAgentSurfaceHolder.shared.bridge?.gateway.currentSessionID
+    }
 
     private var sessions: [JuneSessionStore.Session] {
         let all = JuneAgentSurfaceHolder.shared.bridge?.gateway.store.allSessions() ?? []
@@ -135,6 +143,8 @@ struct JuneAllChatsSheet: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(session.title)
                                         .lineLimit(1)
+                                        .fontWeight(session.id == currentSessionID ? .semibold : .regular)
+                                        .foregroundStyle(session.id == currentSessionID ? Color.accentColor : Color.primary)
                                     if !session.preview.isEmpty {
                                         Text(session.preview)
                                             .font(.caption)
@@ -154,7 +164,7 @@ struct JuneAllChatsSheet: View {
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
-                                Self.delete(session)
+                                pendingDelete = session
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -171,6 +181,22 @@ struct JuneAllChatsSheet: View {
                         dismiss()
                     }
                 }
+            }
+            .confirmationDialog(
+                "Delete this conversation?",
+                isPresented: Binding(
+                    get: { pendingDelete != nil },
+                    set: { if !$0 { pendingDelete = nil } }
+                ),
+                presenting: pendingDelete
+            ) { session in
+                Button("Delete", role: .destructive) {
+                    Self.delete(session)
+                    pendingDelete = nil
+                }
+                Button("Cancel", role: .cancel) { pendingDelete = nil }
+            } message: { session in
+                Text("“\(session.title)” and its messages will be permanently deleted. This can't be undone.")
             }
         }
         .frame(minWidth: 380, minHeight: 420)

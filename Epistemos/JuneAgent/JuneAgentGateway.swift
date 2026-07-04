@@ -262,8 +262,9 @@ final class JuneAgentGateway {
     private var runningTurns: [String: Task<Void, Never>] = [:]
     /// The session June is currently showing (set on resume/create/submit) so
     /// "read latest" speaks the reply the user is looking at, not merely the
-    /// most-recently-messaged session.
-    private var currentSessionID: String?
+    /// most-recently-messaged session. Exposed read-only so the native
+    /// all-chats sheet can mark the open conversation.
+    private(set) var currentSessionID: String?
     /// Generous for a single-user app (one active + a few background) yet a
     /// hard ceiling against a runaway/compromised page.
     private static let maxConcurrentTurns = 8
