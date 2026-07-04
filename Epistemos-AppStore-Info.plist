@@ -19,7 +19,7 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Epistemos uses the microphone to dictate quick captures using local models.</string>
+	<string>Epistemos uses the microphone to dictate quick captures and transcribe meetings on-device.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Epistemos uses speech recognition to transcribe voice input into your notes and chats.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
