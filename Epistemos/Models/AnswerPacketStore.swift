@@ -86,9 +86,15 @@ nonisolated public struct AnswerPacketStore: Sendable {
             }
             kept.append(line)
         }
-        let handle = try openStoreFileForWriting(truncate: true)
-        defer { try? handle.close() }
-        try handle.write(contentsOf: kept)
+        // Atomic rewrite: write to a temp sibling then rename over the log, so a
+        // crash / disk-full mid-write can't leave the log truncated or empty. The
+        // old O_TRUNC-then-write emptied the file first, so a failure between the
+        // truncate and the completed write lost exactly the receipts compact keeps.
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try kept.write(to: fileURL, options: .atomic)
     }
 
     private func packetWithHonestStoredLabel(_ packet: AnswerPacket) -> AnswerPacket {

@@ -56,6 +56,9 @@ struct RingBuffer<T: Sendable>: Sendable {
     let capacity: Int
 
     nonisolated init(capacity: Int) {
+        // Clamp to >= 1: capacity 0 would trap on push()'s `% capacity`. (The only
+        // caller passes a constant 200; this guards any future runtime-derived one.)
+        let capacity = max(1, capacity)
         self.capacity = capacity
         self.storage = Array(repeating: nil, count: capacity)
     }

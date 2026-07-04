@@ -434,8 +434,13 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 3, (snapshotJSON as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 4, (summary as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 5, (userNote as NSString).utf8String, -1, nil)
-            sqlite3_step(stmt)
+            guard sqlite3_step(stmt) == SQLITE_DONE else {
+                Self.log.error("EventStore: snapshot INSERT failed for session \(sessionId.prefix(8), privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public) — skipping retention prune so existing restore points are preserved")
+                return
+            }
 
+            // Prune older snapshots to the cap ONLY after the new one committed —
+            // otherwise a failed insert followed by a prune leaves FEWER restore points.
             _ = self.applyRetentionPolicy(AppDataRetentionPolicy.current().eventStorePolicy)
             Self.log.info("EventStore: snapshot saved for session \(sessionId.prefix(8), privacy: .public)")
         }

@@ -104,7 +104,16 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
             undoManager.setActionName("Delete \(snapshotTitle)")
         }
 
-        await Self.deleteNoteFromVault(id: snapshotId)
+        do {
+            try await Self.deleteNoteFromVault(id: snapshotId)
+        } catch {
+            undoableLog.error(
+                "Delete failed to persist for id=\(snapshotId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(dialog: IntentDialog(
+                stringLiteral: "Couldn't delete “\(snapshotTitle)” — the change didn't save. Please try again."
+            ))
+        }
         _ = try? await donate()
 
         undoableLog.info(
@@ -124,7 +133,7 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
     /// unindexed asynchronously so the search surface drops the note
     /// immediately even if the SwiftData save is delayed.
     @MainActor
-    private static func deleteNoteFromVault(id: String) async {
+    private static func deleteNoteFromVault(id: String) async throws {
         guard let bootstrap = AppBootstrap.shared else { return }
         let context = bootstrap.modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(
@@ -132,8 +141,9 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
         )
         if let page = try? context.fetch(descriptor).first {
             page.isArchived = true
-            try? context.save()
+            try context.save()   // propagate — perform() must not report success if this throws
         }
+        // Only drop the note from Spotlight once the soft-delete actually committed.
         Task.detached(priority: .utility) {
             await NoteEntitySpotlightIndexer.unindex(noteIds: [id])
         }
@@ -161,11 +171,18 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == id }
         )
-        if let page = try? context.fetch(descriptor).first {
-            page.isArchived = wasArchived
-            try? context.save()
+        guard let page = try? context.fetch(descriptor).first else {
+            undoableLog.error("Undo restore: note id=\(id, privacy: .public) not found")
+            return
         }
-        undoableLog.info("Restored note id=\(id, privacy: .public)")
+        page.isArchived = wasArchived
+        do {
+            try context.save()
+            undoableLog.info("Restored note id=\(id, privacy: .public)")
+        } catch {
+            // Can't surface UI from the UndoManager closure; at least don't hide it.
+            undoableLog.error("Undo restore FAILED to persist id=\(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
 
@@ -210,7 +227,16 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
             undoManager.setActionName("Archive \(snapshotTitle)")
         }
 
-        await Self.archiveNoteInVault(id: snapshotId)
+        do {
+            try await Self.archiveNoteInVault(id: snapshotId)
+        } catch {
+            undoableLog.error(
+                "Archive failed to persist for id=\(snapshotId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(dialog: IntentDialog(
+                stringLiteral: "Couldn't archive “\(snapshotTitle)” — the change didn't save. Please try again."
+            ))
+        }
         _ = try? await donate()
 
         undoableLog.info(
@@ -223,7 +249,7 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
     }
 
     @MainActor
-    private static func archiveNoteInVault(id: String) async {
+    private static func archiveNoteInVault(id: String) async throws {
         guard let bootstrap = AppBootstrap.shared else { return }
         let context = bootstrap.modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(
@@ -231,7 +257,7 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
         )
         if let page = try? context.fetch(descriptor).first {
             page.isArchived = true
-            try? context.save()
+            try context.save()   // propagate so perform() doesn't report a false success
         }
     }
 
@@ -256,9 +282,16 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == id }
         )
-        if let page = try? context.fetch(descriptor).first {
-            page.isArchived = wasArchived
-            try? context.save()
+        guard let page = try? context.fetch(descriptor).first else {
+            undoableLog.error("Undo unarchive: note id=\(id, privacy: .public) not found")
+            return
+        }
+        page.isArchived = wasArchived
+        do {
+            try context.save()
+            undoableLog.info("Unarchived note id=\(id, privacy: .public)")
+        } catch {
+            undoableLog.error("Undo unarchive FAILED to persist id=\(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
 }
