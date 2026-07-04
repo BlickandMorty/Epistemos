@@ -21,6 +21,9 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
     static let consoleChannel = "epistemosConsole"
     /// June → native chrome: june:menu-bar:* emits forwarded by the shim.
     static let eventsChannel = "epistemosEvents"
+    /// Read-aloud: the overlay posts {action:"speak"|"stop", text} → the shared
+    /// on-device synthesizer (native-side only; no audio/voice code in JS).
+    static let speakChannel = "epistemosSpeak"
 
     private static let log = Logger(subsystem: "com.epistemos", category: "JuneAgentBridge")
 
@@ -85,9 +88,34 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
                 Self.log.debug("june console: \(line.prefix(600), privacy: .public)")
             }
             #endif
+        case Self.speakChannel:
+            guard
+                let body = message.body as? [String: Any],
+                let action = body["action"] as? String
+            else {
+                Self.log.warning("speak message failed shape validation")
+                return
+            }
+            handleSpeak(action: action, text: (body["text"] as? String) ?? "")
         default:
             break
         }
+    }
+
+    /// Read-aloud: synthesize NATIVE-SIDE via the shared on-device engine. We
+    /// CONSUME EpistemosSpeechSynthesizer (owned by the app-wide voice agent);
+    /// never edit it, never put voice/audio code in the webview. Honest gate —
+    /// speak() itself refuses when Kokoro isn't ready (no AVSpeech fallback),
+    /// and voiceIdentifier nil uses the user's ModelVoicePickerSection pick.
+    private func handleSpeak(action: String, text: String) {
+        let synth = EpistemosSpeechSynthesizer.shared
+        if action == "stop" {
+            synth.stop()
+            return
+        }
+        // Bound the payload defensively (webview frames aren't trusted); the
+        // synthesizer also enforces its own input cap.
+        _ = synth.speak(String(text.prefix(8000)))
     }
 
     private func resolveInvoke(callId: Int, result: Any?) {

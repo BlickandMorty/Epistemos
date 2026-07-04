@@ -11,6 +11,14 @@ struct JuneAgentNavBar: View {
     let onReturnHome: () -> Void
 
     @State private var showingAllChats = false
+    // Observed so the button flips speaker⇄stop as playback starts/ends. We
+    // CONSUME the shared synthesizer (owned by the app-wide voice agent); the
+    // June surface never synthesizes or plays audio itself.
+    @State private var speech = EpistemosSpeechSynthesizer.shared
+
+    /// Kokoro-ready gate (no AVSpeech fallback): disables the button honestly
+    /// when TTS isn't available, per the read-aloud contract.
+    private var ttsAvailable: Bool { EpistemosSpeechSynthesizer.isTextToSpeechAvailable() }
 
     private enum Metrics {
         static let navSlotHeight: CGFloat = 38
@@ -67,6 +75,28 @@ struct JuneAgentNavBar: View {
             .sheet(isPresented: $showingAllChats) {
                 JuneAllChatsSheet()
             }
+
+            Button {
+                if speech.isSpeaking {
+                    speech.stop()
+                } else if let text = JuneAgentSurfaceHolder.shared.bridge?.gateway.latestAssistantReply() {
+                    // voiceIdentifier defaults to the user's ModelVoicePickerSection
+                    // pick (Kokoro on MAS) — never hardcoded here. Audio is
+                    // synthesized native-side by the shared engine.
+                    _ = speech.speak(text)
+                }
+            } label: {
+                Image(systemName: speech.isSpeaking ? "stop.fill" : "speaker.wave.2")
+                    .font(.system(size: Metrics.iconSize, weight: .semibold))
+                    .frame(width: Metrics.navSlotHeight, height: Metrics.navSlotHeight)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.textPrimary.opacity((ttsAvailable || speech.isSpeaking) ? 0.92 : 0.32))
+            .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
+            .disabled(!ttsAvailable && !speech.isSpeaking)
+            .help(ttsAvailable ? "Read the latest reply aloud" : EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
+            .accessibilityLabel(speech.isSpeaking ? "Stop reading aloud" : "Read the latest reply aloud")
         }
     }
 }

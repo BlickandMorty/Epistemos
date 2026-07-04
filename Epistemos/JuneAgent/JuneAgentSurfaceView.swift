@@ -50,6 +50,13 @@ final class JuneAgentSurfaceHolder {
             source: "window.__EPISTEMOS_HOST__ = true;",
             injectionTime: .atDocumentStart, forMainFrameOnly: false
         ))
+        // Read-aloud honest gate: the overlay only injects per-message speak
+        // buttons when the shared on-device TTS is actually ready (no fake
+        // button when Kokoro isn't installed). Computed native-side.
+        ucc.addUserScript(WKUserScript(
+            source: "window.__EPISTEMOS_TTS_AVAILABLE__ = \(EpistemosSpeechSynthesizer.isTextToSpeechAvailable() ? "true" : "false");",
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
         // Non-persistent store resets localStorage each launch; June's
         // first-run wizard (dictation/meeting permissions — not part of the
         // agent room) is skipped deterministically. Keys/version from the
@@ -84,6 +91,113 @@ final class JuneAgentSurfaceHolder {
             """,
             injectionTime: .atDocumentEnd, forMainFrameOnly: true
         ))
+        // Read-aloud overlay (my injection, NOT June src): adds a speak button
+        // to each assistant turn's existing action bar. It only reads the
+        // rendered reply text and posts it to the native `epistemosSpeak`
+        // handler — NO audio, NO voice model, NO synthesis in JS. Honest gate:
+        // nothing is injected unless native TTS is ready.
+        ucc.addUserScript(WKUserScript(
+            source: """
+            (function () {
+              if (!window.__EPISTEMOS_TTS_AVAILABLE__) return;
+              function speak(text) {
+                try {
+                  window.webkit.messageHandlers.epistemosSpeak.postMessage({ action: "speak", text: text });
+                } catch (e) {}
+              }
+              // Selected-text read-aloud: a floating pill on any selection →
+              // posts the selection to native TTS. Reads text only; no audio.
+              var pill = null;
+              function hidePill() { if (pill) pill.style.display = "none"; }
+              function ensurePill() {
+                if (pill) return pill;
+                pill = document.createElement("button");
+                pill.type = "button";
+                pill.className = "epistemos-read-selection";
+                pill.style.cssText = "position:fixed;z-index:2147483647;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:none;background:rgba(30,30,32,0.94);color:#fff;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.28);";
+                pill.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg><span>Read aloud</span>';
+                pill.addEventListener("mousedown", function (e) { e.preventDefault(); });
+                pill.addEventListener("click", function (e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  var sel = window.getSelection();
+                  var text = sel ? sel.toString().trim() : "";
+                  if (text) speak(text);
+                  hidePill();
+                });
+                document.body.appendChild(pill);
+                return pill;
+              }
+              function showSelectionPill() {
+                var sel = window.getSelection();
+                var text = sel && sel.rangeCount ? sel.toString().trim() : "";
+                if (!text) { hidePill(); return; }
+                var rect = sel.getRangeAt(0).getBoundingClientRect();
+                if (!rect || (!rect.width && !rect.height)) { hidePill(); return; }
+                var p = ensurePill();
+                p.style.display = "inline-flex";
+                var top = rect.top - 38;
+                if (top < 6) top = rect.bottom + 8;
+                p.style.top = top + "px";
+                p.style.left = Math.max(6, Math.min(rect.left, window.innerWidth - 120)) + "px";
+              }
+              function setupSelection() {
+                document.addEventListener("mouseup", function () { setTimeout(showSelectionPill, 10); });
+                document.addEventListener("scroll", hidePill, true);
+                document.addEventListener("mousedown", function (e) {
+                  if (pill && e.target !== pill && !pill.contains(e.target)) hidePill();
+                });
+              }
+              function addButton(turn) {
+                if (!turn || turn.querySelector(".epistemos-read-aloud")) return;
+                var actions = turn.querySelector(".agent-turn-actions-inner") || turn.querySelector(".agent-turn-actions");
+                var body = turn.querySelector(".agent-assistant-turn-body");
+                if (!actions || !body) return;
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "agent-turn-action epistemos-read-aloud";
+                btn.title = "Read aloud";
+                btn.setAttribute("aria-label", "Read this reply aloud");
+                btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>';
+                btn.addEventListener("click", function (e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  var text = (body.innerText || body.textContent || "").trim();
+                  if (text) speak(text);
+                });
+                actions.appendChild(btn);
+              }
+              function scan(root) {
+                if (!root || !root.querySelectorAll) return;
+                var turns = root.querySelectorAll(".agent-assistant-turn");
+                for (var i = 0; i < turns.length; i++) addButton(turns[i]);
+              }
+              var obs = new MutationObserver(function (muts) {
+                for (var i = 0; i < muts.length; i++) {
+                  var nodes = muts[i].addedNodes || [];
+                  for (var j = 0; j < nodes.length; j++) {
+                    var n = nodes[j];
+                    if (n.nodeType !== 1) continue;
+                    // The turn container and its action bar / body can mount in
+                    // separate ticks — so retry the enclosing turn too, or the
+                    // button would be dropped when the container arrives first.
+                    if (n.classList && n.classList.contains("agent-assistant-turn")) addButton(n);
+                    else if (n.closest) { var t = n.closest(".agent-assistant-turn"); if (t) addButton(t); }
+                    scan(n);
+                  }
+                }
+              });
+              function start() {
+                scan(document);
+                setupSelection();
+                if (document.body) obs.observe(document.body, { childList: true, subtree: true });
+              }
+              if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+              else start();
+            })();
+            """,
+            injectionTime: .atDocumentEnd, forMainFrameOnly: true
+        ))
         #if DEBUG
         ucc.addUserScript(WKUserScript(
             source: """
@@ -112,6 +226,7 @@ final class JuneAgentSurfaceHolder {
         ucc.add(bridge, name: JuneAgentBridge.invokeChannel)
         ucc.add(bridge, name: JuneAgentBridge.gatewayChannel)
         ucc.add(bridge, name: JuneAgentBridge.eventsChannel)
+        ucc.add(bridge, name: JuneAgentBridge.speakChannel)
 
         let webView = WKWebView(frame: .zero, configuration: config)
         // June's own canvas (main.css --background: light oklch 95.13% warm /

@@ -260,6 +260,10 @@ final class JuneAgentGateway {
     /// models are shown even when not installed, and picking one downloads it.
     let downloads = QuickChatModelDownloadManager()
     private var runningTurns: [String: Task<Void, Never>] = [:]
+    /// The session June is currently showing (set on resume/create/submit) so
+    /// "read latest" speaks the reply the user is looking at, not merely the
+    /// most-recently-messaged session.
+    private var currentSessionID: String?
     /// Generous for a single-user app (one active + a few background) yet a
     /// hard ceiling against a runaway/compromised page.
     private static let maxConcurrentTurns = 8
@@ -300,12 +304,14 @@ final class JuneAgentGateway {
                 chosenModel = model
             }
             store.createSession(id: sessionID, title: title, model: chosenModel)
+            currentSessionID = sessionID
             reply(id: id, result: ["session_id": sessionID])
         case "session.resume":
             guard let sessionID = params["session_id"] as? String else {
                 replyError(id: id, code: -32602, message: "session_id required")
                 return
             }
+            currentSessionID = sessionID
             reply(id: id, result: ["session_id": sessionID])
         case "prompt.submit":
             guard
@@ -346,6 +352,7 @@ final class JuneAgentGateway {
     }
 
     private func startTurn(sessionID: String, prompt: String) {
+        currentSessionID = sessionID
         store.appendMessage(sessionID: sessionID, role: "user", content: prompt)
         // Keep the persisted title connected to the conversation (see
         // JuneSessionStore.autoTitleIfPlaceholder) — the native all-chats +
@@ -527,10 +534,26 @@ final class JuneAgentGateway {
 
     // MARK: - Model catalog (drives June's composer model chip)
 
+    /// The most recent assistant reply (most-recently-active session's last
+    /// assistant message) — drives June's native "read aloud" control. Read
+    /// from the store so it survives across turns and reflects what June shows.
+    func latestAssistantReply() -> String? {
+        // Prefer the session June is currently showing; fall back to the
+        // most-recently-active session so "read latest" still works right after
+        // launch before any resume/submit has been seen.
+        let sessionID = currentSessionID
+            ?? store.allSessions().max(by: { $0.lastActive < $1.lastActive })?.id
+        guard let sessionID else { return nil }
+        return store.loadMessages(sessionID: sessionID).last { $0.role == "assistant" }?.content
+    }
+
     /// Cancels an in-flight turn when a session is deleted (bridge delete path).
     func forgetSession(_ sessionID: String) {
         runningTurns[sessionID]?.cancel()
         runningTurns[sessionID] = nil
+        // Deleting the shown session: drop the pointer so "read latest" falls
+        // back to the most-recently-active session rather than a dead one.
+        if currentSessionID == sessionID { currentSessionID = nil }
     }
 
     /// Runnable-now lanes: Apple FM (if the device supports it), each INSTALLED
