@@ -10,6 +10,10 @@ struct ProAgentConnection: Equatable, Sendable {
     let uiBaseURL: URL
     let uiPort: Int
     let opencodePort: Int
+    /// nil = the goose engine is not available this launch (binary missing or
+    /// goosed failed readiness). Capability truth: the UI hides goose, never
+    /// fakes it. The surface NEVER blocks on goose — opencode is the baseline.
+    let goosePort: Int?
 }
 
 /// Transfers a just-created Process across the actor boundary so its blocking
@@ -74,9 +78,12 @@ final class ProAgentRuntimeSupervisor {
 
     private var webProcess: Process?
     private var opencodeProcess: Process?
+    private var goosedProcess: Process?
     private var lifecycleTask: Task<Void, Never>?
+    private var gooseReadinessTask: Task<Void, Never>?
     private var webOutputTask: Task<Void, Never>?
     private var opencodeOutputTask: Task<Void, Never>?
+    private var goosedOutputTask: Task<Void, Never>?
 
     func start() {
         switch status {
@@ -104,14 +111,24 @@ final class ProAgentRuntimeSupervisor {
             return
         }
 
+        // goose is the OPTIONAL second engine (Plan 1-PRO §0.3): resolve the
+        // Work-lane-vendored goosed via the existing supervisor family; when
+        // absent the surface runs opencode-only and the UI hides goose.
+        var gooseChild: (binary: URL, port: Int, secret: String)?
+        if let goosedBinary = GooseRuntimeSupervisor.resolvedGooseBinary(binaryName: "goosed"),
+           let goosePort = Self.allocateLoopbackPort(excluding: [uiPort, opencodePort]) {
+            gooseChild = (binary: goosedBinary, port: goosePort, secret: GooseRuntimeSupervisor.randomSecretKey())
+        }
+
         status = .starting
-        lifecycleTask = Task { [weak self] in
+        lifecycleTask = Task { [weak self, gooseChild] in
             await self?.run(
                 nodeBinary: nodeBinary,
                 webRoot: webRoot,
                 opencodeBinary: opencodeBinary,
                 uiPort: uiPort,
-                opencodePort: opencodePort
+                opencodePort: opencodePort,
+                gooseChild: gooseChild
             )
         }
     }
@@ -119,10 +136,14 @@ final class ProAgentRuntimeSupervisor {
     func stop() {
         lifecycleTask?.cancel()
         lifecycleTask = nil
+        gooseReadinessTask?.cancel()
+        gooseReadinessTask = nil
         webOutputTask?.cancel()
         webOutputTask = nil
         opencodeOutputTask?.cancel()
         opencodeOutputTask = nil
+        goosedOutputTask?.cancel()
+        goosedOutputTask = nil
         if let webProcess {
             terminateTrackedProcess(webProcess)
         }
@@ -131,6 +152,10 @@ final class ProAgentRuntimeSupervisor {
             terminateTrackedProcess(opencodeProcess)
         }
         opencodeProcess = nil
+        if let goosedProcess {
+            terminateTrackedProcess(goosedProcess)
+        }
+        goosedProcess = nil
         switch status {
         case .starting, .running:
             status = .stopped
@@ -140,6 +165,8 @@ final class ProAgentRuntimeSupervisor {
     }
 
     func markRuntimeFailed(_ message: String) {
+        gooseReadinessTask?.cancel()
+        gooseReadinessTask = nil
         if let webProcess {
             terminateTrackedProcess(webProcess)
             self.webProcess = nil
@@ -147,6 +174,10 @@ final class ProAgentRuntimeSupervisor {
         if let opencodeProcess {
             terminateTrackedProcess(opencodeProcess)
             self.opencodeProcess = nil
+        }
+        if let goosedProcess {
+            terminateTrackedProcess(goosedProcess)
+            self.goosedProcess = nil
         }
         switch status {
         case .starting, .running:
@@ -163,7 +194,8 @@ final class ProAgentRuntimeSupervisor {
         webRoot: URL,
         opencodeBinary: URL,
         uiPort: Int,
-        opencodePort: Int
+        opencodePort: Int,
+        gooseChild: (binary: URL, port: Int, secret: String)?
     ) async {
         // Child 1: opencode engine (attach mode — the web server never spawns it).
         let opencodeProc = Process()
@@ -174,9 +206,27 @@ final class ProAgentRuntimeSupervisor {
             opencodeBinary.deletingLastPathComponent(),
         ])
 
-        // Child 2: OpenChamber web server (serves the vendored SPA + runtime routes,
-        // proxies /api/* to opencode). EPISTEMOS_EMBED=1 activates the fork's
-        // patch-ledger runtime stubs (update-check/update-install answer "no").
+        // Child 2 (optional): goosed, env-configured per the R4 matrix — figment
+        // GOOSE_* keys, TLS explicitly off (it DEFAULTS ON upstream), per-launch
+        // secret held Swift-side + handed only to the proxy. Reuses the proven
+        // GooseRuntimeSupervisor environment builder.
+        var goosedProc: Process?
+        if let gooseChild {
+            let proc = Process()
+            proc.executableURL = gooseChild.binary
+            proc.arguments = ["agent"]
+            proc.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+            proc.environment = GooseRuntimeSupervisor.processEnvironment(
+                binary: gooseChild.binary,
+                secretKey: gooseChild.secret,
+                goosedConfig: (host: Self.loopbackHost, port: gooseChild.port, tls: false)
+            )
+            goosedProc = proc
+        }
+
+        // Child 3: OpenChamber web server (serves the vendored SPA + runtime routes,
+        // proxies /api/* to opencode and /goose/* to goosed). EPISTEMOS_EMBED=1
+        // activates the fork's patch-ledger runtime stubs.
         let webProc = Process()
         webProc.executableURL = nodeBinary
         webProc.arguments = [
@@ -192,6 +242,13 @@ final class ProAgentRuntimeSupervisor {
         webEnv["OPENCODE_PORT"] = String(opencodePort)
         webEnv["OPENCODE_SKIP_START"] = "true"
         webEnv["EPISTEMOS_EMBED"] = "1"
+        if let gooseChild {
+            // The secret crosses exactly one boundary: supervisor -> web server
+            // process env, where the /goose/* proxy attaches it upstream. It
+            // never reaches the webview.
+            webEnv["EPISTEMOS_GOOSE_PORT"] = String(gooseChild.port)
+            webEnv["EPISTEMOS_GOOSE_SECRET"] = gooseChild.secret
+        }
         webProc.environment = webEnv
 
         let opencodePipe = Pipe()
@@ -200,24 +257,41 @@ final class ProAgentRuntimeSupervisor {
         let webPipe = Pipe()
         webProc.standardOutput = webPipe
         webProc.standardError = webPipe
+        let goosedPipe = Pipe()
+        if let goosedProc {
+            goosedProc.standardOutput = goosedPipe
+            goosedProc.standardError = goosedPipe
+        }
 
         opencodeProcess = opencodeProc
         webProcess = webProc
+        goosedProcess = goosedProc
         installTerminationHandler(on: opencodeProc, childName: "opencode")
         installTerminationHandler(on: webProc, childName: "OpenChamber web server")
+        if let goosedProc {
+            installTerminationHandler(on: goosedProc, childName: "goosed")
+        }
 
         do {
-            // Spawn OFF the main actor — see ProAgentSpawnBox. Both children spawn
+            // Spawn OFF the main actor — see ProAgentSpawnBox. Children spawn
             // sequentially in one detached hop (spawn cost is signature validation,
             // not ordering-sensitive; the web server retries opencode readiness itself).
-            let boxes = (ProAgentSpawnBox(process: opencodeProc), ProAgentSpawnBox(process: webProc))
+            let boxes = (
+                ProAgentSpawnBox(process: opencodeProc),
+                ProAgentSpawnBox(process: webProc),
+                goosedProc.map(ProAgentSpawnBox.init(process:))
+            )
             try await Task.detached(priority: .userInitiated) {
                 try boxes.0.process.run()
+                try boxes.2?.process.run()
                 try boxes.1.process.run()
             }.value
             #if !MAS_SANDBOX
             AppBootstrap.shared?.orphanCleanup.track(opencodeProc)
             AppBootstrap.shared?.orphanCleanup.track(webProc)
+            if let goosedProc {
+                AppBootstrap.shared?.orphanCleanup.track(goosedProc)
+            }
             #endif
         } catch {
             status = .failed(GooseRuntimeSupervisor.boundedStatusMessage(
@@ -225,20 +299,23 @@ final class ProAgentRuntimeSupervisor {
             ))
             if opencodeProc.isRunning { terminateTrackedProcess(opencodeProc) }
             if webProc.isRunning { terminateTrackedProcess(webProc) }
+            if let goosedProc, goosedProc.isRunning { terminateTrackedProcess(goosedProc) }
             opencodeProcess = nil
             webProcess = nil
+            goosedProcess = nil
             return
         }
 
-        beginDiagnosticsCapture(opencodePipe: opencodePipe, webPipe: webPipe)
+        beginDiagnosticsCapture(opencodePipe: opencodePipe, webPipe: webPipe, goosedPipe: goosedProc != nil ? goosedPipe : nil)
 
         guard let uiBaseURL = Self.baseURL(port: uiPort) else {
             status = .failed("Could not form the agent surface URL.")
             return
         }
 
-        // Single readiness probe covers BOTH children: the web server's /health
-        // reports its own status AND isOpenCodeReady (it probes opencode itself).
+        // Single readiness probe covers the BASELINE children: the web server's
+        // /health reports its own status AND isOpenCodeReady. goose is optional
+        // and must never delay the surface — it joins via a late re-emit below.
         let deadline = ContinuousClock.now.advanced(by: Self.readinessTimeout)
         while ContinuousClock.now < deadline {
             if Task.isCancelled { return }
@@ -246,8 +323,12 @@ final class ProAgentRuntimeSupervisor {
                 status = .running(ProAgentConnection(
                     uiBaseURL: uiBaseURL,
                     uiPort: uiPort,
-                    opencodePort: opencodePort
+                    opencodePort: opencodePort,
+                    goosePort: nil
                 ))
+                if let gooseChild {
+                    beginGooseReadinessWatch(uiPort: uiPort, opencodePort: opencodePort, uiBaseURL: uiBaseURL, goosePort: gooseChild.port)
+                }
                 return
             }
             try? await Task.sleep(nanoseconds: 200_000_000)
@@ -256,7 +337,42 @@ final class ProAgentRuntimeSupervisor {
         stopChildrenAfterFailedStart()
     }
 
+    /// goosed boots the full AppState and can take tens of seconds; watch its
+    /// /status off the critical path and re-emit `.running` with the goose port
+    /// once it answers (capability truth: advertise goose only when it is real).
+    private func beginGooseReadinessWatch(uiPort: Int, opencodePort: Int, uiBaseURL: URL, goosePort: Int) {
+        gooseReadinessTask?.cancel()
+        gooseReadinessTask = Task { [weak self] in
+            let gooseBase = GooseRuntimeSupervisor.defaultBaseURL(port: goosePort)
+            let deadline = ContinuousClock.now.advanced(by: GooseRuntimeSupervisor.goosedListenTimeout)
+            while ContinuousClock.now < deadline {
+                if Task.isCancelled { return }
+                if await GooseRuntimeSupervisor.goosedStatusCheck(base: gooseBase) {
+                    guard let self else { return }
+                    if case .running = self.status, self.goosedProcess != nil {
+                        self.status = .running(ProAgentConnection(
+                            uiBaseURL: uiBaseURL,
+                            uiPort: uiPort,
+                            opencodePort: opencodePort,
+                            goosePort: goosePort
+                        ))
+                    }
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            guard let self else { return }
+            self.recordDiagnostic("[goosed] did not become healthy within \(GooseRuntimeSupervisor.goosedListenTimeout) — goose engine disabled this launch.")
+            if let goosedProcess = self.goosedProcess {
+                self.terminateTrackedProcess(goosedProcess)
+                self.goosedProcess = nil
+            }
+        }
+    }
+
     private func stopChildrenAfterFailedStart() {
+        gooseReadinessTask?.cancel()
+        gooseReadinessTask = nil
         if let webProcess {
             terminateTrackedProcess(webProcess)
             self.webProcess = nil
@@ -265,10 +381,16 @@ final class ProAgentRuntimeSupervisor {
             terminateTrackedProcess(opencodeProcess)
             self.opencodeProcess = nil
         }
+        if let goosedProcess {
+            terminateTrackedProcess(goosedProcess)
+            self.goosedProcess = nil
+        }
         webOutputTask?.cancel()
         webOutputTask = nil
         opencodeOutputTask?.cancel()
         opencodeOutputTask = nil
+        goosedOutputTask?.cancel()
+        goosedOutputTask = nil
     }
 
     private func installTerminationHandler(on process: Process, childName: String) {
@@ -283,11 +405,31 @@ final class ProAgentRuntimeSupervisor {
         // Identity guard (GooseRuntimeSupervisor review C-M1): a PREVIOUS child's
         // termination handler can fire after a restart already brought up a new
         // child. React only to processes we currently own.
-        let ownsExited = (exited === webProcess) || (exited === opencodeProcess)
+        let ownsExited = (exited === webProcess) || (exited === opencodeProcess) || (exited === goosedProcess)
         guard ownsExited else {
             untrack(exited)
             return
         }
+
+        // goose is the optional engine: its death DEGRADES the surface (goose
+        // hidden, opencode untouched) instead of failing it.
+        if exited === goosedProcess {
+            goosedProcess = nil
+            untrack(exited)
+            gooseReadinessTask?.cancel()
+            gooseReadinessTask = nil
+            recordDiagnostic("[goosed] exited (exit \(statusCode)) — goose engine disabled until the next surface start.")
+            if case .running(let connection) = status, connection.goosePort != nil {
+                status = .running(ProAgentConnection(
+                    uiBaseURL: connection.uiBaseURL,
+                    uiPort: connection.uiPort,
+                    opencodePort: connection.opencodePort,
+                    goosePort: nil
+                ))
+            }
+            return
+        }
+
         if exited === webProcess { webProcess = nil }
         if exited === opencodeProcess { opencodeProcess = nil }
         untrack(exited)
@@ -319,7 +461,7 @@ final class ProAgentRuntimeSupervisor {
         AppBootstrap.shared?.orphanCleanup.untrack(pid)
     }
 
-    private func beginDiagnosticsCapture(opencodePipe: Pipe, webPipe: Pipe) {
+    private func beginDiagnosticsCapture(opencodePipe: Pipe, webPipe: Pipe, goosedPipe: Pipe?) {
         opencodeOutputTask = Task.detached { [weak self] in
             guard let recorder = self else { return }
             await GooseProcessDiagnostics.consume(from: opencodePipe.fileHandleForReading) { message in
@@ -330,6 +472,14 @@ final class ProAgentRuntimeSupervisor {
             guard let recorder = self else { return }
             await GooseProcessDiagnostics.consume(from: webPipe.fileHandleForReading) { message in
                 await recorder.recordDiagnostic("[web] \(message)")
+            }
+        }
+        if let goosedPipe {
+            goosedOutputTask = Task.detached { [weak self] in
+                guard let recorder = self else { return }
+                await GooseProcessDiagnostics.consume(from: goosedPipe.fileHandleForReading) { message in
+                    await recorder.recordDiagnostic("[goosed] \(message)")
+                }
             }
         }
     }
