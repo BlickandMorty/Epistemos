@@ -30,7 +30,10 @@ it):** `docs/research/MAS_RESEARCH_CORPUS_RAW_2026_07_03.md`.
    `MAS_SANDBOX` compile flags — both already exist). App Sandbox + hardened runtime.
    **No subprocess, no helper binary, no local server binary, no `goosed`, no Ollama,
    no `llama-cli`.** OpenChamber/OpenCode/browser-use are Pro-only — never here.
-2. **Two deliberately different surfaces, one brand:**
+2. **Two deliberately different surfaces, one brand. Surface A is MAS-ONLY** (owner
+   2026-07-04 — gate `#if EPISTEMOS_APP_STORE`; QuickChat must NOT leak into the Pro
+   build, whose agent surface is OpenChamber alone). **The Agent tab mounts the real MAS
+   surface under `#if EPISTEMOS_APP_STORE`, never a "not available yet" stub.**
    - **Surface A — Quick Chat ("answer me"):** the restored wave/click-to-search
      landing chat. Local-only, free, no account. Engines: Apple Foundation Models
      (zero-download, availability-gated) + embedded llama.cpp GGUF (opt-in download).
@@ -158,10 +161,18 @@ separate commit series (never mid-feature).
 
 Native SwiftUI drives `agent_core` directly: `runAgentSession` per turn with
 `CancellationToken`-style stop, `AgentEventDelegate` → `@Observable` view state
-(main-actor hop via `DispatchQueue.main.async` — never `.sync`). Provider =
-"epistemos-cloud": the existing provider stack pointed at the proxy base URL with the
-short-lived token as bearer; token rotation re-instantiates the provider config.
-Session persistence in the app container (existing agent_core session store).
+(main-actor hop via `DispatchQueue.main.async` — never `.sync`).
+**agent_core runs BOTH cloud AND local in-process (owner 2026-07-04 — "goose in-process
+cloud and local"):** the in-process agent is provider-plural per conversation —
+(a) **cloud** = "epistemos-cloud", the existing provider stack at the proxy base URL with
+the short-lived token as bearer (token rotation re-instantiates the config); (b) **local**
+= the embedded `LocalChatEngine` (llama.cpp) + Apple FM — the SAME engines Surface A's
+QuickChat uses — surfaced as an in-process local provider in `GooseMASAgentCoreCatalog`
+(masBounded, no subprocess, no proxy). Provider resolution routes a local-selected
+conversation through `LocalChatEngine`, a cloud one through the proxy. **Capability truth
+(binding):** small local models are unreliable at tool-calling — label/gate honestly
+(local = chat/light-agent tier; full agentic tool-loops = cloud tier); never fake full
+agent capability on a local model. Session persistence in the app container.
 
 ### 3.2 MAS tool catalog (from the canon — hard-coded, no runtime extensibility)
 
