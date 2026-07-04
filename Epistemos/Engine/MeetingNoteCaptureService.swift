@@ -105,6 +105,14 @@ final class MeetingNoteCaptureService {
     private var draftSessionId: String?
     @ObservationIgnored
     private var draftWriteTask: Task<Void, Never>?
+    /// Hard cap on how long a live meeting can go unwritten. The 2s debounce coalesces rapid
+    /// final segments, but a non-stop talker (segments < 2s apart) would STARVE it and a crash
+    /// could lose minutes — so force a write at least this often. (Meeting data-integrity.)
+    @ObservationIgnored
+    private let draftClock = ContinuousClock()
+    @ObservationIgnored
+    private var lastDraftWriteAt: ContinuousClock.Instant?
+    private static let maxDraftWriteInterval: Duration = .seconds(10)
 
     private(set) var state: State = .idle
     private(set) var partialTranscript = ""
@@ -151,6 +159,7 @@ final class MeetingNoteCaptureService {
         captureGeneration = generation
         savedResult = nil
         draftSessionId = UUID().uuidString
+        lastDraftWriteAt = draftClock.now  // start the max-write-interval clock at meeting start
         recoverableDraft = nil
         resetTranscript()
         startedAt = now()
@@ -339,11 +348,19 @@ final class MeetingNoteCaptureService {
     /// writes off-main (a 2 MB transcript would hitch the UI if written inline).
     private func scheduleDraftWrite() {
         guard draftSessionId != nil else { return }
+        // If the debounce has been starved past the hard cap (a non-stop meeting whose final
+        // segments land < 2s apart), write NOW instead of resetting the timer yet again —
+        // bounds worst-case crash loss to ~maxDraftWriteInterval instead of the whole meeting.
+        if let last = lastDraftWriteAt, draftClock.now - last >= Self.maxDraftWriteInterval {
+            flushDraft()
+            return
+        }
         draftWriteTask?.cancel()
         draftWriteTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard let self, !Task.isCancelled, let sessionId = self.draftSessionId else { return }
             let snapshot = Self.renderTranscript(finalSegments: self.finalSegments, partial: "")
+            self.lastDraftWriteAt = self.draftClock.now
             Task.detached { MeetingDraftStore.write(sessionId: sessionId, transcript: snapshot) }
         }
     }
@@ -354,6 +371,7 @@ final class MeetingNoteCaptureService {
         draftWriteTask?.cancel()
         guard let sessionId = draftSessionId else { return }
         let snapshot = Self.renderTranscript(finalSegments: finalSegments, partial: "")
+        lastDraftWriteAt = draftClock.now
         Task.detached { MeetingDraftStore.write(sessionId: sessionId, transcript: snapshot) }
     }
 
