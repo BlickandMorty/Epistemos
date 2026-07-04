@@ -25,7 +25,9 @@ struct SessionListView: View {
                 sessionList
             }
         }
-        .task {
+        .task(id: vaultPath) {
+            // id: vaultPath so a vault switch (view stays mounted) re-runs the
+            // refresh instead of showing the previous vault's sessions.
             browser.refresh(vaultPath: vaultPath)
         }
     }
@@ -151,9 +153,15 @@ struct SessionDetailView: View {
             }
             .padding()
         }
-        .task {
-            summary = browser.loadSummary(for: session)
-            summarySections = browser.summarySections(for: session)
+        .task(id: session.id) {
+            // id: session.id so selecting a different session (same view
+            // identity under NavigationSplitView detail) reloads its summary
+            // instead of keeping the previously-selected session's content.
+            let loaded = browser.loadSummary(for: session)
+            summary = loaded
+            // Derive sections from the already-loaded string instead of
+            // browser.summarySections(for:), which re-reads summary.md from disk.
+            summarySections = SessionBrowser.extractSummarySections(from: loaded ?? "")
         }
     }
 
