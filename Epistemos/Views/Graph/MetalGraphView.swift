@@ -888,8 +888,17 @@ final class MetalGraphNSView: NSView {
         return layer
     }
 
+    /// One MTLDevice for every graph view instance (there is one GPU; a
+    /// per-view MTLCreateSystemDefaultDevice() just duplicated device state,
+    /// including during the 10s overlay retention overlap when two views are
+    /// alive). Lifetime is safe: the Rust engine retains the device per
+    /// engine (Renderer::new does dev_ref.to_owned(), released on destroy),
+    /// so no engine ever borrows Swift's reference. Command queues remain
+    /// per-engine inside the Rust renderer.
+    private static let sharedMetalDevice: MTLDevice? = MTLCreateSystemDefaultDevice()
+
     private func setupMetal() {
-        guard let device = MTLCreateSystemDefaultDevice(),
+        guard let device = Self.sharedMetalDevice,
               let layer = self.layer as? CAMetalLayer else { return }
 
         layer.device = device
