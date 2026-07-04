@@ -604,6 +604,33 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         return (String(displayName), language + gender)
     }
 
+    /// Strip Markdown syntax so read-aloud speaks the CONTENT, not the symbols
+    /// ("# Section" → "Section", not "hashtag Section"; "**bold**" → "bold"). Conservative:
+    /// only paired/line-anchored markers, so prose like "5 * 3" or `snake_case` is left alone.
+    nonisolated static func plainTextForSpeech(fromMarkdown markdown: String) -> String {
+        var text = markdown
+        let rules: [(String, String)] = [
+            ("```[\\s\\S]*?```", " "),                    // fenced code blocks
+            ("(?m)^\\s{0,3}#{1,6}\\s+", ""),               // ATX headings
+            ("(?m)^\\s{0,3}>\\s?", ""),                    // blockquotes
+            ("(?m)^\\s{0,3}[-*+]\\s+", ""),                // unordered list markers
+            ("(?m)^\\s{0,3}\\d+\\.\\s+", ""),              // ordered list markers
+            ("(?m)^\\s{0,3}([-*_])\\1{2,}\\s*$", ""),      // horizontal rules
+            ("!\\[[^\\]]*\\]\\([^)]*\\)", ""),             // images
+            ("\\[\\[([^\\]]+)\\]\\]", "$1"),               // wikilinks → text
+            ("\\[([^\\]]+)\\]\\([^)]*\\)", "$1"),          // links → text
+            ("\\*\\*([^*]+)\\*\\*", "$1"),                 // bold **
+            ("__([^_]+)__", "$1"),                         // bold __
+            ("\\*([^*\\n]+)\\*", "$1"),                    // italic *
+            ("(?<!\\w)_([^_\\n]+)_(?!\\w)", "$1"),         // italic _ (word-boundaried)
+            ("`([^`]+)`", "$1"),                           // inline code
+        ]
+        for (pattern, replacement) in rules {
+            text = text.replacingOccurrences(of: pattern, with: replacement, options: .regularExpression)
+        }
+        return text
+    }
+
     /// Group a voice list by quality tier (Premium > Enhanced > Default), dropping empty tiers.
     /// Shared by the Settings picker (ModelVoicePickerSection) and the Quick Capture point-of-use
     /// picker so there's ONE grouping rule, not duplicated logic. Pure → headless-testable.

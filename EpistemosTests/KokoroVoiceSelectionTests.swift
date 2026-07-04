@@ -71,3 +71,33 @@ struct KokoroVoiceSelectionTests {
         #expect(KokoroCoreMLRuntimeLoader.voiceEmbedding(named: "", in: modelDir) == nil)
     }
 }
+
+@Suite("Speech text prep")
+struct SpeechTextPrepTests {
+    @Test("strips markdown so read-aloud speaks content, not syntax")
+    func stripsMarkdown() {
+        let md = """
+        # Section
+        Some **bold** and *italic* and `code` and a [link](https://x.com).
+        - item one
+        > quote
+        """
+        let out = EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: md)
+        #expect(!out.contains("#"))
+        #expect(!out.contains("**"))
+        #expect(!out.contains("`"))
+        #expect(!out.contains("https://x.com"))
+        for kept in ["Section", "bold", "italic", "code", "link", "item one", "quote"] {
+            #expect(out.contains(kept))
+        }
+    }
+
+    @Test("leaves non-markdown prose (arithmetic, snake_case) intact")
+    func leavesProseIntact() {
+        let out = EpistemosSpeechSynthesizer.plainTextForSpeech(
+            fromMarkdown: "compute 5 * 3 then read snake_case_name"
+        )
+        #expect(out.contains("5 * 3"))
+        #expect(out.contains("snake_case_name"))
+    }
+}

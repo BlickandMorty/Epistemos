@@ -1479,7 +1479,10 @@ struct NoteDetailWorkspaceView: View {
         // TTS (2026-07-04): read the note aloud (Kokoro; honest-gated — disables to
         // "TTS unavailable" without the voice). Shows only when the note has body text.
         if !persistedBody.isEmpty {
-            ReadAloudButton(text: persistedBody, style: .icon)
+            ReadAloudButton(
+                text: EpistemosSpeechSynthesizer.plainTextForSpeech(fromMarkdown: persistedBody),
+                style: .icon
+            )
         }
 
         moreMenu
