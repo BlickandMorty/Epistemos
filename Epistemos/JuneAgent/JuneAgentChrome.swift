@@ -22,6 +22,18 @@ enum JuneAgentIntents {
         emit(event: "june:menu-bar:open-agent-session", payloadJS: JuneAgentBridge.jsStringLiteral(id))
     }
 
+    /// Tells June a session was deleted from native chrome so its sidebar
+    /// drops it. Unlike the menu-bar intents, `june:agent:delete-session`
+    /// (agent-events.ts) is a raw window CustomEvent, so dispatch it directly
+    /// rather than through the shim's Tauri event bus.
+    static func deleteSession(id: String) {
+        guard let bridge = JuneAgentSurfaceHolder.shared.bridge else { return }
+        let idLiteral = JuneAgentBridge.jsStringLiteral(id)
+        bridge.runJS?(
+            "window.dispatchEvent(new CustomEvent('june:agent:delete-session', { detail: { sessionId: \(idLiteral) } }));"
+        )
+    }
+
     private static func emit(event: String, payloadJS: String) {
         guard let bridge = JuneAgentSurfaceHolder.shared.bridge else {
             log.warning("intent \(event, privacy: .public) dropped — surface not started")
@@ -63,9 +75,16 @@ final class JuneAgentActivityModel {
 /// a row drives June via the open-session intent (never a reload).
 struct JuneAllChatsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
 
     private var sessions: [JuneSessionStore.Session] {
-        JuneAgentSurfaceHolder.shared.bridge?.gateway.store.allSessions() ?? []
+        let all = JuneAgentSurfaceHolder.shared.bridge?.gateway.store.allSessions() ?? []
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return all }
+        return all.filter {
+            $0.title.localizedCaseInsensitiveContains(query)
+                || $0.preview.localizedCaseInsensitiveContains(query)
+        }
     }
 
     private static let iso = ISO8601DateFormatter()
@@ -74,6 +93,16 @@ struct JuneAllChatsSheet: View {
         f.unitsStyle = .abbreviated
         return f
     }()
+
+    /// Deletes a session from native chrome: drops it from the durable store,
+    /// cancels any in-flight turn (forgetSession), and tells June so its
+    /// sidebar stays in sync. The @Observable store refreshes this sheet.
+    private static func delete(_ session: JuneSessionStore.Session) {
+        guard let gateway = JuneAgentSurfaceHolder.shared.bridge?.gateway else { return }
+        gateway.forgetSession(session.id)
+        gateway.store.deleteSession(id: session.id)
+        JuneAgentIntents.deleteSession(id: session.id)
+    }
 
     /// "now"/"2m"/"3h" trailing label — parity with June's own session
     /// sidebar so the native sheet and the web list read the same.
@@ -87,11 +116,15 @@ struct JuneAllChatsSheet: View {
         NavigationStack {
             Group {
                 if sessions.isEmpty {
-                    ContentUnavailableView(
-                        "No sessions yet",
-                        systemImage: "bubble.left.and.bubble.right",
-                        description: Text("Start a chat in the Agent room and it will appear here.")
-                    )
+                    if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                        ContentUnavailableView(
+                            "No sessions yet",
+                            systemImage: "bubble.left.and.bubble.right",
+                            description: Text("Start a chat in the Agent room and it will appear here.")
+                        )
+                    } else {
+                        ContentUnavailableView.search(text: searchText)
+                    }
                 } else {
                     List(sessions, id: \.id) { session in
                         Button {
@@ -119,10 +152,18 @@ struct JuneAllChatsSheet: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                Self.delete(session)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
             .navigationTitle("Agent sessions")
+            .searchable(text: $searchText, prompt: "Search sessions")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("New session") {
