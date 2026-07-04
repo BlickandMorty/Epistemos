@@ -129,13 +129,22 @@ final class ProAgentRuntimeSupervisor {
             gooseChild = (binary: goosedBinary, port: goosePort, secret: GooseRuntimeSupervisor.randomSecretKey())
         }
 
+        // Per-launch Basic-auth password for opencode (Plan 1-PRO §1 / R4). Set
+        // in BOTH the opencode child (which enforces it) and the web server
+        // (whose /api proxy sends it via auth-state-runtime). A local process
+        // that finds the ephemeral opencodePort can no longer drive opencode's
+        // shell/code-exec tools without this secret — the random port was
+        // obscurity, this is authentication.
+        let opencodePassword = GooseRuntimeSupervisor.randomSecretKey()
+
         status = .starting
-        lifecycleTask = Task { [weak self, gooseChild] in
+        lifecycleTask = Task { [weak self, gooseChild, opencodePassword] in
             await self?.run(
                 nodeBinary: nodeBinary,
                 opencodeBinary: opencodeBinary,
                 uiPort: uiPort,
                 opencodePort: opencodePort,
+                opencodePassword: opencodePassword,
                 gooseChild: gooseChild
             )
         }
@@ -202,6 +211,7 @@ final class ProAgentRuntimeSupervisor {
         opencodeBinary: URL,
         uiPort: Int,
         opencodePort: Int,
+        opencodePassword: String,
         gooseChild: (binary: URL, port: Int, secret: String)?
     ) async {
         // Resolve the web root: the bundled tarball (unpacked to AppSupport,
@@ -239,9 +249,18 @@ final class ProAgentRuntimeSupervisor {
         var opencodeEnv = Self.childEnvironment(binaryDirectories: [
             opencodeBinary.deletingLastPathComponent(),
         ])
-        for (envVar, value) in Self.bridgedProviderEnvironment() {
+        // MED-10: read provider keys OFF the main actor. A locked/contended
+        // Keychain makes these ~10 synchronous loads stall the main thread on
+        // the cold-open path the off-main spawn exists to protect.
+        let providerEnv = await Task.detached(priority: .userInitiated) {
+            Self.bridgedProviderEnvironment()
+        }.value
+        if Task.isCancelled { return }
+        for (envVar, value) in providerEnv {
             opencodeEnv[envVar] = value
         }
+        // Enforce Basic auth on the opencode server (Plan §1 / R4).
+        opencodeEnv["OPENCODE_SERVER_PASSWORD"] = opencodePassword
         opencodeProc.environment = opencodeEnv
 
         // Child 2 (optional): goosed, env-configured per the R4 matrix — figment
@@ -279,6 +298,10 @@ final class ProAgentRuntimeSupervisor {
         ])
         webEnv["OPENCODE_PORT"] = String(opencodePort)
         webEnv["OPENCODE_SKIP_START"] = "true"
+        // The /api proxy authenticates to opencode with this (auth-state-runtime
+        // reads OPENCODE_SERVER_PASSWORD and sends Basic auth). Same value as
+        // the opencode child; the webview never sees it (server-side only).
+        webEnv["OPENCODE_SERVER_PASSWORD"] = opencodePassword
         webEnv["EPISTEMOS_EMBED"] = "1"
         if let gooseChild {
             // The secret crosses exactly one boundary: supervisor -> web server
@@ -488,11 +511,32 @@ final class ProAgentRuntimeSupervisor {
         switch status {
         case .starting:
             status = .failed("\(childName) exited before the agent surface became ready (exit \(statusCode)).")
+            stopSurvivingChildrenAfterRequiredExit()
         case .running:
             status = .failed("\(childName) exited unexpectedly (exit \(statusCode)).")
+            // MED-4: a required child (web/opencode) died — tear down the
+            // SURVIVING siblings now. Otherwise a later start() overwrites their
+            // still-live references in run() and orphans them (two web servers /
+            // an unkillable node bound to its port).
+            stopSurvivingChildrenAfterRequiredExit()
         default:
             break
         }
+    }
+
+    /// Terminate any still-live children after a required child exited, so the
+    /// next start() spawns a clean set instead of leaking the survivors.
+    private func stopSurvivingChildrenAfterRequiredExit() {
+        goosedOutputTask?.cancel(); goosedOutputTask = nil
+        webOutputTask?.cancel(); webOutputTask = nil
+        opencodeOutputTask?.cancel(); opencodeOutputTask = nil
+        gooseReadinessTask?.cancel(); gooseReadinessTask = nil
+        if let goosedProcess { terminateTrackedProcess(goosedProcess) }
+        goosedProcess = nil
+        if let webProcess { terminateTrackedProcess(webProcess) }
+        webProcess = nil
+        if let opencodeProcess { terminateTrackedProcess(opencodeProcess) }
+        opencodeProcess = nil
     }
 
     private func terminateTrackedProcess(_ process: Process) {

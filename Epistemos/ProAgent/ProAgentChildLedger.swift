@@ -14,6 +14,12 @@ import Foundation
 struct ProAgentChildRecord: Codable, Equatable {
     let pid: Int32
     let startTimeSec: Int64
+    // Microsecond component of the kernel start time. Optional so ledgers
+    // written before this field decode cleanly (they fall back to second
+    // granularity). Present records also require a usec match, so a pid reused
+    // within the SAME wall-clock second can't be mistaken for our child and
+    // signaled (MED-6).
+    var startTimeUsec: Int64?
     let name: String
 }
 
@@ -34,11 +40,25 @@ enum ProAgentChildLedger {
     }
 
     static func processStartTimeSeconds(pid: pid_t) -> Int64? {
+        processStartTime(pid: pid)?.sec
+    }
+
+    /// Kernel process start time at microsecond resolution.
+    static func processStartTime(pid: pid_t) -> (sec: Int64, usec: Int64)? {
         var info = proc_bsdinfo()
         let size = Int32(MemoryLayout<proc_bsdinfo>.size)
         let result = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size)
         guard result == size else { return nil }
-        return Int64(info.pbi_start_tvsec)
+        return (Int64(info.pbi_start_tvsec), Int64(info.pbi_start_tvusec))
+    }
+
+    /// True iff the live process at `pid` is the SAME one recorded (identity =
+    /// start time). Requires a usec match when the record carries one.
+    private static func isSameProcess(_ record: ProAgentChildRecord, pid: pid_t) -> Bool {
+        guard let current = processStartTime(pid: pid) else { return false }
+        if current.sec != record.startTimeSec { return false }
+        if let recordedUsec = record.startTimeUsec { return current.usec == recordedUsec }
+        return true
     }
 
     private static func load() -> [ProAgentChildRecord] {
@@ -67,9 +87,14 @@ enum ProAgentChildLedger {
     }
 
     static func record(pid: pid_t, name: String) {
-        guard pid > 0, let startTime = processStartTimeSeconds(pid: pid) else { return }
+        guard pid > 0, let startTime = processStartTime(pid: pid) else { return }
         var records = load().filter { $0.pid != pid }
-        records.append(ProAgentChildRecord(pid: pid, startTimeSec: startTime, name: name))
+        records.append(ProAgentChildRecord(
+            pid: pid,
+            startTimeSec: startTime.sec,
+            startTimeUsec: startTime.usec,
+            name: name
+        ))
         save(records)
     }
 
@@ -96,8 +121,8 @@ enum ProAgentChildLedger {
         var terminated: [ProAgentChildRecord] = []
         for recordEntry in records {
             let pid = pid_t(recordEntry.pid)
-            guard let currentStart = processStartTimeSeconds(pid: pid) else { continue }
-            guard currentStart == recordEntry.startTimeSec else {
+            guard processStartTime(pid: pid) != nil else { continue }
+            guard isSameProcess(recordEntry, pid: pid) else {
                 diagnostics("[sweep] pid \(recordEntry.pid) (\(recordEntry.name)) was reused — skipping")
                 continue
             }
@@ -110,8 +135,7 @@ enum ProAgentChildLedger {
             try? await Task.sleep(nanoseconds: graceNanoseconds)
             for recordEntry in terminated {
                 let pid = pid_t(recordEntry.pid)
-                if let currentStart = processStartTimeSeconds(pid: pid),
-                   currentStart == recordEntry.startTimeSec {
+                if isSameProcess(recordEntry, pid: pid) {
                     diagnostics("[sweep] \(recordEntry.name) (pid \(recordEntry.pid)) survived SIGTERM — sending SIGKILL")
                     kill(pid, SIGKILL)
                 }

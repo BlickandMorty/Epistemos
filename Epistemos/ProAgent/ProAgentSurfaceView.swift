@@ -70,6 +70,9 @@ struct ProAgentSurfaceView: View {
     nonisolated static let renderProbeIntervalNanoseconds: UInt64 = 150_000_000
     nonisolated static let initialRetryDelayNanoseconds: UInt64 = 450_000_000
     nonisolated static let maximumRetryDelayNanoseconds: UInt64 = 5_000_000_000
+    // Circuit-breaker ceiling (MED-8): stop respawning the 3-child runtime
+    // after this many consecutive failed starts. Reset on a fresh startSurface.
+    nonisolated static let maxRuntimeRetryAttempts = 8
     nonisolated static let startingStatus = "Agent starting. Booting the workspace runtime."
 
     /// Ready when React has replaced the donor's #initial-loading placeholder
@@ -357,7 +360,11 @@ struct ProAgentSurfaceView: View {
             }
         }
         var renderAttempt = 0
-        while !Task.isCancelled {
+        // Circuit breaker (MED-8): a permanently-blank SPA (JS boot error, bad
+        // bundle) must not reload every ~15s forever. Bound the reloads and
+        // then leave an honest placeholder; the status observer still drives a
+        // fresh load if readiness later arrives.
+        while !Task.isCancelled && renderAttempt < Self.maxRuntimeRetryAttempts {
             _ = page.load(URLRequest(url: loadURL))
             if await waitForRenderedUI() {
                 loadedConnectionKey = key
@@ -392,6 +399,14 @@ struct ProAgentSurfaceView: View {
                 Self.maximumRetryDelayNanoseconds
             )
             try? await Task.sleep(nanoseconds: delay)
+        }
+        // Exhausted the reload budget without a ready render — stop reloading
+        // and surface an honest terminal state instead of looping forever.
+        if !Task.isCancelled && loadedConnectionKey == nil {
+            overlayStatus = nil
+            loadPlaceholder(
+                status: "Agent workspace didn't finish loading. Reopen the Agent tab to retry."
+            )
         }
     }
 
@@ -437,6 +452,19 @@ struct ProAgentSurfaceView: View {
 
     private func scheduleRuntimeRetry() {
         guard retryTask == nil else { return }
+        // Circuit breaker (MED-8): a permanently broken runtime (bad node
+        // bundle, port always taken, missing binary) must not respawn three
+        // children every ~45s forever — a battery drain + spawn storm. After a
+        // bounded number of attempts, stop and surface an honest terminal state
+        // (a fresh startSurface — e.g. leaving and re-entering the Agent tab —
+        // resets retryAttempt and tries again).
+        guard retryAttempt < Self.maxRuntimeRetryAttempts else {
+            supervisor.stop()
+            loadPlaceholder(
+                status: "Agent runtime failed to start after several attempts. Reopen the Agent tab to try again."
+            )
+            return
+        }
         let attempt = retryAttempt
         retryAttempt += 1
         let delay = min(
