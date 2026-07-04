@@ -211,11 +211,33 @@ bundle_goose_runtime_binary() {
     bundle_goose_runtime_binary_named "goosed" "$GOOSED_BINARY_DEST"
 }
 
+# MAS agent surface (Plan 1-MAS): the vendored June web bundle, staged by
+# build-june-web.sh into .june-web-stage/ (outside Epistemos/Resources — the
+# resources glob flattens directory payloads). AppStore target only.
+JUNE_WEB_SOURCE_DIR="$SRCROOT/.june-web-stage"
+JUNE_WEB_BUNDLE_DIR="$RESOURCES_DIR/JuneWeb"
+
+bundle_june_web() {
+    if ! is_app_store_build; then
+        rm -rf "$JUNE_WEB_BUNDLE_DIR"
+        return 0
+    fi
+    if [ ! -f "$JUNE_WEB_SOURCE_DIR/dist/index.html" ]; then
+        # Stage absent: dev builds fall back to the fork working copy
+        # (JuneWebAssets DEBUG candidate); nothing to bundle.
+        rm -rf "$JUNE_WEB_BUNDLE_DIR"
+        return 0
+    fi
+    mkdir -p "$JUNE_WEB_BUNDLE_DIR"
+    rsync -a --delete --exclude ".gitignore" "$JUNE_WEB_SOURCE_DIR/" "$JUNE_WEB_BUNDLE_DIR/"
+}
+
 bundle_editor_resources
 bundle_coreeditor_resources
 bundle_pyodide_resources
 bundle_model_manifest
 bundle_default_skills
+bundle_june_web
 
 if is_app_store_build; then
     rm -f "$GOOSE_BINARY_DEST"

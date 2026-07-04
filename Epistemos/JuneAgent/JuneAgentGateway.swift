@@ -140,6 +140,30 @@ final class JuneSessionStore {
     }
 }
 
+// MARK: - Model registry (Phase 2: the June composer chip is invoke-driven)
+
+/// Engine-lane model ids surfaced through June's own model picker
+/// (`list_venice_models` / `set_venice_model` / per-session `session.create`
+/// model param). Capability truth (Plan 1-MAS §0.5): local = chat tier (no
+/// function-calling capability advertised — June's own `modelSupportsTools`
+/// gates on it); full agentic tools arrive with the cloud lane.
+nonisolated enum JuneModelID {
+    static let appleFM = "epistemos.apple-fm"
+    static let localGGUF = "epistemos.local-gguf"
+    static let cloud = "epistemos.cloud"
+}
+
+nonisolated enum JuneGatewayError: LocalizedError {
+    case cloudNotConfigured
+
+    var errorDescription: String? {
+        switch self {
+        case .cloudNotConfigured:
+            return "Epistemos Cloud isn't available yet in this build. Pick an on-device model to continue."
+        }
+    }
+}
+
 // MARK: - Gateway
 
 /// The in-process stand-in for June's Hermes gateway (Plan 1-MAS §3): speaks
@@ -158,8 +182,14 @@ final class JuneAgentGateway {
     var deliver: ((String) -> Void)?
 
     private let appleFM = AppleFMQuickChatBackend()
-    private let localGGUF = LocalGGUFQuickChatBackend()
+    // The shared app-lifetime instance — the loaded GGUF model must survive
+    // tab churn (warm invariant, mas_model_retained_on_switch). A private
+    // instance here would double-load the model.
+    private let localGGUF = LocalGGUFQuickChatBackend.shared
     private var runningTurns: [String: Task<Void, Never>] = [:]
+    /// Per-session engine choice (from `session.create` params.model).
+    private var sessionModels: [String: String] = [:]
+    private static let defaultModelKey = "epistemos.june.generationModel"
 
     // Local-lane instructions: honest capability tier per Plan 1-MAS §0.5.
     private static let instructions =
@@ -189,6 +219,9 @@ final class JuneAgentGateway {
             let sessionID = UUID().uuidString
             let title = (params["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "New session"
             store.createSession(id: sessionID, title: title)
+            if let model = params["model"] as? String, availableModelIDs().contains(model) {
+                sessionModels[sessionID] = model
+            }
             reply(id: id, result: ["session_id": sessionID])
         case "session.resume":
             guard let sessionID = params["session_id"] as? String else {
@@ -230,12 +263,13 @@ final class JuneAgentGateway {
     private func startTurn(sessionID: String, prompt: String) {
         store.appendMessage(sessionID: sessionID, role: "user", content: prompt)
         emit(type: "message.start", sessionID: sessionID, payload: [:])
+        let modelID = sessionModels[sessionID] ?? currentDefaultModelID()
 
         let turn = Task { [weak self] in
             guard let self else { return }
             var full = ""
             do {
-                let stream = self.makeStream(prompt: prompt)
+                let stream = try self.makeStream(prompt: prompt, modelID: modelID)
                 for try await delta in stream {
                     if Task.isCancelled { break }
                     full += delta
@@ -262,12 +296,87 @@ final class JuneAgentGateway {
         runningTurns[sessionID] = turn
     }
 
-    /// Local lane (Plan 1-MAS §2): Apple FM when available, else embedded GGUF.
-    private func makeStream(prompt: String) -> AsyncThrowingStream<String, Error> {
-        if AppleFMQuickChatBackend.unavailability() == nil {
+    /// Engine routing (Plan 1-MAS §2): the session's chosen lane, defaulting
+    /// to the best available local engine.
+    private func makeStream(prompt: String, modelID: String) throws -> AsyncThrowingStream<String, Error> {
+        switch modelID {
+        case JuneModelID.appleFM:
             return appleFM.stream(prompt: prompt, instructions: Self.instructions)
+        case JuneModelID.localGGUF:
+            return localGGUF.stream(prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024)
+        case JuneModelID.cloud:
+            // Honest gate: the receipt-verified proxy session is Phase-2/4
+            // wiring; never fake a cloud turn (Plan 1-MAS §0.5/§5).
+            guard EpistemosProxyClient.baseURL != nil,
+                  EpistemosProxyClient.shared.currentSession() != nil else {
+                throw JuneGatewayError.cloudNotConfigured
+            }
+            throw JuneGatewayError.cloudNotConfigured // streaming call lands with Phase-2 proxy wiring
+        default:
+            if AppleFMQuickChatBackend.unavailability() == nil {
+                return appleFM.stream(prompt: prompt, instructions: Self.instructions)
+            }
+            return localGGUF.stream(prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024)
         }
-        return localGGUF.stream(prompt: prompt, instructions: Self.instructions, maxNewTokens: 1024)
+    }
+
+    // MARK: - Model catalog (drives June's composer model chip)
+
+    func availableModelIDs() -> [String] {
+        var ids: [String] = []
+        if AppleFMQuickChatBackend.unavailability() == nil { ids.append(JuneModelID.appleFM) }
+        if localGGUF.unavailability() == nil { ids.append(JuneModelID.localGGUF) }
+        ids.append(JuneModelID.cloud)
+        return ids
+    }
+
+    func currentDefaultModelID() -> String {
+        let available = availableModelIDs()
+        if let saved = UserDefaults.standard.string(forKey: Self.defaultModelKey),
+           available.contains(saved) {
+            return saved
+        }
+        // Best local lane first; cloud is never a silent default.
+        return available.first { $0 != JuneModelID.cloud } ?? JuneModelID.cloud
+    }
+
+    @discardableResult
+    func setDefaultModel(_ id: String) -> Bool {
+        guard availableModelIDs().contains(id) else { return false }
+        UserDefaults.standard.set(id, forKey: Self.defaultModelKey)
+        return true
+    }
+
+    /// VeniceModelDto-shaped rows for `list_venice_models`. Capability truth:
+    /// no `supportsFunctionCalling` on local entries (chat tier); the cloud
+    /// entry carries it because the cloud lane is the full agentic tier.
+    func modelsPayload() -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        if AppleFMQuickChatBackend.unavailability() == nil {
+            rows.append([
+                "provider": "epistemos", "id": JuneModelID.appleFM,
+                "name": "Apple Intelligence (on-device)", "modelType": "text",
+                "description": "Apple's on-device foundation model. Fast, free, fully private. Chat only — no agent tools.",
+                "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
+            ])
+        }
+        if localGGUF.unavailability() == nil, let entry = localGGUF.resolvedEntry() {
+            rows.append([
+                "provider": "epistemos", "id": JuneModelID.localGGUF,
+                "name": "\(entry.displayName) (on-device)", "modelType": "text",
+                "description": "\(entry.subtitle). Runs locally, free, fully private. Chat only — no agent tools.",
+                "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
+                "contextTokens": entry.defaultContextTokens,
+            ])
+        }
+        rows.append([
+            "provider": "epistemos", "id": JuneModelID.cloud,
+            "name": "Epistemos Cloud", "modelType": "text",
+            "description": "Full agent capability via the Epistemos cloud. Requires a subscription (coming soon in this build).",
+            "privacy": "anonymous", "traits": ["cloud"],
+            "capabilities": ["supportsFunctionCalling"],
+        ])
+        return rows
     }
 
     private func emit(type: String, sessionID: String, payload: [String: Any]) {

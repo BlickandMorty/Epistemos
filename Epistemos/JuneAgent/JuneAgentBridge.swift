@@ -166,13 +166,28 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
                 "settings": [
                     "transcriptionProvider": "local",
                     "transcriptionModel": "local",
-                    "generationModel": Self.activeEngineLabel(),
+                    "generationModel": gateway.currentDefaultModelID(),
                     "imageModel": "",
                 ],
             ]
         case "list_venice_models":
             let mode = (request["mode"] as? String) ?? "generation"
-            return ["mode": mode, "modelType": "local", "selectedModel": Self.activeEngineLabel(), "models": [[String: Any]]()]
+            return [
+                "mode": mode,
+                "modelType": "text",
+                "selectedModel": gateway.currentDefaultModelID(),
+                "models": gateway.modelsPayload(),
+            ]
+        case "set_venice_model":
+            if let modelId = request["modelId"] as? String {
+                gateway.setDefaultModel(modelId)
+            }
+            return [
+                "transcriptionProvider": "local",
+                "transcriptionModel": "local",
+                "generationModel": gateway.currentDefaultModelID(),
+                "imageModel": "",
+            ]
         case "check_recording_source_readiness":
             let mode = (request["sourceMode"] as? String) ?? "microphoneOnly"
             return ["sourceMode": mode, "ready": false, "sources": [[String: Any]]()]
@@ -236,10 +251,6 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             "style": "standard",
         ]
     }()
-
-    private static func activeEngineLabel() -> String {
-        AppleFMQuickChatBackend.unavailability() == nil ? "Apple Intelligence" : "Local model"
-    }
 
     private static func deriveTitle(from prompt: String) -> String {
         let words = prompt

@@ -16,7 +16,11 @@ set -euo pipefail
 
 FORK="${EPISTEMOS_JUNE_FORK:-$HOME/dev/june-epistemos}"
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-STAGE="$REPO_ROOT/Epistemos/Resources/JuneWeb"
+# NOT under Epistemos/Resources: the resources glob flattens files into the
+# Resources root ("Multiple commands produce index.html"). The postBuild
+# script bundle-app-runtime-assets.sh copies this stage into the built app
+# at Contents/Resources/JuneWeb (AppStore target only).
+STAGE="$REPO_ROOT/.june-web-stage"
 
 UNLICENSED_FONTS=(
   "BerkeleyMono-Regular.woff2" "BerkeleyMono-Oblique.woff2"
@@ -61,4 +65,4 @@ done
 FILES=$(find "$STAGE/dist" -type f | wc -l | tr -d ' ')
 MAIN_GZ=$(gzip -c "$STAGE"/dist/assets/main-*.js 2>/dev/null | wc -c | tr -d ' ')
 echo "== Staged $FILES files; main chunk $((MAIN_GZ / 1024)) KB gz"
-echo "== Done. Rebuild the AppStore scheme to bundle."
+echo "== Done. Rebuild the AppStore scheme to bundle (bundle-app-runtime-assets.sh copies the stage)."
