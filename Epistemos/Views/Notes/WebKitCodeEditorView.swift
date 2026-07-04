@@ -286,6 +286,16 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             isApplyingFromSwift = false
         }
 
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            guard !isDetached else { return }
+            // Content process crashed (OOM / renderer fault) — the code editor blanks. Log for crash
+            // telemetry. Auto-recovery (reset + reload) is deferred pending per-editor data-loss
+            // verification: a naive reload can autosave-overwrite with empty content (analyzed for the
+            // Epdoc editor) — see the SS-FOLLOWON ledger.
+            Log.notes.error(
+                "Code editor web content process terminated \u{2014} editor blanked; reopen to recover")
+        }
+
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
