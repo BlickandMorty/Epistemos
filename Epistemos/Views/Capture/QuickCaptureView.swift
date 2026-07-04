@@ -134,7 +134,15 @@ struct QuickCaptureView: View {
             Color.clear
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
-                .onTapGesture { close() }
+                .onTapGesture {
+                    // Don't discard an in-progress capture on a stray click
+                    // outside the 540pt panel — a typed brain-dump would be lost
+                    // with no draft/undo. Empty captures dismiss freely; the
+                    // explicit Esc / close button remains the deliberate cancel.
+                    if captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        close()
+                    }
+                }
 
             VStack(spacing: 0) {
                 header
@@ -671,6 +679,11 @@ struct QuickCaptureView: View {
     // MARK: - Submit
 
     private func submitCapture() async {
+        // Reentrancy guard: isProcessing is only set inside this async body, so
+        // two fast Cmd-Return events (key auto-repeat / double-press) can both
+        // enter before it flips — each would run the pipeline and mint a
+        // duplicate note without this early-out.
+        guard !isProcessing else { return }
         let trimmed = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -687,9 +700,11 @@ struct QuickCaptureView: View {
                     result.graphWriteSummary.skippedReason ?? "note was not persisted"
                 )
             }
-            guard result.mutationEnvelopePersisted else {
-                throw TextCaptureError.persistenceFailed("mutation envelope was not persisted")
-            }
+            // Note is durably saved (createdNoteID set above); a miss on the
+            // SECONDARY mutation-envelope audit-log write (EventStore is optional
+            // and returns false on a nil store or a transient SQLite error) must
+            // NOT report failure — else the user retries a saved capture and mints
+            // a duplicate note. Benign audit degradation (result.mutationEnvelopePersisted).
             withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                 captureResult = result
             }
@@ -702,6 +717,10 @@ struct QuickCaptureView: View {
 
     // MARK: - Audio Processing
     private func toggleAudioRecording() async {
+        // Reentrancy guard: a second toggle while a prior transcription+persist
+        // is still in flight (isTranscribing flips async) could double-process
+        // one recording into duplicate notes.
+        guard !isTranscribing else { return }
         if audioRecorder.isRecording {
             guard let url = audioRecorder.stopRecording() else { return }
             isTranscribing = true
@@ -714,9 +733,10 @@ struct QuickCaptureView: View {
                         result.graphWriteSummary.skippedReason ?? "note was not persisted"
                     )
                 }
-                guard result.mutationEnvelopePersisted else {
-                    throw TextCaptureError.persistenceFailed("mutation envelope was not persisted")
-                }
+                // Note is durably saved (createdNoteID set above); a miss on the
+                // SECONDARY mutation-envelope audit-log write must NOT report
+                // failure — else the user retries a saved capture and mints a
+                // duplicate note. Benign audit degradation.
                 withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                     captureResult = result
                 }

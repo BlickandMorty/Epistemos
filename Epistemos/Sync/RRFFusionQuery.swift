@@ -365,7 +365,7 @@ nonisolated public enum RRFFusionQuery {
               readable_blocks.artifact_kind  AS entity_kind,
               'readable_block'               AS source,
               readable_blocks.block_id       AS snippet_block_id,
-              snippet(readable_blocks_fts, 0, '<b>', '</b>', '…', 32) AS snippet_text,
+              snippet(readable_blocks_fts, 1, '<b>', '</b>', '…', 32) AS snippet_text,
               CAST(strftime('%s', readable_blocks.updated_at) AS REAL)
                                              AS updated_at_unix,
               ROW_NUMBER() OVER (ORDER BY bm25(readable_blocks_fts) ASC) AS rnk
