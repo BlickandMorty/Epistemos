@@ -93,6 +93,8 @@ struct LandingView: View {
     /// Owner 2026-07-03: live cursor position (landing-local) so the backdrop + greeting
     /// react to the mouse. Updated by .onContinuousHover on the root.
     @State private var cursorLocation: CGPoint?
+    /// Landing size, so the greeting's cursor parallax is relative to the landing center.
+    @State private var landingSize: CGSize = .zero
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -336,6 +338,7 @@ struct LandingView: View {
             case .ended: cursorLocation = nil
             }
         }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { landingSize = $0 }
         .background {
             // Hidden Cmd-N shortcut creates a Markdown note, then asks which surface to open.
             Button(action: {
@@ -517,6 +520,15 @@ struct LandingView: View {
         }
     }
 
+    /// Owner 2026-07-03: subtle cursor parallax for the greeting (drifts toward the mouse,
+    /// relative to the landing center, clamped so it never wanders far).
+    private var greetingParallax: CGSize {
+        guard let cursor = cursorLocation, landingSize.width > 0 else { return .zero }
+        let dx = (cursor.x - landingSize.width / 2) * 0.012
+        let dy = (cursor.y - landingSize.height / 2) * 0.012
+        return CGSize(width: max(-9, min(9, dx)), height: max(-9, min(9, dy)))
+    }
+
     private var landingGreetingStage: some View {
         ZStack {
             LiquidGreeting(
@@ -530,6 +542,8 @@ struct LandingView: View {
             .landingGreetingReturnReveal(frame: landingGreetingReturnFrame, theme: theme)
             .opacity(showingLandingStageCommand && landingStageRevealFrame > 0 ? 0 : 1)
             .allowsHitTesting(false)
+            .offset(greetingParallax)
+            .animation(.easeOut(duration: 0.15), value: greetingParallax)
 
             if let command = activeLandingInlineCommand {
                 landingStageRevealContainer(accent: theme.resolved.accent.color) {
