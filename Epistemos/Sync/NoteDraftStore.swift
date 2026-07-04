@@ -43,7 +43,15 @@ nonisolated enum NoteDraftStore {
     /// Persist (or overwrite) the crash draft for a page. Atomic; no-op for an empty body.
     static func write(pageId: String, body: String) {
         guard !body.isEmpty, let url = url(for: pageId, create: true) else { return }
-        try? Data(body.utf8).write(to: url, options: .atomic)
+        do {
+            try Data(body.utf8).write(to: url, options: .atomic)
+        } catch {
+            // Match MeetingDraftStore: a silently-failing crash-draft write means recovery may be
+            // unavailable (e.g. disk full) — surface it instead of swallowing. The draft filename is
+            // a UUID pageId, so the error text leaks no note title.
+            Log.vault.error(
+                "note crash-draft write failed \u{2014} recovery may be unavailable: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Remove a page's draft — called once the durable body is saved.
