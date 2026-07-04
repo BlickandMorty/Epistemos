@@ -1089,7 +1089,15 @@ extension ProseEditorRepresentable2 {
         // MARK: - Link Click Handling
 
         func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
-            guard let urlString = link as? String else { return false }
+            // NSTextView passes the link attribute value, which may be a String or a URL.
+            let urlString: String
+            if let string = link as? String {
+                urlString = string
+            } else if let url = link as? URL {
+                urlString = url.absoluteString
+            } else {
+                return true  // unknown link type — consume without opening
+            }
             if urlString.hasPrefix("wikilink://") {
                 let title = String(urlString.dropFirst("wikilink://".count))
                 parent.onWikilinkClick?(title)
@@ -1100,7 +1108,17 @@ extension ProseEditorRepresentable2 {
                 parent.onBlockRefClick?(blockId)
                 return true
             }
-            return false
+            // Security: a note (shared / synced / imported) is UNTRUSTED content. Returning false
+            // here hands the URL to NSTextView's default action → NSWorkspace, which would open
+            // file:// (launching apps / local files), custom schemes (triggering other apps), and
+            // network schemes straight from untrusted note text. Only let safe web/mail schemes
+            // open externally; consume everything else without opening.
+            if let url = URL(string: urlString),
+               let scheme = url.scheme?.lowercased(),
+               scheme == "http" || scheme == "https" || scheme == "mailto" {
+                NSWorkspace.shared.open(url)
+            }
+            return true
         }
 
         // MARK: - Transclusion Edit
