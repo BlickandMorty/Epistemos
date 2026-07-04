@@ -610,11 +610,26 @@ final class JuneAgentGateway {
     /// VeniceModelDto-shaped rows for `list_venice_models`. Capability truth:
     /// no `supportsFunctionCalling` on local entries (chat tier); the cloud
     /// entry carries it because the cloud lane is the full agentic tier.
+    ///
+    /// PROVIDER FIELD — local rows carry `provider: ""` DELIBERATELY (not
+    /// "epistemos"). June gates its model pickers on provider+tools: the
+    /// composer quick-switch DROPS any `provider`-backed no-tools model
+    /// (AgentWorkspace `selectable = options.filter(o => !o.provider ||
+    /// modelSupportsTools(o))`), and the Settings dialog DISABLES it
+    /// (`noTools = generation && Boolean(provider) && !tools`). With a
+    /// provider set, our honest chat-tier local models (apple-fm + GGUF)
+    /// would be invisible in the composer and un-pickable in Settings — the
+    /// user could never switch to a local model even though it IS a valid MAS
+    /// answer lane. Empty provider bypasses BOTH gates so locals are
+    /// listable/selectable, WITHOUT faking `supportsFunctionCalling` (that
+    /// would violate honest-capability gating). The "Chat only — no agent
+    /// tools" copy keeps the tool truth visible. The CLOUD row keeps
+    /// `provider: "epistemos"` + the tool capability (full agentic tier).
     func modelsPayload() -> [[String: Any]] {
         var rows: [[String: Any]] = []
         if AppleFMQuickChatBackend.unavailability() == nil {
             rows.append([
-                "provider": "epistemos", "id": JuneModelID.appleFM,
+                "provider": "", "id": JuneModelID.appleFM,
                 "name": "Apple Intelligence (on-device)", "modelType": "text",
                 "description": "Apple's on-device foundation model. Fast, free, fully private. Chat only — no agent tools.",
                 "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
@@ -640,7 +655,10 @@ final class JuneAgentGateway {
                     detail = "\(entry.subtitle). Select to download (~\(Self.sizeText(entry.approxDownloadBytes))), then runs locally & fully private."
                 }
                 rows.append([
-                    "provider": "epistemos", "id": entry.id,
+                    // Empty provider (see modelsPayload doc): local GGUF is an
+                    // honest chat-tier engine, listable/selectable in June's
+                    // pickers without claiming tool capability.
+                    "provider": "", "id": entry.id,
                     "name": "\(entry.displayName) (on-device)", "modelType": "text",
                     "description": detail,
                     "privacy": "private", "traits": ["on-device"], "capabilities": [String](),
