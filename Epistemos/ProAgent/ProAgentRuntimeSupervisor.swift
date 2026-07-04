@@ -206,6 +206,17 @@ final class ProAgentRuntimeSupervisor {
         opencodePort: Int,
         gooseChild: (binary: URL, port: Int, secret: String)?
     ) async {
+        // Perf doctrine §4: cold_open interval = start() -> .running.
+        let coldOpenClockStart = ContinuousClock.now
+        let coldOpenSignpostID = Sig.agentSurface.makeSignpostID()
+        let coldOpenSignpostState = Sig.agentSurface.beginInterval("cold_open", id: coldOpenSignpostID)
+        var coldOpenRecorded = false
+        defer {
+            if !coldOpenRecorded {
+                Sig.agentSurface.endInterval("cold_open", coldOpenSignpostState)
+            }
+        }
+
         // Phase-5: reap children a CRASHED previous instance left behind
         // (identity-checked by pid + kernel start time; TERM then KILL).
         await ProAgentChildLedger.sweepStaleChildren { [weak self] message in
@@ -353,6 +364,13 @@ final class ProAgentRuntimeSupervisor {
                     opencodePort: opencodePort,
                     goosePort: nil
                 ))
+                let coldOpenElapsed = ContinuousClock.now - coldOpenClockStart
+                Sig.agentSurface.endInterval("cold_open", coldOpenSignpostState)
+                coldOpenRecorded = true
+                ProAgentPerfMetrics.shared.recordColdOpen(
+                    milliseconds: Double(coldOpenElapsed.components.seconds) * 1_000
+                        + Double(coldOpenElapsed.components.attoseconds) / 1e15
+                )
                 if let gooseChild {
                     beginGooseReadinessWatch(uiPort: uiPort, opencodePort: opencodePort, uiBaseURL: uiBaseURL, goosePort: gooseChild.port)
                 }

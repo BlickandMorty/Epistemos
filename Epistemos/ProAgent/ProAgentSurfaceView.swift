@@ -242,7 +242,16 @@ struct ProAgentSurfaceView: View {
         // mounted in the kept-alive page — just resume the health monitor.
         if case .running(let connection) = supervisor.status,
            loadedConnectionKey == connection.uiBaseURL.absoluteString {
+            // Perf doctrine §4: warm_reopen — the owner-critical instant
+            // re-open. This path does no loading; the measurement proves it.
+            let warmStart = ContinuousClock.now
             beginHealthMonitor(connection: connection)
+            let warmElapsed = ContinuousClock.now - warmStart
+            Sig.agentSurface.emitEvent("warm_reopen")
+            ProAgentPerfMetrics.shared.recordWarmReopen(
+                milliseconds: Double(warmElapsed.components.seconds) * 1_000
+                    + Double(warmElapsed.components.attoseconds) / 1e15
+            )
             return
         }
         surfaceStarted = true
@@ -325,12 +334,29 @@ struct ProAgentSurfaceView: View {
         let key = connection.uiBaseURL.absoluteString
         trustedOrigins.register(connection.uiBaseURL)
         overlayStatus = "Loading agent workspace"
+        // Perf doctrine §4: spa_ready = load driven -> render probe "ready".
+        let spaClockStart = ContinuousClock.now
+        let spaSignpostID = Sig.agentSurface.makeSignpostID()
+        let spaSignpostState = Sig.agentSurface.beginInterval("spa_ready", id: spaSignpostID)
+        var spaRecorded = false
+        defer {
+            if !spaRecorded {
+                Sig.agentSurface.endInterval("spa_ready", spaSignpostState)
+            }
+        }
         var renderAttempt = 0
         while !Task.isCancelled {
             _ = page.load(URLRequest(url: connection.uiBaseURL))
             if await waitForRenderedUI() {
                 loadedConnectionKey = key
                 overlayStatus = nil
+                let elapsed = ContinuousClock.now - spaClockStart
+                Sig.agentSurface.endInterval("spa_ready", spaSignpostState)
+                spaRecorded = true
+                ProAgentPerfMetrics.shared.recordSpaReady(
+                    milliseconds: Double(elapsed.components.seconds) * 1_000
+                        + Double(elapsed.components.attoseconds) / 1e15
+                )
                 beginHealthMonitor(connection: connection)
                 return
             }

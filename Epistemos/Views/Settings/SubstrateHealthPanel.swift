@@ -46,6 +46,9 @@ public struct SubstrateHealthPanel: View {
                 }
 
                 foundationSection("Tools and Surface Bridge") {
+                    // Plan 1-PRO agent surface diagnostics (Pro-only; renders
+                    // nothing on MAS).
+                    ProAgentHealthRow()
                     WorkOpenCodeShellHealthRow()
                     WorkBackendHealthRow()
                     LiteParseImportHealthRow()
