@@ -1,5 +1,6 @@
 #if EPISTEMOS_APP_STORE
 import Foundation
+import Observation
 import os
 
 // MARK: - Session store
@@ -10,6 +11,7 @@ import os
 /// June's UI reads (`HermesSessionInfo` / `HermesSessionMessage` in the fork's
 /// src/lib/tauri.ts at pinned commit a626597).
 @MainActor
+@Observable
 final class JuneSessionStore {
     struct Message: Codable {
         let id: String
