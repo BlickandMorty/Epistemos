@@ -331,10 +331,21 @@ struct ProseEditorView: View {
         ) { notification in
             guard let changedId = notification.userInfo?["pageId"] as? String,
                   changedId == page.id else { return }
-            saveTask?.cancel()
-            loadedBodyPageId = nil
-            Task { @MainActor in
-                await loadBodyIfNeeded(force: true)
+            // NOTE-3 (audit): a background external change (vault sync) must NOT clobber the
+            // user's UNSAVED in-memory edits. Reload only when the editor is clean (or not
+            // loaded); if it's dirty, keep the user's live edits and defer the external change
+            // (it reapplies once they save/close). Prevents silent loss of active typing.
+            // Trade-off: an external edit to the ACTIVELY-edited note loses to the open editor
+            // — the right default for a single user; a conflict indicator is a follow-up.
+            let editorIsClean = loadedBodyPageId != page.id || bodyText == lastPersistedBody
+            if editorIsClean {
+                saveTask?.cancel()
+                loadedBodyPageId = nil
+                Task { @MainActor in
+                    await loadBodyIfNeeded(force: true)
+                }
+            } else {
+                Self.log.warning("NOTE-3: external body change for \(page.id, privacy: .public) deferred — editor has unsaved edits")
             }
         }
         // Flush in-memory edits to disk when another editor is about to read our body
