@@ -334,6 +334,18 @@ struct ProAgentSurfaceView: View {
         let key = connection.uiBaseURL.absoluteString
         trustedOrigins.register(connection.uiBaseURL)
         overlayStatus = "Loading agent workspace"
+        // DEBUG acceptance: default new drafts to a chosen engine so a scripted
+        // keystroke-send exercises the goose path (the web engine chip is
+        // AX-opaque to scripting). Production loads the bare URL.
+        var loadURL = connection.uiBaseURL
+        #if DEBUG
+        if let engine = ProcessInfo.processInfo.environment["EPISTEMOS_DEFAULT_ENGINE"],
+           engine == "goose" || engine == "opencode",
+           var comps = URLComponents(url: connection.uiBaseURL, resolvingAgainstBaseURL: false) {
+            comps.queryItems = (comps.queryItems ?? []) + [URLQueryItem(name: "epistemosDefaultEngine", value: engine)]
+            loadURL = comps.url ?? connection.uiBaseURL
+        }
+        #endif
         // Perf doctrine §4: spa_ready = load driven -> render probe "ready".
         let spaClockStart = ContinuousClock.now
         let spaSignpostID = Sig.agentSurface.makeSignpostID()
@@ -346,7 +358,7 @@ struct ProAgentSurfaceView: View {
         }
         var renderAttempt = 0
         while !Task.isCancelled {
-            _ = page.load(URLRequest(url: connection.uiBaseURL))
+            _ = page.load(URLRequest(url: loadURL))
             if await waitForRenderedUI() {
                 loadedConnectionKey = key
                 overlayStatus = nil
