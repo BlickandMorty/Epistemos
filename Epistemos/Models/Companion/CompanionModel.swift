@@ -20,22 +20,22 @@ final class CompanionModel {
     /// UUID string. Stable across app launches.
     @Attribute(.unique) var id: String
     /// User-facing name ("Sage", "Orb", "Quill", custom names).
-    var name: String
+    var name: String = ""
     /// One-liner tagline shown beneath the orb in the Farm.
-    var tagline: String
+    var tagline: String = ""
     /// Body grammar — see CompanionBodyKind for the parameterized Farm variants.
     /// Stored as raw string for SwiftData friendliness.
-    var bodyKindRaw: String
+    var bodyKindRaw: String = "orb"
     /// Hex-coded accent color (e.g. "#7BA8E0"). Drives the mascot halo.
-    var accentHex: String
+    var accentHex: String = "#7BA8E0"
     /// Stable seed for DeterministicPRNG. Computed at creation from
     /// (id + bodyKindRaw + name) so cosmetic randomness is replayable.
-    var identityHash: String
+    var identityHash: String = ""
     /// When the companion was created.
-    var createdAt: Date
+    var createdAt: Date = Date.now
     /// When the companion was last brought to the foreground (for
     /// "recent" sorting in the Farm).
-    var lastInteractedAt: Date
+    var lastInteractedAt: Date = Date.now
     /// When the companion was archived (soft-deleted). Non-nil = in
     /// trash; restorable. Nil = active.
     var archivedAt: Date?
