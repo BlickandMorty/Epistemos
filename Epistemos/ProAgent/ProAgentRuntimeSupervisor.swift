@@ -261,6 +261,20 @@ final class ProAgentRuntimeSupervisor {
         }
         // Enforce Basic auth on the opencode server (Plan §1 / R4).
         opencodeEnv["OPENCODE_SERVER_PASSWORD"] = opencodePassword
+        // EPISTEMOS MCP vault fusion (owner-approved 2026-07-04): register the
+        // active app vault as a stdio MCP so the Pro agent can search + cite the
+        // user's notes/skills. Vault content reaches the agent's cloud providers
+        // (owner-consented). Reuses the proven Work-lane merge-preserving writer
+        // (preserves user-installed opencode MCPs across relaunch). Best-effort:
+        // no active vault OR missing bundled server -> no OPENCODE_CONFIG (the
+        // honest no-vault state; never roots at an empty default).
+        if let vaultURL = await AppBootstrap.shared?.vaultSync.vaultURL,
+           let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL(),
+           let fusionConfigPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
+               stdioServerPath: serverURL.path, vaultRoot: vaultURL.path, nativeMCP: nil) {
+            opencodeEnv["OPENCODE_CONFIG"] = fusionConfigPath
+            opencodeEnv["EPISTEMOS_VAULT_ROOT"] = vaultURL.path
+        }
         opencodeProc.environment = opencodeEnv
 
         // Child 2 (optional): goosed, env-configured per the R4 matrix — figment
