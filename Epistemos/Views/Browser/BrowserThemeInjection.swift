@@ -41,6 +41,10 @@ enum BrowserThemeInjection {
         let heading = EpistemosWebThemeCSS.color(resolved.headingAccent)
         return """
         \(pixelFontFaceCSS)
+        /* Owner 2026-07-04: tell the page its color scheme so sites with a dark theme
+           (Google, YouTube, …) restyle their OWN inner surfaces — the html/body override
+           below only darkens the top level, leaving nested light cards un-themed otherwise. */
+        :root{color-scheme:\(theme.isDark ? "dark" : "light") !important;}
         html,body{background-color:\(background) !important;color:\(foreground) !important;}
         p,span,li,td,th,div,section,article,main,figcaption,blockquote,label{color:\(foreground) !important;}
         a,a:link,a:visited{color:\(accent) !important;}
