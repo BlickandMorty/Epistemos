@@ -99,7 +99,11 @@ final class JuneAgentSurfaceHolder {
         ucc.addUserScript(WKUserScript(
             source: """
             (function () {
-              if (!window.__EPISTEMOS_TTS_AVAILABLE__) return;
+              // Live gate (not a one-time early-return): the native side updates
+              // __EPISTEMOS_TTS_AVAILABLE__ + calls the refresh below when the
+              // voice becomes ready mid-session, so read-aloud appears without an
+              // app restart.
+              function ttsReady() { return window.__EPISTEMOS_TTS_AVAILABLE__ === true; }
               function speak(text) {
                 try {
                   window.webkit.messageHandlers.epistemosSpeak.postMessage({ action: "speak", text: text });
@@ -132,6 +136,7 @@ final class JuneAgentSurfaceHolder {
                 return pill;
               }
               function showSelectionPill() {
+                if (!ttsReady()) { hidePill(); return; }
                 var sel = window.getSelection();
                 var text = sel && sel.rangeCount ? sel.toString().trim() : "";
                 if (!text) { hidePill(); return; }
@@ -158,6 +163,7 @@ final class JuneAgentSurfaceHolder {
                 });
               }
               function addButton(turn) {
+                if (!ttsReady()) return;
                 if (!turn || turn.querySelector(".epistemos-read-aloud")) return;
                 var actions = turn.querySelector(".agent-turn-actions-inner") || turn.querySelector(".agent-turn-actions");
                 var body = turn.querySelector(".agent-assistant-turn-body");
@@ -194,6 +200,17 @@ final class JuneAgentSurfaceHolder {
                     else if (n.closest) { var t = n.closest(".agent-assistant-turn"); if (t) addButton(t); }
                     scan(n);
                   }
+                  // If a React re-render of the turn drops our button (it's a
+                  // child React doesn't own), re-add it to the same turn.
+                  var removed = muts[i].removedNodes || [];
+                  for (var r = 0; r < removed.length; r++) {
+                    var rn = removed[r];
+                    if (rn.nodeType === 1 && rn.classList && rn.classList.contains("epistemos-read-aloud")) {
+                      var host = muts[i].target;
+                      var rt = host && host.closest ? host.closest(".agent-assistant-turn") : null;
+                      if (rt) addButton(rt);
+                    }
+                  }
                 }
               });
               function start() {
@@ -201,6 +218,9 @@ final class JuneAgentSurfaceHolder {
                 setupSelection();
                 if (document.body) obs.observe(document.body, { childList: true, subtree: true });
               }
+              // Native calls this after flipping __EPISTEMOS_TTS_AVAILABLE__ so
+              // buttons appear the moment the voice becomes ready (no restart).
+              window.__EPISTEMOS_READALOUD_REFRESH__ = function () { scan(document); };
               if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
               else start();
             })();
@@ -365,6 +385,7 @@ struct JuneAgentSurfaceView: View {
         .onChange(of: colorScheme) { _, scheme in
             Self.applyAppearance(scheme, to: JuneAgentSurfaceHolder.shared.webView)
         }
+        .onAppear { Self.refreshReadAloudAvailability() }
         .task(id: retryAttempt) {
             let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared
@@ -411,6 +432,17 @@ struct JuneAgentSurfaceView: View {
     /// pinning the webview's NSAppearance to the SwiftUI-resolved scheme.
     private static func applyAppearance(_ scheme: ColorScheme, to webView: WKWebView?) {
         webView?.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+    }
+
+    /// Re-push live TTS availability whenever the Agent room appears, so
+    /// read-aloud surfaces the moment the voice becomes ready (e.g. the user
+    /// installs it in Settings) — no app restart. No-op before the page loads.
+    private static func refreshReadAloudAvailability() {
+        let available = EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+        JuneAgentSurfaceHolder.shared.bridge?.runJS?(
+            "window.__EPISTEMOS_TTS_AVAILABLE__ = \(available ? "true" : "false"); "
+                + "window.__EPISTEMOS_READALOUD_REFRESH__ && window.__EPISTEMOS_READALOUD_REFRESH__();"
+        )
     }
 
     private static func handOffFocus(to webView: WKWebView?) {
