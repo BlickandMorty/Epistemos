@@ -684,6 +684,11 @@ private struct GeneralDetailView: View {
     private var auditLogRetentionDays = AppDataRetentionPolicy.defaultAuditLogRetentionDays
     @AppStorage(AppDataRetentionPolicy.savedWorkspaceLimitKey)
     private var savedWorkspaceLimit = AppDataRetentionPolicy.defaultSavedWorkspaceLimit
+    // friction.enabled gates FrictionMonitorService's per-keystroke editor
+    // telemetry (read at FrictionMonitorService.swift:42); surfaced here so the
+    // user can turn collection off — the FrictionHealthRow diagnostic shows what
+    // it records.
+    @AppStorage("friction.enabled") private var frictionEnabled = true
     private var settingsTheme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
@@ -841,6 +846,10 @@ private struct GeneralDetailView: View {
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
+                Toggle("Record writing friction", isOn: $frictionEnabled)
+                SettingsDescriptionText(
+                    text: "Local editor telemetry — typing pauses, deletions, and revision bursts — powering the writing-friction diagnostic. Behavioral only (never your note text) and never leaves this Mac. Turn off to stop collection."
+                )
             }
 
             Section("Performance") {
