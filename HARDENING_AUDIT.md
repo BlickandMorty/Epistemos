@@ -313,3 +313,19 @@ VaultIndexActor is a single @ModelActor sharing ONE ModelContext. importVault su
 WHY NOT autonomously fixed: the correct fix isolates the import into its OWN ModelContext(modelContainer) so its rollback discards only its own uncommitted changes and never touches exportPage/migration state — a non-trivial refactor of the import path (all import fetch/insert/save + the discard/restore helpers move to the new context). The alternative (an isImporting serialization flag exportPage + migrations honor) needs a defer/await-import-completion mechanism inside the actor that risks delaying autosave or spinning. Either is a concurrency change to the vault-import data path (handles ALL vault data) that CANNOT be verified headless (the bug needs a specific race: concurrent import + edit/migration + a batch-save failure). Per "no unverified completion" + smallest-safe-change, rushing it risks a worse bug than the rare race. RECOMMENDED: (1) dedicated child ModelContext for importVault; OR (2) run migrations before/after (not during) import + gate exportPage on an isImporting flag; add a concurrency test interleaving an import with an exportPage + forced save-failure. Owner/next-session decision.
 
 ## OTHER OPEN (Sync auditor, documented for next session): SearchIndexService:2335-2343 normalizedSearchTerms drops <2-char + symbol-only tokens ("C++"/single CJK ideograph silently return []) [LOW-MED; needs CJK-aware floor]; ReadableBlocksIndex:421-431 empty-FTS->substring fallback masks genuine FTS errors [LOW; no production callers]. FLAGS to other lanes: NotesSidebar.swift:2375 daily-note dedup DateFormatter lacks en_US_POSIX — COUPLED with JournalIntents.swift:110 (must fix BOTH consistently); TextCapturePipeline.swift:284 @MainActor run() does NL+regex+2MB disk write on main for the meeting path (Agent A); SessionBrowser.swift:126 per-keystroke disk reads (Vault/=B); Graph/EmbeddingService.swift:258 DispatchGroup.wait() in graph deinit (Graph/=B).
+
+## ⏸️ SESSION WIND-DOWN 2026-07-03 (loop cancelled, will resume)
+All Agent-A (Front & Feel) work committed + build-verified (** BUILD SUCCEEDED **). Loop cron e1e01a4e cancelled per owner.
+LANDED THIS THREAD:
+- Resilience audit (RES-1..9): HIGH RES-1 (speech-download progress), MED RES-4/5 (audio give-up, browser error UX), RES-7/8/9 done; RES-6 + RES-1-cancel deferred-LOW documented; RES-2/3 → Agent B.
+- NOTE integrity: NOTE-1/4 fixed earlier; NOTE-6 verified content-safe (MED→LOW). NOTE-2/3 (HIGH multi-editor / external-edit clobber) STILL OPEN — need conflict-resolution architecture (do NOT rush).
+- Metal landing (owner-calibrated): pixelGradient cells=28, multi-wave thin bands, intensity 0.10, cursor = vector WAKE (displaces grid, no hotspot). Removed greeting shimmer (weird box).
+- Word-reveal WAKE FIELD revived: Epistemos/Views/Landing/LandingASCIIWakeField.swift (from commit d3b73c05d) — cursor trail reveals vocabulary; perf-gated (shouldAnimate=!reduceMotion&&!windowOccluded AND !trails.isEmpty; cleanup task cancelled onDisappear). VERIFIED hardened.
+- Browser: page-below-the-bar inset (toolbarHeight via onGeometryChange) + dark-mode signal (webView.appearance darkAqua/aqua).
+- DISC-1 (Focus Mode ⌘⇧F in note More-menu).
+PENDING FOR RESUME:
+- On-device calibration of the Metal + wake field (owner's eyes): cell count 28, shine 0.10 + band amplitudes, wake displacement 0.022/decay exp(-d*5), wake vocabulary + reveal radius (LandingASCIIWakeFieldConfiguration).
+- Discoverability DISC-2..18 (Tier-1 safe .help()/hint adds) + DISC-19..26 (Tier-2, need owner ship/shelve).
+- Browser page-inset + dark-mode need on-device verification (can't render-verify).
+- 2 untracked web-clip test artifacts (docs/research/Web Clips/Browser-1.md, Browser-2.md) — left for owner to keep/delete.
+- 3-agent lane split active (prompts in scratchpad AGENT_B/C_*.md); build coordination note at top of this file.
