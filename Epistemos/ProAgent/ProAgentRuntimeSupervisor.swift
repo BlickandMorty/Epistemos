@@ -284,12 +284,17 @@ final class ProAgentRuntimeSupervisor {
             proc.executableURL = gooseChild.binary
             proc.arguments = ["agent"]
             proc.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-            proc.environment = GooseRuntimeSupervisor.processEnvironment(
+            // withUserToolPath: goosed spawns goose's configured CLI providers
+            // (e.g. cursor-agent in ~/.local/bin) by bare name — add the user tool
+            // dirs the launchd GUI PATH omits so those providers resolve. (goosed's
+            // env is built by the shared GooseRuntimeSupervisor; augment its result
+            // here rather than touch that MAS-shared file.)
+            proc.environment = Self.withUserToolPath(GooseRuntimeSupervisor.processEnvironment(
                 binary: gooseChild.binary,
                 secretKey: gooseChild.secret,
                 disableKeyring: proGooseDisableKeyring,
                 goosedConfig: (host: Self.loopbackHost, port: gooseChild.port, tls: false)
-            )
+            ))
             goosedProc = proc
         }
 
@@ -670,9 +675,40 @@ final class ProAgentRuntimeSupervisor {
             pathEntries += inherited.split(separator: ":", omittingEmptySubsequences: true).map(String.init)
         }
         pathEntries += canonicalToolPathDirectories
+        pathEntries += userToolPathDirectories(home: base["HOME"])
         var seen: Set<String> = []
         env["PATH"] = pathEntries.filter { seen.insert($0).inserted }.joined(separator: ":")
         return env
+    }
+
+    /// User-installed CLI tool directories. goose's configured CLI-passthrough
+    /// providers (e.g. cursor-agent, which lives in ~/.local/bin and authenticates
+    /// via its OWN ~/.cursor state, NOT goose's keyring) are invoked by bare name,
+    /// but a GUI-launched app inherits only the launchd PATH — which omits
+    /// ~/.local/bin and ~/bin — so the spawn fails "command not found" and the
+    /// provider silently produces no text. These are the user's own directories;
+    /// adding them lets configured providers resolve without touching the
+    /// library-injection denylist (DYLD_*/LD_PRELOAD stay stripped) or bridging
+    /// any secret.
+    nonisolated static func userToolPathDirectories(home: String?) -> [String] {
+        guard let home, !home.isEmpty else { return [] }
+        return ["\(home)/.local/bin", "\(home)/bin"]
+    }
+
+    /// Prepend the user tool dirs to an already-built PATH (for children whose env
+    /// is built elsewhere, e.g. goosed via GooseRuntimeSupervisor.processEnvironment).
+    nonisolated static func withUserToolPath(_ env: [String: String]) -> [String: String] {
+        var out = env
+        let home = env["HOME"] ?? ProcessInfo.processInfo.environment["HOME"]
+        let userDirs = userToolPathDirectories(home: home)
+        guard !userDirs.isEmpty else { return out }
+        var entries = userDirs
+        if let existing = out["PATH"] {
+            entries += existing.split(separator: ":", omittingEmptySubsequences: true).map(String.init)
+        }
+        var seen: Set<String> = []
+        out["PATH"] = entries.filter { seen.insert($0).inserted }.joined(separator: ":")
+        return out
     }
 
     /// Node runtime resolution. Release builds resolve ONLY trusted bundled
