@@ -174,6 +174,11 @@ struct MeetingNoteView: View {
                 copyTranscript()
             }
             .disabled(service.transcriptText.isEmpty)
+            // TTS (2026-07-04): read the meeting transcript aloud (Kokoro). The button
+            // honest-gates itself — disabled + "TTS unavailable" when the voice isn't installed.
+            if !service.transcriptText.isEmpty {
+                ReadAloudButton(text: service.transcriptText, style: .icon)
+            }
             ToolbarCapsuleButton(
                 title: "Save",
                 systemImage: "square.and.arrow.down",
