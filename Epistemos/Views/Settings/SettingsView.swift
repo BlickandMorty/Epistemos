@@ -689,6 +689,12 @@ private struct GeneralDetailView: View {
     // user can turn collection off — the FrictionHealthRow diagnostic shows what
     // it records.
     @AppStorage("friction.enabled") private var frictionEnabled = true
+    // epistemos.liveNotes.enabled gates AppBootstrap's LiveNoteScheduler (scans the
+    // vault on a timer to refresh live-note task blocks via the LLM; read at
+    // AppBootstrap.refreshLiveNoteScheduler). The reader's own comment said "users
+    // can flip the toggle in Settings" — but the toggle was never built. Off by
+    // default (matches the raw UserDefaults.bool reader).
+    @AppStorage("epistemos.liveNotes.enabled") private var liveNotesEnabled = false
     private var settingsTheme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
@@ -745,6 +751,16 @@ private struct GeneralDetailView: View {
                 Text("AI-generated summaries describe what you're working on. Runs entirely on-device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Live Notes") {
+                SettingsDescriptionText(
+                    text: "Live notes keep task blocks in your notes up to date by scanning the vault on a timer and refreshing them with AI. Off by default — most vaults have no live-note blocks, so scanning would burn idle CPU for no benefit."
+                )
+                Toggle("Keep live notes up to date", isOn: $liveNotesEnabled)
+                    .onChange(of: liveNotesEnabled) { _, _ in
+                        AppBootstrap.shared?.refreshLiveNoteScheduler()
+                    }
             }
 
             Section("Data Retention") {
