@@ -22,10 +22,6 @@ enum JuneAgentIntents {
         emit(event: "june:menu-bar:open-agent-session", payloadJS: JuneAgentBridge.jsStringLiteral(id))
     }
 
-    static func openSettings() {
-        emit(event: "june://open-settings", payloadJS: "null")
-    }
-
     private static func emit(event: String, payloadJS: String) {
         guard let bridge = JuneAgentSurfaceHolder.shared.bridge else {
             log.warning("intent \(event, privacy: .public) dropped — surface not started")
