@@ -566,9 +566,11 @@ nonisolated struct ArxivNoteDraft: Equatable, Sendable {
 }
 
 private extension ISO8601DateFormatter {
-    nonisolated static var arxivIngest: ISO8601DateFormatter {
+    // ARX-PERF-2 (audit 2026-07-04): static LET (was a computed var that allocated a formatter per
+    // access). ISO8601DateFormatter parse is thread-safe; nonisolated(unsafe) matches the pattern.
+    nonisolated(unsafe) static let arxivIngest: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
-    }
+    }()
 }

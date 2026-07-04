@@ -319,7 +319,6 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
     private(set) var papers: [ArxivPaper] = []
 
     private var currentEntry: EntryBuilder?
-    private var elementStack: [String] = []
     private var textBuffer = ""
     private var insideAuthor = false
 
@@ -331,7 +330,6 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
         attributes attributeDict: [String: String] = [:]
     ) {
         let name = normalizedElementName(elementName)
-        elementStack.append(name)
         textBuffer = ""
 
         if name == "entry" {
@@ -395,7 +393,6 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
         if name == "author" {
             insideAuthor = false
         }
-        _ = elementStack.popLast()
         textBuffer = ""
     }
 
@@ -468,12 +465,15 @@ private nonisolated final class ArxivAtomParser: NSObject, XMLParserDelegate {
 }
 
 private extension ISO8601DateFormatter {
-    nonisolated static var arxiv: ISO8601DateFormatter {
+    // ARX-PERF-2 (audit 2026-07-04): static LET (was a computed var) — a var rebuilt the formatter +
+    // ran the deterministic probe-parse on every access (up to ~50/feed via date(from:)). ISO8601
+    // parse is thread-safe; nonisolated(unsafe) matches the codebase's ISO8601 singleton pattern.
+    nonisolated(unsafe) static let arxiv: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if formatter.date(from: "2026-01-01T00:00:00Z") == nil {
             formatter.formatOptions = [.withInternetDateTime]
         }
         return formatter
-    }
+    }()
 }

@@ -166,7 +166,7 @@ struct ArxivSearchView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if !ArxivPullGateStatus.status().isActive {
+            if !Self.arxivGateActive {
                 ContentUnavailableView(
                     "arXiv pull disabled",
                     systemImage: "lock",
@@ -219,7 +219,7 @@ struct ArxivSearchView: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task {
-            await loadFeaturedFeedIfNeeded()
+            startFeaturedFeedLoad()
         }
         .onDisappear {
             cancelActiveTasks()
@@ -460,6 +460,25 @@ struct ArxivSearchView: View {
         featuredFeedFailed = false
         didLoadFeaturedFeed = false
         searchTask?.cancel()
+        searchTask = Task {
+            await loadFeaturedFeedIfNeeded()
+            searchTask = nil
+        }
+    }
+
+    /// ARX-CANCEL-1 (audit 2026-07-04): route the INITIAL featured load through searchTask (like
+    /// retryFeaturedFeed) so the Stop button + an explicit search can cancel/preempt the cold-start
+    /// load. loadFeaturedFeedIfNeeded sets isSearching=true; without an assigned searchTask the Stop
+    /// handle was nil (a dead affordance) and startSearch's `guard !isSearching` blocked new searches
+    /// for up to the 15s request timeout — re-opening the hole #4 closed. onDisappear→cancelActiveTasks
+    /// cancels it, matching the prior `.task`-modifier disappear-cancellation.
+    /// ARX-PERF-1 (audit 2026-07-04): the arXiv pull gate reads + copies the full process environment;
+    /// env vars are fixed at launch so the result is process-invariant. Cache it once instead of
+    /// re-copying the environment on every body re-eval (per keystroke).
+    private static let arxivGateActive = ArxivPullGateStatus.status().isActive
+
+    private func startFeaturedFeedLoad() {
+        guard searchTask == nil else { return }
         searchTask = Task {
             await loadFeaturedFeedIfNeeded()
             searchTask = nil
