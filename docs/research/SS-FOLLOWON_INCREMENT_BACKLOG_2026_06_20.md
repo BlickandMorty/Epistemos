@@ -32,9 +32,14 @@ in the ledger as an open `[ ]` item — not left to rot in git history. These ar
 - **#40 Recall "Open Chat" no-op** (NoteDetailWorkspaceView:950 `case .chat: break`): needs a chat-navigation
   mechanism (open-chat-by-id / a MiniChat window controller) that doesn't exist — a chat-lane build, not a wire.
   OWNER-GATED (off-limits mount).
-- **#41 DataviewService ```dataview``` renderer** (Notes/Epdoc): DQL engine exists (0 callers); rendering a
-  fenced dataview block needs a NEW Tiptap JS node/handler + `build-tiptap-bundle.sh` rebuild (npm) + WKWebView
-  runtime verification (not possible headless). Epdoc feature-build, not a wire.
+- **#41 DataviewService ```dataview``` renderer — DONE Swift-side** (f0db1f788 + 5d3a2d5d9): the earlier
+  "needs a Tiptap JS node + bundle" framing was WRONG. Built entirely in Swift, no JS/bundle: `DataviewBlockRunner`
+  connects the orphaned `DataviewService`, and a "Run Dataview Query" Prose-editor context-menu action (shown
+  only when the click is inside a ```dataview block) executes the DQL against the vault + presents the rendered
+  markdown table in a scrollable monospace NSAlert. Additive + gated (zero change to existing editor behavior).
+  Build-verified (Debug). REMAINING: (a) runtime render-verify (OWNER — headless can't drive the editor menu);
+  (b) OPTIONAL live INLINE auto-render of the block (Obsidian-style, flag-gated, reuse the SS-2S fragment
+  pattern) is a separate future increment — NOT required for the service to be usable.
 - **#42 EpdocBlockTemplateStore → slash menu**: surface user block-templates in the Epdoc slash menu. The slash
   insert is a JS `blockType` contract (`insertSlashChoice`) with no path for arbitrary template content — needs
   a new JS node/handler + bundle rebuild + runtime verification. Epdoc feature-build.
