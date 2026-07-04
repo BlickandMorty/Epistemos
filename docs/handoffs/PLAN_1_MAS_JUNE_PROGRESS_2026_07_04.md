@@ -208,3 +208,39 @@ editable, not fakeable), but the *Settings* text-model picker
 (`selectVeniceModel`, no tool-guard) can set a local model as the generation
 default, which June then uses. Remaining: the in-app Settings→GGUF-turn witness,
 deferred to a solo-app window.
+
+## 2026-07-04 ~17:38 — FIX 2 GGUF turn WITNESSED IN-APP (the switch clause closed)
+
+A real **local GGUF** turn now streams in the actual running sandboxed app —
+not spike-inferred. Method (minimal-UI, contention-safe): pre-set the gateway's
+own default-model UserDefault (`epistemos.june.generationModel` =
+`qwen3-4b-instruct-q4km`, the installed Qwen3-4B catalog id) before launch, so
+June boots with that GGUF as the active model — exercising the same
+`currentDefaultModelID()` → `makeStream` GGUF branch a Settings pick drives,
+without fighting a concurrent sibling app for Settings-picker clicks.
+
+Witnessed:
+- Composer model chip reads **"Qwen3 4B (on-device)"**; footer: "June runs
+  locally. Calls to Qwen3 4B (on-device) are private."
+  (`09-gguf-chip-active.png`).
+- Sent "Name three primary colors, comma-separated." → June's transcript
+  streamed a real Qwen3-4B answer: a `<think>…</think>` reasoning block
+  (Qwen3's signature thinking format) then **"red, blue, yellow"**
+  (`10-gguf-real-answer.png`).
+- Turn **survived** — no crash (mirrors the Pro crash concern), app alive
+  throughout.
+- Durable store proof: session model `qwen3-4b-instruct-q4km`, messageCount 2
+  (user + assistant).
+
+Owner default restored to `epistemos.cloud` after the witness.
+
+Known cosmetic (not fixed — working path, honest): Qwen3 emits its `<think>`
+reasoning inline and June renders it verbatim in the transcript. A future
+polish could strip `<think>…</think>` for local models before display, but the
+answer is correct and present, and the owner said leave working paths alone.
+
+**FIX-2 status:** shows real GGUF ✓ (picker + active chip), switches to real
+GGUF ✓ (default-lane + Settings path), real answer streams ✓, turn survives ✓.
+Composer quick-switch still honestly refuses no-tools models (June's
+tool-agent design). Cloud stays notSubscribed (Phase-4), audio honest-gated —
+both left as-is per directive.
