@@ -55,12 +55,13 @@ final class HologramController {
 
     func toggle() {
         ensureConfiguredFromSharedBootstrap()
-        // If minimized, Cmd+G restores to full overlay.
-        if overlay?.isMinimized == true {
-            overlay?.restore()
-            return
-        }
-
+        // Owner 2026-07-04: the old `isMinimized → restore()` branch was a
+        // silent no-op — restore() is dead code (`guard false`) since the
+        // 2026-05-10 unified-mini decision, so Cmd+G did NOTHING while the
+        // overlay was minimized or during the 10s soft-hide window (where
+        // isMinimized is still true but the window is ordered out). With
+        // the unified mini there is no separate full mode to restore to:
+        // Cmd+G is a plain visibility toggle.
         if overlay?.isVisible == true {
             hide()
             return
@@ -244,11 +245,11 @@ final class HologramController {
     }
 
     private func presentFullOverlay() {
-        if overlay?.isMinimized == true {
-            overlay?.restore()
-        } else {
-            overlay?.show()
-        }
+        // Owner 2026-07-04: restore() is a dead no-op (see toggle()) — routing
+        // the minimized state through it meant show()/revealPage() silently
+        // failed while minimized or soft-hidden. show() is the canonical
+        // presenter for the unified mini window (warm fast path + cold start).
+        overlay?.show()
         NSApp.activate(ignoringOtherApps: true)
     }
 

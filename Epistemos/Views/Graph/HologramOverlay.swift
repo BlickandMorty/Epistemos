@@ -1528,7 +1528,19 @@ final class HologramOverlay {
                         s.hideGraphRouteInspectorChrome()
                         continue
                     }
-                    if s.inspectorEmbeddedInGraph, s.inspectorHostView != nil {
+                    // Owner 2026-07-04 ("half screen split" fix): a node click
+                    // ALWAYS opens the embedded in-graph card. The ejected
+                    // external panel is per-selection state — it detaches the
+                    // inspector to a floating window LEFT OF the graph panel
+                    // (mid-screen on the right-pinned square), which reads as
+                    // a broken 50/50 split when it sticks across selections.
+                    // Persistent external inspection is what pinned panels
+                    // are for (pinCurrentNode).
+                    if s.inspectorHostView != nil {
+                        if !s.inspectorEmbeddedInGraph {
+                            s.inspectorEmbeddedInGraph = true
+                            s.hideMiniInspector()
+                        }
                         s.inspectorHostView?.isHidden = false
                         s.scheduleInspectorReposition()
                     } else if s.isMinimized {
@@ -2280,8 +2292,14 @@ final class HologramOverlay {
             // NSHostingView) so the SwiftUI compositing layer can't hide
             // it. Its frame + isHidden track inspectorView via
             // `syncInspectorEjectButtonLayout()`.
+            // Owner 2026-07-04: distinct pop-out glyph. This previously used
+            // "arrow.up.left.and.arrow.down.right" — the SAME symbol as the
+            // mini panel's "Restore to full size" expand button — so it read
+            // as "make the inspector bigger" and got clicked accidentally,
+            // silently switching node-click to the external floating panel
+            // (the "half screen split" report).
             let ejectButton = makeInspectorToggleButton(
-                symbol: "arrow.up.left.and.arrow.down.right",
+                symbol: "macwindow.on.rectangle",
                 help: "Pop inspector out of graph"
             )
             ejectButton.isHidden = true
