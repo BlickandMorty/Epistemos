@@ -202,8 +202,6 @@ final class JuneAgentGateway {
     // instance here would double-load the model.
     private let localGGUF = LocalGGUFQuickChatBackend.shared
     private var runningTurns: [String: Task<Void, Never>] = [:]
-    /// Per-session engine choice (from `session.create` params.model).
-    private var sessionModels: [String: String] = [:]
     private static let defaultModelKey = "epistemos.june.generationModel"
 
     // Local-lane instructions: honest capability tier per Plan 1-MAS §0.5.
@@ -235,7 +233,6 @@ final class JuneAgentGateway {
             let title = (params["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "New session"
             var chosenModel: String?
             if let model = params["model"] as? String, availableModelIDs().contains(model) {
-                sessionModels[sessionID] = model
                 chosenModel = model
             }
             store.createSession(id: sessionID, title: title, model: chosenModel)
@@ -280,13 +277,13 @@ final class JuneAgentGateway {
     private func startTurn(sessionID: String, prompt: String) {
         store.appendMessage(sessionID: sessionID, role: "user", content: prompt)
         emit(type: "message.start", sessionID: sessionID, payload: [:])
-        // Lane resolution survives relaunch: in-memory choice, then the
-        // persisted record (revalidated — a lane can disappear, e.g. an
-        // uninstalled GGUF), then the default.
+        // Lane resolution from the persisted record (single source of truth —
+        // written at session.create, survives relaunch), revalidated because a
+        // lane can disappear (e.g. an uninstalled GGUF), else the default.
         let persisted = store.model(for: sessionID).flatMap {
             availableModelIDs().contains($0) ? $0 : nil
         }
-        let modelID = sessionModels[sessionID] ?? persisted ?? currentDefaultModelID()
+        let modelID = persisted ?? currentDefaultModelID()
 
         let submittedAt = Date()
         let turn = Task { [weak self] in
@@ -375,9 +372,8 @@ final class JuneAgentGateway {
 
     // MARK: - Model catalog (drives June's composer model chip)
 
-    /// Drops per-session state when a session is deleted (bridge delete path).
+    /// Cancels an in-flight turn when a session is deleted (bridge delete path).
     func forgetSession(_ sessionID: String) {
-        sessionModels.removeValue(forKey: sessionID)
         runningTurns[sessionID]?.cancel()
         runningTurns[sessionID] = nil
     }
