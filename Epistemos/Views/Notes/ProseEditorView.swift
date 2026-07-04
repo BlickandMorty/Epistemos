@@ -55,6 +55,9 @@ struct ProseEditorView: View {
     /// NOTE-5: throttle prose version snapshots to ~90s so active typing doesn't spawn a
     /// version every save; captureVersionIfNeeded itself skips unchanged bodies.
     @State private var lastVersionCaptureAt: TimeInterval = 0
+    /// NOTE-8: true when the last durable disk write FAILED — surfaced to the user. The body
+    /// is still safe (in-memory + crash draft) and the next save retries.
+    @State private var saveError = false
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
     @State private var draftTask: Task<Void, Never>?  // NOTE-4: crash-recovery draft debounce
@@ -314,6 +317,22 @@ struct ProseEditorView: View {
                     syncBlocks(body: bodyText)
                     maybeAutoReadAloudOnOpen(noteId: page.id, body: bodyText)
                 }
+                // NOTE-8: surface a durable-write failure (disk full / permission) instead of
+                // only logging it — reassure the user their work is safe + will retry.
+                .overlay(alignment: .bottomTrailing) {
+                    if saveError {
+                        Label("Couldn't save to disk — your work is kept and will retry",
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.regularMaterial, in: Capsule())
+                            .padding(12)
+                            .transition(.opacity)
+                            .accessibilityAddTraits(.isStaticText)
+                    }
+                }
             } else {
                 ProgressView()
                     .controlSize(.small)
@@ -475,8 +494,10 @@ struct ProseEditorView: View {
             // modelContext.save() so any @Query cascade reads correct content.
             guard await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newValue) else {
                 Self.log.error("Failed to persist editor body for \(pageId, privacy: .public); keeping model state unchanged")
+                withAnimation { saveError = true }  // NOTE-8: surface the disk-write failure
                 return
             }
+            if saveError { withAnimation { saveError = false } }  // NOTE-8: durable write recovered
             scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
             NoteDraftStore.delete(pageId: pageId)  // NOTE-4: durable body is current; clear the crash draft
