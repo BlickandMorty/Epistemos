@@ -129,10 +129,6 @@ nonisolated enum ArxivPDFURLPolicy {
     private static let newStyleIDPattern = #"^\d{4}\.\d{4,5}(v\d+)?$"#
     private static let oldStyleIDPattern = #"^[A-Za-z-]+(\.[A-Za-z]{2})?/\d{7}(v\d+)?$"#
 
-    static func isAllowed(_ url: URL) -> Bool {
-        normalizedAllowedURL(url) != nil
-    }
-
     static func isAllowedHTTPSResponse(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(),
               scheme == "https" else {
