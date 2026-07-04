@@ -50,6 +50,21 @@ it):** `docs/research/MAS_RESEARCH_CORPUS_RAW_2026_07_03.md`.
    is Tauri + web frontend + Hermes-framework agent — zero portable SwiftUI. Surface B
    is **native SwiftUI in June's visual language**, measured from `.research-clones/june`
    (same source as the Pro track's bar + gradient).
+   **⚠️ JUNE VISUAL FIDELITY IS THE DEFINING ACCEPTANCE GATE (owner 2026-07-04) — NOT
+   "theme-aware".** Reading Epistemos theme tokens with generic SwiftUI (system fonts, SF
+   Symbols, a plain `RoundedRectangle`, opacity hierarchy) is a DEMO SKIN and does NOT pass.
+   The surface must actually LOOK like June: (a) June's **warm palette** ported to the
+   native theme (measure `.research-clones/june/src/styles/tokens.css` — `--brand:#936862`,
+   the warm oklch backgrounds/cards, per-theme); (b) the **June message bar / composer** —
+   its real container geometry, radius, fill, stroke, and soft shadow measured from
+   `june/src/components/agent/composer/ComposerEditor.tsx` (NOT `cornerRadius:18`+system
+   font); (c) the **hero-wash gradient** (`brand 11% oklch` over transparent, per the Pro
+   plan §5 recipe); (d) June's **type treatment + hierarchy** (fonts are commercial — ABC
+   Diatype/Martina/Berkeley Mono — so use the nearest licensed/native equivalents, but the
+   weights/sizes/rhythm must match June, not default SF sizing); (e) June's **card /
+   transcript / spacing warmth**. **DONE = a side-by-side screenshot against
+   `.research-clones/june` where a stranger says "same app family," verified by the owner.**
+   If that side-by-side isn't convincing, the phase is NOT done — do not report done.
 5. **Money:** free = everything local (ungated). Paid = Surface B cloud agent via
    StoreKit 2 → proxy verify → short-lived token. **No provider API keys in the
    binary, ever** (proxy holds them; tokens in Keychain).
@@ -283,11 +298,19 @@ verifyReceipt is deprecated — don't use it.
   turn streaming deltas into a stub view.
 - **Phase 1 — Surface A:** restore wave chat (`9aa497bc6`); Apple FM
   availability-gated + guardrail fallback; GGUF download/load lane (Qwen3-4B
-  default); RAM gating + chunking refusal. Ship-able alone.
+  default); RAM gating + chunking refusal. **ACCEPT (hard gate, §0.4): the surface
+  LOOKS like June in a side-by-side against `.research-clones/june` — warm palette +
+  the real June bar geometry + hero-wash + June type treatment — owner-confirmed. Wiring
+  green + theme-tinted generic SwiftUI is NOT done.**
+- **Phase 1.5 — June visual port (NEW, blocks "done" on Surfaces A+B):** port June's
+  actual look natively — measure tokens/bar/gradient/type/cards from the June clone (§0.4)
+  and apply across QuickChat (Surface A) + the workspace (Surface B). This is the
+  requirement the first pass skipped; it is not optional polish.
 - **Phase 2 — MLX retirement:** delete the MLX lane after parity (separate commits).
 - **Phase 3 — Paywall:** StoreKit 2 + proxy + short-lived tokens + Notifications V2.
 - **Phase 4 — Surface B:** native June-style workspace on the verified delegate
   events; MAS tool allowlist + 5.1.2(i) consent; approvals; session timeline.
+  **ACCEPT (hard gate): passes the §0.4 June side-by-side, owner-confirmed.**
 - **Phase 5 — Hardening + submission:** entitlement audit, review notes (weights =
   data; two-surface split; no subprocess), OOM soak on 16 GB, offline behavior.
 
