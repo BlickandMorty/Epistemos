@@ -106,7 +106,7 @@ final class ProAgentRuntimeSupervisor {
             status = .unavailable("Node runtime is not bundled or staged for this build.")
             return
         }
-        guard let webRoot = Self.resolvedWebRoot() else {
+        guard Self.resolvedWebRoot() != nil || Self.bundledWebTarball() != nil else {
             status = .unavailable("OpenChamber web bundle is not bundled or staged for this build.")
             return
         }
@@ -133,7 +133,6 @@ final class ProAgentRuntimeSupervisor {
         lifecycleTask = Task { [weak self, gooseChild] in
             await self?.run(
                 nodeBinary: nodeBinary,
-                webRoot: webRoot,
                 opencodeBinary: opencodeBinary,
                 uiPort: uiPort,
                 opencodePort: opencodePort,
@@ -200,12 +199,20 @@ final class ProAgentRuntimeSupervisor {
 
     private func run(
         nodeBinary: URL,
-        webRoot: URL,
         opencodeBinary: URL,
         uiPort: Int,
         opencodePort: Int,
         gooseChild: (binary: URL, port: Int, secret: String)?
     ) async {
+        // Resolve the web root: the bundled tarball (unpacked to AppSupport,
+        // version-stamped — a structured tree can't ride the synchronized
+        // resource copy, iter31 flattening lesson) wins over dev fallbacks.
+        guard let webRoot = await Self.resolveWebRootUnpackingIfNeeded(diagnostics: { [weak self] message in
+            Task { @MainActor in self?.recordDiagnostic(message) }
+        }) else {
+            status = .unavailable("OpenChamber web bundle could not be staged (tarball unpack failed and no dev checkout present).")
+            return
+        }
         // Perf doctrine §4: cold_open interval = start() -> .running.
         let coldOpenClockStart = ContinuousClock.now
         let coldOpenSignpostID = Sig.agentSurface.makeSignpostID()
@@ -660,10 +667,23 @@ final class ProAgentRuntimeSupervisor {
         return nil
     }
 
-    /// opencode engine binary. First choice is the Work lane's vendored runtime
-    /// (already bundled by build-opencode-runtime.sh — reuse, don't re-vendor);
-    /// DEBUG adds the developer install.
+    /// opencode engine binary. Matched-triple pin FIRST (openchamber-runtime,
+    /// staged by build-openchamber-web.sh at the SDK-matched version), then
+    /// the Work lane's vendored runtime, then DEBUG developer installs.
     nonisolated static func resolvedOpencodeBinary(bundle: Bundle = .main) -> URL? {
+        if let resources = bundle.resourceURL {
+            // Named opencode-triple (not opencode): both lanes' bin/ trees
+            // flatten to the Resources ROOT in the built app, and two files
+            // named `opencode` are a "Multiple commands produce" build error
+            // (hit live during packaging).
+            let triplePinned = [
+                resources.appendingPathComponent("openchamber-runtime/bin/opencode-triple"),
+                resources.appendingPathComponent("opencode-triple"),
+            ]
+            if let pinned = firstExecutable(in: triplePinned) {
+                return pinned
+            }
+        }
         if let bundled = WorkOpenCodeRuntime.bundledRuntimeURL(bundle: bundle) {
             return bundled
         }
@@ -685,6 +705,81 @@ final class ProAgentRuntimeSupervisor {
             return candidate
         }
         return nil
+    }
+
+    // MARK: - Bundled web tarball unpack (packaging)
+
+    nonisolated static func bundledWebTarball(bundle: Bundle = .main) -> URL? {
+        guard let resources = bundle.resourceURL else { return nil }
+        let candidates = [
+            resources.appendingPathComponent("openchamber-runtime/openchamber-web.tar.gz"),
+            // iter31: the synchronized resource copy can flatten subfolders.
+            resources.appendingPathComponent("openchamber-web.tar.gz"),
+        ]
+        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// Unpacks the bundled web tarball to Application Support (stamped by the
+    /// tarball's size+mtime so each staged version unpacks exactly once) and
+    /// returns the served root. Falls back to the dev-checkout resolution when
+    /// no tarball is bundled. Runs off the main actor (tar spawn + IO).
+    nonisolated static func resolveWebRootUnpackingIfNeeded(
+        bundle: Bundle = .main,
+        diagnostics: @escaping @Sendable (String) -> Void = { _ in }
+    ) async -> URL? {
+        guard let tarball = bundledWebTarball(bundle: bundle) else {
+            return resolvedWebRoot(bundle: bundle)
+        }
+        let fileManager = FileManager.default
+        guard let appSupport = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else { return resolvedWebRoot(bundle: bundle) }
+
+        let destRoot = appSupport
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("OpenChamberWeb", isDirectory: true)
+        let unpackedRoot = destRoot.appendingPathComponent("openchamber-web", isDirectory: true)
+        let stampFile = destRoot.appendingPathComponent(".unpack-stamp")
+
+        let attrs = try? fileManager.attributesOfItem(atPath: tarball.path)
+        let size = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+        let mtime = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let expectedStamp = "\(size)-\(Int(mtime))"
+
+        if let existing = try? String(contentsOf: stampFile, encoding: .utf8),
+           existing == expectedStamp,
+           fileManager.fileExists(atPath: unpackedRoot.appendingPathComponent("server/index.js").path) {
+            return unpackedRoot
+        }
+
+        diagnostics("[packaging] unpacking bundled web tarball (\(size / 1_048_576) MB) to Application Support…")
+        let success = await Task.detached(priority: .userInitiated) { () -> Bool in
+            let fm = FileManager.default
+            try? fm.removeItem(at: unpackedRoot)
+            try? fm.createDirectory(at: destRoot, withIntermediateDirectories: true)
+            let tar = Process()
+            tar.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+            tar.arguments = ["-xzf", tarball.path, "-C", destRoot.path]
+            do {
+                try tar.run()
+                tar.waitUntilExit()
+                return tar.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
+
+        guard success,
+              fileManager.fileExists(atPath: unpackedRoot.appendingPathComponent("server/index.js").path) else {
+            diagnostics("[packaging] tarball unpack FAILED — falling back to dev checkout resolution.")
+            return resolvedWebRoot(bundle: bundle)
+        }
+        try? expectedStamp.write(to: stampFile, atomically: true, encoding: .utf8)
+        diagnostics("[packaging] web bundle unpacked and stamped (\(expectedStamp)).")
+        return unpackedRoot
     }
 
     /// Keychain -> env bridge for the opencode child (goosed keeps its own
