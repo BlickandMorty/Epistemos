@@ -234,6 +234,9 @@ struct JuneAgentSurfaceView: View {
                     .tint(.secondary)
             }
         }
+        .onChange(of: colorScheme) { _, scheme in
+            Self.applyAppearance(scheme, to: JuneAgentSurfaceHolder.shared.webView)
+        }
         .task(id: retryAttempt) {
             let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared
@@ -253,6 +256,10 @@ struct JuneAgentSurfaceView: View {
             }
             holder.webView?.navigationDelegate = JuneNavigationDelegate.shared
             holder.webView?.uiDelegate = JuneNavigationDelegate.shared
+            // Pin June's prefers-color-scheme to the app's resolved theme
+            // (RootView .preferredColorScheme), NOT the OS — otherwise a dark
+            // Epistemos theme on a light OS would render June light.
+            Self.applyAppearance(colorScheme, to: holder.webView)
             // Re-mounts after the first paint reveal immediately (warm path).
             if holder.webView?.isLoading == false && holder.loadStarted {
                 revealed = true
@@ -270,6 +277,12 @@ struct JuneAgentSurfaceView: View {
     /// immediately typeable — deferred a tick so the representable is attached
     /// to the window, and only when it actually is (never steals focus from
     /// another window).
+    /// Makes June's `prefers-color-scheme` follow the Epistemos theme by
+    /// pinning the webview's NSAppearance to the SwiftUI-resolved scheme.
+    private static func applyAppearance(_ scheme: ColorScheme, to webView: WKWebView?) {
+        webView?.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+    }
+
     private static func handOffFocus(to webView: WKWebView?) {
         DispatchQueue.main.async {
             guard let webView, let window = webView.window else { return }
