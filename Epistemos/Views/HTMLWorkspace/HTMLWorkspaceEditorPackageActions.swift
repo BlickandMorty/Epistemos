@@ -334,16 +334,26 @@ extension HTMLWorkspaceEditorView {
             statusText = "HTML export cancelled"
             return
         }
-        do {
-            let html = HTMLWorkspacePreviewDocument.render(
-                package: package,
-                theme: previewTheme,
-                resourceMode: .inlinePackageAssets
-            )
-            try Data(html.utf8).write(to: destination, options: [.atomic])
-            statusText = package.routes.isEmpty ? "HTML saved" : "HTML saved (index route only)"
-        } catch {
-            statusText = failedStatus("HTML export", error: error)
+        // HW-EXPORT-1 (audit 2026-07-04): render (which base64-inlines every package asset) + the
+        // disk write ran synchronously on @MainActor. render is nonisolated and the package is
+        // Sendable (same as HW-PKG-1 / exportPDF), so do it off-main and hop the status back.
+        let exportPackage = package
+        let theme = previewTheme
+        let hadRoutes = !package.routes.isEmpty
+        Task {
+            do {
+                try await Task.detached {
+                    let html = HTMLWorkspacePreviewDocument.render(
+                        package: exportPackage,
+                        theme: theme,
+                        resourceMode: .inlinePackageAssets
+                    )
+                    try Data(html.utf8).write(to: destination, options: [.atomic])
+                }.value
+                statusText = hadRoutes ? "HTML saved (index route only)" : "HTML saved"
+            } catch {
+                statusText = failedStatus("HTML export", error: error)
+            }
         }
     }
 
@@ -391,10 +401,6 @@ extension HTMLWorkspaceEditorView {
         return "\(action) failed: \(detail)"
     }
 
-    var selectedPaneSourceSnippet: String {
-        sourceSnippet(for: selectedPane)
-    }
-
     func documentSurface(for pane: HTMLWorkspaceSourcePane) -> DocumentSurface {
         DocumentSurface(
             id: package.manifest.id,
@@ -405,12 +411,6 @@ extension HTMLWorkspaceEditorView {
             capabilities: [.read, .write, .patch, .exportHTML, .exportPDF, .importContent, .preview],
             contentHash: contentHash
         )
-    }
-
-    func sourceSnippet(for pane: HTMLWorkspaceSourcePane) -> String {
-        let source = sourceText(for: pane)
-        guard source.count > 4_000 else { return source }
-        return String(source.prefix(4_000))
     }
 
     func sourceRange(for pane: HTMLWorkspaceSourcePane) -> DocumentSourceRange {

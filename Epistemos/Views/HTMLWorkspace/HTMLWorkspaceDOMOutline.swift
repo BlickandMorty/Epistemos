@@ -25,10 +25,6 @@ nonisolated enum HTMLWorkspaceDOMOutline {
         return tags.joined(separator: "\n")
     }
 
-    static func nodeCount(in html: String) -> Int {
-        tagSummaries(in: html).count
-    }
-
     static func snapshot(for html: String, source: HTMLWorkspaceDOMSnapshot.Source = .source) -> HTMLWorkspaceDOMSnapshot {
         let tags = tagSummaries(in: html)
         return HTMLWorkspaceDOMSnapshot(
@@ -38,10 +34,15 @@ nonisolated enum HTMLWorkspaceDOMOutline {
         )
     }
 
+    // HW-DOM-1 (audit 2026-07-04): compiled ONCE like its id/class siblings below — this outer
+    // tag-scan regex was rebuilt on every tagSummaries() call, which runs on the main thread on
+    // the per-keystroke path (the toolbar reads domNodeCount; each package edit nils
+    // liveDOMSnapshot), re-adding the typing lag the siblings were hoisted to fix.
+    private static let tagSummaryRegex = try? NSRegularExpression(
+        pattern: #"<\s*([A-Za-z][A-Za-z0-9:-]*)([^>]*)>"#)
+
     private static func tagSummaries(in html: String) -> [String] {
-        guard let expression = try? NSRegularExpression(
-            pattern: #"<\s*([A-Za-z][A-Za-z0-9:-]*)([^>]*)>"#
-        ) else { return [] }
+        guard let expression = tagSummaryRegex else { return [] }
         let range = NSRange(html.startIndex..<html.endIndex, in: html)
         let matches = expression.matches(in: html, range: range)
         return matches.compactMap { match in
