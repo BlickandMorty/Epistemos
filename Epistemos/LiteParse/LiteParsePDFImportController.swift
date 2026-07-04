@@ -119,6 +119,12 @@ enum LiteParsePDFImportController {
             // notes into instant/ambient recall, so an imported PDF wasn't recallable until a
             // rebuild. Index it now — same lineage as GAP-1 (FTS) + INT-3 (Spotlight); markdown in hand.
             AppBootstrap.shared?.instantRecallService.indexNote(noteId: page.id, text: files.markdown)
+            // FSRS (opt-in): enroll the imported PDF into spaced-repetition review IF the user
+            // turned it on in Settings (epistemos.fsrs.autoEnroll, default false). Same gate as the
+            // arXiv import path.
+            if UserDefaults.standard.bool(forKey: "epistemos.fsrs.autoEnroll") {
+                _ = await FSRSDecayStore.shared.ensure(noteId: page.id)
+            }
             return .imported(
                 pageID: page.id,
                 title: page.title,
