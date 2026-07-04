@@ -265,6 +265,15 @@ struct LandingView: View {
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
             scheduleWelcomeBackPresentationIfNeeded()
+            #if DEBUG && !EPISTEMOS_APP_STORE
+            // Repeatable agent-surface acceptance runs (Plan 1-PRO R7 phase
+            // checkpoints): jump straight to the Agent page when launched with
+            // EPISTEMOS_OPEN_AGENT_ON_LAUNCH=1. Debug-only, Pro-only.
+            if ProcessInfo.processInfo.environment["EPISTEMOS_OPEN_AGENT_ON_LAUNCH"] == "1",
+               ui.homeContent != .agent {
+                ui.homeContent = .agent
+            }
+            #endif
         }
         // Phase 1 — graphViewLocation mid-session flip handler. When the
         // user changes Settings → Graph → Graph view location while the
