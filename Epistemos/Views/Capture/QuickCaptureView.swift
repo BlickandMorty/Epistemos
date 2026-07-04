@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -77,6 +78,8 @@ struct QuickCaptureView: View {
     @Binding var isPresented: Bool
 
     @State private var captureText = ""
+    /// GAP-27: clipboard text detected on appear (opt-in paste); nil when empty/too long.
+    @State private var clipboardText: String?
     @State private var isProcessing = false
     @State private var captureResult: CaptureResult?
     @State private var errorMessage: String?
@@ -179,6 +182,14 @@ struct QuickCaptureView: View {
                 }
             }
             isTextFieldFocused = true
+            // GAP-27: detect clipboard text once, for the opt-in paste affordance.
+            if let clip = NSPasteboard.general.string(forType: .string),
+               !clip.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               clip.count <= 20_000 {
+                clipboardText = clip
+            } else {
+                clipboardText = nil
+            }
         }
         .onDisappear {
             cleanupTransientCaptureState()
@@ -280,11 +291,26 @@ struct QuickCaptureView: View {
                 .frame(maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if captureText.isEmpty {
-                        Text("Capture a thought, meeting note, idea...")
-                            .foregroundStyle(.tertiary)
-                            .padding(.leading, 17)
-                            .padding(.top, 14)
-                            .allowsHitTesting(false)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Capture a thought, meeting note, idea...")
+                                .foregroundStyle(.tertiary)
+                                .allowsHitTesting(false)
+                            // GAP-27 (audit 2026-07-03): opt-in clipboard paste (no auto-seed,
+                            // no preview) — turns "copy anywhere → Quick Capture" into a note.
+                            if let clip = clipboardText {
+                                Button {
+                                    captureText = clip
+                                    isTextFieldFocused = true
+                                } label: {
+                                    Label("Paste clipboard", systemImage: "doc.on.clipboard")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.leading, 17)
+                        .padding(.top, 14)
                     }
                 }
 
