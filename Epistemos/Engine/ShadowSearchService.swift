@@ -338,7 +338,10 @@ public actor ShadowSearchService: ShadowSearchServicing {
             "domain=\(domain.wireValue)"
         )
         do {
-            let hits = try client.search(query: text, domain: domain, limit: limit)
+            // SS-2: send the TRIMMED query to the FFI — the guard + all metrics above already use
+            // normalizedText; passing raw `text` leaked leading/trailing whitespace into the index
+            // query (inconsistent with what we validated and measured).
+            let hits = try client.search(query: normalizedText, domain: domain, limit: limit)
             let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1_000
             Sig.storage.endInterval("shadow.search.total.ms", totalSignpostState)
 
@@ -452,7 +455,8 @@ public actor ShadowSearchService: ShadowSearchServicing {
         guard !normalizedText.isEmpty, limit > 0 else { return (hits: [], errorMessage: nil) }
         let start = CFAbsoluteTimeGetCurrent()
         do {
-            let hits = try client.search(query: text, domain: domain, limit: limit)
+            // SS-2: trimmed query to the FFI (consistent with the guard above).
+            let hits = try client.search(query: normalizedText, domain: domain, limit: limit)
             ShadowSearchDiagnostics.shared.recordSuccess(
                 domain: domain,
                 hitCount: hits.count,
