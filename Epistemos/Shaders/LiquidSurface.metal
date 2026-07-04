@@ -55,6 +55,38 @@ static inline float fbm(float2 p) {
     return half4(mix(color.rgb, sheen.rgb, a), color.a);
 }
 
+// D) PIXEL-ART VECTOR-SQUARE GRADIENT — a blocky "pixel-art blur gradient" that drifts
+// slowly and gets MORE dynamic near the cursor (owner 2026-07-03). Colors stay close to
+// the base tints (subtle). `cursor` is view-space; pass (-1,-1) when the mouse is absent.
+[[ stitchable ]] half4 pixelGradient(float2 position, half4 color,
+                                     float time, float2 size, float2 cursor,
+                                     half4 tintA, half4 tintB, float intensity) {
+    float2 sz = max(size, float2(1.0, 1.0));
+    float2 uv = position / sz;
+
+    // Quantize to a grid of square cells (the pixel-art look).
+    const float cells = 20.0;
+    float2 cellCenter = (floor(uv * cells) + 0.5) / cells;
+
+    // Slow drifting diagonal gradient value per cell.
+    float g = 0.5 + 0.5 * sin((cellCenter.x + cellCenter.y) * 5.0 + time * 0.30);
+
+    // Cursor reactivity: cells near the mouse brighten + ripple, so the field feels
+    // pulled toward the cursor as it moves.
+    float cursorAmt = 0.0;
+    if (cursor.x >= 0.0) {
+        float2 cur = cursor / sz;
+        float d = distance(cellCenter, cur);
+        float prox = smoothstep(0.34, 0.0, d);          // 1 at cursor → 0 far
+        g += prox * 0.30 * sin(time * 1.4 - d * 10.0);
+        cursorAmt = prox;
+    }
+
+    half4 grad = mix(tintA, tintB, half(clamp(g, 0.0, 1.0)));
+    half a = half(intensity * (1.0 + cursorAmt * 1.2)) * grad.a;   // stronger under the cursor
+    return half4(mix(color.rgb, grad.rgb, a), color.a);
+}
+
 // C) SUBTLE DOMAIN-WARP GRADIENT — wobbling vertical theme gradient (panels/text).
 // intensity ~0.14.
 [[ stitchable ]] half4 domainWarpGradient(float2 position, half4 color,

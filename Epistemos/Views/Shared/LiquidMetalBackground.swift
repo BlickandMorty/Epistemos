@@ -32,20 +32,25 @@ struct LiquidMetalSurface: View {
     let accent: Color
     var intensity: Double = 0.14
     var active: Bool = true
+    /// Cursor position in THIS view's space (nil = mouse absent). Drives the pixel
+    /// gradient's cursor reactivity — the field pulls toward the mouse as it moves.
+    var cursor: CGPoint?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let cursorPoint = cursor ?? CGPoint(x: -1, y: -1)
         if active && !reduceMotion {
-            // ~30fps is plenty for a slow aurora and halves GPU/power vs display-rate.
+            // ~30fps is plenty for a slow gradient and halves GPU/power vs display-rate.
             TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600)
                 Rectangle()
                     .fill(base)
                     .visualEffect { effect, proxy in
                         effect.colorEffect(
-                            ShaderLibrary.auroraFlow(
+                            ShaderLibrary.pixelGradient(
                                 .float(Float(t)),
                                 .float2(proxy.size),
+                                .float2(cursorPoint),
                                 .color(accent),
                                 .color(base),
                                 .float(Float(intensity))

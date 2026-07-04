@@ -90,6 +90,9 @@ struct LandingView: View {
     @State private var showingArxivSearch = false
     @State private var landingFeatureStatusMessage: String?
     @State private var showingLandingFeatureStatus = false
+    /// Owner 2026-07-03: live cursor position (landing-local) so the backdrop + greeting
+    /// react to the mouse. Updated by .onContinuousHover on the root.
+    @State private var cursorLocation: CGPoint?
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -326,6 +329,13 @@ struct LandingView: View {
             landingGreetingReturnTask = nil
             activeLandingInlineCommand = nil
         }
+        .onContinuousHover(coordinateSpace: .local) { phase in
+            // Owner 2026-07-03: feed the live cursor to the pixel-gradient backdrop + greeting.
+            switch phase {
+            case .active(let location): cursorLocation = location
+            case .ended: cursorLocation = nil
+            }
+        }
         .background {
             // Hidden Cmd-N shortcut creates a Markdown note, then asks which surface to open.
             Button(action: {
@@ -423,7 +433,8 @@ struct LandingView: View {
             base: AppWindowBackdropStyle.background(for: theme),
             accent: theme.resolved.accent.color,
             intensity: 0.14,
-            active: !ui.windowOccluded
+            active: !ui.windowOccluded,
+            cursor: cursorLocation
         )
         .ignoresSafeArea()
     }
