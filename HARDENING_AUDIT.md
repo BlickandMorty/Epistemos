@@ -552,3 +552,36 @@ FLAGGED (OUT OF MY LANE — Vault/ is Agent B's + it also handles agent channels
 STATE: schema-evolution safety comprehensively swept — @Model columns (migration-brick: SDNoteInsight + CompanionModel fixed) + Codable blobs (all graceful). With the earlier silent-loss + concurrency + perf audits, the trust-critical data path is thoroughly hardened.
 
 - KATEX RENDERING VERIFIED 2026-07-04 (boundary: web content / untrusted math input): both KaTeX surfaces handle malformed + malicious math safely, NO fix needed. Swift EpdocKaTeXPreview uses katex.renderToString(..., throwOnError:false) (graceful inline error). Tiptap @tiptap/extension-mathematics 3.24 (katex 0.16.45) wraps rendering in try/catch (graceful; a malformed $...$ cannot break the editor). Both inherit KaTeX defaults trust:false (blocks \href/\includegraphics/\htmlClass injection incl. javascript: URLs) + maxExpand:1000 (macro-expansion DoS bound). Editor confirmed by owner to render $x^2$. An explicit js-editor throwOnError:false would be redundant with the try/catch (not worth a bundle rebuild). arXiv math gap is separate (PDF import, research-import lane).
+
+## ═══════ AGENT-C SESSION COMPLETE — 2026-07-04 (loop stopped by owner) ═══════
+Owner stopped the continuous hardening loop. Final handoff for the Agent-C lane (data/sync/search hardening + Settings/Models/Intents gap-filling + perf). Everything below is build-verified + committed with evidence.
+
+SHIPPED — data-loss / whole-store safety (trust-critical, priority #1):
+- SDNoteInsight + CompanionModel @Model migration-bricks fixed — each was ONE non-defaulted stored column away from failing ModelContainer(for:) and silently dropping the ENTIRE vault/graph/chat store into in-memory recovery on upgrade.
+- Vault-import over-delete on a PARTIAL directory scan (fm.enumerator errorHandler → skip the destructive deletion pass when a subtree is unreadable).
+- exportPage new-file save-failure rollback + in-flight-path TOCTOU dedup; clearVaultData rollback; QuickCapture false-failure duplicates / reentrancy / dismiss-loss.
+
+SHIPPED — search:
+- Block search index WIRED (indexed_blocks had NO production writer → block search + the RRF `block` fusion source silently returned empty). Then RECONCILED for perf (~2 vs ~2N FTS tokenizations per save). sqlite3-proven + a regression test added.
+- RRF rollup correctness (windowed CTE replacing unsound bare-column GROUP BY), snippet column fix, CJK recall (short CJK tokens no longer dropped).
+
+SHIPPED — connect-disconnected / Settings gap-fills (per owner "all features connected"):
+- Friction telemetry: FrictionHealthRow surfaces the collected-into-a-void per-keystroke stream + a Data-Protection toggle controls collection (dead reader + dead setting both connected).
+- Live Notes on/off control (its reader's comment literally asked for a Settings toggle that was never built).
+- Welcome-Back-summary refresh-on-launch toggle.
+- Settings honesty text (perf modes correctly labelled "not yet wired").
+
+SHIPPED — sessions/views/models: SessionListView/SessionDetailView .task(id:) correctness (no more stale content on switch), Delete/Archive undo isArchived preservation, SDGraphNode @Transient meta stale-cache guard.
+
+VERIFIED CLEAN (audits, no fix needed): concurrency-race (race-free), Codable-decode-resilience (Models/** uniformly graceful, zero force-unwrap decodes), Journal/Cost/Capture views (orphaned/no-persistence), the broader settings surface (owner already runs wire-or-remove discipline).
+
+DEFERRED — need the OWNER's decision (documented, deliberately NOT shipped):
+- DATA-IMPORT-1 (HIGH): importVault shares its ModelContext with concurrent savers, so a batch-save-failure mid-import can orphan pages / lose a concurrent edit. Fix = give the import its own child ModelContext (the pattern already exists in VaultSyncService's version-capture). NOT shipped because the race AND normal-import correctness can't be verified headless — ship only alongside an in-app import spot-check.
+- enableLaunchWelcomeBackModelRefresh: now EXPOSED (see toggle above).
+- FINDING 3 (Cognitive intents return success as a no-op): needs a cross-lane conversation resolver.
+
+FLAGGED FOR OTHER LANES (out of Agent-C's lane — did NOT touch):
+- ConversationPersistence.loadTurns (Vault/ = Agent B; also handles agent channels): `.map { try decoder.decode(ConversationTurn.self, ...) }` aborts the WHOLE session transcript on one corrupt/truncated .jsonl line. Fix = `.compactMap { try? decoder.decode(...) }` (matches the AnswerPacketStore.swift:56/72 skip-tolerant precedent). LOW-MED (degraded, not a crash; raw .jsonl persists).
+
+Build environment: the shared DerivedData had a build-database attach race + a shared cargo-target link race under 4-5 concurrent lane builds; the durable workaround was an isolated `-derivedDataPath /tmp/agentC-dd`. Full integration build (Agent-C fixes + all other lanes' current commits) verified ** BUILD SUCCEEDED ** on the live branch.
+- HW-CHAT-1 (ChatContextSource per-row ISO8601DateFormatter hoist) FIXED + BUILD-VERIFIED 2026-07-04 (** BUILD SUCCEEDED **, isolated DD, 0 errors): recentChatCandidate allocated a fresh ISO8601DateFormatter per candidate row; hoisted to a static let (enclosing enum HTMLWorkspaceDataFeedContextSources is MainActor-isolated → concurrency-safe, no nonisolated(unsafe)). Also appended 3 cross-agent process lessons to LESSONS.md (isolated-DD resolution; git-index sweep hazard + atomic-commit; deep-audit-beats-broad-scout).

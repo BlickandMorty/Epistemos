@@ -695,6 +695,10 @@ private struct GeneralDetailView: View {
     // can flip the toggle in Settings" — but the toggle was never built. Off by
     // default (matches the raw UserDefaults.bool reader).
     @AppStorage("epistemos.liveNotes.enabled") private var liveNotesEnabled = false
+    // epistemos.enableLaunchWelcomeBackModelRefresh gates whether the Landing
+    // "Welcome Back" summary is REGENERATED on each launch vs. showing the last
+    // saved one (read at AppBootstrap.refreshWelcomeBackSummary:2176). Default off.
+    @AppStorage("epistemos.enableLaunchWelcomeBackModelRefresh") private var regenerateWelcomeBackOnLaunch = false
     private var settingsTheme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
@@ -751,6 +755,10 @@ private struct GeneralDetailView: View {
                 Text("AI-generated summaries describe what you're working on. Runs entirely on-device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Toggle("Refresh Welcome Back summary on launch", isOn: $regenerateWelcomeBackOnLaunch)
+                SettingsDescriptionText(
+                    text: "When on, the Landing \u{201C}Welcome Back\u{201D} summary is regenerated on each launch for freshness (a brief extra startup pass). Off (default) shows the last saved summary instantly."
+                )
             }
 
             Section("Live Notes") {
