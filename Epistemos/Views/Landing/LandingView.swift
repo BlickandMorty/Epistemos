@@ -427,7 +427,7 @@ struct LandingView: View {
                 accent: theme.resolved.accent.color,
                 // Owner 2026-07-04: slightly less noticeable in BOTH modes (light dialed down
                 // more — a bright base needs less); still visible, just calmer.
-                intensity: theme.isDark ? 0.13 : 0.18,
+                intensity: theme.isDark ? 0.11 : 0.15,
                 active: !ui.windowOccluded,
                 cursor: cursorLocation
             )
@@ -435,7 +435,8 @@ struct LandingView: View {
                 // Feed the shared cursor (backdrop is non-hit-testing, so the field's own
                 // hover can't fire) so the wake reveals words again.
                 LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme, cursor: cursorLocation)
-                    .blendMode(.plusLighter)  // owner 2026-07-04: blend the wake INTO the gradient (not a distinct overlay)
+                    // owner 2026-07-04: removed .plusLighter — additive blend made the wake POP
+                    // brighter, not blend. It stays subtle via very low opacity instead.
             }
         }
         .ignoresSafeArea()

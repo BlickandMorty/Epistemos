@@ -596,7 +596,7 @@ struct LandingASCIIWakeField: View {
                         )
                         .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                         .lineSpacing(lineSpacing)
-                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.14 : 0.12))  // owner 2026-07-04: barely visible — blend into the waves
+                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.10 : 0.09))  // owner 2026-07-04: barely visible — blend into the waves
                     }
                 }
             }
