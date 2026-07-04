@@ -15,7 +15,12 @@ final class JuneSchemeHandler: NSObject, WKURLSchemeHandler {
     private static let log = Logger(subsystem: "com.epistemos", category: "JuneSchemeHandler")
 
     private let root: URL
-    private let readQueue = DispatchQueue(label: "com.epistemos.june-scheme-read", qos: .userInitiated)
+    // Concurrent: a web bundle requests many assets at once on cold load, and
+    // each Data(contentsOf:) read is independent. The task registry stays on
+    // the main actor, so parallel reads are safe and shave cold-open latency.
+    private let readQueue = DispatchQueue(
+        label: "com.epistemos.june-scheme-read", qos: .userInitiated, attributes: .concurrent
+    )
     /// Live tasks, kept on the main actor (WKURLSchemeTask is not Sendable).
     /// Removal on stop doubles as the didReceive-after-stop crash guard.
     private var activeTasks: [ObjectIdentifier: WKURLSchemeTask] = [:]
