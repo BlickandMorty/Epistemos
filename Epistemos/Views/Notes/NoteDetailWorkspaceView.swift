@@ -2523,8 +2523,10 @@ struct NoteDetailWorkspaceView: View {
                     Label("Copy Wikilink", systemImage: "link.badge.plus")
                 }
                 Button {
-                    (NSApp.delegate as? EpistemosAppDelegate)?
-                        .revealCurrentDocumentInKnowledgeGraph(nil)
+                    // INT-2 fix: revealCurrentDocumentInKnowledgeGraph needs an Epdoc doc and
+                    // resolves only .document nodes → opened an UNFOCUSED graph for a plain
+                    // note. revealPage resolves the .note node (sourceId == page.id).
+                    HologramController.shared.revealPage(page.id)
                 } label: {
                     Label("Reveal in Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }

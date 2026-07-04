@@ -308,6 +308,7 @@ enum ArxivIngestService {
                     updatedAt: page.updatedAt
                 )
             }
+            SpotlightIndexer.index(page)  // INT-3: donate to Spotlight too (macOS system search)
             return .imported(
                 pageID: page.id,
                 title: page.title,
