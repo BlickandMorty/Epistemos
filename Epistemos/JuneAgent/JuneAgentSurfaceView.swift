@@ -1,0 +1,213 @@
+#if EPISTEMOS_APP_STORE
+import AppKit
+import SwiftUI
+import WebKit
+import os
+
+/// The MAS Agent room: the real vendored June web UI in a WKWebView, backed by
+/// the in-process agent_core/local-engine gateway (Plan 1-MAS §1-§3).
+///
+/// Instant-open recipe (perf doctrine §1): the WKWebView + bridge live in a
+/// process-lifetime holder — created eagerly on first mount, NEVER torn down
+/// on tab-switch — with a placeholder shown until the SPA paints.
+@MainActor
+final class JuneAgentSurfaceHolder {
+    static let shared = JuneAgentSurfaceHolder()
+
+    private static let log = Logger(subsystem: "com.epistemos", category: "JuneAgentSurface")
+
+    private(set) var webView: WKWebView?
+    private(set) var bridge: JuneAgentBridge?
+    private(set) var loadStarted = false
+    var failureMessage: String?
+
+    private init() {}
+
+    /// Idempotent: builds the webview + bridge once and starts the load.
+    func ensureStarted() {
+        guard webView == nil else { return }
+        guard let location = JuneWebAssets.resolve() else {
+            failureMessage = "The June agent bundle is missing from this build."
+            return
+        }
+        guard let shimSource = try? String(contentsOf: location.shimURL, encoding: .utf8) else {
+            failureMessage = "The June bridge shim could not be loaded."
+            return
+        }
+
+        let bridge = JuneAgentBridge()
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent()
+        config.setURLSchemeHandler(JuneSchemeHandler(root: location.distRoot), forURLScheme: JuneSchemeHandler.scheme)
+
+        let ucc = config.userContentController
+        // Order matters: host flag first, then persisted-UI seeds, then the shim.
+        ucc.addUserScript(WKUserScript(
+            source: "window.__EPISTEMOS_HOST__ = true;",
+            injectionTime: .atDocumentStart, forMainFrameOnly: false
+        ))
+        // Non-persistent store resets localStorage each launch; June's
+        // first-run wizard (dictation/meeting permissions — not part of the
+        // agent room) is skipped deterministically. Keys/version from the
+        // pinned fork's src/lib/onboarding.ts.
+        ucc.addUserScript(WKUserScript(
+            source: """
+            try {
+              localStorage.setItem("june.onboarding.completedVersion", "7");
+              localStorage.setItem("june.agent.riskAcknowledged", "true");
+            } catch (e) {}
+            """,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        ucc.addUserScript(WKUserScript(source: shimSource, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        // R6 font substitution: June's commercial fonts (Berkeley Mono,
+        // ABC Diatype, Martina Plantijn) are never served (scheme handler
+        // 404s them); these local() faces keep the literal family names
+        // resolving against Apple-bundled equivalents.
+        ucc.addUserScript(WKUserScript(
+            source: """
+            (function () {
+              var style = document.createElement("style");
+              style.textContent = [
+                '@font-face { font-family: "ABC Diatype"; src: local("Helvetica Neue"); font-weight: 400; }',
+                '@font-face { font-family: "ABC Diatype"; src: local("Helvetica Neue Medium"); font-weight: 500; }',
+                '@font-face { font-family: "Martina Plantijn"; src: local("Iowan Old Style"); }',
+                '@font-face { font-family: "Berkeley Mono"; src: local("Menlo-Regular"); font-style: normal; }',
+                '@font-face { font-family: "Berkeley Mono"; src: local("Menlo-Italic"); font-style: oblique; }',
+              ].join("\\n");
+              document.documentElement.appendChild(style);
+            })();
+            """,
+            injectionTime: .atDocumentEnd, forMainFrameOnly: true
+        ))
+        #if DEBUG
+        ucc.addUserScript(WKUserScript(
+            source: """
+            (function () {
+              function send(level, args) {
+                try {
+                  var text = Array.prototype.map.call(args, function (a) {
+                    if (typeof a === "string") return a;
+                    try { return JSON.stringify(a); } catch (e) { return String(a); }
+                  }).join(" ");
+                  window.webkit.messageHandlers.\(JuneAgentBridge.consoleChannel).postMessage(level + ": " + text);
+                } catch (e) {}
+              }
+              var origError = console.error, origWarn = console.warn;
+              console.error = function () { send("error", arguments); origError.apply(console, arguments); };
+              console.warn = function () { send("warn", arguments); origWarn.apply(console, arguments); };
+              window.addEventListener("error", function (e) {
+                send("uncaught", [String(e.message)]);
+              });
+            })();
+            """,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        ucc.add(bridge, name: JuneAgentBridge.consoleChannel)
+        #endif
+        ucc.add(bridge, name: JuneAgentBridge.invokeChannel)
+        ucc.add(bridge, name: JuneAgentBridge.gatewayChannel)
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.underPageBackgroundColor = .clear
+        bridge.runJS = { [weak webView] js in
+            webView?.evaluateJavaScript(js) { _, error in
+                if let error {
+                    Self.log.warning("bridge JS eval failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        self.bridge = bridge
+        self.webView = webView
+
+        guard let entry = JuneSchemeHandler.entryURL else {
+            failureMessage = "The June entry URL is invalid."
+            return
+        }
+        webView.load(URLRequest(url: entry))
+        loadStarted = true
+        Self.log.info("June surface load started (root: \(location.distRoot.path, privacy: .public))")
+    }
+}
+
+/// Pins navigation to the june:// origin; external links open in the default
+/// browser (hardening doctrine §3.A — never weaken origin pinning).
+@MainActor
+private final class JuneNavigationDelegate: NSObject, WKNavigationDelegate {
+    static let shared = JuneNavigationDelegate()
+
+    var onFirstPaint: (() -> Void)?
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        if url.scheme == JuneSchemeHandler.scheme {
+            decisionHandler(.allow)
+            return
+        }
+        if url.scheme == "http" || url.scheme == "https" {
+            NSWorkspace.shared.open(url)
+        }
+        decisionHandler(.cancel)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        onFirstPaint?()
+    }
+}
+
+struct JuneAgentSurfaceView: View {
+    @State private var revealed = false
+    @State private var failureMessage: String?
+
+    var body: some View {
+        ZStack {
+            if let failureMessage {
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.secondary)
+                    Text(failureMessage)
+                        .foregroundStyle(.secondary)
+                }
+            } else if let webView = JuneAgentSurfaceHolder.shared.webView {
+                JuneWebViewRepresentable(webView: webView)
+                    .opacity(revealed ? 1 : 0)
+            }
+            if failureMessage == nil && !revealed {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .task {
+            let holder = JuneAgentSurfaceHolder.shared
+            holder.ensureStarted()
+            failureMessage = holder.failureMessage
+            guard failureMessage == nil else { return }
+            JuneNavigationDelegate.shared.onFirstPaint = {
+                withAnimation(.easeIn(duration: 0.15)) { revealed = true }
+            }
+            holder.webView?.navigationDelegate = JuneNavigationDelegate.shared
+            // Re-mounts after the first paint reveal immediately (warm path).
+            if holder.webView?.isLoading == false && holder.loadStarted {
+                revealed = true
+            }
+        }
+        // Deliberately no teardown on disappear: the WebView stays warm across
+        // tab switches (perf doctrine §1.5 / §3.2).
+    }
+}
+
+private struct JuneWebViewRepresentable: NSViewRepresentable {
+    let webView: WKWebView
+
+    func makeNSView(context: Context) -> WKWebView { webView }
+    func updateNSView(_ nsView: WKWebView, context: Context) {}
+}
+#endif

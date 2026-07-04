@@ -184,9 +184,8 @@ struct LandingView: View {
             case .agent:
                 HomeEmbeddedPage(title: "Agent") {
                     #if EPISTEMOS_APP_STORE
-                    // MAS mounts its June-native agent surface here (separate track).
-                    Text("Agent is not available in this build yet.")
-                        .foregroundStyle(.secondary)
+                    // MAS Agent room: the vendored June surface (Plan 1-MAS).
+                    JuneAgentSurfaceView()
                     #else
                     ProAgentSurfaceView(theme: theme)
                     #endif
