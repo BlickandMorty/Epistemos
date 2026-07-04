@@ -319,9 +319,17 @@ enum ArxivIngestService {
             return .rejected(.cancelled)
         }
 
-        modelContext.insert(page)
+        // DATA-IMPORT-1 (unbounded pass): import into a DEDICATED child context so its save()
+        // flushes ONLY the imported page — never a concurrent editor's unsaved edit that happens
+        // to be pending in the shared context, and a mid-import save-failure can't orphan pages
+        // or drop that edit. The new page is still visible to the shared context's @Query via the
+        // store. UNVERIFIED headless: the race + cross-context visibility need an in-app import
+        // spot-check before trusting.
+        let importContext = ModelContext(modelContext.container)
+        importContext.autosaveEnabled = false
+        importContext.insert(page)
         do {
-            try modelContext.save()
+            try importContext.save()
             graphState?.needsRefresh = true
             // GAP-1 (audit 2026-07-03): imports set needsVaultSync=false, which skips the
             // export-path search index — so a saved paper is unfindable in content search
@@ -356,7 +364,7 @@ enum ArxivIngestService {
                 sourcePDFRelativePath: materializedFiles.sourcePDFRelativePath
             )
         } catch {
-            modelContext.delete(page)
+            importContext.delete(page)
             removeMaterializedFiles(materializedFiles)
             NoteFileStorage.deleteBody(pageId: page.id)
             return .rejected(.modelSaveFailed(
