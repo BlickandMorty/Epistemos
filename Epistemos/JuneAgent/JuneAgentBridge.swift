@@ -1,4 +1,5 @@
 #if EPISTEMOS_APP_STORE
+import AppKit
 import Foundation
 import WebKit
 import os
@@ -218,6 +219,29 @@ final class JuneAgentBridge: NSObject, WKScriptMessageHandler {
             return ["type": "idle"]
         case "latest_dictation_event", "fetch_update", "set_dock_icon",
              "dictation_helper_command":
+            return NSNull()
+        case "june_open_community_page":
+            // Public constant in June's own JS (JUNE_COMMUNITY_URL); routed
+            // through the backend only for target=_blank reliability.
+            if let url = URL(string: "https://t.me/osjune") { NSWorkspace.shared.open(url) }
+            return NSNull()
+        case "open_privacy_settings":
+            let pane = (request["pane"] as? String) ?? "microphone"
+            let target: String
+            switch pane {
+            case "accessibility":
+                target = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+            case "systemAudio":
+                target = "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture"
+            default:
+                target = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+            }
+            if let url = URL(string: target) { NSWorkspace.shared.open(url) }
+            return NSNull()
+        case "june_open_verify_page", "os_accounts_open_portal", "os_accounts_upgrade":
+            // No june-api attestation service or accounts portal exists in this
+            // build — honest no-op (§0.5 capability truth), logged for diagnosis.
+            Self.log.info("external-page command has no destination in this build: \(cmd, privacy: .public)")
             return NSNull()
         case "get_release_channel":
             return "stable"
