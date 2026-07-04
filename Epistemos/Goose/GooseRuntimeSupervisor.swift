@@ -49,8 +49,8 @@ final class GooseRuntimeSupervisor {
     /// lean `goose serve`; give it a larger readiness budget. (Step 2 / Option B.)
     nonisolated static let goosedListenTimeout: Duration = .seconds(45)
 
-    /// Goose runtime backend. `.serve` = lean ACP-only `goose serve` (DEFAULT — preserves the
-    /// working WebView/ACP path). `.goosed` = full `goosed agent` (REST + ACP, Option B), selected
+    /// Goose runtime backend. `.serve` = lean ACP-only `goose serve` (DEFAULT engine path).
+    /// `.goosed` = full `goosed agent` (REST + ACP, Option B), selected
     /// by `EPISTEMOS_GOOSE_BACKEND=goosed`. Single-point rollback = unset the flag.
     nonisolated enum Backend: String, Sendable {
         case serve
@@ -63,9 +63,8 @@ final class GooseRuntimeSupervisor {
     }
 
     /// Initial goosed swap runs http on loopback (PROVEN working; simplest, no cert plumbing).
-    /// TLS is opt-in via EPISTEMOS_GOOSE_GOOSED_TLS=true and additionally requires the WKWebView
-    /// pinned didReceiveAuthenticationChallenge delegate (follow-up; needed for secure-context MCP
-    /// guest SDKs). Loopback http is safe here (secret-key-auth'd + nav-gated + 127.0.0.1 only).
+    /// TLS is opt-in via EPISTEMOS_GOOSE_GOOSED_TLS=true. Loopback http is safe here
+    /// (secret-key-auth'd + 127.0.0.1 only).
     nonisolated static var goosedTLSEnabled: Bool {
         safeEnvironmentValue(ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_GOOSED_TLS"])?.lowercased() == "true"
     }

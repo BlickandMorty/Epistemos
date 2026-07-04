@@ -1471,7 +1471,7 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
 
 extension Notification.Name {
     /// Posted when the custom theme palette changes (any color-slot write or a reset). Lets
-    /// surfaces that re-tint imperatively — the Goose WebView + its native window — refresh live,
+    /// surfaces that re-tint imperatively refresh live,
     /// since a custom-palette edit never changes the `EpistemosTheme` enum value they observe.
     nonisolated static let epistemosCustomThemeDidChange = Notification.Name("epistemos.customTheme.didChange")
 }
@@ -1622,8 +1622,8 @@ enum AppCustomTheme: Sendable {
         _cacheLock.lock()
         _revision &+= 1
         _cacheLock.unlock()
-        // Live signal for surfaces that re-tint imperatively (the Goose WebView + its native
-        // window): a custom-palette edit changes no `EpistemosTheme` enum value, so their
+        // Live signal for surfaces that re-tint imperatively: a custom-palette edit changes
+        // no `EpistemosTheme` enum value, so their
         // `onChange(of: theme)` can't see it. Post AFTER unlocking to avoid observer re-entrancy.
         NotificationCenter.default.post(name: .epistemosCustomThemeDidChange, object: nil)
     }

@@ -40,7 +40,6 @@ struct LandingView: View {
     private static let maxLandingFeatureStatusCharacters = 1_200
     private static let maxLandingPDFImportStatusRows = 12
     private static let maxLandingPDFImportStatusLineCharacters = 160
-    private static let hiddenGooseHomeSurfaceOpacity = 0.001
 
     /// Shared blur-fade for surfaces embedded as home pages (Meeting/arXiv/Browser/…),
     /// matching the landing↔graph transition language.
@@ -101,24 +100,12 @@ struct LandingView: View {
     }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
-    private var isGooseHomeSurfaceVisible: Bool { ui.homeContent == .goose }
-    private var gooseHomeSurfaceOpacity: Double {
-        isGooseHomeSurfaceVisible ? 1 : Self.hiddenGooseHomeSurfaceOpacity
-    }
     private var showingLandingStageCommand: Bool {
         activeLandingInlineCommand != nil
     }
     private var landingStageMinHeight: CGFloat {
         return activeLandingInlineCommand?.minStageHeight ?? 220
     }
-
-    /// ALWAYS mount + PRE-WARM the persistent embedded Goose surface from first render
-    /// (owner: "goose is always loaded; nav should feel instant"). The runtime spawn is
-    /// now off the main actor (GooseRuntimeSupervisor), so warming at launch no longer
-    /// freezes startup; an unstaged runtime just renders a harmless placeholder. Latching
-    /// this to a once-checked availability flag was why the prewarm never actually warmed
-    /// (isReady was false at onAppear → the layer never mounted → every nav was cold). (hang-trace 2026-07-01)
-    @State private var gooseSurfacePrewarmEnabled = true
 
     // MARK: - Body
 
@@ -185,34 +172,6 @@ struct LandingView: View {
             case .browser:
                 HomeEmbeddedPage(title: "Browser") { BrowserView() }
                     .transition(Self.homePageTransition).zIndex(1)
-            case .goose:
-                // Rendered by the persistent pre-warmed Goose layer below (kept
-                // alive so navigation is instant). This case only holds the slot.
-                Color.clear.zIndex(1)
-            }
-
-            // Persistent, PRE-WARMED Goose surface (owner: "load fully at app start,
-            // ready, no hang"). Mounted ONCE whenever Goose is staged so its runtime
-            // stays warm across navigations; hidden until homeContent == .goose. It
-            // warms in the background while the user is still on the landing page.
-            if gooseSurfacePrewarmEnabled || ui.homeContent == .goose {
-                // `|| homeContent == .goose` ensures the surface always mounts when
-                // navigated to (Cmd+3 / a late-ready Goose), never a blank page even if
-                // the prewarm flag was resolved false at onAppear. (thermo-nuclear 2026-07-01)
-                HomeEmbeddedPage(title: "Goose") {
-                    if AgentSurface.isEnabled() {
-                        AgentSurfaceRootView(theme: ui.theme)
-                    } else {
-                        GooseWebSurfaceView(theme: ui.theme)
-                    }
-                }
-                .opacity(gooseHomeSurfaceOpacity)
-                .allowsHitTesting(isGooseHomeSurfaceVisible)
-                .accessibilityHidden(!isGooseHomeSurfaceVisible)
-                .zIndex(5)
-                .transaction { transaction in
-                    transaction.animation = nil
-                }
             }
 
             // Companion dock — hidden when the embedded graph is up so it
@@ -628,14 +587,16 @@ struct LandingView: View {
                 action: { showLandingInlineCommand(.quickCapture) }
             )
             PixelLandingCommandTile(
-                title: "goose",
-                shortcut: "\u{2318}3",
+                title: "agent rebuilding",
+                shortcut: nil,
                 glyph: .agent,
                 theme: theme,
                 accent: theme.resolved.accent.color,
                 haptic: .agent,
-                action: openEpistemosGoose
-            )
+                help: "Agent surface is rebuilding."
+            ) {}
+            .disabled(true)
+            .opacity(0.48)
             PixelLandingCommandTile(
                 title: "workspaces",
                 shortcut: "^\u{2318}W",
@@ -1408,24 +1369,6 @@ struct LandingView: View {
             try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
         } catch {
             NSApplication.shared.presentError(error)
-        }
-    }
-
-    private func openEpistemosGoose() {
-        let availability = GooseSurfaceAvailability.current()
-        guard availability.isReady else {
-            let message = availability.unavailableMessage.isEmpty
-                ? "Epistemos Goose is unavailable."
-                : availability.unavailableMessage
-            ui.showToast(message, type: .warning)
-            return
-        }
-
-        // Owner: Goose animates to a PAGE in the home window (like the old chat),
-        // not a separate window. The .goose branch in the home-content router hosts
-        // AgentSurfaceRootView / GooseWebSurfaceView per AgentSurface.isEnabled().
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-            ui.homeContent = .goose
         }
     }
 

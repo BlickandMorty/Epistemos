@@ -3,13 +3,6 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension Notification.Name {
-    static let epistemosGooseNativeNavigate = Notification.Name("EpistemosGooseNativeNavigate")
-    static let epistemosGooseNativeChromeIntent = Notification.Name("EpistemosGooseNativeChromeIntent")
-    static let epistemosGooseWebRouteDidChange = Notification.Name("EpistemosGooseWebRouteDidChange")
-    static let epistemosGooseChromeSnapshotDidChange = Notification.Name("EpistemosGooseChromeSnapshotDidChange")
-}
-
 enum LandingToolbarGlyphs {
     static let greetingSymbol = "textformat"
 }
@@ -206,10 +199,6 @@ struct RootView: View {
     @State private var showGreetingControls = false
     @State private var showWorkspaceSwitcher = false
     @State private var showTimeMachine = false
-    @State private var activeGooseWebPath = "/"
-    @State private var activeGooseSessionTitle = ""
-    @State private var activeGooseIsStreaming = false
-    @State private var activeGooseThemePreference = "system"
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
     /// Only delays the *reveal*; hiding is always immediate.
@@ -237,14 +226,6 @@ struct RootView: View {
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
             && !embeddedHomeGraphContentVisible
-            // The landing greeting/settings pill is for the landing page only.
-            // Goose gets its own native toolbar Home affordance below so the
-            // WebView remains unoccluded.
-            && ui.homeContent != .goose
-    }
-
-    private var showGooseToolbarControls: Bool {
-        ui.homeTab == .home && ui.homeContent == .goose
     }
 
     private var showEmbeddedGraphToolbarControls: Bool {
@@ -257,7 +238,6 @@ struct RootView: View {
     /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
     private var toolbarGlassVisible: Bool {
         if ui.homeTab != .home { return true }
-        if showGooseToolbarControls { return true }
         if embeddedHomeGraphContentVisible {
             return embeddedHomeGraphNoteVisible
         }
@@ -302,14 +282,6 @@ struct RootView: View {
             UtilityWindowManager.shared.syncTheme(uiState: ui)
             HologramController.shared.syncTheme(ui)
         }
-        .modifier(GooseNativeChromeRootSynchronization(
-            isGooseSurfaceActive: showGooseToolbarControls,
-            activeGooseWebPath: $activeGooseWebPath,
-            activeGooseSessionTitle: $activeGooseSessionTitle,
-            activeGooseIsStreaming: $activeGooseIsStreaming,
-            activeGooseThemePreference: $activeGooseThemePreference,
-            synchronizeWindowTitle: synchronizeGooseWindowTitle
-        ))
         .toolbar {
             // Back button — only present for future active home-chat routing.
             if !embeddedHomeGraphContentVisible && ui.homeTab == .home && activeHomeChat {
@@ -324,7 +296,6 @@ struct RootView: View {
             }
             if showLandingToolbarControls
                 || showEmbeddedGraphToolbarControls
-                || showGooseToolbarControls
                 || (!embeddedHomeGraphContentVisible && activeHomeChat)
             {
                 ToolbarItem(placement: .principal) {
@@ -473,20 +444,7 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
-            if showGooseToolbarControls {
-                GooseNativeNavBar(
-                    activePath: activeGooseWebPath,
-                    sessionTitle: activeGooseSessionTitle,
-                    isStreaming: activeGooseIsStreaming,
-                    themePreference: activeGooseThemePreference,
-                    theme: ui.theme,
-                    onReturnHome: returnFromGooseToHome,
-                    onNavigate: navigateGooseWeb,
-                    onNewChat: newGooseChat,
-                    onSessionAction: sendGooseSessionAction,
-                    onThemeChange: setGooseTheme
-                )
-            } else if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
+            if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
                 // Keep the pill mounted on the graph — a principal ToolbarItem is load-bearing
                 // for the window's curved corners. Settings and greeting controls remain on
                 // the restored landing toolbar.
@@ -500,7 +458,7 @@ struct RootView: View {
             }
 
         }
-        .frame(minWidth: showGooseToolbarControls ? GooseNativeChromeMetrics.barWidth : 160, minHeight: 30)
+        .frame(minWidth: 160, minHeight: 30)
         .fixedSize()
     }
 
@@ -510,23 +468,6 @@ struct RootView: View {
         }
         .accessibilityLabel("Settings")
         .help("Settings (⌘S)")
-    }
-
-    private var gooseHomeToolbarButton: some View {
-        Button(action: returnFromGooseToHome) {
-            Label {
-                Text("Home")
-                    .font(.system(size: 13, weight: .semibold))
-            } icon: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 12, weight: .semibold))
-            }
-        }
-        .labelStyle(.titleAndIcon)
-        .buttonStyle(.bordered)
-        .controlSize(.regular)
-        .accessibilityLabel("Back to Home")
-        .help("Back to Home")
     }
 
     @ViewBuilder
@@ -553,67 +494,6 @@ struct RootView: View {
         openSettingsWindow()
     }
 
-    private func returnFromGooseToHome() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-            ui.homeContent = .greeting
-        }
-    }
-
-    private func navigateGooseWeb(to path: String) {
-        let normalizedPath = GooseNativeRouteItem.normalized(path)
-        activeGooseWebPath = normalizedPath
-        NotificationCenter.default.post(
-            name: .epistemosGooseNativeChromeIntent,
-            object: nil,
-            userInfo: ["type": GooseNativeChromeIntent.navigate, "path": normalizedPath]
-        )
-    }
-
-    private func newGooseChat() {
-        activeGooseWebPath = "/"
-        NotificationCenter.default.post(
-            name: .epistemosGooseNativeChromeIntent,
-            object: nil,
-            userInfo: ["type": GooseNativeChromeIntent.newChat]
-        )
-    }
-
-    private func sendGooseSessionAction(_ action: GooseNativeSessionAction) {
-        NotificationCenter.default.post(
-            name: .epistemosGooseNativeChromeIntent,
-            object: nil,
-            userInfo: ["type": action.intentType]
-        )
-    }
-
-    private func setGooseTheme(_ preference: GooseNativeThemePreference) {
-        activeGooseThemePreference = preference.rawValue
-        NotificationCenter.default.post(
-            name: .epistemosGooseNativeChromeIntent,
-            object: nil,
-            userInfo: ["type": GooseNativeChromeIntent.setTheme, "theme": preference.rawValue]
-        )
-    }
-
-    private func synchronizeGooseWindowTitle() {
-        let title: String
-        if showGooseToolbarControls {
-            title = activeGooseWebPathOnly == "/pair" && !activeGooseSessionTitle.isEmpty
-                ? activeGooseSessionTitle
-                : "Goose"
-        } else {
-            title = HomeWindowIdentity.title
-        }
-        guard let window = NSApp.windows.first(where: HomeWindowIdentity.matches) else { return }
-        if window.title != title {
-            window.title = title
-        }
-    }
-
-    private var activeGooseWebPathOnly: String {
-        activeGooseWebPath.split(separator: "?", maxSplits: 1).first.map(String.init) ?? "/"
-    }
-
     private var landingGreetingToolbarButton: some View {
         Button {
             showGreetingControls.toggle()
@@ -630,558 +510,6 @@ struct RootView: View {
     }
 
 }
-
-private struct GooseNativeChromeRootSynchronization: ViewModifier {
-    let isGooseSurfaceActive: Bool
-    @Binding var activeGooseWebPath: String
-    @Binding var activeGooseSessionTitle: String
-    @Binding var activeGooseIsStreaming: Bool
-    @Binding var activeGooseThemePreference: String
-    let synchronizeWindowTitle: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onReceive(NotificationCenter.default.publisher(for: .epistemosGooseWebRouteDidChange)) { note in
-                handleGooseWebRouteChange(note)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .epistemosGooseChromeSnapshotDidChange)) { note in
-                handleGooseChromeSnapshot(note)
-            }
-            .onChange(of: isGooseSurfaceActive) { _, _ in
-                synchronizeWindowTitle()
-            }
-            .onChange(of: activeGooseSessionTitle) { _, _ in
-                synchronizeWindowTitle()
-            }
-            .onChange(of: activeGooseWebPath) { _, _ in
-                synchronizeWindowTitle()
-            }
-    }
-
-    private func handleGooseWebRouteChange(_ note: Notification) {
-        guard let rawPath = note.userInfo?["path"] as? String else { return }
-        activeGooseWebPath = GooseNativeRouteItem.normalized(rawPath)
-    }
-
-    private func handleGooseChromeSnapshot(_ note: Notification) {
-        if let rawPath = note.userInfo?["route"] as? String {
-            activeGooseWebPath = GooseNativeRouteItem.normalized(rawPath)
-        }
-        if let title = note.userInfo?["sessionTitle"] as? String {
-            activeGooseSessionTitle = title
-        }
-        if let isStreaming = note.userInfo?["isStreaming"] as? Bool {
-            activeGooseIsStreaming = isStreaming
-        }
-        if let themePreference = note.userInfo?["themePreference"] as? String {
-            activeGooseThemePreference = themePreference
-        }
-    }
-}
-
-private enum GooseNativeChromeIntent {
-    static let navigate = "navigate"
-    static let newChat = "newChat"
-    static let openSessionNotes = "openSessionNotes"
-    static let renameSession = "renameSession"
-    static let duplicateSession = "duplicateSession"
-    static let viewSessionJson = "viewSessionJson"
-    static let setTheme = "setTheme"
-}
-
-private enum GooseNativeSessionAction: String, CaseIterable, Identifiable {
-    case openSessionNotes
-    case renameSession
-    case duplicateSession
-    case viewSessionJson
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .openSessionNotes: "Session Notes"
-        case .renameSession: "Rename"
-        case .duplicateSession: "Duplicate"
-        case .viewSessionJson: "View JSON"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .openSessionNotes: "note.text"
-        case .renameSession: "pencil"
-        case .duplicateSession: "doc.on.doc"
-        case .viewSessionJson: "curlybraces.square"
-        }
-    }
-
-    var intentType: String {
-        switch self {
-        case .openSessionNotes: GooseNativeChromeIntent.openSessionNotes
-        case .renameSession: GooseNativeChromeIntent.renameSession
-        case .duplicateSession: GooseNativeChromeIntent.duplicateSession
-        case .viewSessionJson: GooseNativeChromeIntent.viewSessionJson
-        }
-    }
-}
-
-private enum GooseNativeThemePreference: String, CaseIterable, Identifiable {
-    case system
-    case light
-    case dark
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .system: "System"
-        case .light: "Light"
-        case .dark: "Dark"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .system: "slider.horizontal.3"
-        case .light: "sun.max"
-        case .dark: "moon"
-        }
-    }
-}
-
-private enum GooseNativeChromeMetrics {
-    static let barWidth: CGFloat = 1040
-    static let barHeight: CGFloat = 44
-    static let navSlotWidth: CGFloat = 42
-    static let navSlotHeight: CGFloat = 38
-    static let leadingWidth: CGFloat = 116
-    static let titleWidth: CGFloat = 190
-    static let iconSize: CGFloat = 16.5
-    static let maxExpandedWidth: CGFloat = 112
-    static let routeLabelCharacterWidth: CGFloat = 6.6
-}
-
-private struct GooseNativeNavBar: View {
-    let activePath: String
-    let sessionTitle: String
-    let isStreaming: Bool
-    let themePreference: String
-    let theme: EpistemosTheme
-    let onReturnHome: () -> Void
-    let onNavigate: (String) -> Void
-    let onNewChat: () -> Void
-    let onSessionAction: (GooseNativeSessionAction) -> Void
-    let onThemeChange: (GooseNativeThemePreference) -> Void
-
-    private let routeItems = GooseNativeRouteItem.webRoutes
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Button(action: onReturnHome) {
-                HStack(spacing: 7) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("Epistemos")
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                }
-                .frame(width: GooseNativeChromeMetrics.leadingWidth, height: GooseNativeChromeMetrics.navSlotHeight)
-                .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(theme.textPrimary.opacity(0.92))
-            .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
-            .help("Back to Epistemos")
-            .accessibilityLabel("Back to Epistemos")
-
-            Divider()
-                .frame(height: 22)
-                .opacity(0.34)
-
-            HStack(spacing: 2) {
-                ForEach(routeItems) { item in
-                    GooseNativeNavButton(
-                        title: item.label,
-                        systemImage: item.systemImage,
-                        isActive: item.isActive(activePath),
-                        theme: theme,
-                        action: { onNavigate(item.path) }
-                    )
-                }
-            }
-
-            Divider()
-                .frame(height: 22)
-                .opacity(0.34)
-
-            GooseNativeSessionTitle(title: sessionTitle, theme: theme)
-
-            GooseNativeStreamingStatusLight(isStreaming: isStreaming, theme: theme)
-
-            GooseNativeIconButton(
-                title: "New Chat",
-                systemImage: "plus",
-                theme: theme,
-                action: onNewChat
-            )
-
-            GooseNativeSessionActionsMenu(
-                theme: theme,
-                hasSession: !sessionTitle.isEmpty,
-                onSessionAction: onSessionAction
-            )
-
-            GooseNativeThemeMenu(
-                selection: GooseNativeThemePreference(rawValue: themePreference) ?? .system,
-                theme: theme,
-                onThemeChange: onThemeChange
-            )
-        }
-        .frame(width: GooseNativeChromeMetrics.barWidth, height: GooseNativeChromeMetrics.barHeight)
-        .fixedSize()
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Goose native chrome")
-    }
-}
-
-private struct GooseNativeRouteItem: Identifiable, Equatable {
-    let id: String
-    let label: String
-    let path: String
-    let systemImage: String
-
-    static let webRoutes: [GooseNativeRouteItem] = [
-        GooseNativeRouteItem(id: "home", label: "Home", path: "/", systemImage: "house"),
-        GooseNativeRouteItem(id: "chat", label: "Chat", path: "/pair", systemImage: "message"),
-        GooseNativeRouteItem(id: "recipes", label: "Recipes", path: "/recipes", systemImage: "doc.text"),
-        GooseNativeRouteItem(id: "skills", label: "Skills", path: "/skills", systemImage: "bolt"),
-        GooseNativeRouteItem(id: "apps", label: "Apps", path: "/apps", systemImage: "macwindow"),
-        GooseNativeRouteItem(id: "scheduler", label: "Scheduler", path: "/schedules", systemImage: "calendar"),
-        GooseNativeRouteItem(id: "extensions", label: "Extensions", path: "/extensions", systemImage: "puzzlepiece.extension"),
-        GooseNativeRouteItem(id: "history", label: "History", path: "/sessions", systemImage: "clock.arrow.circlepath"),
-        GooseNativeRouteItem(id: "settings", label: "Settings", path: "/settings", systemImage: "gearshape"),
-    ]
-
-    static func normalized(_ path: String) -> String {
-        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "/" }
-        let bounded = String(trimmed.prefix(GooseWebSurfaceView.maxGooseRouteCharacters))
-        return bounded.hasPrefix("/") ? bounded : "/\(bounded)"
-    }
-
-    func isActive(_ currentPath: String) -> Bool {
-        let normalizedCurrent = Self.normalized(currentPath)
-        let pathOnly = normalizedCurrent.split(separator: "?", maxSplits: 1).first.map(String.init) ?? "/"
-        if path == "/" {
-            return pathOnly == "/"
-        }
-        return pathOnly == path || pathOnly.hasPrefix("\(path)/")
-    }
-}
-
-private struct GooseNativeNavButton: View {
-    let title: String
-    let systemImage: String
-    let isActive: Bool
-    let theme: EpistemosTheme
-    let action: () -> Void
-
-    @State private var isHovered = false
-    @State private var typedText = ""
-    @State private var cursorVisible = false
-    @State private var hoverIntentTask: Task<Void, Never>?
-    @State private var typewriterTask: Task<Void, Never>?
-
-    private var expanded: Bool {
-        isActive || isHovered
-    }
-
-    private var expandedWidth: CGFloat {
-        min(
-            GooseNativeChromeMetrics.maxExpandedWidth,
-            max(76, 43 + CGFloat(title.count) * GooseNativeChromeMetrics.routeLabelCharacterWidth)
-        )
-    }
-
-    private var labelText: String {
-        if isActive { return title }
-        return isHovered ? typedText : ""
-    }
-
-    private var foreground: Color {
-        if isActive {
-            return theme.resolved.foreground.color
-        }
-        return theme.textPrimary.opacity(isHovered ? 0.96 : 0.78)
-    }
-
-    private var iconColor: Color {
-        isActive ? theme.fontAccent : foreground
-    }
-
-    private var background: Color {
-        if isActive {
-            return theme.fontAccent.opacity(theme.isDark ? 0.18 : 0.14)
-        }
-        if isHovered {
-            return theme.textPrimary.opacity(theme.isDark ? 0.10 : 0.075)
-        }
-        return .clear
-    }
-
-    var body: some View {
-        ZStack(alignment: .leading) {
-            if expanded {
-                HStack(spacing: 2) {
-                    Spacer()
-                        .frame(width: GooseNativeChromeMetrics.navSlotWidth - 4)
-
-                    Text(labelText)
-                        .font(AppDisplayTypography.font(size: 10, weight: .semibold))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: true)
-
-                    if isHovered && !isActive && cursorVisible {
-                        GooseNativeTypewriterCursor(color: theme.fontAccent)
-                    }
-
-                    Spacer(minLength: 10)
-                }
-                .foregroundStyle(foreground)
-                .frame(width: expandedWidth, height: GooseNativeChromeMetrics.navSlotHeight, alignment: .leading)
-                .background(background, in: Capsule())
-                .allowsHitTesting(false)
-                .transition(.opacity)
-                .zIndex(1)
-            }
-
-            Button(action: action) {
-                Image(systemName: systemImage)
-                    .font(.system(size: GooseNativeChromeMetrics.iconSize, weight: .semibold))
-                    .foregroundStyle(iconColor)
-                    .frame(
-                        width: GooseNativeChromeMetrics.navSlotWidth,
-                        height: GooseNativeChromeMetrics.navSlotHeight
-                    )
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .zIndex(2)
-        }
-        .frame(width: GooseNativeChromeMetrics.navSlotWidth, height: GooseNativeChromeMetrics.navSlotHeight)
-        .contentShape(Rectangle())
-        .zIndex(expanded ? 10 : 0)
-        .help(title)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(isActive ? .isSelected : [])
-        .animation(.timingCurve(0.2, 0, 0, 1, duration: 0.25), value: expanded)
-        .animation(.easeOut(duration: 0.16), value: isHovered)
-        .animation(.easeOut(duration: 0.16), value: isActive)
-        .onHover { hovering in
-            hovering ? beginHoverIntent() : endHover()
-        }
-        .onChange(of: isActive) { _, _ in
-            resetHoverState()
-        }
-        .onDisappear {
-            cancelHoverWork()
-        }
-    }
-
-    private func beginHoverIntent() {
-        guard !isActive else { return }
-        hoverIntentTask?.cancel()
-        hoverIntentTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(120))
-            guard !Task.isCancelled else { return }
-            isHovered = true
-            startTypewriter()
-        }
-    }
-
-    private func endHover() {
-        guard !isActive else { return }
-        resetHoverState()
-    }
-
-    private func resetHoverState() {
-        cancelHoverWork()
-        withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.18)) {
-            isHovered = false
-            typedText = ""
-            cursorVisible = false
-        }
-    }
-
-    private func cancelHoverWork() {
-        hoverIntentTask?.cancel()
-        hoverIntentTask = nil
-        typewriterTask?.cancel()
-        typewriterTask = nil
-    }
-
-    private func startTypewriter() {
-        typewriterTask?.cancel()
-        typedText = ""
-        cursorVisible = true
-        let characters = Array(title)
-        typewriterTask = Task { @MainActor in
-            for index in characters.indices {
-                guard !Task.isCancelled else { return }
-                typedText.append(characters[index])
-                try? await Task.sleep(for: .milliseconds(35))
-            }
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled else { return }
-            cursorVisible = false
-        }
-    }
-}
-
-private struct GooseNativeSessionTitle: View {
-    let title: String
-    let theme: EpistemosTheme
-
-    private var resolvedTitle: String {
-        title.isEmpty ? "No active session" : title
-    }
-
-    var body: some View {
-        Text(resolvedTitle)
-            .font(.system(size: 12.5, weight: .semibold))
-            .foregroundStyle(title.isEmpty ? theme.mutedForeground : theme.textPrimary)
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .frame(width: GooseNativeChromeMetrics.titleWidth, alignment: .leading)
-            .help(resolvedTitle)
-            .accessibilityLabel("Session title: \(resolvedTitle)")
-    }
-}
-
-private struct GooseNativeStreamingStatusLight: View {
-    let isStreaming: Bool
-    let theme: EpistemosTheme
-    @State private var pulse = false
-
-    var body: some View {
-        Circle()
-            .fill(isStreaming ? theme.fontAccent : theme.mutedForeground.opacity(0.36))
-            .frame(width: 8, height: 8)
-            .scaleEffect(isStreaming && pulse ? 1.35 : 1)
-            .opacity(isStreaming ? (pulse ? 0.95 : 0.52) : 0.5)
-            .frame(width: 16, height: GooseNativeChromeMetrics.navSlotHeight)
-            .help(isStreaming ? "Goose is streaming" : "Goose is idle")
-            .accessibilityLabel(isStreaming ? "Streaming" : "Idle")
-            .onAppear { updatePulse(isStreaming) }
-            .onChange(of: isStreaming) { _, value in updatePulse(value) }
-    }
-
-    private func updatePulse(_ streaming: Bool) {
-        if streaming {
-            pulse = false
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                pulse = true
-            }
-        } else {
-            pulse = false
-        }
-    }
-}
-
-private struct GooseNativeIconButton: View {
-    let title: String
-    let systemImage: String
-    let theme: EpistemosTheme
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: GooseNativeChromeMetrics.iconSize, weight: .semibold))
-                .frame(width: GooseNativeChromeMetrics.navSlotWidth, height: GooseNativeChromeMetrics.navSlotHeight)
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(theme.textPrimary.opacity(0.82))
-        .help(title)
-        .accessibilityLabel(title)
-    }
-}
-
-private struct GooseNativeSessionActionsMenu: View {
-    let theme: EpistemosTheme
-    let hasSession: Bool
-    let onSessionAction: (GooseNativeSessionAction) -> Void
-
-    var body: some View {
-        Menu {
-            ForEach(GooseNativeSessionAction.allCases) { action in
-                Button {
-                    onSessionAction(action)
-                } label: {
-                    Label(action.title, systemImage: action.systemImage)
-                }
-                .disabled(!hasSession)
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.system(size: GooseNativeChromeMetrics.iconSize, weight: .semibold))
-                .frame(width: GooseNativeChromeMetrics.navSlotWidth, height: GooseNativeChromeMetrics.navSlotHeight)
-                .contentShape(Capsule())
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .foregroundStyle(theme.textPrimary.opacity(hasSession ? 0.82 : 0.42))
-        .help("Session actions")
-        .accessibilityLabel("Session actions")
-    }
-}
-
-private struct GooseNativeThemeMenu: View {
-    let selection: GooseNativeThemePreference
-    let theme: EpistemosTheme
-    let onThemeChange: (GooseNativeThemePreference) -> Void
-
-    var body: some View {
-        Menu {
-            ForEach(GooseNativeThemePreference.allCases) { preference in
-                Button {
-                    onThemeChange(preference)
-                } label: {
-                    Label(preference.title, systemImage: preference.systemImage)
-                }
-            }
-        } label: {
-            Image(systemName: selection.systemImage)
-                .font(.system(size: GooseNativeChromeMetrics.iconSize, weight: .semibold))
-                .frame(width: GooseNativeChromeMetrics.navSlotWidth, height: GooseNativeChromeMetrics.navSlotHeight)
-                .contentShape(Capsule())
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .foregroundStyle(theme.textPrimary.opacity(0.82))
-        .help("Goose theme")
-        .accessibilityLabel("Goose theme")
-    }
-}
-
-private struct GooseNativeTypewriterCursor: View {
-    let color: Color
-    @State private var visible = true
-
-    var body: some View {
-        Rectangle()
-            .fill(color)
-            .frame(width: 1.5, height: 11)
-            .opacity(visible ? 1 : 0.18)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
-                    visible = false
-                }
-            }
-    }
-}
-
 
 private struct DatabaseRecoveryOverlay: View {
     let error: Error
