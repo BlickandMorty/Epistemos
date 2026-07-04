@@ -53,15 +53,24 @@ Your sibling (the PRO agent) is building the OpenChamber/Developer-ID surface at
 time. Read and follow the full plan below. Operating envelope:
 
 TERRITORY (yours):
-- The Epistemos repo (/Users/jojo/Downloads/Epistemos): the native June-style Surface A (wave
-  quick chat) + Surface B (agent workspace), the agent_core in-process wiring, the embedded
-  llama.cpp lane, and the Apple Foundation Models path. Scheme-gate to the App Store scheme
-  (EPISTEMOS_APP_STORE / MAS_SANDBOX). Prefer NEW files; don't rebuild the Pro agent's host.
-DO NOT TOUCH: the Pro/OpenChamber track (its vendored web fork or its native host), the graph,
-  the editors (Plan 2), or the Pro-only subprocess lanes (GgufCliProvider, browser-use). The old
-  goose WebView surface is DEAD — do not extend or resurrect it (it is already excised).
+- The vendored JUNE fork — a SEPARATE repo/working copy OUTSIDE /Users/jojo/Downloads/Epistemos
+  (per the plan §1/§6). June's real web UI is the agent surface (CLONED like OpenChamber, NOT
+  reimplemented in SwiftUI — that earlier approach is REJECTED, it made a demo). Build June's
+  frontend, bundle it, run it in the WKWebView, swap its Hermes backend to agent_core via the
+  adapter. Never commit it into the Epistemos tree; never `git add` `.research-clones/`.
+- The Epistemos repo: the native host (WKWebView host + supervisor), the agent_core adapter +
+  cloud/local providers, the Tauri-API shims, the native chrome (pill/all-chats/mascot), and the
+  native wave landing. Scheme-gate to the App Store scheme (EPISTEMOS_APP_STORE / MAS_SANDBOX).
+  Prefer NEW files; don't rebuild the Pro agent's host. KEEP the engine backends the first pass
+  built (LocalChatEngine/AppleFM/GGUF); RETIRE the native QuickChat/AgentWorkspace UIs.
+DO NOT TOUCH: the Pro/OpenChamber track (its fork or native host), the graph, the editors
+  (Plan 2), or the Pro-only subprocess lanes (GgufCliProvider, browser-use). The old goose
+  WebView surface is DEAD (already excised).
 HARD MAS RULE: no subprocess, no local server binary, no `network.server`, no JIT/exec-memory
-  entitlements. Everything in-process (agent_core FFI) + URLSession + embedded llama.cpp.
+  entitlements. Everything in-process (June-web-in-WKWebView + agent_core FFI + embedded
+  llama.cpp). DE-RISK FIRST: prove June boots in a plain WKWebView (Phase 0 spike) before the
+  full vendor — June is more Tauri-coupled than OpenChamber; if it's deeper than ~30 window-API
+  sites, STOP and report.
 
 SHARED-REPO CAUTION (you and the PRO agent share the Epistemos git tree):
 - Stage ONLY files you created/edited. NEVER `git add -A`. No worktrees, ever.
