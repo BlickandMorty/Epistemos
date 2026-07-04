@@ -52,6 +52,35 @@ frame_ms_p99         = 8.3
 mcp_invoke_ms_p99    = 2.0
 ffi_hot_path_us_p99  = 5.0
 
+[agent_surface]
+# Agent-surface budgets for the 2026-07-03 rebuilds (Pro = OpenChamber WKWebView
+# over a supervised localhost server; MAS = native SwiftUI over in-process
+# agent_core). These gate the owner-critical "opens instantly" behaviour PLUS the
+# web-side + app-side optimization mandate in
+# docs/research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md.
+#
+# TARGET ONLY until the surfaces ship + a measurement source exists — mirrors the
+# [runtime] carve-out above. scripts/check-perf-budgets.sh does NOT iterate this
+# section, so it never fails CI today. When a surface lands, the build agent wires
+# a measurement producer (os_signpost / a diagnostic HealthRow / Web Inspector
+# timeline) and extends the parser to enforce these; that wiring IS a phase gate.
+#
+# --- felt-speed (the "instant open" the owner cares about) ---
+warm_reopen_ms_max          = 100    # Agent tab-switch back -> interactive (WebView/runtime kept warm)
+cold_open_ms_max            = 1500   # first-ever open -> interactive
+placeholder_paint_ms_max    = 100    # click -> placeholder/loading visible (never blank/hang)
+first_token_ms_max          = 1200   # send -> first streamed token (cloud); Apple FM lower
+#
+# --- Pro web-side (OpenChamber SPA served by the web server) ---
+pro_web_bundle_kb_max       = 3500   # gzipped initial JS+CSS; regression ceiling, tighten as measured
+pro_first_paint_ms_max      = 1000   # SPA mount -> first meaningful paint (server already warm)
+#
+# --- interaction smoothness (both) ---
+transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcript re-render per token
+#
+# --- MAS native + model warmth (invariant, 1 = required) ---
+mas_model_retained_on_switch = 1     # GGUF model + agent_core session MUST stay resident across Agent tab-switch (0 = regression)
+
 [meta]
 # Where the parser looks for runtime measurement output. Wave 2.6 will
 # write this file from the morning-session benchmark; until it exists

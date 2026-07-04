@@ -423,3 +423,13 @@ bootstrap** (`AppBootstrap`, off-main, `.utility` priority) so the server is alr
 `.running` by the time the user first hits Agent — making first-open instant too. Keep the
 lazy fallback (if pre-warm hasn't finished, placeholder + poll still cover it). This is the
 one place to go *beyond* the goose recipe, because the stack is heavier.
+
+**⚠️ WEB-SIDE optimization is equally mandatory — read the doctrine.** The recipe above is
+the *app side*. The Pro surface is a full React SPA, so its perf also lives in the vendored
+web repo (production build, code-split/lazy panels, bundle-size budget, virtualized session
+list + transcript, isolated/memoized streaming render so it doesn't re-render the whole
+transcript per token, service-worker off, web-memory discipline, first-token latency). All
+of it — plus the per-phase perf gate + budgets — is canon in
+**`docs/research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md` §2 (READ-FIRST)** and
+enforced via `docs/perf-budgets.toml` `[agent_surface]`. Perf is a phase gate: a regression
+blocks the commit like a broken build.

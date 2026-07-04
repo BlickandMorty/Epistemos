@@ -413,3 +413,11 @@ show a loading state — never a hang.**
 Net: Surface A is instant by leaning on Apple FM (zero-load) with a warm GGUF fallback that
 survives tab-switches; Surface B is instant because it's native + a warm in-process
 agent_core. Same felt-speed as goose today, achieved natively.
+
+**Full perf canon (READ-FIRST):** `docs/research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md`
+— §3 (app-side/native: off-main, warm-model invariant, shared process pool, memory-pressure
+handlers, lazy-init) + §5 (perf is a per-phase gate). Budgets in `docs/perf-budgets.toml`
+`[agent_surface]` (esp. `mas_model_retained_on_switch = 1` — the GGUF model MUST stay
+resident across an Agent tab-switch; unloading on switch is a regression). MAS's agent
+surface is native (no web bundle), so §2 web-side rules apply only to the app's editor/
+KaTeX WebViews, not here. A perf regression blocks the phase commit like a broken build.

@@ -32,6 +32,13 @@ NOW → Plan 1-PRO (OpenChamber)  ─┐  the two agent surfaces (run in paralle
 | **7** | Sync + quality gate | [`PROMPT_PLAN_7_SYNC.md`](PROMPT_PLAN_7_SYNC.md) | both | vault sync + the v1 release quality gate | — |
 | **8** | **ResearchHub** (NEW) | [`PROMPT_PLAN_8_RESEARCHHUB.md`](PROMPT_PLAN_8_RESEARCHHUB.md) | both | multi-source research feed (papers/X/Reddit/HN/GitHub/HF/journals/…) as a dedicated room + agent capability; adaptive-card native timeline; deep Notes + Agent + graph integration | **dossier `RESEARCHHUB_SOURCE_DOSSIER_2026_07_03.md`** (+ raw `RESEARCHHUB_WORKFLOW_RAW_*`); template `Epistemos/Arxiv/ArxivIngestService.swift`; generalizes Plan 3's arXiv |
 
+## Cross-cutting doctrines (read-first for the relevant plans)
+- **Performance:** [`../research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md`](../research/AGENT_SURFACE_PERFORMANCE_DOCTRINE_2026_07_03.md)
+  — the owner-loved "instant open" recipe + **web-side** (OpenChamber SPA) and **app-side**
+  (native) optimization, made a per-phase shipping gate; budgets in `../perf-budgets.toml`
+  `[agent_surface]`. Both Plan 1 tracks reference it (Pro §13, MAS §12).
+- **Look/feel:** `../research/EPISTEMOS_NATIVENESS_DOCTRINE_2026_06_29.md` (all plans).
+
 ## Notes on relationships
 - **Plan 1 is two tracks now** (Pro/MAS) — the retired single Plan 1 is a tombstone
   redirect at `PROMPT_PLAN_1_GOOSE.md`.
