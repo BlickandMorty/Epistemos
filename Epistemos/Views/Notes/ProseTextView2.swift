@@ -140,6 +140,11 @@ final class ProseTextView2: NSTextView {
     /// Closure called when user selects "Open in Graph" from context menu.
     var onOpenInGraph: ((String) -> Void)?
 
+    /// #41: called when user selects "Run Dataview Query" from the context menu inside a
+    /// ```dataview block. Receives the full editor text + the click character index; the coordinator
+    /// executes the DQL (DataviewBlockRunner) and presents the rendered table.
+    var onRunDataview: ((String, Int) -> Void)?
+
     // MARK: - Notifications
     // Stable editor notification names used by the note workspace and tests.
     nonisolated static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
@@ -1657,6 +1662,22 @@ final class ProseTextView2: NSTextView {
             menu.addItem(graphItem)
         }
 
+        // #41: Run Dataview — only when the right-click is inside a ```dataview fenced block.
+        let dvClickPoint = convert(event.locationInWindow, from: nil)
+        let dvClickIndex = characterIndexForInsertion(at: dvClickPoint)
+        if onRunDataview != nil,
+            DataviewBlockRunner.dataviewDQL(in: string, at: dvClickIndex) != nil {
+            menu.addItem(NSMenuItem.separator())
+            let dvItem = NSMenuItem(
+                title: "Run Dataview Query", action: #selector(runDataviewFromMenu(_:)),
+                keyEquivalent: "")
+            dvItem.image = NSImage(
+                systemSymbolName: "tablecells.badge.ellipsis", accessibilityDescription: "Dataview")
+            dvItem.target = self
+            dvItem.representedObject = NSNumber(value: dvClickIndex)
+            menu.addItem(dvItem)
+        }
+
         // Set Property
         let propItem = NSMenuItem(
             title: "Set Property\u{2026}", action: #selector(openBlockPropertySheet),
@@ -1715,6 +1736,11 @@ final class ProseTextView2: NSTextView {
     @objc private func contextRevealInGraph(_ sender: NSMenuItem) {
         guard let pid = sender.representedObject as? String else { return }
         onOpenInGraph?(pid)
+    }
+
+    @objc private func runDataviewFromMenu(_ sender: NSMenuItem) {
+        guard let index = (sender.representedObject as? NSNumber)?.intValue else { return }
+        onRunDataview?(string, index)
     }
 
     @objc private func createIdeaAtLine() {

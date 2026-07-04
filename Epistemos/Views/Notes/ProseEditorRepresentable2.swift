@@ -140,6 +140,10 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         tv.onMarkedTextStart = { [weak coord] in
             coord?.blockRefAutocomplete?.dismiss()
         }
+        // #41: run a ```dataview block's DQL (DataviewBlockRunner) + present the rendered table.
+        tv.onRunDataview = { [weak coord, weak tv] text, index in
+            coord?.runDataview(text: text, at: index, in: tv?.window)
+        }
 
         // Scroll-to-offset observer for TOC section navigator.
         coord.scrollToOffsetObserver = NotificationCenter.default.addObserver(
@@ -1247,6 +1251,33 @@ extension ProseEditorRepresentable2 {
         // Fold state lives in Rust (markdown_set_fold/markdown_is_folded).
         // MarkdownContentStorage.hiddenLines drives shouldEnumerate to skip folded paragraphs.
         // No storage rewriting — text is never modified by folds.
+
+        /// #41: execute the ```dataview block at `index` and present its rendered table in an
+        /// NSAlert (monospace accessory so the columns line up). No-ops if there's no dataview
+        /// block at `index` or the DQL doesn't parse.
+        func runDataview(text: String, at index: Int, in window: NSWindow?) {
+            guard let mc = parent.modelContext,
+                let result = DataviewBlockRunner.run(in: text, at: index, context: mc) else { return }
+            let alert = NSAlert()
+            alert.messageText = "Dataview"
+            alert.informativeText = result.dql
+            let resultView = NSTextView(frame: NSRect(x: 0, y: 0, width: 520, height: 260))
+            resultView.isEditable = false
+            resultView.drawsBackground = false
+            resultView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            resultView.string = result.markdown
+            let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 520, height: 260))
+            scroll.documentView = resultView
+            scroll.hasVerticalScroller = true
+            scroll.borderType = .bezelBorder
+            alert.accessoryView = scroll
+            alert.addButton(withTitle: "Done")
+            if let window {
+                alert.beginSheetModal(for: window) { _ in }
+            } else {
+                alert.runModal()
+            }
+        }
 
         func toggleFold(headingOffset: Int) {
             guard let tv = textView else { return }
