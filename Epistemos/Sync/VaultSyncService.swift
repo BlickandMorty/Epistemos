@@ -1,4 +1,5 @@
 import AppKit
+import CoreServices
 import CryptoKit
 import Foundation
 import Observation
@@ -7,12 +8,13 @@ import SwiftData
 import os
 
 // MARK: - VaultSyncService
-// Apple Notes Hybrid: SwiftData is the sole source of truth during editing.
-// Vault .md files are an import/export target — NOT a live sync partner.
+// Markdown vault hybrid: connected vault files are live, portable note inputs.
+// Managed note bodies remain the app's editor/cache safety layer for undo,
+// derived indexes, and conflict protection.
 //
 // Save triggers: per-note Save (Cmd+S), Save All (Shift+Cmd+S), auto-save interval.
-// Import: initial vault import on attach, manual "Sync from Vault" button.
-// No live file watching — VaultFilePresenter has been removed.
+// Import: initial vault import on attach, manual "Sync from Vault" button,
+// and debounced recursive file-system events from external editors/tools.
 
 /// A conflict detected during "Sync from Vault" — both the in-app and on-disk versions changed.
 struct VaultSyncConflict: Identifiable {
@@ -259,10 +261,60 @@ private struct VersionCaptureSnapshot: Sendable {
     let wordCount: Int
 }
 
+fileprivate struct VaultFileSystemEvent: Sendable {
+    let path: String
+    let flags: FSEventStreamEventFlags
+
+    var requiresFullRescan: Bool {
+        contains(kFSEventStreamEventFlagMustScanSubDirs)
+            || contains(kFSEventStreamEventFlagUserDropped)
+            || contains(kFSEventStreamEventFlagKernelDropped)
+            || contains(kFSEventStreamEventFlagRootChanged)
+            || contains(kFSEventStreamEventFlagMount)
+            || contains(kFSEventStreamEventFlagUnmount)
+    }
+
+    var itemIsDirectory: Bool {
+        contains(kFSEventStreamEventFlagItemIsDir)
+    }
+
+    var itemWasRemoved: Bool {
+        contains(kFSEventStreamEventFlagItemRemoved)
+    }
+
+    var itemWasRenamed: Bool {
+        contains(kFSEventStreamEventFlagItemRenamed)
+    }
+
+    private func contains(_ flag: Int) -> Bool {
+        flags & FSEventStreamEventFlags(flag) != 0
+    }
+}
+
+fileprivate final class VaultFileWatcherCallbackBox {
+    nonisolated(unsafe) weak var service: VaultSyncService?
+
+    init(service: VaultSyncService) {
+        self.service = service
+    }
+
+    nonisolated func handle(_ events: [VaultFileSystemEvent]) {
+        Task { @MainActor [weak service] in
+            service?.handleVaultFileSystemEvents(events)
+        }
+    }
+}
+
 private final class VaultFileWatcherState {
     var source: DispatchSourceFileSystemObject?
+    var eventStream: FSEventStreamRef?
+    var callbackBox: Unmanaged<VaultFileWatcherCallbackBox>?
     var fileDescriptor: Int32 = -1
     var debounceTask: Task<Void, Never>?
+    let eventQueue = DispatchQueue(label: "com.epistemos.vault.fsevents", qos: .utility)
+    var pendingChangedPaths = Set<String>()
+    var pendingDeletedPaths = Set<String>()
+    var pendingFullRescan = false
     let clock = ContinuousClock()
     var ignoreUntil: ContinuousClock.Instant?
 }
@@ -3553,7 +3605,7 @@ final class VaultSyncService {
         (
             isWatching: isWatching,
             autoSaveActive: autoSaveTask != nil,
-            fileWatcherActive: fileWatcherState.source != nil
+            fileWatcherActive: fileWatcherState.eventStream != nil || fileWatcherState.source != nil
         )
     }
 
@@ -3604,12 +3656,85 @@ final class VaultSyncService {
     // MARK: - File System Watcher
 
     /// Monitor the vault directory for external changes (creates, modifies, deletes, renames).
-    /// Uses GCD DispatchSource for efficient kernel-level notifications.
-    /// Debounces rapid changes (e.g. editor auto-save) with a 2-second delay.
+    /// FSEvents gives recursive, path-level events so external editors and AI tools can edit
+    /// files anywhere in the vault and the changed note is reindexed without a full import.
+    /// A directory DispatchSource remains as a coarse fallback if FSEvents cannot be created.
     private func startFileWatcher() {
         guard let url = vaultURL else { return }
         stopFileWatcher()
 
+        if startFSEventsWatcher(for: url) {
+            log.info("FSEvents watcher started for: \(url.lastPathComponent, privacy: .public)")
+            return
+        }
+
+        startDirectoryDispatchSourceWatcher(for: url)
+    }
+
+    private func startFSEventsWatcher(for url: URL) -> Bool {
+        let callbackBox = VaultFileWatcherCallbackBox(service: self)
+        let unmanagedBox = Unmanaged.passRetained(callbackBox)
+        var context = FSEventStreamContext(
+            version: 0,
+            info: unmanagedBox.toOpaque(),
+            retain: nil,
+            release: nil,
+            copyDescription: nil
+        )
+        let pathsToWatch = [url.path] as CFArray
+        let flags = FSEventStreamCreateFlags(
+            kFSEventStreamCreateFlagFileEvents
+                | kFSEventStreamCreateFlagUseCFTypes
+                | kFSEventStreamCreateFlagNoDefer
+        )
+
+        guard let stream = FSEventStreamCreate(
+            kCFAllocatorDefault,
+            Self.vaultFSEventsCallback,
+            &context,
+            pathsToWatch,
+            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            0.5,
+            flags
+        ) else {
+            unmanagedBox.release()
+            log.warning("File watcher: failed to create recursive FSEvents stream")
+            return false
+        }
+
+        FSEventStreamSetDispatchQueue(stream, fileWatcherState.eventQueue)
+        guard FSEventStreamStart(stream) else {
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            unmanagedBox.release()
+            log.warning("File watcher: failed to start recursive FSEvents stream")
+            return false
+        }
+
+        fileWatcherState.eventStream = stream
+        fileWatcherState.callbackBox = unmanagedBox
+        return true
+    }
+
+    private nonisolated static var vaultFSEventsCallback: FSEventStreamCallback {
+        { _, info, eventCount, eventPaths, eventFlags, _ in
+            guard let info else { return }
+            let box = Unmanaged<VaultFileWatcherCallbackBox>.fromOpaque(info).takeUnretainedValue()
+            let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] ?? []
+            var events: [VaultFileSystemEvent] = []
+            events.reserveCapacity(eventCount)
+
+            for index in 0..<eventCount {
+                guard index < paths.count else { continue }
+                events.append(VaultFileSystemEvent(path: paths[index], flags: eventFlags[index]))
+            }
+
+            guard !events.isEmpty else { return }
+            box.handle(events)
+        }
+    }
+
+    private func startDirectoryDispatchSourceWatcher(for url: URL) {
         let fd = open(url.path, O_EVTONLY)
         guard fd >= 0 else {
             log.warning("File watcher: failed to open vault directory for monitoring")
@@ -3633,13 +3758,26 @@ final class VaultSyncService {
 
         source.resume()
         fileWatcherState.source = source
-        log.info("File watcher started for: \(url.lastPathComponent, privacy: .public)")
+        log.info("Directory fallback watcher started for: \(url.lastPathComponent, privacy: .public)")
     }
 
     private func stopFileWatcher() {
         fileWatcherState.debounceTask?.cancel()
         fileWatcherState.debounceTask = nil
         fileWatcherState.ignoreUntil = nil
+        fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: false)
+        fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: false)
+        fileWatcherState.pendingFullRescan = false
+        if let stream = fileWatcherState.eventStream {
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            fileWatcherState.eventStream = nil
+        }
+        if let callbackBox = fileWatcherState.callbackBox {
+            callbackBox.release()
+            fileWatcherState.callbackBox = nil
+        }
         if let source = fileWatcherState.source {
             source.cancel()
             fileWatcherState.source = nil
@@ -3670,55 +3808,165 @@ final class VaultSyncService {
         return false
     }
 
-    /// Debounced handler for file system change events.
-    /// Waits 2 seconds after the last change before re-importing, so rapid
-    /// saves (e.g. typing in an external editor) don't trigger 50 reimports.
-    private func handleFileSystemChange() {
-        fileWatcherState.debounceTask?.cancel()
-        // Capture what we need before detaching — avoids @MainActor inheritance
-        // so the heavy vault import doesn't block the UI.
-        let vaultURL = self.vaultURL
-        let actor = self.indexActor
-        let searchService = self.searchService
-        let shouldIgnore = shouldIgnoreFileWatcherChange()
+    fileprivate func handleVaultFileSystemEvents(_ events: [VaultFileSystemEvent]) {
+        guard let vaultURL else { return }
+        for event in events {
+            if event.requiresFullRescan || event.itemIsDirectory {
+                fileWatcherState.pendingFullRescan = true
+                continue
+            }
 
-        fileWatcherState.debounceTask = Task.detached(priority: .utility) {
-            let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
+            guard let fileURL = Self.importableVaultEventFileURL(from: event.path, vaultURL: vaultURL) else {
+                continue
+            }
+
+            let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
+            if event.itemWasRemoved || (event.itemWasRenamed && !fileExists) || !fileExists {
+                fileWatcherState.pendingChangedPaths.remove(fileURL.path)
+                fileWatcherState.pendingDeletedPaths.insert(fileURL.path)
+            } else {
+                fileWatcherState.pendingDeletedPaths.remove(fileURL.path)
+                fileWatcherState.pendingChangedPaths.insert(fileURL.path)
+            }
+        }
+
+        scheduleDebouncedVaultFileSystemRefresh()
+    }
+
+    private nonisolated static func importableVaultEventFileURL(from path: String, vaultURL: URL) -> URL? {
+        let fileURL = URL(fileURLWithPath: path).standardizedFileURL
+        let vaultRoot = vaultURL.standardizedFileURL.path
+        let vaultPrefix = vaultRoot.hasSuffix("/") ? vaultRoot : "\(vaultRoot)/"
+        let filePath = fileURL.path
+
+        guard filePath.hasPrefix(vaultPrefix), filePath.count > vaultPrefix.count else {
+            return nil
+        }
+
+        let relativePath = String(filePath.dropFirst(vaultPrefix.count))
+        let components = relativePath.split(separator: "/").map(String.init)
+        guard !components.isEmpty else { return nil }
+        guard !components.contains(where: { $0.hasPrefix(".") || VaultIndexActor.shouldSkipDescendants(for: $0) }) else {
+            return nil
+        }
+        guard VaultIndexActor.isImportableNoteFile(fileURL) else { return nil }
+        return fileURL
+    }
+
+    /// Coarse fallback when FSEvents cannot be started. The directory source has no paths, so
+    /// the safest useful response is a complete import pass with the importer's own deletion guards.
+    private func handleFileSystemChange() {
+        fileWatcherState.pendingFullRescan = true
+        scheduleDebouncedVaultFileSystemRefresh()
+    }
+
+    /// Debounced handler for file-system event batches.
+    /// Waits 2 seconds after the last change before importing, so rapid
+    /// saves (e.g. typing in an external editor) don't trigger 50 imports.
+    private func scheduleDebouncedVaultFileSystemRefresh() {
+        let shouldIgnore = shouldIgnoreFileWatcherChange()
+        if shouldIgnore {
+            fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: true)
+            fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: true)
+            fileWatcherState.pendingFullRescan = false
+        }
+
+        fileWatcherState.debounceTask?.cancel()
+        fileWatcherState.debounceTask = Task { [weak self] in
             guard await Self.sleepHandlingCancellation(
                 for: .seconds(2),
                 label: "file watcher debounce"
             ) else { return }
-            guard !Task.isCancelled, let vaultURL, let actor else { return }
-            guard !shouldIgnore else {
-                log.info("File watcher: skipping self-originated vault change")
-                return
-            }
-            log.info("File watcher: vault changed externally — re-importing")
-            do {
-                let importSnapshot = try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
-                log.info("File watcher: re-import complete")
-                VaultSyncService.scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
+            guard !Task.isCancelled else { return }
+            await self?.drainAndProcessPendingVaultFileSystemChanges(shouldIgnore: shouldIgnore)
+        }
+    }
 
-                // Hop back to main actor for UI state updates. External
-                // vault changes must use the same canonical mutation event as
-                // in-app saves so graph/search observers cannot miss new
-                // files written outside Epistemos.
-                await MainActor.run { [weak vaultSync = AppBootstrap.shared?.vaultSync] in
-                    vaultSync?.publishVaultMutation(.vaultChanged)
-                    AppBootstrap.shared?.refreshAmbientManifest()
+    private func drainAndProcessPendingVaultFileSystemChanges(shouldIgnore: Bool) {
+        let changedPaths = Array(fileWatcherState.pendingChangedPaths)
+        let deletedPaths = Array(fileWatcherState.pendingDeletedPaths)
+        let needsFullRescan = fileWatcherState.pendingFullRescan
+        fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: true)
+        fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: true)
+        fileWatcherState.pendingFullRescan = false
+
+        guard !shouldIgnore else {
+            log.info("File watcher: skipping self-originated vault change")
+            return
+        }
+        guard let vaultURL, let actor = indexActor else { return }
+        let searchService = self.searchService
+
+        Task.detached(priority: .utility) {
+            await Self.processExternalVaultFileSystemChanges(
+                actor: actor,
+                vaultURL: vaultURL,
+                changedPaths: changedPaths,
+                deletedPaths: deletedPaths,
+                needsFullRescan: needsFullRescan,
+                searchService: searchService
+            )
+        }
+    }
+
+    private nonisolated static func processExternalVaultFileSystemChanges(
+        actor: VaultIndexActor,
+        vaultURL: URL,
+        changedPaths: [String],
+        deletedPaths: [String],
+        needsFullRescan: Bool,
+        searchService: SearchIndexService?
+    ) async {
+        let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
+        var didMutate = false
+        let importSnapshot: VaultImportProgressSnapshot?
+
+        do {
+            if needsFullRescan {
+                log.info("File watcher: path detail unavailable — running guarded vault import")
+                importSnapshot = try await actor.importVault(from: vaultURL)
+                didMutate = (importSnapshot?.postImportMutationCount ?? 0) > 0
+            } else {
+                importSnapshot = nil
+                for path in deletedPaths.sorted() {
+                    let fileURL = URL(fileURLWithPath: path)
+                    try await actor.handleFileDeletion(at: fileURL)
+                    didMutate = true
                 }
 
-                // Diff-sync FTS5 search index
-                if let svc = searchService {
-                    let timestamps = await actor.allPageTimestamps()
-                    try await svc.diffSync(
-                        swiftDataPages: timestamps,
-                        fullPageProvider: { id in await actor.fullPageData(for: id) }
-                    )
+                for path in changedPaths.sorted() {
+                    let fileURL = URL(fileURLWithPath: path)
+                    if FileManager.default.fileExists(atPath: fileURL.path) {
+                        let changed = try await actor.reindexFile(at: fileURL, vaultURL: vaultURL)
+                        didMutate = didMutate || changed
+                    } else {
+                        try await actor.handleFileDeletion(at: fileURL)
+                        didMutate = true
+                    }
                 }
-            } catch {
-                log.error("File watcher: re-import failed: \(error.localizedDescription, privacy: .public)")
             }
+
+            guard didMutate else { return }
+            if needsFullRescan {
+                scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
+            } else {
+                scheduleInstantRecallIndexRebuild(from: actor)
+            }
+
+            if let searchService {
+                let timestamps = await actor.allPageTimestamps()
+                try await searchService.diffSync(
+                    swiftDataPages: timestamps,
+                    fullPageProvider: { id in await actor.fullPageData(for: id) }
+                )
+            }
+
+            await MainActor.run { [weak vaultSync = AppBootstrap.shared?.vaultSync] in
+                vaultSync?.publishVaultMutation(.vaultChanged)
+                AppBootstrap.shared?.refreshAmbientManifest()
+            }
+        } catch {
+            log.error("File watcher: external vault refresh failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
