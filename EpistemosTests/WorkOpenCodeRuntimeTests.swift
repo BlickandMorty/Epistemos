@@ -160,6 +160,19 @@ struct WorkOpenCodeRuntimeTests {
         #expect(src.contains("vaultRoot: fusionVaultRoot"))
     }
 
+    @Test("Pro agent passes the same fusion config to OpenChamber's MCP/config layer")
+    func proAgentWebServerReceivesFusionConfig() throws {
+        let src = try loadMirroredSourceTextFile("Epistemos/ProAgent/ProAgentRuntimeSupervisor.swift")
+        let fusionDecl = try #require(src.range(of: "var fusionConfigPath: String?")?.lowerBound)
+        let opencodeEnv = try #require(src.range(of: #"opencodeEnv["OPENCODE_CONFIG"] = configPath"#)?.lowerBound)
+        let webEnv = try #require(src.range(of: #"webEnv["OPENCODE_CONFIG"] = fusionConfigPath"#)?.lowerBound)
+        let webVault = try #require(src.range(of: #"webEnv["EPISTEMOS_VAULT_ROOT"] = fusionVaultRoot"#)?.lowerBound)
+        #expect(fusionDecl < opencodeEnv)
+        #expect(opencodeEnv < webEnv)
+        #expect(webEnv < webVault)
+        #expect(src.contains("OpenChamber's MCP/config/status routes read process.env.OPENCODE_CONFIG"))
+    }
+
     @Test("fusion server roots at the app vault so the work agent sees vault notes + skills/ as MCP context (0.49b)")
     func fusionVaultRootBridgesSkills() throws {
         // The fusion server enumerates the WHOLE vault as MCP resources (resources/list walks recursively,

@@ -303,11 +303,15 @@ final class ProAgentRuntimeSupervisor {
         // (preserves user-installed opencode MCPs across relaunch). Best-effort:
         // no active vault OR missing bundled server -> no OPENCODE_CONFIG (the
         // honest no-vault state; never roots at an empty default).
+        var fusionConfigPath: String?
+        var fusionVaultRoot: String?
         if let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL,
            let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL(),
-           let fusionConfigPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
+           let configPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
                stdioServerPath: serverURL.path, vaultRoot: vaultURL.path, nativeMCP: nil) {
-            opencodeEnv["OPENCODE_CONFIG"] = fusionConfigPath
+            fusionConfigPath = configPath
+            fusionVaultRoot = vaultURL.path
+            opencodeEnv["OPENCODE_CONFIG"] = configPath
             opencodeEnv["EPISTEMOS_VAULT_ROOT"] = vaultURL.path
         }
         opencodeProc.environment = opencodeEnv
@@ -368,6 +372,16 @@ final class ProAgentRuntimeSupervisor {
         // reads OPENCODE_SERVER_PASSWORD and sends Basic auth). Same value as
         // the opencode child; the webview never sees it (server-side only).
         webEnv["OPENCODE_SERVER_PASSWORD"] = opencodePassword
+        // OpenChamber's MCP/config/status routes read process.env.OPENCODE_CONFIG.
+        // Keep them pointed at the same merge-preserving fusion config as the
+        // opencode child, otherwise the UI can report/configure a different MCP
+        // store than the engine is actually using.
+        if let fusionConfigPath {
+            webEnv["OPENCODE_CONFIG"] = fusionConfigPath
+        }
+        if let fusionVaultRoot {
+            webEnv["EPISTEMOS_VAULT_ROOT"] = fusionVaultRoot
+        }
         webEnv["EPISTEMOS_EMBED"] = "1"
         if let gooseChild {
             // The secret crosses exactly one boundary: supervisor -> web server

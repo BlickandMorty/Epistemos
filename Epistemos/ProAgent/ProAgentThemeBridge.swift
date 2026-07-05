@@ -128,6 +128,7 @@ enum ProAgentThemeBridge {
               var root = document.documentElement;
               if (!root) { return; }
               window.__EPISTEMOS_OC_THEME__ = payload;
+              root.setAttribute('data-epistemos-embed', 'true');
               if (payload.dark) {
                 root.classList.add('dark'); root.classList.remove('light');
               } else {
