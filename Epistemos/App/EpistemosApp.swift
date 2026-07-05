@@ -1329,6 +1329,12 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
         RuntimeIssueMonitor.shared.stop(reason: "application_teardown")
         HomeWindowInputDiagnostics.shared.stop()
+        #if EPISTEMOS_EXPERIMENTAL
+        // Reap the embedded 1Code headless backend on a clean quit — otherwise the
+        // node child survives until the next-launch child-ledger sweep (leak found
+        // live 2026-07-05). stop() sends SIGTERM; the backend's own handler exits.
+        ExperimentalRuntimeSupervisor.shared.stop()
+        #endif
         guard let bootstrap = AppBootstrap.shared else { return }
         bootstrap.teardownRuntimeObservers()
         bootstrap.activityTracker.stopTracking()
