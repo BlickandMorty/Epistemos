@@ -150,6 +150,20 @@ final class ExperimentalRuntimeSupervisor {
             environment["EPISTEMOS_CLAUDE_BINARY"] = claudeBinary
             recordDiagnostic("[cli] using system claude: \(claudeBinary)")
         }
+        // §6 MCP auto-inject (router-level primary): register the app's active vault as a
+        // stdio MCP server so the embedded engines (claude-agent-sdk + Codex ACP) can
+        // search + cite the user's notes. The backend's resolveVault() reads these three
+        // vars and appends the server at the exact point of use. Best-effort: no active
+        // vault OR missing bundled omega_mcp_stdio ⇒ inject nothing (honest no-op).
+        // Reuses the proven Work-lane server resolver + AppBootstrap vault URL (as ProAgent).
+        if let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL,
+           let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL(),
+           let envJSON = Self.jsonEnvString(["EPISTEMOS_VAULT_ROOT": vaultURL.path]) {
+            environment["EPISTEMOS_VAULT_MCP_COMMAND"] = serverURL.path
+            environment["EPISTEMOS_VAULT_MCP_ARGS"] = "[]"
+            environment["EPISTEMOS_VAULT_MCP_ENV"] = envJSON
+            recordDiagnostic("[mcp] vault auto-inject: \(serverURL.lastPathComponent) @ \(vaultURL.path)")
+        }
         environment["EPISTEMOS_ONECODE_PORT"] = String(uiPort)
         environment["EPISTEMOS_ONECODE_PACKAGED"] = "1"
         environment["EPISTEMOS_ONECODE_USER_DATA"] = Self.userDataDirectory().path
@@ -274,6 +288,14 @@ final class ExperimentalRuntimeSupervisor {
         ]
         let fm = FileManager.default
         return candidates.first { fm.isExecutableFile(atPath: $0) }
+    }
+
+    /// Compact-JSON encode a string→string env map for the backend's `resolveVault`
+    /// (`EPISTEMOS_VAULT_MCP_ENV`). Sorted keys → stable output; nil on failure.
+    nonisolated static func jsonEnvString(_ dict: [String: String]) -> String? {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else { return nil }
+        return json
     }
 
     nonisolated static func userDataDirectory() -> URL {
