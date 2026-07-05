@@ -5,6 +5,14 @@ options:
     macOS: "26.0"
   xcodeVersion: "16.0"
   defaultConfig: Debug
+# Explicit build-configuration set. Debug + Release keep the historical implicit
+# behavior; Experimental is the Developer-ID lane for the embedded 1Code agent
+# surface (§16) — a Release-type build that additionally defines
+# EPISTEMOS_EXPERIMENTAL on the main Epistemos target (see its settings.configs).
+configs:
+  Debug: debug
+  Release: release
+  Experimental: release
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -111,9 +119,20 @@ targets:
           CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
           ENABLE_HARDENED_RUNTIME: true
+        # Experimental agent surface (embedded 1Code, §16). Developer-ID lane:
+        # same signing/hardened-runtime posture as Release, plus the compile flag
+        # that activates Epistemos/ExperimentalAgent/**. build-experimental-web.sh
+        # (in the shared preBuild below) graceful-skips when the fork isn't staged.
+        Experimental:
+          CODE_SIGN_IDENTITY: "Apple Development"
+          DEVELOPMENT_TEAM: 3BNL2669SL
+          CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+          ENABLE_HARDENED_RUNTIME: true
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_EXPERIMENTAL EPISTEMOS_LINK_SUBSTRATE_RT"
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\" && bash \"${SRCROOT}/build-openchamber-web.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\" && bash \"${SRCROOT}/build-openchamber-web.sh\" && bash \"${SRCROOT}/build-experimental-web.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -554,3 +573,15 @@ schemes:
       executable: Epistemos-AppStore
     archive:
       config: Release
+  # Experimental agent surface (embedded 1Code, §16). Builds the main Epistemos
+  # target under the Experimental config so EPISTEMOS_EXPERIMENTAL is defined.
+  Epistemos-Experimental:
+    build:
+      targets:
+        Epistemos: all
+      config: Experimental
+    run:
+      config: Experimental
+      executable: Epistemos
+    archive:
+      config: Experimental

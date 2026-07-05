@@ -78,10 +78,18 @@ PINNED_NODE_DIR="$TMP/${NODE_ASSET}"
 # -------------------------------------------------------------------
 # 2. Preflight the fork build artifacts
 # -------------------------------------------------------------------
+# GRACEFUL SKIP (exit 0): this script is wired into the shared Epistemos preBuild
+# chain, so on a machine without the gitignored .research-clones/1code fork (CI,
+# a fresh checkout, any non-Experimental build) it must NOT fail the whole app
+# build. The Experimental surface honestly reports "runtime not staged" at launch.
+if [ ! -d "$FORK" ]; then
+    echo "build-experimental-web.sh: fork clone absent at $FORK — skipping (Experimental runtime not staged)."
+    exit 0
+fi
 if [ ! -f "$FORK/out/renderer/index.html" ] || [ ! -f "$FORK/headless/dist/index.cjs" ]; then
-    echo "build-experimental-web.sh: fork artifacts missing at $FORK — build them first:" >&2
+    echo "build-experimental-web.sh: fork present but not built at $FORK — skipping. To stage, run:" >&2
     echo "  cd $FORK && bun run build && node headless/build.mjs" >&2
-    exit 1
+    exit 0
 fi
 # Service-worker refusal (stale/stock dist guard).
 if [ -f "$FORK/out/renderer/sw.js" ] || grep -rlq "serviceWorker\.register" "$FORK/out/renderer/assets" 2>/dev/null; then
