@@ -14,29 +14,71 @@ struct ExperimentalSurfaceView: View {
     @State private var supervisor = ExperimentalRuntimeSupervisor.shared
     // Owner 2026-07-05: a native "back to Epistemos" pill like the other agent surfaces have.
     @Environment(UIState.self) private var ui
+    // Task 2 (DoD-2): the LIVE Epistemos theme projected onto the SPA.
+    var theme: EpistemosTheme = .nativeDefault
+    // Task 3 (DoD-3): the native chat-list sidebar.
+    @State private var nativeSidebarShown = false
+
+    init(theme: EpistemosTheme = .nativeDefault) {
+        self.theme = theme
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             switch supervisor.status {
             case .running(let connection):
-                ExperimentalWebView(uiBaseURL: connection.uiBaseURL)
+                ExperimentalWebView(uiBaseURL: connection.uiBaseURL, theme: theme)
                     .ignoresSafeArea()
+                    // Pin prefers-color-scheme to the THEME's darkness (not the OS
+                    // setting) so the donor's next-themes — and with it Tailwind
+                    // dark: utilities, xterm, Monaco — follows the app theme
+                    // (ProAgent precedent; the ledger's next-themes blocker
+                    // dissolves at the appearance seam).
+                    .colorScheme(theme.resolved.isDark ? .dark : .light)
             case .failed(let message), .unavailable(let message):
                 statusCard(title: "Experimental surface unavailable", detail: message, retry: true)
             default:
                 statusCard(title: "Starting the Experimental agent…", detail: supervisor.lastDiagnostic, retry: false)
             }
 
-            // Native back-to-Epistemos pill — floats in the empty hidden-inset title-bar strip,
-            // right of the macOS traffic lights, above the 1Code SPA chrome (always reachable,
-            // even while the surface is starting or failed).
-            backToEpistemosPill
-                .padding(.top, 10)
-                .padding(.leading, 92)
-                .zIndex(10)
+            // Task 3 (DoD-3): native sidebar over the web transcript — chat list
+            // + New Chat, tRPC-driven; selection rides the atom bridge.
+            if nativeSidebarShown, case .running(let connection) = supervisor.status {
+                ExperimentalNativeSidebar(baseURL: connection.uiBaseURL)
+                    .transition(.move(edge: .leading))
+                    .zIndex(9)
+            }
+
+            // Native chrome strip — floats in the empty hidden-inset title-bar area,
+            // right of the macOS traffic lights, above the SPA chrome (always
+            // reachable, even while the surface is starting or failed).
+            HStack(spacing: 8) {
+                backToEpistemosPill
+                if case .running(let connection) = supervisor.status {
+                    ExperimentalChromeBar(
+                        baseURL: connection.uiBaseURL,
+                        sidebarShown: $nativeSidebarShown
+                    )
+                }
+            }
+            .padding(.top, 10)
+            .padding(.leading, 92)
+            .zIndex(10)
+        }
+        .onChange(of: nativeSidebarShown) { _, shown in
+            // Yield the strip to the native sidebar: collapse the donor's web
+            // sidebar while ours is open (same atom its own toggle writes).
+            ExperimentalStateBridge.shared.setAtom("agentsSidebarOpenAtom", value: !shown)
         }
         .task {
             if case .idle = supervisor.status { supervisor.start() }
+        }
+        .onChange(of: theme.resolved) { _, _ in
+            // Live theme switch: re-project the palette onto the loaded SPA —
+            // never reload (a reload reboots the SPA and kills the session, §7).
+            guard let webView = ExperimentalStateBridge.shared.webView else { return }
+            webView.underPageBackgroundColor = ExperimentalThemeBridge.underPageColor(for: theme)
+            webView.evaluateJavaScript(ExperimentalThemeBridge.applyScript(for: theme))
         }
     }
 
@@ -76,6 +118,7 @@ struct ExperimentalSurfaceView: View {
 /// via the shared supervisor.
 private struct ExperimentalWebView: NSViewRepresentable {
     let uiBaseURL: URL
+    let theme: EpistemosTheme
 
     func makeCoordinator() -> Coordinator { Coordinator(uiBaseURL: uiBaseURL) }
 
@@ -90,6 +133,12 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 source: shimSource, injectionTime: .atDocumentStart, forMainFrameOnly: true
             ))
         }
+        // Task 2 (DoD-2): Epistemos theme tokens as HSL-triplet !important vars
+        // + structural CSS (gradient kill, landmark font) from first paint.
+        controller.addUserScript(WKUserScript(
+            source: ExperimentalThemeBridge.userScript(for: theme),
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
         // Reply-capable handler for the native desktopApi bucket (callId round-trip).
         controller.addScriptMessageHandler(
             context.coordinator, contentWorld: .page, name: "epistemos"
@@ -99,6 +148,9 @@ private struct ExperimentalWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground") // native underPage blend
+        // Task 2 (§7): pre-paint blend + deterministic prefers-color-scheme.
+        webView.underPageBackgroundColor = ExperimentalThemeBridge.underPageColor(for: theme)
+        webView.appearance = NSAppearance(named: theme.resolved.isDark ? .darkAqua : .aqua)
         context.coordinator.webView = webView
         // Task 0 keystone: native chrome drives the SPA's Jotai atoms through here.
         ExperimentalStateBridge.shared.webView = webView
@@ -107,7 +159,14 @@ private struct ExperimentalWebView: NSViewRepresentable {
         return webView
     }
 
-    func updateNSView(_ webView: WKWebView, context: Context) {}
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // Keep the WebView's effective appearance pinned to the theme so
+        // prefers-color-scheme (and next-themes) tracks live theme switches.
+        let wantDark = theme.resolved.isDark
+        if (webView.appearance?.name == .darkAqua) != wantDark {
+            webView.appearance = NSAppearance(named: wantDark ? .darkAqua : .aqua)
+        }
+    }
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandlerWithReply {

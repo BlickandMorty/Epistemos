@@ -190,7 +190,7 @@ struct LandingView: View {
                     JuneAgentSurfaceView()
                     #elseif EPISTEMOS_EXPERIMENTAL
                     // Experimental Agent room: the embedded 1Code surface (Developer-ID lane).
-                    ExperimentalSurfaceView()
+                    ExperimentalSurfaceView(theme: theme)
                     #else
                     ProAgentSurfaceView(theme: theme)
                     #endif
