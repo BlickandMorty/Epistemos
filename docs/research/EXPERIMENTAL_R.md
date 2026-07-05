@@ -1,0 +1,433 @@
+# Experimental R — Research corpus for the Experimental agent surface (1Code)
+
+**What this is.** The single reference corpus for building the **Experimental** agent surface:
+Epistemos embedding **1Code** (`github.com/21st-dev/1code`, npm name `21st-desktop`, Apache-2.0,
+Electron) — its React UI inside a native WKWebView, its Node backend supervised by the Swift host.
+It houses (1) first-hand source reading of the 1Code clone, (2) live web-verified provider facts,
+(3) adversarial verification of the load-bearing claims, and (4) the owner's external research
+dossiers — all reconciled. The build plan that consumes this is
+[`PROMPT_PLAN_10_EXPERIMENTAL.md`](../prompts/PROMPT_PLAN_10_EXPERIMENTAL.md). Every research cycle
+appends here (Part 4) and updates the plan.
+
+**How to read it (trust levels).** Each claim carries a tag so an implementing agent knows what to
+trust:
+- **[VERIFIED-CODE]** — read first-hand in the clone at the cited `file:line`.
+- **[VERIFIED-WEB]** — confirmed against a primary/official source (provider docs / npm / GitHub), 2026-07-05.
+- **[ADVERSARIALLY-CONFIRMED]** — a verification pass actively tried to refute it and could not.
+- **[EXTERNAL]** — from an owner-supplied dossier; cross-checked and tagged confirmed / corrected / superseded.
+- **[UNVERIFIED]** — plausible but not confirmed from a primary source; never hardcode without a runtime check.
+
+**Provenance.** Clone `.research-clones/1code` @ `9f1bc76` ("Release v0.0.72", 2026-02-24) —
+GITIGNORED, never committed. 1Code stack: Electron ~39.4.0, React 19.2.1, TypeScript 5.4.5,
+Tailwind 3.4.17, tRPC v11.7.1 + `trpc-electron` 0.1.2, Drizzle + better-sqlite3, node-pty 1.1.0,
+`@anthropic-ai/claude-agent-sdk` 0.2.45, `@zed-industries/codex-acp` 0.9.3, Jotai/Zustand/React Query.
+
+---
+
+# PART 1 — VERIFIED FOUNDATION (the spine — trust this layer)
+
+## 1.1 Architecture map [VERIFIED-CODE]
+- **Process split:** Electron main (`src/main/index.ts` 1019 L + `windows/main.ts` 861 L, window +
+  IPC handlers) ↔ React 19 renderer (`src/renderer/`, entry `main.tsx`/`App.tsx`). Preload
+  (`src/preload/index.ts`) exposes `window.desktopApi` + the tRPC bridge under context isolation
+  (`windows/main.ts:639-644`: `contextIsolation:true`, `nodeIntegration:false`, `webSecurity:true`).
+- **The IPC contract = tRPC over Electron IPC via `trpc-electron`.** "All backend calls go through
+  tRPC routers, not raw IPC." Server `initTRPC.context<{getWindow: () => BrowserWindow|null}>()`
+  (`src/main/lib/trpc/index.ts:8-26`). **21 routers** (`src/main/lib/trpc/routers/`): agents,
+  agent-utils, anthropic-accounts, chats, claude, claude-code, claude-settings, codex, commands,
+  debug, external, files, index, ollama, plugins, sandbox-import, skills, terminal, voice,
+  worktree-config.
+- **State:** Jotai (transient UI — selected chat, sidebar, popovers, per-feature atoms like
+  `selectedAgentChatIdAtom`), Zustand (persistent layout/tabs/pins → localStorage), TanStack React
+  Query (server state via tRPC, auto-cache/refetch). **No React Router** — a feature-folder single
+  window with resizable panels.
+- **Data:** Drizzle + better-sqlite3 at `{userData}/data/agents.db`; three tables —
+  `projects(id,name,path)`, `chats(id,name,projectId,worktreePath,branch,baseBranch,prUrl,prNumber)`,
+  `sub_chats(id,name,chatId,sessionId,streamId,mode,messages JSON)`. Auto-migrates from `drizzle/`
+  (dev) / `resources/migrations` (packaged).
+- **Two engines, no unified abstraction** (separate routers + `chat` subscriptions): **Claude Code**
+  (`@anthropic-ai/claude-agent-sdk` in-process → spawns bundled `claude` binary v2.1.45) and
+  **Codex** (`@zed-industries/codex-acp` via `@mcpc-tech/acp-ai-provider`, ACP JSON-RPC/stdio,
+  spawned binary). Full orchestration in §1.4.
+- **Editor/diff/terminal:** Monaco (`@monaco-editor/react`), `@git-diff-view/react` + `@pierre/diffs`,
+  node-pty + xterm.
+
+## 1.2 The embedding seam — the crux [VERIFIED-CODE + ADVERSARIALLY-CONFIRMED]
+OpenChamber was easy (a web server + WKWebView). 1Code is Electron, but the seam is bounded and
+was **actively stress-tested** by two adversarial passes that tried and failed to refute it.
+
+**(A) Transport swap — the linchpin.** The renderer talks to the backend through a `TRPCLink`;
+swapping it to a network link makes the whole UI work against a localhost tRPC server.
+- Server yields via **standard** tRPC observables: `claude.ts:820-821`
+  `.subscription(() => observable<UIMessageChunk>((emit)=>…))`; `codex.ts:1579-1611` identical.
+- Renderer consumes the **transport-agnostic** `.subscribe({onData,onError,onComplete})`/`unsubscribe()`
+  API (`ipc-chat-transport.ts:202`, `acp-chat-transport.ts:161`) — **zero lines change** under a
+  `splitLink([wsLink, httpBatchLink])` swap. `superjson` is symmetric on both ends.
+- **CORRECTION (adversarial):** there are **TWO** `ipcLink` client sites, not one — the vanilla
+  client `src/renderer/lib/trpc.ts:15-17` AND the React-Query provider client
+  `src/renderer/contexts/TRPCProvider.tsx:39-44` (wired `<trpc.Provider client={…}>` at `:47`).
+  Both take the same one-line swap. (A third client, `remote-trpc.ts:59-67`, uses `httpLink` to the
+  21st.dev cloud — out of scope.)
+- **CORRECTION (adversarial):** there are **FOUR** subscription procedures, not two —
+  `claude.chat`, `codex.chat`, `terminal.stream` (`terminal.ts:200`), `files.watchChanges`
+  (`files.ts:418`). All ride the WS link automatically; a "carry the subscriptions" plan must
+  include all four.
+- Server side: replace `trpc-electron`'s `createIPCHandler` (`windows/main.ts:661`) with
+  `@trpc/server`'s standalone HTTP adapter + `applyWSSHandler`, same `superjson`.
+- Minor risk: multi-MB base64 image attachments travel inside subscription inputs as large WS text
+  frames (`ipc-chat-transport.ts:218`) — set no restrictive WS `maxPayload`.
+
+**(B) The `desktopApi` bridge table** [VERIFIED-CODE `src/preload/index.ts:25-248`] — ~60 channels;
+a `WKScriptMessageHandler` + injected `WKUserScript` replaces the preload. Buckets:
+- **Native Swift:** window controls (`:77-83`), zoom (`:104-107` → WKWebView magnification), devtools
+  (`:122-123`), clipboard (`:139-140` → NSPasteboard), `app:show-notification` (`:131` →
+  UNUserNotificationCenter — NOTE: use UNUserNotification, not the deprecated NSUserNotification the
+  dossiers show), `app:set-badge*` (`:129-130` → Dock tile), `shell:open-external` (`:133` →
+  NSWorkspace, the external-links reroute), `dialog:save-file` (`:143` → NSSavePanel),
+  `vscode:scan/load-theme` (`:246-247`), `webUtils.getPathForFile` (`:15-17`), `app:get-api-base-url`
+  (`:136`).
+- **Server-push (ws):** `stream:<id>:*` (`:180-194`), `file-changed` (`:221`),
+  `git:status-changed` + watcher (`:228-243`), `worktree:setup-failed` (`:235`),
+  `window:*-change` (`:92-99`), `shortcut:*` (`:209-214`).
+- **Stub/decouple:** all `update:*` (`:33-74`), all `auth:*` (`:147-153,197-205`),
+  `analytics:set-opt-out` (`:126`), `api:signed-fetch` (`:156`), `api:stream-fetch` (`:168`).
+
+**(C) The backend→renderer push surface is BOUNDED — the definitive ~13 channels** [ADVERSARIALLY-CONFIRMED]:
+`auth:success` (`index.ts:150`), `auth:error` (`index.ts:179`, `main.ts:385`),
+`update:manual-check` (`index.ts:642`), `shortcut:open-settings` (`index.ts:660`),
+`shortcut:new-agent` (`index.ts:746`), `mcp-auth-completed` (`mcp-auth.ts:285`),
+`update:checking|available|not-available|progress|downloaded|error` (`auto-updater.ts` via
+`sendToAllRenderers`), `worktree:setup-failed` (`chats.ts:56`), `file-changed` (`claude.ts:2407`),
+`git:status-changed` (`git/watcher/ipc-bridge.ts:55`), `window:fullscreen-change` (`main.ts:687`),
+`window:focus-change` (`main.ts:698`). No `broadcast` bus. The ws-push shim carries exactly these.
+
+## 1.3 Headless conversion — bounded [VERIFIED-CODE + ADVERSARIALLY-CONFIRMED]
+1Code's `src/main` is ~90% plain Node; only a countable Electron shell needs handling. An adversarial
+pass tried to find coupling that resists a shim and **could not**. Verdict per family:
+- **`Menu`** (`index.ts:623-867`) — trivial; role items + `shortcut:*` pushes. **Drop headless.**
+- **`session`** (`index.ts:124,915`, `main.ts:363`) — ONLY sets the `x-desktop-token` cookie for the
+  remote 21st.dev page; **no** onHeadersReceived/webRequest/CSP/protocol. **Severable** with account decouple.
+- **`twentyfirst-agents://`** (`index.ts:189-256`) — 100% OAuth deep-linking; the loopback server
+  (below) already handles the same callbacks. **Severable.**
+- **Multi-window** (`windows/window-manager.ts`, chat-ownership `chats.ts`) — collapses to a no-op
+  for a single webview. **Droppable.**
+- **node-pty** (`terminal/session.ts:4,94`, `manager.ts` `extends EventEmitter`, `:55` `emit('data:…')`)
+  — **ZERO Electron coupling; runs headless unchanged.** The terminal is NOT a native reimplement.
+- **better-sqlite3/Drizzle** (`db/index.ts`) — only `app.getPath('userData')` (`:16`) + migrations
+  path (`:32-37`). **Trivial fixed-path shim.**
+- **OAuth loopback** (`index.ts:292-474`, `oauth.ts:848`, `mcp-auth.ts`) — plain Node
+  `http.createServer` + PKCE; only Electron touch is `shell.openExternal` (one line). **Severable.**
+- **Engine spawn** — Claude SDK `pathToClaudeCodeExecutable` (`claude.ts:1977`, resolver `env.ts:45-105`);
+  Codex `spawn` from `node:child_process` (`codex.ts:367`, resolver `:223-260`). Plain Node; only
+  path-resolution coupling. **Trivial.**
+- Nothing else forces Electron alive (no globalShortcut/Tray/powerMonitor/desktopCapturer/screen).
+- **THE SHARP NUANCE** [ADVERSARIALLY-CONFIRMED]: `ctx.getWindow` is used by **5** procedures; **4**
+  of them (`projects.ts:49,367,455,493`) call native **`dialog.showOpenDialog(window)` +
+  `window.focus()`**, NOT `webContents.send`. So "stub getWindow to null" is WRONG — it would break
+  the folder pickers. **Resolution:** rewire those 4 sites (+ the `showSaveDialog` at `main.ts:314`)
+  to the **native NSOpenPanel/NSSavePanel bridge** (already in the bridge table §1.2B). The 5th site
+  (`chats.ts:318`) only reads `.id` for a push target → ws-shimmable. Bounded, known edit sites.
+- Hardest single item = the transport swap (the linchpin). The "13 API families" list is accurate
+  and over-counts (Menu/nativeImage/nativeTheme/autoUpdater/session get dropped, not shimmed).
+
+**Load facts:** prod renderer loads from `file://` (`index.ts:162`, `main.ts:821`) → serve the built
+SPA over localhost, same-origin with the tRPC server. `titleBarStyle:"hiddenInset"` + custom
+traffic-light position (`main.ts:631-636`) → native NSWindow chrome.
+
+## 1.4 Orchestration — how 1Code drives its engines [VERIFIED-CODE]
+- **Claude Code:** SDK cached (`claude.ts:248-259`), driven by `query(queryOptions)` (`:2019`),
+  iterated `for await` (`:2055`); bundled binary via `pathToClaudeCodeExecutable`
+  (`:1977`→`env.ts:45-105`). Streaming = tRPC subscription `claude.chat` (`:795-820`) → transformer
+  (`lib/claude/transform.ts`) → Vercel-AI `UIMessageChunk`s, `includePartialMessages:true` (`:1770`).
+  Resume via `resume`/`forkSession`/`resumeSessionAt`/`continue` (`:1980-1994`), per-subChat
+  `CLAUDE_CONFIG_DIR` isolation (`:1149-1264`). Modes: plan (read-only) / agent
+  (`allowDangerouslySkipPermissions`-style full write, tool approvals captured by the UI).
+- **⭐ THE `ANTHROPIC_BASE_URL` HARNESS (already wired + user-facing)** — `claude.ts:1129-1138`
+  injects `customConfig.{token,baseUrl}` as `ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL`; input schema
+  `{model,token,baseUrl}` (`:806-812`); when set it suppresses the OAuth token so the custom base URL
+  wins (`:1390-1410`). UI: Settings → Agents/Models with fields "Model name / API token
+  (ANTHROPIC_AUTH_TOKEN) / Base URL (ANTHROPIC_BASE_URL)" (`agents-models-tab.tsx:752,772,791`).
+  **⇒ Kimi + GLM drop into this harness with zero new engine code.** Two gaps to close: the custom
+  token is stored in **plain localStorage** (`atoms/index.ts:254-263`) → move to Keychain; one global
+  `customClaudeConfigAtom` → switch the transport (`ipc-chat-transport.ts:176`) to the existing
+  `ModelProfile[]` system for per-conversation profiles.
+- **Codex:** ACP via `createACPProvider({command: resolveCodexAcpBinaryPath(), env, session:{cwd,
+  mcpServers}, …})` (`codex.ts:1255-1267`), stdio JSON-RPC, bridged to Vercel AI SDK `streamText`
+  (`:1764-1774`); subscription `codex.chat` (`:1558`). Tool verbs normalized (`shared/codex-tool-normalizer.ts:3-14`).
+  Login/status/MCP via a separate `codex` CLI binary.
+- **Model catalog is HARDCODED** (`lib/models.ts`; nothing hits a `/models` endpoint) — the live
+  catalog is net-new (§1.6).
+- **Auth:** two scopes — (a) 21st.dev product account (safeStorage `auth.dat`), (b) engine creds
+  (Claude OAuth subscription token via a 21st CodeSandbox dance OR imported from the system keychain
+  `security find-generic-password -s "Claude Code-credentials"`; multi-account `anthropic-accounts.ts`).
+
+## 1.5 Decouple — license + telemetry + account [VERIFIED-CODE]
+- **License: stock Apache-2.0** [VERIFIED-CODE + VERIFIED-WEB] — the `LICENSE` is verbatim Apache 2.0;
+  grep for `non-commercial|SSPL|BUSL|Commons Clause` = zero. Direct deps are MIT/Apache
+  (React/Radix/Jotai/Zustand/tRPC/better-sqlite3/node-pty/xterm/Drizzle/the two SDKs). **Safe for a
+  paid, closed-source, Developer-ID app** (retain LICENSE/NOTICE, state changes). ⚠️ **Sibling repos
+  are AGPL** (`21st-extension`, `magic-mcp`) — **never vendor them**; exclude at the build boundary.
+  The bundled `claude`/`codex` binaries are separately licensed (Anthropic/OpenAI EULAs), downloaded
+  at build — ship under their EULAs or have users install their own. Run a lockfile-level
+  `osv-scanner`/`license-checker` at build to catch transitive surprises.
+- **Telemetry:** env-gated OFF, BUT `lib/analytics.ts:13` has a **hardcoded PostHog fallback key**
+  that fires in any packaged build → **decouple requires a code edit**, not just leaving env unset.
+  Renderer PostHog (`VITE_POSTHOG_KEY`, no fallback) + all Sentry (DSN-gated) are already inert.
+- **Account:** the ONE true blocker is a **mandatory 21st.dev login wall** at window creation
+  (`windows/main.ts:789` → `login.html` unless a token exists). The local loop needs NO account:
+  `App.tsx:106-114` auto-skips onboarding if `ANTHROPIC_API_KEY` present; `BillingMethodPage` offers
+  api-key/custom-model lanes; `importSystemToken` reads a local Claude token. `signedFetch`/`streamFetch`
+  are 100% cloud (require the 21st token, only call 21st.dev) — NOT on the local path.
+- **The 3 surgical decouple edits:** (1) `windows/main.ts:789` force `isAuth=true` / delete the
+  `else{login.html}` branch; (2) `lib/analytics.ts:13` empty the hardcoded PostHog key; (3)
+  `index.ts:946-954` remove the auto-updater block. Net outbound after: the chosen model provider only.
+
+## 1.6 Six-provider live catalog + endpoints [VERIFIED-WEB, 2026-07-05]
+**Current model IDs (use these; the auto-updater keeps them fresh):**
+- **Anthropic:** `claude-opus-4-8`, `claude-fable-5` (most capable public; $10/$50; thinking always-on),
+  `claude-sonnet-5`, `claude-haiku-4-5`. 4.6+ IDs are dateless pinned snapshots. ⚠️ Fable 5 had a
+  brief export-control pause mid-June 2026, redeployed ~July 1 — verify at runtime.
+- **Codex:** default `gpt-5.5`; also `gpt-5.4`, `gpt-5.4-mini`. CLI `codex` v0.142.5.
+- **Kimi:** `kimi-k2.7-code`, `kimi-k2.6`, `kimi-k2.5` (256K; dotted IDs — the dashed
+  `kimi-k2-thinking` are open-weights/third-party names).
+- **GLM:** `glm-4.7` (current Claude-Code default), `glm-5.2` (flagship); `glm-4.6`/`glm-4.5-air` fallbacks.
+- **Gemini:** `gemini-3.5-flash` (GA flagship), `gemini-3.1-pro-preview`; `gemini-2.5-*` legacy;
+  `gemini-3-pro-preview` DEPRECATED.
+- **OpenCode (free Zen only):** `opencode/big-pickle`, `opencode/grok-code`, `opencode/glm-4.7-free`,
+  `opencode/kimi-k2.5-free`, `opencode/minimax-m3-free`, `opencode/nemotron-3-ultra-free`, … (21 IDs
+  with `cost==0`; promos rotate).
+
+**Anthropic-compatible base URLs (for the Claude harness) [VERIFIED-WEB verbatim]:**
+- Kimi: `ANTHROPIC_BASE_URL=https://api.moonshot.ai/anthropic` + `ANTHROPIC_AUTH_TOKEN=<moonshot key>`
+  + `ANTHROPIC_MODEL=kimi-k2.7-code` (no `/v1`; Claude Code appends `/v1/messages`). `.ai`/`.cn` domain-bound.
+- GLM: `ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic` (intl) / `https://open.bigmodel.cn/api/anthropic`
+  (China) + `ANTHROPIC_AUTH_TOKEN=<z.ai key>` (no `/v1`). Default map `glm-4.7`; override `glm-5.2`.
+
+**Live `/models` endpoints (the auto-update backbone):**
+| Provider | Endpoint | Auth | id field |
+|---|---|---|---|
+| **models.dev** | `GET https://models.dev/api.json` | none | `providers.<p>.models.<id>` + `cost` (free = cost 0) |
+| Anthropic | `GET api.anthropic.com/v1/models` | x-api-key + `anthropic-version:2023-06-01` | `data[].id` (cursor pagination) |
+| OpenAI | `GET api.openai.com/v1/models` | Bearer | `data[].id` |
+| Moonshot | `GET api.moonshot.ai/v1/models` | Bearer | `data[].id` |
+| Gemini | `GET generativelanguage.googleapis.com/v1beta/models` | `?key=` | `models[].name` (paginated) |
+| GLM | UNVERIFIED (undocumented) | — | source from models.dev |
+
+**Design:** poll `models.dev/api.json` as the backbone; refine with each active provider's own
+`/models` for account-scoped availability; ship a pinned fallback catalog (the IDs above); flag any
+ID not confirmable from a live call as "unverified." One OpenAI-compat parser covers OpenAI/Moonshot/GLM;
+Anthropic (cursor) + Gemini (`name`) are bespoke.
+
+## 1.7 Six-provider engine matrix + auth [VERIFIED-WEB]
+| Provider | Path | Auth (easiest → hardened) | Notes |
+|---|---|---|---|
+| **Claude Code** | native (exists) | OAuth (`claude` /login) → `setup-token` → API key | `setup-token` token works ONLY with Claude Code, rejected by the Messages API |
+| **Codex** | native ACP (exists) | OAuth (`codex login` ChatGPT) → `OPENAI_API_KEY` | ⚠️ migrate the deprecated `@zed-industries/codex-acp@0.9.3` → `@agentclientprotocol/codex-acp` |
+| **Kimi** | ANTHROPIC_BASE_URL harness | Kimi CLI `/login` OAuth, OR paste `MOONSHOT_API_KEY` | official Kimi CLI is **Python** (`uv tool install --python 3.13 kimi-cli`) |
+| **GLM** | ANTHROPIC_BASE_URL harness | paste z.ai key (**API-key only — Z.ai ships NO OAuth**) | no first-party CLI (ZCode is a GUI) |
+| **Gemini** | **ACP harness** (NEW) | ⚠️ Google OAuth now paid-only → `GEMINI_API_KEY` | Gemini CLI speaks ACP (`gemini --acp`, JSON-RPC/stdio) — mirror the Codex router, NOT a base-URL redirect |
+| **OpenCode** | ACP/own-CLI (NEW), free-Zen-only | `opencode auth login` → Zen key (`OPENCODE_API_KEY`) | whitelist to free `opencode/*`; endpoint `https://opencode.ai/zen/v1` |
+
+## 1.8 CLI detect/install + Developer-ID spawn [VERIFIED-WEB, primary Apple docs]
+- **Detect:** GUI apps get only the launchd PATH (`/usr/bin:/bin:…`) — probe absolute locations
+  (`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, `~/.bun/bin`, npm global, nvm dirs) →
+  optionally augment via `zsh -ilc 'echo $PATH'` → **always spawn with an absolute `executableURL` +
+  explicit merged env.** Run `<bin> --version`.
+- **Install (native-first):** `claude` (`curl -fsSL https://claude.ai/install.sh | bash`, no Node),
+  `codex` (Rust binary / brew), `opencode` (`curl -fsSL https://opencode.ai/install | bash`, native).
+  Node-required: **gemini-cli (Node 20+)**; Python: **kimi-cli (uv)**. Prefer local-prefix installs
+  (no sudo); show the exact command, never silent `curl|bash`.
+- **⭐ Developer-ID spawn:** **entitlements are per-executable, NOT inherited across `exec`** → the
+  host needs NONE of `allow-jit`/`allow-unsigned-executable-memory`/`allow-dyld-environment-variables`/
+  `disable-library-validation` merely to spawn these CLIs (Node's JIT runs under Node's own signature).
+  Ship the minimal hardened set. A **child** that bundles a Node helper DOES need those on its own
+  signature if it JITs. Quarantine: `curl`/`tar` don't set it, but a quarantined unsigned child is
+  **hard-killed at exec** — for binaries the app installs, verify SHA-256 then `xattr -d com.apple.quarantine`.
+  Child crash ≠ host crash.
+
+## 1.9 MCP + skills + worktree + preview [VERIFIED-CODE]
+- **MCP config is file-based** (mirrors the Claude Code CLI): merge `~/.claude.json`,
+  `~/.claude/.claude.json`, `~/.claude/mcp.json`, `<project>/.mcp.json`, plugin `.mcp.json`
+  (`claude-config.ts`); injected as the in-process SDK option `options.mcpServers` (`claude.ts:1746-1761`).
+  **Auto-inject seam:** write `mcpServers` into `~/.claude.json` — the app **mtime-caches + re-reads
+  every message** (`claude.ts:1272-1300`). Codex has a **separate** `~/.codex` registry via
+  `codex mcp add`, injected as ACP `session.mcpServers`. **No unified injection point — target both.**
+  Read-modify-write merge (`~/.claude.json` also holds OAuth/session data — never clobber wholesale);
+  a project `.mcp.json` in each new worktree is the cleanest zero-config path.
+- **Skills/commands** are pure filesystem (SKILL.md format, `~/.claude/skills`, `.claude/commands`),
+  loaded by the SDK's `settingSources` — **seed by writing files, no API.**
+- **Worktree per chat** at `~/.21st/worktrees/{projectSlug}/{name}` (`worktree.ts:170-183,930-933`);
+  agent cwd = worktree via `options.cwd` (Claude) / `session.cwd` (Codex); "local mode" sets
+  `worktreePath = project.path`; cleanup `git worktree remove --force`.
+- **⚠️ Live preview is a DEAD stub** [VERIFIED-CODE] — `AgentPreview` embeds a CodeSandbox URL
+  (`https://${sandboxId}-${port}.csb.app`), comment "Desktop mock" (`agent-preview.tsx:26-27`), gated
+  behind cloud-only `sandbox_id`. **There is NO local dev-server preview** (no port detection, no
+  `spawn vite dev`). A real local preview is net-new. (This contradicts an external-dossier
+  assumption — see Part 3.)
+
+## 1.10 Epistemos native-embedding infrastructure to reuse (the build-critical connection hardening) [VERIFIED-CODE]
+Epistemos already ships hardened infrastructure for exactly this shape — a web UI in a WKWebView over
+a supervised local backend. Reuse these proven patterns (they encode real bug fixes); the 1Code
+surface is the same shape.
+- **Runtime supervisor** (`Epistemos/ProAgent/ProAgentRuntimeSupervisor.swift`): a `@MainActor
+  @Observable` singleton with a `Status` enum (`idle/unavailable/starting/running(conn)/failed/stopped`),
+  `start()`/`stop()`, a health-poll lifecycle, and — critical — **off-main process spawn** (all
+  `.run()` inside `Task.detached`, carrying each `Process` across the actor boundary in an
+  `@unchecked Sendable` box; an inline `@MainActor` spawn froze the UI on notarized-binary
+  code-signature validation, `:416-455,20-23`), **ephemeral ports 49300–64900** (above the WHATWG
+  fetch bad-port blocklist — a low port made every SSE hop die with `cause: bad port`, `:80-86`), an
+  **env allowlist** for child processes, and a **time-bounded (4s) Keychain→env bridge** (a sync
+  Keychain read can block forever on a first-launch ACL prompt; race it, spawn without keys on
+  timeout, `:943-988`).
+- **Crash-durable orphan reaping** (`ProAgentChildLedger.swift`): persist child identity `(pid,
+  kernel start-time)` to disk; sweep strays at next `start()` (TERM → 1.5s grace → KILL). Reuse for
+  the 1Code Node backend + node-pty/git children.
+- **The JS bridge discipline** (`ProAgentSurfaceView.swift` + the shim pattern): a `WKUserScript` at
+  `.atDocumentStart` defines the web-facing API and routes to `webkit.messageHandlers.<channel>.postMessage`;
+  a `WKScriptMessageHandler` validates every payload (shape + length caps) and replies by
+  injecting a **JSON string literal escaped for `\ " \n U+2028 U+2029` + control chars** so injected
+  content can't break out; a promise/`callId` round-trip pattern (post `{callId,cmd,args}` → resolve
+  `resolveInvoke(callId,{v:payload})`) — the correct template for the 1Code `desktopApi`/`electron`
+  polyfill (the owner dossiers independently arrived at the same `pendingRequests`/`webkitResponseHandler`
+  shape). **No secret ever crosses into JS.**
+- **Theme injection** (`ProAgentThemeBridge.swift:123-168`): inject theme tokens as **inline
+  `!important` CSS custom properties on `documentElement`** at document start + a `MutationObserver`
+  that re-asserts; live-switch via `page.callJavaScript`. Overriding `:root` variables re-themes the
+  Tailwind/Radix token system in one shot.
+- **MCP vault-fusion writer** (`Epistemos/Work/WorkOpenCodeRuntime.writeMergedFusionConfig`): a
+  **deep-merge** config writer that injects ONLY Epistemos's own MCP entries (the vault stdio server
+  `omega_mcp_stdio` + an optional loopback native-tools MCP), preserving all user MCPs, 0600, at a
+  persistent path — the exact read-modify-write discipline needed for `~/.claude.json`. The
+  `omega_mcp_stdio` binary (newline JSON-RPC; vault read/write/search + wikilink graph) is already
+  built + staged.
+- **Navigation reroute** (`ProAgentNavigationDecider`): an **origin allowlist** (only the registered
+  loopback port) → any other http(s) → `NSWorkspace.shared.open` + `.cancel`.
+- **Perf discipline** (`ProAgentPerf.swift` + `docs/perf-budgets.toml`): `OSSignposter` metrics
+  (cold-open/spa-ready/warm-reopen/first-token) with budgets; the "instant open" recipe (eager
+  WebView + placeholder, off-main spawn, keep the WebView alive across tab switches — reloading the
+  URL reboots the SPA and kills the live session, so drive nav via injected intents).
+
+---
+
+# PART 2 — EXTERNAL RESEARCH DOSSIERS (owner-supplied cycle-1 input, synthesized + trust-tagged)
+
+Three external dossiers were supplied. Their architecture/license/embedding conclusions **[EXTERNAL:
+confirmed]** independently match Part 1 (strong corroboration). Below = each dossier's UNIQUE
+contributions (kept) and its corrected/superseded claims (flagged), so nuance is preserved without
+re-printing the redundant restatement.
+
+## 2.1 Dossier A ("Claude") — the strongest external pass
+**Confirmed-and-valuable [EXTERNAL: confirmed]:**
+- The **two PTY-architecture options**, articulated cleanly: (i) fully-native Swift spawn+PTY vs
+  (ii) **a thin local Node helper running 1Code's engine verbatim**, Swift proxying tRPC. Its
+  recommendation — **(ii) for v1** (reuse vendor SDKs + tested orchestration, far less rework) —
+  matches Part 1's headless-Node-backend thesis. Adopt.
+- The **AGPL-sibling warning** (`magic-mcp` is AGPL; do not vendor AGPL siblings). Adopt.
+- **Gemini = ACP harness** (Zed integrated Gemini CLI as the ACP reference impl; registry name
+  `gemini`), and the **Google OAuth-reuse ban** (~March 2026) → use the user's own key/login. Matches
+  Part 1.7; adopt (supersedes Dossiers B/C's Gemini-via-base-URL — see Part 3).
+- Correct **base URLs** for GLM (`api.z.ai/api/anthropic`) and Kimi (`api.moonshot.ai/anthropic`) —
+  matches Part 1.6.
+- The **safe-to-native vs must-stay-web boundary**: chrome (settings, pickers, sidebars, git surface,
+  MCP UI) → native; transcript + xterm live view → web; PTY/spawn → native/helper. Matches owner intent.
+
+**Corrected [EXTERNAL: corrected]:** its model IDs are mostly current (Fable 5/Opus 4.8/Sonnet 5/Haiku
+4.5) but it lists `gpt-5.2-codex`/`gpt-5.3-codex` for Codex where Part 1.6 has `gpt-5.5` default; use
+Part 1.6 + live auto-update.
+
+## 2.2 Dossier B ("Gem 1") — concrete Swift + risk framing
+**Valuable [EXTERNAL: confirmed]:** ready-to-adapt Swift code — a `WKURLSchemeHandler`
+(`EpistemosWorkspaceSchemeHandler`) with **path-traversal confinement** (sandbox-prefix check) +
+MIME resolution; a `WKScriptMessageHandler` bridge; an `NSOpenPanel` folder-picker round-trip via a
+`CustomEvent`; a CLI detector; an MCP `MCPInjectionManager` doing read-modify-write on `~/.claude.json`;
+a CSP `<meta>` locking `connect-src` to loopback. Its **risk matrix** (PTY IO lag → native PTY;
+sandboxed file perms → security-scoped bookmarks; code-modification watch loops → ignore `.git`/lockfiles;
+native-rebuild failures → native SQLite) is a useful hardening checklist. Keep the code as implementation
+references; **modernize** `NSUserNotification` → `UNUserNotificationCenter`.
+
+**Superseded [EXTERNAL: superseded]:** (a) its model table (`claude-3-7-sonnet`, `gpt-4o`, `o1-pro`,
+`gemini-2.5-pro`, `kimi-k2`, `glm-4-plus`, `deepseek-r1`) is ~2025-stale → use Part 1.6. (b) its
+**Kimi/GLM base URLs** (`api.moonshot.cn/v1/anthropic-compat/`, `open.bigmodel.cn/api/paas/v4/anthropic-compat/`)
+are **wrong paths** → use Part 1.6's verified `api.moonshot.ai/anthropic` and `api.z.ai/api/anthropic`.
+(c) **Gemini-via-ANTHROPIC_BASE_URL** (a Google "anthropic-compat" endpoint) — no such endpoint;
+Gemini is an ACP harness (Part 1.7). (d) OpenCode routed to a generic `deepseek-r1` free model → use
+the actual Zen free IDs (Part 1.6).
+
+## 2.3 Dossier C ("Gem 2") — deepest embedding detail + the promise/callback bridge
+**Valuable [EXTERNAL: confirmed]:** the cleanest **bidirectional bridge pattern** — an injected shim
+with a `pendingRequests` Map + `window.webkitResponseHandler(requestId,success,payload,error)` and a
+Swift `resolveJSCallback`/`rejectJSCallback` that `evaluateJavaScript` the reply — which **matches
+Epistemos's existing `resolveInvoke(callId,{v:…})` round-trip** (Part 1.10); use it. Also: the
+worktree `git worktree add --detach` detail, the `allowDangerouslySkipPermissions` agent-mode note,
+a live `fetchLiveModels` implementation (Anthropic/OpenAI `/models` + fallback) that matches Part 1.6's
+design, and a `CLIDetector` that augments PATH with common dirs before `which` (matches Part 1.8).
+Its dependency-audit adds `@mcpc-tech/acp-ai-provider` (MIT).
+
+**Superseded/corrected [EXTERNAL: superseded]:** (a) same stale model IDs
+(`claude-3-7-sonnet-20250219`, `gpt-4o`, `glm-4-plus`, `kimi-k2`, `deepseek-chat`) → Part 1.6. (b)
+Kimi/GLM base URLs `…/v1/anthropic`, `…/paas/v4/anthropic` → use Part 1.6's paths. (c) it assumes a
+**working local-dev-server live preview** ("spawns a local dev server on a random port… iframe") —
+**Part 1.9 verified this is a dead CodeSandbox stub**; a local preview is net-new. (d) the
+`osascript … with administrator privileges` global-install path — prefer the local-prefix install
+(no sudo) it also lists. (e) `NSUserNotification` → modernize to `UNUserNotificationCenter`.
+
+---
+
+# PART 3 — SYNTHESIS & CORRECTIONS LEDGER
+
+## 3.1 Consensus (all four sources agree — highest confidence)
+Electron main/renderer + tRPC-over-IPC (`trpc-electron`) · Jotai/Zustand/React Query · Drizzle SQLite
+(projects/chats/sub_chats) · git-worktree-per-chat · Claude-SDK + Codex-ACP engines · **Apache-2.0,
+commercially safe** · WKWebView + `WKScriptMessageHandler` bridge + `WKURLSchemeHandler` + native
+NSOpenPanel/PTY/clipboard replacements · telemetry env-gated (strip anyway) · Kimi/GLM via
+`ANTHROPIC_BASE_URL` · live `/models` + pinned fallback · MCP via read-modify-write into `~/.claude.json`
++ project `.mcp.json` · native theme via `:root` CSS-variable override injected as a user script.
+
+## 3.2 Corrections ledger (do not resurrect the stale facts)
+1. **Model IDs:** external dossiers B/C carry 2025-era IDs (`claude-3-7-sonnet`, `gpt-4o`, `gemini-2.5-pro`,
+   `glm-4-plus`, `kimi-k2`, `deepseek-*`). **Current verified:** `claude-opus-4-8`/`fable-5`/`sonnet-5`/`haiku-4-5`,
+   `gpt-5.5`, `gemini-3.5-flash`/`3.1-pro-preview`, `glm-4.7`/`5.2`, `kimi-k2.7-code`, `opencode/*` free. Auto-update, never hardcode.
+2. **Kimi/GLM base URLs:** verified = `https://api.moonshot.ai/anthropic` and `https://api.z.ai/api/anthropic`
+   (no `/v1`). Dossier B/C variants (`moonshot.cn/v1/anthropic-compat`, `bigmodel.cn/api/paas/v4/anthropic`) are wrong.
+3. **Gemini:** NOT a base-URL redirect — it's an **ACP harness** (`gemini --acp`). Auth is `GEMINI_API_KEY`
+   (Google's free consumer login for the CLI ended 2026-06-18 / Antigravity transition + the OAuth-reuse ban).
+4. **Codex ACP package:** `@zed-industries/codex-acp` (what 1Code pins, 0.9.3) is **deprecated** →
+   `@agentclientprotocol/codex-acp`. Default model `gpt-5.5`.
+5. **Live preview:** 1Code's is a **dead CodeSandbox stub**, not a working local dev-server. A local preview is net-new.
+6. **PostHog:** a **hardcoded fallback key** (`analytics.ts:13`) fires in packaged builds → needs a code edit, not just empty env.
+7. **The transport swap is TWO client sites** (`trpc.ts:15-17` + `TRPCProvider.tsx:39-44`) and **FOUR
+   subscriptions** (claude/codex/terminal/files), and the **4 `projects.ts` folder-picker procedures**
+   must be rewired to the native NSOpenPanel bridge (not a getWindow stub).
+8. **Notifications:** use `UNUserNotificationCenter` (dossiers show the deprecated `NSUserNotification`).
+
+## 3.3 Resolved design forks
+- **Backend: headless Node helper (v1) vs native Swift rewrite.** → **Headless Node helper** running
+  1Code's engine verbatim, supervised by the Swift host (Part 1.10). Reason: reuse the tested
+  orchestration + vendor SDKs; a native rewrite of the agent loop is exactly where it breaks. Owner's
+  "more Swift native = easy win" applies to **chrome/buttons/settings** (lift those native
+  progressively), NOT the engine.
+- **Terminal transport: separate WebSocket vs the tRPC channel.** → Ride the same localhost tRPC-ws
+  channel (node-pty runs in the helper, `terminal.stream` is already a tRPC subscription). No separate socket.
+- **Gemini: base-URL vs ACP.** → ACP harness. **OpenCode: full vs free.** → free Zen only (whitelist).
+
+## 3.4 Open items (working defaults; verify at build)
+- GLM `/models` endpoint undocumented → source GLM from models.dev; runtime-verify, graceful fallback.
+- OpenCode Zen exact auth mechanism (GitHub OAuth vs email) + whether a card is required for free-only — UNVERIFIED.
+- Fable 5 runtime availability (export-control history) — verify via a live `/models` call.
+- WS `maxPayload` for multi-MB base64 image attachments — set generous, confirm.
+
+---
+
+# PART 4 — CYCLE LOG (append each research cycle)
+
+**Cycle 1 (2026-07-05) — foundation + owner dossier set 1.**
+- Owner-supplied: 3 external dossiers (A/Claude, B/Gem1, C/Gem2) — absorbed in Part 2, reconciled in Part 3.
+- Agent-run: full source read of the clone (Parts 1.1–1.9), web-verified live provider facts (1.6–1.8),
+  Epistemos-infra map (1.10), and **two adversarial verification passes** that confirmed the
+  transport-swap and headless-conversion theses with the corrections now in Part 3.2 (#7).
+- Status: architecture + embedding seam + decouple + providers + MCP + native-feel + CLI = mapped and
+  cross-verified. Deliverable plan drafted (`PROMPT_PLAN_10_EXPERIMENTAL.md`).
+
+**Cycle 2+ — reserved for the owner's next research batch + further deepening** (native-migration
+surface: which chrome controls are pure-tRPC-driven and safely lift to native; deeper renderer
+component/store reuse map; per-phase risk deep-dives; re-verification of the open items in 3.4).
