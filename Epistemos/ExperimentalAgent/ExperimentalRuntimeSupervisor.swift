@@ -193,6 +193,11 @@ final class ExperimentalRuntimeSupervisor {
             environment["EPISTEMOS_VAULT_MCP_ENV"] = envJSON
             recordDiagnostic("[mcp] vault auto-inject: \(serverURL.lastPathComponent) @ \(vaultURL.path)")
         }
+        // EPISTEMOS (owner 2026-07-05): expose the vault path as a top-level backend env so the
+        // repo picker can offer "Continue with the Epistemos vault" (independent of the MCP server).
+        if let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL {
+            environment["EPISTEMOS_VAULT_ROOT"] = vaultURL.path
+        }
         environment["EPISTEMOS_ONECODE_PORT"] = String(uiPort)
         environment["EPISTEMOS_ONECODE_PACKAGED"] = "1"
         environment["EPISTEMOS_ONECODE_USER_DATA"] = Self.userDataDirectory().path
