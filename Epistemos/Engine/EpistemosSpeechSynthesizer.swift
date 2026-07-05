@@ -132,6 +132,9 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     nonisolated static let kokoroOnlyUnavailableMessage =
         "Kokoro text-to-speech requires a checked Pro Kokoro CoreML package. Apple AVSpeech is not used as a fallback."
 
+    nonisolated static let kokoroAppStoreUnavailableMessage =
+        "Read-aloud is unavailable in this App Store build. Apple AVSpeech is not used as a fallback."
+
     private nonisolated static var nativeKokoroSynthesisEngineLinked: Bool {
         KokoroCoreMLRuntimeLoader.isLinked
     }
@@ -141,12 +144,16 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
         fileManager: FileManager = .default
     ) -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return false
+        #else
         nativeKokoroSynthesisEngineLinked
             && KokoroVoiceGateStatus.status(
                 environment: environment,
                 modelRoot: modelRoot,
                 fileManager: fileManager
             ).isReady
+        #endif
     }
 
     nonisolated static func textToSpeechStatusMessage(
@@ -160,13 +167,21 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             fileManager: fileManager
         )
         guard nativeKokoroSynthesisEngineLinked else {
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return kokoroAppStoreUnavailableMessage
+            #else
             return kokoroOnlyUnavailableMessage
+            #endif
         }
         guard status.isReady else {
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return kokoroAppStoreUnavailableMessage
+            #else
             // Engine is linked; only the voice model is missing. Point the user to the install flow
             // instead of the technical package message, so a disabled read-aloud button reads as
             // "install me" rather than "broken". (#52)
             return "Read-aloud needs the Kokoro voice \u{2014} install it in Settings \u{2192} Voice."
+            #endif
         }
         return status.headline
     }

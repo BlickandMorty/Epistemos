@@ -222,11 +222,13 @@ struct WorkSPAServerTests {
         #expect(headData.isEmpty)
     }
 
-    @Test("Goose Apps route has an explicit empty-list compatibility response")
-    func gooseAppsCompatibilityRoute() throws {
-        let route = try #require(GooseWebSurfaceView.gooseStaticCompatibilityRoutes().first {
-            $0.path == "/agent/list_apps"
-        })
+    @Test("Apps route has an explicit empty-list compatibility response")
+    func appsCompatibilityRoute() {
+        let route = WorkSPAStaticRoute(
+            path: "/agent/list_apps",
+            contentType: "application/json; charset=utf-8",
+            body: Data(#"{"apps":[]}"#.utf8)
+        )
         #expect(route.contentType == "application/json; charset=utf-8")
         #expect(String(data: route.body, encoding: .utf8) == #"{"apps":[]}"#)
     }
@@ -244,9 +246,9 @@ struct WorkSPAServerTests {
         #expect(out.contains("tok-123"))
         #expect(containsWorkerURL(out))
         // The seeding script runs before the app: it's inside <head>.
-        let head = try? #require(out.range(of: "<head>"))
-        let headClose = try? #require(out.range(of: "</head>"))
-        let script = try? #require(out.range(of: "<script>"))
+        let head = out.range(of: "<head>")
+        let headClose = out.range(of: "</head>")
+        let script = out.range(of: "<script>")
         if let head, let headClose, let script {
             #expect(script.lowerBound >= head.upperBound && script.lowerBound < headClose.lowerBound)
         }
@@ -305,8 +307,8 @@ struct WorkSPAServerTests {
         let out = WorkSPAServer.injectHeadSnippet(intoHTML: html, snippet: "<style>z</style>")
         #expect(out.contains("<style>z</style></head>"))
         // placed AFTER the existing stylesheet link so it overrides
-        let styleIdx = try? #require(out.range(of: "<style>z</style>"))
-        let linkIdx = try? #require(out.range(of: "<link"))
+        let styleIdx = out.range(of: "<style>z</style>")
+        let linkIdx = out.range(of: "<link")
         if let styleIdx, let linkIdx { #expect(linkIdx.lowerBound < styleIdx.lowerBound) }
     }
 

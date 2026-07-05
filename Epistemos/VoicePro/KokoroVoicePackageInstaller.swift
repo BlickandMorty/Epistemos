@@ -34,8 +34,11 @@ nonisolated enum KokoroVoicePackageInstaller {
     static func installCheckedPackage(
         from selectedURL: URL,
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        defaults: UserDefaults = .standard
     ) throws -> InstallResult {
+        let previousOverride = FeatureGateOverride.value(forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)
+        FeatureGateOverride.set(true, forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)
         do {
             return try installCheckedPackageImpl(
                 from: selectedURL,
@@ -43,8 +46,10 @@ nonisolated enum KokoroVoicePackageInstaller {
                 fileManager: fileManager
             )
         } catch let error as InstallError {
+            FeatureGateOverride.set(previousOverride, forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)
             throw error
         } catch {
+            FeatureGateOverride.set(previousOverride, forKey: KokoroVoiceGateStatus.flagName, defaults: defaults)
             throw InstallError.installFailed("filesystem operation failed")
         }
     }

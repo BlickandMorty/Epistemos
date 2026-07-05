@@ -346,6 +346,7 @@ struct VoiceCodepackPlan3Tests {
 
     @Test("voice MAS path has no Pro neural or hidden runtime dependency")
     func voiceMASPathHasNoProRuntimeDependency() throws {
+        let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
         let files = [
             "Epistemos/Engine/EpistemosSpeechSynthesizer.swift",
             "Epistemos/Engine/LiveVoiceInputService.swift",
@@ -359,6 +360,10 @@ struct VoiceCodepackPlan3Tests {
                 #expect(!source.contains(forbidden), "\(file) crossed voice MAS boundary: \(forbidden)")
             }
         }
+
+        #expect(synth.contains("kokoroAppStoreUnavailableMessage"))
+        #expect(synth.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        return false"))
+        #expect(synth.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            return kokoroAppStoreUnavailableMessage"))
     }
 
     @Test("Kokoro Pro gate is honest and status-only")
@@ -719,21 +724,30 @@ struct VoiceCodepackPlan3Tests {
             .appendingPathComponent("kokoro-install-\(UUID().uuidString)", isDirectory: true)
         let sourceRoot = root.appendingPathComponent("source", isDirectory: true)
         let targetRoot = root.appendingPathComponent("target", isDirectory: true)
+        let suiteName = "test.kokoro-install.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
         let sourceModelDirectory = sourceRoot.appendingPathComponent(
             KokoroVoiceGateStatus.modelDirectoryName,
             isDirectory: true
         )
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: root)
+        }
 
         try writeValidKokoroPackage(at: sourceModelDirectory)
 
+        #expect(FeatureGateOverride.value(forKey: KokoroVoiceGateStatus.flagName, defaults: defaults) == nil)
+
         let result = try KokoroVoicePackageInstaller.installCheckedPackage(
             from: sourceModelDirectory,
-            modelRoot: targetRoot
+            modelRoot: targetRoot,
+            defaults: defaults
         )
 
         #expect(result.status.isReady)
         #expect(result.status.state == .packageReady)
+        #expect(FeatureGateOverride.value(forKey: KokoroVoiceGateStatus.flagName, defaults: defaults) == true)
         #expect(result.status.packageEvidence?.modelDirectoryName == KokoroVoiceGateStatus.modelDirectoryName)
         #expect(result.status.packageEvidence?.manifestFileName == KokoroVoiceGateStatus.manifestFileName)
         #expect(result.status.packageEvidence?.runtimeIdentifier == KokoroVoiceGateStatus.runtimeIdentifier)
