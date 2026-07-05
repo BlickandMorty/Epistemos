@@ -167,11 +167,26 @@ font need explicit overrides. Spec: chunky pixel header font, theme tokens (no g
 (Epistemos / New Chat / All Chats), white user-text in light mode, aligned bubbles, real caret, sidebar
 that shifts (not overlays) the chat. Also set the WebView `underPageBackgroundColor` for pre-paint blend.
 
-**Native-migration surface (owner's "as native as safe"):** progressively lift a chrome control to
-native SwiftUI **when it can be driven purely by tRPC reads/writes** (settings toggles, provider/model
-picker, sidebar sections, folder picker, notifications, window controls); keep the donor's web control
-wherever native risks breaking the live session; the transcript + terminal stay web. Native controls
-push intents into the SPA via injected `CustomEvent`s — never a URL reload (that kills the session).
+**Native-migration surface (owner's "as native as safe" — full classification in Experimental R §1.11).**
+The split is decided by 1Code's **two data planes**: controls backed by the **tRPC/DB/config-file plane
+are NATIVE-SAFE**; controls whose truth is a **renderer localStorage atom / Zustand / the live stream
+are SPA-coupled**.
+- **NATIVE-SAFE easy wins (pure tRPC CRUD — lift first):** the MCP-Servers, Skills, Custom-Agents,
+  Plugins, Projects/Worktrees, Account/Profile, Debug tabs; the sidebar chat list + archive/rename;
+  window chrome / traffic-lights / fullscreen / folder-dialog (already IPC); settings navigation.
+- **INTENT-BRIDGE (native control MUST write the exact renderer atoms the send-transport reads live):**
+  model picker (`subChatModelIdAtomFamily(subChatId)` + `lastSelectedModelIdAtom`), mode (**dual-write**
+  the atom + Zustand `updateSubChatMode`), provider/thinking/Ollama, Preferences & Beta toggles, and
+  sidebar selection (the **5-atom tuple** + `claimChat/releaseChat` — omit `chatSourceModeAtom` → the
+  transcript loads from the wrong backend).
+- **MUST-STAY-WEB:** transcript/streaming (send from native via the web `sendMessage`, don't rebuild the
+  subscription), terminal, tool renderers, theme/appearance (drives WebView + xterm), hotkeys, the
+  prompt editor.
+- **⭐ The one primitive that unlocks the INTENT-BRIDGE tier:** a native→WebView call that sets a named
+  Jotai atom / runs a Zustand action in the renderer's shared `appStore` (`lib/jotai-store.ts`), keyed by
+  the active `subChatId` (composes with the §8 bridge). Build it once; model/mode/preferences/theme/
+  sidebar-selection all become safe. Native controls push via this bridge (or injected `CustomEvent`s) —
+  **never a URL reload** (kills the session).
 
 ---
 

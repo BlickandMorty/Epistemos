@@ -318,6 +318,45 @@ surface is the same shape.
 
 ---
 
+## 1.11 Native-migration surface — which chrome lifts to native [VERIFIED-CODE, cycle 3]
+**Governing fact: two data planes decide it, not the visual layout.** (1) **tRPC plane** (SQLite/Drizzle
++ on-disk config `~/.claude`, `.mcp.json`, …) → **NATIVE-SAFE**: a Swift shell calls the same
+main-process procedures / reads the same files. (2) **Renderer plane** (Jotai `atomWithStorage` =
+localStorage, Zustand, the live streaming subscription) → invisible to native → **SPA-COUPLED**. **The
+trap:** the send path reads model/mode/thinking/customConfig **live from the Jotai `appStore` inside the
+transport at send time** (`ipc-chat-transport.ts:164-192`, `acp-chat-transport.ts:83-138`) — so a
+control that looks like config but whose truth is a localStorage atom silently desyncs the running chat
+if nativised with native-only state.
+
+- **NATIVE-SAFE (easy wins — pure tRPC/DB CRUD):** MCP-Servers tab (`agents-mcp-tab.tsx` + `mcp/*`,
+  `claude/codex.*McpServer`; keep the MCP-OAuth deep-link callback web/bridged), Skills (`skills.*`),
+  Custom-Agents (`agents.*`), Plugins (`plugins.*`/`claudeSettings.*`), Projects/Worktrees
+  (`projects.*`/`worktreeConfig.*`), Account/Profile (already `desktopApi.getUser/updateUser`), Debug,
+  the sidebar chat list + archive/rename (`chats.list/listArchived/archive/rename/restore`), window
+  chrome / traffic-lights / fullscreen / folder-dialog (already IPC), settings navigation itself
+  (`desktopViewAtom`/`activeTabAtom`).
+- **INTENT-BRIDGE (native control works ONLY if it writes the exact renderer atoms the transport reads):**
+  model → `subChatModelIdAtomFamily(subChatId)` + `lastSelectedModelIdAtom`; mode → **DUAL-write**
+  `subChatModeAtomFamily` + Zustand `updateSubChatMode` (`chat-input-area.tsx:697-698`);
+  provider/thinking/Codex-thinking/Ollama → their atoms; Preferences & Beta toggles (localStorage atoms
+  the transport reads, e.g. `extendedThinkingEnabledAtom`, `historyEnabledAtom`, `defaultAgentModeAtom`);
+  **sidebar selection → the 5-atom tuple** (`selectedAgentChatIdAtom`, `selectedChatIsRemoteAtom`,
+  `chatSourceModeAtom`, `showNewChatFormAtom=false`, `desktopViewAtom=null`) + the `claimChat/releaseChat`
+  protocol (omit `chatSourceModeAtom` → transcript loads from the wrong backend); the Models-tab
+  custom-config / Codex-key / hidden-models atoms.
+- **MUST-STAY-WEB:** transcript/streaming (`@ai-sdk/react useChat` + the subscription — to send from
+  native call the web `sendMessage` via `useChatActions`, don't rebuild the subscription), terminal
+  (xterm+pty), tool renderers, appearance/theme (drives the WebView + xterm via `theme-provider.tsx:199-203`),
+  keyboard/hotkeys, the live-session MCP indicator, drafts, the prompt/mentions/voice editor.
+- **⭐ THE REQUIRED BRIDGE PRIMITIVE:** every INTENT-BRIDGE control needs ONE thing — a native→WebView
+  call that **sets a named Jotai atom (or runs a Zustand action) in the renderer's shared `appStore`
+  (`lib/jotai-store.ts`), keyed by the active `subChatId`**. Build that single bridge (native writes atom
+  → web reacts; composes with the §1.10 WKScriptMessageHandler round-trip) and the model picker, mode,
+  preferences, theme, and sidebar selection all become safe to nativise. Without it, those are exactly
+  where nativising silently breaks the live chat.
+
+---
+
 # PART 2 — EXTERNAL RESEARCH DOSSIERS (owner-supplied cycle-1 input, synthesized + trust-tagged)
 
 Three external dossiers were supplied. Their architecture/license/embedding conclusions **[EXTERNAL:
@@ -490,6 +529,11 @@ Minor: Claude-1 cites 1Code's bundled Codex runtime default as `gpt-5.4` (its v0
 the live Codex CLI default is `gpt-5.5` — the live catalog resolves this (1Code pins a version; the
 picker follows the live list). Repo markers: created 2026-01-14, ~4,972★.
 
-**Cycle 3+ — reserved:** the in-flight native-migration-surface agent (which chrome controls lift to
-native SwiftUI vs must-stay-web); **Claude-3 capstone integration**; deeper renderer component/store
-reuse map; per-phase risk deep-dives; re-verify open items (3.4).
+**Cycle 3 (2026-07-05, agent-run) — native-migration surface (Part 1.11).** Mapped every renderer
+chrome control to NATIVE-SAFE / INTENT-BRIDGE / MUST-STAY-WEB via the two-data-planes rule; identified
+the single bridge primitive (native→shared-Jotai-`appStore` write, keyed by `subChatId`) that unlocks
+the whole INTENT-BRIDGE tier; flagged the hidden-SPA-state traps (model/mode/theme/sidebar-selection
+look native-safe but the live transport reads their atoms at send time). Folded into Plan 10 §6.
+
+**Cycle 4+ — reserved:** **Claude-3 capstone integration** (owner-flagged highest authority — pending);
+deeper renderer component/store reuse map; per-phase risk deep-dives; re-verify open items (3.4).
