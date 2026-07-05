@@ -173,6 +173,30 @@ if [ -f "$FORK/scripts/epistemos-license-gate.mjs" ]; then
     fi
 fi
 
+# §16 arm64-first artifact: strip native prebuilds for other platforms (Windows / Linux /
+# Intel-mac) — pure dead weight in a macOS arm64 build, and adhoc-signed cross-platform .node
+# files would only add notarization surface. Keep darwin-arm64 only. (Reversible: a future
+# universal build removes this prune.)
+PRUNED_BEFORE=$(du -sk "$STAGE/node_modules" 2>/dev/null | cut -f1)
+find "$STAGE/node_modules" -type d -path "*/prebuilds/*" \
+    \( -name "win32-*" -o -name "linux-*" -o -name "linuxmusl-*" -o -name "darwin-x64" -o -name "android-*" \) \
+    -prune -exec rm -rf {} + 2>/dev/null || true
+# sharp ships per-platform packages under @img — keep only the darwin-arm64 pair.
+if [ -d "$STAGE/node_modules/@img" ]; then
+    find "$STAGE/node_modules/@img" -maxdepth 1 -mindepth 1 -type d \
+        ! -name "sharp-darwin-arm64" ! -name "sharp-libvips-darwin-arm64" \
+        -exec rm -rf {} + 2>/dev/null || true
+fi
+# claude-agent-sdk vendors ripgrep per-platform (vendor/ripgrep/<arch-os>/) for the Grep tool —
+# keep ONLY arm64-darwin (removing it would break Grep). Strip linux/win32/x64-darwin.
+RG_DIR="$STAGE/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep"
+if [ -d "$RG_DIR" ]; then
+    find "$RG_DIR" -maxdepth 1 -mindepth 1 -type d ! -name "arm64-darwin" \
+        -exec rm -rf {} + 2>/dev/null || true
+fi
+PRUNED_AFTER=$(du -sk "$STAGE/node_modules" 2>/dev/null | cut -f1)
+echo "build-experimental-web.sh: arm64-first prune — node_modules ${PRUNED_BEFORE}K → ${PRUNED_AFTER}K"
+
 # spawn-helper exec bit (posix_spawnp gotcha) — enforce unconditionally.
 chmod +x "$STAGE"/node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true
 
