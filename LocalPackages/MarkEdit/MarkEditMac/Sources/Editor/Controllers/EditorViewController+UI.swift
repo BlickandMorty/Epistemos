@@ -465,15 +465,18 @@ extension EditorViewController {
       forName: NSWindow.didBecomeKeyNotification,
       object: nil,
       queue: .main
-    ) { [weak self] notification in
-      let windowNumber = (notification.object as? NSWindow)?.windowNumber
+    ) { [weak self, weak textField] _ in
       Task { @MainActor in
-        if let window = textField.window, window.windowNumber == windowNumber {
-          window.makeFirstResponder(textField)
-          if let observer = self?.textBoxInputObserver {
-            self?.textBoxInputObserver = nil
-            NotificationCenter.default.removeObserver(observer)
-          }
+        guard let textField,
+              let window = textField.window,
+              window.isKeyWindow else {
+          return
+        }
+
+        window.makeFirstResponder(textField)
+        if let observer = self?.textBoxInputObserver {
+          self?.textBoxInputObserver = nil
+          NotificationCenter.default.removeObserver(observer)
         }
       }
     }

@@ -901,10 +901,6 @@ final class PipelineService {
             handler: modelInputCaptureHandler
         )
 
-        let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
-            for: operatingMode
-        )
-
         return triageService.streamGeneral(
             prompt: finalPrompt,
             systemPrompt: systemPrompt,

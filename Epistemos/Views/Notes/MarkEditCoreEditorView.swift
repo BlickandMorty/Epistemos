@@ -289,7 +289,7 @@ private final class MarkEditVerbatimMarkdownChromeCoordinator {
             viewController.webBackgroundColor = backgroundColor
             viewController.setTheme(nextTheme, animated: false)
             if let script = MarkEditCoreEditorThemeOverlay.script(themeName: nil, palette: palette) {
-                viewController.webView.evaluateJavaScript(script, completionHandler: nil)
+                _ = try? await viewController.webView.evaluateJavaScript(script)
             }
             self?.themeTask = nil
         }

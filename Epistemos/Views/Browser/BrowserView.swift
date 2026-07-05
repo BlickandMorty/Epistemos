@@ -665,10 +665,12 @@ private struct BrowserWebView: NSViewRepresentable {
         nonisolated func userContentController(
             _ controller: WKUserContentController, didReceive message: WKScriptMessage
         ) {
-            guard message.name == BrowserWebView.scrollMessageName,
-                  let direction = message.body as? String else { return }
             // WKScriptMessageHandler callbacks are delivered on the main thread.
-            MainActor.assumeIsolated { target?.setToolbarHidden(direction == "down") }
+            MainActor.assumeIsolated {
+                guard message.name == BrowserWebView.scrollMessageName,
+                      let direction = message.body as? String else { return }
+                target?.setToolbarHidden(direction == "down")
+            }
         }
     }
 

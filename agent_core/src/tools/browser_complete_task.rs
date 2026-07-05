@@ -240,6 +240,7 @@ fn bounded_task_error_fields(data: &Value) -> (Value, bool) {
     bounded_task_error_items(items)
 }
 
+#[cfg(test)]
 fn bounded_task_errors(value: Option<&Value>) -> (Value, bool) {
     let Some(errors) = value else {
         return (json!([]), false);

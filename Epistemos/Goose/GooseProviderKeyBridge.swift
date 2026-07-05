@@ -87,9 +87,9 @@ nonisolated struct GooseProviderKeyBridge: Sendable {
                     providerID: providerID,
                     gooseSecretKey: field.key
                 ) {
-                case .found(let credential):
-                    updates.append(.init(key: field.key, value: credential.value))
-                    updateSources.append((field.key, credential.keychainKey))
+                case let .found(keychainKey, value):
+                    updates.append(.init(key: field.key, value: value))
+                    updateSources.append((field.key, keychainKey))
                 case .missing:
                     skipped.append(.init(
                         gooseProviderId: providerID,

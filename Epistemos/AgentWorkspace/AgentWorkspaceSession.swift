@@ -129,7 +129,7 @@ final class AgentWorkspaceSession {
         let objective = rawObjective.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !objective.isEmpty, !isRunning else { return }
 
-        var run = AgentWorkspaceRun(objective: objective)
+        let run = AgentWorkspaceRun(objective: objective)
         runs.append(run)
         isRunning = true
 

@@ -937,9 +937,13 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
         return [
             "fields": provider.configKeys.map { key in
                 let value = saved[key.name]
+                let fieldValue: Any = {
+                    guard !key.secret, let value else { return NSNull() }
+                    return value
+                }()
                 return [
                     "key": key.name,
-                    "value": key.secret ? NSNull() : (value ?? NSNull()),
+                    "value": fieldValue,
                     "isSet": value?.isEmpty == false,
                     "isSecret": key.secret,
                     "required": key.required,

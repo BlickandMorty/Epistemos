@@ -303,7 +303,7 @@ final class ProAgentRuntimeSupervisor {
         // (preserves user-installed opencode MCPs across relaunch). Best-effort:
         // no active vault OR missing bundled server -> no OPENCODE_CONFIG (the
         // honest no-vault state; never roots at an empty default).
-        if let vaultURL = await AppBootstrap.shared?.vaultSync.vaultURL,
+        if let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL,
            let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL(),
            let fusionConfigPath = WorkOpenCodeRuntime.writeMergedFusionConfig(
                stdioServerPath: serverURL.path, vaultRoot: vaultURL.path, nativeMCP: nil) {

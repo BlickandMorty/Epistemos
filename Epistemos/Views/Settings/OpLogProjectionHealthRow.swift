@@ -142,11 +142,9 @@ struct OpLogProjectionHealthRow: View {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = MutationOpLogReplayBundleFileExporter.defaultFileName()
-        if let epbundle = UTType(filenameExtension: MutationOpLogReplayBundleFileExporter.fileExtension) {
-            panel.allowedContentTypes = [epbundle]
-        } else {
-            panel.allowedFileTypes = [MutationOpLogReplayBundleFileExporter.fileExtension]
-        }
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: MutationOpLogReplayBundleFileExporter.fileExtension) ?? .data
+        ]
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 

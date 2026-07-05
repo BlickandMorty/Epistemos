@@ -495,9 +495,9 @@ pub fn drive_retry_cycle(
 /// env_clear + the canonical allowlist/denylist + process group). `true` iff it exits 0. When
 /// `timeout_seconds` is set, the command is bounded by wall-clock: it's polled to its deadline and KILLED
 /// on overrun (returning `false`) — a hung success-check / cleanup can no longer block the work retry cycle
-/// forever (`std::process` has no built-in timeout, so we poll `try_wait`). NOT pro-gated: the timeout logic
-/// is the valuable, testable part and spawns no privileged work itself; only `ShellRetryExecutor` (which
-/// wires it into the Goose retry seam) is Pro-only.
+/// forever (`std::process` has no built-in timeout, so we poll `try_wait`). Compiled with pro/test builds
+/// because only `ShellRetryExecutor` and tests call it.
+#[cfg(any(feature = "pro-build", test))]
 pub(crate) fn run_shell_with_timeout(command: &str, timeout_seconds: Option<u64>) -> bool {
     let mut cmd = std::process::Command::new("/bin/sh");
     cmd.arg("-c").arg(command);
