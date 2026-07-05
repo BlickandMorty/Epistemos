@@ -91,6 +91,17 @@ if [ ! -f "$FORK/out/renderer/index.html" ] || [ ! -f "$FORK/headless/dist/index
     echo "  cd $FORK && bun run build && node headless/build.mjs" >&2
     exit 0
 fi
+
+# License deny-list gate (§4/§16 "the SBOM gate is the real enforcement"): FAIL the build
+# if any dependency carries a copyleft/non-commercial license incompatible with the paid,
+# closed-source Developer-ID distribution. Runs against the staged fork's node_modules.
+if [ -f "$FORK/scripts/epistemos-license-gate.mjs" ] && [ -d "$FORK/node_modules" ]; then
+    echo "build-experimental-web.sh: running license deny-list gate…"
+    if ! "$SHARED_BIN/node" "$FORK/scripts/epistemos-license-gate.mjs" "$FORK/node_modules"; then
+        echo "build-experimental-web.sh: LICENSE GATE FAILED — a denied dependency is present. Aborting." >&2
+        exit 1
+    fi
+fi
 # Service-worker refusal (stale/stock dist guard).
 if [ -f "$FORK/out/renderer/sw.js" ] || grep -rlq "serviceWorker\.register" "$FORK/out/renderer/assets" 2>/dev/null; then
     echo "build-experimental-web.sh: REFUSING a dist containing a service worker" >&2
