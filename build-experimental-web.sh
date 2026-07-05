@@ -162,6 +162,17 @@ echo "build-experimental-web.sh: production npm install with the PINNED node (AB
 # codex-acp) carry peer-dep constraints npm's strict resolver rejects. Match bun's behavior.
 (cd "$STAGE" && PATH="$PINNED_NODE_DIR/bin:$PATH" "$PINNED_NODE_DIR/bin/npm" install --omit=dev --legacy-peer-deps --no-audit --no-fund --loglevel=error)
 
+# §4/§16: re-run the license deny-list gate on the STAGED production subset — this is what
+# actually SHIPS. The earlier gate scans the fork's dev node_modules; --legacy-peer-deps can
+# resolve different transitive versions here, so the shipped tree must be scanned on its own.
+if [ -f "$FORK/scripts/epistemos-license-gate.mjs" ]; then
+    echo "build-experimental-web.sh: license gate on the STAGED (shipped) node_modules…"
+    if ! "$SHARED_BIN/node" "$FORK/scripts/epistemos-license-gate.mjs" "$STAGE/node_modules"; then
+        echo "build-experimental-web.sh: STAGED license gate FAILED — a shipped dependency carries a denied license." >&2
+        exit 1
+    fi
+fi
+
 # spawn-helper exec bit (posix_spawnp gotcha) — enforce unconditionally.
 chmod +x "$STAGE"/node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true
 
