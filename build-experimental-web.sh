@@ -135,10 +135,18 @@ import json, re, sys
 bundle, fork_pkg, out = sys.argv[1], sys.argv[2], sys.argv[3]
 src = open(bundle, encoding="utf8", errors="replace").read()
 names = set()
-for m in re.finditer(r'require\("((?:@[\w.-]+/)?[\w.-]+)(?:/[^"]*)?"\)', src):
+# Catch require("x"), import("x"), AND require.resolve("x") / require.resolve("x/package.json").
+# The engine SDKs are loaded via dynamic import()/require.resolve, NOT static require — a
+# require-only scan silently dropped @anthropic-ai/claude-agent-sdk + @zed-industries/codex-acp
+# from the bundle, so chat died at runtime with "Cannot find package". (owner 2026-07-05)
+for m in re.finditer(r'(?:require(?:\.resolve)?|import)\(\s*"((?:@[\w.-]+/)?[\w.-]+)(?:/[^"]*)?"', src):
     root = m.group(1)
     if not root.startswith("node:"):
         names.add(root)
+# FORCE-INCLUDE the engine SDKs regardless of scan — they are load-bearing and dynamically
+# resolved. If a future refactor stops referencing them literally, chat must still work.
+FORCE = {"@anthropic-ai/claude-agent-sdk", "@zed-industries/codex-acp", "@mcpc-tech/acp-ai-provider"}
+names |= FORCE
 deps = json.load(open(fork_pkg))["dependencies"]
 subset = {k: v for k, v in sorted(deps.items()) if k in names}
 missing = sorted(n for n in names if n not in deps and not n.startswith(("electron",)))
@@ -150,7 +158,9 @@ if missing:
 PYEOF
 
 echo "build-experimental-web.sh: production npm install with the PINNED node (ABI match)…"
-(cd "$STAGE" && PATH="$PINNED_NODE_DIR/bin:$PATH" "$PINNED_NODE_DIR/bin/npm" install --omit=dev --no-audit --no-fund --loglevel=error)
+# --legacy-peer-deps: the fork resolves with bun (lenient); the engine SDKs (claude-agent-sdk,
+# codex-acp) carry peer-dep constraints npm's strict resolver rejects. Match bun's behavior.
+(cd "$STAGE" && PATH="$PINNED_NODE_DIR/bin:$PATH" "$PINNED_NODE_DIR/bin/npm" install --omit=dev --legacy-peer-deps --no-audit --no-fund --loglevel=error)
 
 # spawn-helper exec bit (posix_spawnp gotcha) — enforce unconditionally.
 chmod +x "$STAGE"/node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true
