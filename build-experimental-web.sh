@@ -110,7 +110,7 @@ fi
 
 FORK_SHA="$(git -C "$FORK" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 DIRTY="$(git -C "$FORK" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
-CONTENT_HASH="$( (git -C "$FORK" rev-parse HEAD 2>/dev/null; shasum -a 256 "$FORK/bun.lock" "$FORK/headless/dist/index.cjs" "$FORK/out/renderer/index.html" 2>/dev/null) | shasum -a 256 | cut -c1-16)"
+CONTENT_HASH="$( (git -C "$FORK" rev-parse HEAD 2>/dev/null; shasum -a 256 "$FORK/bun.lock" "$FORK/headless/dist/index.cjs" "$FORK/headless/dist/onecode-shim.js" "$FORK/out/renderer/index.html" 2>/dev/null) | shasum -a 256 | cut -c1-16)"
 WEB_STAMP="$STAMPS/experimental-web-${FORK_SHA}-${CONTENT_HASH}"
 
 if [ -f "$WEB_STAMP" ] && [ -f "$DEST/experimental-web.tar.gz" ] && [ "$DIRTY" = "0" ]; then
