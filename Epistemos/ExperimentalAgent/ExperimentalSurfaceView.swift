@@ -154,6 +154,31 @@ private struct ExperimentalWebView: NSViewRepresentable {
         }
 
         private func reply(to kind: String, payload: Any?) -> (Any?, String?) {
+            // rows 10-11 (§14): store a user-pasted provider key straight into the macOS
+            // Keychain — NEVER back into webview JS. Handled before the window guard (no
+            // window needed). Provider must be in the allow-list; key is length-capped.
+            if kind.hasPrefix("keychain:") {
+                let obj = payload as? [String: Any]
+                let provider = (obj?["provider"] as? String)?.lowercased() ?? ""
+                guard ExperimentalRuntimeSupervisor.providerKeychainEnvMap[provider] != nil else {
+                    return (nil, "unknown provider")
+                }
+                let slot = ExperimentalRuntimeSupervisor.providerKeychainKey(provider)
+                switch kind {
+                case "keychain:store-provider-key":
+                    let key = (obj?["key"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    guard !key.isEmpty, key.utf8.count <= 8192 else { return (nil, "empty or oversized key") }
+                    let ok = Keychain.save(key, for: slot)
+                    return (["ok": ok], nil)
+                case "keychain:has-provider-key":
+                    return (["stored": Keychain.load(for: slot) != nil], nil)
+                case "keychain:delete-provider-key":
+                    Keychain.delete(for: slot)
+                    return (["ok": true], nil)
+                default:
+                    return (nil, "unknown keychain op")
+                }
+            }
             guard let window = webView?.window else {
                 // Window-scoped intents no-op cleanly before the window exists.
                 return (nil, nil)

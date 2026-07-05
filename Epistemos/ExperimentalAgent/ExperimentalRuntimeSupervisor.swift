@@ -45,6 +45,24 @@ private struct ExperimentalSpawnBox: @unchecked Sendable {
 /// APP-SCOPED KEEP-ALIVE: survives tab switches — reloading the SPA kills the
 /// live agent session (§0 rule), so the backend keeps running while the app is
 /// open; the child ledger + termination handlers reap it at quit/crash.
+/// One-shot latch to race a (cancellation-immune) Keychain read against a deadline —
+/// mirrors ProAgent's private ProAgentContinuationBox. Resolves the continuation exactly
+/// once; later callers no-op.
+private nonisolated final class ExperimentalContinuationBox<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<T, Never>?
+    init(_ continuation: CheckedContinuation<T, Never>) { self.continuation = continuation }
+    @discardableResult
+    func resolve(_ value: T) -> Bool {
+        lock.lock()
+        let cont = continuation
+        continuation = nil
+        lock.unlock()
+        cont?.resume(returning: value)
+        return cont != nil
+    }
+}
+
 @MainActor
 @Observable
 final class ExperimentalRuntimeSupervisor {
@@ -146,6 +164,14 @@ final class ExperimentalRuntimeSupervisor {
             }
         }
         environment.merge(bridged) { _, new in new }
+        // rows 10-11: inject any user-pasted provider keys (Keychain-stored via the onboarding
+        // UI) into the backend env — the manual API-key fallback. Time-bounded; no-op when
+        // none are stored. Layered AFTER `bridged` so an explicit Experimental paste wins.
+        let pastedKeys = await Self.bridgedExperimentalProviderKeys(timeout: .seconds(4))
+        if !pastedKeys.isEmpty {
+            environment.merge(pastedKeys) { _, new in new }
+            recordDiagnostic("[keychain] injected \(pastedKeys.count) pasted provider key(s)")
+        }
         // P1 (§8): prefer the user's own `claude` CLI (with their OAuth) — probe absolute
         // locations (GUI apps get only the launchd PATH). The backend resolver honors this
         // and falls back to the bundled binary when unset.
@@ -300,6 +326,54 @@ final class ExperimentalRuntimeSupervisor {
         ]
         let fm = FileManager.default
         return candidates.first { fm.isExecutableFile(atPath: $0) }
+    }
+
+    // MARK: - rows 10-11: user-pasted provider keys (manual fallback, Keychain-stored)
+    //
+    // §14 guardrail: "provider keys stay in Keychain, bridged to the child env only — never
+    // into webview JS." The onboarding UI pastes a key → the Coordinator writes it to a
+    // per-provider Keychain slot (never localStorage). At spawn, the supervisor reads those
+    // slots and injects the backend env var each provider expects; the backend then resolves
+    // it (harnessTokenFromEnv for Kimi/GLM; ANTHROPIC_/OPENAI_/GEMINI_ for the rest).
+
+    /// Provider → the backend env var a pasted key populates. (Kimi/GLM use the harness token
+    /// vars the backend's harnessTokenFromEnv already reads; claude/codex/gemini use the
+    /// standard provider keys.)
+    nonisolated static let providerKeychainEnvMap: [String: String] = [
+        "claude": "ANTHROPIC_API_KEY",
+        "codex": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "kimi": "EPISTEMOS_HARNESS_TOKEN_KIMI",
+        "glm": "EPISTEMOS_HARNESS_TOKEN_GLM",
+    ]
+    /// Experimental-owned Keychain slot for a provider's manual key (distinct from the main
+    /// app's provider slots, so pasting an Experimental key never collides with them).
+    nonisolated static func providerKeychainKey(_ provider: String) -> String {
+        "epistemos.experimental.provider.\(provider)"
+    }
+
+    /// Time-bounded read of the pasted-key Keychain slots → backend env. A synchronous
+    /// Keychain read can hang on a first-launch ACL prompt, so race it against a deadline and
+    /// return whatever resolved (empty on timeout) — the spawn must never wedge (ProAgent
+    /// doctrine, mirrors bridgedProviderEnvironment).
+    nonisolated static func bridgedExperimentalProviderKeys(timeout: Duration) async -> [String: String] {
+        await withCheckedContinuation { (continuation: CheckedContinuation<[String: String], Never>) in
+            let box = ExperimentalContinuationBox(continuation)
+            Task.detached(priority: .userInitiated) {
+                var env: [String: String] = [:]
+                for (provider, envVar) in providerKeychainEnvMap {
+                    guard let raw = Keychain.load(for: providerKeychainKey(provider)) else { continue }
+                    let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !value.isEmpty, value.utf8.count <= 8192, !value.utf8.contains(0) else { continue }
+                    env[envVar] = value
+                }
+                box.resolve(env)
+            }
+            Task.detached {
+                try? await Task.sleep(for: timeout)
+                box.resolve([:])
+            }
+        }
     }
 
     /// Compact-JSON encode a string→string env map for the backend's `resolveVault`
