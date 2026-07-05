@@ -75,6 +75,7 @@ private struct ExperimentalWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground") // native underPage blend
         context.coordinator.webView = webView
+        context.coordinator.loadStart = ContinuousClock.now
         webView.load(URLRequest(url: uiBaseURL))
         return webView
     }
@@ -85,8 +86,20 @@ private struct ExperimentalWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
         private let uiBaseURL: URL
         weak var webView: WKWebView?
+        /// Monotonic instant the SPA load began — for the §16 spa-ready measurement.
+        var loadStart: ContinuousClock.Instant?
 
         init(uiBaseURL: URL) { self.uiBaseURL = uiBaseURL }
+
+        // §16 spa-ready measurement: WKWebView load -> first paint (navigation finished).
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard let began = loadStart else { return }
+            loadStart = nil
+            let comps = (ContinuousClock.now - began).components
+            let ms = Double(comps.seconds) * 1000 + Double(comps.attoseconds) / 1e15
+            ExperimentalPerfMetrics.shared.recordSpaReady(milliseconds: ms)
+            Sig.experimentalSurface.emitEvent("spa_ready", "\(Int(ms))ms")
+        }
 
         func shimSource() -> String? {
             guard let root = ExperimentalRuntimeSupervisor.shared.currentShimScript else { return nil }

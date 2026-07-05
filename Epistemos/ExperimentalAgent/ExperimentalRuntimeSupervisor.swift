@@ -73,6 +73,8 @@ final class ExperimentalRuntimeSupervisor {
 
     private var backendProcess: Process?
     private var lifecycleTask: Task<Void, Never>?
+    /// Monotonic start instant for the §16 cold-open measurement (start() -> .running).
+    private var coldOpenStart: ContinuousClock.Instant?
     private var outputTask: Task<Void, Never>?
     /// The /host ws bridge servicing native dialogs for the backend (rows 7-8
     /// of the fork's PATCH_LEDGER — the folder pickers' native path).
@@ -95,6 +97,7 @@ final class ExperimentalRuntimeSupervisor {
         }
         status = .starting
         lastDiagnostic = nil
+        coldOpenStart = ContinuousClock.now
         lifecycleTask?.cancel()
         lifecycleTask = Task { [weak self] in
             await self?.run(nodeBinary: nodeBinary, uiPort: uiPort)
@@ -223,6 +226,15 @@ final class ExperimentalRuntimeSupervisor {
         bridge.connect()
         hostBridge = bridge
         status = .running(ExperimentalConnection(uiBaseURL: uiBaseURL, uiPort: uiPort))
+        // §16 cold-open measurement: start() -> .running (backend spawned + healthy).
+        if let began = coldOpenStart {
+            let comps = (ContinuousClock.now - began).components
+            let ms = Double(comps.seconds) * 1000 + Double(comps.attoseconds) / 1e15
+            ExperimentalPerfMetrics.shared.recordColdOpen(milliseconds: ms)
+            Sig.experimentalSurface.emitEvent("cold_open", "\(Int(ms))ms")
+            recordDiagnostic("[perf] cold-open \(Int(ms))ms")
+            coldOpenStart = nil
+        }
     }
 
     private func installTerminationHandler(on process: Process) {
