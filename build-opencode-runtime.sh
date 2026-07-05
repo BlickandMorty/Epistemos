@@ -104,12 +104,35 @@ fi
 if command -v cargo >/dev/null 2>&1; then
     echo "build-opencode-runtime.sh: building omega_mcp_stdio fusion server…"
     if cargo build --release --manifest-path "$ROOT/omega-mcp/Cargo.toml" --bin omega_mcp_stdio >/dev/null 2>&1; then
-        STDIO_BIN="$(find "$ROOT/omega-mcp/target" -name omega_mcp_stdio -type f -path '*release*' 2>/dev/null | head -1)"
-        if [ -n "$STDIO_BIN" ] && [ -f "$STDIO_BIN" ]; then
+        # HOST-ARCH selection (2026-07-05 root-cause): the old `find … | head -1`
+        # nondeterministically picked the x86_64-apple-darwin build on an arm64
+        # host → "bad CPU type in executable" → the engine's MCP spawn silently
+        # died and epistemos-vault never reached the agent. Prefer the host
+        # triple, then the plain host build; VERIFY the arch before staging.
+        HOST_ARCH="$(uname -m)"
+        case "$HOST_ARCH" in
+            arm64)  RUST_TRIPLE="aarch64-apple-darwin" ;;
+            x86_64) RUST_TRIPLE="x86_64-apple-darwin" ;;
+            *)      RUST_TRIPLE="" ;;
+        esac
+        STDIO_BIN=""
+        for CAND in "$ROOT/omega-mcp/target/$RUST_TRIPLE/release/omega_mcp_stdio" \
+                    "$ROOT/omega-mcp/target/release/omega_mcp_stdio"; do
+            if [ -f "$CAND" ]; then STDIO_BIN="$CAND"; break; fi
+        done
+        if [ -n "$STDIO_BIN" ]; then
+            BIN_ARCHS="$(lipo -archs "$STDIO_BIN" 2>/dev/null || true)"
+            case " $BIN_ARCHS " in
+                *" $HOST_ARCH "*) : ;;  # lipo reports "arm64"/"x86_64" (space-separated when fat)
+                *)
+                    echo "build-opencode-runtime.sh: FATAL staged omega_mcp_stdio arch '$BIN_ARCHS' != host '$HOST_ARCH' — refusing a dead MCP binary" >&2
+                    exit 1
+                    ;;
+            esac
             mkdir -p "$BIN_DIR"
             cp "$STDIO_BIN" "$BIN_DIR/omega_mcp_stdio"
             chmod +x "$BIN_DIR/omega_mcp_stdio"
-            echo "build-opencode-runtime.sh: staged omega_mcp_stdio → $BIN_DIR/omega_mcp_stdio"
+            echo "build-opencode-runtime.sh: staged omega_mcp_stdio ($BIN_ARCHS) → $BIN_DIR/omega_mcp_stdio"
         else
             echo "build-opencode-runtime.sh: WARN omega_mcp_stdio binary not found after build (fusion omitted)" >&2
         fi

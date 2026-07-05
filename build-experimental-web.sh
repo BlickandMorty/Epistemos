@@ -108,6 +108,17 @@ if [ -f "$FORK/out/renderer/sw.js" ] || grep -rlq "serviceWorker\.register" "$FO
     exit 1
 fi
 
+# De-brand gate (Task 4 / DoD-4): the shipped artifacts must carry ZERO donor
+# branding — no "21st", "1code", "twentyfirst" in the served renderer or the
+# headless backend bundle. LICENSE/NOTICE attribution files are the only
+# exemption (Apache-2.0 requires keeping them; they are not user-facing UI).
+DEBRAND_HITS="$(grep -rEli '21st|1code|twentyfirst' "$FORK/headless/dist" "$FORK/out/renderer" 2>/dev/null | grep -Ev '(^|/)(LICENSE|NOTICE)' || true)"
+if [ -n "$DEBRAND_HITS" ]; then
+    echo "build-experimental-web.sh: DE-BRAND GATE FAILED — donor branding found in:" >&2
+    echo "$DEBRAND_HITS" >&2
+    exit 1
+fi
+
 FORK_SHA="$(git -C "$FORK" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 DIRTY="$(git -C "$FORK" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 CONTENT_HASH="$( (git -C "$FORK" rev-parse HEAD 2>/dev/null; shasum -a 256 "$FORK/bun.lock" "$FORK/headless/dist/index.cjs" "$FORK/headless/dist/onecode-shim.js" "$FORK/out/renderer/index.html" 2>/dev/null) | shasum -a 256 | cut -c1-16)"
