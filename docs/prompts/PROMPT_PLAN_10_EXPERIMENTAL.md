@@ -117,9 +117,9 @@ with the tRPC server. `titleBarStyle:"hiddenInset"` + traffic lights → native 
 |---|---|---|---|
 | **Claude Code** | native (exists) | OAuth (`claude` /login) → setup-token → API key | `claude-opus-4-8`, `claude-fable-5`, `claude-sonnet-5`, `claude-haiku-4-5` |
 | **Codex** | native ACP; migrate deprecated bridge → `@agentclientprotocol/codex-acp` | OAuth (`codex login`) → `OPENAI_API_KEY` | `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini` |
-| **Kimi** | ANTHROPIC_BASE_URL harness (zero engine code) | Kimi CLI `/login` OAuth or paste `MOONSHOT_API_KEY` | `kimi-k2.7-code` · base `https://api.moonshot.ai/anthropic` |
-| **GLM** | ANTHROPIC_BASE_URL harness (zero engine code) | paste z.ai key (API-key only) | `glm-4.7`, `glm-5.2` · base `https://api.z.ai/api/anthropic` |
-| **Gemini** | **NEW ACP harness** (`gemini --acp`, mirror the Codex router) | `GEMINI_API_KEY` (free Google-login for the CLI ended 2026-06-18) | `gemini-3.5-flash`, `gemini-3.1-pro-preview` |
+| **Kimi** | ANTHROPIC_BASE_URL harness (zero engine code) | **prefer native Kimi CLI `/login`** (managed OAuth, easiest) → fallback `MOONSHOT_API_KEY` | `kimi-k2.7-code` · base `https://api.moonshot.ai/anthropic` |
+| **GLM** | ANTHROPIC_BASE_URL harness (zero engine code) | paste z.ai key (API-key only, no OAuth) | `glm-4.7`, `glm-5.2` · base `https://api.z.ai/api/anthropic` |
+| **Gemini** | **API-key-first, own adapter** (`GEMINI_API_KEY`/Vertex) | ⚠️ **NEVER proxy the CLI's OAuth** — Google banned 3rd-party reuse (enforced 2026-03-25, suspended accounts); or run the user's OWN `gemini` login as an independent process. `gemini --acp` is optional-advanced only | `gemini-3.5-flash`, `gemini-3.1-pro-preview` |
 | **OpenCode** | **NEW adapter, free Zen only** (whitelist) | `opencode auth login` → Zen key | `opencode/big-pickle`, `opencode/grok-code`, `opencode/glm-4.7-free`, … |
 
 **Two harness gaps to close:** move the custom token from plain localStorage (`atoms/index.ts:254-263`)
@@ -128,15 +128,20 @@ so Kimi/GLM/Claude are per-conversation profiles.
 
 **Live catalog (never hardcode):** poll `models.dev/api.json` (unauthenticated backbone) → refine per
 active provider via its own `/models` (Anthropic `GET /v1/models` cursor + `anthropic-version`, OpenAI/
-Moonshot Bearer, Gemini `/v1beta/models` `models[].name`; GLM undocumented → models.dev) → pinned
-fallback → flag any ID not confirmable from a live call as "unverified." Endpoint table: Experimental R §1.6.
+Moonshot Bearer, Gemini `/v1beta/models` `models[].name`; GLM undocumented → models.dev; harness
+providers Kimi/GLM also via `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` → `{base_url}/v1/models`) →
+pinned fallback → optional developer-controlled remote-config JSON refreshed at launch → flag any ID
+not confirmable from a live call as "unverified." Endpoint table: Experimental R §1.6.
 
 ---
 
 ## §4 Decouple — fully local (Experimental R §1.5)
-Three surgical edits: (1) `windows/main.ts:789` force `isAuth=true` / delete the `else{login.html}`
-branch (the one true blocker); (2) `lib/analytics.ts:13` empty the **hardcoded PostHog fallback key**
-(fires in packaged builds otherwise); (3) `index.ts:946-954` remove the auto-updater block. Optional:
+Surgical edits: (1) `windows/main.ts:789` force `isAuth=true` / delete the `else{login.html}` branch
+(the one true blocker); (2) `lib/analytics.ts:13` empty the **hardcoded PostHog fallback key** (fires in
+packaged builds otherwise); (3) `index.ts:946-954` remove the auto-updater block; (4) **excise the
+hardcoded hosted URLs** — point `getBaseUrl`/`getApiUrl` (`https://21st.dev`) offline + neutralize the
+packaged app URL `https://21st.dev/agents` (else hosted assumptions leak back through the side door).
+Optional:
 tighten CSP `connect-src` to `'self' + the provider endpoints`; strip bare `Sentry.init()`. Don't touch
 the engine/chat/db paths. **⚠️ Never vendor the AGPL siblings** (`21st-extension`, `magic-mcp`); exclude
 at the build boundary. Bundled `claude`/`codex` binaries ship under their vendor EULAs or user-installed.

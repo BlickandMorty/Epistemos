@@ -178,9 +178,13 @@ traffic-light position (`main.ts:631-636`) → native NSWindow chrome.
   `App.tsx:106-114` auto-skips onboarding if `ANTHROPIC_API_KEY` present; `BillingMethodPage` offers
   api-key/custom-model lanes; `importSystemToken` reads a local Claude token. `signedFetch`/`streamFetch`
   are 100% cloud (require the 21st token, only call 21st.dev) — NOT on the local path.
-- **The 3 surgical decouple edits:** (1) `windows/main.ts:789` force `isAuth=true` / delete the
+- **The surgical decouple edits:** (1) `windows/main.ts:789` force `isAuth=true` / delete the
   `else{login.html}` branch; (2) `lib/analytics.ts:13` empty the hardcoded PostHog key; (3)
-  `index.ts:946-954` remove the auto-updater block. Net outbound after: the chosen model provider only.
+  `index.ts:946-954` remove the auto-updater block; (4) **excise the hardcoded hosted URLs** — point
+  `getBaseUrl`/`getApiUrl` (`https://21st.dev`) offline + neutralize the packaged app URL
+  `https://21st.dev/agents` (Cycle-2/GPT: donor defaults, not requirements, else hosted assumptions
+  leak back). Net outbound after: the chosen model provider only. Backend heap: carry an equivalent of
+  the donor's `--max-old-space-size=8192` into the headless Node backend.
 
 ## 1.6 Six-provider live catalog + endpoints [VERIFIED-WEB, 2026-07-05]
 **Current model IDs (use these; the auto-updater keeps them fresh):**
@@ -225,8 +229,13 @@ Anthropic (cursor) + Gemini (`name`) are bespoke.
 | **Codex** | native ACP (exists) | OAuth (`codex login` ChatGPT) → `OPENAI_API_KEY` | ⚠️ migrate the deprecated `@zed-industries/codex-acp@0.9.3` → `@agentclientprotocol/codex-acp` |
 | **Kimi** | ANTHROPIC_BASE_URL harness | Kimi CLI `/login` OAuth, OR paste `MOONSHOT_API_KEY` | official Kimi CLI is **Python** (`uv tool install --python 3.13 kimi-cli`) |
 | **GLM** | ANTHROPIC_BASE_URL harness | paste z.ai key (**API-key only — Z.ai ships NO OAuth**) | no first-party CLI (ZCode is a GUI) |
-| **Gemini** | **ACP harness** (NEW) | ⚠️ Google OAuth now paid-only → `GEMINI_API_KEY` | Gemini CLI speaks ACP (`gemini --acp`, JSON-RPC/stdio) — mirror the Codex router, NOT a base-URL redirect |
+| **Gemini** | **API-key-first (`GEMINI_API_KEY`/Vertex), own adapter** | ⚠️ **NEVER proxy the CLI's OAuth** (Google banned 3rd-party reuse, enforced 2026-03-25, suspended accounts) | or the user's own `gemini` CLI as an independent process under their own login; `gemini --acp` (ACP) is an optional advanced mode only (Cycle-2 refinement) |
 | **OpenCode** | ACP/own-CLI (NEW), free-Zen-only | `opencode auth login` → Zen key (`OPENCODE_API_KEY`) | whitelist to free `opencode/*`; endpoint `https://opencode.ai/zen/v1` |
+
+Kimi/GLM onboarding refinement (Cycle 2): **prefer the native Kimi CLI `/login`** (managed OAuth, no
+key handling = easiest) with `MOONSHOT_API_KEY` + base-URL as fallback; GLM stays base-URL (no
+first-party OAuth). Harness model discovery: `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` (v2.1.129)
+lists `{base_url}/v1/models`; Kimi alias `kimi-for-coding` auto-maps newest.
 
 ## 1.8 CLI detect/install + Developer-ID spawn [VERIFIED-WEB, primary Apple docs]
 - **Detect:** GUI apps get only the launchd PATH (`/usr/bin:/bin:…`) — probe absolute locations
@@ -428,6 +437,59 @@ NSOpenPanel/PTY/clipboard replacements · telemetry env-gated (strip anyway) · 
 - Status: architecture + embedding seam + decouple + providers + MCP + native-feel + CLI = mapped and
   cross-verified. Deliverable plan drafted (`PROMPT_PLAN_10_EXPERIMENTAL.md`).
 
-**Cycle 2+ — reserved for the owner's next research batch + further deepening** (native-migration
-surface: which chrome controls are pure-tRPC-driven and safely lift to native; deeper renderer
-component/store reuse map; per-phase risk deep-dives; re-verification of the open items in 3.4).
+**Cycle 2 (2026-07-05) — owner research batch 2 (Claude-1, Claude-2 [re-send of batch-1 Claude,
+already integrated], GPT). ⏳ Claude-3 PENDING** — the owner flagged Claude-3 as the highest-authority,
+most-synthesized report; integrate it as the **capstone** when provided and let it **take precedence on
+any conflict**. This batch strongly CORROBORATES Part 1 (headless Node sidecar, Apache-2.0 + no AGPL
+siblings, Kimi/GLM via ANTHROPIC_BASE_URL, live catalog + fallback, MCP read-modify-write, CSS-variable
+re-theme, current model IDs). New/refined nuances (each folded into the cited Part):
+
+1. **[EXTERNAL → refines Part 1.7] Gemini = API-key-first; NEVER proxy the CLI's OAuth.** Both
+   high-authority sources (Claude-1, GPT) converge: Google **banned third-party reuse of Gemini CLI
+   OAuth tokens** (announced Feb 2026, enforcement from **2026-03-25**), suspending accounts incl.
+   paying Ultra subscribers. ToS verbatim (Claude-1): *"Directly accessing the services powering Gemini
+   CLI … using third-party software, tools, or services … is a violation of applicable terms and
+   policies."* ⇒ ship Gemini as **`GEMINI_API_KEY`/Vertex (own adapter)**, or the user's own `gemini`
+   CLI run as an **independent process under their own login**; the app must never proxy/reuse the
+   token. Supersedes the earlier "ACP harness by default" (the ACP/CLI path is an optional advanced
+   mode under the user's own auth).
+2. **[EXTERNAL → refines Part 1.7] Kimi — prefer the native CLI `/login`** (managed OAuth, no key
+   handling) as the **easiest onboarding** (owner priority); keep `MOONSHOT_API_KEY` + the base-URL
+   harness as the one-code-path fallback. GLM stays base-URL (no first-party OAuth). Kimi stable alias
+   **`kimi-for-coding`** auto-maps to the newest coding model.
+3. **[EXTERNAL → adds to Part 1.5 decouple] Excise the hardcoded hosted URLs.** GPT: `src/main/index.ts`
+   hardcodes `https://21st.dev` as the packaged prod base and points the packaged app at
+   **`https://21st.dev/agents`** — "donor defaults, not product requirements"; excise or hosted
+   assumptions leak back "through the side door." Decouple **edit #4**: point `getBaseUrl`/`getApiUrl`
+   offline + neutralize the packaged app URL.
+4. **[EXTERNAL → enriches Part 1.6 auto-update] Harness model discovery.** Claude-1: Claude Code has
+   **`CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`** (since v2.1.129) → queries `{base_url}/v1/models`,
+   populates the picker (only `claude*`/`anthropic*` IDs; cached `~/.claude/cache/gateway-models.json`)
+   — same-day discovery for GLM/Kimi through the harness. Optional third catalog layer: a
+   **developer-controlled remote-config JSON refreshed at launch** (push new IDs without an app update)
+   atop models.dev + per-provider `/models` + pinned fallback.
+5. **[EXTERNAL → enriches Part 1.9 MCP] Extra surfaces.** Claude-1: plugins declare MCP in their
+   manifest under a **`1code.mcp-servers`** block (stdio + HTTP); `.env` loads in order **project
+   `.env` → `~/.1code/.env` → system env**, values can reference `${VAR}`; Codex MCP is TOML at
+   `~/.codex/config.toml` (global) + `<project>/.codex/config.toml` (project), via `codex mcp
+   add/list/remove/login`.
+6. **[EXTERNAL → refines Part 1.8 entitlements] Sidecar signature.** Claude-1: the **Node sidecar's OWN
+   signature** needs `com.apple.security.cs.allow-jit` (V8 JIT) + hardened runtime; prefer to AVOID
+   `allow-unsigned-executable-memory`; add `disable-library-validation` only if bundling third-party
+   native libs; **individually sign every `.node` + CLI binary** + asarUnpack. Consistent with Part
+   1.8's per-executable rule — the Swift host stays minimal; the sidecar carries JIT on its own signature.
+7. **[EXTERNAL → config note] Main-process heap.** Claude-1: `index.ts` launches with
+   `--max-old-space-size=8192`; carry an equivalent heap ceiling into the headless backend.
+8. **[RESOLVES GPT's flagged doc inconsistencies via first-hand source]:** README markets "Git Worktree
+   Isolation" as present while the donor CLAUDE.md lists it "Planned" → **source confirms worktrees ARE
+   implemented** (Part 1.9, `worktree.ts`/`createWorktreeForChat`/`chats.ts`). Live preview "verified at
+   product level, implementation unclear" → **source confirms a dead CodeSandbox stub** (Part 1.9). Our
+   source read is the tie-breaker over the donor's stale docs.
+
+Minor: Claude-1 cites 1Code's bundled Codex runtime default as `gpt-5.4` (its v0.0.84 changelog) while
+the live Codex CLI default is `gpt-5.5` — the live catalog resolves this (1Code pins a version; the
+picker follows the live list). Repo markers: created 2026-01-14, ~4,972★.
+
+**Cycle 3+ — reserved:** the in-flight native-migration-surface agent (which chrome controls lift to
+native SwiftUI vs must-stay-web); **Claude-3 capstone integration**; deeper renderer component/store
+reuse map; per-phase risk deep-dives; re-verify open items (3.4).
