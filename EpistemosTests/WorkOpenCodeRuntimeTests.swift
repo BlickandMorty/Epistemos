@@ -173,6 +173,34 @@ struct WorkOpenCodeRuntimeTests {
         #expect(src.contains("OpenChamber's MCP/config/status routes read process.env.OPENCODE_CONFIG"))
     }
 
+    #if !EPISTEMOS_APP_STORE
+    @MainActor
+    @Test("Pro agent bridge maps native user-bubble text colors into OpenChamber")
+    func proAgentThemeBridgeUsesNativeUserBubbleTextToken() throws {
+        let expected: [(theme: EpistemosTheme, color: String)] = [
+            (.light, "rgb(255, 255, 255)"),              // Classic light
+            (.platinumViolet, "rgb(255, 255, 255)"),    // Platinum light
+            (.tan, "rgb(255, 255, 255)"),               // Tan / Ember light
+            (.oledSoft, "rgb(0, 0, 0)"),                // Classic dark
+            (.platinumVioletDark, "rgb(255, 255, 255)"),
+            (.ember, "rgb(255, 255, 255)"),
+        ]
+
+        for sample in expected {
+            let vars = try proAgentThemeBridgeVars(for: sample.theme)
+            #expect(vars["--chat-user-message"] == sample.color)
+            #expect(vars["--chat-user-message-bg"] != nil)
+        }
+    }
+
+    @MainActor
+    private func proAgentThemeBridgeVars(for theme: EpistemosTheme) throws -> [String: String] {
+        let json = ProAgentThemeBridge.payloadJSON(for: theme)
+        let object = try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
+        return try #require(object?["vars"] as? [String: String])
+    }
+    #endif
+
     @Test("fusion server roots at the app vault so the work agent sees vault notes + skills/ as MCP context (0.49b)")
     func fusionVaultRootBridgesSkills() throws {
         // The fusion server enumerates the WHOLE vault as MCP resources (resources/list walks recursively,

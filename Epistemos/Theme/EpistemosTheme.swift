@@ -657,7 +657,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 card: .rgba(1, 1, 1, 0.90),
                 chatSurface: .windowBackground(),
                 userBubbleBg: .hex(0x1A1A1E),
-                userBubbleText: .hex(0xF2F2F7, opacity: 0.92),
+                userBubbleText: .hex(0xFFFFFF),
                 nsBackground: .windowBackground()
             )
         case .systemDark:
@@ -689,8 +689,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 navBubbleInactiveText: .hex(0x98989D, opacity: 0.92),
                 card: .controlBackground(opacity: 0.92),
                 chatSurface: .windowBackground(),
-                userBubbleBg: .hex(0x2A2A30),
-                userBubbleText: .hex(0xF2F2F7, opacity: 0.92),
+                userBubbleBg: .hex(0xF2F2F2),
+                userBubbleText: .hex(0x000000),
                 nsBackground: .windowBackground()
             )
         case .light:
@@ -723,7 +723,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 card: .rgba(1, 1, 1, 0.92),
                 chatSurface: .rgba(1, 1, 1),
                 userBubbleBg: .hex(0x1A1A1A),
-                userBubbleText: .hex(0xEEEEEE, opacity: 0.92),
+                userBubbleText: .hex(0xFFFFFF),
                 nsBackground: .rgba(1, 1, 1)
             )
         case .sunny:
@@ -789,7 +789,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 card: .hex(0xEDE0CA, opacity: 0.88),
                 chatSurface: .hex(0xF5EFE6),
                 userBubbleBg: .hex(0x6B3D1A),
-                userBubbleText: .hex(0xF0EBE4, opacity: 0.92),
+                userBubbleText: .hex(0xFFFFFF),
                 nsBackground: .hex(0xF5EFE6)
             )
         case .sunset:
@@ -854,8 +854,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 navBubbleInactiveText: Token.rgba(180.0 / 255.0, 180.0 / 255.0, 180.0 / 255.0, 0.92),
                 card: Token.rgba(18.0 / 255.0, 18.0 / 255.0, 18.0 / 255.0, 0.92),
                 chatSurface: .hex(0x000000),
-                userBubbleBg: .hex(0x2A2A2A),
-                userBubbleText: .hex(0xDADADE, opacity: 0.88),
+                userBubbleBg: .hex(0xF2F2F2),
+                userBubbleText: .hex(0x000000),
                 nsBackground: .hex(0x000000)
             )
         case .oledSoft:
@@ -894,8 +894,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 navBubbleInactiveText: Token.rgba(180.0 / 255.0, 180.0 / 255.0, 184.0 / 255.0, 0.92),
                 card: Token.rgba(16.0 / 255.0, 16.0 / 255.0, 19.0 / 255.0, 0.92),
                 chatSurface: .hex(0x08080A),
-                userBubbleBg: .hex(0x2B2B31),
-                userBubbleText: .hex(0xDADADE, opacity: 0.88),
+                userBubbleBg: .hex(0xF2F2F2),
+                userBubbleText: .hex(0x000000),
                 nsBackground: .hex(0x08080A)
             )
         case .ember:
@@ -928,7 +928,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 card: .hex(0x241A10, opacity: 0.90),
                 chatSurface: .hex(0x1C1410),
                 userBubbleBg: .hex(0x3C2010),
-                userBubbleText: .hex(0xEADED0, opacity: 0.90),
+                userBubbleText: .hex(0xFFFFFF),
                 nsBackground: .hex(0x1C1410)
             )
         case .nocturne:
@@ -994,7 +994,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 card: .hex(0xDDDDDD),
                 chatSurface: .hex(0xEEEEEE),
                 userBubbleBg: .hex(0x000080),
-                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                userBubbleText: .hex(0xFFFFFF),
                 nsBackground: .hex(0xDEDEDE)
             )
         case .platinumVioletDark:
@@ -1027,7 +1027,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 card: .hex(0x252530),
                 chatSurface: .hex(0x2A2A38),
                 userBubbleBg: .hex(0x7B68EE),
-                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                userBubbleText: .hex(0xFFFFFF),
                 nsBackground: .hex(0x1E1E24)
             )
         }

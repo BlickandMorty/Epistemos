@@ -98,7 +98,7 @@ enum ProAgentThemeBridge {
             "--chat-timestamp": mutedForeground,
             "--chat-typing": mutedForeground,
             "--chat-assistant-message": css(resolved.assistantBubbleForeground, dark: dark),
-            "--chat-user-message": foreground,
+            "--chat-user-message": css(resolved.userBubbleText, dark: dark),
             "--chat-user-message-bg": css(resolved.userBubbleBg, dark: dark),
             // Spinner follows the accent (donor emits literals, not references).
             "--loading-spinner": accentCSS,
