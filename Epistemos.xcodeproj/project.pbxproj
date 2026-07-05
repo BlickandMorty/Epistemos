@@ -608,14 +608,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2641;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					37D6F96B1B2A55707390C24A = {
 						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 					37DE6F7D0C0330DB13916CE8 = {
-						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 					973D4C8C4633FC9F5CEF0985 = {
@@ -623,7 +622,6 @@
 						ProvisioningStyle = Automatic;
 					};
 					D30E77DBB7C16B42612B2335 = {
-						DevelopmentTeam = 3BNL2669SL;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -766,7 +764,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\" && bash \"${SRCROOT}/build-openchamber-web.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\" && bash \"${SRCROOT}/build-coreeditor-bundle.sh\" && bash \"${SRCROOT}/build-opencode-runtime.sh\" && bash \"${SRCROOT}/build-openchamber-web.sh\" && bash \"${SRCROOT}/build-experimental-web.sh\"";
 		};
 		E7F099267B00E856637856A5 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -888,6 +886,32 @@
 			};
 			name = Debug;
 		};
+		100E06C685600FFC6725416D /* Experimental */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.tests;
+				PRODUCT_MODULE_NAME = EpistemosTests;
+				PRODUCT_NAME = EpistemosTests;
+				SDKROOT = macosx;
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos";
+			};
+			name = Experimental;
+		};
 		1F14548A8F23EC8EDB5E078D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -973,6 +997,65 @@
 			};
 			name = Release;
 		};
+		3446FC9BF2A5BC04D5AB032F /* Experimental */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Experimental;
+		};
 		4453B7BA64C8102E748DB1D2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1051,6 +1134,24 @@
 				SKIP_INSTALL = NO;
 			};
 			name = Release;
+		};
+		6E09FDDF76F39C797AB6F7DA /* Experimental */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
+				PRODUCT_NAME = EpistemosWidgets;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+			};
+			name = Experimental;
 		};
 		72E220BA400328AE00D4CE85 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1181,6 +1282,66 @@
 			};
 			name = Debug;
 		};
+		9F7830C14C56119206DB1E56 /* Experimental */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Epistemos/Epistemos-AppStore.entitlements";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Epistemos-AppStore-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
+				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
+				PRODUCT_NAME = Epistemos;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
+			};
+			name = Experimental;
+		};
+		D52AC682DB48B08F1EB92F60 /* Experimental */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 3BNL2669SL;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Epistemos-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
+				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
+				PRODUCT_NAME = Epistemos;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EPISTEMOS_EXPERIMENTAL EPISTEMOS_LINK_SUBSTRATE_RT";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
+				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
+			};
+			name = Experimental;
+		};
 		E8AE99F68C4D7F7F3D75D065 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1214,6 +1375,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1F14548A8F23EC8EDB5E078D /* Debug */,
+				6E09FDDF76F39C797AB6F7DA /* Experimental */,
 				669764D62A1F85DBFF0FBACD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1223,6 +1385,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4453B7BA64C8102E748DB1D2 /* Debug */,
+				100E06C685600FFC6725416D /* Experimental */,
 				E8AE99F68C4D7F7F3D75D065 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1232,6 +1395,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				751706468F2EF5B25E04473B /* Debug */,
+				D52AC682DB48B08F1EB92F60 /* Experimental */,
 				72E220BA400328AE00D4CE85 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1241,6 +1405,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				87BD216EA3C485A0985D9D33 /* Debug */,
+				3446FC9BF2A5BC04D5AB032F /* Experimental */,
 				3085888BBD65E9917811BC78 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -1250,6 +1415,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0E2E8A072CB582D720A3E905 /* Debug */,
+				9F7830C14C56119206DB1E56 /* Experimental */,
 				60C8CDCD31A36814C6A7DF36 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

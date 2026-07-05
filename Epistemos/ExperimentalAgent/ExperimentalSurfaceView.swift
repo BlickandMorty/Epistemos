@@ -125,72 +125,69 @@ private struct ExperimentalWebView: NSViewRepresentable {
 
         // MARK: - Native desktopApi bucket
 
+        // Async variant of WKScriptMessageHandlerWithReply — returns the reply directly
+        // (Swift 6 clean: sidesteps the @Sendable/@MainActor escaping-closure isolation the
+        // completion-handler overload requires under strict concurrency). All handling is
+        // synchronous @MainActor work, so no suspension actually occurs.
         func userContentController(
-            _ controller: WKUserContentController,
-            didReceive message: WKScriptMessage,
-            replyHandler: @escaping (Any?, String?) -> Void
-        ) {
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) async -> (Any?, String?) {
             guard let body = message.body as? [String: Any],
                   let kind = body["kind"] as? String else {
-                replyHandler(nil, "malformed message")
-                return
+                return (nil, "malformed message")
             }
-            let payload = body["payload"]
-            reply(to: kind, payload: payload, replyHandler: replyHandler)
+            return reply(to: kind, payload: body["payload"])
         }
 
-        private func reply(
-            to kind: String, payload: Any?, replyHandler: @escaping (Any?, String?) -> Void
-        ) {
+        private func reply(to kind: String, payload: Any?) -> (Any?, String?) {
             guard let window = webView?.window else {
                 // Window-scoped intents no-op cleanly before the window exists.
-                replyHandler(nil, nil)
-                return
+                return (nil, nil)
             }
             switch kind {
             case "window:minimize":
-                window.miniaturize(nil); replyHandler(nil, nil)
+                window.miniaturize(nil); return (nil, nil)
             case "window:maximize", "window:toggle-fullscreen":
-                window.toggleFullScreen(nil); replyHandler(nil, nil)
+                window.toggleFullScreen(nil); return (nil, nil)
             case "window:close":
-                window.performClose(nil); replyHandler(nil, nil)
+                window.performClose(nil); return (nil, nil)
             case "window:is-maximized":
-                replyHandler(window.isZoomed, nil)
+                return (window.isZoomed, nil)
             case "window:is-fullscreen":
-                replyHandler(window.styleMask.contains(.fullScreen), nil)
+                return (window.styleMask.contains(.fullScreen), nil)
             case "window:set-title":
                 if let title = (payload as? [String: Any])?["title"] as? String ?? payload as? String {
                     window.title = title
                 }
-                replyHandler(nil, nil)
+                return (nil, nil)
             case "window:zoom-in":
-                webView.map { $0.pageZoom = min($0.pageZoom + 0.1, 3.0) }; replyHandler(nil, nil)
+                webView.map { $0.pageZoom = min($0.pageZoom + 0.1, 3.0) }; return (nil, nil)
             case "window:zoom-out":
-                webView.map { $0.pageZoom = max($0.pageZoom - 0.1, 0.5) }; replyHandler(nil, nil)
+                webView.map { $0.pageZoom = max($0.pageZoom - 0.1, 0.5) }; return (nil, nil)
             case "window:zoom-reset":
-                webView?.pageZoom = 1.0; replyHandler(nil, nil)
+                webView?.pageZoom = 1.0; return (nil, nil)
             case "window:get-zoom":
-                replyHandler(Double(webView?.pageZoom ?? 1.0), nil)
+                return (Double(webView?.pageZoom ?? 1.0), nil)
             case "clipboard:write":
                 let text = (payload as? [String: Any])?["text"] as? String ?? payload as? String ?? ""
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)
-                replyHandler(nil, nil)
+                return (nil, nil)
             case "clipboard:read":
-                replyHandler(NSPasteboard.general.string(forType: .string) ?? "", nil)
+                return (NSPasteboard.general.string(forType: .string) ?? "", nil)
             case "app:set-badge":
-                let count = (payload as? [String: Any])?["count"] as? Int
-                    ?? (payload as? Int)
-                NSApp.dockTile.badgeLabel = (count ?? 0) > 0 ? String(count!) : nil
-                replyHandler(nil, nil)
+                let count = (payload as? [String: Any])?["count"] as? Int ?? (payload as? Int)
+                NSApp.dockTile.badgeLabel = (count.map { $0 > 0 } ?? false) ? count.map(String.init) : nil
+                return (nil, nil)
             case "window:set-traffic-light-visibility",
                  "window:toggle-devtools", "window:unlock-devtools",
                  "app:set-badge-icon", "app:show-notification":
                 // Notifications + save/open dialogs already terminate over the
                 // /host ws bridge; devtools is Web Inspector territory. No-op here.
-                replyHandler(nil, nil)
+                return (nil, nil)
             default:
-                replyHandler(["__unhandled": true], nil)
+                return (["__unhandled": true], nil)
             }
         }
     }
