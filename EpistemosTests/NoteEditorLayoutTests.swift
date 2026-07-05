@@ -700,8 +700,8 @@ struct NoteEditorLayoutTests {
         #expect(!controlsSource.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
-    @Test("preview paints a native chrome backdrop without padding content down")
-    func previewPaintsNativeChromeBackdropWithoutPaddingContentDown() {
+    @Test("preview chrome content inset stays scoped to graph embedded preview")
+    func previewChromeContentInsetStaysScopedToGraphEmbeddedPreview() {
         #expect(
             NotePreviewChromeMetrics.backdropHeight(titlebarInset: 0, hasMultipleTabs: false)
                 == NotePreviewChromeMetrics.fallbackSingleTopInset
@@ -724,20 +724,38 @@ struct NoteEditorLayoutTests {
         )
         #expect(
             NotePreviewChromeMetrics.backdropHeight(titlebarInset: 52, hasMultipleTabs: true)
-                == NotePreviewChromeMetrics.fallbackTabbedTopInset
+                == 52
         )
         #expect(
             NotePreviewChromeMetrics.backdropHeight(titlebarInset: 88, hasMultipleTabs: true)
-                == NotePreviewChromeMetrics.fallbackTabbedTopInset
+                == 88
         )
         #expect(
             NotePreviewChromeMetrics.backdropHeight(titlebarInset: 128, hasMultipleTabs: true)
                 == 128
         )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(
+                chromeBackdropHeight: 74,
+                chromeMinimumHeight: 0
+            ) == 0
+        )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(
+                chromeBackdropHeight: 52,
+                chromeMinimumHeight: 74
+            ) == 74
+        )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(
+                chromeBackdropHeight: 128,
+                chromeMinimumHeight: 74
+            ) == 128
+        )
     }
 
-    @Test("note preview uses the workspace surface without extra top padding")
-    func notePreviewUsesWorkspaceSurfaceWithoutExtraTopPadding() throws {
+    @Test("note preview uses the workspace surface and pads only graph embedded chrome")
+    func notePreviewUsesWorkspaceSurfaceAndPadsOnlyGraphEmbeddedChrome() throws {
         let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let previewSource = try loadRepoTextFile("Epistemos/Views/Notes/NotePreviewSurfaceView.swift")
 
@@ -749,8 +767,8 @@ struct NoteEditorLayoutTests {
         #expect(!workspaceSource.contains("NoteDualPreviewLayout.outerPadding.top + NotePreviewChromeMetrics.fallbackSingleTopInset"))
         #expect(previewSource.contains("let chromeBackdropHeight = NotePreviewChromeMetrics.backdropHeight("))
         #expect(previewSource.contains("minimumHeight: chromeMinimumHeight"))
-        #expect(previewSource.contains("top: NoteDualPreviewLayout.outerPadding.top,"))
-        #expect(!previewSource.contains("top: NoteDualPreviewLayout.outerPadding.top + contentTopInset"))
+        #expect(previewSource.contains("let contentTopInset = NotePreviewChromeMetrics.contentTopInset("))
+        #expect(previewSource.contains("top: NoteDualPreviewLayout.outerPadding.top + contentTopInset,"))
         #expect(previewSource.contains("previewTopChrome(height: chromeBackdropHeight)"))
         #expect(previewSource.contains("private func previewTopChrome(height: CGFloat) -> some View"))
         #expect(previewSource.contains("private var previewChromeBackdrop: some View"))

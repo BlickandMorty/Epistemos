@@ -29,6 +29,14 @@ enum NotePreviewChromeMetrics {
         return max(baseHeight, minimumHeight)
     }
 
+    static func contentTopInset(
+        chromeBackdropHeight: CGFloat,
+        chromeMinimumHeight: CGFloat
+    ) -> CGFloat {
+        guard chromeMinimumHeight > 0 else { return 0 }
+        return max(0, max(chromeBackdropHeight, chromeMinimumHeight))
+    }
+
     static func titlebarInset(for window: NSWindow) -> CGFloat {
         let inset = max(0, window.frame.height - window.contentLayoutRect.maxY)
         return inset.isFinite ? inset : 0
@@ -329,8 +337,12 @@ struct AdaptiveNotePreviewView2: View {
                 hasMultipleTabs: hasMultipleTabs,
                 minimumHeight: chromeMinimumHeight
             )
+            let contentTopInset = NotePreviewChromeMetrics.contentTopInset(
+                chromeBackdropHeight: chromeBackdropHeight,
+                chromeMinimumHeight: chromeMinimumHeight
+            )
             let outerPadding = EdgeInsets(
-                top: NoteDualPreviewLayout.outerPadding.top,
+                top: NoteDualPreviewLayout.outerPadding.top + contentTopInset,
                 leading: NoteDualPreviewLayout.outerPadding.leading,
                 bottom: NoteDualPreviewLayout.outerPadding.bottom,
                 trailing: NoteDualPreviewLayout.outerPadding.trailing
@@ -372,7 +384,8 @@ struct AdaptiveNotePreviewView2: View {
                 // noteWorkspaceBackground.ignoresSafeArea() behind everything), and the
                 // top separation is pagePadding.top (== the editor's verticalInset 40) —
                 // space on the content layer, not a padding band. Only the graph-embedded
-                // preview keeps the chrome (it covers the floating graph toolbar area).
+                // preview keeps the chrome and pushes scroll content below the floating
+                // graph toolbar area.
                 if chromeMinimumHeight > 0 {
                     previewTopChrome(height: chromeBackdropHeight)
                         .zIndex(10)
