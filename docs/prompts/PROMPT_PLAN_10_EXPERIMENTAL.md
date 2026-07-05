@@ -119,8 +119,12 @@ with the tRPC server. `titleBarStyle:"hiddenInset"` + traffic lights → native 
 | **Codex** | native ACP; migrate deprecated bridge → `@agentclientprotocol/codex-acp` | OAuth (`codex login`) → `OPENAI_API_KEY` | `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini` |
 | **Kimi** | ANTHROPIC_BASE_URL harness (zero engine code) | **prefer native Kimi CLI `/login`** (managed OAuth, easiest) → fallback `MOONSHOT_API_KEY` | `kimi-k2.7-code` · base `https://api.moonshot.ai/anthropic` |
 | **GLM** | ANTHROPIC_BASE_URL harness (zero engine code) | paste z.ai key (API-key only, no OAuth) | `glm-4.7`, `glm-5.2` · base `https://api.z.ai/api/anthropic` |
-| **Gemini** | **API-key-first, own adapter** (`GEMINI_API_KEY`/Vertex) | ⚠️ **NEVER proxy the CLI's OAuth** — Google banned 3rd-party reuse (enforced 2026-03-25, suspended accounts); or run the user's OWN `gemini` login as an independent process. `gemini --acp` is optional-advanced only | `gemini-3.5-flash`, `gemini-3.1-pro-preview` |
-| **OpenCode** | **NEW adapter, free Zen only** (whitelist) | `opencode auth login` → Zen key | `opencode/big-pickle`, `opencode/grok-code`, `opencode/glm-4.7-free`, … |
+| **Gemini** | **API-key-first, transport-agnostic seam** (`GEMINI_API_KEY`/Vertex; Claude-3 capstone: direct API = the durable path; `gemini --acp` = optional-advanced only, runtime-verify the CLI post-Antigravity `agy` transition) | ⚠️ **NEVER proxy the CLI's OAuth** — banned (enforced 2026-03-25, permanent-ban policy); consumer CLI login ended 2026-06-18, the paid API-key CLI lane continues | `gemini-3.5-flash`, `gemini-3.1-pro-preview` |
+| **OpenCode** | **NEW adapter, free Zen only** (whitelist `cost==0`; Zen-native list `GET https://opencode.ai/zen/v1/models`) | `opencode auth login` → Zen key · **UI must show the free-tier data-use notice** (Zen docs: Big Pickle "collected data may be used to improve the model"; Nemotron 3 Ultra Free "Trial use only — do not submit personal or confidential data") | `opencode/big-pickle`, `opencode/grok-code`, `opencode/glm-4.7-free`, … |
+
+**Harness env extras (per provider docs):** Kimi `CLAUDE_CODE_AUTO_COMPACT_WINDOW=262144`; GLM
+`API_TIMEOUT_MS=3000000` + default map `ANTHROPIC_DEFAULT_{SONNET,OPUS}_MODEL=glm-4.7`,
+`ANTHROPIC_DEFAULT_HAIKU_MODEL=glm-4.5-air` (override to `glm-5.2` for the flagship lane).
 
 **Two harness gaps to close:** move the custom token from plain localStorage (`atoms/index.ts:254-263`)
 to Keychain; switch the transport (`ipc-chat-transport.ts:176`) to the existing `ModelProfile[]` system
@@ -148,13 +152,18 @@ at the build boundary. Bundled `claude`/`codex` binaries ship under their vendor
 
 ---
 
-## §5 MCP auto-inject (Epistemos vault, zero user setup)  (Experimental R §1.9 + §8)
-Two independent MCP systems — target both. **Claude:** write Epistemos's servers into `~/.claude.json`
-`mcpServers` via a **read-modify-write deep-merge** (the file also holds OAuth/session data — never
-clobber), or drop a project `.mcp.json` into each new worktree (cleanest zero-config). The app
-mtime-caches + re-reads every message (`claude.ts:1272-1300`). **Codex:** `codex mcp add` into `~/.codex`.
-Reuse the Epistemos MCP config writer + the `omega_mcp_stdio` vault server (§8). Skills/commands are
-filesystem — seed by writing SKILL.md / `.md` files, no API.
+## §5 MCP auto-inject (Epistemos vault, zero user setup)  (Experimental R §1.9 + §3.3 + §8)
+Two independent MCP systems — target both. **PRIMARY mechanism (Claude-3 capstone): router-level
+augmentation.** We own the forked backend, so append `epistemos-vault` at the two in-process injection
+points — Claude: the `options.mcpServers` assembly (`claude.ts:1266-1376` → passed `:1746-1761`);
+Codex: `session.mcpServers` (`codex.ts:1259-1262`). Reversible, non-destructive, immune to on-disk
+schema drift, covers both engines, and surfaces in the donor's MCP UI (which lists via the same
+handlers). **FALLBACK/compat:** the file-write path — read-modify-write deep-merge into
+`~/.claude.json` `mcpServers` (the file also holds OAuth/session data — never clobber; the app
+mtime-caches + re-reads every message, `claude.ts:1272-1300`) or a project `.mcp.json` per worktree,
+and `codex mcp add` into `~/.codex` — so external `claude`/`codex` runs outside Epistemos also see the
+vault. Reuse the Epistemos MCP config writer + the `omega_mcp_stdio` vault server (§8). Skills/commands
+are filesystem — seed by writing SKILL.md / `.md` files, no API.
 
 ---
 
@@ -243,8 +252,10 @@ Epistemos already ships hardened infrastructure for this exact shape — reuse t
 ## §10 Feature ledger (shipping gate — close every row)
 Project→chat→sub-chat sidebar + worktree · chat + streaming + tool UIs + diffs · terminal (node-pty over
 ws) · git worktree per chat · plan/agent mode + permissions · 6-provider engine + live catalog · MCP
-auto-inject · native chrome + re-skin · CLI detect/install · **live preview = cut/net-new (donor stub
-only)** · login wall / PostHog / Sentry / updater = **stripped**.
+auto-inject (router-level + file fallback) · native chrome + re-skin · CLI detect/install ·
+**tool-approval policy + audit log (§13)** · **process/worktree reaping (§13)** · **SQLite WAL (§13)** ·
+**Keychain credentials (§13)** · **free-Zen data-use notice (§3)** · **live preview = cut/net-new
+(donor stub only)** · login wall / PostHog / Sentry / updater = **stripped**.
 
 ---
 
@@ -267,3 +278,59 @@ only)** · login wall / PostHog / Sentry / updater = **stripped**.
   shim + the 4 dialog rewires + the Codex-ACP migration).
 - Provider keys stay in Keychain, bridged to the child env only — never webview JS. Commit after every
   coherent change; report honestly (no "done" without the §10 ledger).
+
+---
+
+## §13 Hardening beyond upstream (named deliverable — shipping-gate rows, not polish)
+Upstream 1Code is thin here; the Experimental tier must ship harder than the OSS baseline:
+- **Tool-approval policy layer + append-only NDJSON audit log** (the least-guarded upstream surface):
+  interpose a policy engine in the backend between the tool-call events (both Codex ACP
+  `PermissionRequest` relay and claude-agent-sdk) and the renderer — default-deny shell/network/
+  file-writes outside the worktree, per-project allow-lists; log `{tool, args-hash, decision, ts}`.
+  Run spawned CLIs with the Codex sandbox (`workspace-write`, network off) where possible.
+- **Guaranteed cleanup / process reaping:** on chat delete/abort/crash → `git worktree remove --force`
+  + prune branch + kill the PTY process tree (`pidtree` is already a dep); startup sweep for orphans.
+  Build on upstream's `hasActiveClaudeSessions`/`abortAll*` quit guards + the §8 child ledger.
+- **Crash-safe persistence:** SQLite **WAL** + periodic checkpoint; transactional session writes.
+- **Agent-loop error boundaries:** per-turn try/catch + retry-with-backoff on transient provider
+  errors; structured errors, never silent stream death. Regression-test **session-resume edge cases**
+  (the `chats.ts` fork `cutoffIndex`/`messageIndex` fallback can desync on fork/rollback resume).
+- **Security posture:** credentials in macOS Keychain (not safeStorage blobs); CSP locks renderer
+  outbound to localhost + active provider endpoints; resource ceilings (concurrent sessions, PTY
+  memory, per-session token/cost budget).
+- **Observability (optional, high value):** productize the dev NDJSON debug channel into a redacted
+  local log viewer; per-provider rate-limit + cost tracking in the UI.
+
+## §14 Build schema + packaging pipeline (repo-grounded)
+- **Scheme/flag (xcodegen — never hand-edit the pbxproj):** add an `Epistemos-Experimental` scheme +
+  build config defining `EPISTEMOS_EXPERIMENTAL` in `SWIFT_ACTIVE_COMPILATION_CONDITIONS` — the exact
+  mechanism of the MAS split (`project.yml:228,233` sets `EPISTEMOS_APP_STORE MAS_SANDBOX`). Gate all
+  surface code `#if EPISTEMOS_EXPERIMENTAL` in `Epistemos/ExperimentalAgent/`; compile-time assert the
+  flag never coexists with `EPISTEMOS_APP_STORE`.
+- **Artifact pipeline — `build-experimental-web.sh` (mirror the proven `build-openchamber-web.sh`):**
+  lockfile content-hash gate → unchanged checkouts skip; renderer dist with the embed flag + **refuse
+  any dist containing a service worker**; esbuild/bun-bundled headless backend + pruned prod
+  node_modules + drizzle migrations; **rebuild better-sqlite3 + node-pty against the PINNED NODE ABI
+  (plain `npm rebuild` with the bundled node — NOT `electron-rebuild`; upstream's postinstall targets
+  Electron's ABI, which crashes the headless fork at first DB/PTY touch)**; stage as ONE tarball
+  (resource-copy flattening collision is proven) → version-stamped unpack at runtime; **share the
+  pinned Node 25.8.2 runtime with the OpenChamber surface** (one binary serves both).
+- **Signing/notarization:** individually sign every `.node` + `node` + CLI (Developer ID + hardened
+  runtime); the node binary's OWN signature carries `allow-jit`; the Swift host keeps the minimal set;
+  notarize + staple; in-script `codesign --verify --deep --strict` + `spctl -a -t exec`.
+- **Memory/perf on 16 GB:** cap the backend heap (`--max-old-space-size=2048–4096`; upstream's 8192 is
+  oversized beside Epistemos + engines); arm64-first; strip sourcemaps/dev deps; non-persistent
+  WKWebView store; register the backend with the existing memory-pressure relief path.
+- **Perf gates:** add `[experimental_surface]` to `docs/perf-budgets.toml` (cold ≤1500 ms / warm
+  ≤100 ms / first-token ≤1200 ms, mirroring `[agent_surface]:55`) + OSSignposter metrics; a perf
+  regression blocks the phase commit. The §8 instant-open recipe is the mechanism.
+- **CI gates:** SBOM (`@cyclonedx/cyclonedx-npm`) + `license-checker`/`osv-scanner` deny-list
+  (`GPL-*`, `AGPL-*`, `LGPL-*`, `SSPL`, `BUSL-1.1`, `Commons-Clause`, `CC-BY-NC-*`) on every dep bump;
+  `ts:check` on the fork; never two concurrent xcodebuilds.
+
+---
+
+**Agent-facing build artifact:** the self-contained ultimate prompt is
+[`BUILD_PROMPT_EXPERIMENTAL_FINAL.md`](BUILD_PROMPT_EXPERIMENTAL_FINAL.md) — agents build from THAT
+(it embeds every load-bearing fact + trust ledger; no need to open the research corpus). This plan and
+[`EXPERIMENTAL_R.md`](../research/EXPERIMENTAL_R.md) are the canonical backing evidence.

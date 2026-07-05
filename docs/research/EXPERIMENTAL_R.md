@@ -456,7 +456,24 @@ NSOpenPanel/PTY/clipboard replacements · telemetry env-gated (strip anyway) · 
   progressively), NOT the engine.
 - **Terminal transport: separate WebSocket vs the tRPC channel.** → Ride the same localhost tRPC-ws
   channel (node-pty runs in the helper, `terminal.stream` is already a tRPC subscription). No separate socket.
-- **Gemini: base-URL vs ACP.** → ACP harness. **OpenCode: full vs free.** → free Zen only (whitelist).
+- **Gemini: base-URL vs ACP vs direct API.** → **API-key-first; NEVER proxy the CLI's OAuth** (banned,
+  enforced 2026-03-25, permanent-ban policy — Discussion #20632 verbatim). Build the Gemini engine seam
+  **transport-agnostic** so either the ACP CLI (`gemini --acp` under the user's own API key) or a
+  direct `generativelanguage` API adapter can back it; decide at build time from the then-current CLI
+  state (consumer lane ended 2026-06-18; Antigravity `agy` transition underway; the paid API-key CLI
+  lane continues). Claude-3 (capstone) recommends the direct API as the durable path. There is NO
+  Google "anthropic-compat" base-URL — that remains hallucination.
+- **OpenCode: full vs free.** → free Zen only (whitelist by `cost==0`); Zen-native live list
+  `GET https://opencode.ai/zen/v1/models`; **surface the free-tier data-use notice in the UI**
+  (Zen docs verbatim: Big Pickle "collected data may be used to improve the model"; Nemotron 3 Ultra
+  Free "Trial use only — do not submit personal or confidential data").
+- **MCP injection mechanism.** → **Router-level augmentation PRIMARY (Claude-3 capstone):** we own the
+  forked backend, so append `epistemos-vault` at the two in-process injection points — Claude: the
+  `options.mcpServers` assembly (`claude.ts:1266-1376` → passed `:1746-1761`); Codex:
+  `session.mcpServers` (`codex.ts:1259-1262`). Reversible, non-destructive, immune to on-disk schema
+  drift, covers both engines, and surfaces in the donor's MCP UI (which lists via the same handlers).
+  The file-write path (deep-merge `~/.claude.json` / worktree `.mcp.json` / `codex mcp add`) stays as
+  the compatibility fallback so external `claude`/`codex` runs outside Epistemos also see the vault.
 
 ## 3.4 Open items (working defaults; verify at build)
 - GLM `/models` endpoint undocumented → source GLM from models.dev; runtime-verify, graceful fallback.
@@ -535,5 +552,75 @@ the single bridge primitive (native→shared-Jotai-`appStore` write, keyed by `s
 the whole INTENT-BRIDGE tier; flagged the hidden-SPA-state traps (model/mode/theme/sidebar-selection
 look native-safe but the live transport reads their atoms at send time). Folded into Plan 10 §6.
 
-**Cycle 4+ — reserved:** **Claude-3 capstone integration** (owner-flagged highest authority — pending);
-deeper renderer component/store reuse map; per-phase risk deep-dives; re-verify open items (3.4).
+**Cycle 4 (2026-07-05) — CLAUDE-3 CAPSTONE (owner-flagged highest authority) + finalization.**
+Claude-3 corroborates the entire spine (host swap, headless sidecar, Apache-2.0, seam table, decouple,
+six providers, hybrid catalog) and its Objective-B hardening plan was already absorbed into the final
+build prompt §9. Integration outcomes:
+1. **Adopted (recommendation upgrades):** (a) **MCP router-level augmentation** as the primary
+   injection mechanism (see 3.3 — reversible, schema-drift-immune, both engines); (b) **Gemini
+   direct-API-first**, ACP CLI as optional-advanced behind a transport-agnostic engine seam (see 3.3).
+2. **New facts folded [EXTERNAL: confirmed]:** upstream session-lifecycle exports + quit/reload guards
+   to build on (`hasActiveClaudeSessions`/`abortAllClaudeSessions`, `hasActiveCodexStreams`/
+   `abortAllCodexStreams`); `claude-sonnet-5` default on Free/Pro since 2026-06-30; `claude-fable-5`
+   restored 2026-07-01 (post export-pause); `claude-mythos-5` trusted-access only; `gpt-5.3-codex-spark`
+   (Pro research preview); GLM enrichments (ZCode lists GLM-5.2 + GLM-5-Turbo; Claude Code default map
+   `ANTHROPIC_DEFAULT_{SONNET,OPUS}_MODEL=glm-4.7`, `HAIKU=glm-4.5-air`; `API_TIMEOUT_MS=3000000`;
+   GLM-5.2 metered at a 0.67 factor through 2026-07-31; plans from ~$18/mo); Kimi
+   `CLAUDE_CODE_AUTO_COMPACT_WINDOW=262144`; OpenCode Zen-native list endpoint
+   `https://opencode.ai/zen/v1/models` + the **free-tier data-use caveats** (UI notice required);
+   Gemini OAuth-ban verbatim + permanent-ban policy + Antigravity CLI binary name **`agy`**; auth-state
+   file locations (Codex `~/.codex/auth.json`, OpenCode `~/.local/share/opencode/auth.json`, Claude
+   `~/.claude/`).
+3. **Conflicts resolved in favor of the first-hand clone read** (Claude-3's own caveats defer these to
+   direct source inspection — which our corpus IS): live preview = **dead CodeSandbox stub** (Claude-3's
+   "local port-detection preview" came from README marketing and was self-flagged unverifiable);
+   worktrees = implemented; every item on Claude-3's flagged-unverified list (the `desktopApi` method
+   surface, `exposeElectronTRPC()` at `preload/index.ts:12`, codex/claude router internals, PostHog
+   gating) is already [VERIFIED-CODE] in Part 1 — its known-unknowns are our knowns.
+4. **Precision notes:** no `21st-extension` repo exists in the 21st-dev org (AGPL-sibling naming
+   partially unsubstantiated — keep the do-not-vendor guard, but the **SBOM + license deny-list CI
+   gate is the real enforcement**); official Kimi CLI install is **`uv`** (not `pip`); the Gemini CLI
+   is not fully retired — the paid API-key lane continues (Claude-3 compressed this; our primary-source
+   pass stands).
+5. **Final build prompt audited + augmented** → `docs/prompts/BUILD_PROMPT_EXPERIMENTAL_FINAL.md`
+   (+ the owner's Downloads copy, kept byte-identical). Audit findings applied: restored decouple
+   **edit #4** (hosted-URL excision — a compression casualty; renderer fallbacks hardcode
+   `https://21st.dev` but read via `getApiBaseUrl()` → fixing `getBaseUrl()` covers them centrally);
+   Gemini row aligned to API-first; MCP §6 upgraded to router-level primary; OpenCode data-use notice;
+   harness env extras (Kimi auto-compact window, GLM timeout + default map); session-resume edge-case
+   test target (the `chats.ts` fork `cutoffIndex`/`messageIndex` fallback can desync); §16 build
+   schema added (Cycle 5). Everything else in the owner's prompt was verified correct and left intact —
+   including the absolute §0 rule ("if it breaks when moved to native Swift, do not move it").
+
+**Cycle 5 (2026-07-05) — build schema + build/runtime optimization (owner request; repo-grounded).**
+Recon [VERIFIED-CODE]: xcodegen `project.yml` sets the MAS split via per-config
+`SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX …"`
+(`project.yml:228,233`); schemes = `Epistemos.xcscheme` + `Epistemos-AppStore.xcscheme`;
+`docs/perf-budgets.toml:55` has `[agent_surface]`; `build-openchamber-web.sh` pins **Node 25.8.2**
+("native-ABI anchor"), refuses service-worker dists, stages ONE tarball, and uses version stamps.
+Design (full text in the build prompt §16 / Plan 10 §14):
+- **Scheme/flag:** add `Epistemos-Experimental` scheme + config defining `EPISTEMOS_EXPERIMENTAL`
+  (same mechanism as the MAS flag); gate surface code `#if EPISTEMOS_EXPERIMENTAL` in
+  `Epistemos/ExperimentalAgent/`; compile-time assert it never coexists with `EPISTEMOS_APP_STORE`.
+- **Artifact pipeline (`build-experimental-web.sh`, mirror the proven script):** lockfile
+  content-hash gate; renderer dist w/ embed flag + **SW refusal**; esbuild/bun-bundled headless
+  backend + pruned prod node_modules + drizzle migrations; **rebuild better-sqlite3 + node-pty against
+  the PINNED NODE ABI (plain `npm rebuild` with the bundled node — NOT `electron-rebuild`; upstream's
+  postinstall targets Electron's ABI, which crashes the headless fork at first DB/PTY touch)**; ONE
+  tarball (resource-copy flattening collision is proven); version-stamped runtime unpack; **share the
+  pinned Node 25.8.2 with the OpenChamber runtime** (one binary serves both — size win).
+- **Signing:** individually sign every `.node` + `node` + CLI with Developer ID + hardened runtime;
+  JIT entitlement on the node binary's OWN signature; notarize + staple; in-script
+  `codesign --verify --deep --strict` + `spctl -a`.
+- **Memory/perf (16 GB):** cap the backend heap (`--max-old-space-size=2048–4096`; upstream's 8192 is
+  oversized beside Epistemos + engines); arm64-first; strip sourcemaps/dev-deps; non-persistent
+  WKWebView store; wire the backend into the existing memory-pressure relief; add
+  `[experimental_surface]` budgets (cold ≤1500 ms / warm ≤100 ms / first-token ≤1200 ms) — a perf
+  regression blocks the phase commit; instant-open recipe is the mechanism.
+- **CI:** SBOM + license deny-list per dep bump; `ts:check` on the fork; never two concurrent
+  xcodebuilds.
+
+**STATUS: RESEARCH COMPLETE (owner stop, 2026-07-05).** Final artifacts: this corpus ·
+`PROMPT_PLAN_10_EXPERIMENTAL.md` (robust standalone plan) ·
+`docs/prompts/BUILD_PROMPT_EXPERIMENTAL_FINAL.md` (the agent-facing ultimate prompt — self-contained;
+agents need not read this corpus). Remaining runtime-checks live in the prompt's §15 trust ledger.
