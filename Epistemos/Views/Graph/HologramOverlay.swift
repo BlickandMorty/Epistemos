@@ -190,13 +190,13 @@ private final class ObservationChangeWaiter {
 }
 
 // MARK: - HologramOverlay
-// Full-screen borderless NSWindow that renders the knowledge graph
-// on top of a heavy frosted-glass blur. Triggered by a global hotkey.
+// Floating square panel that renders the knowledge graph on top of one
+// frosted-glass blur. Triggered by a global hotkey.
 //
 // Architecture:
-// - NSWindow: borderless, immersive topmost level, full-screen
+// - NSWindow: borderless, floating-panel level, square frame
 // - Background: NSVisualEffectView with .hudWindow material
-// - Content: MetalGraphView fills the entire screen
+// - Content: MetalGraphView fills the panel
 // - Controls: GraphFloatingControls pill bar at bottom
 // - Search:   HologramSearchSidebar floating panel on the left
 // - Animation: Scale + fade from center on show, reverse on hide
@@ -223,8 +223,8 @@ private final class ObservationChangeWaiter {
 //   1. Main graph window    →  `self.blurView` (line ~1810, set in show())
 //   2. Mini cold-start panel →  `blur` in `createMiniPanel`     (separate NSPanel)
 //   3. Mini inspector panel  →  `blur` in `createMiniInspectorPanel` (separate NSPanel)
-//   4. Minimize-from-full    →  `miniBlur` added on minimize(); the
-//                              full-screen blurView is hidden behind it
+//   4. Graph-only companion →  `miniBlur` added on minimize(); the
+//                              square-panel blurView is hidden behind it
 //                              while in mini mode (only one is visible at
 //                              a time, so the contract still holds).
 //
@@ -236,7 +236,7 @@ final class HologramOverlay {
 
     /// Identifier for the small expand-button host view added in mini mode
     /// (`addExpandButton`). Used by `restore()` to find and remove it when
-    /// the panel transitions back to full-screen.
+    /// the panel transitions back to the square workspace.
     private static let miniExpandButtonIdentifier = NSUserInterfaceItemIdentifier(
         "graphMiniExpandButton"
     )
@@ -419,14 +419,13 @@ final class HologramOverlay {
         cancelScheduledTeardown()
         self.noteWindowFrame = noteWindow?.frame
 
-        // Per user 2026-05-10: the graph is always in mini ontology now.
-        // The old `if isMinimized { restore(); return }` branch would have
-        // re-entered full-screen mode, which no longer exists.
+        // Square panel only: cold start, warm reopen, and restore all present
+        // the same floating-panel frame. There is no full-screen graph mode.
 
         // Fast path: if engine is still alive from a soft-hide, just resume + show.
         if let window, let metalView {
             prepareGraphCanvasForOpening(metalView)
-            restoreImmersiveChromeIfNeeded(window, metalView: metalView)
+            restoreFloatingPanelChromeIfNeeded(window, metalView: metalView)
             prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
             // 2026-05-19: re-apply the Shaped Graph experimental chrome
             // AFTER `prepareImmersiveOverlayWindow` — that call invokes
@@ -698,8 +697,8 @@ final class HologramOverlay {
 
     // MARK: - Minimize / Restore
 
-    /// Shrink the full-screen overlay into a chromeless glass float.
-    /// The same window transforms to mini mode — no Metal view reparenting.
+    /// Minimize the square workspace into graph-only companion mode.
+    /// The same window transforms in place — no Metal view reparenting.
     func minimize() {
         guard let metalView, let window, !isMinimized else { return }
 
@@ -735,7 +734,7 @@ final class HologramOverlay {
 
         // Add frosted glass background for mini mode.
         // BLUR POLICY: this is the mini-mode blur for the main graph window.
-        // The full-screen `self.blurView` (created in show()) was already
+        // The square-panel `self.blurView` (created in show()) was already
         // hidden at line ~600 above, so the window still carries EXACTLY
         // ONE visible blur. On `restore()` this `miniBlur` is removed and
         // `self.blurView.isHidden = false` restores the original.
@@ -760,9 +759,8 @@ final class HologramOverlay {
         contentView.addSubview(miniTint, positioned: .below, relativeTo: metalView)
 
         // Round corners for mini mode.
-        // curve — mini-float reads as a peer of the chat panel. Fullscreen
-        // scales up to 28pt (set in the un-mini path) for the macOS 26
-        // liquid-glass immersive feel.
+        // curve — graph-only companion mode reads as a peer of the chat panel.
+        // Restore returns to the 28pt square workspace curve.
         contentView.wantsLayer = true
         contentView.layer?.cornerRadius = 22
         contentView.layer?.cornerCurve = .continuous
@@ -775,7 +773,7 @@ final class HologramOverlay {
         // Re-attach as child.
         attachFloatingPanelToMainWindow(window)
 
-        // Alias the full-screen window as miniPanel so downstream code
+        // Alias the square window as miniPanel so downstream code
         // (inspector, escape handler, first responder queries) works.
         self.miniPanel = window
 
@@ -784,29 +782,18 @@ final class HologramOverlay {
         startPinnedPanelTimer()
     }
 
-    /// Restore the mini panel back to the full-screen overlay.
-    /// The same window transforms to full-screen — no Metal view reparenting.
-    ///
-    /// Per user 2026-05-10: the unified graph is always in mini ontology;
-    /// there is no full-screen mode to restore to. This function is kept
-    /// as a no-op for any legacy callers (the expand button infrastructure
-    /// has been removed but the symbol may still be referenced). Returns
-    /// immediately without changing state.
+    /// Restore graph-only companion mode back to the square workspace panel.
+    /// The same window stays a floating square — no full-screen presentation.
     func restore() {
-        guard false else { return }
-        guard let metalView, let window, isMinimized else { return }
-
-        // Cold-started in mini mode (e.g., via command palette) — no full-screen window exists.
-        // Clean teardown, then ask HologramController to create everything fresh.
-        if self.window == nil {
+        guard let metalView, let window else {
             teardown()
-            HologramController.shared.show()
+            show()
             return
         }
 
         isMinimized = false
-        metalView.isMiniMode = false
-        miniPanel = nil  // Clear alias set by minimize()
+        metalView.isMiniMode = true
+        miniPanel = nil
 
         // 1. Remove child relationship.
         if let parent = window.parent {
@@ -814,19 +801,9 @@ final class HologramOverlay {
         }
 
         // 2. Remove mini-mode additions (mini blur, mini tint, expand button).
-        // The previous `$0 is NSHostingView<AnyView>` runtime check was a
-        // no-op (the expand button was never typed `<AnyView>`); the
-        // identifier-based match below is exact and aligns with doctrine §6 #6
-        // (no AnyView in render hot paths).
-        window.contentView?.subviews
-            .filter {
-                $0.identifier == NSUserInterfaceItemIdentifier("miniBlur")
-                    || $0.identifier == GraphOverlayThemeStyle.miniTintIdentifier
-                    || $0.identifier == Self.miniExpandButtonIdentifier
-            }
-            .forEach { $0.removeFromSuperview() }
+        removeMiniModeChrome(from: window.contentView)
 
-        // 3. Un-hide full-screen subviews.
+        // 3. Un-hide workspace subviews.
         blurView?.isHidden = false
         darkenLayer?.isHidden = false
         for subview in window.contentView?.subviews ?? [] {
@@ -838,21 +815,15 @@ final class HologramOverlay {
         // route page, because subviews are inserted above the route host view.
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
-        // 4. macOS 26 liquid-glass corner radius. 28pt continuous matches
-        //    the Tahoe immersive-window curve.
-        //    22pt, not aggressive like visionOS's 46pt). `visibleFrame`
-        //    inset below leaves room above the menubar + above the dock
-        //    so the rounded corners actually show instead of being
-        //    clipped by the screen edge.
+        // 4. Keep the square floating-panel corner contract.
         window.contentView?.layer?.cornerRadius = 28
         window.contentView?.layer?.cornerCurve = .continuous
         window.contentView?.layer?.masksToBounds = true
 
-        // 5. Animate frame change to full screen.
-        window.applyPresentation(.immersiveOverlay)
-        guard let screen = NSScreen.main else { return }
-
-        setWindowFrame(window, to: screen.visibleFrame, duration: 0.3)
+        // 5. Stay on the square floating-panel presentation.
+        prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
+        applyShapedExperimentalChrome(to: window)
+        attachFloatingPanelToMainWindow(window)
 
         window.orderFrontRegardless()
         window.makeFirstResponder(metalView)
@@ -868,16 +839,26 @@ final class HologramOverlay {
         }
     }
 
+    private func removeMiniModeChrome(from contentView: NSView?) {
+        contentView?.subviews
+            .filter {
+                $0.identifier == NSUserInterfaceItemIdentifier("miniBlur")
+                    || $0.identifier == GraphOverlayThemeStyle.miniTintIdentifier
+                    || $0.identifier == Self.miniExpandButtonIdentifier
+            }
+            .forEach { $0.removeFromSuperview() }
+    }
+
     // MARK: - Show Mini (Cold Start)
 
-    /// Show the graph directly in mini mode without creating a full-screen window.
+    /// Show the graph directly in graph-only companion mode without creating a workspace window.
     /// Used by the command palette to display the graph as a companion panel.
     func showMini() {
         cancelScheduledTeardown()
         // Already minimized and visible — nothing to do.
         if isMinimized, miniPanel?.isVisible == true { return }
 
-        // Full-screen overlay visible — minimize it instead.
+        // Square workspace visible — minimize it instead.
         if window?.isVisible == true {
             minimize()
             return
@@ -892,7 +873,7 @@ final class HologramOverlay {
 
         let theme = GraphOverlayThemeStyle.resolvedTheme()
 
-        // Create MetalGraphNSView directly in mini mode (no full-screen window).
+        // Create MetalGraphNSView directly in mini mode (no workspace window).
         let graphView = MetalGraphNSView(
             frame: NSRect(
                 x: 0,
@@ -1177,11 +1158,11 @@ final class HologramOverlay {
                     )
             }
             .buttonStyle(.plain)
-            .help("Restore to full size")
+            .help("Restore square panel")
         )
         buttonView.translatesAutoresizingMaskIntoConstraints = false
         // Identifier lets `restore()` find and remove this button (and only
-        // this button) when transitioning back to full-screen. Replaces the
+        // this button) when transitioning back to the square workspace. Replaces the
         // fragile-and-broken `$0 is NSHostingView<AnyView>` runtime check.
         buttonView.identifier = Self.miniExpandButtonIdentifier
         content.addSubview(buttonView)
@@ -2071,18 +2052,18 @@ final class HologramOverlay {
         let uiState = AppBootstrap.shared?.uiState
         let theme = GraphOverlayThemeStyle.resolvedTheme(uiState: uiState)
 
-        // Per user 2026-05-10: fuse the full-screen and mini graphs into ONE
+        // Per user 2026-05-10: fuse the old full-screen and mini graphs into ONE
         // graph (the mini ontology). The window opens as a floating panel
         // (resizable, borderless, .floating level) at the new larger
         // GraphMiniPanelLayout.defaultSide — never as the `.screenSaver`-
-        // level immersive full-screen overlay that was laggy on retina.
+        // level immersive overlay that was laggy on retina.
         let initialFrame = GraphMiniPanelLayout.frame(in: screen.visibleFrame)
         let window = GraphOverlayPanel(contentRect: initialFrame)
         window.applyPresentation(.floatingPanel)
         window.appearance = GraphOverlayThemeStyle.windowAppearance(uiState: uiState, theme: theme)
 
         // Build the content: Metal graph + floating controls + search sidebar.
-        // No full-screen blur — the floating-panel chrome carries the glass
+        // No screen-sized blur — the floating-panel chrome carries the glass
         // feel via miniBlur + miniTint added below.
         let contentView = NSView(frame: initialFrame)
         contentView.wantsLayer = true
@@ -2169,7 +2150,7 @@ final class HologramOverlay {
         // desktop. The ShapedGraphBoundaryView file is kept dormant in case
         // we revisit the shape overlay.
 
-        // Graph Workspace Route overlay (SwiftUI hosted — full screen or pass-through).
+        // Graph Workspace Route overlay (SwiftUI hosted — panel-sized or pass-through).
         //
         // The route host view sits above the Metal canvas and draws the note /
         // folder pages when the user deep-links into a node. While the route
@@ -2294,7 +2275,7 @@ final class HologramOverlay {
             // `syncInspectorEjectButtonLayout()`.
             // Owner 2026-07-04: distinct pop-out glyph. This previously used
             // "arrow.up.left.and.arrow.down.right" — the SAME symbol as the
-            // mini panel's "Restore to full size" expand button — so it read
+            // mini panel's restore-square expand button — so it read
             // as "make the inspector bigger" and got clicked accidentally,
             // silently switching node-click to the external floating panel
             // (the "half screen split" report).
@@ -2318,16 +2299,12 @@ final class HologramOverlay {
 
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
-        // Per user 2026-05-10: the unified graph (mini ontology) wires the
-        // same observers + parent-window attachment + pinned-panel timer
-        // that the old `minimize()` path used to set up. The external
-        // mini inspector panel is now the default node-selection inspector.
-        // `isMinimized = true` keeps every existing "is the graph in mini
-        // mode" check truthy — minimize/restore is no longer a user-facing
-        // state machine; the graph IS the mini.
-        isMinimized = true
+        // The default graph is the visible square workspace, not a minimized
+        // state. The minimize/restore state machine remains available for
+        // graph-only companion mode without changing the square presentation.
+        isMinimized = false
         attachFloatingPanelToMainWindow(window)
-        self.miniPanel = window
+        self.miniPanel = nil
         observeNodeSelection()
         startPinnedPanelTimer()
 
@@ -2456,17 +2433,15 @@ final class HologramOverlay {
         darkenLayer?.isHidden = hideChrome
     }
 
-    private func restoreImmersiveChromeIfNeeded(
+    private func restoreFloatingPanelChromeIfNeeded(
         _ window: GraphOverlayPanel,
         metalView: MetalGraphNSView
     ) {
         isMinimized = false
         miniPanel = nil
-        metalView.isMiniMode = false
+        metalView.isMiniMode = true
 
-        window.contentView?.subviews
-            .filter { $0.identifier == NSUserInterfaceItemIdentifier("miniBlur") }
-            .forEach { $0.removeFromSuperview() }
+        removeMiniModeChrome(from: window.contentView)
 
         blurView?.isHidden = false
         darkenLayer?.isHidden = false
@@ -2477,25 +2452,11 @@ final class HologramOverlay {
         // Route-aware chrome restore (see restore() above).
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
-        // 2026-05-20: prior code set cornerRadius=0 + masksToBounds=false +
-        // applyPresentation(.immersiveOverlay) here. Both were stale —
-        // per user 2026-05-10 the graph is mini-ontology floating-panel
-        // ALWAYS (no immersive mode). The cornerRadius=0 transition was
-        // the source of the "rectangle bleeding through editor on note
-        // route" the user reported 2026-05-20: this function runs on
-        // every show(), briefly square-ifies the window before
-        // `applyShapedExperimentalChrome` rounds it back, producing a
-        // visible square edge flash + leaving the ProseEditor's
-        // background rectangle visible at the corners while the radius
-        // is 0. Keep the rounded corners + floating-panel presentation
-        // consistent across every code path.
+        // Keep the rounded square + floating-panel presentation consistent
+        // across every show/restore code path.
         window.contentView?.layer?.cornerRadius = 28
         window.contentView?.layer?.cornerCurve = .continuous
         window.contentView?.layer?.masksToBounds = true
-        // Do NOT call applyPresentation(.immersiveOverlay) — it's a
-        // deprecated path (per `prepareImmersiveOverlayWindow` comment
-        // line 2201). prepareImmersiveOverlayWindow() runs next and
-        // applies the correct .floatingPanel presentation.
     }
 
     /// Per user 2026-05-10: the single unified graph (mini ontology) always

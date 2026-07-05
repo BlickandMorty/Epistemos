@@ -215,6 +215,24 @@ struct GraphWorkspaceFolderPageCompositionTests {
         #expect(source.contains("GraphFolderPage(folderId: id)"))
         #expect(!source.contains("Graph Folder Page Placeholder"))
     }
+
+    @Test("GraphWorkspaceContainer overlays folder backdrop behind the page")
+    func containerOverlaysFolderBackdropBehindPage() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphWorkspaceContainer.swift"
+        )
+
+        #expect(source.contains("""
+        case .folder(let id):
+            ZStack(alignment: .topLeading) {
+                graphPageBackdrop
+        """))
+        #expect(source.contains("GraphFolderPage(folderId: id)"))
+        #expect(source.contains("""
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        """))
+    }
 }
 
 @Suite("Graph Workspace — Note Page Composition")
@@ -336,6 +354,21 @@ struct GraphWorkspaceNotePageCompositionTests {
         #expect(source.contains(".id(id)"))
         // Placeholder text from Step 2 must be gone.
         #expect(!source.contains("Graph Note Page Placeholder"))
+    }
+
+    @Test("GraphWorkspaceContainer overlays note backdrop behind the editor")
+    func containerOverlaysNoteBackdropBehindEditor() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphWorkspaceContainer.swift"
+        )
+
+        #expect(source.contains("""
+        case .note(let id):
+            ZStack(alignment: .topLeading) {
+                graphNoteBackdrop
+        """))
+        #expect(source.contains("GraphNotePage(sourceId: id)"))
+        #expect(source.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
     }
 }
 

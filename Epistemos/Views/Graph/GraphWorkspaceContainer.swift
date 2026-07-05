@@ -83,22 +83,31 @@ struct GraphWorkspaceContainer: View {
                 .allowsHitTesting(false)
 
         case .note(let id):
-            graphNoteBackdrop
+            ZStack(alignment: .topLeading) {
+                graphNoteBackdrop
 
-            GraphNotePage(sourceId: id)
-                .id(id)
-                .background(pageContentBackground)
-
-        case .folder(let id):
-            graphPageBackdrop
-
-            VStack(spacing: 0) {
-                graphPageHeader(title: "Folder")
-
-                GraphFolderPage(folderId: id)
+                GraphNotePage(sourceId: id)
                     .id(id)
                     .background(pageContentBackground)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+        case .folder(let id):
+            ZStack(alignment: .topLeading) {
+                graphPageBackdrop
+
+                VStack(spacing: 0) {
+                    graphPageHeader(title: "Folder")
+
+                    GraphFolderPage(folderId: id)
+                        .id(id)
+                        .background(pageContentBackground)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

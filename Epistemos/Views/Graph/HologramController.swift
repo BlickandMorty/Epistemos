@@ -55,13 +55,9 @@ final class HologramController {
 
     func toggle() {
         ensureConfiguredFromSharedBootstrap()
-        // Owner 2026-07-04: the old `isMinimized → restore()` branch was a
-        // silent no-op — restore() is dead code (`guard false`) since the
-        // 2026-05-10 unified-mini decision, so Cmd+G did NOTHING while the
-        // overlay was minimized or during the 10s soft-hide window (where
-        // isMinimized is still true but the window is ordered out). With
-        // the unified mini there is no separate full mode to restore to:
-        // Cmd+G is a plain visibility toggle.
+        // Square panel only: Cmd+G is a plain visibility toggle. Restore is
+        // still used by the panel affordance, but it restores the same square
+        // floating-panel presentation, never a full-screen overlay.
         if overlay?.isVisible == true {
             hide()
             return
@@ -69,9 +65,9 @@ final class HologramController {
 
         ensureOverlay()
         prepareOverlayForGlobalMode()
-        // Always open full overlay. The mini-panel is still available
-        // via the minimize button but auto-starting minimized is removed
-        // per user request 2026-04-04.
+        // Always open the square panel. Graph-only companion mode is still
+        // available through minimize/restore, but auto-starting minimized is
+        // removed per user request 2026-04-04.
         overlay?.show()
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -245,11 +241,11 @@ final class HologramController {
     }
 
     private func presentFullOverlay() {
-        // Owner 2026-07-04: restore() is a dead no-op (see toggle()) — routing
-        // the minimized state through it meant show()/revealPage() silently
-        // failed while minimized or soft-hidden. show() is the canonical
-        // presenter for the unified mini window (warm fast path + cold start).
-        overlay?.show()
+        if overlay?.isMinimized == true {
+            overlay?.restore()
+        } else {
+            overlay?.show()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 

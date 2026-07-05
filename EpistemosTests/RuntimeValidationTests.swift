@@ -2151,8 +2151,8 @@ struct RuntimeValidationTests {
         #expect(!overlay.contains("controlsView.topAnchor.constraint(equalTo: contentView.topAnchor"))
     }
 
-    @Test("graph full-show paths restore immersive chrome after mini mode")
-    func graphFullShowPathsRestoreImmersiveChromeAfterMiniMode() throws {
+    @Test("graph square show paths restore floating chrome after mini mode")
+    func graphSquareShowPathsRestoreFloatingChromeAfterMiniMode() throws {
         let controller = try loadRepoTextFile("Epistemos/Views/Graph/HologramController.swift")
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
 
@@ -2163,9 +2163,12 @@ struct RuntimeValidationTests {
         #expect(controller.contains("func show()"))
         #expect(controller.contains("presentFullOverlay()"))
         #expect(controller.contains("func revealPage(_ pageId: String)"))
-        #expect(overlay.contains("if isMinimized {"))
         #expect(overlay.contains("restore()"))
-        #expect(overlay.contains("restoreImmersiveChromeIfNeeded(window, metalView: metalView)"))
+        #expect(overlay.contains("restoreFloatingPanelChromeIfNeeded(window, metalView: metalView)"))
+        #expect(overlay.contains("metalView.isMiniMode = true"))
+        #expect(overlay.contains("prepareImmersiveOverlayWindow(window, screen: NSScreen.main)"))
+        #expect(!overlay.contains("guard false else { return }"))
+        #expect(!overlay.contains("window.applyPresentation(.immersiveOverlay)"))
     }
 
     @Test("graph overlay bounds hidden Metal retention with a scheduled teardown")
@@ -2772,19 +2775,18 @@ struct RuntimeValidationTests {
         #expect(performSave.contains("existing.userNote = originalExistingUserNote"))
     }
 
-    @Test("graph overlay full-screen presentation uses an immersive topmost window mode")
-    func graphOverlayFullScreenPresentationUsesImmersiveTopmostWindowMode() throws {
+    @Test("graph overlay live presentation stays on floating panel mode")
+    func graphOverlayLivePresentationStaysOnFloatingPanelMode() throws {
         let graphOverlayPanel = try loadRepoTextFile("Epistemos/Views/Graph/GraphOverlayPanel.swift")
         let hologramOverlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
 
         #expect(graphOverlayPanel.contains("enum GraphOverlayPanelPresentation"))
-        #expect(graphOverlayPanel.contains("case immersiveOverlay"))
         #expect(graphOverlayPanel.contains("case floatingPanel"))
-        #expect(graphOverlayPanel.contains("level = .screenSaver"))
         #expect(graphOverlayPanel.contains("level = .floating"))
 
-        #expect(hologramOverlay.contains("window.applyPresentation(.immersiveOverlay)"))
         #expect(hologramOverlay.contains("window.applyPresentation(.floatingPanel)"))
+        #expect(hologramOverlay.contains("GraphMiniPanelLayout.frame(in: screen.visibleFrame)"))
+        #expect(!hologramOverlay.contains("window.applyPresentation(.immersiveOverlay)"))
         #expect(hologramOverlay.contains("orderFrontRegardless()"))
     }
 
