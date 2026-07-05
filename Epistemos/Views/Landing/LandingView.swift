@@ -188,6 +188,9 @@ struct LandingView: View {
                     #if EPISTEMOS_APP_STORE
                     // MAS Agent room: the vendored June surface (Plan 1-MAS).
                     JuneAgentSurfaceView()
+                    #elseif EPISTEMOS_EXPERIMENTAL
+                    // Experimental Agent room: the embedded 1Code surface (Developer-ID lane).
+                    ExperimentalSurfaceView()
                     #else
                     ProAgentSurfaceView(theme: theme)
                     #endif
