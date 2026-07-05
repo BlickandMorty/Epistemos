@@ -100,6 +100,8 @@ private struct ExperimentalWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground") // native underPage blend
         context.coordinator.webView = webView
+        // Task 0 keystone: native chrome drives the SPA's Jotai atoms through here.
+        ExperimentalStateBridge.shared.webView = webView
         context.coordinator.loadStart = ContinuousClock.now
         webView.load(URLRequest(url: uiBaseURL))
         return webView
