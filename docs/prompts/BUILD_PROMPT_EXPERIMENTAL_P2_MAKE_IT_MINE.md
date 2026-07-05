@@ -32,9 +32,41 @@ screenshot them — if any is unmet, you are not finished; keep going.
   picker**, the **left sidebar (chat list + new chat)**, and the **settings entry** are native
   AppKit/SwiftUI driven off the backend — not the donor's web widgets. Screenshot: a native picker
   open, a native sidebar, over the web transcript.
+- **DoD-4 — ZERO donor branding; it is Epistemos.** No "1Code", "21st", "21st.dev", or
+  "twentyfirst" text anywhere the user can see — window title, app menu, in-app strings, empty states,
+  the served renderer. **Verification gate:** `grep -rEi '21st|1code|twentyfirst'
+  .research-clones/1code/headless/dist` returns **0** user-facing hits (LICENSE/NOTICE attribution
+  files are the ONLY allowed exception — Apache-2.0 requires keeping those; they are not user-facing
+  UI). Screenshot: the app with an Epistemos title/identity, no donor name on screen.
+- **DoD-5 — All engines the plan named are actually SELECTABLE and wired, not just the donor's two.**
+  The model/provider picker offers **Claude Code, Codex, Kimi, GLM, Gemini, OpenCode (free Zen only)**,
+  each driven per `BUILD_PROMPT_EXPERIMENTAL_FINAL.md` §5 (Kimi/GLM via the `ANTHROPIC_BASE_URL`
+  harness; Gemini API-key adapter; OpenCode Zen-free whitelist), backed by the live catalog (§5), and a
+  Keychain key-paste path for each. Screenshot: the picker listing all six; a real round-trip on at
+  least one non-Claude provider that has a key.
+- **DoD-6 — Deeply integrated into Epistemos, not a bolted-on clone.** (a) The **Epistemos vault MCP is
+  actually present to the engine** — the agent can search/read the user's notes; verify the engine sees
+  `epistemos-vault` (MCP list or a vault-tool call in a transcript), not just that an env var is set.
+  (b) On launch the surface **auto-loads the app's chosen vault folder** (`AppBootstrap.shared.vaultSync.vaultURL`)
+  as the active project and opens a ready chat — see DoD-1. Screenshot: a chat where the agent uses a
+  vault tool, and the launch landing on the vault with no picker.
 
-The full detail for each lives in `BUILD_PROMPT_EXPERIMENTAL_FINAL.md` §7 + `EXPERIMENTAL_R.md` §1.10,
-§1.11. Read those two sections now; this file is the forcing wrapper, not a replacement.
+The full detail for each lives in `BUILD_PROMPT_EXPERIMENTAL_FINAL.md` §4 (de-brand/decouple), §5
+(providers + catalog), §6 (MCP), §7 (native feel) + `EXPERIMENTAL_R.md` §1.10, §1.11. **Read those now.**
+This file is the forcing wrapper, not a replacement.
+
+## ⚠️ SPECIFIC INTEGRATION THE PLAN REQUIRED THAT IS CURRENTLY MISSING (proof — you did NOT finish it)
+A source check found the backend env is wired but the user-facing integration is absent. Do not argue
+these are done — they are not:
+- **Branding still shipped:** `.research-clones/1code/headless/dist/index.cjs` has **27** `21st`/`1code`
+  hits and `dist/onecode-shim.js` has 7. The user sees donor branding. (DoD-4)
+- **Providers only stock:** the supervisor has a key→env map (`ExperimentalRuntimeSupervisor.swift:349-352`)
+  but the **UI picker exposes only the donor's Claude+Codex**; Kimi/GLM/Gemini/OpenCode are not
+  selectable, catalog is still the donor's hardcoded `lib/models.ts`. (DoD-5)
+- **MCP is a plausible no-op:** `ExperimentalRuntimeSupervisor.swift:182-194` sets `EPISTEMOS_VAULT_MCP_*`
+  only when a vault exists and never verifies the engine actually loaded `epistemos-vault`. (DoD-6a)
+- **No auto-vault-boot:** `EPISTEMOS_VAULT_ROOT` is handed to the backend (`:198-199`) but nothing drives
+  the renderer to select that project and open a chat — the donor picker still blocks first paint. (DoD-6b)
 
 ---
 
@@ -90,6 +122,31 @@ highest-visibility-first**, and obey the split:
 
 Ship the model picker + the sidebar + the settings entry natively for DoD-3; the rest of the §1.11
 NATIVE-SAFE list is follow-on, not blocking.
+
+## TASK 4 — De-brand: make it Epistemos, not 1Code (DoD-4)
+Strip every user-facing donor identity and replace with Epistemos. Targets: the served renderer
+strings ("1Code", "21st", "21st.dev", "twentyfirst"), the window title / app menu / about, empty-state
+copy, the shim, and any remaining `cdn.21st.dev` / `twentyfirst-agents://` references. **Do it at
+bundle time in `build-experimental-web.sh`** (a string-replace pass over the built dist) so it survives
+re-vendoring the donor, AND add a gate that **refuses the dist if `grep -rEi '21st|1code|twentyfirst'
+dist` returns any user-facing hit** (mirror the existing service-worker refusal). Keep the Apache
+`LICENSE`/`NOTICE` attribution files (required) — those are not UI. This is what "truly a part of my
+app" means: no donor name reaches the screen.
+
+## TASK 5 — Wire ALL six engines + make the vault MCP real (DoD-5, DoD-6a)
+The supervisor already maps provider keys to env (`ExperimentalRuntimeSupervisor.swift:349-352`) — now
+make them **usable and visible**:
+- **Surface all six in the (native, Task 3) picker:** Claude Code, Codex, Kimi, GLM, Gemini, OpenCode
+  (free Zen only). Drive per `BUILD_PROMPT_EXPERIMENTAL_FINAL.md` §5 — Kimi/GLM ride the already-wired
+  `ANTHROPIC_BASE_URL` harness (verified base URLs: `api.moonshot.ai/anthropic`, `api.z.ai/api/anthropic`);
+  Gemini = API-key adapter; OpenCode = Zen-free whitelist. Each gets a Keychain key-paste path (the
+  write path exists — surface the UI).
+- **Replace the donor's hardcoded catalog** (`lib/models.ts`) with the **live catalog** (§5:
+  `models.dev/api.json` backbone + per-provider `/models` + pinned fallback) so current models appear.
+- **Make the vault MCP actually present to the engine** (not just an env var): inject `epistemos-vault`
+  router-level per §6 (Claude `options.mcpServers` `claude.ts:1266-1376`; Codex `session.mcpServers`
+  `codex.ts:1259-1262`) in the forked backend, defaulting to the app's vault — verify the engine lists
+  it / can call a vault tool. The file-fallback (`~/.claude.json`) stays as the compat path.
 
 ---
 
