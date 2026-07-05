@@ -11,9 +11,11 @@ import WebKit
 /// terminal stay web (§0 rule).
 struct ExperimentalSurfaceView: View {
     @State private var supervisor = ExperimentalRuntimeSupervisor.shared
+    // Owner 2026-07-05: a native "back to Epistemos" pill like the other agent surfaces have.
+    @Environment(UIState.self) private var ui
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
             switch supervisor.status {
             case .running(let connection):
                 ExperimentalWebView(uiBaseURL: connection.uiBaseURL)
@@ -23,9 +25,31 @@ struct ExperimentalSurfaceView: View {
             default:
                 statusCard(title: "Starting the Experimental agent…", detail: supervisor.lastDiagnostic, retry: false)
             }
+
+            // Native back-to-Epistemos pill — floats in the empty hidden-inset title-bar strip,
+            // right of the macOS traffic lights, above the 1Code SPA chrome (always reachable,
+            // even while the surface is starting or failed).
+            backToEpistemosPill
+                .padding(.top, 10)
+                .padding(.leading, 92)
+                .zIndex(10)
         }
         .task {
             if case .idle = supervisor.status { supervisor.start() }
+        }
+    }
+
+    private var backToEpistemosPill: some View {
+        ToolbarCapsuleButton(
+            title: "Epistemos",
+            systemImage: "house",
+            role: .secondaryGhost,
+            helpText: "Back to Epistemos",
+            accessibilityLabel: "Back to Epistemos"
+        ) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                ui.homeContent = .greeting
+            }
         }
     }
 
@@ -150,7 +174,44 @@ private struct ExperimentalWebView: NSViewRepresentable {
                   let kind = body["kind"] as? String else {
                 return (nil, "malformed message")
             }
+            // EPISTEMOS (§2/§3 save-dialog rewire): saving an agent-generated file needs an
+            // async NSSavePanel; reply() is synchronous, so intercept it here. Was unwired →
+            // desktopApi.saveFile (e.g. "save image") silently no-op'd.
+            if kind == "dialog:save-file" {
+                return await handleSaveFile(payload: body["payload"])
+            }
             return reply(to: kind, payload: body["payload"])
+        }
+
+        @MainActor
+        private func handleSaveFile(payload: Any?) async -> (Any?, String?) {
+            guard let obj = payload as? [String: Any],
+                  let rawBase64 = obj["base64Data"] as? String else {
+                return (["success": false], nil)
+            }
+            // Accept both a raw base64 string and a data: URL.
+            let base64 = rawBase64.contains(",")
+                ? String(rawBase64.split(separator: ",", maxSplits: 1).last ?? "")
+                : rawBase64
+            guard let data = Data(base64Encoded: base64) else {
+                return (["success": false], nil)
+            }
+            guard let window = webView?.window else {
+                return (["success": false], nil)
+            }
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = (obj["filename"] as? String) ?? "download"
+            panel.canCreateDirectories = true
+            let response = await panel.beginSheetModal(for: window)
+            guard response == .OK, let url = panel.url else {
+                return (["success": false], nil)  // user cancelled
+            }
+            do {
+                try data.write(to: url, options: .atomic)
+                return (["success": true, "filePath": url.path], nil)
+            } catch {
+                return (["success": false], nil)
+            }
         }
 
         private func reply(to kind: String, payload: Any?) -> (Any?, String?) {
