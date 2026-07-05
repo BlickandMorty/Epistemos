@@ -81,6 +81,37 @@ transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcr
 # --- MAS native + model warmth (invariant, 1 = required) ---
 mas_model_retained_on_switch = 1     # GGUF model + agent_core session MUST stay resident across Agent tab-switch (0 = regression)
 
+[experimental_surface]
+# Experimental-surface budgets (§16 of the 1Code-embed build spec). The Experimental
+# lane = the vendored 1Code React SPA in a WKWebView over a SUPERVISED HEADLESS Node
+# backend (ExperimentalRuntimeSupervisor), Developer-ID/notarized. Same felt-speed
+# contract as [agent_surface] — mirrors its values verbatim per §16 ("cold-open
+# ≤1500 ms, warm reopen ≤100 ms, first-token ≤1200 ms").
+#
+# TARGET ONLY until a measurement producer exists (same carve-out as [agent_surface]):
+# scripts/check-perf-budgets.sh does NOT iterate this section, so it never fails CI
+# today. The §16 instant-open recipe is the mechanism (eager WebView + placeholder,
+# off-main spawn, keep-alive across tab switches, optional pre-warm at bootstrap). When
+# the surface's measurement lands (OSSignposter around supervisor.start()/first-paint,
+# or a diagnostic HealthRow), the build agent extends the parser to enforce these —
+# that wiring IS the P2/P5 perf phase gate.
+#
+# --- felt-speed (the "instant open" the owner cares about) ---
+warm_reopen_ms_max          = 100    # Agent-room re-entry -> interactive (WebView + backend kept warm)
+cold_open_ms_max            = 1500   # first-ever open -> interactive (incl. tarball unpack + backend spawn on first run)
+placeholder_paint_ms_max    = 100    # click -> "Starting the Experimental agent…" status visible (never blank/hang)
+first_token_ms_max          = 1200   # send -> first streamed token over the ws subscription (cloud provider)
+#
+# --- web-side (the 1Code SPA served by the headless backend) ---
+exp_web_bundle_kb_max       = 4000   # gzipped initial JS+CSS of the 1Code renderer; regression ceiling, tighten as measured
+exp_first_paint_ms_max      = 1000   # SPA mount -> first meaningful paint (backend already warm)
+#
+# --- interaction smoothness ---
+transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcript re-render per token
+#
+# --- backend memory (§16: cap the heap; upstream ships 8192, oversized on 16 GB) ---
+backend_heap_mb_max         = 4096   # --max-old-space-size ceiling for the headless node backend (supervisor sets 3072)
+
 [meta]
 # Where the parser looks for runtime measurement output. Wave 2.6 will
 # write this file from the morning-session benchmark; until it exists
