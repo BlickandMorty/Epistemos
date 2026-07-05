@@ -1,6 +1,7 @@
 #if EPISTEMOS_EXPERIMENTAL
 import AppKit
 import SwiftUI
+import UserNotifications
 import WebKit
 
 /// SwiftUI host for the Experimental agent surface. Boots the supervised
@@ -279,11 +280,30 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 let count = (payload as? [String: Any])?["count"] as? Int ?? (payload as? Int)
                 NSApp.dockTile.badgeLabel = (count.map { $0 > 0 } ?? false) ? count.map(String.init) : nil
                 return (nil, nil)
+            case "app:show-notification":
+                // EPISTEMOS (§2 → UNUserNotificationCenter): fire a native notification for the
+                // agent's task-complete/error/input alerts. Was a silent no-op (the shim's
+                // browser fallback only triggers on {__noNative:true}, which we never returned),
+                // so notifications never showed. Fire-and-forget (auth callback).
+                if let obj = payload as? [String: Any] {
+                    let title = String((obj["title"] as? String ?? "Epistemos").prefix(120))
+                    let bodyText = String((obj["body"] as? String ?? "").prefix(500))
+                    let center = UNUserNotificationCenter.current()
+                    center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                        guard granted else { return }
+                        let content = UNMutableNotificationContent()
+                        content.title = title
+                        content.body = bodyText
+                        center.add(UNNotificationRequest(
+                            identifier: UUID().uuidString, content: content, trigger: nil))
+                    }
+                }
+                return (nil, nil)
             case "window:set-traffic-light-visibility",
                  "window:toggle-devtools", "window:unlock-devtools",
-                 "app:set-badge-icon", "app:show-notification":
-                // Notifications + save/open dialogs already terminate over the
-                // /host ws bridge; devtools is Web Inspector territory. No-op here.
+                 "app:set-badge-icon":
+                // Traffic-light visibility is native chrome territory; devtools is Web Inspector;
+                // badge-icon is covered by app:set-badge. No-op here.
                 return (nil, nil)
             default:
                 return (["__unhandled": true], nil)
