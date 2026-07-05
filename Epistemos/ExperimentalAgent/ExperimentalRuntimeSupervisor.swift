@@ -143,6 +143,13 @@ final class ExperimentalRuntimeSupervisor {
             }
         }
         environment.merge(bridged) { _, new in new }
+        // P1 (§8): prefer the user's own `claude` CLI (with their OAuth) — probe absolute
+        // locations (GUI apps get only the launchd PATH). The backend resolver honors this
+        // and falls back to the bundled binary when unset.
+        if let claudeBinary = Self.resolveSystemClaudeBinary() {
+            environment["EPISTEMOS_CLAUDE_BINARY"] = claudeBinary
+            recordDiagnostic("[cli] using system claude: \(claudeBinary)")
+        }
         environment["EPISTEMOS_ONECODE_PORT"] = String(uiPort)
         environment["EPISTEMOS_ONECODE_PACKAGED"] = "1"
         environment["EPISTEMOS_ONECODE_USER_DATA"] = Self.userDataDirectory().path
@@ -252,6 +259,22 @@ final class ExperimentalRuntimeSupervisor {
     }
 
     // MARK: - Web root resolution
+
+    /// §8 CLI detect: first existing+executable `claude` in the canonical install
+    /// locations (a GUI app inherits only the launchd PATH, so probe absolute paths).
+    /// Returns nil when none is installed → the backend uses its bundled binary.
+    nonisolated static func resolveSystemClaudeBinary() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            "\(home)/.local/bin/claude",
+            "\(home)/.claude/local/claude",
+            "/opt/homebrew/bin/claude",
+            "/usr/local/bin/claude",
+            "\(home)/.bun/bin/claude",
+        ]
+        let fm = FileManager.default
+        return candidates.first { fm.isExecutableFile(atPath: $0) }
+    }
 
     nonisolated static func userDataDirectory() -> URL {
         let base = (try? FileManager.default.url(
