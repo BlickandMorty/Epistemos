@@ -280,6 +280,17 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 let count = (payload as? [String: Any])?["count"] as? Int ?? (payload as? Int)
                 NSApp.dockTile.badgeLabel = (count.map { $0 > 0 } ?? false) ? count.map(String.init) : nil
                 return (nil, nil)
+            case "shell:open-external":
+                // EPISTEMOS (§2 → NSWorkspace): open renderer external links. Coordinator had NO
+                // handler → hit default/__unhandled, and the shim's window.open fallback only
+                // fires on __noNative/__timeout — so links silently didn't open. (21st.dev is
+                // already blocked in the shim before this call.) http(s) only — no file:/js: URLs.
+                let urlStr = (payload as? String) ?? (payload as? [String: Any])?["url"] as? String
+                if let urlStr, let url = URL(string: urlStr),
+                   ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                    NSWorkspace.shared.open(url)
+                }
+                return (nil, nil)
             case "app:show-notification":
                 // EPISTEMOS (§2 → UNUserNotificationCenter): fire a native notification for the
                 // agent's task-complete/error/input alerts. Was a silent no-op (the shim's
