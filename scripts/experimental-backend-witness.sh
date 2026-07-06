@@ -68,6 +68,8 @@ check "search: whole-vault content hit" \
   'Gamma Service' "$(call epistemosVault.search '{"json":{"query":"networking","limit":8}}' | jget)"
 check "search: RELEVANCE-ranked (title match ranks first)" \
   '"title": "Gamma Service"' "$(call epistemosVault.search '{"json":{"query":"gamma","limit":8}}' | jget)"
+check "search: NATURAL-LANGUAGE query grounds via term overlap (not full-phrase)" \
+  '"title": "Alpha Project"' "$(call epistemosVault.search '{"json":{"query":"help me understand the alpha project design","limit":8}}' | jget)"
 check "cite-repair: hallucinated citation → nearest real note (did-you-mean)" \
   '"title": "Gamma Service"' "$(call epistemosVault.nearest '{"json":{"title":"Gamma Servicing Plan"}}' | jget)"
 check "cite-repair: unrelated citation → NO false suggestion" \
