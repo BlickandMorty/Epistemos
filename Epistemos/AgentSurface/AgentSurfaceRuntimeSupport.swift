@@ -58,7 +58,7 @@ enum AgentSurfaceRuntimeSupport {
     nonisolated static func resolvedNodeBinary(bundle: Bundle = .main) -> URL? {
         var candidates: [URL] = []
         if let resources = bundle.resourceURL {
-            candidates.append(resources.appendingPathComponent("openchamber-runtime/bin/node"))
+            candidates.append(resources.appendingPathComponent("experimental-runtime/bin/node"))
             candidates.append(resources.appendingPathComponent("node"))
         }
         #if DEBUG

@@ -3,18 +3,17 @@ set -e
 
 # EXPERIMENTAL surface packaging (§16 of the build prompt) — stages the headless
 # 1Code fork's runtime artifacts into Resources. Mirrors the PROVEN
-# build-openchamber-web.sh patterns:
+# runtime-staging patterns:
 #   · stamps OUTSIDE Resources (xcodegen snapshots the synced Resources tree; a
 #     changing stamp filename inside it leaves the project referencing a deleted
-#     file -> BUILD FAILED — hit live on openchamber)
+#     file -> BUILD FAILED)
 #   · ONE tarball (the synchronized resource copy FLATTENS directory trees)
 #   · native modules installed with the PINNED node's own npm (ABI match), never
 #     electron-rebuild (upstream postinstall targets Electron's ABI)
 #   · REFUSES a dist containing a service worker (stale-bundle guard)
 #
 # Experimental-specific additions:
-#   · Node 25.8.2 is SHARED with the OpenChamber surface — same vendor path +
-#     stamp name, so whichever script runs first vendors it and the other skips.
+#   · Node 25.8.2 is staged under the neutral Experimental runtime resource.
 #   · node_modules is the COMPUTED backend subset: the headless bundle externalizes
 #     its deps, so we scan it for require("pkg") and install only those (the
 #     renderer is pre-built static — its React/mermaid/etc. never run in Node).
@@ -24,7 +23,7 @@ set -e
 #     serve /healthz before the tarball is accepted.
 #
 # Layout produced:
-#   Epistemos/Resources/openchamber-runtime/bin/node       — shared pinned Node
+#   Epistemos/Resources/experimental-runtime/bin/node      — pinned Node
 #   Epistemos/Resources/experimental-runtime/experimental-web.tar.gz
 #       server/ (headless bundle + electron-shim + onecode-shim + migrations)
 #       dist/   (built renderer SPA)
@@ -33,14 +32,14 @@ set -e
 # Fork source: .research-clones/1code (override: EXPERIMENTAL_FORK_ROOT).
 # The fork must be pre-built:  bun run build  &&  node headless/build.mjs
 
-NODE_VERSION="25.8.2"   # native-ABI anchor, shared with OpenChamber
+NODE_VERSION="25.8.2"   # native-ABI anchor for the Experimental backend
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 FORK="${EXPERIMENTAL_FORK_ROOT:-$ROOT/.research-clones/1code}"
 DEST="$ROOT/Epistemos/Resources/experimental-runtime"
-SHARED_BIN="$ROOT/Epistemos/Resources/openchamber-runtime/bin"
+RUNTIME_BIN="$DEST/bin"
 STAMPS="$ROOT/.build-stamps"
-mkdir -p "$STAMPS" "$DEST" "$SHARED_BIN"
+mkdir -p "$STAMPS" "$DEST" "$RUNTIME_BIN"
 
 case "$(uname -m)" in
     arm64|aarch64) NODE_ASSET="node-v${NODE_VERSION}-darwin-arm64" ;;
@@ -48,24 +47,23 @@ case "$(uname -m)" in
     *) echo "build-experimental-web.sh: unsupported arch $(uname -m)"; exit 1 ;;
 esac
 
-# SAME stamp name as build-openchamber-web.sh — the sharing contract.
-NODE_STAMP="$STAMPS/openchamber-node-${NODE_VERSION}-$(uname -m)"
+NODE_STAMP="$STAMPS/experimental-node-${NODE_VERSION}-$(uname -m)"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # -------------------------------------------------------------------
-# 1. Shared pinned Node runtime (stamp gated, same path as OpenChamber)
+# 1. Pinned Node runtime (stamp gated, neutral Experimental path)
 # -------------------------------------------------------------------
-if [ -f "$NODE_STAMP" ] && [ -x "$SHARED_BIN/node" ]; then
-    echo "build-experimental-web.sh: shared pinned Node ${NODE_VERSION} already vendored — skipping."
+if [ -f "$NODE_STAMP" ] && [ -x "$RUNTIME_BIN/node" ]; then
+    echo "build-experimental-web.sh: pinned Node ${NODE_VERSION} already vendored — skipping."
 else
-    echo "build-experimental-web.sh: vendoring shared Node ${NODE_VERSION} (${NODE_ASSET})…"
+    echo "build-experimental-web.sh: vendoring Node ${NODE_VERSION} (${NODE_ASSET})…"
     curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ASSET}.tar.gz" -o "$TMP/node.tar.gz"
     tar -xzf "$TMP/node.tar.gz" -C "$TMP"
-    cp "$TMP/${NODE_ASSET}/bin/node" "$SHARED_BIN/node"
-    chmod +x "$SHARED_BIN/node"
-    rm -f "$STAMPS"/openchamber-node-*
+    cp "$TMP/${NODE_ASSET}/bin/node" "$RUNTIME_BIN/node"
+    chmod +x "$RUNTIME_BIN/node"
+    rm -f "$STAMPS"/experimental-node-*
     touch "$NODE_STAMP"
 fi
 # Full extracted dist for its npm (ABI-matched installs below).
@@ -97,7 +95,7 @@ fi
 # closed-source Developer-ID distribution. Runs against the staged fork's node_modules.
 if [ -f "$FORK/scripts/epistemos-license-gate.mjs" ] && [ -d "$FORK/node_modules" ]; then
     echo "build-experimental-web.sh: running license deny-list gate…"
-    if ! "$SHARED_BIN/node" "$FORK/scripts/epistemos-license-gate.mjs" "$FORK/node_modules"; then
+    if ! "$RUNTIME_BIN/node" "$FORK/scripts/epistemos-license-gate.mjs" "$FORK/node_modules"; then
         echo "build-experimental-web.sh: LICENSE GATE FAILED — a denied dependency is present. Aborting." >&2
         exit 1
     fi
@@ -178,7 +176,7 @@ echo "build-experimental-web.sh: production npm install with the PINNED node (AB
 # resolve different transitive versions here, so the shipped tree must be scanned on its own.
 if [ -f "$FORK/scripts/epistemos-license-gate.mjs" ]; then
     echo "build-experimental-web.sh: license gate on the STAGED (shipped) node_modules…"
-    if ! "$SHARED_BIN/node" "$FORK/scripts/epistemos-license-gate.mjs" "$STAGE/node_modules"; then
+    if ! "$RUNTIME_BIN/node" "$FORK/scripts/epistemos-license-gate.mjs" "$STAGE/node_modules"; then
         echo "build-experimental-web.sh: STAGED license gate FAILED — a shipped dependency carries a denied license." >&2
         exit 1
     fi
@@ -223,7 +221,7 @@ EPISTEMOS_ONECODE_PACKAGED=1 \
 EPISTEMOS_ONECODE_USER_DATA="$TMP/selftest-userdata" \
 EPISTEMOS_ONECODE_RENDERER="$STAGE/dist" \
 NODE_PATH="$STAGE/node_modules" \
-"$SHARED_BIN/node" --max-old-space-size=3072 "$STAGE/server/index.cjs" >"$TMP/selftest.log" 2>&1 &
+"$RUNTIME_BIN/node" --max-old-space-size=3072 "$STAGE/server/index.cjs" >"$TMP/selftest.log" 2>&1 &
 SELFTEST_PID=$!
 HEALTH=""
 for _ in $(seq 1 20); do
