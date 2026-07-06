@@ -959,3 +959,22 @@ native checkpoint deferred under the no-risky-mid-stream-Rust discipline).
 **Bottom line.** On the baseline the field is matched; on the three embedding axes — retrieve-from-KB,
 verify-against-KB, write-back-to-KB, *including the concept graph* — the surface does what those apps
 structurally cannot, because they do not live where this one lives.
+
+---
+
+**Cycle 19 (2026-07-06) — LIVE VERIFICATION PASS (owner away → clean window).** With the owner idle 22min
+and load low, ran the deferred live pass. Sent a vault-tool prompt; the agent did a 13-step run using the
+REAL vault MCP (search_notes / file_search / read_file). Proved THREE features live at once, each with
+correct/honest behavior:
+- **Whole-run PROVENANCE — proven live, verified by the FILE artifact.** Clicked Provenance → vault went
+  0→1 provenance notes: `Provenance--Agent-run-7-steps-*.md` with the agent's actual 7 tool-calls +
+  a real SHA-256 integrity hash (37151f0f…). Closes DoD-C (provenance write-back end-to-end) + proves the
+  imperative-store whole-run capture + the vault MCP live. Fixed a doubled-heading cosmetic (handler
+  already prepends the title).
+- **cite-check — proven live (again), correct.** The reply cited [[GRAND_UNIFICATION_SWEEP_2026_06_22]];
+  cite-check reported "0/1, not found in vault" — CORRECT: that file lives in the code repo's docs/research,
+  NOT the AETHERLINK vault. Cite-check accurately distinguished "agent read a repo file" from "grounded in
+  your vault." The exact discrimination the feature exists for.
+- **vault MCP + cloud default (Opus 4.8) + Vault·Forge·Persona composer — all confirmed live.**
+**RAISED BAR:** the live-verification debt is now largely cleared; remaining is the native ReplayBundle FFI
+(.epbundle, owner-gated) and Persona-for-ACP. The surface is proven live end-to-end on its headline moat.
