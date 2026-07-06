@@ -371,6 +371,11 @@ final class UIState {
 
     var homeContent: HomeContent = .greeting
 
+    /// A URL requested from an embedded agent surface (the `epistemos:open-url` bridge) to open in the
+    /// in-app Browser instead of the external browser; the LandingView `.browser` case seeds BrowserView
+    /// with it. Set alongside `homeContent = .browser`.
+    var browserInitialURL: String? = nil
+
     // MARK: - Window Visibility
     /// True when the main window is minimized to the Dock.
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.

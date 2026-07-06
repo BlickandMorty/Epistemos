@@ -181,7 +181,8 @@ struct LandingView: View {
                 HomeEmbeddedPage(title: "arXiv") { ArxivSearchView() }
                     .transition(Self.homePageTransition).zIndex(1)
             case .browser:
-                HomeEmbeddedPage(title: "Browser") { BrowserView() }
+                HomeEmbeddedPage(title: "Browser") { BrowserView(initialAddress: ui.browserInitialURL) }
+                    .id(ui.browserInitialURL)
                     .transition(Self.homePageTransition).zIndex(1)
             case .agent:
                 HomeEmbeddedPage(title: "Agent") {

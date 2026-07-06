@@ -277,6 +277,11 @@ private struct ExperimentalWebView: NSViewRepresentable {
             if kind == "epistemos:open-note" {
                 return await handleOpenNote(payload: body["payload"])
             }
+            // EPISTEMOS (owner-requested): a web link clicked in the chat opens in the app's in-app
+            // Browser (BrowserView) instead of the external browser.
+            if kind == "epistemos:open-url" {
+                return await handleOpenURL(payload: body["payload"])
+            }
             return reply(to: kind, payload: body["payload"])
         }
 
@@ -328,6 +333,23 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 return (["handled": false], nil) // not a real vault note → caller falls back
             }
             NSDocumentController.shared.openDocument(withContentsOf: target, display: true) { _, _, _ in }
+            return (["handled": true], nil)
+        }
+
+        // Open a web link in the app's in-app Browser (BrowserView) rather than the external browser.
+        // http(s) only; seeds UIState.browserInitialURL then navigates the home surface to .browser.
+        // Returns {handled:false} for non-web refs so the web caller falls back to openExternal.
+        @MainActor
+        private func handleOpenURL(payload: Any?) async -> (Any?, String?) {
+            let obj = payload as? [String: Any]
+            guard let raw = (obj?["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  let url = URL(string: raw),
+                  ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+                  let ui = AppBootstrap.shared?.uiState else {
+                return (["handled": false], nil)
+            }
+            ui.browserInitialURL = raw
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { ui.homeContent = .browser }
             return (["handled": true], nil)
         }
 
