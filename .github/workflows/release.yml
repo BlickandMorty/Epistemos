@@ -73,6 +73,25 @@ jobs:
       - name: KEELSTONE release gate drift guardrails
         run: ./scripts/keelstone-release-gate.sh
 
+      - name: Require release signing and notarization secrets
+        env:
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARIZATION_PASSWORD: ${{ secrets.NOTARIZATION_PASSWORD }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in DEVELOPER_ID_APPLICATION APPLE_ID NOTARIZATION_PASSWORD TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required release secret: ${name}"
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Resolve SPM dependencies
         run: |
           ./scripts/xcodebuild_epistemos.sh -resolvePackageDependencies \
@@ -94,11 +113,7 @@ jobs:
       - name: Extract .app from archive
         run: cp -R build/Epistemos.xcarchive/Products/Applications/Epistemos.app build/
 
-      - name: KEELSTONE direct built entitlement gate
-        run: ./scripts/keelstone-release-gate.sh --direct-app build/Epistemos.app
-
       - name: Codesign App
-        if: ${{ secrets.DEVELOPER_ID_APPLICATION != '' }}
         env:
           DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
         run: |
@@ -106,6 +121,9 @@ jobs:
             --sign "$DEVELOPER_ID_APPLICATION" \
             --entitlements Epistemos/Epistemos.entitlements \
             build/Epistemos.app
+
+      - name: KEELSTONE direct built entitlement gate
+        run: ./scripts/keelstone-release-gate.sh --direct-app build/Epistemos.app
 
       - name: Create DMG
         run: |
@@ -121,7 +139,6 @@ jobs:
             "build/Epistemos.app"
 
       - name: Notarize DMG
-        if: ${{ secrets.APPLE_ID != '' && secrets.NOTARIZATION_PASSWORD != '' && secrets.TEAM_ID != '' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           NOTARIZATION_PASSWORD: ${{ secrets.NOTARIZATION_PASSWORD }}
@@ -134,7 +151,6 @@ jobs:
             --wait
 
       - name: Staple Notarization Ticket
-        if: ${{ secrets.APPLE_ID != '' && secrets.NOTARIZATION_PASSWORD != '' && secrets.TEAM_ID != '' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
         run: |

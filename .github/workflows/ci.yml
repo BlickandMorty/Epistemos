@@ -307,6 +307,9 @@ jobs:
             echo "::error::KEELSTONE built entitlement gate could not locate Release Epistemos.app under .derived-data-ci-appstore/Build/Products"
             exit 1
           fi
+          codesign --deep --force --sign - \
+            --entitlements Epistemos/Epistemos-AppStore.entitlements \
+            "${app_path}"
           ./scripts/keelstone-release-gate.sh --appstore-app "${app_path}"
 
       # Drop 12/13: the App Store target must be proven from the final .app,
