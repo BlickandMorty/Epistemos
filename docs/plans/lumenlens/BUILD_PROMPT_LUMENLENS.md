@@ -96,3 +96,6 @@ onto MAS. Don't silently override Epdoc-as-default (validate, note trade-offs).
 8. **Build discipline.** Isolated DerivedData; BUILD SUCCEEDED on BOTH targets per phase; never two
    xcodebuilds at once; pathspec-scoped commits (`git commit --only -- <files>`); never commit
    `.research-clones/`; no worktrees; js-editor changes need `build-tiptap-bundle.sh` restaging.
+9. **RECKONER seam:** note tables stay editor-side (Tier B); Data-room datasets are Plan 9's —
+   notes reference them via wikilink/embed. Keep L1/L5 span metadata payload-agnostic so Data-cell
+   edits can attribute through the same ledger later (plan §P-AMEND 9).

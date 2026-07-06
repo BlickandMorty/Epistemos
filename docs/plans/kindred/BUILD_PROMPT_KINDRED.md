@@ -114,3 +114,6 @@ landing-vs-1Code creation boundary — present options + criteria + a recommenda
    stay green with zero companion surface); never two xcodebuilds at once; pathspec-scoped commits;
    never commit `.research-clones/`; js-editor changes need `build-tiptap-bundle.sh` restaging;
    fork changes need `build-experimental-web.sh` + an OpenSpec change folder.
+10. **RECKONER seam:** Plan 9's Data-tab in-tab agent chat reuses YOUR K6 minichat pattern (same
+    backend/session/presence; `Location.surface = dataTab`) — design K6 so the dock is
+    surface-parameterizable; do not build Data-tab UI (plan §K-AMEND 9).

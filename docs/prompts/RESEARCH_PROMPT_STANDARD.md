@@ -21,9 +21,16 @@ both. A research/plan artifact carrying ID `X` may never silently absorb content
 | 6 — Quick Capture (unstructured + voice) | **EMBERCATCH** | `EPI-RP-06-EMBERCATCH` | both |
 | 7 — Sync + Release + Schema-solidification | **KEELSTONE** | `EPI-RP-07-KEELSTONE` | both |
 | 8 — ResearchHub (multi-source feed) | **LODESTAR** | `EPI-RP-08-LODESTAR` | both |
+| 9 — Data tab (Univer render × IronCalc calc, GRDB truth) | **RECKONER** | `EPI-RP-09-RECKONER` | both |
 
 Codenames are deliberately distinctive nouns with no generic overlap. Do not reuse, abbreviate, or
 invent new ones without adding a row here first (this table is the single source of truth).
+
+Registry notes (2026-07-06): Plan 9 keeps its existing canon (`PROMPT_PLAN_9_DATA_TABLES.md` +
+adjudication — owner-declared good, NOT re-researched); the RECKONER row exists so its future
+research/plan artifacts file collision-free and other plans can name its seams by ID. Plan 10
+(Experimental/1Code surface) and Plans 1/3 retain their existing canonical names outside this
+registry — they predate it and are not re-research targets.
 
 ### 2.1 Filename templates (enforced)
 - Research **prompt** (this repo, already written): `RESEARCH_PROMPT_PLAN_<N>_<TOPIC>.md`, carrying

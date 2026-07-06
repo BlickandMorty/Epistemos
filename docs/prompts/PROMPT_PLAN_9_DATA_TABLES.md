@@ -307,3 +307,16 @@ robustness/fluidity) per phase, thermonuclear-shape; a HIGH blocks the phase com
    or crash; OCR'd text is data, never executed; provenance on every record. **FFI truth boundary**
    for native IronCalc (`epistemos_calc`): no Rust panic SIGTRAPs the process. Perf AND hardening
    HIGHs both block the commit.
+
+---
+
+## Cross-plan note (2026-07-06 — additive; this plan's canon is unchanged)
+Plan 9 is now registered as **RECKONER (`EPI-RP-09-RECKONER`)** in `RESEARCH_PROMPT_STANDARD.md`
+(anti-collision registry). Two seams bind when the agent builds land:
+1. **The in-tab agent chat IS the KINDRED companion** (`docs/plans/kindred/` — reuse the K6
+   minichat pattern: shared supervisor backend, `sub_chats.sessionId` continuity, presence bus,
+   `Location.surface = dataTab`). Never a third chat system.
+2. **Editor boundary (LUMENLENS, `docs/plans/lumenlens/`):** note tables (markdown) stay
+   editor-side; Data-room datasets are RECKONER's; notes reference datasets via wikilink/embed
+   (graph-linked). Agent table-restructuring reuses the LUMENLENS suggestion/provenance schema
+   (dry-run→confirm→undo, ledger-attributed).

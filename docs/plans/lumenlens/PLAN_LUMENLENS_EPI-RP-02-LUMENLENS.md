@@ -124,3 +124,12 @@ depth 4 · Depth/novelty 4. No axis < 4.
    choose retain-per-session (memory-budgeted) vs documented v1 undo-loss; amend the bar to match.
 8. **Two producers, one suggestion schema:** June = agent_core/UniFFI (copy `AgentEventDelegate`);
    1Code = Node backend via the Experimental bridges. LUMENLENS owns the schema.
+9. **RECKONER seam (Plan 9 Data tab, `EPI-RP-09-RECKONER`).** The Data room is a SEPARATE surface
+   with its own truth model (GRDB tables + IronCalc calc authority per
+   `docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md`) — the editor does NOT absorb it. Boundary: note
+   TABLES (markdown, Tier B serializers) stay editor-side; Data-room DATASETS are RECKONER's; a
+   note references a dataset via wikilink/embed (graph-linked, F4), never by duplicating rows into
+   markdown. The suggestion/provenance schema (L1/L5) is designed to be reusable for RECKONER's
+   agent table-restructuring (dry-run→confirm→undo) — keep span metadata payload-agnostic (ranges
+   over an abstract doc, not markdown-specific offsets) so Data-cell edits can attribute through
+   the same ledger later.
