@@ -1193,3 +1193,13 @@ pure-web-applicable Finalization-#2 item: cite-check ✓, EML-rerank essence ✓
 chip ✓; run.export-bundle/RunEventLog remain agent_core-runtime N/A (provenance covers them). **RAISED
 BAR:** the trust surface is now ambient, not just on-demand — the agent's grounding confidence is visible
 at a glance on every answer that makes vault claims.
+
+---
+
+**Cycle 35 (2026-07-06) — TEMPER: VRM chip skips the repair nearest-lookups.** Reviewed the just-shipped
+Cycle-34 chip and found a real inefficiency: its auto-run called the FULL checkCitations, which since
+Cycle 33 also fires a `nearest` round-trip per unverified citation (the "did you mean" repair) — pure
+waste for a chip that displays only verified/total. Added `checkCitations(text, {repair})` (defaults ON
+for the manual button; the chip passes false). The ambient chip now does only the noteExists verifications;
+the manual cite-check button still repairs. Gate=110, deployed. Small, real polish on new code — the
+discipline of TEMPER-ing what you just shipped before moving on.
