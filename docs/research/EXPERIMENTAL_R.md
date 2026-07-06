@@ -783,3 +783,28 @@ moat — every vault-grounded feature silently degrades to empty when it's down.
 (ShadowSearchDiagnostics / the unpack + index-build path), fix, and re-run cite-check → expect N/N
 verified. Until then, the vault-search features are HONEST-BUT-EMPTY, not broken-faking — which is the
 right failure mode, but not the DoD bar.
+
+---
+
+**Cycle 10 (2026-07-06) — WHOLE-VAULT retrieval; corrected Cycle-9's misdiagnosis.**
+SCOUT diagnosed Cycle-9's "shadow search broken" and found it was a MISDIAGNOSIS: the app vault is
+`AETHERLINK_APPLICATION_PROJECT` (20 md files, NO goose notes); omega_mcp search WORKS ("aetherlink"→5);
+cite-check's "0/7 not found" CORRECTLY caught the agent HALLUCINATING goose citations that don't exist in
+the vault. The real gap: cite-check + grounding used the SHADOW index (notes/+chats/ scope, ~1 doc for this
+vault) while the whole vault has 20 docs across docs/, root, etc.
+
+- **FORGE (composing Cycles 2 + 5):** NEW read-only backend `epistemos-vault-fs.ts` + `epistemosVault`
+  router (`noteExists` + `search`) scanning EPISTEMOS_VAULT_ROOT (the same root the agent's MCP sees).
+  cite-check now verifies against the WHOLE vault; `rankedVaultSearch` (Vault button + Prompt Forge
+  grounding) falls back to whole-vault search when the shadow returns <2 hits. NEVER touches the vault
+  engine (read-only fs). PROVEN headless vs the live AETHERLINK vault: [[AETHERLINK_MASTER_PACKET]] +
+  [[Architecture Specification]] (in docs/, which the shadow index MISSED) → verified; [[GOOSE_*]]
+  (hallucination) + [[NONEXISTENT_ZZZ]] → not-found; search "architecture" → 3 real hits.
+- **CRYSTALLIZE:** extended `experimental-vault-context-assembly` with the two-mechanism rule (shadow RRF
+  vs whole-vault fs, pick by layout) + the diagnosis tip — honest compounding, not a trophy duplicate.
+- **Honesty:** corrected the Cycle-9 record + memory (the "shadow broken" claim was wrong).
+
+**THE RAISED BAR (next):** the shadow index nearly-empty for this vault is a CORE crawl-scope/vault-layout
+matter (out of lane — don't touch it). In-lane next: (a) verify the whole-vault cite-check + grounding
+LIVE in the app (re-run cite-check → real notes now verify); (b) resume the Finalization substrate
+(RunEventLog capture of CLI tool-calls — now easy since I have read-only vault-fs + the epistemos channel).
