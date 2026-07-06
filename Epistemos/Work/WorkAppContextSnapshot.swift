@@ -14,6 +14,7 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
     var workspacePath: String?
     var vaultPath: String?
     var managedSkillsCount: Int
+    var runtimeSkillNames: [String]
     var nativeToolsAvailable: Bool
     var appMode: String?
     var selectedEngine: String?
@@ -32,6 +33,7 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
         workspacePath: String? = nil,
         vaultPath: String? = nil,
         managedSkillsCount: Int = 0,
+        runtimeSkillNames: [String] = [],
         nativeToolsAvailable: Bool = false,
         appMode: String? = nil,
         selectedEngine: String? = nil,
@@ -47,6 +49,7 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
         self.workspacePath = Self.clean(workspacePath, limit: 1024)
         self.vaultPath = Self.clean(vaultPath, limit: 1024)
         self.managedSkillsCount = max(0, managedSkillsCount)
+        self.runtimeSkillNames = Self.cleanList(runtimeSkillNames, itemLimit: 80, countLimit: 12)
         self.nativeToolsAvailable = nativeToolsAvailable
         self.appMode = Self.clean(appMode, limit: 80)
         self.selectedEngine = Self.clean(selectedEngine, limit: 120)
@@ -71,12 +74,14 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
         queuedPromptCount: Int = 0,
         fileManager: FileManager = .default
     ) -> WorkAppContextSnapshot {
-        WorkAppContextSnapshot(
+        let provisionedSkills = WorkSkillsProvisioner.provisionedSkills(
+            workspace: workspace,
+            fileManager: fileManager)
+        return WorkAppContextSnapshot(
             workspacePath: workspace.standardizedFileURL.path,
             vaultPath: vaultRoot?.standardizedFileURL.path,
-            managedSkillsCount: WorkSkillsProvisioner
-                .provisionedSkills(workspace: workspace, fileManager: fileManager)
-                .count,
+            managedSkillsCount: provisionedSkills.count,
+            runtimeSkillNames: provisionedSkills.prefix(8).map(\.id),
             nativeToolsAvailable: nativeToolsAvailable,
             appMode: "work",
             selectedEngine: selectedEngine,
@@ -90,6 +95,7 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
         workspacePath == nil
             && vaultPath == nil
             && managedSkillsCount == 0
+            && runtimeSkillNames.isEmpty
             && !nativeToolsAvailable
             && appMode == nil
             && selectedEngine == nil
@@ -131,6 +137,12 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
             label: "native tools",
             value: nativeToolsAvailable ? "registered" : "not registered"))
         rows.append(Row(id: "skills", label: "skills", value: "\(managedSkillsCount)"))
+        if !runtimeSkillNames.isEmpty {
+            rows.append(Row(
+                id: "runtime-skills",
+                label: "runtime skills",
+                value: Self.compact(runtimeSkillNames.joined(separator: ", "), limit: textLimit)))
+        }
         if queuedPromptCount > 0 {
             rows.append(Row(id: "queue", label: "queue", value: "\(queuedPromptCount)"))
         }
@@ -165,6 +177,21 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
         guard !trimmed.isEmpty else { return nil }
         guard limit > 3, trimmed.count > limit else { return trimmed }
         return String(trimmed.prefix(limit - 3)) + "..."
+    }
+
+    private static func cleanList(_ values: [String], itemLimit: Int, countLimit: Int) -> [String] {
+        var seen: Set<String> = []
+        var cleaned: [String] = []
+        cleaned.reserveCapacity(min(values.count, countLimit))
+        for value in values {
+            guard let item = clean(value, limit: itemLimit),
+                  seen.insert(item).inserted else {
+                continue
+            }
+            cleaned.append(item)
+            if cleaned.count >= countLimit { break }
+        }
+        return cleaned
     }
 
     private static func compactPath(_ path: String, limit: Int) -> String {

@@ -38,6 +38,7 @@ struct WorkAppContextSnapshotTests {
         #expect(snapshot.workspacePath == workspace.standardizedFileURL.path)
         #expect(snapshot.vaultPath == vault.standardizedFileURL.path)
         #expect(snapshot.managedSkillsCount == 2)
+        #expect(snapshot.runtimeSkillNames == ["alpha", "beta"])
         #expect(snapshot.nativeToolsAvailable)
         #expect(snapshot.appMode == "work")
         #expect(snapshot.selectedEngine == "opencode")
@@ -53,6 +54,7 @@ struct WorkAppContextSnapshotTests {
             workspacePath: "/Users/example/Projects/VeryLongProjectNameThatNeedsToBeShortenedForThePanel",
             vaultPath: "/Users/example/EpistemosVault",
             managedSkillsCount: 4,
+            runtimeSkillNames: ["alpha", "beta", "gamma"],
             nativeToolsAvailable: false,
             appMode: "work",
             selectedEngine: "opencode",
@@ -73,6 +75,7 @@ struct WorkAppContextSnapshotTests {
         #expect(rows.map(\.id).contains("native-tools"))
         #expect(rows.first { $0.id == "native-tools" }?.value == "not registered")
         #expect(rows.first { $0.id == "skills" }?.value == "4")
+        #expect(rows.first { $0.id == "runtime-skills" }?.value == "alpha, beta, gamma")
         #expect(rows.first { $0.id == "queue" }?.value == "3")
         let workspaceRow = rows.first { $0.id == "workspace" }?.value
         #expect(workspaceRow?.contains("...") == true)
@@ -87,12 +90,14 @@ struct WorkAppContextSnapshotTests {
             workspacePath: "/work",
             vaultPath: "/vault",
             managedSkillsCount: 1,
+            runtimeSkillNames: ["alpha", "beta"],
             nativeToolsAvailable: true,
             selectedEngine: "opencode",
             activeWorkSessionID: "opencode:ses_1")
         let json = snapshot.jsonString()
         #expect(json.contains(#""workspacePath":"\/work""#) || json.contains(#""workspacePath":"/work""#))
         #expect(json.contains(#""managedSkillsCount":1"#))
+        #expect(json.contains(#""runtimeSkillNames":["alpha","beta"]"#))
         #expect(json.contains(#""selectedEngine":"opencode""#))
         #expect(json.contains(#""activeWorkSessionID":"opencode:ses_1""#))
 
@@ -105,9 +110,18 @@ struct WorkAppContextSnapshotTests {
     @Test("future context fields are bounded before they reach the MCP snapshot JSON")
     func futureContextFieldsAreBounded() {
         let snapshot = WorkAppContextSnapshot(
+            runtimeSkillNames: [
+                "alpha",
+                "alpha",
+                String(repeating: "b", count: 120),
+                "gamma"
+            ],
             graphFocusSummary: String(repeating: "g", count: 800),
             currentSelectionPreview: String(repeating: "s", count: 800))
 
+        #expect(snapshot.runtimeSkillNames.count == 3)
+        #expect(snapshot.runtimeSkillNames[1].count == 80)
+        #expect(snapshot.runtimeSkillNames[1].hasSuffix("...") == true)
         #expect(snapshot.graphFocusSummary?.count == 600)
         #expect(snapshot.graphFocusSummary?.hasSuffix("...") == true)
         #expect(snapshot.currentSelectionPreview?.count == 600)
@@ -121,6 +135,9 @@ struct WorkAppContextSnapshotTests {
         #expect(source.contains("struct WorkAppContextSnapshot"))
         #expect(source.contains("Codable"))
         #expect(source.contains("String((value ?? \"\").prefix(limit + 32))"))
+        #expect(source.contains("runtimeSkillNames: provisionedSkills.prefix(8).map(\\.id)"))
+        #expect(source.contains("Self.cleanList(runtimeSkillNames, itemLimit: 80, countLimit: 12)"))
+        #expect(source.contains("id: \"runtime-skills\""))
         #expect(source.contains("String(trimmed.prefix(limit - 3)) + \"...\""))
         #expect(source.contains("String(value.prefix(limit + 32))"))
         #expect(source.contains("String(bounded.prefix(limit - 3)) + \"...\""))

@@ -31,3 +31,11 @@
 - Use for: Work/OpenCode, Goose/OpenChamber, or shared-shell surfaces that need to show which user skills the running agent can actually see without editing the protected Vault/Rust skill kernel.
 - Cycle breakthrough: Work now exposes a safe read-only inventory of provisioned `.opencode/skills` manifests and renders the runtime-visible skills in the native engines panel.
 - Next leverage: connect the same inventory shape to Goose ACP skill injection/outcome recording once the protected kernel exposes the missing evolution wires.
+
+## proshell-work-context-grounding
+
+- Path: `.claude/skills/proshell-work-context-grounding/SKILL.md`
+- Class: Work-owned app-context grounding for Prompt Forge and native MCP tools.
+- Use for: Work context snapshots, Prompt Forge context rows, native MCP context tooling, and safe propagation of runtime-visible capabilities into agent prompts.
+- Cycle breakthrough: Work context snapshots now include bounded runtime skill identifiers, so Prompt Forge and the native context tool can ground prompts in the skills the running Work agent can actually see.
+- Next leverage: add confidence/availability rows for other already-proven runtime capabilities without importing protected graph/note/app state.

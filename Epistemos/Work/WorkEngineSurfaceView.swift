@@ -665,7 +665,7 @@ struct WorkEngineSurfaceView: View {
                 priority = 80
             case "vault", "workspace":
                 priority = 60
-            case "engine", "model", "agent":
+            case "engine", "model", "agent", "runtime-skills":
                 priority = 40
             default:
                 priority = 20
