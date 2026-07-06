@@ -137,10 +137,12 @@ doctrines the plan names (`AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`,
 This is DoD-4.
 
 ## §∞ THE FOREVER LOOP — the self-evolving engine (this is the heart; it never ends)
-June is not a project with an end state. It is a **compounding loop** that makes the surface strictly
-more profound every cycle and **crystallizes each breakthrough into a reusable skill**, so intelligence
-accretes instead of evaporating. Phases A–C above are **Cycle 1**. Then you loop — forever — each cycle
-a new frontier and a new skill, each a higher bar than the last. Five movements per cycle:
+June is not a project with an end state, and it is NOT a skill-collecting exercise. It is a **loop of
+profound BUILDS** — real features and deep connections shipped into the running app every cycle — where
+**skills are the compounding leverage you USE to build, never trophies you collect.** Each cycle both
+*stands on* the skills forged before it and *leaves behind* one more, so June gets deeper AND each build
+gets faster and more profound than the last. Phases A–C above are **Cycle 1**. Then you loop — forever —
+each cycle a deeper build, standing on every skill before it. Five movements per cycle:
 
 1. **SCOUT — find the highest-leverage frontier.** Re-scan your own code, the field (how cloud agent
    apps work — and what they can't do on-device / in a vault), and the substrate (vault / graph /
@@ -148,8 +150,11 @@ a new frontier and a new skill, each a higher bar than the last. Five movements 
    frontier apps look like demos — using June's private, on-device, vault-native moat?* Web-verify
    (current FoundationModels / StoreKit / sandbox facts). Name the crux. One frontier per cycle — the
    deepest, not the easiest. Never at the cost of a §0 non-negotiable.
-2. **FORGE — build it deeply.** Implement to enterprise depth, wired into the substrate, connected as
-   far as the sandbox architecture theoretically allows. In-process only; honest capability always.
+2. **FORGE — build it deeply, by COMPOSING your skills.** Implement to enterprise depth, wired into the
+   substrate, connected as far as the sandbox architecture theoretically allows — and **actively invoke
+   your accumulated skills to do it** (chain them; reuse prior breakthroughs, don't re-derive them). The
+   library is your leverage: if a skill applies, USE it. In-process only; honest capability always.
+   **The deliverable is the shipped, working build — not the skill.**
 3. **TEMPER — harden + thermonuclear review.** The four lenses + the deepest `/code-review` you can
    invoke. Zero open HIGH. **Zero test regressions** (`swift test` + `cargo test`). Verified in the
    running sandboxed build, not a compile.
@@ -158,21 +163,28 @@ a new frontier and a new skill, each a higher bar than the last. Five movements 
    described, invocable capability **plus the methodology to reproduce that whole CLASS of integration**.
    Where the breakthrough is a user-facing, MAS-legal agent capability, ALSO write the product skill the
    in-process engine can invoke (SKILL.md format, `~/.claude/skills`) — respecting the tool allowlist
-   (§0.8). Update `.claude/skills/JUNE_SKILLS_INDEX.md`. **A cycle that ships a feature but forges no
-   skill has FAILED the cycle.** This is how June gets godlier each loop instead of merely bigger.
+   (§0.8). Update `.claude/skills/JUNE_SKILLS_INDEX.md`. **The skill must capture a genuinely reusable
+   CLASS you WILL invoke in later cycles — not a one-off changelog.** A cycle that ships a build but
+   leaves behind nothing reusable has under-compounded; a "skill" no future cycle ever uses is dead
+   weight to merge or prune, never a trophy. This is how June gets godlier each loop instead of merely
+   bigger — each skill makes the next cycle's build cheaper and deeper.
 5. **ASCEND — raise your own bar.** In the cycle log, record what this cycle made possible and — harder
    — *what it now makes possible next*. Define the next cycle's bar ABOVE this one's. Commit. Loop.
 
-**Invariants across all cycles (never violated):** strictly additive (never regress a prior feature or
-skill); honest capability (never fake tools on local); every §0 non-negotiable holds every cycle; the
-skill library is sacred — only extended, never broken; verify in the running MAS build every cycle. By
-cycle N, June should be the most trustworthy, most vault-native agent in existence, and
-`.claude/skills/june-*` should read like a grimoire of profound on-device integrations no cloud app can
-match.
+**Invariants across all cycles (never violated):** **from Cycle 2 on, every cycle USES ≥1 prior skill to
+build the new frontier — a cycle that ignores the library has failed to compound.** Skills exist to
+BUILD, not to collect: any skill no later cycle invokes is reviewed, merged, or pruned (no trophy
+skills). Strictly additive (never regress a prior feature or skill); honest capability (never fake tools
+on local); every §0 non-negotiable holds every cycle; the skill library is sacred — only extended, never
+broken; verify in the running MAS build every cycle. By cycle N, June is the most trustworthy, most
+vault-native agent in existence — *because* each build stood on the last — and `.claude/skills/june-*`
+reads like a grimoire of profound, load-bearing on-device integrations no cloud app can match.
 
 ## DEFINITION OF DONE — per cycle (verified in the running MAS build, not a compile)
-- **DoD-∞** — Every cycle forges ≥1 new `SKILL.md`, updates the skills index, and raises the bar in the
-  cycle log. The skill library grows monotonically; no cycle closes without it.
+- **DoD-∞** — Every cycle SHIPS a profound build (a real feature + deep connection, live in the running
+  MAS build), USES ≥1 prior skill to build it (from Cycle 2 on), and forges a new *reusable* skill +
+  updates the index + raises the bar. The build is the deliverable; the skill is the leverage — never
+  skills for their own sake, never a build that ignores the library.
 - **DoD-1** — `JUNE_MAS_CONNECTION_AUDIT.md` committed: every seam mapped, every disconnected/orphaned
   part listed file:line with a CONNECTED/HALF-WIRED/DISCONNECTED/DEAD verdict.
 - **DoD-2** — June's cloud lane is a **real agent**: a task that requires tools + the vault runs end to

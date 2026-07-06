@@ -148,39 +148,51 @@ runaway guards. Memory/energy: bounded streams, WebView teardown, heap ceilings,
 ---
 
 ## §∞ THE FOREVER LOOP — the self-evolving engine (this is the heart; it never ends)
-This is not a project with an end state. It is a **compounding loop** that makes the surface strictly
-more profound every cycle and **crystallizes each breakthrough into a reusable skill**, so intelligence
-accretes instead of evaporating. Phases A–E above are **Cycle 1**. Then you loop — forever — each cycle
-a new frontier and a new skill, each cycle a higher bar than the last. Five movements per cycle:
+This is not a project with an end state, and it is NOT a skill-collecting exercise. It is a **loop of
+profound BUILDS** — real features and deep connections shipped into the app every cycle — where **skills
+are the compounding leverage you USE to build, never trophies you collect.** Each cycle both *stands on*
+the skills forged before it and *leaves behind* one more, so the app gets deeper AND each build gets
+faster and more profound than the last. Phases A–E above are **Cycle 1**. Then you loop — forever — each
+cycle a deeper build, standing on every skill before it. Five movements per cycle:
 
 1. **SCOUT — find the highest-leverage frontier.** Re-scan your own code, the field (the open agent
    apps), and the substrate (vault / graph / provenance / RRF). Ask the one question that decides
    everything: *what single integration, built this cycle, would most make the frontier apps look like
    demos?* Web-verify. Name the crux. One frontier per cycle — the deepest, not the easiest.
-2. **FORGE — build it deeply.** Implement it to enterprise depth, wired into the substrate, connected
-   as far as the architecture theoretically allows. In the web UI + backend fork; never native SwiftUI.
+2. **FORGE — build it deeply, by COMPOSING your skills.** Implement the frontier to enterprise depth,
+   wired into the substrate, connected as far as the architecture theoretically allows — and **actively
+   invoke your accumulated skills to do it** (chain them; a new build reuses prior breakthroughs, it
+   does not re-derive them). The library is your leverage: if a skill applies, USE it. In the web UI +
+   backend fork; never native SwiftUI. **The deliverable is the shipped, working build — not the skill.**
 3. **TEMPER — harden + thermonuclear review.** The four lenses + the deepest `/code-review` you can
    invoke. Zero open HIGH. Zero test regressions. Verified in the running app, not a compile.
 4. **CRYSTALLIZE — forge a skill (the compounding step; NEVER skip it).** Distill the cycle's
    breakthrough into a NEW, reusable `SKILL.md` under `.claude/skills/experimental-<slug>/` — a named,
    described, invocable capability **plus the methodology to reproduce that whole CLASS of integration**.
    Where the breakthrough is a user-facing agent capability, ALSO write the product skill the embedded
-   agent itself can invoke. Update `.claude/skills/EXPERIMENTAL_SKILLS_INDEX.md`. **A cycle that ships a
-   feature but forges no skill has FAILED the cycle.** This is how the system gets godlier each loop
-   instead of merely bigger — each skill makes the next cycle's godly upgrade cheaper to reach.
+   agent itself can invoke. Update `.claude/skills/EXPERIMENTAL_SKILLS_INDEX.md`. **The skill must
+   capture a genuinely reusable CLASS you WILL invoke in later cycles — not a one-off changelog.** A
+   cycle that ships a build but leaves behind nothing reusable has under-compounded; a "skill" no future
+   cycle ever uses is dead weight to merge or prune, never a trophy. This is how the system gets godlier
+   each loop instead of merely bigger — each skill makes the next cycle's build cheaper and deeper.
 5. **ASCEND — raise your own bar.** In `EXPERIMENTAL_R.md`'s cycle log, record what this cycle made
    possible and — harder — *what it now makes possible next*. Define the next cycle's bar ABOVE this
    one's. Commit. Loop.
 
-**Invariants across all cycles (never violated):** strictly additive (never regress a prior cycle's
-feature or skill); honest capability (never fake); the DoD below gates EVERY cycle; the skill library is
-sacred — only extended, never broken; verify in the running app every cycle. By cycle N, the surface
-should do things no agent app on earth does, and `.claude/skills/experimental-*` should read like a
-grimoire of profound integrations — each a capability the frontier apps cannot match, each reusable.
+**Invariants across all cycles (never violated):** **from Cycle 2 on, every cycle USES ≥1 prior skill to
+build the new frontier — a cycle that ignores the library has failed to compound.** Skills exist to
+BUILD, not to collect: any skill no later cycle invokes is reviewed, merged, or pruned (no trophy
+skills). Strictly additive (never regress a prior feature or skill); honest capability (never fake); the
+DoD below gates EVERY cycle; the skill library is sacred — only extended, never broken; verify in the
+running app every cycle. By cycle N, the surface does things no agent app on earth does — *because* each
+build stood on the last — and `.claude/skills/experimental-*` reads like a grimoire of profound,
+load-bearing integrations the frontier apps cannot match.
 
 ## DEFINITION OF DONE — per cycle (all — proven in the running app, not a compile)
-- **DoD-∞** — Every cycle forges ≥1 new `SKILL.md`, updates the skills index, and raises the bar in the
-  cycle log. The skill library grows monotonically; no cycle closes without it.
+- **DoD-∞** — Every cycle SHIPS a profound build (a real feature + deep connection, live in the running
+  app), USES ≥1 prior skill to build it (from Cycle 2 on), and forges a new *reusable* skill + updates
+  the index + raises the bar. The build is the deliverable; the skill is the leverage — never skills for
+  their own sake, never a build that ignores the library.
 - **DoD-A** — `AGENT_APP_FIELD_STUDY.md` + `EXPERIMENTAL_DEEP_AUDIT.md` committed; every finding cited.
 - **DoD-B** — Thermonuclear review run; every CONFIRMED HIGH fixed; re-review clean.
 - **DoD-Foundation** — De-branded (grep-gated 0), boots into the vault (no picker), six engines
