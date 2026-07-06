@@ -138,7 +138,9 @@ struct NonAgentPruningValidationTests {
 
         #expect(source.contains("private func schedulePersistedBodyRefresh(for page: SDPage?)"))
         #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
-        #expect(source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(source.contains("SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(source.contains("filePath: filePath"))
+        #expect(!source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
         #expect(source.contains("_persistedBody = State(initialValue: \"\")"))
         #expect(!source.contains("_persistedBody = State(initialValue: NoteWindowManager.shared.currentBody"))
     }
@@ -184,7 +186,8 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("@State private var loadedBodyPageId: String?"))
         #expect(source.contains("private func loadBodyIfNeeded(force: Bool) async"))
         #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
-        #expect(source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(source.contains("SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(!source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
         #expect(source.contains("if loadedBodyPageId == page.id"))
         #expect(!source.contains("private static func currentBody(for page: SDPage"))
         #expect(!source.contains("NoteWindowManager.shared.currentBody(for: page.id)"))
@@ -196,7 +199,9 @@ struct NonAgentPruningValidationTests {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
 
         #expect(source.contains("func currentBody(for pageId: String, mapped: Bool = false) -> String"))
-        #expect(source.contains("editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: !mapped)"))
+        #expect(source.contains("VaultIndexActor.decodedBodyFromReadableVaultFile"))
+        #expect(source.contains("SDPage.legacyManagedOrInlineBody"))
+        #expect(!source.contains("NoteFileStorage.readBody"))
     }
 
     @Test("workspace and idle summary surfaces use the shared live-editor-first body helper")
@@ -207,7 +212,8 @@ struct NonAgentPruningValidationTests {
 
         #expect(activity.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
         #expect(activity.contains("Task.detached(priority: .utility)"))
-        #expect(activity.contains("NoteFileStorage.readBody(pageId: pageId, mapped: true, fast: true)"))
+        #expect(activity.contains("SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(!activity.contains("NoteFileStorage.readBody"))
         #expect(!activity.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
         #expect(workspace.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
         #expect(timeMachine.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))

@@ -815,7 +815,7 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("@State private var loadedBodyPageId: String?"))
         #expect(source.contains("private func loadBodyIfNeeded(force: Bool) async"))
         #expect(source.contains("Task.detached(priority: .userInitiated)"))
-        #expect(source.contains("NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(source.contains("SDPage.loadBodyAsyncFromPrimitives("))
         #expect(source.contains("if loadedBodyPageId == page.id"))
         #expect(!source.contains("let snapshot = Self.initialBodySnapshot"))
         #expect(!source.contains("let body = Self.currentBody(for: page)"))

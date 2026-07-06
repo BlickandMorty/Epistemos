@@ -1883,6 +1883,7 @@ struct NoteDetailWorkspaceView: View {
 
             let pageId = page.id
             let fallbackBody = page.body
+            let filePath = page.filePath
             if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
                 guard persistedBody != liveBody else { return }
                 persistedBody = liveBody
@@ -1893,11 +1894,17 @@ struct NoteDetailWorkspaceView: View {
             }
 
             let loadedBody = await Task.detached(priority: .userInitiated) {
-                NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
+                await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: pageId,
+                    filePath: filePath,
+                    inlineBody: fallbackBody,
+                    mapped: false,
+                    fast: true
+                )
             }.value
             guard !Task.isCancelled,
                   pages.first?.id == pageId else { return }
-            let body = loadedBody.isEmpty ? fallbackBody : loadedBody
+            let body = loadedBody
             guard persistedBody != body else { return }
             persistedBody = body
             scheduleMetricsRefresh(body: body, includeMarkdownHeadings: true)
