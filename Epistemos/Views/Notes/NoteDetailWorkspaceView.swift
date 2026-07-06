@@ -460,7 +460,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showWebClipperSheet = false
-    @State private var noteMode: NoteWorkspaceMode = .edit
+    @State private var noteMode: NoteWorkspaceMode = .document
     @State private var showMarkEditSourceSettings = false
     @State private var sourcePDFViewerPresentation: SourcePDFViewerPresentation?
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
@@ -510,7 +510,9 @@ struct NoteDetailWorkspaceView: View {
     init(
         pageId: String,
         presentation: NoteWorkspacePresentation = .window,
-        initialMode: NoteWorkspaceMode = .edit
+        // Owner 2026-07-05: Epdoc (.document) is the default note view everywhere (graph embed,
+        // in-place pane, windows). resolvedNoteMode falls back for code/non-markdown pages.
+        initialMode: NoteWorkspaceMode = .document
     ) {
         self.pageId = pageId
         self.presentation = presentation

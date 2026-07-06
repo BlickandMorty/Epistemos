@@ -1786,9 +1786,12 @@ struct NotesSidebar: View {
     }
 
     private func preferredInitialMode(for page: SDPage) -> NoteWorkspaceMode {
+        // Owner 2026-07-05: non-code notes default to Epdoc (.document), not Prose (.edit).
+        // Code pages still open in .source. resolvedNoteMode gracefully falls back if a page
+        // doesn't support .document. Users can still switch to any view via the toggles.
         guard let path = page.filePath,
               CodeLanguage.detect(from: path) != nil
-        else { return .edit }
+        else { return .document }
         return .source
     }
 

@@ -296,7 +296,7 @@ final class NoteWindowManager {
     /// Open a note by ID — fetches the page, highlights in sidebar, opens as tab.
     /// Single entry point for sidebar / command palette note opens.
     /// Wikilink navigation uses NoteNavigationState.push() instead.
-    func open(pageId: String, initialMode: NoteWorkspaceMode = .edit) {
+    func open(pageId: String, initialMode: NoteWorkspaceMode = .document) {
         guard let bootstrap = AppBootstrap.shared else { return }
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -361,7 +361,7 @@ final class NoteWindowManager {
     // MARK: - Tab Windows
 
     /// Open a note in a new tab window. If already open, bring to front.
-    func openWindow(for page: SDPage, initialMode: NoteWorkspaceMode = .edit) {
+    func openWindow(for page: SDPage, initialMode: NoteWorkspaceMode = .document) {
         // If window already exists for this page, bring to front
         if let existing = windows[page.id], existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
@@ -746,7 +746,7 @@ private struct NoteTabShell: View {
     @State private var navState: NoteNavigationState
     let initialMode: NoteWorkspaceMode
 
-    init(pageId: String, pageTitle: String, initialMode: NoteWorkspaceMode = .edit) {
+    init(pageId: String, pageTitle: String, initialMode: NoteWorkspaceMode = .document) {
         self.initialMode = initialMode
         _navState = State(
             initialValue: NoteNavigationState(
@@ -757,7 +757,7 @@ private struct NoteTabShell: View {
     var body: some View {
         NoteDetailWorkspaceView(
             pageId: navState.currentPageId,
-            initialMode: navState.currentPageId == navState.rootPageId ? initialMode : .edit
+            initialMode: navState.currentPageId == navState.rootPageId ? initialMode : .document
         )
             .id(navState.currentPageId)
             .environment(navState)

@@ -1,21 +1,13 @@
-import AppKit
-
-enum NoteCreationSurface {
-    case prose
-    case document
-
-    var initialMode: NoteWorkspaceMode {
-        switch self {
-        case .prose:
-            .edit
-        case .document:
-            .document
-        }
-    }
-}
+import Foundation
 
 @MainActor
 enum NoteCreationCoordinator {
+    /// Creates a Markdown note and opens it directly in Epdoc (Document) mode.
+    ///
+    /// Owner 2026-07-05: Epdoc is the default view for every note surface. The four
+    /// Markdown lenses (Prose, Document, Preview, Source) are synced views of the same
+    /// `.md` file, so there is no per-create "which surface?" prompt — the note opens in
+    /// Epdoc and the user can switch lenses instantly from the editor toggles.
     static func createAndOpen(
         vaultSync: VaultSyncService,
         title: String = "Untitled",
@@ -25,7 +17,6 @@ enum NoteCreationCoordinator {
             NoteWindowManager.shared.open(pageId: pageId, initialMode: mode)
         }
     ) async {
-        guard let surface = chooseSurface() else { return }
         guard let pageId = await vaultSync.createPage(
             title: title,
             body: body,
@@ -33,26 +24,6 @@ enum NoteCreationCoordinator {
         ) else {
             return
         }
-        open(pageId, surface.initialMode)
-    }
-
-    static func chooseSurface() -> NoteCreationSurface? {
-        let alert = NSAlert()
-        alert.messageText = "Create Note"
-        alert.informativeText = """
-        Choose the Markdown surface to open first. You can switch between Prose, Document, Preview, and Source later.
-        """
-        alert.addButton(withTitle: "Prose")
-        alert.addButton(withTitle: "Document")
-        alert.addButton(withTitle: "Cancel")
-
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
-            return .prose
-        case .alertSecondButtonReturn:
-            return .document
-        default:
-            return nil
-        }
+        open(pageId, .document)
     }
 }

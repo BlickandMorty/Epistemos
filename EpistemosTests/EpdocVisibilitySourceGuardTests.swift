@@ -3,20 +3,26 @@ import Testing
 
 @Suite("Epdoc visibility source guards")
 nonisolated struct EpdocVisibilitySourceGuardTests {
-    @Test("File menu uses one Markdown note creation chooser")
-    func fileMenuUsesOneMarkdownNoteCreationChooser() throws {
+    @Test("File menu uses one Markdown note creation that defaults to Epdoc")
+    func fileMenuUsesOneMarkdownNoteCreationThatDefaultsToEpdoc() throws {
         let appSource = try Self.loadSourceText("Epistemos/App/EpistemosApp.swift")
         let coordinatorSource = try Self.loadSourceText("Epistemos/Views/Notes/NoteCreationCoordinator.swift")
 
         #expect(appSource.contains("Button(\"New Note\")"),
                 "File > New should expose one note command instead of separate prose/document storage commands.")
         #expect(appSource.contains("NoteCreationCoordinator.createAndOpen(vaultSync: vaultSync)"),
-                "The File menu should route through the shared Prose/Document chooser.")
+                "The File menu should route through the shared note creation coordinator.")
         #expect(!appSource.contains("Button(\"New Document\")"),
-                "Document is now an initial Markdown surface choice, not a second File > New item.")
-        #expect(coordinatorSource.contains("case prose"))
-        #expect(coordinatorSource.contains("case document"))
-        #expect(coordinatorSource.contains("chooseSurface()"))
+                "Document is now the default Markdown surface, not a second File > New item.")
+        // Owner 2026-07-05: notes always open in Epdoc (Document) by default. The per-create
+        // Prose/Document modal was removed — the four Markdown lenses are switchable from the
+        // editor toggles, so there is no reason to prompt on every new note.
+        #expect(coordinatorSource.contains("open(pageId, .document)"),
+                "Note creation must open directly in Epdoc (Document) mode — Epdoc is the default note surface.")
+        #expect(!coordinatorSource.contains("NSAlert"),
+                "Note creation must not prompt a per-create Prose/Document modal.")
+        #expect(!coordinatorSource.contains("chooseSurface()"),
+                "The per-create surface chooser was removed in favor of an always-Epdoc default.")
     }
 
     @Test("Landing exposes one visible Markdown create shortcut")
