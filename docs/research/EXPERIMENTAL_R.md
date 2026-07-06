@@ -1352,3 +1352,16 @@ note's H1 (first 512 bytes, bounded 6000 reads/15s TTL). Bonus: noteTitleExists 
 17/17, deployed. THREE real cite-integrity bugs (NL grounding, ordinal filenames, H1 titles) in three
 cycles — all invisible to keyword fixtures, all found by feeding the backend the titles/prompts that
 actually occur in a real vault. The cite-check trust surface is now genuinely robust to real vault layouts.
+
+---
+
+**Cycle 47 (2026-07-06) — H1-consistency across grounding + graph (completes the H1 arc).** Follow-on from
+Cycle 46 (cite-check H1): grounding still cited notes by their FILENAME, so a grounded prompt on the
+AETHERLINK vault injected `[[04_CLAIM_LEDGER]]` not the `[[Claim Ledger]]` the user recognizes. Fixed with
+a `displayTitle` helper (H1 ?? filename, H1 from content already read → no extra I/O): (a) searchVaultNotes
++ graph neighbors now show the H1 TITLE; (b) graph link resolution reuses the Cycle-46 title index, so an
+H1-style `[[Provenance Model]]` resolves to a slug file (was filename-only → dangling); (c) graph dedup
+switched to PATH-based (robust vs the old mixed title-basis); (d) backlinks match BOTH the top hit's H1
+and filename (link-style agnostic). PROVEN headless + witness (19/19): grounding title = "Data Ledger"
+(H1); H1-link resolves to `09_slug-notes`; outlink/backlink/search all still pass. The whole vault-title
+layer (cite-check, grounding, graph) now speaks the user's TITLES, not filenames — coherent end to end.
