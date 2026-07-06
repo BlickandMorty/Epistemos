@@ -905,3 +905,14 @@ Chosen deliberately: app wasn't running + another lane (Codex) was frontmost, so
 high-cost/contention-prone, and pure-web feature refinement is at diminishing returns.
 **RAISED BAR unchanged:** live re-verify when the desktop is quiet; the native ReplayBundle FFI on an
 owner-sanctioned native checkpoint. The witness now backstops every future backend change.
+
+---
+
+**Cycle 17 (2026-07-06) — AUTO-GROUNDING (ambient vault grounding).** Made the moat effortless: an
+opt-in toggle (Persona popover, OFF by default, no new button) that grounds EVERY submitted prompt in the
+vault at send time — the "Vault" button made automatic. FAIL-SAFE (returns the original on any error / no
+match / off-host; skips slash/short/already-grounded — guards proven). Reuses the proven retrieval chain
+(shadow → whole-vault → graph outlinks+backlinks) + formatGroundedContext. Scoped to the new-chat composer;
+the existing-chat (acp/ipc) transport is a noted follow-on. Deployed (verified in tarball). Composes
+experimental-vault-context-assembly. **RAISED BAR:** extend auto-ground to the existing-chat transport;
+live-verify (desktop-permitting); native ReplayBundle FFI on an owner checkpoint.
