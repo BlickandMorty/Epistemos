@@ -54,6 +54,14 @@ final class WorkRuntimeSupervisor {
 
     /// How long to wait for `opencode serve` to print its listening line before failing.
     static let listenTimeout: Duration = .seconds(15)
+    nonisolated static let maxSubprocessEnvironmentValueCharacters =
+        WorkSubprocessEnvironment.maxSubprocessEnvironmentValueCharacters
+    nonisolated static let maxSubprocessPathCharacters =
+        WorkSubprocessEnvironment.maxSubprocessPathCharacters
+    nonisolated static let maxSubprocessPathEntryCharacters =
+        WorkSubprocessEnvironment.maxSubprocessPathEntryCharacters
+    nonisolated static let maxSubprocessPathEntries =
+        WorkSubprocessEnvironment.maxSubprocessPathEntries
 
     private var process: Process?
     private var lifecycleTask: Task<Void, Never>?
@@ -183,17 +191,17 @@ final class WorkRuntimeSupervisor {
         ["serve", "--hostname", host]
     }
 
-    /// The child env: inherit the process env, prepend the bundled runtime's bin dir to PATH (so `opencode`
-    /// finds its sibling `bun`), and inject the per-launch loopback basic-auth credentials.
+    /// Sanitized child env: allowlisted inherited vars only, rebuilt PATH rooted at the bundled runtime's
+    /// bin dir (so `opencode` finds its sibling `bun`), and explicit per-launch loopback basic-auth creds.
     nonisolated static func processEnvironment(
         runtimeBinary: URL,
         auth: WorkRuntimeAuth,
         base: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String: String] {
-        var env = base
-        let binDir = runtimeBinary.deletingLastPathComponent().path
-        let existingPath = env["PATH"] ?? ""
-        env["PATH"] = existingPath.isEmpty ? binDir : "\(binDir):\(existingPath)"
+        var env = WorkSubprocessEnvironment.childEnvironment(
+            binaryDirectories: [runtimeBinary.deletingLastPathComponent()],
+            base: base
+        )
         env["OPENCODE_SERVER_USERNAME"] = auth.username
         env["OPENCODE_SERVER_PASSWORD"] = auth.password
         return env

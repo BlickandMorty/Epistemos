@@ -35,6 +35,7 @@ struct WorkEngineSurfaceView: View {
     @State private var preserveSessionOnEngineChange = false
     @State private var afterPartAbortTriggeredSessionIDs: Set<String> = []
     @State private var appContext = WorkAppContextSnapshot.empty
+    @State private var pendingPromptForgeReview: WorkPromptForgeReview?
 
     private var accent: Color { theme.resolved.accent.color }
     private var boxBackground: Color { WorkSurfaceStyle.background(for: theme) }
@@ -68,6 +69,18 @@ struct WorkEngineSurfaceView: View {
                 WorkQueueListView(
                     queue: queue, theme: theme,
                     onSendNow: handleSendNow, onInterrupt: handleInterrupt, onAfterPart: handleAfterPart)
+                if let pendingPromptForgeReview {
+                    WorkPromptForgeReviewView(
+                        review: pendingPromptForgeReview,
+                        theme: theme,
+                        onAccept: acceptPromptForgeReview,
+                        onEdit: editPromptForgeReview,
+                        onRetry: retryPromptForgeReview,
+                        onRevert: revertPromptForgeReview,
+                        onCancel: cancelPromptForgeReview)
+                        .padding(.horizontal, 8)
+                        .padding(.top, 4)
+                }
                 if let pendingPermission {
                     WorkPermissionCardView(request: pendingPermission, theme: theme, onDecision: decideOnPermission)
                         .padding(.horizontal, 8)
@@ -551,12 +564,119 @@ struct WorkEngineSurfaceView: View {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !engines.isEmpty else { return }
         input = ""
-        // Busy → QUEUE the prompt (pending) instead of blocking; it drains when the turn goes idle.
-        if transcript.status == .running || sending {
-            queue.enqueue(text, model: selectedModelID, agent: selectedAgent)
+        if text.hasPrefix("/") {
+            deliverPrompt(text, delivery: transcript.status == .running || sending ? .queue : .send,
+                          model: selectedModelID, agent: selectedAgent)
             return
         }
-        sendNow(text, model: selectedModelID, agent: selectedAgent)
+        beginPromptForgeReview(
+            text: text,
+            delivery: transcript.status == .running || sending ? .queue : .send,
+            model: selectedModelID,
+            agent: selectedAgent)
+    }
+
+    private func beginPromptForgeReview(
+        text: String,
+        delivery: WorkPromptForgeDelivery,
+        model: String?,
+        agent: String?,
+        retryCount: Int = 0
+    ) {
+        let result = PromptForgeService.upgrade(PromptForgeRequest(
+            originalPrompt: text,
+            surface: "work",
+            taskHint: agent ?? selectedEngine,
+            contextSnippets: promptForgeContextSnippets(),
+            variant: retryCount
+        ))
+        pendingPromptForgeReview = WorkPromptForgeReview(
+            result: result,
+            delivery: delivery,
+            model: model,
+            agent: agent,
+            retryCount: retryCount)
+    }
+
+    private func acceptPromptForgeReview() {
+        guard let review = pendingPromptForgeReview else { return }
+        pendingPromptForgeReview = nil
+        deliverPrompt(
+            review.result.upgradedPrompt,
+            delivery: review.delivery,
+            model: review.model,
+            agent: review.agent,
+            variant: "prompt-forge:v\(review.retryCount + 1)")
+    }
+
+    private func editPromptForgeReview() {
+        guard let review = pendingPromptForgeReview else { return }
+        input = review.result.upgradedPrompt
+        pendingPromptForgeReview = nil
+    }
+
+    private func retryPromptForgeReview() {
+        guard let review = pendingPromptForgeReview else { return }
+        beginPromptForgeReview(
+            text: review.result.originalPrompt,
+            delivery: review.delivery,
+            model: review.model,
+            agent: review.agent,
+            retryCount: review.retryCount + 1)
+    }
+
+    private func revertPromptForgeReview() {
+        guard let review = pendingPromptForgeReview else { return }
+        pendingPromptForgeReview = nil
+        deliverPrompt(
+            review.result.originalPrompt,
+            delivery: review.delivery,
+            model: review.model,
+            agent: review.agent)
+    }
+
+    private func cancelPromptForgeReview() {
+        if let review = pendingPromptForgeReview {
+            input = review.result.originalPrompt
+        }
+        pendingPromptForgeReview = nil
+    }
+
+    private func deliverPrompt(
+        _ text: String,
+        delivery: WorkPromptForgeDelivery,
+        model: String?,
+        agent: String?,
+        variant: String? = nil
+    ) {
+        // Busy → QUEUE the prompt (pending) instead of blocking; it drains when the turn goes idle.
+        if delivery == .queue || transcript.status == .running || sending {
+            queue.enqueue(text, model: model, agent: agent, variant: variant)
+            return
+        }
+        sendNow(text, model: model, agent: agent)
+    }
+
+    private func promptForgeContextSnippets() -> [PromptForgeContextSnippet] {
+        appContext.rows(pathLimit: 120, textLimit: 220).map { row in
+            let priority: Int
+            switch row.id {
+            case "note", "note-path", "graph", "selection":
+                priority = 80
+            case "vault", "workspace":
+                priority = 60
+            case "engine", "model", "agent":
+                priority = 40
+            default:
+                priority = 20
+            }
+            return PromptForgeContextSnippet(
+                id: "work-\(row.id)",
+                title: row.label,
+                source: "Work context",
+                excerpt: row.value,
+                priority: priority)
+        }
     }
 
     /// Tab stages a prompt without sending immediately. Enter remains the send-now action; queued rows keep their
@@ -565,7 +685,11 @@ struct WorkEngineSurfaceView: View {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !engines.isEmpty else { return }
         input = ""
-        queue.enqueue(text, model: selectedModelID, agent: selectedAgent)
+        if text.hasPrefix("/") {
+            queue.enqueue(text, model: selectedModelID, agent: selectedAgent)
+            return
+        }
+        beginPromptForgeReview(text: text, delivery: .queue, model: selectedModelID, agent: selectedAgent)
     }
 
     private func sendNow(
@@ -684,6 +808,7 @@ struct WorkEngineSurfaceView: View {
         input = ""
         pendingPermission = nil
         pendingQuestion = nil
+        pendingPromptForgeReview = nil
     }
 
     /// Create a real attached child session through the active OpenGUI engine. Floating detach stays hidden until a real
@@ -716,6 +841,7 @@ struct WorkEngineSurfaceView: View {
                 input = ""
                 pendingPermission = nil
                 pendingQuestion = nil
+                pendingPromptForgeReview = nil
             } catch {
                 surfaceRuntimeError("Couldn't create mini session", error)
             }

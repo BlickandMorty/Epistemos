@@ -50,9 +50,64 @@ struct WorkRuntimeSupervisorTests {
         let auth = WorkRuntimeAuth(username: "user", password: "secret")
         let env = WorkRuntimeSupervisor.processEnvironment(
             runtimeBinary: binary, auth: auth, base: ["PATH": "/usr/bin"])
-        #expect(env["PATH"] == "/Runtime/opencode-runtime/bin:/usr/bin")
+        #expect(env["PATH"]?.hasPrefix("/Runtime/opencode-runtime/bin:/usr/bin") == true)
         #expect(env["OPENCODE_SERVER_USERNAME"] == "user")
         #expect(env["OPENCODE_SERVER_PASSWORD"] == "secret")
+    }
+
+    @Test("child env drops unsafe inherited values and replaces inherited auth")
+    func processEnvironmentDropsUnsafeInheritedValuesAndReplacesAuth() {
+        let oversized = String(
+            repeating: "x",
+            count: WorkRuntimeSupervisor.maxSubprocessEnvironmentValueCharacters + 1
+        )
+        let binary = URL(fileURLWithPath: "/Runtime/opencode-runtime/bin/opencode")
+        let auth = WorkRuntimeAuth(username: "fresh-user", password: "fresh-secret")
+        let env = WorkRuntimeSupervisor.processEnvironment(
+            runtimeBinary: binary,
+            auth: auth,
+            base: [
+                "PATH": "/custom/bin:relative/bin:.:/usr/bin:/custom/bin",
+                "HOME": "relative/home",
+                "USER": "bad\0actor",
+                "LANG": oversized,
+                "LC_ALL": "en_US.UTF-8",
+                "TMPDIR": "/tmp/work",
+                "TERM": "xterm-256color",
+                "OPENCODE_SERVER_USERNAME": "stale-user",
+                "OPENCODE_SERVER_PASSWORD": "stale-secret",
+                "OPENAI_API_KEY": "secret-token",
+                "NODE_OPTIONS": "--require /tmp/inject.js",
+                "DYLD_INSERT_LIBRARIES": "/tmp/inject.dylib",
+            ]
+        )
+
+        let path = env["PATH"] ?? ""
+        #expect(path.hasPrefix("/Runtime/opencode-runtime/bin:/custom/bin:/usr/bin"))
+        #expect(path.count <= WorkRuntimeSupervisor.maxSubprocessPathCharacters)
+        #expect(path.components(separatedBy: ":").filter { $0 == "/custom/bin" }.count == 1)
+        #expect(!path.components(separatedBy: ":").contains("relative/bin"))
+        #expect(!path.components(separatedBy: ":").contains("."))
+        #expect(!path.contains(oversized))
+        #expect(env["LC_ALL"] == "en_US.UTF-8")
+        #expect(env["TMPDIR"] == "/tmp/work")
+        #expect(env["TERM"] == "xterm-256color")
+        #expect(env["OPENCODE_SERVER_USERNAME"] == "fresh-user")
+        #expect(env["OPENCODE_SERVER_PASSWORD"] == "fresh-secret")
+        #expect(env["HOME"] == nil)
+        #expect(env["USER"] == nil)
+        #expect(env["LANG"] == nil)
+        #expect(env["OPENAI_API_KEY"] == nil)
+        #expect(env["NODE_OPTIONS"] == nil)
+        #expect(env["DYLD_INSERT_LIBRARIES"] == nil)
+
+        let manyBinaryDirectories = (0..<(WorkRuntimeSupervisor.maxSubprocessPathEntries + 20))
+            .map { URL(fileURLWithPath: "/Runtime/bin-\($0)") }
+        let capped = WorkSubprocessEnvironment.childEnvironment(
+            binaryDirectories: manyBinaryDirectories,
+            base: ["PATH": "/usr/bin", "HOME": "/Users/me"]
+        )
+        #expect(capped["PATH"]?.components(separatedBy: ":").count == WorkRuntimeSupervisor.maxSubprocessPathEntries)
     }
 
     @Test("launch failures route through bounded diagnostics")
