@@ -666,3 +666,65 @@ MCP into the engine, and — proven live — grounds its answers in the user's o
 with a one-click path to write results back as durable notes. The citation + write-back loop is
 *structurally impossible* for a standalone agent because it has no knowledge base to cite or write to.
 Cycle 2 widens the lead on the context-assembly axis (RRF retrieval), which the field cannot follow.
+
+---
+
+**Cycle 6 (2026-07-05, agent-run) — Cycle 2 of the forever-loop: RRF GRAPH-AWARE CONTEXT ASSEMBLY.**
+FORGE the frontier named by Cycle 1's raised bar. SCOUT confirmed (research-first): the agent's vault
+search (`omega-mcp/src/vault.rs:854` `search_notes`) is naive substring mmap-grep; `graph.search_semantic`
+is only a trigram-cosine backstop (`graph_search_backend.rs:140` — the real HNSW/Tantivy is a "future"
+seam); the REAL RRF index (`epistemos-shadow`: tantivy BM25 + usearch HNSW + RRF fusion at
+`<vault>/.epcache/shadow`) is opened by the Swift app but was unreachable from the agent surface.
+
+- **Built (composes the Cycle-1 skill `experimental-provenance-writeback`):** native `vault:search-ranked`
+  handler → `AppBootstrap.shared.contextualShadowsState.haloSearchService.search(.notes)` (the live
+  `ShadowSearchServicing` RRF backend) → ranked `{title,snippet,score,source}`; NEW fork overlays
+  `lib/epistemos-vault-grounding.ts` + `ui/epistemos-vault-ground-button.tsx`; a "Vault" composer button
+  (both new-chat-form + chat-input-area) reads the prompt via the editor handle, retrieves the top-K
+  notes, and rewrites the composer with a `> [[title]] — snippet` grounded-context block + a cite
+  instruction. Honest-gated on the native host; empty (not faked) when recall isn't live. Fork `ec77b67`
+  (PATCH_LEDGER row 36); gate=110, de-brand=0.
+- **CRYSTALLIZE:** `experimental-vault-context-assembly` — the CLASS of routing Epistemos RRF/graph
+  retrieval into the agent's context (web prompt → native handler → app RRF → ranked cited context).
+  Indexed. This is the first cycle that COMPOSED a prior skill (the invariant from Cycle 2 on).
+
+**THE RAISED BAR (Cycle 3 crux):** cross-session memory. Swap the `.notes` retrieval for the GRAPH
+(`graph.traverse` / `graph.search_semantic` / the cognitive DAG) so the agent recalls "what we decided
+last time," keyed by concept not directory — composing `experimental-vault-context-assembly` (retrieval)
++ `experimental-provenance-writeback` (write the decision back). This is the recall the field's
+`LIKE`/list/id-lookup memory (goose flat dump, Cline in-repo markdown, Zed manual @mention) cannot do.
+
+**Thesis update:** with Cycle 2, the surface not only cites the vault but ASSEMBLES the agent's context
+from RRF-ranked personal knowledge before the turn runs — the context-assembly axis Aider's PageRank
+repo-map and Continue's workspace LanceDB index cannot reach, because their corpus is one repo/session
+and ours is the durable personal graph.
+
+---
+
+**Cycle 7 (2026-07-06, agent-run) — PROMPT FORGE (submission-time upgrader) + owner asks.**
+Owner set a new PACING rule (code more, build as infrequent checkpoints) + two direct asks (ALL free
+Zen models; thinking for all engines). FORGE composed the Cycle-2 vault-context-assembly skill.
+
+- **Prompt Forge SHIPPED + PROVEN (backend, deterministic).** "Forge" composer button → renderer
+  grounds via `rankedVaultSearch` (Cycle 2) → backend `epistemosPromptForge.enhance` one-shot haiku
+  through the Claude SDK (real auth) with the full pipeline (intent → clarity/voice → task-matched
+  technique → vault-grounding+[[cite]] → budget → clarify) → Accept/Retry/Revert diff popover.
+  Proven vs a headless backend: "make the login better" → structured upgrade citing [[AUTH_DESIGN_2026]],
+  5 changes, grounded=true. **Two load-bearing bugs caught by deterministic verification, not assumption:**
+  (1) the enhance omitted `pathToClaudeCodeExecutable` → the SDK couldn't spawn the user's claude CLI →
+  silent fallback to the original (looked shipped, did nothing) — FIXED; (2) bare Zen ids (`big-pickle`)
+  from the live catalog misrouted to Codex (engine-detection keys on the `opencode/` prefix) — FIXED +
+  deduped; 24 free Zen models verified.
+- **Owner ask — ALL Zen models: DONE.** The composer picker now pulls every cost==0 Zen model from the
+  live catalog (was 2 pinned); routing normalized to `opencode/`.
+- **Owner ask — thinking: DIAGNOSED (infra fully wired).** Extended thinking defaults ON for
+  Claude/Kimi/GLM (`maxThinkingTokens=32k` via the IPC transport); Codex has effort levels; reasoning
+  blocks render (expanded while streaming, `AgentThinkingTool`). Needs live per-engine evidence of the
+  actual gap before any change (won't blind-fix working paths). NEXT.
+- **CRYSTALLIZE:** `experimental-submission-enhance` — the reusable CLASS (renderer trigger → tRPC → SDK
+  one-shot small-model transform, MUST pass the binary path, compose vault grounding → diff/accept UX).
+
+**THE RAISED BAR (next):** (a) close the thinking gap live per-engine; (b) System Prompt Forge + Pattern
+Library (composes experimental-submission-enhance again — the system-prompt layer); (c) cross-session
+memory via the graph (recall "what we decided last time" keyed by concept). The deterministic-headless-
+verify habit (catch silent-fallback bugs before the app build) is now standard.

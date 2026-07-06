@@ -7,11 +7,14 @@ later cycle invokes is reviewed, merged, or pruned.
 | Cycle | Skill | Class it captures | Forged by |
 |-------|-------|-------------------|-----------|
 | 1 | [`experimental-provenance-writeback`](experimental-provenance-writeback/SKILL.md) | web-UI → native reply-capable `epistemos` handler → Epistemos substrate (vault/graph/provenance), no SwiftUI, no shim edit | the "Save to vault" provenance-write-back build + the read-aloud/selection fusions |
+| 2 | [`experimental-vault-context-assembly`](experimental-vault-context-assembly/SKILL.md) | web prompt → native `vault:search-ranked` → app RRF index (tantivy BM25 + usearch HNSW) → ranked, `[[wiki]]`-cited grounded context. **Composes Cycle 1.** | the "Vault" grounding button (RRF-ranked context assembly in the composer) |
+| 3 | [`experimental-submission-enhance`](experimental-submission-enhance/SKILL.md) | renderer trigger → tRPC mutation → SDK one-shot small-model transform (**must pass `pathToClaudeCodeExecutable`** or it silently no-ops) → parsed structured result → diff/accept UX. **Composes Cycle 2** (vault grounding). | Prompt Forge (submission-time prompt upgrader) |
 
 ## Next cycles will compose these to build (the raised bar)
-- **Cycle 2 crux (from the deep audit):** the agent's vault search is naive substring grep
-  (`omega_mcp_stdio` `vault.rs:854`) while Epistemos owns a BM25+HNSW RRF index
-  (`epistemos-shadow`/`RRFFusionQuery`) it can't reach. Expose **RRF-ranked retrieval** to
-  the agent — the context-assembly axis the field study says no standalone app can build.
-  This will compose `experimental-provenance-writeback` (the round-trip pattern) to reach
-  the Shadow index.
+- **Cycle 3 crux:** cross-session memory. Swap the Cycle-2 `.notes` retrieval for the
+  **graph** (`graph.traverse` / `graph.search_semantic` / the cognitive DAG) so the agent
+  recalls "what we decided last time" keyed by concept, not directory — composing
+  `experimental-vault-context-assembly` (retrieval round-trip) + `experimental-provenance-writeback`
+  (write the decision back). The recall the field's `LIKE`/id-lookup memory cannot do.
+- **Also open (Phase E hardening):** the Keychain-prompt storm (set an always-allow ACL on
+  the `app.epistemos` provider-slot reads); Codex tool-policy `deny` audit-only → real gate.
