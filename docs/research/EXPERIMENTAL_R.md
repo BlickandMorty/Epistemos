@@ -1149,3 +1149,17 @@ manual effort knob) was correct, not a capability removal. Honest caveat: whethe
 EMITS reasoning is model-dependent (not all reasoning-emit); I verified the PIPELINE renders it, which is
 the part under our control. This closes the THINKING owner-ask at the level we own. Matches the pacing
 rule (deterministic verification over a flaky live check).
+
+---
+
+**Cycle 32 (2026-07-06) — TEMPER: deep review of the CORE retrieval/verification path; bounded auto-ground
+send latency.** With all owner-asks closed, reviewed the axis everything depends on (rankedVaultSearch /
+maybeAutoGround / formatGroundedContext / checkCitations) against the four lenses. Found one real gap:
+maybeAutoGround rides the SEND path (auto-ground ON) and awaited rankedVaultSearch — up to a 24MB
+whole-vault scan — with NO time bound; the fail-safe caught errors but not SLOWNESS, so a large/slow vault
+could hang the user's send. Fixed: race the search against 2500ms → send ungrounded (fail-safe to original)
+rather than block. The rest reviewed clean: checkCitations bounded to 40 with intentionally-serial scans
+(avoids 40 concurrent 24MB scans), honest verdicts, no traversal; rankedVaultSearch dedup + idempotency
+guard correct; grounding injects the user's OWN notes (trusted, not an external injection vector). Deployed
+(bound confirmed in tarball). The core path is now latency-bounded end to end (backend 300cand/24MB +
+occ-cap; renderer 2500ms send bound). Real hardening over manufactured surface.
