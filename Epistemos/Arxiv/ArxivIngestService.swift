@@ -303,7 +303,7 @@ enum ArxivIngestService {
         page.format = "markdown"
         page.filePath = materializedFiles.noteURL.standardizedFileURL.path
         page.subfolder = importDirectory
-        page.saveBody(note.markdownBody)
+        page.updateBodyDerivedState(from: note.markdownBody)
         page.wordCount = note.markdownBody.split(whereSeparator: \.isWhitespace).count
         page.lastSyncedBodyHash = SDPage.bodyHash(note.markdownBody)
         page.lastSyncedAt = .now

@@ -499,9 +499,11 @@ struct HologramNodeInspector: View {
         editorSaveTask?.cancel()
         editorSaveTask = nil
         guard lastPersistedBody != editorText else { return }
-        _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: editorText)
+        _ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: editorText)
         lastPersistedBody = editorText
-        markPageDirty(pageId: pageId, body: editorText)
+        Task { @MainActor in
+            _ = await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(pageId: pageId, body: editorText)
+        }
         NoteFileStorage.notifyBodyChanged(pageId: pageId)
     }
 
@@ -520,14 +522,13 @@ struct HologramNodeInspector: View {
             }
             guard !Task.isCancelled else { return }
             guard text != lastPersistedBody else { return }
-            guard await NoteFileStorage.writeBodyAsync(pageId: pageId, content: text) else {
+            guard await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(pageId: pageId, body: text) == true else {
                 Log.notes.error(
                     "HologramNodeInspector: failed to persist body for \(String(pageId.prefix(8)), privacy: .public)"
                 )
                 return
             }
             lastPersistedBody = text
-            markPageDirty(pageId: pageId, body: text)
             NoteFileStorage.notifyBodyChanged(pageId: pageId)
         }
     }

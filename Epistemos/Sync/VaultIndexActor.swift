@@ -570,11 +570,8 @@ actor VaultIndexActor {
                 page.subfolder = snapshot.subfolder
                 page.isJournal = snapshot.isJournal
                 page.journalDate = snapshot.journalDate
-                NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)
                 page.updateBodyDerivedState(from: snapshot.body)
                 BlockMirror.sync(pageId: snapshot.pageId, body: snapshot.body, modelContext: modelContext)
-            } else {
-                NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)
             }
             upsertSearchIndex(
                 pageId: snapshot.pageId,

@@ -152,17 +152,21 @@ struct CreateJournalIntent: AppIntent {
         let originalNeedsVaultSync = page.needsVaultSync
         page.isJournal = true
         page.journalDate = journalDate
-        page.saveBody(bodyText)
+        page.updateBodyDerivedState(from: bodyText)
         BlockMirror.sync(pageId: pageId, body: bodyText, modelContext: context)
         page.needsVaultSync = true
         do {
             try context.save()
+            guard await bootstrap.vaultSync.savePageBodyFileFirst(pageId: pageId, body: bodyText) else {
+                throw IntentError.creationFailed
+            }
         } catch {
             page.isJournal = originalIsJournal
             page.journalDate = originalJournalDate
-            page.saveBody(originalBody)
+            page.updateBodyDerivedState(from: originalBody)
             BlockMirror.sync(pageId: pageId, body: originalBody, modelContext: context)
             page.needsVaultSync = originalNeedsVaultSync
+            _ = await bootstrap.vaultSync.savePageBodyFileFirst(pageId: pageId, body: originalBody)
             Log.app.error("Journal save failed: \(error.localizedDescription, privacy: .public)")
             throw IntentError.creationFailed
         }

@@ -3579,7 +3579,7 @@ enum CodeFileCreationController {
         page.format = "code"
         page.filePath = fileURL.standardizedFileURL.path
         page.subfolder = directory.isEmpty ? nil : directory
-        page.saveBody(body)
+        page.updateBodyDerivedState(from: body)
         page.wordCount = body.split(whereSeparator: \.isWhitespace).count
         page.lastSyncedBodyHash = SDPage.bodyHash(body)
         page.lastSyncedAt = .now

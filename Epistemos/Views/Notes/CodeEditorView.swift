@@ -2777,44 +2777,19 @@ struct CodeEditorView: View {
         Lines: \(totalLines)
         """
         
-        // Use NoteWindowManager to create and open the note
         Task { @MainActor in
-            // Create a new page via SwiftData
-            if let container = AppBootstrap.shared?.modelContainer {
-                let context = ModelContext(container)
-                let newPage = SDPage(title: noteTitle)
-                let failedPageId = newPage.id
-                newPage.saveBody(noteContent)
-                newPage.wordCount = noteContent.split(separator: " ").count
-                newPage.needsVaultSync = true
-                newPage.updatedAt = .now
-                context.insert(newPage)
-                BlockMirror.sync(pageId: newPage.id, body: noteContent, modelContext: context)
-                do {
-                    try context.save()
-                    AppBootstrap.shared?.graphState.needsRefresh = true
-
-                    // Open the new note
-                    NoteWindowManager.shared.open(pageId: newPage.id)
-                } catch {
-                    context.delete(newPage)
-                    let blockDescriptor = FetchDescriptor<SDBlock>(
-                        predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
-                    )
-                    do {
-                        let transientBlocks = try context.fetch(blockDescriptor)
-                        for block in transientBlocks {
-                            context.delete(block)
-                        }
-                    } catch {
-                        Log.app.error(
-                            "CodeEditor: failed to clean transient blocks for page \(failedPageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                    NoteFileStorage.deleteBody(pageId: failedPageId)
-                    Log.app.error("CodeEditor: failed to persist note from code: \(error.localizedDescription, privacy: .public)")
-                }
+            guard let vaultSync = AppBootstrap.shared?.vaultSync,
+                  let pageId = await vaultSync.createPage(
+                    title: noteTitle,
+                    body: noteContent,
+                    allowVaultSelectionPrompt: true
+                  )
+            else {
+                Log.app.error("CodeEditor: failed to create note from code selection")
+                return
             }
+            AppBootstrap.shared?.graphState.needsRefresh = true
+            NoteWindowManager.shared.open(pageId: pageId)
         }
     }
 

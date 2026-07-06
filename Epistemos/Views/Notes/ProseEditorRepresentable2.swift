@@ -1186,11 +1186,17 @@ extension ProseEditorRepresentable2 {
                   ) else { return }
 
             page.applyInteractiveDerivedState(from: newBody)
-            guard NoteFileStorage.scheduleWriteBody(pageId: sourcePageId, content: newBody) != nil else {
+            guard NoteFileStorage.stageBodyForImmediateRead(pageId: sourcePageId, content: newBody) != nil else {
                 Log.notes.error(
                     "ProseEditorRepresentable2: failed to stage transclusion edit body for page \(String(sourcePageId.prefix(8)), privacy: .public)"
                 )
                 return
+            }
+            Task { @MainActor in
+                _ = await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(
+                    pageId: sourcePageId,
+                    body: newBody
+                )
             }
             if let modelContainer = AppBootstrap.shared?.modelContainer {
                 Task {

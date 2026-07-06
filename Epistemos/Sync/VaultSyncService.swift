@@ -3410,6 +3410,7 @@ final class VaultSyncService {
             return false
         }
         page.applyInteractiveDerivedState(from: stagedBody)
+        BlockMirror.sync(pageId: pageId, body: stagedBody, modelContext: context)
         ProseEditorView.syncNoteTitleIfNeeded(
             from: stagedBody,
             for: page,
@@ -3450,6 +3451,31 @@ final class VaultSyncService {
             log.error("Failed file-first body save for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return false
         }
+    }
+
+    @discardableResult
+    func recoverDraftIfNewer(
+        pageId: String,
+        body: String,
+        draftModificationDate: Date
+    ) async -> Bool {
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = fetchFirst(descriptor, in: context, label: "draft recovery page") else {
+            return false
+        }
+        let vaultBodyDate: Date = {
+            guard let filePath = page.filePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !filePath.isEmpty
+            else { return .distantPast }
+            let fileURL = URL(fileURLWithPath: filePath)
+            return (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate ?? .distantPast
+        }()
+        guard draftModificationDate > vaultBodyDate else {
+            return false
+        }
+        return await savePageBodyFileFirst(pageId: pageId, body: body)
     }
 
     /// Save all dirty pages to their vault .md files.

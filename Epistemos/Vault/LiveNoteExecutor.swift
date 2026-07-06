@@ -124,7 +124,7 @@ final class LiveNoteExecutor {
                 rationale: "Background live-note polling produced a candidate vault edit and queued it for human approval before any write.",
                 source: "live-note"
             ) { diff in
-                page.saveBody(diff.after)
+                page.updateBodyDerivedState(from: diff.after)
                 BlockMirror.sync(pageId: page.id, body: diff.after, modelContext: context)
                 page.filePath = diff.fileURL.path
                 page.wordCount = diff.after.split(separator: " ").count
@@ -135,7 +135,7 @@ final class LiveNoteExecutor {
                 do {
                     try context.save()
                 } catch {
-                    page.saveBody(originalBody)
+                    page.updateBodyDerivedState(from: originalBody)
                     BlockMirror.sync(pageId: page.id, body: originalBody, modelContext: context)
                     page.filePath = originalFilePath
                     page.wordCount = originalWordCount

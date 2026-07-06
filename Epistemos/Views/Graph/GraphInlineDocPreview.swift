@@ -135,24 +135,19 @@ struct GraphInlineDocPreviewCard: View {
         didLoad = true
     }
 
-    /// Persist inline edits through the EXISTING note-save path: `page.saveBody` writes the
-    /// `.md` source of truth (NoteFileStorage.writeBody) + updates derived state, then the
-    /// model context is saved — the SAME path the note editor uses. NEVER a raw file write.
-    /// Re-fetches the page on the main actor so the non-Sendable SDPage never crosses an await;
-    /// `saveBody` is synchronous. Cancel simply leaves edit mode without writing.
+    /// Persist inline edits through the same whole-buffer vault write path as the note editor.
     @MainActor
     private func save() {
         let targetId = pageId
-        var descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
-        descriptor.fetchLimit = 1
-        guard let page = try? modelContext.fetch(descriptor).first else {
+        let newBody = editedBody
+        Task { @MainActor in
+            guard await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(
+                pageId: targetId,
+                body: newBody
+            ) == true else { return }
+            bodyText = newBody
             isEditing = false
-            return
         }
-        page.saveBody(editedBody)
-        try? modelContext.save()
-        bodyText = editedBody
-        isEditing = false
     }
 }
 

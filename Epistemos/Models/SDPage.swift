@@ -375,10 +375,13 @@ final class SDPage {
     /// Stage a legacy body fallback and update derived metadata.
     ///
     /// Connected-vault saves must use `VaultSyncService.savePageBodyFileFirst`; this method
-    /// remains for pre-migration/disconnected code paths that have no vault URL yet.
+    /// remains for transitional call sites that only need same-process reads while a vault
+    /// write is being scheduled. It intentionally does not persist a sidecar body.
+    @available(*, deprecated, message: "Use VaultSyncService.savePageBodyFileFirst; SDPage body sidecars are non-canonical staging only.")
     func saveBody(_ content: String) {
-        NoteFileStorage.writeBody(pageId: id, content: content)
+        _ = NoteFileStorage.stageBodyForImmediateRead(pageId: id, content: content)
         updateBodyDerivedState(from: content)
+        needsVaultSync = true
     }
 
     func clearInlineBodyIfNeeded() {

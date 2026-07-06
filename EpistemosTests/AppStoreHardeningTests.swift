@@ -287,6 +287,59 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("KEELSTONE body truth keeps production note saves vault-md-first")
+    func keelstoneBodyTruthHasNoProductionSidecarWriters() throws {
+        let productionSources = try mirroredSourceFileURLs(
+            under: "Epistemos",
+            includingExtensions: ["swift"]
+        )
+        let forbiddenCalls = [
+            "NoteFileStorage.writeBody(",
+            "NoteFileStorage.writeBodyAsync(",
+            "NoteFileStorage.writePreparedImportedVaultBodyAsync(",
+            "NoteFileStorage.scheduleWriteBody(",
+            ".saveBody(",
+        ]
+        let allowedDefinitionFiles: Set<String> = [
+            "Epistemos/Sync/NoteFileStorage.swift",
+            "Epistemos/Models/SDPage.swift",
+        ]
+
+        var violations: [String] = []
+        for url in productionSources {
+            let relativePath = Self.relativeMirroredSourcePath(for: url)
+            guard !allowedDefinitionFiles.contains(relativePath) else { continue }
+            let source = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            for forbiddenCall in forbiddenCalls where source.contains(forbiddenCall) {
+                violations.append("\(relativePath): \(forbiddenCall)")
+            }
+        }
+
+        #expect(
+            violations.isEmpty,
+            "KEELSTONE Phase 4.5 retires durable note-bodies as truth; production code must route body persistence through VaultSyncService.savePageBodyFileFirst / AtomicVaultWriter. Violations: \(violations)"
+        )
+
+        let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let fileFirstSave = Self.sourceSection(
+            in: vaultSync,
+            startingAt: "func savePageBodyFileFirst",
+            endingBefore: "    @discardableResult\n    func recoverDraftIfNewer"
+        )
+        #expect(
+            fileFirstSave?.contains("NoteFileStorage.stageBodyForImmediateRead") == true
+                && fileFirstSave?.contains("page.applyInteractiveDerivedState(from: stagedBody)") == true
+                && fileFirstSave?.contains("BlockMirror.sync(pageId: pageId, body: stagedBody") == true
+                && fileFirstSave?.contains("exportPage(pageId: pageId, to: vaultURL, bodyOverride: stagedBody)") == true,
+            "The in-app body save path must stage only for immediate reads, refresh derived metadata, and write the exact whole buffer to the vault .md."
+        )
+        #expect(
+            fileFirstSave?.contains("NoteFileStorage.writeBody") == false
+                && fileFirstSave?.contains("page.saveBody") == false,
+            "The file-first body save path must not persist retired note-body sidecars."
+        )
+    }
+
     @Test("KEELSTONE project.yml target-scoped surface and KINDRED macros cannot drift")
     func keelstoneProjectSurfaceMacroGuardrails() throws {
         let project = try loadMirroredSourceTextFile("project.yml")
@@ -980,6 +1033,23 @@ struct AppStoreHardeningTests {
             }
             .first ?? source.endIndex
         return String(source[markerRange.lowerBound..<endIndex])
+    }
+
+    private static func relativeMirroredSourcePath(for url: URL) -> String {
+        let path = url.standardizedFileURL.path
+        if let range = path.range(of: "/SourceMirror/") {
+            return String(path[range.upperBound...])
+        }
+
+        let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .standardizedFileURL
+            .path
+        let prefix = currentDirectory.hasSuffix("/") ? currentDirectory : currentDirectory + "/"
+        if path.hasPrefix(prefix) {
+            return String(path.dropFirst(prefix.count))
+        }
+
+        return url.lastPathComponent
     }
 
     private struct KeelstonePageSnapshot: Equatable, CustomStringConvertible {

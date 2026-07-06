@@ -2257,6 +2257,9 @@ struct NoteDetailWorkspaceView: View {
         guard stageBodyWrite(pageId: pageId, fullText: fullText) else { return }
         persistedBody = fullText
         page.applyInteractiveDerivedState(from: fullText)
+        Task { @MainActor in
+            _ = await AppBootstrap.shared?.vaultSync.savePageBodyFileFirst(pageId: pageId, body: fullText)
+        }
         if let modelContainer = AppBootstrap.shared?.modelContainer {
             Task {
                 await BlockMirrorSyncCoordinator.shared.scheduleSync(
@@ -2280,7 +2283,7 @@ struct NoteDetailWorkspaceView: View {
 
     @discardableResult
     private func stageBodyWrite(pageId: String, fullText: String) -> Bool {
-        guard NoteFileStorage.scheduleWriteBody(pageId: pageId, content: fullText) != nil else {
+        guard NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: fullText) != nil else {
             Log.notes.error(
                 "NoteDetailWorkspaceView: failed to stage flushed editor body for page \(String(pageId.prefix(8)), privacy: .public)"
             )

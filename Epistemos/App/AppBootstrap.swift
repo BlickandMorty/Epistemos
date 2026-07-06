@@ -1382,13 +1382,6 @@ final class AppBootstrap {
         let interval = Log.appPerf.beginInterval("bootstrapInit")
         defer { Log.appPerf.endInterval("bootstrapInit", interval) }
 
-        // NOTE-4 (audit 2026-07-03): recover any note crash-drafts left by an unclean
-        // shutdown, before editors load. Runs off-main (file I/O only, no SwiftData) so it
-        // doesn't extend the bootstrap; reconciles straight into the durable .md.
-        Task.detached(priority: .userInitiated) {
-            NoteDraftStore.reconcileOrphanedDrafts()
-        }
-
         // USER REPORT 2026-05-12 (ISSUE-12-011 diagnostics): per-step
         // wall-clock logging so the runtime trace shows exactly which
         // bootstrap sub-step is responsible for the startup hang. The
@@ -1637,6 +1630,18 @@ final class AppBootstrap {
 
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
+        // NOTE-4 (audit 2026-07-03): recover any note crash-drafts left by an unclean
+        // shutdown, before editors load. Enumerates draft files off-main, but routes every
+        // recovery write through the canonical vault writer so `.md` remains source of truth.
+        Task.detached(priority: .userInitiated) {
+            await NoteDraftStore.reconcileOrphanedDrafts { pageId, body, draftDate in
+                await AppBootstrap.shared?.vaultSync.recoverDraftIfNewer(
+                    pageId: pageId,
+                    body: body,
+                    draftModificationDate: draftDate
+                ) == true
+            }
+        }
         if !Self.isRunningTests {
             VaultCrashRecorder.install(vaultURL: vaultSync.vaultURL)
         }
@@ -3474,14 +3479,31 @@ final class AppBootstrap {
 
 @ModelActor
 private actor BodyMigrationActor {
-    func migrateInlineBodiesToFiles() throws -> Int {
+    func migrateInlineBodiesToFiles() async throws -> Int {
         let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
         var migrated = 0
-        var migratedPageIds: [String] = []
-        migratedPageIds.reserveCapacity(pages.count)
         for page in pages where !page.body.isEmpty {
-            NoteFileStorage.writeBody(pageId: page.id, content: page.body)
-            migratedPageIds.append(page.id)
+            guard let filePath = page.filePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !filePath.isEmpty else {
+                continue
+            }
+            let fileURL = URL(fileURLWithPath: filePath)
+            let output = VaultIndexActor.shouldWriteMarkdownFrontMatter(to: fileURL)
+                ? VaultIndexActor.buildMarkdownSource(
+                    pageId: page.id,
+                    title: page.title,
+                    tags: page.tags,
+                    emoji: page.emoji,
+                    isJournal: page.isJournal,
+                    journalDate: page.journalDate,
+                    parentPageId: page.parentPageId,
+                    templateId: page.templateId,
+                    frontMatter: page.frontMatter,
+                    body: page.body
+                )
+                : page.body
+            try await AtomicVaultWriter.shared.write(output, to: fileURL)
+            page.updateBodyDerivedState(from: page.body)
             page.body = ""
             migrated += 1
         }
@@ -3491,9 +3513,6 @@ private actor BodyMigrationActor {
             } catch {
                 modelContext.rollback()
                 modelContext.processPendingChanges()
-                for pageId in migratedPageIds {
-                    NoteFileStorage.deleteBody(pageId: pageId)
-                }
                 throw error
             }
         }

@@ -143,26 +143,6 @@ final class AppCoordinator {
             CollectionRegistry.shared.setCollection("Daily Briefs", false)
         }
 
-        func discardFailedFallbackPage(_ page: SDPage) {
-            let failedPageId = page.id
-            context.delete(page)
-
-            let blockDescriptor = FetchDescriptor<SDBlock>(
-                predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
-            )
-            do {
-                for block in try context.fetch(blockDescriptor) {
-                    context.delete(block)
-                }
-            } catch {
-                Log.pipeline.error(
-                    "AppCoordinator: failed to cleanup daily brief blocks for \(failedPageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-            }
-
-            NoteFileStorage.deleteBody(pageId: failedPageId)
-        }
-
         let dupPred = #Predicate<SDPage> { $0.title == title }
         let dupDesc = FetchDescriptor<SDPage>(predicate: dupPred)
         let alreadySaved: Bool
@@ -213,24 +193,8 @@ final class AppCoordinator {
                     Log.pipeline.error("AppCoordinator: failed to fetch created daily brief \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             } else {
-                let page = SDPage(title: title, emoji: emoji)
-                page.saveBody(content)
-                page.subfolder = "Daily Briefs"
-                page.wordCount = content.split(separator: " ").count
-                page.folder = folder
-                page.tags = ["daily-brief"]
-                page.needsVaultSync = true
-                page.updatedAt = .now
-                context.insert(page)
-                BlockMirror.sync(pageId: page.id, body: content, modelContext: context)
-                do {
-                    try context.save()
-                    AppBootstrap.shared?.graphState.needsRefresh = true
-                } catch {
-                    discardFailedFallbackPage(page)
-                    discardNewDailyBriefFolderIfNeeded()
-                    Log.pipeline.error("Failed to save daily brief fallback: \(error.localizedDescription, privacy: .public)")
-                }
+                discardNewDailyBriefFolderIfNeeded()
+                Log.pipeline.error("AppCoordinator: failed to create vault-backed daily brief '\(title, privacy: .public)'")
             }
         }
     }

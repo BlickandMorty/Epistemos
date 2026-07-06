@@ -87,7 +87,7 @@ enum LiteParsePDFImportController {
         page.format = "markdown"
         page.filePath = files.noteURL.standardizedFileURL.path
         page.subfolder = importDirectory
-        page.saveBody(files.markdown)
+        page.updateBodyDerivedState(from: files.markdown)
         page.wordCount = files.markdown.split(whereSeparator: \.isWhitespace).count
         page.lastSyncedBodyHash = SDPage.bodyHash(files.markdown)
         page.lastSyncedAt = .now

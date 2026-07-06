@@ -358,7 +358,7 @@ final class TextCapturePipeline {
         var createdNoteID: String?
         if let context = modelContext {
             do {
-                createdNoteID = try persistNote(
+                createdNoteID = try await persistNote(
                     title: title,
                     summary: summary,
                     cleanedText: cleaned,
@@ -539,42 +539,20 @@ final class TextCapturePipeline {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// RCA-P0-003 migration pass: walk every managed-body file in
-    /// `NoteFileStorage` and rewrite any body that still contains a
-    /// hidden `<!-- capture-provenance: … -->` or `<!-- audio-source:
-    /// … -->` comment.
+    /// RCA-P0-003 retired migration hook.
     ///
-    /// New captures already strip these via `run(rawText:)` /
-    /// `runFromAudio(...)`. This method handles the existing-on-disk
-    /// case so vaults that pre-date the 2026-05-09 sanitizer no longer
-    /// leak metadata through raw markdown, export, or share.
+    /// KEELSTONE Phase 4.5 makes vault `.md` files the only canonical body storage.
+    /// Legacy managed-body sidecars are no longer rewritten in place; any surviving
+    /// sidecar content is sanitized only when explicitly promoted through the vault
+    /// migration path.
     ///
-    /// Idempotent — bodies without hidden comments are read, found
-    /// clean, and skipped (no write). Bounded by
-    /// `NoteFileStorage.managedBodyPageIds()` so the cost scales with
-    /// the existing vault size, not with the per-launch cost. Callers
-    /// should gate this behind a UserDefaults migration flag so it
-    /// runs exactly once across all launches.
-    ///
-    /// Returns the count of bodies actually rewritten.
+    /// Returns zero because this hook is retained solely to burn the historical
+    /// UserDefaults migration flag without performing a sidecar write.
     nonisolated static func migrateLegacyCaptureMetadataInManagedBodies(
         in directory: URL? = nil
     ) -> Int {
-        let pageIds = NoteFileStorage.managedBodyPageIds(in: directory)
-        var migrated = 0
-        for pageId in pageIds {
-            // `fast: true` skips the integrity-hash verify on read
-            // (it'd re-fire on the write below anyway) and avoids the
-            // legacy-rich-text fallback path.
-            let body = NoteFileStorage.readBody(pageId: pageId, fast: true)
-            guard !body.isEmpty else { continue }
-            let sanitized = stripHiddenCaptureMetadataComments(from: body)
-            if sanitized != body {
-                NoteFileStorage.writeBody(pageId: pageId, content: sanitized)
-                migrated += 1
-            }
-        }
-        return migrated
+        _ = directory
+        return 0
     }
 
     // MARK: - Title Extraction
@@ -795,49 +773,41 @@ final class TextCapturePipeline {
         sourceSpans: [SourceSpan],
         sourceMetadata: CaptureSourceMetadata?,
         context: ModelContext
-    ) throws -> String {
-        let page = SDPage(title: title)
+    ) async throws -> String {
+        let body = Self.stripHiddenCaptureMetadataComments(from: cleanedText)
+        guard let bootstrap = await AppBootstrap.shared,
+              let pageId = await bootstrap.vaultSync.createPage(
+                title: title,
+                body: body,
+                allowVaultSelectionPrompt: false,
+                frontMatter: sourceMetadata?.frontMatter ?? [:]
+              )
+        else {
+            throw TextCaptureError.persistenceFailed("Vault-backed note creation failed")
+        }
+
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == pageId }
+        )
+        guard let page = try context.fetch(descriptor).first else {
+            throw TextCaptureError.persistenceFailed("Created page missing from SwiftData")
+        }
         page.summary = summary
         page.wordCount = NLAnalysisService.wordCount(cleanedText)
-        let failedPageId = page.id
-
-        let body = Self.stripHiddenCaptureMetadataComments(from: cleanedText)
-
-        page.saveBody(body)
-        if let sourceMetadata {
-            page.frontMatter = sourceMetadata.frontMatter
-        }
-        page.needsVaultSync = true
         page.updatedAt = .now
 
         // Extract tags from entities for SDPage.tags
         let entityTags = entities.map { $0.text.lowercased() }
         page.tags = Array(Set(entityTags))
 
-        context.insert(page)
         BlockMirror.sync(pageId: page.id, body: body, modelContext: context)
         do {
             try context.save()
         } catch {
-            context.delete(page)
-            let blockDescriptor = FetchDescriptor<SDBlock>(
-                predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
-            )
-            do {
-                let transientBlocks = try context.fetch(blockDescriptor)
-                for block in transientBlocks {
-                    context.delete(block)
-                }
-            } catch {
-                log.error(
-                    "TextCapturePipeline: failed to clean transient blocks for \(failedPageId, privacy: .public) — \(error.localizedDescription, privacy: .public)"
-                )
-            }
-            NoteFileStorage.deleteBody(pageId: failedPageId)
             throw TextCaptureError.persistenceFailed(error.localizedDescription)
         }
 
-        return page.id
+        return pageId
     }
 
     // MARK: - Graph Write

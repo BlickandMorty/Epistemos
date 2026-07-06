@@ -63,7 +63,9 @@ nonisolated enum NoteDraftStore {
     /// At launch: recover any draft that is newer than its durable body (a crash orphan)
     /// and clear the rest. Safe to call before any editor loads — it reconciles straight
     /// into the durable `.md` so editors then load the recovered content naturally.
-    static func reconcileOrphanedDrafts() {
+    static func reconcileOrphanedDrafts(
+        recover: @Sendable (String, String, Date) async -> Bool
+    ) async {
         guard let dir = directory(create: false),
               let items = try? FileManager.default.contentsOfDirectory(
                 at: dir,
@@ -80,12 +82,12 @@ nonisolated enum NoteDraftStore {
                   !draftBody.isEmpty else { continue }
             let draftDate = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?
                 .contentModificationDate ?? .distantPast
-            let bodyDate = NoteFileStorage.bodyModificationDate(pageId: pageId) ?? .distantPast
             // Only recover when the draft is strictly newer than the durable body — if the
             // .md already caught up (clean save) or was updated externally after the crash,
-            // the draft is stale and just gets cleared by the defer above.
-            guard draftDate > bodyDate else { continue }
-            NoteFileStorage.writeBody(pageId: pageId, content: draftBody)
+            // the draft is stale and just gets cleared by the defer above. The vault service
+            // owns that comparison because the canonical mtime lives on the vault `.md`, not
+            // in the retired managed body cache.
+            guard await recover(pageId, draftBody, draftDate) else { continue }
             recovered += 1
         }
         if recovered > 0 {
