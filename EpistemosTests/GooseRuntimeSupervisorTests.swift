@@ -831,6 +831,10 @@ struct GooseRuntimeSupervisorTests {
     }
 }
 
+// The Goose WebView/Electron surface was intentionally excised in 0b10f728b.
+// Keep historical resolver, shim, affordance, and Electron coverage opt-in until
+// that surface is restored.
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @Suite("Goose Web UI resolver")
 struct GooseWebUIResolverTests {
     @Test("resolver prefers an explicit staged Goose Web UI index")
@@ -3153,6 +3157,7 @@ struct GooseElectronFallbackLauncherTests {
     }
 }
 #endif
+#endif
 
 private func temporaryDirectory() throws -> URL {
     let url = FileManager.default.temporaryDirectory
@@ -3176,6 +3181,7 @@ private func startGooseSurfaceTestServer(_ server: WorkSPAServer) async throws -
     throw GooseSurfaceTestError.serverDidNotStart
 }
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 #if !EPISTEMOS_APP_STORE
 private func makeGooseElectronFallbackWorkspace() throws -> GooseElectronFallbackWorkspace {
     let repoRoot = try temporaryDirectory()
@@ -3198,7 +3204,9 @@ private func makeGooseElectronFallbackWorkspace() throws -> GooseElectronFallbac
     return GooseElectronFallbackWorkspace(repoRoot: repoRoot, uiRoot: uiRoot, pnpm: pnpm)
 }
 #endif
+#endif
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 private let gooseACPWebUIBridgeFixtureSource = """
 providersList_unstable
 providersCatalogList_unstable
@@ -3234,6 +3242,7 @@ private func writeGooseACPWebUIManifest(nextTo indexURL: URL) throws {
     {"schemaVersion":1,"source":"test","acpMode":true}
     """.write(to: manifest, atomically: true, encoding: .utf8)
 }
+#endif
 
 private func createSparseFile(_ url: URL, size: Int) throws {
     FileManager.default.createFile(atPath: url.path, contents: nil)

@@ -1633,6 +1633,9 @@ struct GooseACPEventBridgeTests {
     }
 }
 
+// The Goose WebView surface was intentionally excised in 0b10f728b. Keep
+// historical WebView prompt-bridge coverage opt-in until that surface is restored.
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @Suite("Goose Web native prompt bridge")
 @MainActor
 struct GooseWebNativePromptBridgeTests {
@@ -1905,6 +1908,7 @@ private final class GoosePromptReplyCapture {
         self.error = error
     }
 }
+#endif
 
 actor GooseACPMemoryTransport: GooseACPTransport {
     private var incoming: [String]

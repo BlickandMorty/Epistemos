@@ -234,6 +234,9 @@ struct GooseLiveIntegrationTests {
         }
     }
 
+    // The Goose WebView/Electron surface was intentionally excised in 0b10f728b.
+    // Keep historical live coverage opt-in until that surface is restored.
+    #if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
     @Test(
         "live Goose WebView boots the staged web UI through the narrow shim"
     )
@@ -514,8 +517,10 @@ struct GooseLiveIntegrationTests {
         }
     }
     #endif
+    #endif
 }
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @MainActor
 private func runGooseWebNativeAffordanceProbe(
     page: WebPage,
@@ -620,6 +625,7 @@ nonisolated private func gooseLiveJavaScriptStringLiteral(_ value: String) -> St
     let data = try? JSONEncoder().encode(value)
     return data.flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
 }
+#endif
 
 nonisolated private func liveGooseBinaryURL() -> URL? {
     if let binaryPath = ProcessInfo.processInfo.environment["EPISTEMOS_GOOSE_BINARY"],
@@ -644,6 +650,7 @@ nonisolated func liveRepoRootURL() -> URL {
         .deletingLastPathComponent()
 }
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @MainActor
 func withFreshGooseWebUIArtifact<T>(
     proofName: String,
@@ -740,6 +747,7 @@ private func stageFreshGooseWebUIArtifact(outputDirectory: URL, repoRoot: URL) t
         )
     }
 }
+#endif
 
 @MainActor
 func withLiveGooseACPClient<T>(
@@ -903,6 +911,7 @@ nonisolated private func waitForPermissionToolResult(
     }
 }
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @MainActor
 func waitForGooseWebBootProbe(
     page: WebPage,
@@ -1061,6 +1070,7 @@ private func electronCDPData(path: String, port: Int) async -> Data? {
         return nil
     }
 }
+#endif
 #endif
 
 func redactedACPURL(_ url: URL) -> String {
@@ -1257,6 +1267,7 @@ enum GooseLiveIntegrationError: LocalizedError {
     }
 }
 
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 struct GooseWebBootProbe: Decodable, Sendable {
     let readyState: String
     let href: String
@@ -1338,6 +1349,7 @@ private struct ElectronCDPVersion: Decodable, Sendable {
         case browser = "Browser"
     }
 }
+#endif
 #endif
 
 private extension String {

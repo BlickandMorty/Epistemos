@@ -87,10 +87,14 @@ final class ProAgentRuntimeSupervisor {
     nonisolated static let portAllocationAttempts = 48
     nonisolated static let readinessTimeout: Duration = .seconds(40)
     nonisolated static let healthProbeTimeout: TimeInterval = 5
-
-    nonisolated private static let subprocessEnvironmentAllowlist: Set<String> = [
-        "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
-    ]
+    nonisolated static let maxSubprocessEnvironmentValueCharacters =
+        ProAgentSubprocessEnvironment.maxSubprocessEnvironmentValueCharacters
+    nonisolated static let maxSubprocessPathCharacters =
+        ProAgentSubprocessEnvironment.maxSubprocessPathCharacters
+    nonisolated static let maxSubprocessPathEntryCharacters =
+        ProAgentSubprocessEnvironment.maxSubprocessPathEntryCharacters
+    nonisolated static let maxSubprocessPathEntries =
+        ProAgentSubprocessEnvironment.maxSubprocessPathEntries
     /// Provider env keys bridged Keychain -> opencode child env at spawn
     /// (Plan 1-PRO §4.5 — keys live in Keychain, never in the binary or
     /// webview JS; the env crosses exactly one process boundary). Resolution
@@ -100,12 +104,6 @@ final class ProAgentRuntimeSupervisor {
         "OPENROUTER_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
         "DEEPSEEK_API_KEY", "HF_TOKEN",
     ]
-    nonisolated private static let canonicalToolPathDirectories: [String] = [
-        "/opt/homebrew/bin", "/opt/homebrew/sbin",
-        "/usr/local/bin", "/usr/local/sbin",
-        "/usr/bin", "/bin", "/usr/sbin", "/sbin",
-    ]
-
     private(set) var status: Status = .idle
     private(set) var lastDiagnostic: String?
 
@@ -729,19 +727,7 @@ final class ProAgentRuntimeSupervisor {
         binaryDirectories: [URL],
         base: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String: String] {
-        var env: [String: String] = [:]
-        for (key, value) in base where subprocessEnvironmentAllowlist.contains(key) {
-            env[key] = value
-        }
-        var pathEntries: [String] = binaryDirectories.map(\.path)
-        if let inherited = base["PATH"] {
-            pathEntries += inherited.split(separator: ":", omittingEmptySubsequences: true).map(String.init)
-        }
-        pathEntries += canonicalToolPathDirectories
-        pathEntries += userToolPathDirectories(home: base["HOME"])
-        var seen: Set<String> = []
-        env["PATH"] = pathEntries.filter { seen.insert($0).inserted }.joined(separator: ":")
-        return env
+        ProAgentSubprocessEnvironment.childEnvironment(binaryDirectories: binaryDirectories, base: base)
     }
 
     /// User-installed CLI tool directories. goose's configured CLI-passthrough
@@ -754,24 +740,13 @@ final class ProAgentRuntimeSupervisor {
     /// library-injection denylist (DYLD_*/LD_PRELOAD stay stripped) or bridging
     /// any secret.
     nonisolated static func userToolPathDirectories(home: String?) -> [String] {
-        guard let home, !home.isEmpty else { return [] }
-        return ["\(home)/.local/bin", "\(home)/bin"]
+        ProAgentSubprocessEnvironment.userToolPathDirectories(home: home)
     }
 
     /// Prepend the user tool dirs to an already-built PATH (for children whose env
     /// is built elsewhere, e.g. goosed via GooseRuntimeSupervisor.processEnvironment).
     nonisolated static func withUserToolPath(_ env: [String: String]) -> [String: String] {
-        var out = env
-        let home = env["HOME"] ?? ProcessInfo.processInfo.environment["HOME"]
-        let userDirs = userToolPathDirectories(home: home)
-        guard !userDirs.isEmpty else { return out }
-        var entries = userDirs
-        if let existing = out["PATH"] {
-            entries += existing.split(separator: ":", omittingEmptySubsequences: true).map(String.init)
-        }
-        var seen: Set<String> = []
-        out["PATH"] = entries.filter { seen.insert($0).inserted }.joined(separator: ":")
-        return out
+        ProAgentSubprocessEnvironment.withUserToolPath(env)
     }
 
     /// Node runtime resolution. Release builds resolve ONLY trusted bundled

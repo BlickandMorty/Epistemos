@@ -3,6 +3,9 @@ import Testing
 import WebKit
 @testable import Epistemos
 
+// The Goose WebView surface was intentionally excised in 0b10f728b.
+// Keep historical renderer-route coverage opt-in until that surface is restored.
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @Suite("Goose Web route live integration", .serialized)
 struct GooseWebRouteLiveIntegrationTests {
     @Test(
@@ -639,3 +642,4 @@ private func javaScriptStringLiteral(_ value: String) -> String {
     }
     return String(json.dropFirst().dropLast())
 }
+#endif

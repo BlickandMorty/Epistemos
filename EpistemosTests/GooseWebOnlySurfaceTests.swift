@@ -5,11 +5,13 @@ import Testing
 // Goose web-only surface guards.
 //
 // Two layers:
-//  1. Source invariants (pure, always run): prove the retired native-route router/toggles and
-//     native route panels are gone after the owner cut the native rail and per-route panels.
+//  1. Legacy source invariants (opt-in): historical checks for the deleted WebView-only surface.
 //  2. Live parity (gated on a real Goose runtime): prove the Goose ACP provider/defaults data
-//     source stays live-enumerated while the product path stays Goose WebView-only.
+//     source stays live-enumerated.
 
+// The Goose WebView surface was intentionally excised in 0b10f728b. Keep
+// historical source-invariant coverage opt-in until that surface is restored.
+#if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
 @Suite("Goose web-only surface source invariants")
 @MainActor
 struct GooseWebOnlySurfaceSourceTests {
@@ -596,6 +598,7 @@ struct GooseWebOnlySurfaceSourceTests {
         #expect(!healthRow.contains("GooseNativeModelsView("))
     }
 }
+#endif
 
 @Suite("Goose provider/defaults ACP data-source parity", .serialized)
 @MainActor

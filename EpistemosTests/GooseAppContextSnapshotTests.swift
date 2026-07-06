@@ -88,6 +88,9 @@ struct GooseAppContextSnapshotTests {
         #expect(snapshot.activeNote?.title == "Real note title")
     }
 
+    // The Goose WebView bridge was intentionally excised in 0b10f728b.
+    // Keep the historical source guard opt-in until that bridge is restored.
+    #if EPISTEMOS_LEGACY_GOOSE_WEBVIEW
     @Test("Goose WebView exposes context snapshot through the narrow native bridge")
     func bridgeSourceGuards() throws {
         let snapshotSource = try loadMirroredSourceTextFile("Epistemos/Goose/GooseAppContextSnapshot.swift")
@@ -122,4 +125,5 @@ struct GooseAppContextSnapshotTests {
         #expect(staging.contains("Attach Epistemos context"))
         #expect(staging.contains("BookOpen"))
     }
+    #endif
 }
