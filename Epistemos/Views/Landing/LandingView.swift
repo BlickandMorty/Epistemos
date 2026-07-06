@@ -430,12 +430,19 @@ struct LandingView: View {
         // so the two 30Hz stitchable shader layers were pure hidden GPU work in
         // `.graph` mode. The inactive branch renders the identical `base` color,
         // so the swap is invisible even through any residual alpha.
+        // Owner 2026-07-05: the cursor-follow "liquid trail" is GONE (cursor: nil). The greeting
+        // still shifts with the cursor — that path is separate (cursorLocation → greeting offset,
+        // untouched). The gradient animation is now Ember/Platinum + DARK only, SUPER-SUBTLE, and
+        // OFF on every light theme + on Classic (Classic keeps only the greeting cursor shift).
         LiquidMetalSurface(
             base: AppWindowBackdropStyle.background(for: theme),
             accent: theme.resolved.accent.color,
-            intensity: theme.isDark ? 0.11 : 0.13,
-            active: !ui.windowOccluded && ui.homeContent != .graph,
-            cursor: cursorLocation
+            intensity: 0.04,
+            active: theme.isDark
+                && [ThemePair.ember, .platinumViolet].contains(theme.themePair)
+                && !ui.windowOccluded
+                && ui.homeContent != .graph,
+            cursor: nil
         )
         .ignoresSafeArea()
     }
