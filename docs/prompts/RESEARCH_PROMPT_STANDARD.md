@@ -26,11 +26,13 @@ both. A research/plan artifact carrying ID `X` may never silently absorb content
 Codenames are deliberately distinctive nouns with no generic overlap. Do not reuse, abbreviate, or
 invent new ones without adding a row here first (this table is the single source of truth).
 
-Registry notes (2026-07-06): Plan 9 keeps its existing canon (`PROMPT_PLAN_9_DATA_TABLES.md` +
-adjudication — owner-declared good, NOT re-researched); the RECKONER row exists so its future
-research/plan artifacts file collision-free and other plans can name its seams by ID. Plan 10
-(Experimental/1Code surface) and Plans 1/3 retain their existing canonical names outside this
-registry — they predate it and are not re-research targets.
+Registry notes (2026-07-06): Plan 9's engine canon (`PROMPT_PLAN_9_DATA_TABLES.md` + adjudication,
+clone-verified) stands, but its PRODUCT SHAPE was reshaped the same day (room cut → triad piece;
+see the canon's RESHAPE + §0 supersession map) — the official re-research brief for the new
+direction is `RESEARCH_PROMPT_PLAN_9_RECKONER.md` (hardens the reshape against LUMENLENS+KINDRED;
+engine keystones are locked, not re-litigated). Plan 10 (Experimental/1Code surface) and Plans 1/3
+retain their existing canonical names outside this registry — they predate it and are not
+re-research targets.
 
 ### 2.1 Filename templates (enforced)
 - Research **prompt** (this repo, already written): `RESEARCH_PROMPT_PLAN_<N>_<TOPIC>.md`, carrying
