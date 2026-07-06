@@ -52,6 +52,12 @@ and retrieval/cite-check silently return empty on REAL notes. Two mechanisms, co
   whether the notes live under `notes/` (shadow) or elsewhere (needs whole-vault fs) — don't assume the
   index is "broken."
 
+- **Graph-aware expansion (Cycle-11):** the vault's graph IS its `[[wikilinks]]`. After the base
+  search, pull the top hit's outlink neighbors (parse `[[...]]` from its content, resolve each title to
+  a real vault note via the cached file list, skip dangling links) as extra grounding context tagged
+  "(linked from X)". Backend-only, no UI. This is graph-aware context assembly with zero graph engine —
+  the personal-concept-graph moat the field study says standalone apps structurally lack.
+
 ## Reuse targets (later cycles compose THIS)
 - Cross-session memory: swap `.notes` retrieval for the graph (`graph.traverse` /
   `graph.search_semantic`) to pull "what we decided last time".
