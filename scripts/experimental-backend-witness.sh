@@ -72,6 +72,11 @@ check "cite-repair: hallucinated citation → nearest real note (did-you-mean)" 
   '"title": "Gamma Service"' "$(call epistemosVault.nearest '{"json":{"title":"Gamma Servicing Plan"}}' | jget)"
 check "cite-repair: unrelated citation → NO false suggestion" \
   '"suggestion": null' "$(call epistemosVault.nearest '{"json":{"title":"Quantum Teleportation Xyz"}}' | jget)"
+# Edge/degenerate-input robustness (verified: no crash, empty result — the fresh-user/empty paths).
+check "edge: no-match search returns empty (no crash)" \
+  '"hits": \[\]' "$(call epistemosVault.search '{"json":{"query":"zzznomatchzzz","limit":5,"graph":true}}' | jget)"
+check "edge: sub-4-char-token title → no suggestion (token filter)" \
+  '"suggestion": null' "$(call epistemosVault.nearest '{"json":{"title":"a b c"}}' | jget)"
 check "graph: outlink neighbor surfaced" \
   'linked from Alpha Project' "$(call epistemosVault.search '{"json":{"query":"alpha","limit":8,"graph":true}}' | jget)"
 check "graph: backlink surfaced (references, no query-term match)" \
