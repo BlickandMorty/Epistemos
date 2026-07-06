@@ -187,40 +187,7 @@ nonisolated enum VaultVerifiedFileWriter {
     }
 
     private static func writeAtomically(_ content: String, to fileURL: URL) throws {
-        let data = Data(content.utf8)
-        let tempURL = fileURL
-            .deletingLastPathComponent()
-            .appendingPathComponent(".\(fileURL.lastPathComponent).\(UUID().uuidString).tmp", isDirectory: false)
-        var didRename = false
-        defer {
-            if !didRename {
-                try? FileManager.default.removeItem(at: tempURL)
-            }
-        }
-
-        let fd = tempURL.path.withCString { path in
-            open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
-        }
-        guard fd >= 0 else {
-            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
-        }
-        defer { _ = close(fd) }
-
-        try data.withUnsafeBytes { rawBuffer in
-            guard let baseAddress = rawBuffer.baseAddress else { return }
-            var offset = 0
-            while offset < rawBuffer.count {
-                let written = write(fd, baseAddress.advanced(by: offset), rawBuffer.count - offset)
-                guard written > 0 else {
-                    throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
-                }
-                offset += written
-            }
-        }
-        guard rename(tempURL.path, fileURL.path) == 0 else {
-            throw VaultChatMutatorError.unsafeFileTarget(path: fileURL.path)
-        }
-        didRename = true
+        try AtomicVaultWriter.writeSynchronously(content, to: fileURL)
     }
 
     static func readUTF8(from fileURL: URL) throws -> String {

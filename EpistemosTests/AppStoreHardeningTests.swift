@@ -166,6 +166,37 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("VaultChatMutator verified writer keeps target validation but uses AtomicVaultWriter")
+    func vaultChatMutatorVerifiedWriterUsesAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/VaultChatMutator.swift")
+        let writer = Self.sourceSection(
+            in: source,
+            startingAt: "nonisolated enum VaultVerifiedFileWriter",
+            endingBefore: "\n@MainActor @Observable\nfinal class VaultChatMutator"
+        )
+        let writeAtomically = Self.sourceSection(
+            in: source,
+            startingAt: "private static func writeAtomically",
+            endingBefore: "    static func readUTF8"
+        )
+
+        #expect(
+            writer?.contains("try validateWritableTarget(fileURL)") == true
+                && writer?.contains("let persistedContent = try readBack(fileURL)") == true,
+            "VaultChatMutator must preserve regular single-link validation and readback verification around approved agent vault writes."
+        )
+        #expect(
+            writeAtomically?.contains("try AtomicVaultWriter.writeSynchronously(content, to: fileURL)") == true,
+            "Approved agent vault writes must use the coordinated temp-replace spine."
+        )
+        #expect(
+            writeAtomically?.contains("rename(") == false
+                && writeAtomically?.contains("Data(content.utf8)") == false
+                && writeAtomically?.contains("FileManager.default.removeItem") == false,
+            "VaultChatMutator must not bypass NSFileCoordinator with its old POSIX temp+rename writer."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory
