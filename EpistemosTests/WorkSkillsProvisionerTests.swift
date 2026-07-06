@@ -174,6 +174,71 @@ struct WorkSkillsProvisionerTests {
         #expect(FileManager.default.fileExists(atPath: dest.appendingPathComponent("vault-only/SKILL.md").path))
     }
 
+    @Test("provisionedSkills lists runtime-visible manifests with bounded display metadata")
+    func provisionedSkillsListsRuntimeVisibleManifests() throws {
+        let ws = tmp(); defer { try? FileManager.default.removeItem(at: ws) }
+        let src = tmp(); defer { try? FileManager.default.removeItem(at: src) }
+        makeSkill(src, "alpha-review", body: """
+        ---
+        name: Alpha Reviewer
+        description: Review Work changes before launch.
+        ---
+        # Ignored heading
+        Body fallback
+        """)
+        makeSkill(src, "body-fallback", body: """
+        ---
+        name: Body Fallback
+        ---
+        # Body Fallback
+
+        Use this when description is absent.
+        """)
+
+        #expect(WorkSkillsProvisioner.provisionSkills(from: src, into: ws) == 2)
+
+        let skills = WorkSkillsProvisioner.provisionedSkills(workspace: ws)
+        try #require(skills.count == 2)
+        #expect(skills.map(\.id) == ["alpha-review", "body-fallback"])
+        #expect(skills[0].title == "Alpha Reviewer")
+        #expect(skills[0].description == "Review Work changes before launch.")
+        #expect(skills[1].title == "Body Fallback")
+        #expect(skills[1].description == "Use this when description is absent.")
+    }
+
+    @Test("provisionedSkills skips linked manifests and linked runtime directories")
+    func provisionedSkillsSkipsLinkedRuntimeManifests() throws {
+        let ws = tmp(); defer { try? FileManager.default.removeItem(at: ws) }
+        let outside = tmp(); defer { try? FileManager.default.removeItem(at: outside) }
+        let fm = FileManager.default
+        let destination = WorkSkillsProvisioner.skillsDestination(workspace: ws)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+
+        makeSkill(destination, "safe", body: "Safe runtime skill.")
+        makeSkill(outside, "outside", body: "Outside runtime skill.")
+        try fm.createSymbolicLink(
+            at: destination.appendingPathComponent("linked-dir", isDirectory: true),
+            withDestinationURL: outside.appendingPathComponent("outside", isDirectory: true)
+        )
+        let linkedManifest = destination.appendingPathComponent("linked-manifest", isDirectory: true)
+        try fm.createDirectory(at: linkedManifest, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(
+            at: linkedManifest.appendingPathComponent("SKILL.md", isDirectory: false),
+            withDestinationURL: outside.appendingPathComponent("outside/SKILL.md", isDirectory: false)
+        )
+
+        #expect(WorkSkillsProvisioner.provisionedSkills(workspace: ws).map(\.id) == ["safe"])
+        #expect(WorkAppContextSnapshot.current(workspace: ws, vaultRoot: nil, nativeToolsAvailable: true).managedSkillsCount == 1)
+    }
+
+    @Test("Work engines panel surfaces the runtime skills browser from Work context")
+    func enginesPanelSurfacesRuntimeSkillsBrowser() throws {
+        let panel = try loadMirroredSourceTextFile("Epistemos/Work/WorkEnginesPanelView.swift")
+        #expect(panel.contains("label(\"RUNTIME SKILLS\")"))
+        #expect(panel.contains("WorkSkillsProvisioner.provisionedSkills(workspace:"))
+        #expect(panel.contains("ForEach(skills.prefix(6))"))
+    }
+
     @Test("primary native Work startup provisions skills before starting the OpenGUI runtime")
     func primaryNativeStartupProvisionsSkills() throws {
         let surface = try loadMirroredSourceTextFile("Epistemos/Work/WorkEngineSurfaceView.swift")

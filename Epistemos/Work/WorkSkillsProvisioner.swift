@@ -1,6 +1,12 @@
 import Darwin
 import Foundation
 
+struct WorkProvisionedSkill: Sendable, Hashable, Identifiable {
+    let id: String
+    let title: String
+    let description: String
+}
+
 // W-R4 skills provisioning (audit wm2xomprr): OpenCode/OpenWork discover skills from `<workspace>/.opencode/skills/`
 // (+ .claude/skills + global ~/.config/opencode/skills etc.). Our embed provisions NONE → the Skills panel is empty
 // by construction. This copies skills INTO `<workspace>/.opencode/skills/` so they work out-of-the-box, with no
@@ -12,6 +18,8 @@ import Foundation
 //  • a bundled default set at `Resources/openwork-skills/` (once staged) → baseline skills on any workspace.
 // Idempotent: never clobbers a skill already present in the destination (so user/manual skills survive).
 enum WorkSkillsProvisioner {
+    private static let maxSkillManifestBytes = 256 * 1024
+
     /// The dir OpenCode reads project skills from.
     nonisolated static func skillsDestination(workspace: URL) -> URL {
         workspace.appendingPathComponent(".opencode/skills", isDirectory: true)
@@ -95,6 +103,42 @@ enum WorkSkillsProvisioner {
         return regularSingleLinkFileExists(url.appendingPathComponent("SKILL.md", isDirectory: false))
     }
 
+    nonisolated static func provisionedSkills(
+        workspace: URL,
+        fileManager: FileManager = .default
+    ) -> [WorkProvisionedSkill] {
+        let root = skillsDestination(workspace: workspace)
+        guard directoryExists(root, fileManager: fileManager),
+              let entries = try? fileManager.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+              ) else {
+            return []
+        }
+
+        return entries.compactMap { entry -> WorkProvisionedSkill? in
+            guard isSkillDirectory(entry, fileManager: fileManager) else { return nil }
+            guard let content = safeSkillManifestContent(
+                entry.appendingPathComponent("SKILL.md", isDirectory: false)
+            ) else {
+                return nil
+            }
+            let frontmatter = parseFrontmatter(content)
+            let identifier = entry.lastPathComponent
+            return WorkProvisionedSkill(
+                id: identifier,
+                title: cleanDisplayText(frontmatter["name"]) ?? humanizedIdentifier(identifier),
+                description: cleanDisplayText(frontmatter["description"])
+                    ?? firstMeaningfulMarkdownLine(in: content)
+                    ?? "No description provided."
+            )
+        }
+        .sorted { lhs, rhs in
+            lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
     private nonisolated static func directoryExists(_ url: URL, fileManager: FileManager) -> Bool {
         guard let status = fileStatus(url, followSymlinks: false) else { return false }
         return (status.st_mode & S_IFMT) == S_IFDIR
@@ -126,6 +170,105 @@ enum WorkSkillsProvisioner {
     private nonisolated static func regularSingleLinkFileExists(_ url: URL) -> Bool {
         guard let status = fileStatus(url, followSymlinks: false) else { return false }
         return (status.st_mode & S_IFMT) == S_IFREG && status.st_nlink == 1
+    }
+
+    private nonisolated static func safeSkillManifestContent(_ url: URL) -> String? {
+        let fd = url.path.withCString { path in
+            open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard fd >= 0 else { return nil }
+
+        var status = stat()
+        guard fstat(fd, &status) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_nlink == 1,
+              status.st_size >= 0,
+              status.st_size <= maxSkillManifestBytes else {
+            close(fd)
+            return nil
+        }
+
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd(),
+              data.count <= maxSkillManifestBytes else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private nonisolated static func parseFrontmatter(_ content: String) -> [String: String] {
+        let lines = content.components(separatedBy: .newlines)
+        guard lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "---" else { return [:] }
+
+        var values: [String: String] = [:]
+        for line in lines.dropFirst() {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed == "---" { break }
+            let parts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            if key == "name" || key == "description" {
+                values[key] = value
+            }
+        }
+        return values
+    }
+
+    private nonisolated static func firstMeaningfulMarkdownLine(in content: String) -> String? {
+        let lines = content.components(separatedBy: .newlines)
+        var startIndex = lines.startIndex
+        if lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "---" {
+            startIndex = lines.index(after: lines.startIndex)
+            while startIndex < lines.endIndex {
+                let trimmed = lines[startIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+                startIndex = lines.index(after: startIndex)
+                if trimmed == "---" { break }
+            }
+        }
+
+        for line in lines[startIndex...] {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty,
+                  !trimmed.hasPrefix("#"),
+                  !trimmed.hasPrefix("---") else {
+                continue
+            }
+            return cleanDisplayText(trimmed)
+        }
+        return nil
+    }
+
+    private nonisolated static func cleanDisplayText(_ rawValue: String?) -> String? {
+        let bounded = String((rawValue ?? "").prefix(180))
+        var normalized = ""
+        normalized.reserveCapacity(bounded.count)
+        var previousWasSpace = false
+        for scalar in bounded.unicodeScalars where !CharacterSet.controlCharacters.contains(scalar) {
+            let isWhitespace = CharacterSet.whitespacesAndNewlines.contains(scalar)
+            if isWhitespace {
+                if !previousWasSpace {
+                    normalized.append(" ")
+                    previousWasSpace = true
+                }
+            } else {
+                normalized.unicodeScalars.append(scalar)
+                previousWasSpace = false
+            }
+        }
+        let trimmed = normalized.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private nonisolated static func humanizedIdentifier(_ identifier: String) -> String {
+        let words = identifier
+            .split(whereSeparator: { $0 == "-" || $0 == "_" || $0 == "." })
+            .map { word in
+                word.prefix(1).uppercased() + word.dropFirst()
+            }
+        let title = words.joined(separator: " ")
+        return title.isEmpty ? identifier : title
     }
 
     private nonisolated static func copySkillDirectory(

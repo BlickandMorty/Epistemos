@@ -36,6 +36,17 @@ struct WorkEnginesPanelView: View {
                 Divider().overlay(theme.border).padding(.vertical, 4)
                 label("EPISTEMOS CONTEXT")
                 ForEach(context.rows()) { row in contextRow(row) }
+                Divider().overlay(theme.border).padding(.vertical, 4)
+                label("RUNTIME SKILLS")
+                let skills = provisionedSkills
+                if skills.isEmpty {
+                    emptySkillRow
+                } else {
+                    ForEach(skills.prefix(6)) { skill in skillRow(skill) }
+                    if skills.count > 6 {
+                        capabilityRow("more", skills.count - 6)
+                    }
+                }
             }
             if !resources.providers.isEmpty {
                 Divider().overlay(theme.border).padding(.vertical, 4)
@@ -139,6 +150,44 @@ struct WorkEnginesPanelView: View {
         }
         .padding(.vertical, 1)
         .frame(minHeight: 18)
+    }
+
+    private var provisionedSkills: [WorkProvisionedSkill] {
+        guard let workspacePath = context.workspacePath else { return [] }
+        return WorkSkillsProvisioner.provisionedSkills(workspace: URL(fileURLWithPath: workspacePath))
+    }
+
+    private var emptySkillRow: some View {
+        Text("none visible")
+            .font(WorkPixelFont.body(11))
+            .foregroundStyle(theme.mutedForeground)
+            .padding(.vertical, 1)
+            .frame(minHeight: 18, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func skillRow(_ skill: WorkProvisionedSkill) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Text(skill.title)
+                    .font(WorkPixelFont.body(11, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+                Text(skill.id)
+                    .font(WorkPixelFont.body(9))
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 96, alignment: .trailing)
+            }
+            Text(skill.description)
+                .font(WorkPixelFont.body(10))
+                .foregroundStyle(theme.mutedForeground)
+                .lineLimit(2)
+                .truncationMode(.tail)
+        }
+        .padding(.vertical, 2)
     }
 }
 

@@ -23,3 +23,11 @@
 - Use for: shared Prompt Forge APIs, System Prompt Forge, authored Pattern Library seeds, composer review UX, app/vault context grounding, and pre-send prompt transformation guardrails.
 - Cycle breakthrough: Prompt Forge now has a shared deterministic core, System Prompt Forge has authored pattern layering, and the Work composer shows a native review before upgraded prompts reach the engine or queue.
 - Next leverage: expose the same core to OpenChamber's hosted SPA through an allowed host bridge or native overlay without editing donor web code.
+
+## proshell-runtime-skill-visibility
+
+- Path: `.claude/skills/proshell-runtime-skill-visibility/SKILL.md`
+- Class: ProShell runtime-visible skill inventory and user-facing skill-library surfacing.
+- Use for: Work/OpenCode, Goose/OpenChamber, or shared-shell surfaces that need to show which user skills the running agent can actually see without editing the protected Vault/Rust skill kernel.
+- Cycle breakthrough: Work now exposes a safe read-only inventory of provisioned `.opencode/skills` manifests and renders the runtime-visible skills in the native engines panel.
+- Next leverage: connect the same inventory shape to Goose ACP skill injection/outcome recording once the protected kernel exposes the missing evolution wires.

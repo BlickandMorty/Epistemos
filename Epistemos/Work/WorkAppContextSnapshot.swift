@@ -74,9 +74,9 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
         WorkAppContextSnapshot(
             workspacePath: workspace.standardizedFileURL.path,
             vaultPath: vaultRoot?.standardizedFileURL.path,
-            managedSkillsCount: countSkillDirectories(
-                in: WorkSkillsProvisioner.skillsDestination(workspace: workspace),
-                fileManager: fileManager),
+            managedSkillsCount: WorkSkillsProvisioner
+                .provisionedSkills(workspace: workspace, fileManager: fileManager)
+                .count,
             nativeToolsAvailable: nativeToolsAvailable,
             appMode: "work",
             selectedEngine: selectedEngine,
@@ -157,18 +157,6 @@ struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
             return #"{"available":false}"#
         }
         return string
-    }
-
-    private static func countSkillDirectories(in root: URL, fileManager: FileManager) -> Int {
-        guard let entries = try? fileManager.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles])
-        else { return 0 }
-        return entries.filter { entry in
-            guard (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { return false }
-            return fileManager.fileExists(atPath: entry.appendingPathComponent("SKILL.md").path)
-        }.count
     }
 
     private static func clean(_ value: String?, limit: Int) -> String? {
