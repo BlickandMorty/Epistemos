@@ -830,9 +830,8 @@ actor VaultIndexActor {
                 let existingPage = existingByPath[filePath] ?? existingByPath[Self.canonicalFilePath(filePath)]
                 if let existingPage {
                     let currentVaultFileFingerprint = Self.largeVaultFileFingerprint(for: fileURL)
-                    let hasManagedBody = NoteFileStorage.bodyExists(pageId: existingPage.id)
                     if existingPage.lastSyncedBodyHash == currentVaultFileFingerprint,
-                       hasManagedBody {
+                       !existingPage.needsVaultSync {
                         skipCount += 1
                         if let progress,
                            processedFileCount == drained.count || processedFileCount.isMultiple(of: progressInterval) {
@@ -842,18 +841,12 @@ actor VaultIndexActor {
                         continue
                     }
 
-                    let needsLocalBodyRebuild =
-                        !hasManagedBody
-                        && NoteFileStorage.readBody(
-                            pageId: existingPage.id,
-                            mapped: false,
-                            fast: true
-                        ).isEmpty
+                    let needsMetadataRefresh = existingPage.lastSyncedBodyHash == nil
                     // File exists in DB — check if it changed
-                    if fileModDate > existingPage.updatedAt || needsLocalBodyRebuild {
+                    if fileModDate > existingPage.updatedAt || needsMetadataRefresh {
                         // File was modified externally — re-read and update.
-                        // Phase R.3: `upsertPage` is now async (body read
-                        // preserves managed sidecars before gateway fallback).
+                        // Phase R.3: `upsertPage` is async so body reads stay off
+                        // the main actor and vault markdown remains the source of truth.
                         // Dropping the
                         // `autoreleasepool` wrapper is safe here — the
                         // outer sync import loop still has its own
@@ -1400,12 +1393,6 @@ actor VaultIndexActor {
         var removedCount = 0
         for (path, duplicatePages) in pagesByCanonicalPath where duplicatePages.count > 1 {
             let orderedPages = duplicatePages.sorted { lhs, rhs in
-                let lhsHasManagedBody = NoteFileStorage.bodyExists(pageId: lhs.id)
-                let rhsHasManagedBody = NoteFileStorage.bodyExists(pageId: rhs.id)
-                if lhsHasManagedBody != rhsHasManagedBody {
-                    return lhsHasManagedBody
-                }
-
                 let lhsSyncedAt = lhs.lastSyncedAt ?? .distantPast
                 let rhsSyncedAt = rhs.lastSyncedAt ?? .distantPast
                 if lhsSyncedAt != rhsSyncedAt {
@@ -1541,15 +1528,7 @@ actor VaultIndexActor {
 
         if let page = existingPage {
             let importedStorageBody = body
-            let legacyFallbackBody = SDPage.legacyManagedOrInlineBody(
-                pageId: page.id,
-                inlineBody: page.body,
-                mapped: false,
-                fast: true
-            )
-            let currentBody = legacyFallbackBody.isEmpty
-                ? Self.decodedBodyFromReadableVaultFile(at: fileURL) ?? ""
-                : legacyFallbackBody
+            let currentBody = Self.decodedBodyFromReadableVaultFile(at: fileURL) ?? importedStorageBody
             let pageID = page.id
             let liveEditorBody = await MainActor.run {
                 NoteWindowManager.shared.editorBody(for: pageID)
@@ -1645,7 +1624,7 @@ actor VaultIndexActor {
                     // folder relationship will be re-wired by synthesis/repair
                 }
 
-                let indexBody = preserveBody ? currentBody : importedStorageBody
+                let indexBody = preserveBody ? (liveEditorBody ?? currentBody) : importedStorageBody
                 upsertSearchIndex(page: page, body: searchIndexBody(indexBody, filePath: filePath))
                 return .updated(snapshot)
             }
@@ -2263,8 +2242,7 @@ actor VaultIndexActor {
         filePath: String?,
         inlineBody: String
     ) async -> String {
-        if let filePath,
-           !NoteFileStorage.bodyExists(pageId: pageId) {
+        if let filePath {
             let fileURL = URL(fileURLWithPath: filePath)
             if Self.vaultFileByteCount(fileURL) ?? 0 > Self.searchIndexBodyByteLimit,
                let preview = Self.decodedBodyPrefixFromReadableVaultFile(
@@ -2761,7 +2739,20 @@ actor VaultIndexActor {
 
         var migrated = 0
         for page in pages where page.lastSyncedBodyHash == nil {
-            page.lastSyncedBodyHash = SDPage.bodyHash(NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: false))
+            let body: String
+            if let filePath = page.filePath,
+               !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let vaultBody = Self.decodedBodyFromReadableVaultFile(at: URL(fileURLWithPath: filePath)) {
+                body = vaultBody
+            } else {
+                body = SDPage.legacyManagedOrInlineBody(
+                    pageId: page.id,
+                    inlineBody: page.body,
+                    mapped: true,
+                    fast: false
+                )
+            }
+            page.lastSyncedBodyHash = SDPage.bodyHash(body)
             page.lastSyncedAt = .now
             page.needsVaultSync = false
             migrated += 1

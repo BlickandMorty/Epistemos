@@ -744,6 +744,14 @@ struct AppStoreHardeningTests {
                 && fileFirstSave?.contains("page.saveBody") == false,
             "The file-first body save path must not persist retired note-body sidecars."
         )
+
+        let vaultIndexActor = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        #expect(
+            !vaultIndexActor.contains("NoteFileStorage.readBody")
+                && !vaultIndexActor.contains("NoteFileStorage.bodyExists")
+                && vaultIndexActor.contains("decodedBodyFromReadableVaultFile"),
+            "Vault reconciliation must derive live note bodies from vault files; legacy sidecars are cleanup/migration fallback only."
+        )
     }
 
     @Test("KEELSTONE project.yml target-scoped surface and KINDRED macros cannot drift")
