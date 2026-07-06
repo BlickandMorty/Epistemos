@@ -225,28 +225,13 @@ final class SDPage {
 
     // MARK: - File-Based Body Access
 
-    /// Load the note body from disk (or fall back to inline body for pre-migration data).
+    /// Load the note body from the vault file, falling back to pre-migration body stores only
+    /// when the vault path is absent or unreadable.
     ///
     /// - Parameter mapped: When `true`, reads through a file-mapped `Data` path before decoding to `String`.
     ///   This reduces intermediate copying for bulk operations, but the returned `String` is still materialized.
     ///   Default `false` for interactive use (editing, display) where the String is long-lived.
     func loadBody(mapped: Bool = false, fast: Bool = false) -> String {
-        let hasManagedBody = NoteFileStorage.bodyExists(pageId: id)
-        let diskBody: String
-        if mapped {
-            diskBody = autoreleasepool {
-                NoteFileStorage.readBody(pageId: id, mapped: true, fast: fast)
-            }
-        } else {
-            diskBody = NoteFileStorage.readBody(pageId: id, mapped: false, fast: fast)
-        }
-        if !diskBody.isEmpty || hasManagedBody {
-            return diskBody
-        }
-        // Fallback: if no managed file exists but inline body has content (pre-migration), use inline.
-        if !body.isEmpty {
-            return body
-        }
         if let filePath,
            !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let fileURL = URL(fileURLWithPath: filePath)
@@ -254,7 +239,12 @@ final class SDPage {
                 return readableVaultBody
             }
         }
-        return ""
+        return Self.legacyManagedOrInlineBody(
+            pageId: id,
+            inlineBody: body,
+            mapped: mapped,
+            fast: fast
+        )
     }
 
     /// Async variant of ``loadBody(mapped:fast:)``. It preserves the same
@@ -299,12 +289,10 @@ final class SDPage {
     ///
     /// Behaviour matches ``loadBodyAsync(mapped:fast:)`` and
     /// ``loadBody(mapped:fast:)``:
-    /// 1. `NoteFileStorage.readBody` (managed-body sidecar file).
-    ///    An existing managed body, even a blank one, is authoritative.
+    /// 1. Vault `.md` file when `filePath` is present and readable.
     /// 2. R.3 gateway resolve + read when the gateway is ready.
-    /// 3. Inline `body` when no managed sidecar exists (pre-migration).
-    /// 4. Raw vault file via `VaultIndexActor.decodedBodyFromReadableVaultFile`
-    ///    when both managed-body and inline are empty.
+    /// 3. Legacy managed sidecar body when no vault file can be read.
+    /// 4. Legacy inline `body` for pre-migration records.
     ///
     /// Takes only Sendable primitives so it can be called freely from
     /// detached Tasks. Always returns a `String` — never throws; all
@@ -316,12 +304,6 @@ final class SDPage {
         mapped: Bool = false,
         fast: Bool = false
     ) async -> String {
-        let hasManagedBody = NoteFileStorage.bodyExists(pageId: pageId)
-        let diskBody = NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: fast)
-        if !diskBody.isEmpty || hasManagedBody {
-            return diskBody
-        }
-
         if resourceServiceIsReady() {
             let trimmedPath = filePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let reference = trimmedPath.isEmpty ? pageId : trimmedPath
@@ -343,9 +325,6 @@ final class SDPage {
             }
         }
 
-        if !inlineBody.isEmpty {
-            return inlineBody
-        }
         if let filePath,
            !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let fileURL = URL(fileURLWithPath: filePath)
@@ -353,7 +332,33 @@ final class SDPage {
                 return readableVaultBody
             }
         }
-        return ""
+        return legacyManagedOrInlineBody(
+            pageId: pageId,
+            inlineBody: inlineBody,
+            mapped: mapped,
+            fast: fast
+        )
+    }
+
+    static func legacyManagedOrInlineBody(
+        pageId: String,
+        inlineBody: String = "",
+        mapped: Bool = false,
+        fast: Bool = false
+    ) -> String {
+        let hasManagedBody = NoteFileStorage.bodyExists(pageId: pageId)
+        let diskBody: String
+        if mapped {
+            diskBody = autoreleasepool {
+                NoteFileStorage.readBody(pageId: pageId, mapped: true, fast: fast)
+            }
+        } else {
+            diskBody = NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: fast)
+        }
+        if !diskBody.isEmpty || hasManagedBody {
+            return diskBody
+        }
+        return inlineBody
     }
 
     func bodyPrefix(_ limit: Int, mapped: Bool = false) -> String {
@@ -367,7 +372,10 @@ final class SDPage {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Save the note body to disk. Also clears the inline body (post-migration).
+    /// Stage a legacy body fallback and update derived metadata.
+    ///
+    /// Connected-vault saves must use `VaultSyncService.savePageBodyFileFirst`; this method
+    /// remains for pre-migration/disconnected code paths that have no vault URL yet.
     func saveBody(_ content: String) {
         NoteFileStorage.writeBody(pageId: id, content: content)
         updateBodyDerivedState(from: content)

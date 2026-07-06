@@ -798,11 +798,15 @@ final class VaultSyncService {
         )
     }
 
-    private func exportPage(pageId: String, to vaultURL: URL) async throws -> (path: String, bodyHash: String)? {
-        if let exportPageOverride {
+    private func exportPage(
+        pageId: String,
+        to vaultURL: URL,
+        bodyOverride: String? = nil
+    ) async throws -> (path: String, bodyHash: String)? {
+        if bodyOverride == nil, let exportPageOverride {
             return try await exportPageOverride(pageId, vaultURL)
         }
-        return try await indexActor?.exportPage(pageId: pageId, to: vaultURL)
+        return try await indexActor?.exportPage(pageId: pageId, to: vaultURL, bodyOverride: bodyOverride)
     }
 
     private func makeBookmarkData(
@@ -3300,8 +3304,14 @@ final class VaultSyncService {
 
         let task = Task {
             do {
-                await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
-                let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL)
+                let body = await MainActor.run {
+                    let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                    guard let page = self.fetchFirst(desc, in: context, label: "saved page body snapshot") else {
+                        return ""
+                    }
+                    return self.latestAvailableBody(for: page, pageId: pageId)
+                }
+                let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL, bodyOverride: body)
 
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
@@ -3380,10 +3390,66 @@ final class VaultSyncService {
         if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
             return liveBody
         }
-        if !page.body.isEmpty {
-            return page.body
-        }
         return page.loadBody(mapped: true)
+    }
+
+    @discardableResult
+    func savePageBodyFileFirst(pageId: String, body: String) async -> Bool {
+        guard let vaultURL else {
+            log.warning("Cannot save page body: no vault URL")
+            return false
+        }
+
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = fetchFirst(descriptor, in: context, label: "file-first body save page") else {
+            return false
+        }
+
+        guard let stagedBody = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body) else {
+            return false
+        }
+        page.applyInteractiveDerivedState(from: stagedBody)
+        ProseEditorView.syncNoteTitleIfNeeded(
+            from: stagedBody,
+            for: page,
+            modelContext: context
+        ) { [weak self] resolvedPageId, newTitle in
+            self?.renamePageFile(pageId: resolvedPageId, newTitle: newTitle)
+        }
+        page.needsVaultSync = true
+
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save metadata before file-first body write (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+
+        suppressFileWatcherForSelfOriginatedChange()
+
+        do {
+            guard let result = try await exportPage(pageId: pageId, to: vaultURL, bodyOverride: stagedBody) else {
+                return false
+            }
+            let currentHash = SDPage.bodyHash(stagedBody)
+            if currentHash == result.bodyHash {
+                page.lastSyncedBodyHash = currentHash
+                page.lastSyncedAt = .now
+                page.needsVaultSync = false
+                SpotlightIndexer.index(page)
+            } else {
+                page.needsVaultSync = true
+            }
+            try context.save()
+            publishVaultMutation(.vaultPageChanged(pageId: pageId))
+            return currentHash == result.bodyHash
+        } catch {
+            page.needsVaultSync = true
+            try? context.save()
+            log.error("Failed file-first body save for \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return false
+        }
     }
 
     /// Save all dirty pages to their vault .md files.
@@ -3461,8 +3527,14 @@ final class VaultSyncService {
             for pageId in batch.dirtyIds {
                 do {
                     suppressFileWatcherForSelfOriginatedChange()
-                    await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
-                    if let result = try await exportPage(pageId: pageId, to: batch.vaultURL) {
+                    let body = await MainActor.run {
+                        let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                        guard let page = self.fetchFirst(desc, in: batch.context, label: "dirty page body snapshot") else {
+                            return ""
+                        }
+                        return self.latestAvailableBody(for: page, pageId: pageId)
+                    }
+                    if let result = try await exportPage(pageId: pageId, to: batch.vaultURL, bodyOverride: body) {
                         successfulExports.append(SuccessfulExport(pageId: pageId, bodyHash: result.bodyHash))
                     }
                 } catch {
@@ -4257,7 +4329,7 @@ final class VaultSyncService {
 
         let page = SDPage(title: title, emoji: emoji)
         let failedPageId = page.id
-        page.saveBody(body)
+        page.updateBodyDerivedState(from: body)
         if !frontMatter.isEmpty {
             page.frontMatter = frontMatter
         }
@@ -4282,7 +4354,7 @@ final class VaultSyncService {
         suppressFileWatcherForSelfOriginatedChange()
         let exportResult: (path: String, bodyHash: String)
         do {
-            guard let result = try await exportPage(pageId: pageId, to: vaultURL) else {
+            guard let result = try await exportPage(pageId: pageId, to: vaultURL, bodyOverride: body) else {
                 rollBackCreatedPage(page, pageId: pageId, title: title, context: context)
                 publishVaultMutation(.vaultChanged)
                 return nil
@@ -4298,7 +4370,7 @@ final class VaultSyncService {
         }
 
         page.filePath = exportResult.path
-        let currentHash = SDPage.bodyHash(latestAvailableBody(for: page, pageId: pageId))
+        let currentHash = SDPage.bodyHash(body)
         if currentHash == exportResult.bodyHash {
             page.lastSyncedBodyHash = currentHash
             page.lastSyncedAt = .now

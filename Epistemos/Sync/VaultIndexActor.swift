@@ -1195,7 +1195,11 @@ actor VaultIndexActor {
     // MARK: - Export to Disk
 
     /// Write a page's body back to its .md file (Source of Truth write-back).
-    func exportPage(pageId: String, to vaultURL: URL) async throws -> (path: String, bodyHash: String)? {
+    func exportPage(
+        pageId: String,
+        to vaultURL: URL,
+        bodyOverride: String? = nil
+    ) async throws -> (path: String, bodyHash: String)? {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == pageId }
         )
@@ -1252,15 +1256,17 @@ actor VaultIndexActor {
         // Build content — markdown front-matter only for markdown note files.
         // Tracked source files (.swift, .rs, .py, etc.) must round-trip as raw text.
         //
-        // Phase R.3: body read routed through the Sendable-primitive
-        // helper so managed sidecars stay authoritative. Parity
-        // preserved via `PhaseR3BodyReadParityTests`.
-        let body = await SDPage.loadBodyAsyncFromPrimitives(
-            pageId: page.id,
-            filePath: page.filePath,
-            inlineBody: page.body,
-            mapped: true
-        )
+        let body: String
+        if let bodyOverride {
+            body = bodyOverride
+        } else {
+            body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: page.id,
+                filePath: page.filePath,
+                inlineBody: page.body,
+                mapped: true
+            )
+        }
         let bodyHash = SDPage.bodyHash(body)
         let output = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
             ? buildMarkdown(for: page, body: body)
@@ -1537,69 +1543,32 @@ actor VaultIndexActor {
         let parsedWordCount = countWords(body, filePath: filePath)
 
         if let page = existingPage {
-            let shouldPersistManagedBody = NoteFileStorage.shouldPersistImportedVaultBodyToManagedStorage(body)
-            let importedStorageBody: String
-            if shouldPersistManagedBody {
-                guard let prepared = NoteFileStorage.prepareImportedVaultBodyForStorage(
-                    pageId: page.id,
-                    content: body
-                ) else {
-                    log.error("Failed to prepare imported body for \(page.id, privacy: .public); leaving existing page unchanged")
-                    return .unchanged
-                }
-                importedStorageBody = prepared
-            } else {
-                importedStorageBody = body
-            }
-
-            let missingManagedBodyNeedsRestore =
-                shouldPersistManagedBody
-                &&
-                !NoteFileStorage.bodyExists(pageId: page.id)
-                && NoteFileStorage.readBody(
-                    pageId: page.id,
-                    mapped: false,
-                    fast: true
-                ).isEmpty
-            // Guard: if the note-body file on disk is newer than the vault .md file,
-            // the user edited in-app after the last auto-save export. Preserve their
-            // edits by skipping the body overwrite — only update metadata from vault.
-            let noteBodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(page.id).md")
-            let noteBodyModDate = Self.contentModificationDate(
-                for: noteBodyURL,
-                label: "managed note body",
-                logWhenMissing: false
+            let importedStorageBody = body
+            let legacyFallbackBody = SDPage.legacyManagedOrInlineBody(
+                pageId: page.id,
+                inlineBody: page.body,
+                mapped: false,
+                fast: true
             )
-            let vaultModDate = Self.contentModificationDate(
-                for: fileURL,
-                label: "vault note file"
-            )
-            let noteBodyIsNewer = Self.isModificationDate(noteBodyModDate, newerThan: vaultModDate)
-
-            // Only preserve in-app body if it's non-empty. A zero-byte note-body
-            // (from historical DB reset or write failure) should never win over vault content.
-            // Large vault files intentionally do not mirror into managed storage, so avoid
-            // re-reading the same vault file just to compare it with itself during import.
-            let hasManagedBody = NoteFileStorage.bodyExists(pageId: page.id)
-            let currentBody = shouldPersistManagedBody || hasManagedBody
-                ? page.loadBody(mapped: false, fast: !shouldPersistManagedBody)
-                : ""
+            let currentBody = legacyFallbackBody.isEmpty
+                ? Self.decodedBodyFromReadableVaultFile(at: fileURL) ?? ""
+                : legacyFallbackBody
             let pageID = page.id
             let liveEditorBody = await MainActor.run {
                 NoteWindowManager.shared.editorBody(for: pageID)
             }
-            let liveEditorIsDirty = liveEditorBody.map { $0 != currentBody } ?? false
-            let preserveBody =
-                liveEditorIsDirty
-                || (hasManagedBody && noteBodyIsNewer && !currentBody.isEmpty)
             let incomingBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
-            let importedBodyChanged = shouldPersistManagedBody
-                ? currentBody != importedStorageBody
-                : page.lastSyncedBodyHash != incomingBodyHash
+            let liveEditorIsDirty = liveEditorBody.map { editorBody in
+                guard let lastSyncedBodyHash = page.lastSyncedBodyHash else {
+                    return editorBody != currentBody
+                }
+                return SDPage.bodyHash(editorBody) != lastSyncedBodyHash
+            } ?? false
+            let preserveBody = liveEditorIsDirty
+            let importedBodyChanged = page.lastSyncedBodyHash != incomingBodyHash
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
-            if missingManagedBodyNeedsRestore
-                || importedBodyChanged
+            if importedBodyChanged
                 || page.title != parsedTitle
                 || page.tags != parsedTags
                 || page.emoji != parsedEmoji
@@ -1641,15 +1610,6 @@ actor VaultIndexActor {
                     log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — dirty local body conflicts with vault .md")
                     page.needsVaultSync = true
                 } else {
-                    if shouldPersistManagedBody {
-                        guard await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: page.id, content: importedStorageBody) else {
-                            log.error("Failed to persist imported body for \(page.id, privacy: .public); leaving page dirty")
-                            page.needsVaultSync = true
-                            return .unchanged
-                        }
-                    } else {
-                        log.warning("Skipping managed body mirror for large imported vault file at \(filePath, privacy: .private); vault file remains source of truth")
-                    }
                     updateImportedBodyDerivedState(on: page, body: importedStorageBody, filePath: filePath)
                     BlockMirror.syncImportedVaultBody(pageId: page.id, body: importedStorageBody, modelContext: modelContext)
                     page.lastSyncedBodyHash = incomingBodyHash
@@ -1722,29 +1682,7 @@ actor VaultIndexActor {
                 }
             }
 
-            let shouldPersistManagedBody = NoteFileStorage.shouldPersistImportedVaultBodyToManagedStorage(body)
-            let importedStorageBody: String
-            if shouldPersistManagedBody {
-                guard let prepared = NoteFileStorage.prepareImportedVaultBodyForStorage(
-                    pageId: page.id,
-                    content: body
-                ) else {
-                    log.error("Failed to prepare inserted body for \(page.id, privacy: .public); skipping index upsert")
-                    return .unchanged
-                }
-                importedStorageBody = prepared
-            } else {
-                importedStorageBody = body
-            }
-
-            if shouldPersistManagedBody {
-                guard await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: page.id, content: importedStorageBody) else {
-                    log.error("Failed to persist inserted body for \(page.id, privacy: .public); skipping index upsert")
-                    return .unchanged
-                }
-            } else {
-                log.warning("Skipping managed body mirror for large imported vault file at \(filePath, privacy: .private); vault file remains source of truth")
-            }
+            let importedStorageBody = body
             updateImportedBodyDerivedState(on: page, body: importedStorageBody, filePath: filePath)
             BlockMirror.syncImportedVaultBody(pageId: page.id, body: importedStorageBody, modelContext: modelContext)
             page.filePath = filePath

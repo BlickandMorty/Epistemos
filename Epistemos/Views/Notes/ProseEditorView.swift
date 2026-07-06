@@ -153,10 +153,17 @@ struct ProseEditorView: View {
             rawBody = liveBody
             shouldPersistInlineRepair = false
         } else {
+            let filePath = page.filePath
             let loadedBody = await Task.detached(priority: .userInitiated) {
-                NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
+                await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: pageId,
+                    filePath: filePath,
+                    inlineBody: fallbackBody,
+                    mapped: false,
+                    fast: true
+                )
             }.value
-            rawBody = loadedBody.isEmpty ? fallbackBody : loadedBody
+            rawBody = loadedBody
             shouldPersistInlineRepair = true
         }
 
@@ -412,16 +419,10 @@ struct ProseEditorView: View {
             NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
         ) { _ in
             flushIfNeeded()
-            // NOTE-1 (audit 2026-07-03): flushIfNeeded only STAGES the body + schedules an
-            // async detached write, which process exit can kill on Cmd-Q — losing a typing
-            // burst. Persist this editor's current body SYNCHRONOUSLY here so the last edits
-            // survive quit regardless of teardown-observer ordering (the app delegate
-            // registers before these views, so the performTeardown drain can run first).
-            // writeBody is idempotent, so this is safe even if already persisted.
             draftTask?.cancel()
             if loadedBodyPageId == page.id {
-                NoteFileStorage.writeBody(pageId: page.id, content: bodyText)
-                NoteDraftStore.delete(pageId: page.id)  // NOTE-4: clean quit persisted the body; clear the draft
+                _ = NoteFileStorage.stageBodyForImmediateRead(pageId: page.id, content: bodyText)
+                _ = vaultSync.savePage(pageId: page.id)
             }
         }
     }
@@ -505,9 +506,9 @@ struct ProseEditorView: View {
                 vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
             }
             page.applyInteractiveDerivedState(from: newValue)
-            // File write FIRST — disk is source of truth. Must complete before
+            // Vault write FIRST — the .md file is source of truth. Must complete before
             // modelContext.save() so any @Query cascade reads correct content.
-            guard await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newValue) else {
+            guard await vaultSync.savePageBodyFileFirst(pageId: pageId, body: newValue) else {
                 Self.log.error("Failed to persist editor body for \(pageId, privacy: .public); keeping model state unchanged")
                 withAnimation { saveError = true }  // NOTE-8: surface the disk-write failure
                 return
@@ -517,9 +518,8 @@ struct ProseEditorView: View {
             scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
             NoteDraftStore.delete(pageId: pageId)  // NOTE-4: durable body is current; clear the crash draft
-            // Persist dirty flag AFTER file write. This ensures loadBody() returns
-            // the new content if @Query refetch triggers view re-evaluation.
-            page.needsVaultSync = true
+            // Metadata persists after the vault write so loadBody() returns the new content
+            // if @Query refetch triggers view re-evaluation.
             saveModelContext(reason: "debounced save for page \(pageId)")
             // NOTE-5: periodic version snapshot for prose-only editing — the code-editor path
             // captures versions but prose didn't, leaving prose users with no recovery
@@ -576,7 +576,7 @@ struct ProseEditorView: View {
 
     @discardableResult
     private static func stageBodyWrite(pageId: String, currentBody: String, reason: String) -> Bool {
-        guard NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody) != nil else {
+        guard NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: currentBody) != nil else {
             log.error(
                 "ProseEditorView: failed to stage body write for \(reason, privacy: .public) on page \(pageId, privacy: .public)"
             )
