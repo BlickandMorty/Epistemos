@@ -1282,3 +1282,18 @@ still extracts exactly ['search_notes','read_file'] from a timestamped note (the
 numbered `**tool**` lines in the sequence section). Deployed to the staged bundle (timestamp confirmed in
 tarball). Also cleaned up a stray backend I briefly booted against real user-data while verifying (killed;
 only idempotent migrations ran). Owner active → headless-only, app untouched.
+
+---
+
+**Cycle 42 (2026-07-06) — PROMPT FORGE VERIFIED LIVE (behavior, not just presence) — closes the flagship
+DoD.** Owner-away window + the now-known entry point (agent tile) + input quirks (CGEvent clicks, System
+Events keys, no ⌘K). Opened the Experimental composer, typed an underspecified prompt ("help me make the
+aetherlink pitch more compelling"), clicked Forge: the "Prompt Forge" popover streamed "Forging your
+prompt…" then rendered a genuinely-good UPGRADED prompt — a numbered breakdown (review → diagnose weak
+spots → suggest rewrites for opening/core-claim/close → "Keep my voice") + a WHAT CHANGED diff + Accept/
+Retry/Revert. Voice-preserving, intent-preserving, structured — exactly the spec. Cleaned up surgically
+(Revert + System-Events clear); left the composer clean, no test residue. This is the DoD-Foundation
+flagship proven end-to-end LIVE (was headless + present-live). Also TEMPER-verified this cycle: the Skills
+"use" macro's editor handle (AgentsMentionsEditorHandle) really has getValue/setValue/focus → not a silent
+no-op. A clean redemption of the Cycle-37 relaunch saga: the app IS drivable without a mess once the quirks
+are known.
