@@ -18,7 +18,7 @@ struct WorkProvisionedSkill: Sendable, Hashable, Identifiable {
 //  • a bundled default set at `Resources/openwork-skills/` (once staged) → baseline skills on any workspace.
 // Idempotent: never clobbers a skill already present in the destination (so user/manual skills survive).
 enum WorkSkillsProvisioner {
-    private static let maxSkillManifestBytes = 256 * 1024
+    nonisolated private static let maxSkillManifestBytes = 256 * 1024
 
     /// The dir OpenCode reads project skills from.
     nonisolated static func skillsDestination(workspace: URL) -> URL {

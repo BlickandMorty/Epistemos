@@ -102,7 +102,6 @@ struct SettingsView: View {
         case privacy = "Privacy"
         case provenance = "Provenance Console"
         case substrateHealth = "Epistemos Foundation"
-        case workClone = "Epistemos Work"   // per-clone settings (owner 2026-06-21)
 
         var id: String { rawValue }
 
@@ -123,7 +122,6 @@ struct SettingsView: View {
                 .privacy,
                 .provenance,
                 .substrateHealth,
-                .workClone,
             ]
             return sections
         }
@@ -145,7 +143,6 @@ struct SettingsView: View {
             case .privacy: "hand.raised.fill"
             case .provenance: "list.bullet.rectangle.portrait"
             case .substrateHealth: "waveform.path.ecg.rectangle"
-            case .workClone: "terminal"
             }
         }
 
@@ -177,7 +174,6 @@ struct SettingsView: View {
             case .privacy:        .privacyStore
             case .provenance:     .privacyStore
             case .substrateHealth: .advanced
-            case .workClone: .advanced
             case .general:        .advanced
             }
         }
@@ -209,8 +205,6 @@ struct SettingsView: View {
                 "Read-only audit trail for graph, tool, and mutation projections."
             case .substrateHealth:
                 "Native foundation IP: search, tools, MCP, provenance, and safety."
-            case .workClone:
-                "Epistemos Work engine, native terminal, app tools, and vault-aware runtime status."
             }
         }
 
@@ -238,8 +232,6 @@ struct SettingsView: View {
                 ["provenance", "event", "run", "mutation", "audit", "console"]
             case .substrateHealth:
                 ["foundation", "ip", "tools", "mcp", "eidos", "halo", "search", "provenance", "answerpacket", "safety"]
-            case .workClone:
-                ["work", "opencode", "terminal", "shell", "clone", "settings"]
             }
         }
     }
@@ -368,7 +360,6 @@ struct SettingsView: View {
             case .privacy: PrivacyDetailView()
             case .provenance: ProvenanceConsoleView()
             case .substrateHealth: SubstrateHealthPanel()
-            case .workClone: WorkCloneSettingsView()
             case nil: GeneralDetailView()
             }
         }
