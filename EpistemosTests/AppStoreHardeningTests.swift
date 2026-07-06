@@ -31,6 +31,7 @@ struct AppStoreHardeningTests {
     /// Keep this list in lockstep with `agent_core_policy_profile`
     /// in agent_core/src/bridge.rs:239.
     private static let validProfiles: Set<String> = ["direct", "mas_sandbox"]
+    private static let killNineVaultReplacementTrialCount = 1_000
 
     // MARK: - KEELSTONE vault durability regressions
 
@@ -132,13 +133,13 @@ struct AppStoreHardeningTests {
         try Self.writeKillNineHarness(to: scriptURL)
 
         let stages = ["mid_temp_write", "pre_replace", "post_replace"]
-        for trial in 0..<18 {
+        for trial in 0..<Self.killNineVaultReplacementTrialCount {
             let stage = stages[trial % stages.count]
             let targetURL = root.appendingPathComponent("note-\(trial).md")
             let markerURL = root.appendingPathComponent("marker-\(trial)")
             let payloadURL = root.appendingPathComponent("payload-\(trial).txt")
-            let oldPayload = Self.killNinePayload(label: "OLD-\(trial)", lineCount: 2048)
-            let newPayload = Self.killNinePayload(label: "NEW-\(trial)", lineCount: 2048)
+            let oldPayload = Self.killNinePayload(label: "OLD-\(trial)", lineCount: 512)
+            let newPayload = Self.killNinePayload(label: "NEW-\(trial)", lineCount: 512)
             try await AtomicVaultWriter.shared.write(oldPayload, to: targetURL)
             try Data(newPayload.utf8).write(to: payloadURL, options: [])
 

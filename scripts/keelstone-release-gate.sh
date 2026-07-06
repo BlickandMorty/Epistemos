@@ -294,6 +294,7 @@ require_plist_no_key "${appstore_entitlements}" "com.apple.security.files.bookma
 echo ""
 echo "==> KEELSTONE §9.1-§9.3 data-safety and upgrade witnesses"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func killNineDuringVaultReplacementNeverLeavesPartialNote()" "Data-safety soak witness: kill -9 during vault replacement"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "killNineVaultReplacementTrialCount = 1_000" "Data-safety soak witness: kill -9 vault replacement runs 1,000 trials"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultNoteEditorProductionSeamUsesCoordinatedVaultIO()" "Data-safety witness: agent note editor default seam uses coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneIncrementalReconcileEqualsFreshRebuild()" "Data-safety soak witness: incremental reconcile equals fresh rebuild"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func dirtyLiveEditorExternalEditCreatesConflictCopy()" "Data-safety soak witness: dirty external edit conflict-copy flow"
