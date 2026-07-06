@@ -872,3 +872,21 @@ with zero graph engine (the graph IS the wikilinks). PROVEN headless on a fixtur
 Gamma via graph). Technique noted in experimental-vault-context-assembly. Deployed (verified in tarball).
 **RAISED BAR:** backlinks (notes that link TO the hit) as a second graph signal; and multi-hop when the
 budget allows. The retrieval axis is now: shadow RRF → whole-vault fs → graph-neighbor expansion.
+
+---
+
+**Cycle 15 (2026-07-06) — BACKLINKS (bidirectional graph retrieval).** Extended the Cycle-14 graph
+expansion with backlinks: after outlinks, scan the vault (bounded 12MB) for notes that reference the top
+hit via `[[title]]` — "what cites this concept," often a stronger signal than outlinks. PROVEN headless:
+search "networking" → Gamma Service (base) + Omega Plan (via "references Gamma Service") even though Omega
+lacks the query term. The retrieval axis is now DEEP + bidirectional: shadow RRF → whole-vault fs →
+graph outlinks + backlinks. Backend-only, no UI, read-only + bounded.
+
+**HONEST STATE / RAISED BAR:** the web-side moat is now broad and reviewed-clean (retrieve from KB +
+graph, ground, verify claims, verify actions, persona, provenance write-back — all deterministically
+proven, several live). Further pure-web retrieval refinement (multi-hop, semantic) has diminishing
+returns. The two genuinely-next frontiers both require stepping outside pure-web overlays:
+(a) **live re-verification** of the accumulated stack in the running app (DoD debt, blocked mainly by
+shared-desktop focus contention — do when the machine is quiet); (b) the **agent_core ReplayBundle FFI**
+for a signed `.epbundle` (run.export-bundle) — the one high-value NATIVE item, correctly deferred under
+the "build less / no risky Rust FFI mid-stream" discipline until an owner-sanctioned native checkpoint.
