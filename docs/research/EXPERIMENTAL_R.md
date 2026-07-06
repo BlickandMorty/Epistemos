@@ -808,3 +808,22 @@ vault) while the whole vault has 20 docs across docs/, root, etc.
 matter (out of lane — don't touch it). In-lane next: (a) verify the whole-vault cite-check + grounding
 LIVE in the app (re-run cite-check → real notes now verify); (b) resume the Finalization substrate
 (RunEventLog capture of CLI tool-calls — now easy since I have read-only vault-fs + the epistemos channel).
+
+---
+
+**Cycle 11 (2026-07-06) — RUN PROVENANCE (web-side RunEventLog) + vault-fs hardening.**
+TEMPER: hardened the whole-vault scan (15s-TTL file-list cache — cite-check's N-per-reply noteExists
+calls no longer re-walk the tree, 5 calls = 5ms; + a 24MB scan budget so a rare query can't read the
+whole vault). FORGE (composing Cycle 1): `epistemos-run-audit.ts` + a Provenance button — extract the
+agent turn's tool-call sequence → a SHA-256 hash-chained, tamper-evident audit → write it back to the
+vault as a provenance note. Makes an opaque agent run AUDITABLE + KB-persisted (no standalone app can).
+PROVEN deterministic (Node crypto.subtle): 3 events (Thinking skipped, ACP `vault.search_notes` name
+resolved), reorder→different root, same input→same root. CRYSTALLIZE: `experimental-run-provenance` (the
+trust axis for ACTIONS, complementing `experimental-substrate-verification` for CLAIMS).
+
+**THE RAISED BAR (next):** the extractor already takes a message ARRAY, so a WHOLE-RUN provenance/
+observability console (all turns' tool-calls + running hash + per-provider cost) is one UI away. And
+when the agent_core RunEventLog/ReplayBundle FFI lands (`provenance/replay.rs` + `bin/epistemos_trace`),
+swap the SHA chain for BLAKE3 + export a verifiable `.epbundle` → `run.export-bundle` (Finalization #2),
+same shape, stronger guarantee. Also still open: live re-verify of whole-vault cite-check (blocked by
+desktop focus contention, not code); Persona for Codex/OpenCode (ACP transport).
