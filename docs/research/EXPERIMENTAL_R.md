@@ -850,3 +850,14 @@ very feature meant to catch fakes; an adversarial review caught it.
 observability console (the run-audit extractor already takes a message ARRAY) OR the agent_core
 RunEventLog/ReplayBundle FFI for a signed `.epbundle` (run.export-bundle). Also standing: live re-verify
 (desktop-contention-permitting) + Persona for Codex/OpenCode (ACP prompt-preamble, fiddly).
+
+---
+
+**Cycle 13 (2026-07-06) — WHOLE-RUN provenance (extends Cycle 8/11).** The Provenance button now
+audits the ENTIRE session, not one turn: imperative read of every sub-chat message from the global jotai
+store (`appStore.get(messageIdsPerChatAtom(subChatId))` → `messageAtomFamily`+`getPerChatMessageKey`) →
+`buildRunAudit(allMessages)` → one whole-run provenance note; falls back to the single message if the
+store isn't reachable. Composes `experimental-run-provenance` (extractor already took an array); technique
+noted in that skill (no trophy duplicate). Deployed (full 50s renderer rebuild, verified in tarball).
+**RAISED BAR unchanged:** the whole-run events now feed cleanly into either a live observability console
+or the agent_core ReplayBundle `.epbundle` export (run.export-bundle) when that FFI lands.
