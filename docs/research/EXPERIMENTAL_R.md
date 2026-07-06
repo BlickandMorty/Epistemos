@@ -1390,3 +1390,15 @@ front-matter title + every alias, and the grounding display title prefers front-
 filename. EXACT keys → guard intact (partial `[[Grand]]`/`[[Master Plan]]` still False, H1-superset still
 rejected). Witness 21/21, deployed. The vault-title layer now speaks EVERY way a real note is titled:
 filename, ordinal, slug, H1, front-matter title, alias. The forged skill paid for itself in one cycle.
+
+---
+
+**Cycle 50 (2026-07-06) — clean grounding snippets (strip YAML front-matter).** Applied the realistic-input
+skill to snippet quality: graph-neighbor snippets took the first 160 chars, which for an Obsidian
+front-matter note is raw YAML ("--- title: … tags: … ---") — the whole grounded-context budget spent on
+metadata instead of note content. Added `contentBody` (strip leading front-matter + a leading H1); outlink
++ backlink snippets now show real content. PROVEN headless: "--- title: Strategy Doc tags:[…] --- # …" →
+"The actual strategy content that matters here." Witness 21/21 (correctness unaffected), deployed. The
+vault-RETRIEVAL layer is now fully real-vault-hardened: every title form recognized (Cycles 43-49) AND
+grounded context is clean of metadata noise (Cycle 50). Six realistic-input improvements; the substrate
+now behaves correctly + cleanly on the vaults people actually keep.
