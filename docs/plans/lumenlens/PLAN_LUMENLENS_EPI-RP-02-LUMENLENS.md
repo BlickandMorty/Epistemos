@@ -133,3 +133,22 @@ depth 4 · Depth/novelty 4. No axis < 4.
    agent table-restructuring (dry-run→confirm→undo) — keep span metadata payload-agnostic (ranges
    over an abstract doc, not markdown-specific offsets) so Data-cell edits can attribute through
    the same ledger later.
+10. **LENS-FIDELITY DISCLOSURE — "nothing lost, NOTHING HIDDEN" (owner directive 2026-07-06).**
+   Fork B guarantees no content is ever LOST across lenses (Tier B/C preservation); this adds the
+   visibility half: no content is ever silently INVISIBLE. Epdoc is the richest lens; Prose and
+   Source cannot render some content (charts, block math, callouts, image nodes, task states,
+   Tier-C quarantine blocks, RECKONER dataset embeds). Mechanism:
+   - The Tier classifier (`spine/tiers.ts` / `pickTier`) doubles as the **lens-fidelity
+     registry**: every Tier B/C node type declares, per lens, one of three states —
+     **rendered** / **degraded** (visible only as raw syntax, e.g. Source showing a chart's
+     fenced block) / **invisible** — plus a preview provider (rendered snapshot).
+   - On Prose/Source, a **disclosure toggle** (extend the EXISTING `showInfoPopover` affordance
+     in `NoteDetailWorkspaceView`, or a sibling toggle in the lens switcher) lists every
+     degraded/invisible item in the current doc: type, count, inline rendered preview,
+     jump-to-in-Epdoc. Zero-item docs show nothing (quiet by default).
+   - External content types register through the same seam — RECKONER embeds are the first
+     (`EPI-RP-09` provides its preview provider; LUMENLENS owns the registry + UI).
+   - **Done-bar (folds into L2):** on a corpus doc containing every Tier B type + a quarantined
+     block + a dataset embed, switching to Prose and to Source each shows an accurate disclosure
+     list with previews; nothing renderable-in-Epdoc is silently invisible; bytes untouched
+     (Fork B unaffected). Native UI only — no js-editor bundle implications for MAS gating.

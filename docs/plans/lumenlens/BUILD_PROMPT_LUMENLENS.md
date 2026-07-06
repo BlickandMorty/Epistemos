@@ -99,3 +99,10 @@ onto MAS. Don't silently override Epdoc-as-default (validate, note trade-offs).
 9. **RECKONER seam:** note tables stay editor-side (Tier B); Data-room datasets are Plan 9's —
    notes reference them via wikilink/embed. Keep L1/L5 span metadata payload-agnostic so Data-cell
    edits can attribute through the same ledger later (plan §P-AMEND 9).
+10. **Lens-Fidelity Disclosure (owner-mandated, plan §P-AMEND 10 — folds into L2's done-bar):**
+   the Tier classifier doubles as a per-lens fidelity registry (rendered / degraded / invisible +
+   preview provider per Tier B/C node type); Prose/Source get a disclosure toggle (extend the
+   existing `showInfoPopover` in NoteDetailWorkspaceView) listing every degraded/invisible item
+   with a rendered preview + jump-to-Epdoc. Quiet when empty. External types register via the
+   same seam (RECKONER embeds first). L2 is not done until the disclosure bar passes on the
+   full-corpus doc.

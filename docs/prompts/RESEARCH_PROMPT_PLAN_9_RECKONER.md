@@ -71,6 +71,12 @@ structural change attributed and revertible. Harden that loop until it is boring
    (MAS) through ONE F2 tool surface. Presence chrome 1Code-only.
 3. **One truth per domain:** notes = vault files; datasets = GRDB. Cross-domain = references
    (wikilink/embed/graph), NEVER row duplication into markdown.
+3b. **Nothing lost, nothing hidden (owner directive 2026-07-06):** Epdoc is the richest lens; when
+   the user switches to Prose or Source, any content those lenses cannot render — INCLUDING
+   dataset embeds — must surface through LUMENLENS's **Lens-Fidelity Disclosure** affordance
+   (`docs/plans/lumenlens/` §P-AMEND 10): an info toggle listing every not-renderable-here item
+   with a rendered preview + jump-to-Epdoc. RECKONER embeds REGISTER into that mechanism (a
+   preview provider per embed); RECKONER does not build its own disclosure UI.
 4. Every structural/bulk agent op: dry_run → schema-diff preview → confirm → apply → undo, with
    attribution through the LUMENLENS provenance schema (its span metadata is payload-agnostic BY
    DESIGN for this reason — `docs/plans/lumenlens/` §P-AMEND 9).
@@ -134,6 +140,11 @@ structural change attributed and revertible. Harden that loop until it is boring
   vs snapshot-with-refresh — pick one for v1 with evidence (perf, offline, sync implications).
 - Embed interactions: click-through to the dataset tab; selection→cite; can an embed be edited
   in-place or read-only v1? Records as graph nodes (F4) — what links auto-materialize?
+- **Cross-lens visibility (constraint 3b):** specify the embed's per-lens fidelity states —
+  rendered (Epdoc) / degraded (Source shows raw reference syntax) / invisible (Prose?) — and the
+  preview provider the embed registers with LUMENLENS's Lens-Fidelity Disclosure (what a
+  disclosure preview shows: dataset name, dims, a value snapshot; how staleness is marked; reuse
+  whatever liveness verdict D4 picks — one render path, two consumers).
 
 ### D5 — Dataset-aware chat (no new chat — the parameterization ask on K6)
 - What the KINDRED minichat needs to serve a dataset tab: focused-dataset context injection
