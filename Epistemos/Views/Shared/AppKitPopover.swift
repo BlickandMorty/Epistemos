@@ -4,6 +4,7 @@ import AppKit
 struct AppKitPopoverModifier<PopoverContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     var location: CGPoint?
+    var behavior: NSPopover.Behavior
     @ViewBuilder let popoverContent: () -> PopoverContent
     
     func body(content: Content) -> some View {
@@ -12,6 +13,7 @@ struct AppKitPopoverModifier<PopoverContent: View>: ViewModifier {
                 AppKitPopoverAnchor(
                     isPresented: $isPresented,
                     location: location,
+                    behavior: behavior,
                     content: popoverContent
                 )
             )
@@ -21,6 +23,7 @@ struct AppKitPopoverModifier<PopoverContent: View>: ViewModifier {
 struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
     @Binding var isPresented: Bool
     var location: CGPoint?
+    var behavior: NSPopover.Behavior
     let content: () -> PopoverContent
     
     func makeNSView(context: Context) -> NSView {
@@ -32,7 +35,7 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
         if isPresented {
             if context.coordinator.popover == nil {
                 let popover = NSPopover()
-                popover.behavior = .transient
+                popover.behavior = behavior
                 popover.delegate = context.coordinator
                 popover.animates = true
 
@@ -151,8 +154,14 @@ extension View {
     func appKitPopover<Content: View>(
         isPresented: Binding<Bool>,
         location: CGPoint? = nil,
+        behavior: NSPopover.Behavior = .transient,
         @ViewBuilder content: @escaping () -> Content
     ) -> some View {
-        self.modifier(AppKitPopoverModifier(isPresented: isPresented, location: location, popoverContent: content))
+        self.modifier(AppKitPopoverModifier(
+            isPresented: isPresented,
+            location: location,
+            behavior: behavior,
+            popoverContent: content
+        ))
     }
 }

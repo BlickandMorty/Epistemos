@@ -3,10 +3,9 @@ import SwiftUI
 import WebKit
 import UserNotifications
 
-/// SECURITY (ports the goose-surface deep-hardening H1 posture): the OpenChamber
-/// web server origin is the ONLY http origin this surface may navigate to in the
-/// WebView. Any other loopback port or remote origin is denied; external links
-/// open in the user's default browser instead.
+/// SECURITY: the OpenChamber web server origin is the ONLY http origin this
+/// surface may navigate to in the WebView. Any other loopback port or remote
+/// origin is denied; external links open in the user's default browser instead.
 final class ProAgentTrustedLoopbackOrigins: @unchecked Sendable {
     private let lock = NSLock()
     private var ports: Set<Int> = []
@@ -133,8 +132,7 @@ final class EpistemosDesktopBridge: NSObject, WKScriptMessageHandler {
 /// The Pro build's Agent destination: the vendored OpenChamber SPA served by the
 /// supervised web server, hosted in a kept-alive WebView.
 ///
-/// Instant-open recipe (Plan 1-PRO §13, ported from the pre-excision
-/// GooseWebSurfaceView — read, not approximated):
+/// Instant-open recipe (Plan 1-PRO §13):
 ///  1. Eager WebPage created in init(), placeholder painted immediately.
 ///  2. Server spawn happens off the main actor (supervisor's SpawnBox).
 ///  3. Startup fires lazily from `.task` on first appear.
@@ -335,13 +333,13 @@ struct ProAgentSurfaceView: View {
 
     private func loadingOverlay(status: String) -> some View {
         ZStack {
-            GooseSurfaceStyle.background(for: theme)
+            theme.resolved.chatSurface.color
             VStack(alignment: .leading, spacing: 9) {
                 Text("Epistemos Agent")
-                    .font(GooseSurfaceStyle.bodyFont(16, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(theme.resolved.foreground.color)
                 Text(status)
-                    .font(GooseSurfaceStyle.bodyFont(12))
+                    .font(.system(size: 12))
                     .foregroundStyle(theme.mutedForeground)
             }
             .frame(maxWidth: 560, alignment: .leading)
@@ -408,7 +406,7 @@ struct ProAgentSurfaceView: View {
             }
         }
         // Don't strand on a dead placeholder — the status observer drives the
-        // load whenever readiness finally arrives (goose review H1).
+        // load whenever readiness finally arrives.
         loadPlaceholder(status: Self.startingStatus)
     }
 
@@ -455,13 +453,13 @@ struct ProAgentSurfaceView: View {
         let key = connection.uiBaseURL.absoluteString
         trustedOrigins.register(connection.uiBaseURL)
         overlayStatus = "Loading agent workspace"
-        // DEBUG acceptance: default new drafts to a chosen engine so a scripted
-        // keystroke-send exercises the goose path (the web engine chip is
-        // AX-opaque to scripting). Production loads the bare URL.
+        // DEBUG acceptance: default new drafts to OpenCode so a scripted
+        // keystroke-send exercises the only ProAgent engine. Production loads
+        // the bare URL.
         var loadURL = connection.uiBaseURL
         #if DEBUG
         if let engine = ProcessInfo.processInfo.environment["EPISTEMOS_DEFAULT_ENGINE"],
-           engine == "goose" || engine == "opencode",
+           engine == "opencode",
            var comps = URLComponents(url: connection.uiBaseURL, resolvingAgainstBaseURL: false) {
             comps.queryItems = (comps.queryItems ?? []) + [URLQueryItem(name: "epistemosDefaultEngine", value: engine)]
             loadURL = comps.url ?? connection.uiBaseURL

@@ -34,11 +34,16 @@ LocalPackages/EpistemosLlama`).
 
 ## What genuinely remains (owner / external / interactive)
 
-1. **Deployed proxy server (§5 / §11 R4).** The CLIENT is built; the server
-   (`POST /v1/auth/verify-receipt`, `/v1/chat/completions` SSE, App Store
-   Server Notifications V2 webhook) is separate, explicitly-parallelizable
-   infra the owner deploys. Until it exists, Surface B cloud runs use the
-   direct provider (dev) rather than the receipt-gated proxy.
+1. **Proxy server — NOW BUILT (§5 / §11 R4); only DEPLOY remains.** Both
+   sides now exist: the app CLIENT (`EpistemosProxyClient` +
+   `AgentSubscriptionService`) and a reference SERVER at `proxy-server/`
+   (Node 20+, `POST /v1/auth/verify-receipt` → `{token,expiresAt}`,
+   OpenAI-compatible `/v1/chat/completions` SSE with Anthropic translation,
+   App Store Server Notifications V2 webhook). Validated: tsc clean, token
+   tests 3/3, live route/auth smoke test. **Owner action:** deploy it with
+   Apple credentials (`.p8` + issuer/key id) + a provider key, point the app's
+   `EPISTEMOS_PROXY_BASE_URL` at it, configure the StoreKit product — then the
+   sandbox purchase → token → cloud-turn E2E (P3 acceptance) closes.
 2. **Interactive in-app proofs (§7 P1/P4 acceptance):** GGUF live answer,
    Surface B approval sheet blocking a tool, 5.1.2(i) consent sheet, StoreKit
    sandbox purchase → token → cloud turn. All need the running app + (for the

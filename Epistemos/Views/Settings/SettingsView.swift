@@ -90,6 +90,7 @@ struct SettingsView: View {
         case ambientFrequencies = "Ambient Frequencies"
         case voice = "Voice"
         case skills = "Extensions"
+        case cloudModels = "Cloud Models"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -113,6 +114,7 @@ struct SettingsView: View {
                 .ambientFrequencies,
                 .voice,
                 .skills,
+                .cloudModels,
             ]
             sections += [
                 .landing,
@@ -136,6 +138,7 @@ struct SettingsView: View {
             case .ambientFrequencies: "waveform.path"
             case .voice: "waveform.and.mic"
             case .skills: "puzzlepiece.extension"
+            case .cloudModels: "cloud"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -168,7 +171,8 @@ struct SettingsView: View {
                  .ambientFrequencies,
                  .voice: .capture
             case .appearance:     .graph
-            case .skills:         .automation
+            case .skills,
+                 .cloudModels:    .automation
             case .vault:          .privacyStore
             case .privacy:        .privacyStore
             case .provenance:     .privacyStore
@@ -191,6 +195,8 @@ struct SettingsView: View {
                 "Speech, dictation, read-aloud, and premium voice defaults."
             case .skills:
                 "Skills, MCP servers, connectors, and presets."
+            case .cloudModels:
+                "Provider accounts, API keys, and GPT, Claude, Gemini, GLM, Kimi models."
             case .landing:
                 "Greeting, quick capture, and landing canvas behavior."
             case .appearance:
@@ -218,6 +224,8 @@ struct SettingsView: View {
                 ["voice", "speech", "dictation", "read aloud", "tts", "stt", "microphone", "premium"]
             case .skills:
                 ["skills", "manifest", "activation", "plugin", "tools"]
+            case .cloudModels:
+                ["cloud", "models", "provider", "openai", "gpt", "codex", "anthropic", "claude", "google", "gemini", "glm", "zai", "kimi", "moonshot", "oauth", "api key"]
             case .landing:
                 ["landing", "greeting", "quick capture", "home", "welcome"]
             case .appearance:
@@ -231,7 +239,7 @@ struct SettingsView: View {
             case .substrateHealth:
                 ["foundation", "ip", "tools", "mcp", "eidos", "halo", "search", "provenance", "answerpacket", "safety"]
             case .workClone:
-                ["work", "opencode", "terminal", "shell", "clone", "settings", "goose"]
+                ["work", "opencode", "terminal", "shell", "clone", "settings"]
             }
         }
     }
@@ -353,6 +361,7 @@ struct SettingsView: View {
             case .ambientFrequencies: AmbientFrequencySettingsView()
             case .voice: VoiceSettingsDetailView()
             case .skills: ExtensionsDetailView()
+            case .cloudModels: CloudModelsSettingsView()
             case .landing: LandingDetailView()
             case .appearance: AppearanceDetailView()
             case .vault: VaultDetailView()
@@ -648,6 +657,532 @@ private struct CloudHintPopover: View {
 
 // MARK: - General Detail
 // Consolidated: Session + Workspace Summaries + Security info + Reset
+
+private struct CloudModelsSettingsView: View {
+    @Environment(UIState.self) private var ui
+    @State private var apiKeyDrafts: [CloudModelProvider: String] = [:]
+    @State private var openAIDeviceAuthorization: OpenAIDeviceAuthorization?
+    @State private var googleOAuthProjectID = CloudProviderSetupAutomation.loadGoogleOAuthProjectIDDraft()
+    @State private var googleOAuthClientFilename = CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()
+    @State private var googleOAuthStatusMessage: String?
+
+    private var theme: EpistemosTheme {
+        ui.theme.surfaceVariant(.other)
+    }
+
+    var body: some View {
+        Form {
+            Section("Cloud Provider Setup") {
+                SettingsDescriptionText(
+                    text: "Connect account access where the provider supports it, or save an API key fallback for GPT/Codex, Claude, Gemini, GLM, and Kimi."
+                )
+
+                ForEach(CloudModelProvider.preferredOrder, id: \.self) { provider in
+                    CloudProviderSettingsRow(
+                        provider: provider,
+                        apiKeyDraft: apiKeyBinding(for: provider),
+                        openAIDeviceAuthorization: $openAIDeviceAuthorization,
+                        googleOAuthProjectID: $googleOAuthProjectID,
+                        googleOAuthClientFilename: $googleOAuthClientFilename,
+                        googleOAuthStatusMessage: $googleOAuthStatusMessage
+                    )
+                    .padding(.vertical, 6)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .sheet(item: $openAIDeviceAuthorization) { authorization in
+            OpenAIDeviceAuthorizationSheet(authorization: authorization) {
+                openAIDeviceAuthorization = nil
+            }
+        }
+        .onAppear {
+            googleOAuthProjectID = CloudProviderSetupAutomation.loadGoogleOAuthProjectIDDraft()
+            googleOAuthClientFilename = CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()
+        }
+    }
+
+    private func apiKeyBinding(for provider: CloudModelProvider) -> Binding<String> {
+        Binding(
+            get: { apiKeyDrafts[provider] ?? "" },
+            set: { apiKeyDrafts[provider] = $0 }
+        )
+    }
+}
+
+private struct CloudProviderSettingsRow: View {
+    let provider: CloudModelProvider
+    @Binding var apiKeyDraft: String
+    @Binding var openAIDeviceAuthorization: OpenAIDeviceAuthorization?
+    @Binding var googleOAuthProjectID: String
+    @Binding var googleOAuthClientFilename: String
+    @Binding var googleOAuthStatusMessage: String?
+
+    @Environment(UIState.self) private var ui
+    @Environment(InferenceState.self) private var inference
+    @State private var showAPIKeyTools: Bool
+    @State private var isWorking = false
+    @State private var actionResult: String?
+
+    init(
+        provider: CloudModelProvider,
+        apiKeyDraft: Binding<String>,
+        openAIDeviceAuthorization: Binding<OpenAIDeviceAuthorization?>,
+        googleOAuthProjectID: Binding<String>,
+        googleOAuthClientFilename: Binding<String>,
+        googleOAuthStatusMessage: Binding<String?>
+    ) {
+        self.provider = provider
+        _apiKeyDraft = apiKeyDraft
+        _openAIDeviceAuthorization = openAIDeviceAuthorization
+        _googleOAuthProjectID = googleOAuthProjectID
+        _googleOAuthClientFilename = googleOAuthClientFilename
+        _googleOAuthStatusMessage = googleOAuthStatusMessage
+        _showAPIKeyTools = State(initialValue: !provider.supportsAccountConnection)
+    }
+
+    private var theme: EpistemosTheme {
+        ui.theme.surfaceVariant(.other)
+    }
+
+    private var validationState: CloudProviderValidationState {
+        inference.cloudValidationState(for: provider)
+    }
+
+    private var hasSavedAPIKey: Bool {
+        inference.apiKey(for: provider) != nil
+    }
+
+    private var oauthCredential: CloudProviderOAuthCredential? {
+        inference.oauthCredential(for: provider)
+    }
+
+    private var accountActionTitle: String {
+        switch provider {
+        case .openAI:
+            if case .invalid = validationState { return "Retry OpenAI Sign In" }
+            return provider.accountActionTitle
+        case .anthropic:
+            if case .invalid = validationState { return "Retry Claude Code Import" }
+            return provider.accountActionTitle
+        case .google:
+            if case .invalid = validationState { return "Retry Google OAuth" }
+            return provider.accountActionTitle
+        case .zai, .kimi, .minimax, .deepseek:
+            return provider.accountActionTitle
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+
+            SettingsDescriptionText(text: provider.setupHelpText)
+
+            if let summary = provider.accountConnectionSummary(
+                oauthCredential: oauthCredential,
+                hasSavedAPIKey: hasSavedAPIKey,
+                validationState: validationState
+            ) {
+                CloudProviderAccountConnectionRow(
+                    summary: summary,
+                    theme: theme,
+                    actionTitle: accountActionTitle
+                ) {
+                    runAccountAction()
+                }
+            }
+
+            if let guidance = provider.accountGuidanceText(validationState: validationState) {
+                CloudProviderGuidanceRow(text: guidance, theme: theme)
+            }
+
+            if provider == .kimi {
+                CloudProviderGuidanceRow(
+                    text: "Kimi Code OAuth is available in Kimi CLI, but the documented direct Kimi API route for Epistemos is still the Moonshot/Kimi API key path.",
+                    theme: theme,
+                    systemImage: "key.fill",
+                    tint: theme.resolved.accent.color
+                )
+            }
+
+            if provider == .google {
+                googleOAuthControls
+            }
+
+            modelPicker
+
+            actionButtons
+
+            DisclosureGroup(isExpanded: $showAPIKeyTools) {
+                apiKeyControls
+            } label: {
+                Label(provider.manualCredentialTitle, systemImage: "key")
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            activationControls
+
+            if let actionResult {
+                Text(actionResult)
+                    .font(.caption)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(theme.resolved.card.color.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(theme.resolved.border.color.opacity(0.42), lineWidth: 1)
+        )
+    }
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: provider.systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(theme.resolved.accent.color)
+                .frame(width: 26)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(provider.displayName)
+                    .font(.headline)
+                Text(provider.modelSummary)
+                    .font(.caption)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
+            }
+
+            Spacer(minLength: 10)
+
+            CloudProviderStatusBadge(state: validationState, theme: theme)
+        }
+    }
+
+    private var modelPicker: some View {
+        Picker("Default model", selection: Binding(
+            get: { inference.preferredCloudModel(for: provider) },
+            set: { inference.setPreferredCloudModel($0) }
+        )) {
+            ForEach(CloudTextModelID.models(for: provider), id: \.self) { model in
+                Text(model.displayName).tag(model)
+            }
+        }
+        .pickerStyle(.menu)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            Button {
+                runAccountAction()
+            } label: {
+                Label(
+                    provider.supportsAccountConnection ? accountActionTitle : provider.accountActionTitle,
+                    systemImage: provider.supportsAccountConnection ? "person.crop.circle.badge.plus" : "safari"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isWorking)
+
+            if provider == .openAI {
+                Button("Import Codex CLI") {
+                    runProviderAction {
+                        await inference.importOpenAIAccount()
+                    }
+                }
+                .disabled(isWorking)
+            }
+
+            if let url = provider.documentationURL {
+                Button(provider.documentationActionTitle) {
+                    NSWorkspace.shared.open(url)
+                }
+                .disabled(isWorking)
+            }
+        }
+    }
+
+    private var googleOAuthControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(googleOAuthClientFilename.isEmpty ? "No Google OAuth JSON selected" : googleOAuthClientFilename)
+                    .font(.caption)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Spacer(minLength: 8)
+
+                Button("Choose Google OAuth JSON") {
+                    chooseGoogleOAuthJSON()
+                }
+
+                if !googleOAuthClientFilename.isEmpty {
+                    Button("Clear Google OAuth JSON") {
+                        CloudProviderSetupAutomation.clearGoogleOAuthClientConfig()
+                        googleOAuthClientFilename = ""
+                        googleOAuthStatusMessage = "Removed the saved Google OAuth client JSON."
+                    }
+                }
+            }
+
+            TextField("Google Cloud project ID (not project number)", text: $googleOAuthProjectID)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: googleOAuthProjectID) { _, newValue in
+                    CloudProviderSetupAutomation.persistGoogleOAuthProjectIDDraft(newValue)
+                }
+
+            SettingsDescriptionText(
+                text: "Choose the Google OAuth client JSON you downloaded from Google Cloud Console after creating an OAuth client ID for a Desktop app."
+            )
+            SettingsDescriptionText(
+                text: "Enter the Google Cloud project ID for the same Gemini-enabled project."
+            )
+
+            if let googleOAuthStatusMessage {
+                Text(googleOAuthStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(theme.resolved.mutedForeground.color)
+            }
+        }
+    }
+
+    private var apiKeyControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SecureField(provider.apiKeyPlaceholder, text: $apiKeyDraft)
+                .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 8) {
+                Button("Paste + Save") {
+                    runProviderAction {
+                        let didSave = await CloudProviderSetupAutomation.pasteAndSave(
+                            provider: provider,
+                            inference: inference
+                        )
+                        return ConnectionTestResult(
+                            success: didSave,
+                            message: inference.cloudValidationState(for: provider).statusText
+                        )
+                    }
+                }
+                .disabled(isWorking)
+
+                Button("Save Typed Key") {
+                    saveTypedAPIKey()
+                }
+                .disabled(isWorking)
+
+                if let url = provider.credentialManagementURL {
+                    Button(provider.credentialActionTitle) {
+                        NSWorkspace.shared.open(url)
+                    }
+                    .disabled(isWorking)
+                }
+
+                if hasSavedAPIKey {
+                    Button("Clear API Key") {
+                        _ = inference.setAPIKey("", for: provider)
+                        actionResult = "\(provider.manualCredentialTitle) removed."
+                    }
+                    .disabled(isWorking)
+                }
+            }
+        }
+        .padding(.top, 6)
+    }
+
+    private var activationControls: some View {
+        HStack(spacing: 8) {
+            Button("Check Access") {
+                runProviderAction {
+                    await inference.validateCloudAccess(for: provider)
+                }
+            }
+            .disabled(isWorking)
+
+            Button("Use \(provider.displayName)") {
+                inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+                inference.setPreferredChatModelSelection(.cloud(inference.preferredCloudModel(for: provider)))
+                actionResult = "\(provider.displayName) is active for cloud chat."
+            }
+            .disabled(!validationState.isVerified)
+
+            if provider.supportsAccountConnection, oauthCredential != nil {
+                Button("Disconnect Account") {
+                    _ = inference.setOAuthCredential(nil, for: provider)
+                    actionResult = "\(provider.displayName) account disconnected."
+                }
+                .disabled(isWorking)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            Text("Verify live access before making this provider active.")
+                .font(.caption2)
+                .foregroundStyle(theme.resolved.mutedForeground.color)
+                .offset(y: 18)
+        }
+        .padding(.bottom, 16)
+    }
+
+    private func runAccountAction() {
+        switch provider {
+        case .openAI:
+            runProviderAction {
+                await inference.signInToOpenAI { authorization in
+                    openAIDeviceAuthorization = authorization
+                }
+            }
+        case .anthropic:
+            runProviderAction {
+                await inference.importAnthropicAccount()
+            }
+        case .google:
+            connectGoogleOAuth()
+        case .zai, .kimi, .minimax, .deepseek:
+            if let url = provider.credentialManagementURL {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+
+    private func runProviderAction(
+        _ operation: @escaping @MainActor () async -> ConnectionTestResult
+    ) {
+        guard !isWorking else { return }
+        isWorking = true
+        Task { @MainActor in
+            let result = await operation()
+            actionResult = result.message
+            isWorking = false
+        }
+    }
+
+    private func saveTypedAPIKey() {
+        let trimmed = apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            let result = inference.recordCloudProviderValidationFailure(
+                for: provider,
+                message: provider.missingManualCredentialMessage
+            )
+            actionResult = result.message
+            return
+        }
+
+        runProviderAction {
+            inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+            guard inference.setAPIKey(trimmed, for: provider) else {
+                return ConnectionTestResult(
+                    success: false,
+                    message: inference.cloudValidationState(for: provider).statusText
+                )
+            }
+            return await inference.validateCloudAccess(for: provider)
+        }
+    }
+
+    private func connectGoogleOAuth() {
+        guard CloudProviderSetupAutomation.loadGoogleOAuthClientConfigData() != nil else {
+            let result = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: "Choose the Google OAuth client JSON you downloaded from Google Cloud Console for a Desktop app before connecting Google OAuth."
+            )
+            actionResult = result.message
+            return
+        }
+
+        guard !googleOAuthProjectID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let result = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: "Enter the Google Cloud project ID for the same project where Gemini API is enabled before connecting Google OAuth."
+            )
+            actionResult = result.message
+            return
+        }
+
+        guard let configuration = CloudProviderSetupAutomation.storedGoogleOAuthClientConfiguration(
+            projectIDOverride: googleOAuthProjectID
+        ) else {
+            let result = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: "Couldn't read the selected Google OAuth client JSON file."
+            )
+            actionResult = result.message
+            return
+        }
+
+        runProviderAction {
+            await inference.signInToGoogle(configuration: configuration)
+        }
+    }
+
+    private func chooseGoogleOAuthJSON() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.title = "Choose Google OAuth JSON"
+        panel.prompt = "Choose"
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            _ = try GoogleOAuthClientConfiguration.parse(from: data)
+            guard CloudProviderSetupAutomation.persistGoogleOAuthClientConfig(
+                data: data,
+                filename: url.lastPathComponent
+            ) else {
+                googleOAuthStatusMessage = "Couldn't read the selected Google OAuth client JSON file."
+                return
+            }
+            googleOAuthClientFilename = url.lastPathComponent
+            googleOAuthStatusMessage = "Google OAuth client JSON verified."
+        } catch {
+            googleOAuthStatusMessage = "Couldn't read the selected Google OAuth client JSON file."
+            _ = inference.recordCloudProviderValidationFailure(
+                for: .google,
+                message: "Couldn't read the selected Google OAuth client JSON file."
+            )
+        }
+    }
+}
+
+private struct CloudProviderStatusBadge: View {
+    let state: CloudProviderValidationState
+    let theme: EpistemosTheme
+
+    var body: some View {
+        Label(state.statusBadge, systemImage: state.systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(tintColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(tintColor.opacity(0.12))
+            )
+    }
+
+    private var tintColor: Color {
+        switch state.tintColor {
+        case .accent:
+            theme.resolved.accent.color
+        case .secondary:
+            theme.resolved.mutedForeground.color
+        case .success:
+            theme.success
+        case .warning:
+            theme.warning
+        }
+    }
+}
 
 private struct GeneralDetailView: View {
     @Environment(UIState.self) private var ui
@@ -2198,7 +2733,7 @@ private struct VaultDetailView: View {
         Form {
             Section("Connection") {
                 SettingsDescriptionText(
-                    text: "Your vault is the on-disk markdown workspace Epistemos reads from and writes to. Connecting a vault enables note sync, search indexing, and vault-backed editing."
+                    text: "Your vault is the on-disk markdown workspace Epistemos reads from and writes to. External edits from other apps are watched and reflected back into notes automatically."
                 )
                 if let url = vaultSync.vaultURL {
                     LabeledContent("Path") {
@@ -2283,7 +2818,7 @@ private struct VaultDetailView: View {
             if vaultSync.vaultURL != nil {
                 Section("Search Index") {
                     SettingsDescriptionText(
-                        text: "The search index is the fast local lookup database built from your vault. Rebuild it if search feels stale after large external edits or imports."
+                        text: "The search index is the fast local lookup database built from your vault. Rebuild it if search feels stale after a large import or recovery."
                     )
                     HStack(spacing: 8) {
                         Button("Rebuild Index") {

@@ -958,8 +958,8 @@ actor VaultIndexActor {
             }
             for path in deletedPaths {
                 if let page = existingByPath[path] {
-                    SpotlightIndexer.deindex(page.id)
                     recordPostImportDeletedPageID(page.id)
+                    removePageArtifacts(page)
                     modelContext.delete(page)
                     deleteCount += 1
                 }
@@ -1360,18 +1360,9 @@ actor VaultIndexActor {
         )
         let existing = try modelContext.fetch(descriptor)
         for page in existing {
-            do {
-                try searchService?.delete(pageId: page.id)
-                try? searchService?.deleteBlocksForPage(pageId: page.id)
-            } catch {
-                log.error("FTS5 delete failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            }
-            // Clean up orphaned SDNoteInsight
             let pageId = page.id
-            SpotlightIndexer.deindex(pageId)
-            Task { @MainActor in
-                AppBootstrap.shared?.instantRecallService.removeNote(noteId: pageId)
-            }
+            removePageArtifacts(page)
+            // Clean up orphaned SDNoteInsight
             let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
             if let insight = fetchFirst(insightDesc, label: "note insight for deleted file \(pageId)") {
                 modelContext.delete(insight)

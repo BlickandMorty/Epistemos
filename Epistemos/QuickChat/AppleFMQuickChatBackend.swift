@@ -53,7 +53,7 @@ nonisolated final class AppleFMQuickChatBackend: @unchecked Sendable {
     /// deltas via prefix diff). Throws QuickChatError.guardrailBlocked when
     /// the FM guardrails refuse — the router's fallback trigger.
     func stream(prompt: String, instructions: String?) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             #if canImport(FoundationModels)
             let session = self.session(instructions: instructions)
             let task = Task.detached(priority: .userInitiated) {

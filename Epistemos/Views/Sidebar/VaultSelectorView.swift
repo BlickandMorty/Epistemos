@@ -111,7 +111,7 @@ public struct VaultSelectorView: View {
     VaultSelectorView(
         vaults: [
             .init(id: "v1", displayName: "Default", modelTag: "claude-opus-4-7", isActive: true),
-            .init(id: "v2", displayName: "Provider Lab", modelTag: "goose-provider", isActive: false),
+            .init(id: "v2", displayName: "Provider Lab", modelTag: "opencode-provider", isActive: false),
             .init(id: "v3", displayName: "Research", modelTag: "perplexity-sonar-pro", isActive: false),
         ],
         onSelect: { _ in }

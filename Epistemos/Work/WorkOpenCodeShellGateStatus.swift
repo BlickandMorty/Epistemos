@@ -10,10 +10,9 @@ import Foundation
 //
 // OWNER DIRECTIVE (2026-06-21): WORK mode = the REAL OpenCode terminal TUI rendered
 // in a NATIVE terminal view (SwiftTerm/PTY) — not an Electron/Tauri GUI, not a
-// native rebuild. The Bun engine lazy-launches on loopback (kill-on-idle); Goose +
-// Hermes + OpenClaw fuse BENEATH the OpenCode shell (the existing WorkBackend Goose
-// seam is one engine fused under here). This gate is the shell (UI) seam; the Goose
-// gate (WorkBackendGateStatus) is the engine seam — distinct, both honest-inert until
+// native rebuild. The Bun engine lazy-launches on loopback (kill-on-idle); donor
+// engines fuse beneath the OpenCode shell through explicit backend seams. This gate
+// is the shell (UI) seam; WorkBackendGateStatus is the engine seam — distinct, both honest-inert until
 // their heavy vendors land. Pro path (`#if !EPISTEMOS_APP_STORE`); the MAS dual-build
 // gets the same capability via the researched sandbox substitute, never a silent cut.
 nonisolated enum WorkOpenCodeShellGateStatus {

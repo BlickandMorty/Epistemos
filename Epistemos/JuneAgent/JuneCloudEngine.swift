@@ -34,7 +34,7 @@ nonisolated final class JuneCloudEngine: @unchecked Sendable {
     /// history), so the cloud agent sees the full thread, not just the latest
     /// message.
     func stream(messages: [[String: String]]) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             let task = Task {
                 do {
                     try await self.run(messages: messages, continuation: continuation)
@@ -54,7 +54,7 @@ nonisolated final class JuneCloudEngine: @unchecked Sendable {
         guard let base = EpistemosProxyClient.chatCompletionsBaseURL else {
             throw JuneGatewayError.cloudNotConfigured
         }
-        guard let session = EpistemosProxyClient.shared.currentSession() else {
+        guard let session = try await EpistemosProxyClient.shared.sessionForCloudRequest() else {
             throw CloudError.notSubscribed
         }
 

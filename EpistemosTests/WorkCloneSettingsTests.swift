@@ -22,7 +22,7 @@ struct WorkCloneSettingsTests {
         let src = try loadMirroredSourceTextFile("Epistemos/Views/Settings/WorkCloneSettingsView.swift")
         #expect(src.contains("WorkTerminalHostView("))    // the real native terminal, now reachable
         #expect(src.contains("WorkOpenCodeShellHealthRow")) // shell seam status
-        #expect(src.contains("WorkBackendHealthRow"))       // goose engine seam status
+        #expect(src.contains("WorkBackendHealthRow"))       // secondary backend seam status
         // Honest runtime guidance, not a fake "it works".
         #expect(src.contains("honestly inert"))
     }
@@ -164,12 +164,12 @@ struct WorkCloneSettingsTests {
         #expect(!openCodeGate.contains("Chat/Act stay on their own engines"))
         #expect(!openCodeGate.contains("Chat/Act are unchanged"))
 
-        let gooseGate = try loadMirroredSourceTextFile("Epistemos/Work/WorkBackendGateStatus.swift")
-        #expect(gooseGate.contains("EPISTEMOS_WORK_GOOSE_V0"))
-        #expect(gooseGate.contains("Other app modes"))
-        #expect(!gooseGate.contains("Chat and Act are unaffected"))
-        #expect(!gooseGate.contains("Chat and Act stay on their own engines"))
-        #expect(!gooseGate.contains("Chat and Act are unchanged"))
+        let backendGate = try loadMirroredSourceTextFile("Epistemos/Work/WorkBackendGateStatus.swift")
+        #expect(backendGate.contains("EPISTEMOS_WORK_BACKEND_V0"))
+        #expect(backendGate.contains("Other app modes"))
+        #expect(!backendGate.contains("Chat and Act are unaffected"))
+        #expect(!backendGate.contains("Chat and Act stay on their own engines"))
+        #expect(!backendGate.contains("Chat and Act are unchanged"))
     }
 
     @Test("native Work surface keeps controls reachable while staying flat/minimal")

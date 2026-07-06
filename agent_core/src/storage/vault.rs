@@ -480,16 +480,16 @@ pub fn vault_note_content_uas_address(path: &str, content: &str) -> UasAddress {
     UasAddress::from_hash(UasKind::VaultNote, hasher.finalize(), 0)
 }
 
-/// P5.H A2 (EML-3) — whether the EML secondary re-rank is enabled. OPT-IN,
-/// default OFF (no behavior change) — `EPISTEMOS_EML_RERANK_V1=1` turns it on,
-/// mirroring the schema gate's opt-in flag.
+/// P5.H A2 (EML-3) — whether the EML secondary re-rank is enabled. Default ON:
+/// `EPISTEMOS_EML_RERANK_V1=0` (or `false`/`no`/`off`) is the rollback hatch.
 pub fn eml_rerank_enabled() -> bool {
-    matches!(
-        std::env::var("EPISTEMOS_EML_RERANK_V1")
-            .map(|raw| raw.trim().to_ascii_lowercase())
-            .as_deref(),
-        Ok("1" | "true" | "yes" | "on")
-    )
+    match std::env::var("EPISTEMOS_EML_RERANK_V1") {
+        Ok(raw) => !matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "0" | "false" | "no" | "off"
+        ),
+        Err(_) => true,
+    }
 }
 
 /// The secondary signal for the EML re-rank: how many DISTINCT query terms
@@ -623,8 +623,8 @@ pub trait VaultBackend: Send + Sync {
 
     async fn search(&self, query: &str, limit: usize) -> Result<Vec<String>, VaultError> {
         let results = self.hybrid_search(query, limit, &[]).await?;
-        // P5.H A2 (EML-3) — flag-gated secondary re-rank (default OFF). Fuses
-        // BM25 with excerpt query-coverage; no behavior change when disabled.
+        // P5.H A2 (EML-3) — default-on secondary re-rank with explicit
+        // rollback. Fuses BM25 with excerpt query-coverage.
         let results = apply_eml_rerank(query, results);
         Ok(results
             .into_iter()
@@ -3446,17 +3446,25 @@ mod tests {
         );
         assert_eq!(super::excerpt_query_coverage(query, "nothing matches"), 0.0);
 
-        // Flag OFF (default): order is the input order (no re-rank).
+        // Default ON: B (covers the query) is fused above A despite lower BM25.
         std::env::remove_var("EPISTEMOS_EML_RERANK_V1");
-        let off = super::apply_eml_rerank(query, results.clone());
-        assert_eq!(off[0].path, "a.md", "off → input order preserved");
-
-        // Flag ON: B (covers the query) is fused above A despite lower BM25.
-        std::env::set_var("EPISTEMOS_EML_RERANK_V1", "1");
-        let on = super::apply_eml_rerank(query, results);
+        let default_on = super::apply_eml_rerank(query, results.clone());
         assert_eq!(
-            on[0].path, "b.md",
-            "on → excerpt-coverage fusion promotes B"
+            default_on[0].path, "b.md",
+            "default-on → excerpt-coverage fusion promotes B"
+        );
+
+        // Explicit rollback disables the secondary re-rank and preserves input order.
+        std::env::set_var("EPISTEMOS_EML_RERANK_V1", "0");
+        let rollback_off = super::apply_eml_rerank(query, results.clone());
+        assert_eq!(rollback_off[0].path, "a.md", "off → input order preserved");
+
+        // Truthy values keep the default-on behavior.
+        std::env::set_var("EPISTEMOS_EML_RERANK_V1", "1");
+        let explicit_on = super::apply_eml_rerank(query, results);
+        assert_eq!(
+            explicit_on[0].path, "b.md",
+            "explicit-on → excerpt-coverage fusion promotes B"
         );
         std::env::remove_var("EPISTEMOS_EML_RERANK_V1");
     }

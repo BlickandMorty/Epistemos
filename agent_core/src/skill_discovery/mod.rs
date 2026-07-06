@@ -17,7 +17,7 @@
 //! progressive-disclosure replacement for Voyager-style autonomy.
 //! Every promotion is user-confirmed; nothing silent.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -40,6 +40,26 @@ pub const DEFAULT_USER_REJECT_WINDOW: Duration = Duration::from_secs(24 * 60 * 6
 /// digest copy ("You've done X 4 times this week"). Below this, the
 /// drafted proposal sits but isn't surfaced.
 pub const DEFAULT_FREQUENCY_THRESHOLD: u32 = 4;
+
+const SEQUENCE_COUNTS_FILE_NAME: &str = "composition_counts.json";
+const MAX_SEQUENCE_COUNTS_JSON_BYTES: u64 = 128 * 1024;
+const MAX_PERSISTED_SEQUENCE_COUNTS: usize = 4096;
+
+/// Shared on-device data root for composition observations and the
+/// NightBrain review-queue synthesis. Kept here so Swift/FFI call sites and
+/// NightBrain do not drift to different proposal queues.
+pub fn default_skill_discovery_data_dir() -> PathBuf {
+    if let Ok(path) = std::env::var("EPISTEMOS_SKILL_DISCOVERY_DATA_DIR") {
+        return PathBuf::from(path);
+    }
+    let mut base = dirs::data_dir()
+        .or_else(dirs::home_dir)
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.push("Epistemos");
+    base.push("hermes");
+    base.push("skill_discovery");
+    base
+}
 
 #[derive(Debug, Error)]
 pub enum SkillDiscoveryError {
@@ -98,11 +118,13 @@ pub enum DiscoveryOutcome {
     BelowFrequencyThreshold { seen: u32, threshold: u32 },
 }
 
-/// In-memory tracker. Production should persist this to a SQLite
-/// table alongside heal_events / undo_events; for the scaffold the
-/// in-memory state plus on-disk proposed_skills/ is sufficient.
+/// In-memory tracker with a small persisted frequency ledger. Production can
+/// eventually move this to SQLite alongside heal_events / undo_events; for the
+/// MAS user-skill loop the atomic count ledger plus on-disk proposed_skills/
+/// keeps frequency gates durable without adding a new runtime dependency.
 pub struct SkillDiscovery {
     proposed_dir: PathBuf,
+    sequence_counts_path: PathBuf,
     existing_sequence_hashes: HashMap<String, String>, // hash → existing skill name
     sequence_counts: HashMap<String, u32>,             // hash → frequency
     latency_budget: Duration,
@@ -114,11 +136,14 @@ impl SkillDiscovery {
     /// base directory that contains `proposed_skills/` (canonical:
     /// `agent_core/data/`).
     pub fn new(agent_core_data_dir: impl Into<PathBuf>) -> Self {
-        let dir = agent_core_data_dir.into().join("proposed_skills");
+        let base_dir = agent_core_data_dir.into();
+        let sequence_counts_path = base_dir.join(SEQUENCE_COUNTS_FILE_NAME);
+        let dir = base_dir.join("proposed_skills");
         Self {
             proposed_dir: dir,
+            sequence_counts: load_sequence_counts(&sequence_counts_path),
+            sequence_counts_path,
             existing_sequence_hashes: HashMap::new(),
-            sequence_counts: HashMap::new(),
             latency_budget: DEFAULT_LATENCY_BUDGET,
             frequency_threshold: DEFAULT_FREQUENCY_THRESHOLD,
         }
@@ -181,6 +206,7 @@ impl SkillDiscovery {
         let count = self.sequence_counts.entry(hash.clone()).or_insert(0);
         *count += 1;
         let seen = *count;
+        self.persist_sequence_counts()?;
         if seen < self.frequency_threshold {
             return Ok(DiscoveryOutcome::BelowFrequencyThreshold {
                 seen,
@@ -255,6 +281,44 @@ impl SkillDiscovery {
     pub fn proposed_dir(&self) -> &Path {
         &self.proposed_dir
     }
+
+    fn persist_sequence_counts(&self) -> Result<(), SkillDiscoveryError> {
+        let all_counts = self
+            .sequence_counts
+            .iter()
+            .map(|(hash, count)| (hash.clone(), *count))
+            .collect::<BTreeMap<_, _>>();
+        let counts = if all_counts.len() > MAX_PERSISTED_SEQUENCE_COUNTS {
+            all_counts
+                .into_iter()
+                .take(MAX_PERSISTED_SEQUENCE_COUNTS)
+                .collect::<BTreeMap<_, _>>()
+        } else {
+            all_counts
+        };
+        crate::util::atomic_write_json(&self.sequence_counts_path, &counts)?;
+        Ok(())
+    }
+}
+
+fn load_sequence_counts(path: &Path) -> HashMap<String, u32> {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return HashMap::new();
+    };
+    if metadata.len() > MAX_SEQUENCE_COUNTS_JSON_BYTES {
+        return HashMap::new();
+    }
+    let Ok(bytes) = std::fs::read(path) else {
+        return HashMap::new();
+    };
+    let Ok(counts) = serde_json::from_slice::<BTreeMap<String, u32>>(&bytes) else {
+        return HashMap::new();
+    };
+    counts
+        .into_iter()
+        .take(MAX_PERSISTED_SEQUENCE_COUNTS)
+        .filter(|(hash, _)| hash.len() == 64 && hash.chars().all(|ch| ch.is_ascii_hexdigit()))
+        .collect()
 }
 
 fn slugify(s: &str) -> String {
@@ -408,6 +472,43 @@ mod tests {
         match d.observe(&t).unwrap() {
             DiscoveryOutcome::Drafted { .. } => {}
             other => panic!("expected Drafted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn frequency_counts_survive_reconstruction() {
+        let tmp = TempDir::new().unwrap();
+        let t = trace(&["vault.search", "vault.read", "vault.write"], 100, true);
+        let mut first = SkillDiscovery::new(tmp.path()).with_frequency_threshold(2);
+        match first.observe(&t).unwrap() {
+            DiscoveryOutcome::BelowFrequencyThreshold { seen, threshold } => {
+                assert_eq!(seen, 1);
+                assert_eq!(threshold, 2);
+            }
+            other => panic!("expected BelowFrequencyThreshold, got {other:?}"),
+        }
+
+        let mut second = SkillDiscovery::new(tmp.path()).with_frequency_threshold(2);
+        match second.observe(&t).unwrap() {
+            DiscoveryOutcome::Drafted { path } => {
+                assert!(path.is_file());
+            }
+            other => panic!("expected Drafted after reloading counts, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn corrupt_frequency_counts_do_not_promote_early() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::write(tmp.path().join(SEQUENCE_COUNTS_FILE_NAME), b"{not-json").unwrap();
+        let t = trace(&["vault.search", "vault.read", "vault.write"], 100, true);
+        let mut d = SkillDiscovery::new(tmp.path()).with_frequency_threshold(2);
+        match d.observe(&t).unwrap() {
+            DiscoveryOutcome::BelowFrequencyThreshold { seen, threshold } => {
+                assert_eq!(seen, 1);
+                assert_eq!(threshold, 2);
+            }
+            other => panic!("corrupt counts must fail closed, got {other:?}"),
         }
     }
 

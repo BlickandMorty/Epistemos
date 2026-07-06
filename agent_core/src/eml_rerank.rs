@@ -13,8 +13,8 @@
 //! fuses a lexical signal (BM25) with a secondary signal (semantic / recall /
 //! title) into one scalar energy, so a result that's strong on BOTH wins over
 //! one that's only strong on one — a determinism-friendly, monotone, no-model
-//! re-rank. Gated behind `EPISTEMOS_EML_RERANK_V1` at the call site (default
-//! OFF, like the schema gate) so wiring it in is a no-behavior-change promotion.
+//! re-rank. Gated behind `EPISTEMOS_EML_RERANK_V1` at the call site; default is
+//! ON and `0`/`false`/`no`/`off` are rollback values while diagnosing.
 
 /// Small floor so `ln(bm25 + ε)` is finite when BM25 is 0.
 pub const BM25_EPSILON: f64 = 1e-6;

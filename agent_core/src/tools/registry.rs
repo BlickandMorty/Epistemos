@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
@@ -40,19 +41,21 @@ fn r5_enforce_enabled() -> bool {
 }
 
 /// P8.1 — the deterministic schema gate (first slice of the schema engine).
-/// OPT-IN, default OFF so there is zero behavior change until it's promoted:
-/// `EPISTEMOS_SCHEMA_GATE_V1=1` turns it on. When on, a tool's input is
+/// Default is enforcement ON: malformed tool input is rejected before any
+/// handler can run. `EPISTEMOS_SCHEMA_GATE_V1=0` (or `false`/`no`/`off`) is the
+/// rollback hatch while diagnosing a schema issue. When on, a tool's input is
 /// validated against the tool's own declared input schema (`RegisteredTool.
 /// parameters`) BEFORE the handler runs, so the model targets an immutable typed
 /// schema instead of guessing and malformed args are rejected with
 /// `at {path}: {err}` before any side effect.
 fn schema_gate_enabled() -> bool {
-    matches!(
-        std::env::var("EPISTEMOS_SCHEMA_GATE_V1")
-            .map(|raw| raw.trim().to_ascii_lowercase())
-            .as_deref(),
-        Ok("1" | "true" | "yes" | "on")
-    )
+    match std::env::var("EPISTEMOS_SCHEMA_GATE_V1") {
+        Ok(raw) => !matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "0" | "false" | "no" | "off"
+        ),
+        Err(_) => true,
+    }
 }
 
 #[cfg(not(feature = "pro-build"))]
@@ -879,8 +882,8 @@ impl ToolRegistry {
             }
         }
 
-        // P8.1 — deterministic schema gate (opt-in via EPISTEMOS_SCHEMA_GATE_V1,
-        // default OFF). Validate the tool input against the tool's own declared
+        // P8.1 — deterministic schema gate (default ON, explicit rollback via
+        // EPISTEMOS_SCHEMA_GATE_V1=0). Validate the tool input against the tool's own declared
         // input schema BEFORE the handler runs, so the model targets an immutable
         // typed schema and malformed args are rejected (`at {path}: {err}`) with
         // no side effect. Builds on the existing tools_v2 JsonSchemaValidator
@@ -996,6 +999,7 @@ impl ToolRegistry {
         // Phase 2 knowledge & memory tools (vault-native specialties)
         self.register_phase_two_knowledge();
         self.register_phase_two_note_tools();
+        self.register_phase_two_pdf_tools();
         self.register_phase_two_graph();
         self.register_phase_two_memory();
 
@@ -1960,6 +1964,22 @@ impl ToolRegistry {
             description: mt.description,
             parameters: mt.parameters,
             handler: Box::new(MarkdownTableTool),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_two_pdf_tools(&mut self) {
+        let Some(root) = self.vault_root_path.clone() else {
+            return;
+        };
+
+        let schema = pdf_to_markdown_tool_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(PdfToMarkdownTool::new(root)),
             risk_level: RiskLevel::ReadOnly,
             tier: ToolTier::Agent,
         });
@@ -3315,6 +3335,8 @@ fn expected_vault_write_readback(
 #[async_trait]
 impl ToolHandler for VaultWriteHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        use crate::effect::{IntentApplier, VaultIntentApplier};
+        use crate::format::Intent;
         use crate::storage::contradiction_detector::detect_contradictions;
         use crate::storage::memory_classifier::VaultFact;
 
@@ -3387,23 +3409,30 @@ impl ToolHandler for VaultWriteHandler {
             detect_contradictions(content, &facts)
         };
 
-        self.vault
-            .write(path, content, Some(&tags), append)
-            .await
-            .map_err(map_vault_error)?;
-
-        let expected_readback =
+        let final_body =
             expected_vault_write_readback(previous_content.as_deref(), content, &tags, append);
+        let intent = Intent::VaultWrite {
+            path: path.to_string(),
+            body: final_body.clone(),
+            frontmatter: json!({ "tags": tags }),
+        };
+        intent
+            .validate()
+            .map_err(|error| ToolError::InvalidArguments(error.to_string()))?;
+        let applier = VaultIntentApplier::new(Arc::clone(&self.vault), ".");
+        let (effect, prior_state) = applier.apply(intent).await.map_err(map_apply_error)?;
+        let inverse = effect.compute_inverse(prior_state.as_ref());
+
         let actual_readback = self.vault.read(path).await.map_err(|error| {
             ToolError::ExecutionFailed(format!(
                 "write verification readback failed for '{path}': {error}"
             ))
         })?;
-        if actual_readback != expected_readback {
+        if actual_readback != final_body {
             return Err(ToolError::ExecutionFailed(format!(
                 "write verification failed for '{path}': readback did not match requested content \
                  (expected {} bytes, got {} bytes)",
-                expected_readback.len(),
+                final_body.len(),
                 actual_readback.len()
             )));
         }
@@ -3424,9 +3453,13 @@ impl ToolHandler for VaultWriteHandler {
         Ok(json!({
             "success": true,
             "path": path,
-            "bytes_written": content.len(),
+            "bytes_written": final_body.len(),
             "warnings": warnings,
             "verified": true,
+            "effect": effect,
+            "effect_kind": effect_kind(&effect),
+            "reversible": inverse.is_reversible(),
+            "inverse_kind": inverse_kind(&inverse),
         })
         .to_string())
     }
@@ -3580,6 +3613,204 @@ fn map_vault_error(error: VaultError) -> ToolError {
         VaultError::NotFound(message) => ToolError::NotFound(message),
         other => ToolError::ExecutionFailed(other.to_string()),
     }
+}
+
+fn map_apply_error(error: crate::effect::ApplyError) -> ToolError {
+    match error {
+        crate::effect::ApplyError::InvalidIntent(message) => ToolError::InvalidArguments(message),
+        crate::effect::ApplyError::PermissionDenied(_) => ToolError::PermissionDenied,
+        crate::effect::ApplyError::IoError(message)
+        | crate::effect::ApplyError::Conflict(message)
+        | crate::effect::ApplyError::Permanent(message) => ToolError::ExecutionFailed(message),
+        crate::effect::ApplyError::BreakerOpen => {
+            ToolError::ExecutionFailed("effect circuit breaker is open".to_string())
+        }
+    }
+}
+
+fn effect_kind(effect: &crate::effect::Effect) -> &'static str {
+    match effect {
+        crate::effect::Effect::VaultWrote { .. } => "vault_wrote",
+        crate::effect::Effect::VaultMoved { .. } => "vault_moved",
+        crate::effect::Effect::VaultDeleted { .. } => "vault_deleted",
+        crate::effect::Effect::ConceptCreated { .. } => "concept_created",
+        crate::effect::Effect::ConceptAliased { .. } => "concept_aliased",
+        crate::effect::Effect::MemoryWrote { .. } => "memory_wrote",
+        crate::effect::Effect::NoopApplied { .. } => "noop_applied",
+        crate::effect::Effect::Aborted { .. } => "aborted",
+        crate::effect::Effect::Reversed { .. } => "reversed",
+    }
+}
+
+fn inverse_kind(inverse: &crate::effect::Inverse) -> &'static str {
+    match inverse {
+        crate::effect::Inverse::DeleteVault { .. } => "delete_vault",
+        crate::effect::Inverse::RestoreVaultContent { .. } => "restore_vault_content",
+        crate::effect::Inverse::MoveVault { .. } => "move_vault",
+        crate::effect::Inverse::RestoreVaultFromShadow { .. } => "restore_vault_from_shadow",
+        crate::effect::Inverse::RetractConcept { .. } => "retract_concept",
+        crate::effect::Inverse::RemoveConceptAlias { .. } => "remove_concept_alias",
+        crate::effect::Inverse::TombstoneMemory { .. } => "tombstone_memory",
+        crate::effect::Inverse::NotReversible => "not_reversible",
+    }
+}
+
+const MAX_PDF_TOOL_INPUT_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_PDF_TOOL_MARKDOWN_BYTES: usize = 512 * 1024;
+
+fn pdf_to_markdown_tool_schema() -> ToolSchema {
+    ToolSchema {
+        name: "pdf.to_markdown".to_string(),
+        description: "Convert a PDF inside the active vault to Markdown using the MAS-safe in-process parser. Accepts only vault-relative PDF paths and never writes files.".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "description": "Vault-relative path to a PDF file, for example 'Sources/paper.pdf'. Absolute paths and '..' are rejected."
+                }
+            },
+            "required": ["path"],
+            "additionalProperties": false
+        }),
+    }
+}
+
+struct PdfToMarkdownTool {
+    vault_root: PathBuf,
+}
+
+impl PdfToMarkdownTool {
+    fn new(vault_root: PathBuf) -> Self {
+        Self { vault_root }
+    }
+}
+
+#[async_trait]
+impl ToolHandler for PdfToMarkdownTool {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let path = input
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("path required".to_string()))?;
+        let resolved = resolve_vault_pdf_path(&self.vault_root, path)?;
+        let (markdown, truncated) = bounded_pdf_tool_markdown(
+            crate::liteparse::pdf_to_markdown(path_to_str(&resolved.canonical_pdf)?)
+                .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?,
+        );
+
+        Ok(json!({
+            "ok": true,
+            "tool": "pdf.to_markdown",
+            "path": resolved.relative_path,
+            "markdown": markdown,
+            "truncated": truncated,
+            "max_pdf_bytes": MAX_PDF_TOOL_INPUT_BYTES,
+            "max_markdown_bytes": MAX_PDF_TOOL_MARKDOWN_BYTES,
+            "writes_vault": false,
+            "parser": "agent_core.liteparse.edgeparse_unpdf"
+        })
+        .to_string())
+    }
+}
+
+struct ResolvedVaultPdf {
+    canonical_pdf: PathBuf,
+    relative_path: String,
+}
+
+fn resolve_vault_pdf_path(
+    vault_root: &Path,
+    raw_path: &str,
+) -> Result<ResolvedVaultPdf, ToolError> {
+    let trimmed = raw_path.trim();
+    if trimmed.is_empty() {
+        return Err(ToolError::InvalidArguments(
+            "path must be a vault-relative PDF path".to_string(),
+        ));
+    }
+
+    let relative = Path::new(trimmed);
+    if !relative
+        .components()
+        .all(|component| matches!(component, Component::Normal(_)))
+    {
+        return Err(ToolError::InvalidArguments(
+            "path must be a vault-relative PDF path".to_string(),
+        ));
+    }
+    if !crate::liteparse::is_supported_pdf(trimmed) {
+        return Err(ToolError::InvalidArguments(
+            "path must point to a PDF file".to_string(),
+        ));
+    }
+
+    let candidate = vault_root.join(relative);
+    let candidate_metadata = std::fs::symlink_metadata(&candidate).map_err(|_| {
+        ToolError::NotFound("PDF path was not found inside the active vault".to_string())
+    })?;
+    if candidate_metadata.file_type().is_symlink() || !candidate_metadata.is_file() {
+        return Err(ToolError::InvalidArguments(
+            "path must point to a regular PDF file".to_string(),
+        ));
+    }
+    if candidate_metadata.len() > MAX_PDF_TOOL_INPUT_BYTES {
+        return Err(ToolError::ExecutionFailed(format!(
+            "PDF is too large for the MAS agent tool ({} MiB limit)",
+            MAX_PDF_TOOL_INPUT_BYTES / 1024 / 1024
+        )));
+    }
+
+    let canonical_root = std::fs::canonicalize(vault_root)
+        .map_err(|_| ToolError::ExecutionFailed("active vault root is unavailable".to_string()))?;
+    let canonical_pdf = std::fs::canonicalize(&candidate).map_err(|_| {
+        ToolError::NotFound("PDF path was not found inside the active vault".to_string())
+    })?;
+    if !canonical_pdf.starts_with(&canonical_root) {
+        return Err(ToolError::PermissionDenied);
+    }
+
+    let canonical_metadata = std::fs::metadata(&canonical_pdf).map_err(|_| {
+        ToolError::NotFound("PDF path was not found inside the active vault".to_string())
+    })?;
+    if canonical_metadata.len() > MAX_PDF_TOOL_INPUT_BYTES {
+        return Err(ToolError::ExecutionFailed(format!(
+            "PDF is too large for the MAS agent tool ({} MiB limit)",
+            MAX_PDF_TOOL_INPUT_BYTES / 1024 / 1024
+        )));
+    }
+
+    let relative_path = canonical_pdf
+        .strip_prefix(&canonical_root)
+        .map_err(|_| ToolError::PermissionDenied)?
+        .to_string_lossy()
+        .replace('\\', "/");
+
+    Ok(ResolvedVaultPdf {
+        canonical_pdf,
+        relative_path,
+    })
+}
+
+fn path_to_str(path: &Path) -> Result<&str, ToolError> {
+    path.to_str().ok_or_else(|| {
+        ToolError::InvalidArguments("path must be valid UTF-8 for PDF parsing".to_string())
+    })
+}
+
+fn bounded_pdf_tool_markdown(mut markdown: String) -> (String, bool) {
+    if markdown.len() <= MAX_PDF_TOOL_MARKDOWN_BYTES {
+        return (markdown, false);
+    }
+    let mut end = MAX_PDF_TOOL_MARKDOWN_BYTES;
+    while end > 0 && !markdown.is_char_boundary(end) {
+        end -= 1;
+    }
+    markdown.truncate(end);
+    markdown.push_str("\n\n[Truncated: PDF markdown exceeded the MAS agent output cap.]");
+    (markdown, true)
 }
 
 /// Process-wide NeuralCache for the `neural_recall` tool. Matches the existing
@@ -3796,7 +4027,7 @@ mod tier_tests {
     }
 
     // Available under BOTH builds: the schema-gate test below
-    // (`schema_gate_validates_input_only_when_enabled`) is NOT pro-build-gated
+    // (`schema_gate_validates_input_by_default_and_can_be_disabled`) is NOT pro-build-gated
     // (the P8.1 schema gate is always-compiled), so its handler must exist under
     // pro-build too. Previously `#[cfg(not(feature = "pro-build"))]` — which
     // broke the pro-build test build (the schema-gate test referenced a symbol
@@ -3846,11 +4077,11 @@ mod tier_tests {
     }
 
     #[tokio::test]
-    async fn schema_gate_validates_input_only_when_enabled() {
+    async fn schema_gate_validates_input_by_default_and_can_be_disabled() {
         // P8.1 — the deterministic schema gate. Register a tool with a STRICT
-        // input schema (requires a string `command`). Off (default): malformed
-        // input runs anyway (no behavior change). On: valid passes, malformed is
-        // rejected before the handler with `at {path}: {err}`.
+        // input schema (requires a string `command`). Default-on: malformed is
+        // rejected before the handler with `at {path}: {err}`. Explicit rollback:
+        // EPISTEMOS_SCHEMA_GATE_V1=0 lets malformed input run while diagnosing.
         let _env_guard = crate::test_support::env_lock();
         let mut registry = build_registry(ToolTier::Full);
         registry.register(RegisteredTool {
@@ -3869,14 +4100,29 @@ mod tier_tests {
         let valid = serde_json::json!({ "command": "echo hi" });
         let malformed = serde_json::json!({ "nope": 1 }); // missing required `command`
 
-        // Gate OFF (default): malformed input is NOT schema-checked → runs.
+        // Gate ON by default: valid passes; malformed rejects.
         std::env::remove_var("EPISTEMOS_SCHEMA_GATE_V1");
+        assert!(registry.execute("strict_schema_tool", &valid).await.is_ok());
+        let err = registry
+            .execute("strict_schema_tool", &malformed)
+            .await
+            .unwrap_err();
+        match err {
+            ToolError::InvalidArguments(msg) => assert!(
+                msg.contains("schema gate"),
+                "expected a schema-gate rejection, got: {msg}"
+            ),
+            other => panic!("expected InvalidArguments, got {other:?}"),
+        }
+
+        // Explicit rollback: malformed input is NOT schema-checked → runs.
+        std::env::set_var("EPISTEMOS_SCHEMA_GATE_V1", "0");
         assert!(registry
             .execute("strict_schema_tool", &malformed)
             .await
             .is_ok());
 
-        // Gate ON: valid passes; malformed rejected with a schema error.
+        // Truthy values keep the default-on behavior.
         std::env::set_var("EPISTEMOS_SCHEMA_GATE_V1", "1");
         assert!(registry.execute("strict_schema_tool", &valid).await.is_ok());
         let err = registry
@@ -4101,6 +4347,134 @@ mod tier_tests {
             registry.get_risk_level("markdown_table"),
             RiskLevel::ReadOnly
         );
+    }
+
+    #[test]
+    fn phase_two_pdf_tool_is_agent_only_and_root_gated() {
+        let no_root = build_registry(ToolTier::Agent);
+        let no_root_names: std::collections::HashSet<String> = no_root
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert!(
+            !no_root_names.contains("pdf.to_markdown"),
+            "PDF conversion needs an active vault root and must disappear without one"
+        );
+
+        let temp = tempfile::tempdir().unwrap();
+        let agent = build_registry_with_root(ToolTier::Agent, temp.path());
+        let agent_names: std::collections::HashSet<String> = agent
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert!(
+            agent_names.contains("pdf.to_markdown"),
+            "agent tier with an active vault root must expose the MAS PDF tool"
+        );
+        assert_eq!(agent.get_risk_level("pdf.to_markdown"), RiskLevel::ReadOnly);
+        assert_eq!(agent.get_tier("pdf.to_markdown"), ToolTier::Agent);
+
+        let chat_pro = build_registry_with_root(ToolTier::ChatPro, temp.path());
+        let chat_names: std::collections::HashSet<String> = chat_pro
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert!(
+            !chat_names.contains("pdf.to_markdown"),
+            "PDF conversion is an agent tool, not a chat-tier/local-model promise"
+        );
+    }
+
+    #[tokio::test]
+    async fn pdf_to_markdown_rejects_absolute_and_traversal_paths() {
+        let parent = tempfile::tempdir().unwrap();
+        let vault_root = parent.path().join("vault");
+        std::fs::create_dir_all(&vault_root).unwrap();
+        let registry = build_registry_with_root(ToolTier::Agent, &vault_root);
+
+        for path in [
+            parent
+                .path()
+                .join("outside.pdf")
+                .to_string_lossy()
+                .to_string(),
+            "../outside.pdf".to_string(),
+            "Docs/../outside.pdf".to_string(),
+        ] {
+            let result = registry
+                .execute("pdf.to_markdown", &serde_json::json!({ "path": path }))
+                .await;
+            match result {
+                Err(ToolError::InvalidArguments(message)) => {
+                    assert!(
+                        message.contains("vault-relative PDF"),
+                        "unexpected rejection: {message}"
+                    );
+                }
+                Err(other) => panic!("expected InvalidArguments, got {other:?}"),
+                Ok(payload) => panic!("expected path rejection, got success: {payload}"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn pdf_to_markdown_rejects_oversized_pdf_before_parser() {
+        let vault_root = tempfile::tempdir().unwrap();
+        let docs = vault_root.path().join("Docs");
+        std::fs::create_dir_all(&docs).unwrap();
+        let pdf = docs.join("too-large.pdf");
+        std::fs::File::create(&pdf)
+            .unwrap()
+            .set_len(MAX_PDF_TOOL_INPUT_BYTES + 1)
+            .unwrap();
+
+        let registry = build_registry_with_root(ToolTier::Agent, vault_root.path());
+        let result = registry
+            .execute(
+                "pdf.to_markdown",
+                &serde_json::json!({ "path": "Docs/too-large.pdf" }),
+            )
+            .await;
+        match result {
+            Err(ToolError::ExecutionFailed(message)) => {
+                assert!(message.contains("64 MiB limit"), "{message}");
+            }
+            Err(other) => panic!("expected ExecutionFailed, got {other:?}"),
+            Ok(payload) => panic!("expected size rejection, got success: {payload}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn pdf_to_markdown_parser_errors_do_not_leak_vault_root() {
+        let vault_root = tempfile::tempdir().unwrap();
+        let docs = vault_root.path().join("Docs");
+        std::fs::create_dir_all(&docs).unwrap();
+        std::fs::write(docs.join("not-a-pdf.pdf"), b"not a real PDF").unwrap();
+
+        let registry = build_registry_with_root(ToolTier::Agent, vault_root.path());
+        let result = registry
+            .execute(
+                "pdf.to_markdown",
+                &serde_json::json!({ "path": "Docs/not-a-pdf.pdf" }),
+            )
+            .await;
+        match result {
+            Err(ToolError::ExecutionFailed(message)) => {
+                assert!(
+                    message.contains("not a PDF") || message.contains("PDF"),
+                    "expected an honest parser error, got: {message}"
+                );
+                assert!(
+                    !message.contains(&vault_root.path().display().to_string()),
+                    "parser errors must not expose the private vault root: {message}"
+                );
+            }
+            Err(other) => panic!("expected ExecutionFailed, got {other:?}"),
+            Ok(payload) => panic!("expected parser rejection, got success: {payload}"),
+        }
     }
 
     #[test]
@@ -5330,6 +5704,47 @@ printf '{"success":true,"data":{"status":"completed","final_result":"fake dotted
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["success"], serde_json::json!(true));
         assert_eq!(parsed["verified"], serde_json::json!(true));
+        assert_eq!(parsed["effect_kind"], serde_json::json!("vault_wrote"));
+        assert_eq!(parsed["effect"]["kind"], serde_json::json!("vault_wrote"));
+        assert_eq!(
+            parsed["effect"]["path"],
+            serde_json::json!("Inbox/Verified.md")
+        );
+        assert_eq!(parsed["reversible"], serde_json::json!(true));
+        assert!(parsed["inverse_kind"].is_string());
+    }
+
+    #[tokio::test]
+    async fn vault_write_effect_metadata_does_not_expose_prior_body() {
+        let vault = Arc::new(NullVault::default());
+        let path = "Inbox/Existing.md";
+        vault
+            .notes
+            .lock()
+            .unwrap()
+            .insert(path.to_string(), "old private body".to_string());
+        let handler = VaultWriteHandler {
+            vault: vault.clone(),
+        };
+        let result = handler
+            .execute(&serde_json::json!({
+                "path": path,
+                "content": "new body",
+                "skip_contradiction_check": true
+            }))
+            .await
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["effect_kind"], serde_json::json!("vault_wrote"));
+        assert_eq!(
+            parsed["inverse_kind"],
+            serde_json::json!("restore_vault_content")
+        );
+        assert!(
+            !result.contains("old private body"),
+            "tool result must not leak prior content even though the inverse is reversible"
+        );
+        assert_eq!(vault.read(path).await.unwrap(), "new body");
     }
 
     #[tokio::test]

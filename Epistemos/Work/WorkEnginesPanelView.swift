@@ -19,7 +19,6 @@ struct WorkEnginesPanelView: View {
         ("codex", "Codex", true),
         ("claude-code", "Claude Code", true),
         ("pi", "Pi / OMP", true),
-        ("goose", "Goose", false),
         ("hermes", "Hermes", false),
     ]
 

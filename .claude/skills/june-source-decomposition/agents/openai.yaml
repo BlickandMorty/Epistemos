@@ -1,0 +1,4 @@
+interface:
+  display_name: "June Source Decomposition"
+  short_description: "Keep June files focused and below source-size limits."
+  default_prompt: "Use this skill to decompose oversized MAS June source or source-guard files while preserving behavior, capability truth, and focused validation."

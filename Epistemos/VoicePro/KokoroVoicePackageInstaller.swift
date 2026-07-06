@@ -9,7 +9,6 @@ nonisolated enum KokoroVoicePackageInstaller {
     }
 
     enum InstallError: Error, Equatable, LocalizedError, Sendable {
-        case unavailableInAppStoreBuild
         case modelRootUnavailable
         case sourcePackageMissing(String)
         case sourcePackageInvalid(String)
@@ -17,8 +16,6 @@ nonisolated enum KokoroVoicePackageInstaller {
 
         var errorDescription: String? {
             switch self {
-            case .unavailableInAppStoreBuild:
-                return "Kokoro install is unavailable in App Store builds."
             case .modelRootUnavailable:
                 return "Kokoro install location is unavailable."
             case .sourcePackageMissing(let detail):

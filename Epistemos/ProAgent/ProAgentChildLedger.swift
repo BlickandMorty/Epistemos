@@ -3,10 +3,9 @@ import Darwin
 import Foundation
 
 /// Phase-5 hardening (Plan 1-PRO §7): crash-orphan sweep. The in-memory
-/// orphan tracker dies with the app, so a crashed instance leaks its three
-/// children (observed live: node + opencode + goosed surviving three separate
-/// silent crashes, one set even ignoring plain SIGTERM). This ledger persists
-/// child identity to disk and the NEXT supervisor start reaps the strays.
+/// orphan tracker dies with the app, so a crashed instance can leak its
+/// children. This ledger persists child identity to disk and the NEXT
+/// supervisor start reaps the strays.
 ///
 /// Identity = (pid, process start time). PIDs get reused; the kernel start
 /// time does not — a recorded pid whose current start time differs is someone

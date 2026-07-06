@@ -45,6 +45,7 @@ import Foundation
 /// distinct lanes with their own capability surfaces.
 nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
     case appleIntelligence
+    case gguf
     case cloud(provider: String)
     case stub
 
@@ -52,6 +53,7 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
     public var stableID: String {
         switch self {
         case .appleIntelligence: return "apple_intelligence"
+        case .gguf: return "gguf"
         case .cloud(let provider): return "cloud:\(provider)"
         case .stub: return "stub"
         }
@@ -60,20 +62,24 @@ nonisolated public enum RuntimeLane: Hashable, Sendable, Codable {
     public var displayName: String {
         switch self {
         case .appleIntelligence: return "Apple Intelligence"
+        case .gguf: return "Local GGUF"
         case .cloud(let provider): return "Cloud · \(provider)"
         case .stub: return "Stub"
         }
     }
 
-    /// The four well-known lanes plus stub. The router always offers
+    /// The well-known lanes plus stub. The router always offers
     /// these in Settings even if a given lane's executor is not yet
     /// registered — that is the honest signal "lane present, no
     /// executor wired" rather than a silent omission.
     public static let knownLanes: [RuntimeLane] = [
         .appleIntelligence,
+        .gguf,
         .cloud(provider: "claude"),
         .cloud(provider: "openai"),
         .cloud(provider: "gemini"),
+        .cloud(provider: "zai"),
+        .cloud(provider: "kimi"),
         .cloud(provider: "perplexity"),
         .stub,
     ]

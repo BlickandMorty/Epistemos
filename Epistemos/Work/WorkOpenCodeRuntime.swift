@@ -132,7 +132,7 @@ nonisolated enum WorkOpenCodeRuntime {
 
     /// The OpenCode config (opencode.json) that FUSES the app's vault tools into the work TUI: registers the
     /// bundled `omega_mcp_stdio` as a local MCP server with the vault root in its environment. OpenCode reads
-    /// it via `OPENCODE_CONFIG`. Pure + testable (owner §720 "Goose/etc fuse beneath OpenCode" — via MCP).
+    /// it via `OPENCODE_CONFIG`. Pure + testable; donor tools fuse beneath OpenCode via MCP.
     static func openCodeConfigJSON(stdioServerPath: String, vaultRoot: String) -> String {
         let config: [String: Any] = [
             "$schema": "https://opencode.ai/config.json",

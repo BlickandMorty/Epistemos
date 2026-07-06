@@ -99,21 +99,29 @@ fn preferred_lane_hint_only_reorders_the_governed_chain() {
 }
 
 #[test]
-fn tool_caller_chain_keeps_gguf_local_before_cloud_fallback() {
+fn tool_caller_chain_keeps_agentic_cloud_before_local_chat_fallback() {
     let lanes = default_preferred_lanes_body();
     let tool_caller = {
         let start = index_of(lanes, "case .toolCaller:");
         let end = index_of(&lanes[start..], "case .trivial:");
         &lanes[start..start + end]
     };
-    let mlx = index_of(tool_caller, ".mlx");
-    let gguf = index_of(tool_caller, ".gguf");
-    let cloud_claude = index_of(tool_caller, ".cloud(provider: \"claude\")");
     let cloud_openai = index_of(tool_caller, ".cloud(provider: \"openai\")");
+    let cloud_claude = index_of(tool_caller, ".cloud(provider: \"claude\")");
+    let apple = index_of(tool_caller, ".appleIntelligence");
+    let gguf = index_of(tool_caller, ".gguf");
+    let stub = index_of(tool_caller, ".stub");
 
-    assert!(mlx < gguf, "tool-caller routes must try MLX before GGUF");
     assert!(
-        gguf < cloud_claude && gguf < cloud_openai,
-        "tool-caller routes must exhaust local GGUF before cloud fallback"
+        cloud_openai < apple && cloud_claude < apple && cloud_openai < gguf && cloud_claude < gguf,
+        "tool-caller routes must try agentic cloud lanes before local chat fallback"
+    );
+    assert!(
+        apple < gguf && gguf < stub,
+        "local chat fallbacks must stay ordered before the internal stub reject bucket"
+    );
+    assert!(
+        !tool_caller.contains(".mlx"),
+        "current MAS routing must not reintroduce local MLX tool lanes without an admitted deterministic grammar lane"
     );
 }

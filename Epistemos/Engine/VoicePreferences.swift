@@ -45,6 +45,51 @@ nonisolated public enum VoiceDecisionMode: String, Sendable, Codable, CaseIterab
     }
 }
 
+nonisolated public enum VoiceEffect: String, Sendable, Codable, CaseIterable, Identifiable {
+    case clean
+    case pixelArt
+    case chiptune
+    case robot
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .clean: return "Clean"
+        case .pixelArt: return "Pixel Art"
+        case .chiptune: return "Chiptune"
+        case .robot: return "Robot"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .clean: return "waveform"
+        case .pixelArt: return "square.grid.3x3.square"
+        case .chiptune: return "dot.radiowaves.left.and.right"
+        case .robot: return "cpu"
+        }
+    }
+
+    public var bitDepth: Int {
+        switch self {
+        case .clean: return 16
+        case .pixelArt: return 8
+        case .chiptune: return 6
+        case .robot: return 4
+        }
+    }
+
+    public var sampleRateHold: Int {
+        switch self {
+        case .clean: return 1
+        case .pixelArt: return 2
+        case .chiptune: return 4
+        case .robot: return 6
+        }
+    }
+}
+
 // MARK: - UserDefaults bridge
 
 public enum VoicePreferenceKeys {
@@ -78,6 +123,11 @@ public enum VoicePreferenceKeys {
     /// pause typing. When `manual`, read-back only happens via the speaker button.
     public static let quickCaptureReadBack =
         "com.epistemos.voice.quickCaptureReadBack"
+
+    /// Global read-aloud post-filter. Effects are applied only to Kokoro PCM
+    /// after the checked local model renders; clean remains the default.
+    public static let readAloudEffect =
+        "com.epistemos.voice.readAloudEffect"
 }
 
 // MARK: - Preferences singleton
@@ -112,6 +162,9 @@ public final class VoicePreferences {
         if d.object(forKey: VoicePreferenceKeys.quickCaptureReadBack) == nil {
             d.set(VoiceDecisionMode.manual.rawValue, forKey: VoicePreferenceKeys.quickCaptureReadBack)
         }
+        if d.object(forKey: VoicePreferenceKeys.readAloudEffect) == nil {
+            d.set(VoiceEffect.clean.rawValue, forKey: VoicePreferenceKeys.readAloudEffect)
+        }
     }
 
     public var agentResponseTTS: VoiceDecisionMode {
@@ -142,6 +195,20 @@ public final class VoicePreferences {
     public var quickCaptureReadBack: VoiceDecisionMode {
         get { decode(forKey: VoicePreferenceKeys.quickCaptureReadBack, default: .manual) }
         set { encode(newValue, forKey: VoicePreferenceKeys.quickCaptureReadBack) }
+    }
+
+    public var readAloudEffect: VoiceEffect {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: VoicePreferenceKeys.readAloudEffect),
+                  let effect = VoiceEffect(rawValue: raw) else {
+                return .clean
+            }
+            return effect
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: VoicePreferenceKeys.readAloudEffect)
+            voiceLog.debug("voice pref \(VoicePreferenceKeys.readAloudEffect, privacy: .public) → \(newValue.rawValue, privacy: .public)")
+        }
     }
 
     // MARK: - Rationale strings (W11.4 Manual-mode "Why?" surface)

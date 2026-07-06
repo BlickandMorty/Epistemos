@@ -56,6 +56,11 @@ nonisolated final class EpistemosProxyClient: @unchecked Sendable {
 
     private init() {}
 
+    private struct TokenResponse: Decodable {
+        let token: String
+        let expiresAt: Date
+    }
+
     // MARK: - Session token lifecycle
 
     /// Current session, from memory or Keychain. nil = never exchanged.
@@ -71,6 +76,32 @@ nonisolated final class EpistemosProxyClient: @unchecked Sendable {
         let session = EpistemosProxySession(token: token, expiresAt: expiry)
         cached = session
         return session
+    }
+
+    /// Session lookup for real cloud traffic. Production returns only a
+    /// StoreKit-minted proxy session. DEBUG additionally supports owner testing
+    /// with either:
+    /// - `EPISTEMOS_PROXY_DEV_TOKEN`: POSTs to `/v1/auth/dev-session` and stores
+    ///   the returned short-lived proxy session.
+    /// - `EPISTEMOS_PROXY_DEV_SESSION_TOKEN`: uses an already minted proxy
+    ///   bearer for local debug runs.
+    ///
+    /// Neither path fakes completions; JuneCloudEngine still calls the real
+    /// `/v1/chat/completions` SSE endpoint.
+    func sessionForCloudRequest() async throws -> EpistemosProxySession? {
+        if let session = currentSession(), session.remainingTTL > 0 {
+            return session
+        }
+
+        #if DEBUG
+        if let session = debugSessionFromEnvironment() {
+            store(session)
+            return session
+        }
+        return try await mintDebugSessionIfConfigured()
+        #else
+        return nil
+        #endif
     }
 
     /// Exchange a StoreKit JWS for a proxy session token (§5: the proxy
@@ -98,10 +129,6 @@ nonisolated final class EpistemosProxyClient: @unchecked Sendable {
             )
         }
 
-        struct TokenResponse: Decodable {
-            let token: String
-            let expiresAt: Date
-        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let decoded = try? decoder.decode(TokenResponse.self, from: data) else {
@@ -132,4 +159,60 @@ nonisolated final class EpistemosProxyClient: @unchecked Sendable {
             for: Self.expiryKeychainKey
         )
     }
+
+    #if DEBUG
+    private func debugSessionFromEnvironment() -> EpistemosProxySession? {
+        let env = ProcessInfo.processInfo.environment
+        guard let token = env["EPISTEMOS_PROXY_DEV_SESSION_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !token.isEmpty else {
+            return nil
+        }
+
+        let expiresAt: Date
+        if let raw = env["EPISTEMOS_PROXY_DEV_SESSION_EXPIRES_AT"],
+           let parsed = ISO8601DateFormatter().date(from: raw) {
+            expiresAt = parsed
+        } else {
+            expiresAt = Date().addingTimeInterval(3_600)
+        }
+        return EpistemosProxySession(token: token, expiresAt: expiresAt)
+    }
+
+    private func mintDebugSessionIfConfigured() async throws -> EpistemosProxySession? {
+        let env = ProcessInfo.processInfo.environment
+        guard let devToken = env["EPISTEMOS_PROXY_DEV_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !devToken.isEmpty else {
+            return nil
+        }
+        guard let base = Self.baseURL else { throw EpistemosProxyError.notConfigured }
+
+        var request = URLRequest(url: base.appendingPathComponent("v1/auth/dev-session"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(devToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["scope": "chat.completions"])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw EpistemosProxyError.malformedResponse
+        }
+        guard http.statusCode == 200 else {
+            throw EpistemosProxyError.receiptRejected(
+                status: http.statusCode,
+                body: String(decoding: data.prefix(300), as: UTF8.self)
+            )
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let decoded = try? decoder.decode(TokenResponse.self, from: data) else {
+            throw EpistemosProxyError.malformedResponse
+        }
+
+        let session = EpistemosProxySession(token: decoded.token, expiresAt: decoded.expiresAt)
+        store(session)
+        Self.log.info("DEBUG proxy dev session minted; expires \(decoded.expiresAt, privacy: .public)")
+        return session
+    }
+    #endif
 }

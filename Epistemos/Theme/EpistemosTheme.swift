@@ -860,7 +860,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
             )
         case .oledSoft:
             // RCA finalization 2026-05-13 / tuned 2026-05-24 / darkened
-            // 2026-07-02 (owner): Classic-dark read too light on the goose
+            // 2026-07-02 (owner): Classic-dark read too light on the agent
             // surface, where the inset panel derives from
             // floatingSurfaceTint — drop the elevated layers a few stops
             // (dark, not pure black) and let the window backdrop go true

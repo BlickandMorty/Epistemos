@@ -14,6 +14,10 @@ enum NotePreviewChromeMetrics {
         hasMultipleTabs: Bool,
         minimumHeight: CGFloat = 0
     ) -> CGFloat {
+        if minimumHeight > 0 {
+            return max(0, minimumHeight)
+        }
+
         let fallback = hasMultipleTabs ? fallbackTabbedTopInset : fallbackSingleTopInset
         let baseHeight: CGFloat
         guard titlebarInset > 0 else {
@@ -34,7 +38,7 @@ enum NotePreviewChromeMetrics {
         chromeMinimumHeight: CGFloat
     ) -> CGFloat {
         guard chromeMinimumHeight > 0 else { return 0 }
-        return max(0, max(chromeBackdropHeight, chromeMinimumHeight))
+        return max(0, chromeMinimumHeight)
     }
 
     static func titlebarInset(for window: NSWindow) -> CGFloat {

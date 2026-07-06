@@ -1317,6 +1317,46 @@ struct VaultIndexActorTests {
         #expect(trackedPages.first(where: { $0.id == page.id })?.loadBody() == "Existing body")
     }
 
+    @Test("importVault removes managed body artifacts when a tracked vault file is deleted")
+    func importVaultRemovesManagedBodyArtifactsForDeletedTrackedFiles() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let deletedURL = vaultURL.appendingPathComponent("Delete Me.md")
+            let keptURL = vaultURL.appendingPathComponent("Keep Me.md")
+            try "Delete me body".write(to: deletedURL, atomically: true, encoding: .utf8)
+            try "Keep me body".write(to: keptURL, atomically: true, encoding: .utf8)
+
+            try await actor.importVault(from: vaultURL)
+
+            let setupContext = ModelContext(container)
+            let importedPages = try setupContext.fetch(FetchDescriptor<SDPage>())
+            guard let deletedPage = importedPages.first(where: { $0.filePath == deletedURL.path }) else {
+                Issue.record("Expected deleted fixture page to import before removal")
+                return
+            }
+            let deletedPageId = deletedPage.id
+            #expect(NoteFileStorage.bodyExists(pageId: deletedPageId))
+
+            try FileManager.default.removeItem(at: deletedURL)
+
+            let snapshot = try await actor.importVault(from: vaultURL)
+            #expect(snapshot?.deletedCount == 1)
+
+            let verifyContext = ModelContext(container)
+            let remainingPages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            #expect(!remainingPages.contains { $0.id == deletedPageId })
+            #expect(!NoteFileStorage.bodyExists(pageId: deletedPageId))
+        }
+    }
+
     @Test("exportPage refreshes search index so graph queries see saved body text")
     func exportPageRefreshesSearchIndexForGraphQueries() async throws {
         let container = try makeContainer()

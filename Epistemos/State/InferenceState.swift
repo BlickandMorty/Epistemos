@@ -238,19 +238,28 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
         .openAI,
         .anthropic,
         .google,
+        .zai,
+        .kimi,
         .localOnly,
     ]
 }
 
 nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
+    case openAIGPT55 = "openai:gpt-5.5"
     case openAIGPT54 = "openai:gpt-5.4"
     case openAIGPT54Mini = "openai:gpt-5.4-mini"
     case openAIGPT54Nano = "openai:gpt-5.4-nano"
+    case openAIGPT53Codex = "openai:gpt-5.3-codex"
+    case openAIGPT53CodexSpark = "openai:gpt-5.3-codex-spark"
     case openAIGPT52 = "openai:gpt-5.2"
     case openAIGPT41 = "openai:gpt-4.1"
     case openAIGPT41Mini = "openai:gpt-4.1-mini"
     case openAIO3 = "openai:o3"
     case openAIO3Mini = "openai:o3-mini"
+    case anthropicClaudeFable5 = "anthropic:claude-fable-5"
+    case anthropicClaudeOpus48 = "anthropic:claude-opus-4-8"
+    case anthropicClaudeSonnet5 = "anthropic:claude-sonnet-5"
+    case anthropicClaudeHaiku45 = "anthropic:claude-haiku-4-5"
     case anthropicClaudeOpus47 = "anthropic:claude-opus-4-7"
     case anthropicClaudeSonnet46 = "anthropic:claude-sonnet-4-6"
     case anthropicClaudeOpus41 = "anthropic:claude-opus-4-1"
@@ -260,11 +269,19 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     case anthropicClaudeHaiku35 = "anthropic:claude-3-5-haiku"
     case googleGemini25Pro = "google:gemini-2.5-pro"
     case googleGemini25Flash = "google:gemini-2.5-flash"
+    case googleGemini31FlashLite = "google:gemini-3.1-flash-lite"
     case googleGemini3FlashPreview = "google:gemini-3-flash-preview"
     case googleGemini3ProPreview = "google:gemini-3-pro-preview"
     case googleGemini31ProPreview = "google:gemini-3.1-pro-preview"
+    case zaiGLM52 = "zai:glm-5.2"
     case zaiGLM5 = "zai:glm-5"
+    case zaiGLM5Turbo = "zai:glm-5-turbo"
+    case zaiGLM47 = "zai:glm-4.7"
+    case zaiGLM47Flash = "zai:glm-4.7-flash"
     case zaiGLM45Flash = "zai:glm-4.5-flash"
+    case kimiK27Code = "kimi:kimi-k2.7-code"
+    case kimiK27CodeHighSpeed = "kimi:kimi-k2.7-code-highspeed"
+    case kimiK26 = "kimi:kimi-k2.6"
     case kimiK25 = "kimi:kimi-k2.5"
     case kimiK2Thinking = "kimi:kimi-k2-thinking"
     case kimiK2TurboPreview = "kimi:kimi-k2-turbo-preview"
@@ -276,19 +293,24 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var provider: CloudModelProvider {
         switch self {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52, .openAIGPT41,
-             .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
+        case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
+             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52,
+             .openAIGPT41, .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
             .openAI
-        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+        case .anthropicClaudeFable5, .anthropicClaudeOpus48,
+             .anthropicClaudeSonnet5, .anthropicClaudeHaiku45,
+             .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             .anthropic
-        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
-             .googleGemini3ProPreview, .googleGemini31ProPreview:
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini31FlashLite,
+             .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
             .google
-        case .zaiGLM5, .zaiGLM45Flash:
+        case .zaiGLM52, .zaiGLM5, .zaiGLM5Turbo, .zaiGLM47, .zaiGLM47Flash,
+             .zaiGLM45Flash:
             .zai
-        case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
+        case .kimiK27Code, .kimiK27CodeHighSpeed, .kimiK26, .kimiK25,
+             .kimiK2Thinking, .kimiK2TurboPreview:
             .kimi
         case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
             .minimax
@@ -299,14 +321,21 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var vendorModelID: String {
         switch self {
-        case .openAIGPT54: "gpt-4o"
-        case .openAIGPT54Mini: "gpt-4o-mini"
+        case .openAIGPT55: "gpt-5.5"
+        case .openAIGPT54: "gpt-5.4"
+        case .openAIGPT54Mini: "gpt-5.4-mini"
         case .openAIGPT54Nano: "gpt-5.4-nano"
+        case .openAIGPT53Codex: "gpt-5.3-codex"
+        case .openAIGPT53CodexSpark: "gpt-5.3-codex-spark"
         case .openAIGPT52: "gpt-5.2"
         case .openAIGPT41: "gpt-4.1"
         case .openAIGPT41Mini: "gpt-4.1-mini"
         case .openAIO3: "o3"
         case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeFable5: "claude-fable-5"
+        case .anthropicClaudeOpus48: "claude-opus-4-8"
+        case .anthropicClaudeSonnet5: "claude-sonnet-5"
+        case .anthropicClaudeHaiku45: "claude-haiku-4-5"
         case .anthropicClaudeOpus47: "claude-opus-4-7"
         case .anthropicClaudeSonnet46: "claude-sonnet-4-6"
         case .anthropicClaudeOpus41: "claude-opus-4-1-20250805"
@@ -316,11 +345,19 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .anthropicClaudeHaiku35: "claude-3-5-haiku-latest"
         case .googleGemini25Pro: "gemini-2.5-pro"
         case .googleGemini25Flash: "gemini-2.5-flash"
+        case .googleGemini31FlashLite: "gemini-3.1-flash-lite"
         case .googleGemini3FlashPreview: "gemini-3-flash-preview"
         case .googleGemini3ProPreview: "gemini-3-pro-preview"
         case .googleGemini31ProPreview: "gemini-3.1-pro-preview"
+        case .zaiGLM52: "glm-5.2"
         case .zaiGLM5: "glm-5"
+        case .zaiGLM5Turbo: "glm-5-turbo"
+        case .zaiGLM47: "glm-4.7"
+        case .zaiGLM47Flash: "glm-4.7-flash"
         case .zaiGLM45Flash: "glm-4.5-flash"
+        case .kimiK27Code: "kimi-k2.7-code"
+        case .kimiK27CodeHighSpeed: "kimi-k2.7-code-highspeed"
+        case .kimiK26: "kimi-k2.6"
         case .kimiK25: "kimi-k2.5"
         case .kimiK2Thinking: "kimi-k2-thinking"
         case .kimiK2TurboPreview: "kimi-k2-turbo-preview"
@@ -334,14 +371,21 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .openAIGPT54: "GPT-4o"
-        case .openAIGPT54Mini: "GPT-4o Mini"
+        case .openAIGPT55: "GPT-5.5"
+        case .openAIGPT54: "GPT-5.4"
+        case .openAIGPT54Mini: "GPT-5.4 Mini"
         case .openAIGPT54Nano: "GPT-5.4 Nano"
+        case .openAIGPT53Codex: "GPT-5.3 Codex"
+        case .openAIGPT53CodexSpark: "GPT-5.3 Codex Spark"
         case .openAIGPT52: "GPT-5.2"
         case .openAIGPT41: "GPT-4.1"
         case .openAIGPT41Mini: "GPT-4.1 Mini"
         case .openAIO3: "o3"
         case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeFable5: "Claude Fable 5"
+        case .anthropicClaudeOpus48: "Claude Opus 4.8"
+        case .anthropicClaudeSonnet5: "Claude Sonnet 5"
+        case .anthropicClaudeHaiku45: "Claude Haiku 4.5"
         case .anthropicClaudeOpus47: "Claude Opus 4.7"
         case .anthropicClaudeSonnet46: "Claude Sonnet 4.6"
         case .anthropicClaudeOpus41: "Claude Opus 4.1 (Latest Opus)"
@@ -351,11 +395,19 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .anthropicClaudeHaiku35: "Claude Haiku 3.5 (Latest Haiku)"
         case .googleGemini25Pro: "Gemini 2.5 Pro"
         case .googleGemini25Flash: "Gemini 2.5 Flash"
+        case .googleGemini31FlashLite: "Gemini 3.1 Flash Lite"
         case .googleGemini3FlashPreview: "Gemini 3 Flash Preview"
         case .googleGemini3ProPreview: "Gemini 3 Pro Preview"
         case .googleGemini31ProPreview: "Gemini 3.1 Pro Preview"
+        case .zaiGLM52: "GLM-5.2"
         case .zaiGLM5: "GLM-5"
+        case .zaiGLM5Turbo: "GLM-5 Turbo"
+        case .zaiGLM47: "GLM-4.7"
+        case .zaiGLM47Flash: "GLM-4.7 Flash"
         case .zaiGLM45Flash: "GLM-4.5 Flash"
+        case .kimiK27Code: "Kimi K2.7 Code"
+        case .kimiK27CodeHighSpeed: "Kimi K2.7 Code High-Speed"
+        case .kimiK26: "Kimi K2.6"
         case .kimiK25: "Kimi K2.5"
         case .kimiK2Thinking: "Kimi K2 Thinking"
         case .kimiK2TurboPreview: "Kimi K2 Turbo Preview"
@@ -369,14 +421,21 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var compactDisplayName: String {
         switch self {
-        case .openAIGPT54: "GPT-4o"
-        case .openAIGPT54Mini: "GPT-4o Mini"
+        case .openAIGPT55: "GPT-5.5"
+        case .openAIGPT54: "GPT-5.4"
+        case .openAIGPT54Mini: "GPT-5.4 Mini"
         case .openAIGPT54Nano: "GPT-5.4 Nano"
+        case .openAIGPT53Codex: "GPT-5.3 Codex"
+        case .openAIGPT53CodexSpark: "Codex Spark"
         case .openAIGPT52: "GPT-5.2"
         case .openAIGPT41: "GPT-4.1"
         case .openAIGPT41Mini: "GPT-4.1 Mini"
         case .openAIO3: "o3"
         case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeFable5: "Fable 5"
+        case .anthropicClaudeOpus48: "Opus 4.8"
+        case .anthropicClaudeSonnet5: "Sonnet 5"
+        case .anthropicClaudeHaiku45: "Haiku 4.5"
         case .anthropicClaudeOpus47: "Opus 4.7"
         case .anthropicClaudeSonnet46: "Sonnet 4.6"
         case .anthropicClaudeOpus41: "Opus 4.1"
@@ -386,11 +445,19 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .anthropicClaudeHaiku35: "Haiku 3.5"
         case .googleGemini25Pro: "Gemini 2.5 Pro"
         case .googleGemini25Flash: "Gemini 2.5 Flash"
+        case .googleGemini31FlashLite: "Gemini 3.1 Lite"
         case .googleGemini3FlashPreview: "Gemini 3 Flash"
         case .googleGemini3ProPreview: "Gemini 3 Pro"
         case .googleGemini31ProPreview: "Gemini 3.1 Pro"
+        case .zaiGLM52: "GLM-5.2"
         case .zaiGLM5: "GLM-5"
+        case .zaiGLM5Turbo: "GLM-5 Turbo"
+        case .zaiGLM47: "GLM-4.7"
+        case .zaiGLM47Flash: "GLM 4.7 Flash"
         case .zaiGLM45Flash: "GLM 4.5 Flash"
+        case .kimiK27Code: "Kimi K2.7 Code"
+        case .kimiK27CodeHighSpeed: "K2.7 High-Speed"
+        case .kimiK26: "Kimi K2.6"
         case .kimiK25: "Kimi K2.5"
         case .kimiK2Thinking: "Kimi K2 Thinking"
         case .kimiK2TurboPreview: "Kimi K2 Turbo"
@@ -427,12 +494,16 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var aboutSheetPurposeSummary: String {
         switch self {
+        case .openAIGPT55:
+            "Newest OpenAI frontier model for complex reasoning, coding, and agentic work."
         case .openAIGPT54:
-            "General-purpose multimodal OpenAI cloud work and tool-heavy chat."
+            "Flagship OpenAI model for coding, reasoning, and tool-heavy chat."
         case .openAIGPT54Mini:
             "Fast OpenAI cloud chat, subagents, and lower-latency tool work."
         case .openAIGPT54Nano:
             "Cheap high-volume routing, rewrites, and lightweight automation."
+        case .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            "Codex-optimized OpenAI model for coding-agent workflows."
         case .openAIGPT52:
             "Balanced GPT-5 cloud work when GPT-5.4 is unavailable."
         case .openAIGPT41:
@@ -443,6 +514,14 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             "Deliberate reasoning-heavy fallback when GPT-5 is not the right fit."
         case .openAIO3Mini:
             "Lean reasoning and lightweight tool loops."
+        case .anthropicClaudeFable5:
+            "Highest-capability Claude model for long-running agents."
+        case .anthropicClaudeOpus48:
+            "Complex agentic coding, enterprise work, and careful synthesis."
+        case .anthropicClaudeSonnet5:
+            "Current balanced Claude model for speed, intelligence, and agent work."
+        case .anthropicClaudeHaiku45:
+            "Fast Claude model for low-latency cloud chat."
         case .anthropicClaudeOpus47, .anthropicClaudeOpus41, .anthropicClaudeOpus4:
             "High-rigor writing, careful analysis, and long-form synthesis."
         case .anthropicClaudeSonnet46, .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
@@ -451,12 +530,26 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             "Low-latency Anthropic chat and lightweight automation."
         case .googleGemini25Pro, .googleGemini3ProPreview, .googleGemini31ProPreview:
             "Very long-context multimodal analysis and grounded research."
-        case .googleGemini25Flash, .googleGemini3FlashPreview:
+        case .googleGemini25Flash, .googleGemini31FlashLite, .googleGemini3FlashPreview:
             "Fast multimodal cloud turns and tool-oriented chat."
+        case .zaiGLM52:
+            "Latest GLM coding and agent model with very long context."
+        case .zaiGLM5Turbo:
+            "Fast GLM-5 route for low-latency agent and chat work."
+        case .zaiGLM47:
+            "Recent GLM model for stable multi-step reasoning and coding."
+        case .zaiGLM47Flash:
+            "Fast GLM-4.7 chat and lightweight cloud routing."
         case .zaiGLM5:
             "Broad general-purpose GLM reasoning and multilingual chat."
         case .zaiGLM45Flash:
             "Fast GLM chat and lightweight cloud routing."
+        case .kimiK27Code:
+            "Latest Kimi coding model for long-context agentic programming."
+        case .kimiK27CodeHighSpeed:
+            "Faster Kimi K2.7 Code route for responsive coding turns."
+        case .kimiK26:
+            "Current general-purpose Kimi model with multimodal and long-context support."
         case .kimiK25:
             "Large-context synthesis and general-purpose Kimi work."
         case .kimiK2Thinking:
@@ -482,17 +575,20 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     /// Reasoning models (o3, o3-mini) may not support structured output.
     var supportsStructuredOutput: Bool {
         switch self {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52,
+        case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
+             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52,
              .openAIGPT41, .openAIGPT41Mini:
             return true
         case .openAIO3, .openAIO3Mini:
             return false // reasoning models — structured output not guaranteed
-        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+        case .anthropicClaudeFable5, .anthropicClaudeOpus48,
+             .anthropicClaudeSonnet5, .anthropicClaudeHaiku45,
+             .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             return true // via tool_use forced tool_choice
-        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
-             .googleGemini3ProPreview, .googleGemini31ProPreview:
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini31FlashLite,
+             .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
             return true // Gemini supports responseSchema
         default:
             return false
@@ -501,9 +597,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportedOperatingModes: [EpistemosOperatingMode] {
         switch self {
-        case .openAIGPT54:
+        case .openAIGPT55, .openAIGPT54, .openAIGPT53Codex:
             [.fast, .thinking, .pro, .agent]
-        case .openAIGPT54Mini:
+        case .openAIGPT54Mini, .openAIGPT53CodexSpark:
             [.fast, .agent]
         case .openAIGPT54Nano:
             [.fast]
@@ -517,32 +613,40 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             [.thinking, .pro, .agent]
         case .openAIO3Mini:
             [.fast, .thinking, .agent]
-        case .anthropicClaudeOpus47,
+        case .anthropicClaudeFable5,
+             .anthropicClaudeOpus48,
+             .anthropicClaudeOpus47,
              .anthropicClaudeOpus41,
              .anthropicClaudeOpus4:
             [.fast, .thinking, .pro, .agent]
-        case .anthropicClaudeSonnet46,
+        case .anthropicClaudeSonnet5,
+             .anthropicClaudeSonnet46,
              .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37:
             [.fast, .thinking, .agent]
-        case .anthropicClaudeHaiku35:
+        case .anthropicClaudeHaiku45, .anthropicClaudeHaiku35:
             [.fast]
         case .googleGemini25Pro,
              .googleGemini3ProPreview,
              .googleGemini31ProPreview:
             [.fast, .thinking, .pro, .agent]
         case .googleGemini25Flash,
+             .googleGemini31FlashLite,
              .googleGemini3FlashPreview:
             [.fast, .agent]
-        case .zaiGLM5:
+        case .zaiGLM52, .zaiGLM5:
             [.fast, .thinking, .pro, .agent]
-        case .zaiGLM45Flash:
+        case .zaiGLM5Turbo:
+            [.fast, .agent]
+        case .zaiGLM47:
+            [.fast, .thinking, .agent]
+        case .zaiGLM47Flash, .zaiGLM45Flash:
             [.fast]
-        case .kimiK25:
+        case .kimiK27Code, .kimiK26, .kimiK25:
             [.fast, .thinking, .pro, .agent]
         case .kimiK2Thinking:
             [.thinking, .pro, .agent]
-        case .kimiK2TurboPreview:
+        case .kimiK27CodeHighSpeed, .kimiK2TurboPreview:
             [.fast, .agent]
         case .minimaxM25:
             [.fast, .thinking, .pro, .agent]
@@ -559,14 +663,19 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsNativeReasoningEffortControl: Bool {
         switch self {
-        case .openAIGPT54Nano, .openAIGPT52:
+        case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
+             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52:
             true
-        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+        case .anthropicClaudeFable5, .anthropicClaudeOpus48,
+             .anthropicClaudeSonnet5, .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37:
             true
-        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
-             .googleGemini3ProPreview, .googleGemini31ProPreview:
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini31FlashLite,
+             .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
+            true
+        case .zaiGLM52, .zaiGLM5, .zaiGLM5Turbo, .zaiGLM47, .zaiGLM47Flash,
+             .zaiGLM45Flash:
             true
         default:
             false
@@ -575,9 +684,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsProviderNativeFeatureControls: Bool {
         switch provider {
-        case .openAI, .anthropic, .google:
+        case .openAI, .anthropic, .google, .zai:
             true
-        case .zai, .kimi, .minimax, .deepseek:
+        case .kimi, .minimax, .deepseek:
             false
         }
     }
@@ -644,14 +753,20 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             return tier == .heavy ? "Max" : tier.displayName
         case .google:
             return tier.displayName
-        case .zai, .kimi, .minimax, .deepseek:
+        case .zai:
+            return tier == .heavy ? "Max" : tier.displayName
+        case .kimi, .minimax, .deepseek:
             return operatingMode.reasoningTierLabel(for: tier)
         }
     }
 
     var maxContextTokens: Int {
         switch self {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT41:
+        case .openAIGPT55:
+            1_048_576
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT53Codex, .openAIGPT53CodexSpark:
+            400_000
+        case .openAIGPT41:
             128_000
         case .openAIGPT52:
             1_048_576  // 1M tokens
@@ -659,19 +774,27 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             131_072
         case .openAIO3, .openAIO3Mini:
             200_000
-        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+        case .anthropicClaudeFable5:
+            1_048_576
+        case .anthropicClaudeOpus48, .anthropicClaudeSonnet5, .anthropicClaudeHaiku45,
+             .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4:
             200_000
         case .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             200_000
         case .googleGemini25Pro, .googleGemini25Flash:
             1_048_576
-        case .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
+        case .googleGemini31FlashLite, .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
             1_048_576
-        case .zaiGLM5, .zaiGLM45Flash:
+        case .zaiGLM52:
+            1_048_576
+        case .zaiGLM5, .zaiGLM5Turbo, .zaiGLM47, .zaiGLM47Flash:
+            200_000
+        case .zaiGLM45Flash:
             128_000
-        case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
-            131_072
+        case .kimiK27Code, .kimiK27CodeHighSpeed, .kimiK26, .kimiK25,
+             .kimiK2Thinking, .kimiK2TurboPreview:
+            262_144
         case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
             1_048_576
         case .deepseekChat, .deepseekReasoner:
@@ -681,23 +804,25 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsVision: Bool {
         switch self {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52,
+        case .openAIGPT55, .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano,
+             .openAIGPT53Codex, .openAIGPT53CodexSpark, .openAIGPT52,
              .openAIGPT41, .openAIGPT41Mini:
             true
         case .openAIO3, .openAIO3Mini:
             false  // reasoning-only, no vision
-        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+        case .anthropicClaudeFable5, .anthropicClaudeOpus48,
+             .anthropicClaudeSonnet5, .anthropicClaudeHaiku45,
+             .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             true
-        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
-             .googleGemini3ProPreview, .googleGemini31ProPreview:
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini31FlashLite,
+             .googleGemini3FlashPreview, .googleGemini3ProPreview, .googleGemini31ProPreview:
             true
-        case .zaiGLM5:
-            true
-        case .zaiGLM45Flash:
+        case .zaiGLM52, .zaiGLM5, .zaiGLM5Turbo, .zaiGLM47, .zaiGLM47Flash, .zaiGLM45Flash:
             false
-        case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
+        case .kimiK27Code, .kimiK27CodeHighSpeed, .kimiK26, .kimiK25,
+             .kimiK2Thinking, .kimiK2TurboPreview:
             true
         case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
             false
@@ -712,12 +837,20 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     func resolvedModel(for operatingMode: EpistemosOperatingMode) -> CloudTextModelID {
         switch (self, operatingMode) {
+        case (.openAIGPT55, .fast):
+            .openAIGPT54Mini
         case (.openAIGPT54, .fast):
             .openAIGPT54Mini
+        case (.zaiGLM52, .fast):
+            .zaiGLM47Flash
         case (.zaiGLM5, .fast):
-            .zaiGLM45Flash
-        case (.kimiK25, .fast):
+            .zaiGLM47Flash
+        case (.kimiK27Code, .fast):
+            .kimiK27CodeHighSpeed
+        case (.kimiK26, .fast), (.kimiK25, .fast):
             .kimiK2TurboPreview
+        case (.kimiK27Code, .thinking), (.kimiK26, .thinking):
+            .kimiK27Code
         case (.kimiK25, .thinking):
             .kimiK2Thinking
         case (.minimaxM25, .fast):
@@ -746,14 +879,18 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     }
 
     private nonisolated static let legacyMigrationMap: [String: CloudTextModelID] = [
-        "gpt-4o": .openAIGPT54,
-        "openai:gpt-4o": .openAIGPT54,
+        "gpt-4o": .openAIGPT54Mini,
+        "openai:gpt-4o": .openAIGPT54Mini,
         "gpt-4o-mini": .openAIGPT54Mini,
         "openai:gpt-4o-mini": .openAIGPT54Mini,
+        "gpt-5.5": .openAIGPT55,
+        "openai:gpt-5.5": .openAIGPT55,
         "gpt-5.4": .openAIGPT54,
         "openai:gpt-5.4": .openAIGPT54,
         "gpt-5.4-mini": .openAIGPT54Mini,
         "openai:gpt-5.4-mini": .openAIGPT54Mini,
+        "gpt-5.3-codex": .openAIGPT53Codex,
+        "gpt-5.3-codex-spark": .openAIGPT53CodexSpark,
         "gpt-5.3": .openAIGPT54,
         "gpt-5.2": .openAIGPT52,
         "gpt-5.1": .openAIGPT52,
@@ -762,6 +899,10 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         "o1-pro": .openAIO3,
         "o3": .openAIO3,
         "o3-mini": .openAIO3Mini,
+        "claude-fable-5": .anthropicClaudeFable5,
+        "claude-opus-4-8": .anthropicClaudeOpus48,
+        "claude-sonnet-5": .anthropicClaudeSonnet5,
+        "claude-haiku-4-5": .anthropicClaudeHaiku45,
         "claude-opus-4-7": .anthropicClaudeOpus47,
         "claude-opus-4-6": .anthropicClaudeOpus47,
         "claude-opus-4-1": .anthropicClaudeOpus41,
@@ -779,11 +920,19 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         "gemini-2.0-flash-lite": .googleGemini3FlashPreview,
         "gemini-2.5-pro": .googleGemini31ProPreview,
         "gemini-2.5-flash": .googleGemini3FlashPreview,
+        "gemini-3.1-flash-lite": .googleGemini31FlashLite,
         "gemini-3-flash-preview": .googleGemini3FlashPreview,
         "gemini-3-pro-preview": .googleGemini31ProPreview,
         "gemini-3.1-pro-preview": .googleGemini31ProPreview,
+        "glm-5.2": .zaiGLM52,
         "glm-5": .zaiGLM5,
+        "glm-5-turbo": .zaiGLM5Turbo,
+        "glm-4.7": .zaiGLM47,
+        "glm-4.7-flash": .zaiGLM47Flash,
         "glm-4.5-flash": .zaiGLM45Flash,
+        "kimi-k2.7-code": .kimiK27Code,
+        "kimi-k2.7-code-highspeed": .kimiK27CodeHighSpeed,
+        "kimi-k2.6": .kimiK26,
         "kimi-k2.5": .kimiK25,
         "kimi-k2-thinking": .kimiK2Thinking,
         "kimi-k2-turbo-preview": .kimiK2TurboPreview,
@@ -1124,15 +1273,15 @@ extension CloudModelProvider {
     var modelSummary: String {
         switch self {
         case .openAI:
-            "GPT-4o, GPT-4o Mini"
+            "GPT-5.5, GPT-5.4, Codex"
         case .anthropic:
-            "Claude Opus 4.7, Sonnet 4.6"
+            "Claude Fable 5, Opus 4.8, Sonnet 5"
         case .google:
-            "Gemini 3.1 Pro, Gemini 3 Flash"
+            "Gemini 3.1 Pro, 3.1 Flash Lite"
         case .zai:
-            "GLM-5, GLM-4.5 Flash"
+            "GLM-5.2, GLM-5 Turbo, GLM-4.7"
         case .kimi:
-            "Kimi K2.5, K2 Thinking, K2 Turbo"
+            "Kimi K2.7 Code, K2.6, K2.5"
         case .minimax:
             "MiniMax M2.5, M2.5 High-Speed, M2.1"
         case .deepseek:
@@ -1145,13 +1294,13 @@ extension CloudModelProvider {
         case .openAI:
             .openAIGPT54Mini
         case .anthropic:
-            .anthropicClaudeSonnet46
+            .anthropicClaudeHaiku45
         case .google:
-            .googleGemini3FlashPreview
+            .googleGemini31FlashLite
         case .zai:
-            .zaiGLM45Flash
+            .zaiGLM47Flash
         case .kimi:
-            .kimiK2TurboPreview
+            .kimiK27CodeHighSpeed
         case .minimax:
             .minimaxM25HighSpeed
         case .deepseek:
@@ -1162,15 +1311,15 @@ extension CloudModelProvider {
     var defaultChatModel: CloudTextModelID {
         switch self {
         case .openAI:
-            .openAIGPT54
+            .openAIGPT55
         case .anthropic:
-            .anthropicClaudeSonnet46
+            .anthropicClaudeSonnet5
         case .google:
             .googleGemini31ProPreview
         case .zai:
-            .zaiGLM5
+            .zaiGLM52
         case .kimi:
-            .kimiK25
+            .kimiK27Code
         case .minimax:
             .minimaxM25
         case .deepseek:
@@ -1584,27 +1733,27 @@ extension CloudModelProvider {
             case (.openAI, .fast):
                 .openAIGPT54Mini
             case (.openAI, .thinking):
-                .openAIGPT54
+                .openAIGPT55
             case (.openAI, .pro), (.openAI, .agent):
-                .openAIGPT54
+                .openAIGPT55
             case (.anthropic, .pro):
-                .anthropicClaudeOpus47
+                .anthropicClaudeOpus48
             case (.anthropic, .agent), (.anthropic, .thinking), (.anthropic, .fast):
-                .anthropicClaudeSonnet46
+                .anthropicClaudeSonnet5
             case (.google, .fast):
-                .googleGemini3FlashPreview
+                .googleGemini31FlashLite
             case (.google, .thinking), (.google, .pro), (.google, .agent):
                 .googleGemini31ProPreview
             case (.zai, .fast):
-                .zaiGLM45Flash
+                .zaiGLM47Flash
             case (.zai, .thinking), (.zai, .pro), (.zai, .agent):
-                .zaiGLM5
+                .zaiGLM52
             case (.kimi, .fast):
-                .kimiK2TurboPreview
+                .kimiK27CodeHighSpeed
             case (.kimi, .thinking):
-                .kimiK2Thinking
+                .kimiK27Code
             case (.kimi, .pro), (.kimi, .agent):
-                .kimiK25
+                .kimiK27Code
             case (.minimax, .fast):
                 .minimaxM25HighSpeed
             case (.minimax, .thinking), (.minimax, .pro), (.minimax, .agent):
@@ -3424,6 +3573,8 @@ extension CloudModelProvider {
         .openAI,
         .anthropic,
         .google,
+        .zai,
+        .kimi,
     ]
 
     nonisolated static func fallbackPriority(after primary: CloudModelProvider) -> [CloudModelProvider] {

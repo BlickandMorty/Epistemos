@@ -19,10 +19,10 @@ struct VoiceCodepackPlan3Tests {
             "Live macOS 26 STT is surfaced",
             "bounded domain/code diagnostics",
             "raw status/domain strings bounded, control/whitespace-normalized, then punctuation-validated",
-            "Kokoro-only TTS is live when a checked Pro CoreML package is installed",
+            "Kokoro-only TTS is live when a checked local CoreML package is installed",
             "Legacy Apple voice code is unwired from the shipped TTS path",
             "Personal Voice authorization is live",
-            "Pro Kokoro gate is honest",
+            "Kokoro gate is honest",
             "Native Kokoro Swift/CoreML playback is wired",
             "Local Kokoro package install/removal is real and playback-enabling",
             "manifest-derived package evidence",
@@ -40,7 +40,7 @@ struct VoiceCodepackPlan3Tests {
             "TTS unavailable",
             "Kokoro neural voice",
             "Readiness rejects symlink-routed or non-regular model artifacts",
-            "Pro Kokoro gate, settings presentation, and checked package install/removal",
+            "Kokoro gate, settings presentation, and checked package install/removal",
             "failed replacement install rolls back to the previous package",
             "[DONE] Gate shipped TTS as Kokoro-only",
             "[DONE] Wire or remove `agentResponseTTS`",
@@ -48,8 +48,8 @@ struct VoiceCodepackPlan3Tests {
             "[DONE] Rewire `VoiceInputButton`",
             "[DONE] Add SSML/prosody fallback",
             "[DONE] Add Personal Voice authorization",
-            "[DONE] Add the Kokoro Pro gate",
-            "[DONE] Add the Pro-only Kokoro settings status/runtime affordance",
+            "[DONE] Add the Kokoro gate as status-only",
+            "[DONE] Add the Kokoro settings status/runtime affordance",
             "[DONE] Add a local checked-package installer/remover",
             "[DONE] Vendor native `KokoroPipeline` source"
         ] {
@@ -83,19 +83,19 @@ struct VoiceCodepackPlan3Tests {
         #expect(plan.contains("shipped code"))
         #expect(plan.contains("## Shipped state"))
         #expect(plan.contains("## Delivered MAS-safe fixes"))
-        #expect(plan.contains("## Pro Kokoro lane `[NATIVE COREML PLAYBACK WIRED]`"))
+        #expect(plan.contains("## Kokoro lane `[NATIVE COREML PLAYBACK WIRED]`"))
         #expect(plan.contains("## Delivery order"))
         #expect(capabilities.contains("Voice — STT SHIPPED; TTS KOKORO-ONLY GATED (Pass 8)"))
         #expect(capabilities.contains("Kokoro-only read-aloud availability"))
         #expect(capabilities.contains("domain/code-redacted status/error text"))
         #expect(capabilities.contains("raw status/domain strings bounded and\n  control/whitespace-normalized"))
         #expect(capabilities.contains("status ellipsis kept inside the configured cap"))
-        #expect(capabilities.contains("Kokoro-82M is Pro-only"))
+        #expect(capabilities.contains("Kokoro-82M is checked-package gated"))
         #expect(capabilities.contains("rejects symlink-routed, hardlinked, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched"))
         #expect(capabilities.contains("declared package byte caps"))
         #expect(capabilities.contains("bounded, control/whitespace-normalized model-relative\n  status diagnostics"))
         #expect(capabilities.contains("ellipsis inside configured caps"))
-        #expect(capabilities.contains("Pro-only Voice settings status/runtime affordance"))
+        #expect(capabilities.contains("Voice settings status/runtime affordance"))
         #expect(capabilities.contains("no Apple AVSpeech fallback"))
         #expect(capabilities.contains("local checked-package installer/remover"))
         #expect(capabilities.contains("manifest-derived package evidence"))
@@ -103,8 +103,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(capabilities.contains("observable read-aloud progress"))
         #expect(capabilities.contains("Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text"))
         #expect(capabilities.contains("requires the complete manifest-declared duration/bucket CoreML package"))
-        #expect(capabilities.contains("no Apple AVSpeech fallback, committed model asset, network downloader, Python, subprocess"))
-        #expect(capabilities.contains("Python, subprocess, or MAS-visible Kokoro row"))
+        #expect(capabilities.contains("no Apple AVSpeech fallback, committed model asset, Python, subprocess"))
+        #expect(capabilities.contains("Python, subprocess, hidden fallback, or unchecked Kokoro row"))
 
         for stale in [
             "Research/code in a later pass",
@@ -257,6 +257,54 @@ struct VoiceCodepackPlan3Tests {
         #expect(lengthGuard < stopPlayback)
     }
 
+    @Test("read-aloud effects are global, optional, and applied to Kokoro PCM")
+    func readAloudEffectsAreGlobalOptionalAndAppliedToKokoroPCM() throws {
+        let preferences = try loadMirroredSourceTextFile("Epistemos/Engine/VoicePreferences.swift")
+        let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
+
+        #expect(preferences.contains("nonisolated public enum VoiceEffect"))
+        #expect(preferences.contains("case clean"))
+        #expect(preferences.contains("case pixelArt"))
+        #expect(preferences.contains("case chiptune"))
+        #expect(preferences.contains("case robot"))
+        #expect(preferences.contains("public static let readAloudEffect"))
+        #expect(preferences.contains("public var readAloudEffect: VoiceEffect"))
+
+        #expect(synth.contains("effect: VoiceEffect? = nil"))
+        #expect(synth.contains("let selectedEffect = effect ?? VoicePreferences.shared.readAloudEffect"))
+        #expect(synth.contains("applyVoiceEffect("))
+        #expect(synth.contains("AmbientFrequencyAudioGenerator.bitCrush"))
+        #expect(synth.contains("guard effect != .clean else { return rendered.samples }"))
+    }
+
+    @Test("shared read-aloud button exposes effect picker everywhere it is mounted")
+    func sharedReadAloudButtonExposesEffectPickerEverywhereItIsMounted() throws {
+        let readAloud = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ReadAloudButton.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
+
+        #expect(readAloud.contains("@State private var prefs = VoicePreferences.shared"))
+        #expect(readAloud.contains("Menu {"))
+        #expect(readAloud.contains("ForEach(VoiceEffect.allCases)"))
+        #expect(readAloud.contains("prefs.readAloudEffect = effect"))
+        #expect(readAloud.contains("systemImage: prefs.readAloudEffect.systemImage"))
+        #expect(readAloud.contains("voiceEffectMenu"))
+        #expect(readAloud.contains("synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch, effect: prefs.readAloudEffect)"))
+        #expect(readAloud.contains("Button(\"Effect: \\(prefs.readAloudEffect.label)\""))
+
+        #expect(settings.contains("Picker(\"Read-aloud filter\", selection: $prefs.readAloudEffect)"))
+        #expect(settings.contains("ForEach(VoiceEffect.allCases)"))
+    }
+
+    @Test("note selection read-aloud is visible even when Kokoro is not installed")
+    func noteSelectionReadAloudIsVisibleEvenWhenKokoroIsNotInstalled() throws {
+        let epdoc = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocBubbleMenuView.swift")
+
+        #expect(epdoc.contains("if !selectedText.isEmpty {"))
+        #expect(epdoc.contains("ReadAloudButton(text: selectedText, style: .icon)"))
+        #expect(!epdoc.contains("if EpistemosSpeechSynthesizer.isTextToSpeechAvailable(), !selectedText.isEmpty"))
+        #expect(!epdoc.contains("EpistemosSpeechSynthesizer.shared.speak(selectedText)"))
+    }
+
     @Test("voice diagnostics redact path-leaking external errors")
     func voiceDiagnosticsRedactPathLeakingExternalErrors() {
         let privatePath = "/private/var/folders/voice/model.bundle"
@@ -344,8 +392,8 @@ struct VoiceCodepackPlan3Tests {
         #expect(!picker.contains("return .secondary"))
     }
 
-    @Test("voice MAS path has no Pro neural or hidden runtime dependency")
-    func voiceMASPathHasNoProRuntimeDependency() throws {
+    @Test("voice MAS path uses checked local Kokoro without hidden runtime dependency")
+    func voiceMASPathUsesCheckedLocalKokoroWithoutHiddenRuntimeDependency() throws {
         let synth = try loadMirroredSourceTextFile("Epistemos/Engine/EpistemosSpeechSynthesizer.swift")
         let files = [
             "Epistemos/Engine/EpistemosSpeechSynthesizer.swift",
@@ -361,13 +409,15 @@ struct VoiceCodepackPlan3Tests {
             }
         }
 
-        #expect(synth.contains("kokoroAppStoreUnavailableMessage"))
-        #expect(synth.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        return false"))
-        #expect(synth.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            return kokoroAppStoreUnavailableMessage"))
+        #expect(synth.contains("nativeKokoroSynthesisEngineLinked"))
+        #expect(synth.contains("&& KokoroVoiceGateStatus.status("))
+        #expect(!synth.contains("kokoroAppStoreUnavailableMessage"))
+        #expect(!synth.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n        return false"))
+        #expect(!synth.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            return"))
     }
 
-    @Test("Kokoro Pro gate is honest and status-only")
-    func kokoroProGateIsHonestAndStatusOnly() throws {
+    @Test("Kokoro gate is honest and status-only")
+    func kokoroGateIsHonestAndStatusOnly() throws {
         let gate = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceGateStatus.swift")
 
         for required in [
@@ -563,20 +613,25 @@ struct VoiceCodepackPlan3Tests {
         #expect(!bridge.contains("Python"))
     }
 
-    @Test("Kokoro Pro settings row is Pro-only and gate-backed")
-    func kokoroProSettingsRowIsProOnlyAndGateBacked() throws {
+    @Test("Kokoro settings row is MAS-visible and gate-backed")
+    func kokoroSettingsRowIsMASVisibleAndGateBacked() throws {
         let wrapper = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoiceSettingsDetailView.swift")
         let section = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceProSettingsSection.swift")
+        let downloader = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroModelDownloadService.swift")
         let installer = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoicePackageInstaller.swift")
         let gate = try loadMirroredSourceTextFile("Epistemos/VoicePro/KokoroVoiceGateStatus.swift")
         let appleSection = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VoicePreferencesSection.swift")
 
         #expect(wrapper.contains("VoicePreferencesSection()"))
-        #expect(wrapper.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(wrapper.contains("KokoroVoiceProSettingsSection()"))
+        #expect(!wrapper.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n            KokoroVoiceProSettingsSection()"))
         #expect(!appleSection.contains("Kokoro"))
 
         #expect(section.contains("KokoroVoiceGateStatus.status()"))
+        #expect(section.contains("Section(\"Kokoro Voice\")"))
+        #expect(section.contains("KokoroVoiceDownloadControls("))
+        #expect(section.contains("status.state == .packageReady ? \"Download & Replace Voice\" : \"Download Kokoro Voice\""))
+        #expect(!section.contains("if status.state != .packageReady {\n                kokoroDownloadControls"))
         #expect(section.contains("case kokoroNeural"))
         #expect(section.contains("case .packageReady"))
         #expect(section.contains("return \"Kokoro neural voice\""))
@@ -600,6 +655,14 @@ struct VoiceCodepackPlan3Tests {
         #expect(section.contains("packageEvidenceSummary"))
         #expect(section.contains("installedPackageMessage(for:"))
         #expect(section.contains("evidence.settingsSummary"))
+        #expect(downloader.contains("case starter"))
+        #expect(downloader.contains("case standard"))
+        #expect(downloader.contains("case highestQuality"))
+        #expect(downloader.contains("sdk/starter/KokoroRuntimeManifest.json"))
+        #expect(downloader.contains("KokoroRuntimeManifest.json"))
+        #expect(downloader.contains("sdk/full/KokoroRuntimeManifest.json"))
+        #expect(downloader.contains("currently matches Starter"))
+        #expect(KokoroModelDownloadService.Tier.allCases == [.starter, .standard, .highestQuality])
         #expect(gate.contains("struct PackageEvidence"))
         #expect(gate.contains("manifestFileCount"))
         #expect(gate.contains("declaredPackageBytes"))
@@ -663,8 +726,8 @@ struct VoiceCodepackPlan3Tests {
         }
     }
 
-    @Test("Kokoro Pro settings presentation enables native playback only when ready")
-    func kokoroProSettingsPresentationEnablesNativePlaybackOnlyWhenReady() {
+    @Test("Kokoro settings presentation enables native playback only when ready")
+    func kokoroSettingsPresentationEnablesNativePlaybackOnlyWhenReady() {
         let missing = KokoroVoiceGateStatus.Status(
             state: .missingModel,
             isReady: false,
@@ -675,13 +738,13 @@ struct VoiceCodepackPlan3Tests {
             state: .packageReady,
             isReady: true,
             headline: "Kokoro voice: native CoreML playback ready",
-            detail: "The checked Pro mattmireles/kokoro-coreml runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in kokoro-82m-coreml. Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback."
+            detail: "The checked local mattmireles/kokoro-coreml runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in kokoro-82m-coreml. Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback."
         )
         let packageReadyWithEvidence = KokoroVoiceGateStatus.Status(
             state: .packageReady,
             isReady: true,
             headline: "Kokoro voice: native CoreML playback ready",
-            detail: "The checked Pro mattmireles/kokoro-coreml runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in kokoro-82m-coreml. Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback.",
+            detail: "The checked local mattmireles/kokoro-coreml runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in kokoro-82m-coreml. Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback.",
             packageEvidence: KokoroVoiceGateStatus.PackageEvidence(
                 modelDirectoryName: KokoroVoiceGateStatus.modelDirectoryName,
                 manifestFileName: KokoroVoiceGateStatus.manifestFileName,
@@ -809,8 +872,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects malformed package shapes")
-    func kokoroProGateRejectsMalformedPackageShapes() throws {
+    @Test("Kokoro gate rejects malformed package shapes")
+    func kokoroGateRejectsMalformedPackageShapes() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-\(UUID().uuidString)", isDirectory: true)
@@ -838,8 +901,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate package-ready detail does not expose the local model root and enables runtime")
-    func kokoroProGatePackageReadyDetailDoesNotExposeLocalModelRootAndEnablesRuntime() throws {
+    @Test("Kokoro gate package-ready detail does not expose the local model root and enables runtime")
+    func kokoroGatePackageReadyDetailDoesNotExposeLocalModelRootAndEnablesRuntime() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-ready-\(UUID().uuidString)", isDirectory: true)
@@ -881,8 +944,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects unmanifested package files")
-    func kokoroProGateRejectsUnmanifestedPackageFiles() throws {
+    @Test("Kokoro gate rejects unmanifested package files")
+    func kokoroGateRejectsUnmanifestedPackageFiles() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-extra-\(UUID().uuidString)", isDirectory: true)
@@ -914,8 +977,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects non-CoreML package payloads")
-    func kokoroProGateRejectsNonCoreMLPackagePayloads() throws {
+    @Test("Kokoro gate rejects non-CoreML package payloads")
+    func kokoroGateRejectsNonCoreMLPackagePayloads() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-non-coreml-\(UUID().uuidString)", isDirectory: true)
@@ -962,8 +1025,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects control characters in package manifest paths")
-    func kokoroProGateRejectsControlCharactersInPackageManifestPaths() throws {
+    @Test("Kokoro gate rejects control characters in package manifest paths")
+    func kokoroGateRejectsControlCharactersInPackageManifestPaths() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-control-path-\(UUID().uuidString)", isDirectory: true)
@@ -1016,8 +1079,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects placeholder manifests and empty packages")
-    func kokoroProGateRejectsPlaceholderManifestsAndEmptyPackages() throws {
+    @Test("Kokoro gate rejects placeholder manifests and empty packages")
+    func kokoroGateRejectsPlaceholderManifestsAndEmptyPackages() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-placeholder-\(UUID().uuidString)", isDirectory: true)
@@ -1054,8 +1117,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate accepts uppercase SHA-256 manifest digests")
-    func kokoroProGateAcceptsUppercaseSHA256ManifestDigests() throws {
+    @Test("Kokoro gate accepts uppercase SHA-256 manifest digests")
+    func kokoroGateAcceptsUppercaseSHA256ManifestDigests() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-uppercase-digest-\(UUID().uuidString)", isDirectory: true)
@@ -1088,8 +1151,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects invalid or oversized manifests")
-    func kokoroProGateRejectsInvalidOrOversizedManifests() throws {
+    @Test("Kokoro gate rejects invalid or oversized manifests")
+    func kokoroGateRejectsInvalidOrOversizedManifests() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-manifest-\(UUID().uuidString)", isDirectory: true)
@@ -1227,8 +1290,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects symlink-routed artifacts")
-    func kokoroProGateRejectsSymlinkRoutedArtifacts() throws {
+    @Test("Kokoro gate rejects symlink-routed artifacts")
+    func kokoroGateRejectsSymlinkRoutedArtifacts() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-symlink-\(UUID().uuidString)", isDirectory: true)
@@ -1284,8 +1347,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects hardlinked artifacts")
-    func kokoroProGateRejectsHardlinkedArtifacts() throws {
+    @Test("Kokoro gate rejects hardlinked artifacts")
+    func kokoroGateRejectsHardlinkedArtifacts() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-hardlink-\(UUID().uuidString)", isDirectory: true)
@@ -1336,8 +1399,8 @@ struct VoiceCodepackPlan3Tests {
         #endif
     }
 
-    @Test("Kokoro Pro gate rejects runtime assets that cannot feed native playback")
-    func kokoroProGateRejectsRuntimeAssetsThatCannotFeedNativePlayback() throws {
+    @Test("Kokoro gate rejects runtime assets that cannot feed native playback")
+    func kokoroGateRejectsRuntimeAssetsThatCannotFeedNativePlayback() throws {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-gate-runtime-shape-\(UUID().uuidString)", isDirectory: true)

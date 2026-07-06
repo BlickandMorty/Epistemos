@@ -57,8 +57,7 @@ struct ProAgentHealthRow: View {
             detailText("starting children…")
         case .running(let connection):
             detailText(
-                "running — ui :\(connection.uiPort) · opencode :\(connection.opencodePort) · goose "
-                + (connection.goosePort.map { ":\($0)" } ?? "unavailable")
+                "running — ui :\(connection.uiPort) · opencode :\(connection.opencodePort)"
             )
         case .failed(let message):
             detailText("failed — \(message)")

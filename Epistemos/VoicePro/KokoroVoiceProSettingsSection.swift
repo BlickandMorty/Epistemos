@@ -61,6 +61,82 @@ nonisolated enum KokoroVoiceProSettingsModel {
 }
 
 @MainActor
+struct KokoroVoiceDownloadControls: View {
+    @Environment(UIState.self) private var ui
+    @Binding var selectedTier: KokoroModelDownloadService.Tier
+
+    let isDisabled: Bool
+    let idleButtonTitle: String
+    let idleButtonHelp: String
+    let idleButtonAccessibilityLabel: String
+    let onDownload: () -> Void
+
+    private var downloader: KokoroModelDownloadService { KokoroModelDownloadService.shared }
+
+    private var mutedTint: Color {
+        ui.theme.resolved.mutedForeground.color
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Quality", selection: $selectedTier) {
+                ForEach(KokoroModelDownloadService.Tier.allCases) { tier in
+                    Text(tier.title).tag(tier)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(downloader.isBusy || isDisabled)
+
+            Text(selectedTier.detail)
+                .font(.caption)
+                .foregroundStyle(mutedTint)
+                .fixedSize(horizontal: false, vertical: true)
+
+            switch downloader.phase {
+            case .idle, .installed, .failed:
+                ToolbarCapsuleButton(
+                    title: idleButtonTitle,
+                    systemImage: "arrow.down.circle",
+                    role: .primaryAction,
+                    chromePolicy: .alwaysSurface,
+                    helpText: idleButtonHelp,
+                    accessibilityLabel: idleButtonAccessibilityLabel
+                ) {
+                    onDownload()
+                }
+                .disabled(downloader.isBusy || isDisabled)
+            case .preparing:
+                Label("Preparing...", systemImage: "hourglass")
+                    .font(.caption)
+                    .foregroundStyle(mutedTint)
+            case let .downloading(received, total):
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: downloader.downloadFraction ?? 0)
+                    Text("Downloading \(Self.megabytes(received)) of \(Self.megabytes(total))")
+                        .font(.caption)
+                        .foregroundStyle(mutedTint)
+                }
+            case .installing:
+                Label("Installing...", systemImage: "gearshape")
+                    .font(.caption)
+                    .foregroundStyle(mutedTint)
+            }
+
+            if case let .failed(message) = downloader.phase {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(mutedTint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private static func megabytes(_ bytes: Int64) -> String {
+        String(format: "%.0f MB", Double(bytes) / 1_000_000)
+    }
+}
+
+@MainActor
 struct KokoroVoiceProSettingsSection: View {
     @Environment(UIState.self) private var ui
     @State private var status = KokoroVoiceGateStatus.status()
@@ -89,70 +165,22 @@ struct KokoroVoiceProSettingsSection: View {
             : theme.resolved.headingAccent.color
     }
 
-    @ViewBuilder
-    private var kokoroDownloadControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Picker("Quality", selection: $selectedDownloadTier) {
-                ForEach(KokoroModelDownloadService.Tier.allCases) { tier in
-                    Text(tier.title).tag(tier)
-                }
-            }
-            .pickerStyle(.segmented)
-            .disabled(downloader.isBusy || isBusy)
-
-            Text(selectedDownloadTier.detail)
-                .font(.caption)
-                .foregroundStyle(mutedTint)
-                .fixedSize(horizontal: false, vertical: true)
-
-            switch downloader.phase {
-            case .idle, .installed, .failed:
-                ToolbarCapsuleButton(
-                    title: "Download Kokoro voice",
-                    systemImage: "arrow.down.circle",
-                    role: .primaryAction,
-                    chromePolicy: .alwaysSurface,
-                    helpText: "Download and install the Kokoro neural voice",
-                    accessibilityLabel: "Download and install the Kokoro neural voice"
-                ) {
-                    downloader.startInstall(tier: selectedDownloadTier)
-                }
-                .disabled(isBusy)
-            case .preparing:
-                Label("Preparing…", systemImage: "hourglass")
-                    .font(.caption)
-                    .foregroundStyle(mutedTint)
-            case let .downloading(received, total):
-                VStack(alignment: .leading, spacing: 4) {
-                    ProgressView(value: downloader.downloadFraction ?? 0)
-                    Text("Downloading \(Self.megabytes(received)) of \(Self.megabytes(total))")
-                        .font(.caption)
-                        .foregroundStyle(mutedTint)
-                }
-            case .installing:
-                Label("Installing…", systemImage: "gearshape")
-                    .font(.caption)
-                    .foregroundStyle(mutedTint)
-            }
-
-            if case let .failed(message) = downloader.phase {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(mutedTint)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+    private var downloadButtonTitle: String {
+        status.state == .packageReady ? "Download & Replace Voice" : "Download Kokoro Voice"
     }
 
-    private static func megabytes(_ bytes: Int64) -> String {
-        String(format: "%.0f MB", Double(bytes) / 1_000_000)
+    private var downloadButtonHelp: String {
+        if status.state == .packageReady {
+            return "Download and replace the installed Kokoro voice quality"
+        }
+        return "Download and install the Kokoro neural voice"
     }
 
     var body: some View {
         let presentation = KokoroVoiceProSettingsModel.presentation(for: status)
         let badgeTint = badgeTint(for: presentation)
 
-        Section("Voice Pro") {
+        Section("Kokoro Voice") {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "waveform.badge.sparkles")
                     .symbolRenderingMode(.hierarchical)
@@ -206,8 +234,14 @@ struct KokoroVoiceProSettingsSection: View {
                 }
             }
 
-            if status.state != .packageReady {
-                kokoroDownloadControls
+            KokoroVoiceDownloadControls(
+                selectedTier: $selectedDownloadTier,
+                isDisabled: isBusy,
+                idleButtonTitle: downloadButtonTitle,
+                idleButtonHelp: downloadButtonHelp,
+                idleButtonAccessibilityLabel: downloadButtonHelp
+            ) {
+                downloader.startInstall(tier: selectedDownloadTier)
             }
 
             HStack(spacing: 10) {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "June Prompt Forge"
+  short_description: "Wire MAS June submit-time prompt upgrades."
+  default_prompt: "Use June Prompt Forge to connect or harden a visible, vault-grounded prompt upgrade before June submits a turn."

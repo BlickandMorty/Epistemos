@@ -21,7 +21,7 @@ const REQUIRED_SOURCE_REFS: [&str; 15] = [
     "Epistemos/State/ThermalGuard.swift",
     "Epistemos/State/ThermalMonitor.swift",
     "Epistemos/State/InferenceState.swift",
-    "Epistemos/Engine/RuntimeExecutor.swift",
+    "Epistemos/LocalAgent/RuntimeRouter.swift",
     "Epistemos/Views/Settings/PerformanceSettingsSection.swift",
     "EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests.swift",
     "EpistemosTests/PerfBudgetsTests.swift",

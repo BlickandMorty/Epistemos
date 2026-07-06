@@ -89,20 +89,48 @@ impl OpenAIProvider {
         Self::new(auth, model)
     }
 
+    pub fn gpt55() -> Self {
+        Self::from_env("gpt-5.5", "gpt-5.5")
+    }
+
     pub fn gpt54() -> Self {
-        Self::from_env("gpt-4o", "gpt-4o")
+        Self::from_env("gpt-5.4", "gpt-5.4")
     }
 
     pub fn gpt54_mini() -> Self {
-        Self::from_env("gpt-4o-mini", "gpt-4o-mini")
+        Self::from_env("gpt-5.4-mini", "gpt-5.4-mini")
+    }
+
+    pub fn gpt54_nano() -> Self {
+        Self::from_env("gpt-5.4-nano", "gpt-5.4-nano")
+    }
+
+    pub fn gpt53_codex() -> Self {
+        Self::from_env("gpt-5.3-codex", "gpt-5.3-codex")
+    }
+
+    pub fn gpt53_codex_spark() -> Self {
+        Self::from_env("gpt-5.3-codex-spark", "gpt-5.3-codex-spark")
+    }
+
+    pub fn gpt52() -> Self {
+        Self::from_env("gpt-5.2", "gpt-5.2")
     }
 
     pub fn gpt4o() -> Self {
-        Self::gpt54()
+        Self::from_env("gpt-4o", "gpt-4o")
     }
 
     pub fn gpt4o_mini() -> Self {
-        Self::gpt54_mini()
+        Self::from_env("gpt-4o-mini", "gpt-4o-mini")
+    }
+
+    pub fn gpt41() -> Self {
+        Self::from_env("gpt-4.1", "gpt-4.1")
+    }
+
+    pub fn gpt41_mini() -> Self {
+        Self::from_env("gpt-4.1-mini", "gpt-4.1-mini")
     }
 
     pub fn o1() -> Self {
@@ -440,22 +468,39 @@ impl AgentProvider for OpenAIProvider {
 
     fn capabilities(&self) -> ProviderCapabilities {
         let (max_ctx, max_out, cost_in, cost_out) = match self.model {
+            "gpt-5.5" => (1_048_576, 128_000, 1.50, 12.00),
+            "gpt-5.4" => (400_000, 128_000, 1.25, 10.00),
+            "gpt-5.4-mini" => (400_000, 128_000, 0.25, 2.00),
+            "gpt-5.4-nano" => (131_072, 64_000, 0.05, 0.40),
+            "gpt-5.3-codex" => (400_000, 128_000, 1.25, 10.00),
+            "gpt-5.3-codex-spark" => (400_000, 64_000, 0.25, 2.00),
+            "gpt-5.2" => (1_048_576, 128_000, 1.25, 10.00),
+            "gpt-4.1" => (128_000, 16_384, 2.00, 8.00),
+            "gpt-4.1-mini" => (131_072, 16_384, 0.40, 1.60),
             "gpt-4o" => (128_000, 16_384, 2.50, 10.00),
             "gpt-4o-mini" => (128_000, 16_384, 0.15, 0.60),
             "o1" => (200_000, 100_000, 15.00, 60.00),
             "o3-mini" => (200_000, 100_000, 1.10, 4.40),
-            "gpt-5.4" => (400_000, 128_000, 1.25, 10.00),
-            "gpt-5.4-mini" => (400_000, 128_000, 0.25, 2.00),
             _ => (128_000, 16_384, 2.50, 10.00),
         };
 
         ProviderCapabilities {
             max_context_tokens: max_ctx,
             max_output_tokens: max_out,
-            supports_thinking: matches!(self.model, "gpt-5.4" | "gpt-5.4-mini"),
+            supports_thinking: openai_responses_model_supports_reasoning(self.model),
             supports_vision: matches!(
                 self.model,
-                "gpt-4o" | "gpt-4o-mini" | "gpt-5.4" | "gpt-5.4-mini"
+                "gpt-4o"
+                    | "gpt-4o-mini"
+                    | "gpt-5.5"
+                    | "gpt-5.4"
+                    | "gpt-5.4-mini"
+                    | "gpt-5.4-nano"
+                    | "gpt-5.3-codex"
+                    | "gpt-5.3-codex-spark"
+                    | "gpt-5.2"
+                    | "gpt-4.1"
+                    | "gpt-4.1-mini"
             ),
             supports_web_search: false,
             supports_code_execution: false,
@@ -709,7 +754,19 @@ fn openai_responses_reasoning_effort(config: &AgentConfig) -> &'static str {
 }
 
 fn openai_responses_model_supports_reasoning(model: &str) -> bool {
-    matches!(model, "gpt-5.4" | "gpt-5.4-mini")
+    matches!(
+        model,
+        "gpt-5.5"
+            | "gpt-5.4"
+            | "gpt-5.4-mini"
+            | "gpt-5.4-nano"
+            | "gpt-5.3-codex"
+            | "gpt-5.3-codex-spark"
+            | "gpt-5.2"
+            | "o1"
+            | "o3"
+            | "o3-mini"
+    )
 }
 
 fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
@@ -902,6 +959,51 @@ mod tests {
         let provider = OpenAIProvider::gpt4o_mini();
 
         assert_eq!(provider.model, "gpt-4o-mini");
+    }
+
+    #[test]
+    fn provider_native_thinking_gpt54_constructor_uses_native_reasoning_model() {
+        let provider = OpenAIProvider::gpt54();
+        let capabilities = provider.capabilities();
+
+        assert_eq!(provider.model, "gpt-5.4");
+        assert!(capabilities.supports_thinking);
+        assert!(openai_responses_model_supports_reasoning(provider.model));
+    }
+
+    #[test]
+    fn provider_native_thinking_codex_constructor_uses_native_reasoning_model() {
+        let provider = OpenAIProvider::gpt53_codex();
+        let capabilities = provider.capabilities();
+
+        assert_eq!(provider.model, "gpt-5.3-codex");
+        assert!(capabilities.supports_thinking);
+        assert!(openai_responses_model_supports_reasoning(provider.model));
+    }
+
+    #[test]
+    fn provider_native_thinking_gpt5_request_body_includes_summary_controls() {
+        let body = build_openai_responses_body(
+            "gpt-5.3-codex".to_string(),
+            &AgentConfig {
+                enable_thinking: true,
+                effort: crate::agent_loop::Effort::High,
+                ..AgentConfig::default()
+            },
+            vec![json!({
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "Plan the patch." }],
+            })],
+            Vec::new(),
+            true,
+            openai_responses_model_supports_reasoning("gpt-5.3-codex"),
+        );
+
+        assert_eq!(
+            body["reasoning"],
+            json!({ "effort": "high", "summary": "auto" })
+        );
     }
 
     #[test]

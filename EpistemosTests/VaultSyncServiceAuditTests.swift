@@ -2353,6 +2353,18 @@ struct VaultSyncServiceAuditTests {
         #expect(!ecoMaintenance.manifestRefreshActive)
     }
 
+    @Test("file watcher consumes path-level external events instead of non-destructive broad reimport")
+    func fileWatcherConsumesPathLevelExternalEvents() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+
+        #expect(source.contains("FSEventStreamCreate"))
+        #expect(source.contains("kFSEventStreamCreateFlagFileEvents"))
+        #expect(source.contains("handleVaultFileSystemEvents"))
+        #expect(source.contains("try await actor.reindexFile(at: fileURL, vaultURL: vaultURL)"))
+        #expect(source.contains("try await actor.handleFileDeletion(at: fileURL)"))
+        #expect(!source.contains("deleteMissingFiles: false"))
+    }
+
     // MARK: - Phase S.4 -- security-scoped bookmark + write-cycle round-trip
     //
     // Phase S.4 acceptance criterion (PHASE_S_AUDIT.md §7, §10):

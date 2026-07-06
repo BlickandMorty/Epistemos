@@ -24,6 +24,8 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
     private let stateLock = NSLock()
     private var loadedModelID: String?
     private var preferredModelID: String?
+    private var isGenerating = false
+    private var unloadAfterGeneration = false
     #if canImport(EpistemosLlama)
     private let engine = LlamaLocalChatEngine()
     #endif
@@ -69,7 +71,7 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
     /// the engine (§12 #2); first-token latency on a cold model is the load
     /// cost — callers show a warm loading state, never a hang (§12 #4).
     func stream(prompt: String, instructions: String?, maxNewTokens: Int) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             #if canImport(EpistemosLlama)
             guard let entry = resolvedEntry() else {
                 continuation.finish(throwing: QuickChatError.engineUnavailable(.noLocalModelInstalled))
@@ -83,7 +85,33 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
                 continuation.finish(throwing: QuickChatError.engineUnavailable(.noLocalModelInstalled))
                 return
             }
+            let fullPrompt = entry.template.apply(
+                userPrompt: prompt,
+                instructions: instructions
+            )
+            let promptTokenEstimate = GGUFModelCatalog.estimatedTokens(for: fullPrompt)
+            guard GGUFModelCatalog.promptFits(
+                entry: entry,
+                promptTokenEstimate: promptTokenEstimate,
+                replyBudgetTokens: maxNewTokens
+            ) else {
+                continuation.finish(throwing: QuickChatError.exceededContextWindow)
+                return
+            }
+            guard beginGeneration() else {
+                continuation.finish(throwing: QuickChatError.engineUnavailable(.localModelBusy))
+                return
+            }
             let task = Task.detached(priority: .userInitiated) { [self] in
+                defer {
+                    if finishGeneration() {
+                        Task {
+                            await engine.unload()
+                            stateLock.withLock { loadedModelID = nil }
+                            Self.log.info("QuickChat GGUF model unloaded after memory-pressure cancellation")
+                        }
+                    }
+                }
                 do {
                     let needsLoad = stateLock.withLock { loadedModelID != entry.id } || !engine.isLoaded
                     if needsLoad {
@@ -93,10 +121,6 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
                         )
                         stateLock.withLock { loadedModelID = entry.id }
                     }
-                    let fullPrompt = entry.template.apply(
-                        userPrompt: prompt,
-                        instructions: instructions
-                    )
                     for try await event in engine.stream(prompt: fullPrompt, maxNewTokens: maxNewTokens) {
                         switch event {
                         case .token(let piece):
@@ -145,11 +169,41 @@ nonisolated final class LocalGGUFQuickChatBackend: @unchecked Sendable {
     /// tab switch.
     func unloadForMemoryPressure() {
         #if canImport(EpistemosLlama)
+        guard shouldUnloadImmediatelyForMemoryPressure() else {
+            engine.cancel()
+            Self.log.info("QuickChat GGUF active generation cancelled for memory pressure; unload will follow")
+            return
+        }
         Task.detached(priority: .utility) { [self] in
             await engine.unload()
             stateLock.withLock { loadedModelID = nil }
             Self.log.info("QuickChat GGUF model unloaded under memory pressure")
         }
         #endif
+    }
+
+    private func beginGeneration() -> Bool {
+        stateLock.withLock {
+            guard !isGenerating else { return false }
+            isGenerating = true
+            return true
+        }
+    }
+
+    private func finishGeneration() -> Bool {
+        stateLock.withLock {
+            isGenerating = false
+            let shouldUnload = unloadAfterGeneration
+            unloadAfterGeneration = false
+            return shouldUnload
+        }
+    }
+
+    private func shouldUnloadImmediatelyForMemoryPressure() -> Bool {
+        stateLock.withLock {
+            guard isGenerating else { return true }
+            unloadAfterGeneration = true
+            return false
+        }
     }
 }

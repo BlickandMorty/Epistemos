@@ -39,6 +39,12 @@ FORK="${OPENCHAMBER_FORK_ROOT:-$HOME/dev/openchamber-epistemos}"
 WEB="$FORK/packages/web"
 DEST="$ROOT/Epistemos/Resources/openchamber-runtime"
 BIN_DIR="$DEST/bin"
+# Stamps live OUTSIDE Resources: xcodegen snapshots the synced Resources tree,
+# and a stamp filename that changes (every fork commit for the web stamp)
+# leaves the project referencing a deleted file -> "No such file" BUILD FAILED
+# (hit live on the first preBuild-integrated build).
+STAMPS="$ROOT/.build-stamps"
+mkdir -p "$STAMPS"
 
 case "$(uname -m)" in
     arm64|aarch64) NODE_ASSET="node-v${NODE_VERSION}-darwin-arm64"; OC_ASSET="opencode-darwin-arm64" ;;
@@ -46,8 +52,8 @@ case "$(uname -m)" in
     *) echo "build-openchamber-web.sh: unsupported arch $(uname -m)"; exit 1 ;;
 esac
 
-NODE_STAMP="$DEST/.node-${NODE_VERSION}-$(uname -m)"
-OC_STAMP="$DEST/.opencode-${OPENCODE_VERSION}-$(uname -m)"
+NODE_STAMP="$STAMPS/openchamber-node-${NODE_VERSION}-$(uname -m)"
+OC_STAMP="$STAMPS/openchamber-opencode-${OPENCODE_VERSION}-$(uname -m)"
 
 mkdir -p "$BIN_DIR"
 TMP="$(mktemp -d)"
@@ -64,7 +70,7 @@ else
     tar -xzf "$TMP/node.tar.gz" -C "$TMP"
     cp "$TMP/${NODE_ASSET}/bin/node" "$BIN_DIR/node"
     chmod +x "$BIN_DIR/node"
-    rm -f "$DEST"/.node-*
+    rm -f "$STAMPS"/openchamber-node-*
     touch "$NODE_STAMP"
 fi
 # Keep the full extracted dist around for its npm (staging installs below).
@@ -91,7 +97,7 @@ else
     fi
     cp "$OC_BIN" "$BIN_DIR/opencode-triple"
     chmod +x "$BIN_DIR/opencode-triple"
-    rm -f "$DEST"/.opencode-*
+    rm -f "$STAMPS"/openchamber-opencode-*
     touch "$OC_STAMP"
 fi
 
@@ -110,7 +116,7 @@ fi
 
 FORK_SHA="$(git -C "$FORK" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 DIST_HASH="$( (git -C "$FORK" rev-parse HEAD; find "$WEB/dist" -type f -newer "$WEB/package.json" 2>/dev/null | wc -l) | shasum -a 256 | cut -c1-16)"
-WEB_STAMP="$DEST/.web-${FORK_SHA}-${DIST_HASH}"
+WEB_STAMP="$STAMPS/openchamber-web-${FORK_SHA}-${DIST_HASH}"
 
 if [ -f "$WEB_STAMP" ] && [ -f "$DEST/openchamber-web.tar.gz" ]; then
     echo "build-openchamber-web.sh: web bundle for ${FORK_SHA} already staged — skipping."
@@ -135,7 +141,7 @@ PYEOF
     # Version marker the supervisor uses for its unpack stamp.
     echo "{\"forkSha\":\"$FORK_SHA\",\"stagedAt\":\"$(date -u +%FT%TZ)\"}" > "$STAGE/.epistemos-web-version.json"
     tar -czf "$DEST/openchamber-web.tar.gz" -C "$TMP" openchamber-web
-    rm -f "$DEST"/.web-*
+    rm -f "$STAMPS"/openchamber-web-*
     touch "$WEB_STAMP"
     echo "build-openchamber-web.sh: staged $(du -h "$DEST/openchamber-web.tar.gz" | cut -f1) tarball."
 fi

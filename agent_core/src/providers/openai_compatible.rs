@@ -8,6 +8,11 @@
 //! Source: https://platform.kimi.ai/docs/api/overview
 //! Source: https://platform.kimi.ai/docs/models
 //! Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart
+//! Source: https://platform.kimi.ai/docs/guide/kimi-k2-7-code-quickstart
+//! Source: https://platform.kimi.ai/docs/api/chat
+//! Source: https://api-docs.deepseek.com/guides/reasoning_model
+//! Source: https://api-docs.deepseek.com/guides/thinking_mode
+//! Source: https://api-docs.deepseek.com/quick_start/pricing
 //! Source: https://docs.mistral.ai/mistral-vibe/using-fim-api
 //! Source: https://docs.mistral.ai/models/model-cards/codestral-25-08
 //! Source: https://docs.mistral.ai/api/endpoint/chat
@@ -22,6 +27,9 @@
 //! Source: https://docs.x.ai/developers/tools/function-calling
 //! Source: https://docs.x.ai/developers/models/grok-4.3
 //! Source: https://docs.x.ai/developers/migration/may-15-retirement
+//! Source: https://docs.z.ai/guides/capabilities/thinking-mode
+//! Source: https://docs.z.ai/guides/llm/glm-5.2
+//! Source: https://docs.z.ai/guides/overview/migrate-to-glm-new
 //!
 //! Most LLM providers implement the OpenAI API standard. This single provider
 //! covers: OpenRouter (200+ models), Ollama, Z.AI/GLM, Kimi/Moonshot, DeepSeek,
@@ -65,6 +73,7 @@ pub struct OpenAICompatibleProvider {
 enum RequestExtension {
     KimiThinking,
     OpenRouterReasoning,
+    ZaiThinking,
 }
 
 impl OpenAICompatibleProvider {
@@ -112,6 +121,14 @@ impl OpenAICompatibleProvider {
             }
             Some(RequestExtension::OpenRouterReasoning) => {
                 body["reasoning"] = openrouter_reasoning_config(config);
+            }
+            Some(RequestExtension::ZaiThinking) => {
+                body["thinking"] = json!({
+                    "type": if config.enable_thinking { "enabled" } else { "disabled" }
+                });
+                if config.enable_thinking {
+                    body["reasoning_effort"] = json!(zai_reasoning_effort(config.effort));
+                }
             }
             None => {}
         }
@@ -213,26 +230,18 @@ impl OpenAICompatibleProvider {
 
     // --- Z.AI / GLM ---
     pub fn zai() -> Self {
+        Self::zai_model("glm-5.2")
+    }
+
+    pub fn zai_model(model: &str) -> Self {
         Self::new(
             std::env::var("GLM_API_KEY").unwrap_or_default(),
             "https://open.bigmodel.cn/api/paas/v4",
-            "glm-4-plus",
+            model,
             "Z.AI / GLM",
-            ProviderCapabilities {
-                max_context_tokens: 128_000,
-                max_output_tokens: 4_096,
-                supports_thinking: false,
-                supports_vision: true,
-                supports_web_search: true,
-                supports_code_execution: true,
-                supports_computer_use: false,
-                supports_mcp: false,
-                supports_streaming: true,
-                supports_compaction: true,
-                cost_input_per_million: 1.0,
-                cost_output_per_million: 1.0,
-            },
+            zai_capabilities(model),
         )
+        .with_request_extension(RequestExtension::ZaiThinking)
     }
 
     // --- Kimi / Moonshot ---
@@ -274,25 +283,20 @@ impl OpenAICompatibleProvider {
 
     // --- DeepSeek ---
     pub fn deepseek() -> Self {
+        Self::deepseek_model("deepseek-chat")
+    }
+
+    pub fn deepseek_reasoner() -> Self {
+        Self::deepseek_model("deepseek-reasoner")
+    }
+
+    pub fn deepseek_model(model: &str) -> Self {
         Self::new(
             std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
             "https://api.deepseek.com/v1",
-            "deepseek-chat",
+            model,
             "DeepSeek",
-            ProviderCapabilities {
-                max_context_tokens: 128_000,
-                max_output_tokens: 8_192,
-                supports_thinking: true,
-                supports_vision: false,
-                supports_web_search: false,
-                supports_code_execution: false,
-                supports_computer_use: false,
-                supports_mcp: false,
-                supports_streaming: true,
-                supports_compaction: true,
-                cost_input_per_million: 0.14,
-                cost_output_per_million: 0.28,
-            },
+            deepseek_capabilities(model),
         )
     }
 
@@ -830,6 +834,60 @@ fn xai_context_tokens(model: &str) -> usize {
     }
 }
 
+fn zai_capabilities(model: &str) -> ProviderCapabilities {
+    ProviderCapabilities {
+        max_context_tokens: zai_context_tokens(model),
+        max_output_tokens: 128_000,
+        supports_thinking: zai_supports_thinking(model),
+        supports_vision: false,
+        supports_web_search: false,
+        supports_code_execution: false,
+        supports_computer_use: false,
+        supports_mcp: false,
+        supports_streaming: true,
+        supports_compaction: true,
+        cost_input_per_million: match model {
+            "glm-5.2" => 1.40,
+            "glm-5" => 1.00,
+            "glm-5-turbo" => 1.20,
+            "glm-4.7" => 0.60,
+            _ => 0.60,
+        },
+        cost_output_per_million: match model {
+            "glm-5.2" => 4.40,
+            "glm-5" => 3.20,
+            "glm-5-turbo" => 4.00,
+            "glm-4.7" => 2.20,
+            _ => 2.20,
+        },
+    }
+}
+
+fn zai_context_tokens(model: &str) -> usize {
+    match model {
+        "glm-5.2" => 1_048_576,
+        "glm-5" | "glm-5-turbo" | "glm-4.7" | "glm-4.7-flash" => 200_000,
+        "glm-4.5-flash" => 128_000,
+        _ => 128_000,
+    }
+}
+
+fn zai_supports_thinking(model: &str) -> bool {
+    matches!(
+        model,
+        "glm-5.2" | "glm-5" | "glm-5-turbo" | "glm-4.7" | "glm-4.7-flash" | "glm-4.5-flash"
+    )
+}
+
+fn zai_reasoning_effort(effort: Effort) -> &'static str {
+    match effort {
+        Effort::Low => "low",
+        Effort::Medium => "medium",
+        Effort::High => "high",
+        Effort::Max => "max",
+    }
+}
+
 fn kimi_capabilities(model: &str) -> ProviderCapabilities {
     ProviderCapabilities {
         max_context_tokens: 256_000,
@@ -856,11 +914,32 @@ fn kimi_capabilities(model: &str) -> ProviderCapabilities {
 }
 
 fn kimi_supports_configurable_thinking(model: &str) -> bool {
-    matches!(model, "kimi-k2.6" | "kimi-k2.5")
+    matches!(model, "kimi-k2.7-code" | "kimi-k2.6" | "kimi-k2.5")
 }
 
 fn kimi_supports_thinking(model: &str) -> bool {
     kimi_supports_configurable_thinking(model) || model.contains("thinking")
+}
+
+fn deepseek_capabilities(model: &str) -> ProviderCapabilities {
+    ProviderCapabilities {
+        max_context_tokens: 128_000,
+        max_output_tokens: 8_192,
+        supports_thinking: deepseek_supports_thinking(model),
+        supports_vision: false,
+        supports_web_search: false,
+        supports_code_execution: false,
+        supports_computer_use: false,
+        supports_mcp: false,
+        supports_streaming: true,
+        supports_compaction: true,
+        cost_input_per_million: 0.14,
+        cost_output_per_million: 0.28,
+    }
+}
+
+fn deepseek_supports_thinking(model: &str) -> bool {
+    matches!(model, "deepseek-reasoner")
 }
 
 fn openrouter_reasoning_config(config: &AgentConfig) -> Value {
@@ -1097,6 +1176,14 @@ mod tests {
                 .contains("//! Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart"),
             "Kimi K2.6 quickstart must be in the module-level Source prologue"
         );
+        assert!(
+            prologue.contains("//! Source: https://platform.kimi.ai/docs/api/chat"),
+            "Kimi chat thinking parameter contract must be in the module-level Source prologue"
+        );
+        assert!(
+            prologue.contains("//! Source: https://docs.z.ai/guides/capabilities/thinking-mode"),
+            "Z.AI thinking mode contract must be in the module-level Source prologue"
+        );
     }
 
     #[test]
@@ -1199,6 +1286,87 @@ mod tests {
             json!({ "type": "disabled" }),
             "Kimi K2.6 enables thinking by default, so the provider must explicitly disable it for fast/no-thinking turns"
         );
+    }
+
+    #[test]
+    fn provider_native_thinking_kimi_k27_code_uses_native_thinking_parameter() {
+        let provider = OpenAICompatibleProvider::kimi("kimi-k2.7-code");
+        let mut body = json!({
+            "model": provider.model,
+            "messages": [],
+            "stream": true
+        });
+        let config = AgentConfig {
+            enable_thinking: true,
+            ..AgentConfig::default()
+        };
+
+        provider.apply_provider_request_extensions(&mut body, &config);
+
+        assert!(provider.capabilities.supports_thinking);
+        assert_eq!(body["thinking"], json!({ "type": "enabled" }));
+    }
+
+    #[test]
+    fn provider_native_thinking_zai_gateway_uses_glm52_thinking_contract() {
+        let provider = OpenAICompatibleProvider::zai();
+
+        assert_eq!(provider.base_url, "https://open.bigmodel.cn/api/paas/v4");
+        assert_eq!(provider.model, "glm-5.2");
+        assert_eq!(provider.display_name, "Z.AI / GLM");
+        assert_eq!(provider.capabilities.max_context_tokens, 1_048_576);
+        assert!(provider.capabilities.supports_thinking);
+        assert!(!provider.capabilities.supports_code_execution);
+    }
+
+    #[test]
+    fn provider_native_thinking_zai_request_extension_maps_thinking_and_effort() {
+        let provider = OpenAICompatibleProvider::zai();
+        let mut body = json!({
+            "model": provider.model,
+            "messages": [],
+            "stream": true
+        });
+        let config = AgentConfig {
+            enable_thinking: true,
+            effort: Effort::Max,
+            ..AgentConfig::default()
+        };
+
+        provider.apply_provider_request_extensions(&mut body, &config);
+
+        assert_eq!(body["thinking"], json!({ "type": "enabled" }));
+        assert_eq!(body["reasoning_effort"], json!("max"));
+    }
+
+    #[test]
+    fn provider_native_thinking_zai_request_extension_disables_thinking_without_effort() {
+        let provider = OpenAICompatibleProvider::zai();
+        let mut body = json!({
+            "model": provider.model,
+            "messages": [],
+            "stream": true
+        });
+        let config = AgentConfig {
+            enable_thinking: false,
+            ..AgentConfig::default()
+        };
+
+        provider.apply_provider_request_extensions(&mut body, &config);
+
+        assert_eq!(body["thinking"], json!({ "type": "disabled" }));
+        assert!(body.get("reasoning_effort").is_none());
+    }
+
+    #[test]
+    fn provider_native_thinking_deepseek_chat_and_reasoner_are_distinct() {
+        let chat = OpenAICompatibleProvider::deepseek();
+        let reasoner = OpenAICompatibleProvider::deepseek_reasoner();
+
+        assert_eq!(chat.model, "deepseek-chat");
+        assert!(!chat.capabilities.supports_thinking);
+        assert_eq!(reasoner.model, "deepseek-reasoner");
+        assert!(reasoner.capabilities.supports_thinking);
     }
 
     #[test]

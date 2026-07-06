@@ -4,7 +4,7 @@ import SwiftUI
 
 /// First-run setup wizard that guides the user through essential configuration.
 /// Shows automatically on first launch.
-/// Steps: 1) Welcome -> 2) Vault -> 3) Foundation -> 4) Done
+/// Steps: 1) Welcome -> 2) Vault -> 3) Foundation -> 4) Voice -> 5) Done
 struct SetupAssistantView: View {
     private static let stepTransition = Animation.spring(response: 0.35, dampingFraction: 0.85)
 
@@ -13,6 +13,9 @@ struct SetupAssistantView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var currentStep: SetupStep = .welcome
+    @State private var selectedKokoroTier: KokoroModelDownloadService.Tier = .starter
+    @State private var kokoroStatus = KokoroVoiceGateStatus.status()
+    @State private var kokoroInstallMessage: String?
 
     let onComplete: () -> Void
 
@@ -23,6 +26,7 @@ struct SetupAssistantView: View {
     private var theme: EpistemosTheme { ui.theme }
     private var bodyFont: Font { .system(size: 12, weight: .regular, design: .monospaced) }
     private var captionFont: Font { .system(size: 10, weight: .medium, design: .monospaced) }
+    private var kokoroDownloader: KokoroModelDownloadService { KokoroModelDownloadService.shared }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -46,6 +50,7 @@ struct SetupAssistantView: View {
                     case .welcome: welcomeStep
                     case .vault: vaultStep
                     case .model: modelStep
+                    case .voice: voiceStep
                     case .done: doneStep
                     }
                 }
@@ -72,6 +77,15 @@ struct SetupAssistantView: View {
                 intensity: 0.14,
                 active: !ui.windowOccluded
             )
+        }
+        .onAppear {
+            refreshKokoroStatus()
+        }
+        .onChange(of: kokoroDownloader.phase) { _, newPhase in
+            if case .installed = newPhase {
+                refreshKokoroStatus()
+                kokoroInstallMessage = installedKokoroMessage(for: kokoroStatus)
+            }
         }
     }
 
@@ -106,7 +120,7 @@ struct SetupAssistantView: View {
             Text("Connect Your Vault")
                 .font(AppDisplayTypography.font(size: 20))
                 .foregroundStyle(theme.fontAccent)
-            Text("Choose the folder Epistemos should sync with. The app keeps local note bodies and can import from or sync out to Markdown files in your vault.")
+            Text("Choose the folder Epistemos should sync with. Markdown files stay live on disk, so edits from other apps or AI tools flow back into Epistemos automatically.")
                 .font(bodyFont)
                 .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -203,10 +217,81 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack(spacing: 12) {
+                Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .voice } }
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
+                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .voice } }
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
+            }
+        }
+        .padding(.vertical, 24)
+    }
+
+    // MARK: - Voice
+
+    @ViewBuilder
+    private var voiceStep: some View {
+        VStack(spacing: 16) {
+            SetupPixelGlyph(kind: .chip, tint: theme.fontAccent)
+            Text("Choose Read-Aloud Voice")
+                .font(AppDisplayTypography.font(size: 20))
+                .foregroundStyle(theme.fontAccent)
+            Text("Kokoro adds optional local read-aloud for notes and other text surfaces. Download a checked CoreML package now, or skip and choose one later in Settings.")
+                .font(bodyFont)
+                .foregroundStyle(theme.textSecondary)
+                .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(kokoroStatus.headline)
+                        .font(captionFont)
+                        .foregroundStyle(theme.textPrimary)
+                    Spacer(minLength: 8)
+                    Text(kokoroStatus.isReady ? "Ready" : "Optional")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill((kokoroStatus.isReady ? theme.success : theme.fontAccent).opacity(0.14))
+                        )
+                        .foregroundStyle(kokoroStatus.isReady ? theme.success : theme.fontAccent)
+                }
+
+                if let kokoroInstallMessage {
+                    Text(kokoroInstallMessage)
+                        .font(captionFont)
+                        .foregroundStyle(theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(kokoroStatus.detail)
+                        .font(captionFont)
+                        .foregroundStyle(theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                KokoroVoiceDownloadControls(
+                    selectedTier: $selectedKokoroTier,
+                    isDisabled: false,
+                    idleButtonTitle: "Download Voice",
+                    idleButtonHelp: "Download and install a checked Kokoro read-aloud voice package",
+                    idleButtonAccessibilityLabel: "Download and install a checked Kokoro read-aloud voice package"
+                ) {
+                    KokoroModelDownloadService.shared.startInstall(tier: selectedKokoroTier)
+                }
+            }
+            .padding()
+            .background(theme.card.opacity(0.85))
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+            Spacer()
+
+            HStack(spacing: 12) {
                 Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .done } }
                     .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
-                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .done } }
-                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
+                Button(kokoroStatus.isReady ? "Next" : "Set Up Later") {
+                    withAnimation(stepTransitionAnimation) { currentStep = .done }
+                }
+                .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
             }
         }
         .padding(.vertical, 24)
@@ -225,6 +310,7 @@ struct SetupAssistantView: View {
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
                 statusRow("Foundation", done: true)
+                statusRow("Kokoro voice", done: kokoroStatus.isReady)
             }
 
             Text("You can change any of these in Settings at any time.")
@@ -281,6 +367,17 @@ struct SetupAssistantView: View {
         VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)
     }
 
+    private func refreshKokoroStatus() {
+        kokoroStatus = KokoroVoiceGateStatus.status()
+    }
+
+    private func installedKokoroMessage(for status: KokoroVoiceGateStatus.Status) -> String {
+        if let evidence = status.packageEvidence {
+            return "Installed checked Kokoro package. \(evidence.settingsSummary)"
+        }
+        return "Installed checked Kokoro package. \(status.headline)"
+    }
+
     private func completeSetupNow() {
         UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
         ui.needsSetup = false
@@ -294,7 +391,8 @@ enum SetupStep: Int, CaseIterable, Comparable {
     case welcome = 0
     case vault = 1
     case model = 2
-    case done = 3
+    case voice = 3
+    case done = 4
 
     static func < (lhs: SetupStep, rhs: SetupStep) -> Bool {
         lhs.rawValue < rhs.rawValue

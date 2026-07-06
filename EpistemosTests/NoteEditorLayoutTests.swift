@@ -719,6 +719,14 @@ struct NoteEditorLayoutTests {
                 == 74
         )
         #expect(
+            NotePreviewChromeMetrics.backdropHeight(
+                titlebarInset: 380,
+                hasMultipleTabs: true,
+                minimumHeight: 74
+            )
+                == 74
+        )
+        #expect(
             NotePreviewChromeMetrics.backdropHeight(titlebarInset: 52, hasMultipleTabs: false)
                 == 52
         )
@@ -750,7 +758,7 @@ struct NoteEditorLayoutTests {
             NotePreviewChromeMetrics.contentTopInset(
                 chromeBackdropHeight: 128,
                 chromeMinimumHeight: 74
-            ) == 128
+            ) == 74
         )
     }
 

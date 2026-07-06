@@ -23,14 +23,14 @@
 //! `7cb1ed426`) and stays off by default.
 //!
 //! The two-tier ladder routes:
-//!   - High-confidence exact match (top score ≥ 0.85) → Tier 1
+//!   - High-confidence exact match (top confidence ≥ 0.85) → Tier 1
 //!     accepts (cheap deterministic path, no fusion compute on a
 //!     fused-capable backend).
-//!   - Medium confidence (0.70 ≤ top < 0.85) → Tier 1 declines,
+//!   - Medium confidence (0.70 ≤ top confidence < 0.85) → Tier 1 declines,
 //!     Tier 3 accepts (escalate to fused if available; for
 //!     `VaultStore`'s Tantivy-only impl, T3 returns the same
 //!     candidates as T1 — the floor is the differentiation).
-//!   - Low confidence (top < 0.70) → both decline, ladder returns
+//!   - Low confidence (top confidence < 0.70) → both decline, ladder returns
 //!     None → handler surfaces the doctrine §6 "Defer is a
 //!     first-class outcome" message.
 //!
@@ -40,13 +40,17 @@
 //!   - `FLOOR_T3 = 0.70`
 //!
 //! Acceptance criteria pinned by source-guard tests:
-//!   - Tier 3 variant accepts when the top result's score ≥ FLOOR_T3
-//!   - Tier 3 variant declines (returns `None`) when top score < FLOOR_T3
+//!   - Tier 3 variant accepts when the top result's confidence ≥ FLOOR_T3
+//!   - Tier 3 variant declines (returns `None`) when top confidence < FLOOR_T3
 //!   - Tier 3 variant declines on empty results
 //!   - The ladder's `escalation_policy` is `Never` by default so Tier 4+
 //!     variants cannot fire silently
-//!   - The ladder ships exactly one variant today (T3); adding more
+//!   - The ladder ships exactly two variants today (T1 + T3); adding more
 //!     trips the source-guard expectation set so reviewers notice
+//!
+//! Raw BM25 scores are mapped into a bounded confidence domain before
+//! floor comparison. This restores the confidence-floor semantics after
+//! Fix C made `SearchResult.score` honest/unbounded raw BM25.
 //!
 //! Source-guard tests live in this file; the integration with
 //! `VaultSearchHandler` lives in `tools/registry.rs` and ships in the
@@ -59,20 +63,14 @@ use async_trait::async_trait;
 use crate::storage::vault::{SearchResult, VaultBackend};
 use crate::variant_ladder::{LadderTier, LadderVariant, VariantLadder};
 
-/// Per-doctrine confidence floors. Top result's `score` must be at or
+/// Per-doctrine confidence floors. Top result confidence must be at or
 /// above the matching floor for the tier to accept.
 ///
-/// **T21 Q1 — RECALIBRATION PENDING.** These constants were calibrated
-/// against the `score.clamp(0.0, 1.0)` that Fix C (b812ba618, 2026-05-17)
-/// removed. After Fix C, `SearchResult.score` is raw BM25 — typically
-/// 1.0–15.0 — so every non-empty match trivially passes every floor
-/// and the ladder's tier-acceptance reverts to the
-/// `F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` §1 Defect 3 failure
-/// mode the iter-1 commit was supposed to close. Needs empirical
-/// percentile measurement against a representative Epistemos vault
-/// (~1k–5k notes) before these constants become load-bearing again.
-/// See `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q1 for the full
-/// research-question writeup.
+/// `SearchResult.score` remains raw BM25 for display/provenance. The
+/// ladder maps raw scores into a bounded confidence value before using
+/// these floors so a merely non-empty Tantivy result cannot bypass the
+/// "no confident vault match" gate. Corpus-specific percentile
+/// calibration remains a future quality slice.
 pub const FLOOR_T1: f64 = 0.85;
 pub const FLOOR_T2: f64 = 0.75;
 pub const FLOOR_T3: f64 = 0.70;
@@ -101,7 +99,7 @@ pub struct VaultSearchLadderOutput {
 /// Tier 1 — pure BM25 / lexical-only search via the new
 /// `VaultBackend::lexical_search` trait method. The cheapest tier
 /// (no embedding compute, no fusion); accepts only when the top
-/// result's score is at or above `FLOOR_T1 = 0.85` (high-confidence
+/// result's confidence is at or above `FLOOR_T1 = 0.85` (high-confidence
 /// exact match).
 ///
 /// On backends whose `hybrid_search` is already lexical-only (e.g.
@@ -139,7 +137,7 @@ impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput> for VaultSea
 /// Tier 3 — RRF k=60 hybrid fusion via `VaultBackend::hybrid_search`.
 ///
 /// Per the §B.1 acceptance, this tier accepts when the top result's
-/// score is at or above `FLOOR_T3`. Below the floor → returns `None`
+/// confidence is at or above `FLOOR_T3`. Below the floor → returns `None`
 /// so the ladder can either escalate (if policy permits) or defer.
 pub struct VaultSearchT3RrfHybrid;
 
@@ -167,14 +165,32 @@ impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput> for VaultSea
 }
 
 /// Helper: accept the results set iff non-empty AND the top result's
-/// score is at or above `floor`. Used by every tier's `try_resolve`.
+/// bounded confidence is at or above `floor`. Used by every tier's
+/// `try_resolve`.
 fn accept_above_floor(results: Vec<SearchResult>, floor: f64) -> Option<VaultSearchLadderOutput> {
-    let top_score = results.first().map(|r| r.score).unwrap_or(0.0);
-    if !results.is_empty() && top_score >= floor {
+    let top_confidence = results
+        .first()
+        .map(|r| score_floor_confidence(r.score))
+        .unwrap_or(0.0);
+    if !results.is_empty() && top_confidence >= floor {
         Some(VaultSearchLadderOutput { results })
     } else {
         None
     }
+}
+
+/// Map display/provenance scores into the ladder's [0, 1] confidence
+/// domain. Scores already in [0, 1] are treated as legacy confidence
+/// fixtures; raw BM25 scores use a monotone saturating transform so
+/// only materially strong hits clear the high-confidence T1 floor.
+pub(crate) fn score_floor_confidence(score: f64) -> f64 {
+    if !score.is_finite() || score <= 0.0 {
+        return 0.0;
+    }
+    if score <= 1.0 {
+        return score;
+    }
+    (score / (score + 1.0)).clamp(0.0, 1.0)
 }
 
 /// Construct the canonical `vault.search` ladder. As of §B.1 2/N this
@@ -434,49 +450,54 @@ mod tests {
         );
     }
 
-    /// T21 iter-63 (2026-05-18): documenting test — raw BM25 scores
-    /// (post-Fix-C `b812ba618`, no `score.clamp(0, 1)`) typically sit in
-    /// the 1.0–15.0 range. The existing `FLOOR_T1/T2/T3` constants
-    /// (0.85 / 0.75 / 0.70) were calibrated against the CLAMPED range,
-    /// so every non-empty match trivially exceeds the floors — the
-    /// ladder's tier-differentiation degenerates to "did Tantivy
-    /// return anything?" This test pins the current behavior so a
-    /// future floor recalibration (per Q1 in
-    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8) shows up as a
-    /// breaking-test diff rather than a silent semantic change.
-    ///
-    /// The test PASSES today (4.21 ≥ 0.85). When floors are
-    /// recalibrated to raw-BM25 magnitudes, this assertion will need
-    /// inverting; the rename + inversion is the canonical signal that
-    /// the recalibration shipped.
+    #[test]
+    fn score_floor_confidence_bounds_raw_bm25_before_confidence_floors() {
+        assert_eq!(score_floor_confidence(f64::NAN), 0.0);
+        assert_eq!(score_floor_confidence(-1.0), 0.0);
+        assert_eq!(score_floor_confidence(0.80), 0.80);
+
+        let representative_raw = score_floor_confidence(4.21);
+        assert!(
+            representative_raw >= FLOOR_T3 && representative_raw < FLOOR_T1,
+            "representative raw BM25 should map to medium confidence, got {representative_raw}"
+        );
+
+        let strong_raw = score_floor_confidence(12.0);
+        assert!(
+            strong_raw >= FLOOR_T1,
+            "strong raw BM25 should still clear T1 after bounded mapping, got {strong_raw}"
+        );
+    }
+
+    /// Raw BM25 scores (post-Fix-C `b812ba618`, no display clamp) are
+    /// mapped into the ladder's confidence domain before floor checks.
+    /// This keeps T1 from accepting every non-empty result just because
+    /// BM25 is naturally above 1.0.
     #[tokio::test]
-    async fn t1_accepts_raw_bm25_post_fix_c_floor_bypass_documenting() {
+    async fn t1_declines_representative_raw_bm25_after_confidence_mapping() {
         // 4.21 is a representative raw BM25 score for a strong topical
-        // match — well below the typical max (~15) but well above the
-        // FLOOR_T1 = 0.85 constant that was calibrated for clamped
-        // [0, 1] scores. Today T1 accepts because 4.21 ≥ 0.85.
+        // match, but it maps below the high-confidence T1 floor and
+        // above T3, preserving deterministic fallthrough.
         let canned = vec![
             result("notes/strong.md", 4.21),
             result("notes/medium.md", 2.10),
         ];
         let inp = input(canned);
         let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
-        let output = resolved.expect(
-            "T1 currently accepts raw-BM25 scores because FLOOR_T1 = 0.85 \
-             is in the clamped range and raw BM25 is typically ≥ 1.0. \
-             See Q1 in docs/F_VAULT_RECALL_50_2026_05_18.md §8 for the \
-             recalibration question.",
-        );
-        assert_eq!(output.results.len(), 2);
-        // When floors are recalibrated (e.g. FLOOR_T1 = top-5%-of-corpus
-        // BM25), this assertion needs inverting; the test name + doc
-        // comment will guide the future contributor to that diff.
         assert!(
-            output.results[0].score >= FLOOR_T1,
-            "raw BM25 score {} must currently bypass FLOOR_T1 = {}",
-            output.results[0].score,
-            FLOOR_T1
+            resolved.is_none(),
+            "T1 must compare bounded confidence, not raw BM25 magnitude"
         );
+    }
+
+    #[tokio::test]
+    async fn ladder_maps_strong_raw_bm25_to_t1_confidence() {
+        let canned = vec![result("notes/exact.md", 12.0)];
+        let inp = input(canned);
+        let ladder = build_vault_search_ladder().expect("ladder must build");
+        let resolution = ladder.resolve(&inp).await.expect("ladder must resolve");
+        assert_eq!(resolution.tier, LadderTier::Deterministic);
+        assert_eq!(resolution.variant_name, "VaultSearchT1LexicalBm25");
     }
 
     #[tokio::test]

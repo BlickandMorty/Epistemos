@@ -1,16 +1,11 @@
 import Foundation
 
-// Goose=WORK seam — Seam A gate (R-GOOSE). Honest flag-status for
-// EPISTEMOS_WORK_GOOSE_V0, read by the visible WorkBackendHealthRow. ALWAYS-
-// compiled + pure (no Goose dependency) so the MAS build shows the honest "Pro
-// only" state without compiling any Goose runtime. Mirrors ActOsaurusGateStatus.
-//
-// GOOSE GUARDRAIL (owner 2026-06-18): the extracted Goose core is isolated behind
-// WORK mode + this flag. This seam touches nothing outside the Work path — it's a
-// new, isolated interface; the Goose Rust vendor (block/goose, Apache-2.0, into
-// agent_core via UniFFI) is the heavy follow-on.
+// Work backend seam. Honest flag-status for EPISTEMOS_WORK_BACKEND_V0, read by
+// the visible WorkBackendHealthRow. ALWAYS-compiled + pure so the MAS build shows
+// the honest "Pro only" state without compiling any secondary runtime. Mirrors
+// ActOsaurusGateStatus.
 nonisolated enum WorkBackendGateStatus {
-    static let flagName = "EPISTEMOS_WORK_GOOSE_V0"
+    static let flagName = "EPISTEMOS_WORK_BACKEND_V0"
 
     struct Status: Equatable, Sendable {
         let isActive: Bool
@@ -34,7 +29,7 @@ nonisolated enum WorkBackendGateStatus {
             return Status(
                 isActive: true,
                 headline: "Epistemos Work: secondary engine ON",
-                detail: "The Epistemos Work backend seam is armed (\(flagName)=1). The follow-on repo engine vendor is not wired yet, so the seam stays honestly inert with no fake capability. Other app modes stay on their own engines."
+                detail: "The Epistemos Work backend seam is armed (\(flagName)=1). The follow-on repo engine is not wired yet, so the seam stays honestly inert with no fake capability. Other app modes stay on their own engines."
             )
         }
         return Status(

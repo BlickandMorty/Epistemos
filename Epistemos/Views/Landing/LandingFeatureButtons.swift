@@ -208,7 +208,7 @@ enum LandingFeatureButton: String, CaseIterable, Identifiable {
             return "Record a meeting and capture a live, auto-saved transcript."
         case .agent:
             #if EPISTEMOS_APP_STORE
-            return "The agent room — chat with June, streaming real answers from on-device models."
+            return "Workspace - chat with on-device models, streaming real answers privately on this Mac."
             #else
             return "The agent workspace — chat with coding agents over your projects, with files, git, diffs, and a terminal."
             #endif

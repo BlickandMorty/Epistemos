@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::prompts::{build_system_prompt, PromptMode, TOOL_PREFERENCE_RULES};
@@ -7,6 +8,9 @@ use crate::vault_registry::VaultIdentity;
 const DEFAULT_MAX_CONTEXT_CHARS: usize = 24_000;
 const DEFAULT_RAG_LIMIT: usize = 3;
 const DEFAULT_EXAMPLE_LIMIT: usize = 3;
+const MAX_CONTEXT_FILE_BYTES: u64 = 64 * 1024;
+const MAX_MARKDOWN_FILES: usize = 512;
+const TRUNCATED_CONTEXT_MARKER: &str = "\n\n[...truncated by context compiler file byte cap]";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledContext {
@@ -166,9 +170,7 @@ fn load_optional_file(path: PathBuf) -> Result<Option<String>, ContextCompilerEr
     if !path.exists() {
         return Ok(None);
     }
-    fs::read_to_string(&path)
-        .map(Some)
-        .map_err(|source| ContextCompilerError::Io { path, source })
+    read_context_file(&path).map(Some)
 }
 
 fn load_skill_summaries(vault_path: &Path) -> Result<Vec<String>, ContextCompilerError> {
@@ -186,14 +188,12 @@ fn load_skill_summaries(vault_path: &Path) -> Result<Vec<String>, ContextCompile
         .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md"))
         .collect::<Vec<_>>();
     skill_paths.sort();
+    skill_paths.truncate(MAX_MARKDOWN_FILES);
 
     skill_paths
         .into_iter()
         .map(|path| {
-            let content = fs::read_to_string(&path).map_err(|source| ContextCompilerError::Io {
-                path: path.clone(),
-                source,
-            })?;
+            let content = read_context_file(&path)?;
             let summary = content
                 .lines()
                 .filter(|line| !line.trim().is_empty())
@@ -235,10 +235,7 @@ fn load_rag_context(
             continue;
         }
 
-        let content = fs::read_to_string(&path).map_err(|source| ContextCompilerError::Io {
-            path: path.clone(),
-            source,
-        })?;
+        let content = read_context_file(&path)?;
         let lowered = content.to_lowercase();
         let score = query_terms
             .iter()
@@ -269,6 +266,9 @@ fn markdown_files(root: &Path) -> Result<Vec<PathBuf>, ContextCompilerError> {
     let mut pending = vec![root.to_path_buf()];
 
     while let Some(dir) = pending.pop() {
+        if files.len() >= MAX_MARKDOWN_FILES {
+            break;
+        }
         for entry in fs::read_dir(&dir).map_err(|source| ContextCompilerError::Io {
             path: dir.clone(),
             source,
@@ -279,15 +279,53 @@ fn markdown_files(root: &Path) -> Result<Vec<PathBuf>, ContextCompilerError> {
             })?;
             let path = entry.path();
             if path.is_dir() {
-                pending.push(path);
+                if !should_skip_context_dir(&path) {
+                    pending.push(path);
+                }
             } else if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
                 files.push(path);
+                if files.len() >= MAX_MARKDOWN_FILES {
+                    pending.clear();
+                    break;
+                }
             }
         }
     }
 
     files.sort();
     Ok(files)
+}
+
+fn should_skip_context_dir(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some(".epistemos" | ".git" | ".obsidian" | "node_modules" | "target" | "build")
+    )
+}
+
+fn read_context_file(path: &Path) -> Result<String, ContextCompilerError> {
+    let metadata = fs::metadata(path).map_err(|source| ContextCompilerError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let was_truncated = metadata.len() > MAX_CONTEXT_FILE_BYTES;
+    let mut file = fs::File::open(path).map_err(|source| ContextCompilerError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let mut bytes = Vec::with_capacity(metadata.len().min(MAX_CONTEXT_FILE_BYTES) as usize);
+    file.by_ref()
+        .take(MAX_CONTEXT_FILE_BYTES)
+        .read_to_end(&mut bytes)
+        .map_err(|source| ContextCompilerError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let mut text = String::from_utf8_lossy(&bytes).to_string();
+    if was_truncated {
+        text.push_str(TRUNCATED_CONTEXT_MARKER);
+    }
+    Ok(text)
 }
 
 fn split_sections(content: &str, limit: usize) -> Vec<String> {
@@ -466,7 +504,10 @@ fn display_identity(identity: &VaultIdentity) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::ContextCompiler;
+    use super::{
+        markdown_files, read_context_file, ContextCompiler, MAX_CONTEXT_FILE_BYTES,
+        MAX_MARKDOWN_FILES, TRUNCATED_CONTEXT_MARKER,
+    };
     use crate::vault_registry::VaultIdentity;
     use std::fs;
     use std::path::PathBuf;
@@ -559,6 +600,69 @@ mod tests {
 
         assert_eq!(compiled.rag_context.len(), 2);
         assert!(compiled.rag_context[0].contains("alpha.md"));
+    }
+
+    #[test]
+    fn context_file_reader_caps_large_inputs() {
+        let root = temp_root("context-compiler-file-cap");
+        let path = root.join("large.md");
+        let body = "alpha ".repeat(MAX_CONTEXT_FILE_BYTES as usize / 6 + 4_096);
+        fs::write(&path, &body).unwrap();
+
+        let read = read_context_file(&path).unwrap();
+
+        assert!(read.len() < body.len());
+        assert!(read.contains(TRUNCATED_CONTEXT_MARKER));
+    }
+
+    #[test]
+    fn context_compiler_caps_skill_summary_count() {
+        let root = temp_root("context-compiler-skill-cap");
+        let skills_dir = root.join("skills");
+        fs::create_dir_all(&skills_dir).unwrap();
+        for index in 0..(MAX_MARKDOWN_FILES + 16) {
+            fs::write(skills_dir.join(format!("skill-{index:04}.md")), "# Skill").unwrap();
+        }
+
+        let compiled = ContextCompiler::new(VaultIdentity::Personal)
+            .compile("unmatched", "claude-sonnet", &root)
+            .unwrap();
+
+        assert_eq!(compiled.skills.len(), MAX_MARKDOWN_FILES);
+    }
+
+    #[test]
+    fn markdown_files_skip_private_context_dirs() {
+        let root = temp_root("context-compiler-skip-private");
+        fs::write(root.join("visible.md"), "alpha").unwrap();
+        for private_dir in [
+            ".epistemos",
+            ".git",
+            ".obsidian",
+            "node_modules",
+            "target",
+            "build",
+        ] {
+            let dir = root.join(private_dir);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("secret.md"), "private alpha").unwrap();
+        }
+
+        let files = markdown_files(&root).unwrap();
+
+        assert_eq!(files, vec![root.join("visible.md")]);
+    }
+
+    #[test]
+    fn markdown_files_cap_large_vault_scans() {
+        let root = temp_root("context-compiler-scan-cap");
+        for index in 0..(MAX_MARKDOWN_FILES + 16) {
+            fs::write(root.join(format!("note-{index:04}.md")), "alpha").unwrap();
+        }
+
+        let files = markdown_files(&root).unwrap();
+
+        assert_eq!(files.len(), MAX_MARKDOWN_FILES);
     }
 
     fn temp_root(prefix: &str) -> PathBuf {

@@ -225,6 +225,7 @@ struct RootView: View {
 
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
+            && ui.homeContent == .greeting
             && !embeddedHomeGraphContentVisible
     }
 
@@ -315,6 +316,7 @@ struct RootView: View {
             }
             if showLandingToolbarControls
                 || showEmbeddedGraphToolbarControls
+                || showJuneAgentToolbarControls
                 || (!embeddedHomeGraphContentVisible && activeHomeChat)
             {
                 ToolbarItem(placement: .principal) {

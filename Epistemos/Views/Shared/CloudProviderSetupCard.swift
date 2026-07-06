@@ -313,7 +313,7 @@ struct OpenAIDeviceAuthorizationSheet: View {
                 }
 
                 ToolbarCapsuleButton(
-                    title: "Open Page",
+                    title: "Open Verification Page",
                     systemImage: "safari",
                     variant: .content,
                     role: .toolbarUtility,

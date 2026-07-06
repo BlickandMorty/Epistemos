@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Wraps a feature surface (Meeting, arXiv, Browser, Goose, …) embedded as a PAGE
+/// Wraps a feature surface (Meeting, arXiv, Browser, and related rooms) embedded as a PAGE
 /// inside the home window — the owner's "press a feature → it animates to a page
 /// in the home window, like the old chat" model.
 ///

@@ -62,7 +62,7 @@ struct VaultReprompSheet: View {
                 bulletRow(
                     icon: "folder.fill",
                     iconColor: theme.resolved.accent.color,
-                    text: "Picking a folder turns those features on and writes notes there as Markdown files"
+                    text: "Picking a folder turns those features on and watches Markdown edits from other apps"
                 )
             }
             .padding(12)

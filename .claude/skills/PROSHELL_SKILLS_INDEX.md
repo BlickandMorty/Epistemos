@@ -47,3 +47,11 @@
 - Use for: Work Prompt Forge context snippets, context-priority mapping, native MCP context reuse, or any prompt-context logic currently embedded in a large view.
 - Cycle breakthrough: Prompt Forge context snippet assembly moved from `WorkEngineSurfaceView` into `WorkPromptForgeContext`, making runtime-skill grounding pure and testable while shrinking the Work surface.
 - Next leverage: use the builder as the single route for Work prompt grounding before adding richer capability rows.
+
+## proshell-native-fetch-decoder-boundary
+
+- Path: `.claude/skills/proshell-native-fetch-decoder-boundary/SKILL.md`
+- Class: Native ProShell fetch/decode boundaries for server-backed UI panels.
+- Use for: ProAgent, Goose, or Work native panels that fetch JSON, merge runtime sources, decode untrusted server rows, or display remote/session metadata.
+- Cycle breakthrough: ProAgent All Chats moved fetch/decode logic into a Foundation-only chat-list boundary, bounds server-provided display fields, and keeps SwiftUI presentation free of JSON/network parsing.
+- Next leverage: apply the same extraction to other native sheets that currently parse network payloads inside view files.

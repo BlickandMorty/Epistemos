@@ -8,10 +8,7 @@ struct VoiceSettingsDetailView: View {
         Form {
             voiceHeader
             VoicePreferencesSection()
-
-            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             KokoroVoiceProSettingsSection()
-            #endif
         }
     }
 

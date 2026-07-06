@@ -62,6 +62,20 @@ public struct VoicePreferencesSection: View {
             )
         }
 
+        Section("Read-aloud filter") {
+            HStack {
+                Label("Voice filter", systemImage: prefs.readAloudEffect.systemImage)
+                Spacer()
+                Picker("Read-aloud filter", selection: $prefs.readAloudEffect) {
+                    ForEach(VoiceEffect.allCases) { effect in
+                        Text(effect.label).tag(effect)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 220)
+            }
+        }
+
         // Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. This section now shows an
         // honest unavailable state until native Kokoro synthesis is wired; it does not surface
         // Apple's basic AVSpeech voice as a fallback.

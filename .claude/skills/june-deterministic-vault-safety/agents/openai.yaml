@@ -1,0 +1,4 @@
+interface:
+  display_name: "June Deterministic Vault Safety"
+  short_description: "Wire June vault grounding and writes through deterministic confidence gates and reversible effects."
+  default_prompt: "Use the June deterministic vault safety method to audit or extend vault.search, EML/schema gates, or vault.write effect routing without weakening MAS boundaries."

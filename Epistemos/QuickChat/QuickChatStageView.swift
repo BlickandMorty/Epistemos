@@ -212,12 +212,12 @@ struct QuickChatStageView: View {
                 Spacer(minLength: 40)
                 Text(message.text)
                     .font(.system(size: 12.5))
-                    .foregroundStyle(theme.resolved.foreground.color)
+                    .foregroundStyle(theme.userBubbleText)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.12))
+                            .fill(theme.userBubbleBg)
                     }
             }
         case .assistant(let engine):

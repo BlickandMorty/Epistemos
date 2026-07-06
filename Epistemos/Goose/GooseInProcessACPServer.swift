@@ -32,13 +32,31 @@ nonisolated enum GooseMASAgentCoreRunEvent: Sendable, Equatable {
     case error(String)
 }
 
+nonisolated enum GooseMASAgentCoreVaultPaths {
+    static let fallbackScratchPath = makeFallbackScratchPath()
+
+    private static func makeFallbackScratchPath() -> String {
+        let base = (try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? FileManager.default.temporaryDirectory
+        let scratch = base
+            .appendingPathComponent("Epistemos/GooseMASAgentCore/agent-core-scratch", isDirectory: true)
+        try? FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        return scratch.path
+    }
+}
+
 nonisolated final class GooseMASAgentCoreRunner: GooseMASAgentCoreRunning, @unchecked Sendable {
-    private static let defaultVaultPath = NSHomeDirectory()
+    private static let defaultVaultPath = GooseMASAgentCoreVaultPaths.fallbackScratchPath
     private static let allowedMASTools = [
         "vault.search",
         "vault.read",
         "vault.write",
         "vault.list",
+        "pdf.to_markdown",
         "knowledge.recall",
         "web.search",
         "web.fetch",
@@ -55,7 +73,7 @@ nonisolated final class GooseMASAgentCoreRunner: GooseMASAgentCoreRunning, @unch
         vaultPath: String,
         permissionHandler: @escaping @Sendable (GooseMASAgentCorePermissionRequest) -> Bool
     ) -> AsyncThrowingStream<GooseMASAgentCoreRunEvent, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             let delegate = GooseMASAgentCoreDelegate(
                 emit: { event in
                     continuation.yield(event)
@@ -772,7 +790,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return [Self.jsonResponse(id: id, result: catalog.initializeResult())]
         case "session/new":
             let sessionID = Self.newSessionID()
-            let cwd = params["cwd"] as? String ?? NSHomeDirectory()
+            let cwd = Self.sessionCWD(from: params["cwd"])
             sessions[sessionID] = Session(id: sessionID, createdAt: Date(), cwd: cwd)
             return [Self.jsonResponse(id: id, result: ["sessionId": sessionID])]
         case "session/list":
@@ -783,7 +801,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
                 sessions[sessionID] = Session(
                     id: sessionID,
                     createdAt: Date(),
-                    cwd: params["cwd"] as? String ?? NSHomeDirectory()
+                    cwd: Self.sessionCWD(from: params["cwd"])
                 )
             }
             return [Self.jsonResponse(id: id, result: sessionStateResult())]
@@ -792,7 +810,7 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             sessions[sessionID] = Session(
                 id: sessionID,
                 createdAt: Date(),
-                cwd: params["cwd"] as? String ?? NSHomeDirectory()
+                cwd: Self.sessionCWD(from: params["cwd"])
             )
             var result = sessionStateResult()
             result["sessionId"] = sessionID
@@ -1204,7 +1222,11 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
     private func makePromptRun(id: Any?, params: [String: Any]) -> PromptRun {
         let sessionID = params["sessionId"] as? String ?? Self.newSessionID()
         if sessions[sessionID] == nil {
-            sessions[sessionID] = Session(id: sessionID, createdAt: Date(), cwd: NSHomeDirectory())
+            sessions[sessionID] = Session(
+                id: sessionID,
+                createdAt: Date(),
+                cwd: Self.sessionCWD(from: params["cwd"])
+            )
         }
         return PromptRun(
             requestID: id,
@@ -1481,6 +1503,19 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return lower.contains("flash") ? "gemini_flash" : "gemini_pro"
         }
         // OpenAI family.
+        if lower.contains("gpt-5.5") { return "openai_gpt55" }
+        if lower.contains("gpt-5.4-nano") { return "openai_gpt54_nano" }
+        if lower.contains("gpt-5.4-mini") { return "openai_gpt54_mini" }
+        if lower.contains("gpt-5.4") { return "openai_gpt54" }
+        if lower.contains("gpt-5.3-codex-spark") { return "openai_gpt53_codex_spark" }
+        if lower.contains("gpt-5.3-codex") { return "openai_gpt53_codex" }
+        if lower.contains("gpt-5.2") { return "openai_gpt52" }
+        if lower.contains("gpt-4.1-mini") { return "openai_gpt41_mini" }
+        if lower.contains("gpt-4.1") { return "openai_gpt41" }
+        if lower.contains("gpt-4o-mini") { return "openai_gpt4o_mini" }
+        if lower.contains("gpt-4o") { return "openai_gpt4o" }
+        if lower.hasPrefix("o1") || lower.contains(":o1") { return "openai_o1" }
+        if lower.hasPrefix("o3-mini") || lower.contains(":o3-mini") { return "openai_o3_mini" }
         if lower.contains("gpt") || lower.contains("openai") || lower.hasPrefix("o1") || lower.hasPrefix("o3") {
             return "openai"
         }
@@ -1491,7 +1526,9 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             return "kimi"
         }
         // Other named cloud families understood by instantiate_provider.
-        if lower.contains("deepseek") { return "deepseek" }
+        if lower.contains("deepseek") {
+            return lower.contains("reasoner") ? "deepseek_reasoner" : "deepseek"
+        }
         if lower.contains("minimax") { return "minimax" }
         if lower.contains("glm") || lower.contains("zai") { return "zai" }
         if lower.contains("perplexity") || lower.contains("sonar") { return "perplexity" }
@@ -1507,11 +1544,18 @@ nonisolated final class GooseInProcessACPServer: @unchecked Sendable {
             configValues["EPISTEMOS_VAULT_PATH"] as? String,
             configValues["VAULT_PATH"] as? String,
             sessions.values.first?.cwd,
-            NSHomeDirectory(),
         ]
         return candidates
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty } ?? NSHomeDirectory()
+            .first { !$0.isEmpty } ?? GooseMASAgentCoreVaultPaths.fallbackScratchPath
+    }
+
+    private static func sessionCWD(from rawValue: Any?) -> String {
+        if let raw = rawValue as? String {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return GooseMASAgentCoreVaultPaths.fallbackScratchPath
     }
 
     private func ensureThirdPartyAIConsentForPrompt(_ run: PromptRun, on box: WebSocketConnectionBox) -> Bool {

@@ -1,4 +1,5 @@
 #if EPISTEMOS_APP_STORE
+import SwiftData
 import SwiftUI
 
 /// The MAS Agent-room toolbar pill (Plan 1-MAS §7): Home / New Chat /
@@ -11,6 +12,7 @@ struct JuneAgentNavBar: View {
     let onReturnHome: () -> Void
 
     @State private var showingAllChats = false
+    @State private var showingNotes = false
     // Observed so the button flips speaker⇄stop as playback starts/ends. We
     // CONSUME the shared synthesizer (owned by the app-wide voice agent); the
     // June surface never synthesizes or plays audio itself.
@@ -23,6 +25,7 @@ struct JuneAgentNavBar: View {
     private enum Metrics {
         static let navSlotHeight: CGFloat = 38
         static let leadingWidth: CGFloat = 116
+        static let notesWidth: CGFloat = 92
         static let iconSize: CGFloat = 15
     }
 
@@ -77,6 +80,28 @@ struct JuneAgentNavBar: View {
             }
 
             Button {
+                showingNotes = true
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "sidebar.leading")
+                        .font(.system(size: Metrics.iconSize, weight: .semibold))
+                    Text("Notes")
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .frame(width: Metrics.notesWidth, height: Metrics.navSlotHeight)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.textPrimary.opacity(0.92))
+            .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
+            .help("Browse and search notes")
+            .accessibilityLabel("Browse and search notes")
+            .appKitPopover(isPresented: $showingNotes, behavior: .semitransient) {
+                JuneNotesBrowserPopover()
+            }
+
+            Button {
                 if speech.isSpeaking {
                     speech.stop()
                 } else if let text = JuneAgentSurfaceHolder.shared.bridge?.gateway.latestAssistantReply() {
@@ -97,6 +122,31 @@ struct JuneAgentNavBar: View {
             .disabled(!ttsAvailable && !speech.isSpeaking)
             .help(ttsAvailable ? "Read the latest reply aloud" : EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
             .accessibilityLabel(speech.isSpeaking ? "Stop reading aloud" : "Read the latest reply aloud")
+        }
+    }
+}
+
+private struct JuneNotesBrowserPopover: View {
+    private enum Metrics {
+        static let width: CGFloat = 380
+        static let height: CGFloat = 520
+    }
+
+    var body: some View {
+        Group {
+            if let bootstrap = AppBootstrap.shared {
+                NotesBrowserView()
+                    .frame(width: Metrics.width, height: Metrics.height)
+                    .withAppEnvironment(bootstrap)
+                    .modelContainer(bootstrap.modelContainer)
+            } else {
+                ContentUnavailableView(
+                    "Notes Unavailable",
+                    systemImage: "note.text",
+                    description: Text("Finish app setup to browse notes.")
+                )
+                .frame(width: Metrics.width, height: 220)
+            }
         }
     }
 }

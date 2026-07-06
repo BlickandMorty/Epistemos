@@ -33,11 +33,11 @@ final class JuneAgentSurfaceHolder {
         failureMessage = nil
         guard webView == nil else { return }
         guard let location = JuneWebAssets.resolve() else {
-            failureMessage = "The June agent bundle is missing from this build."
+            failureMessage = "The Workspace bundle is missing from this build."
             return
         }
         guard let shimSource = try? String(contentsOf: location.shimURL, encoding: .utf8) else {
-            failureMessage = "The June bridge shim could not be loaded."
+            failureMessage = "The Workspace bridge shim could not be loaded."
             return
         }
 
@@ -112,6 +112,15 @@ final class JuneAgentSurfaceHolder {
               document.documentElement.appendChild(style);
             })();
             """,
+            injectionTime: .atDocumentEnd, forMainFrameOnly: true
+        ))
+        // Workspace overlay (MAS-only, no June source edits): rebrands visible
+        // copy, keeps normal June/system UI fonts for body/sidebar/composer,
+        // reserves Matrix Dots for the large landing/page headers, and pins the
+        // chat layout fixes requested for light-mode bubbles, composer
+        // caret/word wrapping, and sidebar alignment.
+        ucc.addUserScript(WKUserScript(
+            source: Self.workspaceOverlayScript(),
             injectionTime: .atDocumentEnd, forMainFrameOnly: true
         ))
         // Read-aloud overlay (my injection, NOT June src): adds a speak button
@@ -281,6 +290,8 @@ final class JuneAgentSurfaceHolder {
         ucc.add(bridge, name: JuneAgentBridge.speakChannel)
 
         let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = JuneNavigationDelegate.shared
+        webView.uiDelegate = JuneNavigationDelegate.shared
         // The bridged --background IS the Epistemos theme canvas, so overscroll
         // + pre-paint match the SPA exactly and the reveal stays seamless.
         webView.underPageBackgroundColor = JuneThemeBridge.backgroundNSColor(for: theme)
@@ -299,13 +310,253 @@ final class JuneAgentSurfaceHolder {
         self.webView = webView
 
         guard let entry = JuneSchemeHandler.entryURL else {
-            failureMessage = "The June entry URL is invalid."
+            failureMessage = "The Workspace entry URL is invalid."
             return
         }
         webView.load(URLRequest(url: entry))
         loadStarted = true
         loadStartedAt = Date()
         Self.log.info("June surface load started (root: \(location.distRoot.path, privacy: .public))")
+    }
+
+    private static func workspaceOverlayScript() -> String {
+        let css = """
+        \(workspaceFontFaceCSS())
+        :root {
+          --epistemos-ui-font: "ABC Diatype", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+          --epistemos-display-font: "Epistemos Matrix Dots", "MatrixDotsDemoRegular", "MatrixTypeDisplay-Regular", var(--epistemos-ui-font);
+          --font-sans: var(--epistemos-ui-font);
+          --font-serif: var(--epistemos-ui-font);
+          --font-mono: "Berkeley Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        }
+        html, body, button, input, textarea, select, [contenteditable],
+        .app-shell, .workspace, .agent-workspace, .main-column, .main-panel,
+        .sidebar, .agent-composer, .agent-composer * {
+          font-family: var(--epistemos-ui-font) !important;
+          letter-spacing: 0 !important;
+        }
+        .agent-hero-title,
+        .folders-heading h1,
+        .note-title,
+        .folder-detail-title,
+        .folder-detail-title-input,
+        .welcome-title {
+          font-family: var(--epistemos-display-font) !important;
+          font-weight: 400 !important;
+          letter-spacing: 0 !important;
+        }
+        .main-column, .main-panel, .main-panel-body, .workspace, .agent-workspace {
+          min-width: 0 !important;
+        }
+        .agent-user-turn {
+          align-items: flex-start !important;
+          justify-content: flex-start !important;
+          margin: 10px 0 16px !important;
+          padding-right: clamp(16px, 8vw, 96px) !important;
+          text-align: left !important;
+        }
+        .agent-user-turn-body {
+          color: var(--epistemos-user-bubble-text) !important;
+          background: var(--epistemos-user-bubble-bg) !important;
+          border-color: color-mix(in srgb, var(--epistemos-user-bubble-bg) 72%, var(--foreground) 28%) !important;
+          line-height: 1.5 !important;
+          text-align: left !important;
+          overflow-wrap: anywhere !important;
+          word-break: normal !important;
+        }
+        .agent-user-turn-body * {
+          color: var(--epistemos-user-bubble-text) !important;
+        }
+        html:not([data-theme="dark"]) .agent-user-turn-body {
+          text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22) !important;
+        }
+        .agent-assistant-turn {
+          margin: 12px 0 18px !important;
+          padding-right: clamp(16px, 7vw, 88px) !important;
+          text-align: left !important;
+        }
+        .agent-assistant-turn-body {
+          line-height: 1.55 !important;
+          text-align: left !important;
+          overflow-wrap: anywhere !important;
+          word-break: normal !important;
+        }
+        .agent-turn-actions {
+          margin-top: 6px !important;
+        }
+        .agent-composer-box,
+        .agent-composer-editor,
+        .agent-composer-editor-root {
+          min-width: 0 !important;
+          box-sizing: border-box !important;
+        }
+        .agent-composer-editor,
+        .agent-composer-editor-root,
+        .agent-composer-editor [contenteditable="true"] {
+          caret-color: var(--foreground) !important;
+          white-space: pre-wrap !important;
+          overflow-wrap: anywhere !important;
+          word-break: normal !important;
+          line-height: 1.45 !important;
+          text-align: left !important;
+        }
+        .agent-composer-editor:focus,
+        .agent-composer-editor-root:focus {
+          outline: none !important;
+        }
+        .agent-composer-editor p.is-editor-empty:first-child::before {
+          content: "Ask Workspace anything, run / commands" !important;
+        }
+        .sidebar-brand {
+          align-items: center !important;
+          display: inline-flex !important;
+          gap: 7px !important;
+        }
+        .sidebar-brand .sidebar-brand-mark {
+          display: none !important;
+        }
+        .sidebar-brand::after {
+          content: "Workspace" !important;
+          color: currentColor !important;
+          font-family: var(--epistemos-ui-font) !important;
+          font-size: 13px !important;
+          font-weight: 700 !important;
+          letter-spacing: 0 !important;
+          line-height: 18px !important;
+        }
+        .app-shell[data-sidebar="expanded"] .main-column {
+          grid-column: 2 !important;
+          min-width: 0 !important;
+        }
+        """
+        let cssLiteral = JuneAgentBridge.jsStringLiteral(css)
+        return """
+        (function () {
+          var styleId = "epistemos-workspace-overlay";
+          function installStyle() {
+            var style = document.getElementById(styleId);
+            if (!style) {
+              style = document.createElement("style");
+              style.id = styleId;
+              document.documentElement.appendChild(style);
+            }
+            style.textContent = \(cssLiteral);
+          }
+
+          function replaceWorkspaceWords(value) {
+            if (!value || value.indexOf("June") === -1 && value.indexOf("JUNE") === -1 && value.indexOf("june") === -1) return value;
+            return value
+              .replace(/\\bJUNE\\b/g, "WORKSPACE")
+              .replace(/\\bJune\\b/g, "Workspace")
+              .replace(/\\bjune\\b/g, "workspace");
+          }
+
+          var skipTags = { SCRIPT: true, STYLE: true, NOSCRIPT: true, CODE: true, PRE: true };
+          var watchedAttrs = ["aria-label", "title", "placeholder", "data-placeholder", "alt"];
+
+          function renameElement(el) {
+            if (!el || !el.getAttribute) return;
+            for (var i = 0; i < watchedAttrs.length; i++) {
+              var name = watchedAttrs[i];
+              var value = el.getAttribute(name);
+              var next = replaceWorkspaceWords(value);
+              if (next !== value) el.setAttribute(name, next);
+            }
+          }
+
+          function scan(root) {
+            if (!root) return;
+            if (root.nodeType === Node.TEXT_NODE) {
+              var nextText = replaceWorkspaceWords(root.nodeValue);
+              if (nextText !== root.nodeValue) root.nodeValue = nextText;
+              return;
+            }
+            if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
+            if (root.nodeType === Node.ELEMENT_NODE && skipTags[root.tagName]) return;
+            if (root.nodeType === Node.ELEMENT_NODE) renameElement(root);
+            var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+              acceptNode: function (node) {
+                if (node.nodeType === Node.ELEMENT_NODE && skipTags[node.tagName]) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+              }
+            });
+            var node;
+            while ((node = walker.nextNode())) {
+              if (node.nodeType === Node.TEXT_NODE) {
+                var next = replaceWorkspaceWords(node.nodeValue);
+                if (next !== node.nodeValue) node.nodeValue = next;
+              } else if (node.nodeType === Node.ELEMENT_NODE) {
+                renameElement(node);
+              }
+            }
+          }
+
+          function keepCaretInsideEditor(event) {
+            var target = event.target && event.target.closest ? event.target.closest(".agent-composer-editor, .agent-composer-editor-root") : null;
+            if (!target) return;
+            var selection = window.getSelection && window.getSelection();
+            if (!selection || selection.rangeCount === 0 || target.contains(selection.anchorNode)) return;
+            target.focus();
+            var range = document.createRange();
+            range.selectNodeContents(target);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+
+          var scanScheduled = false;
+          function scanSoon(delay) {
+            window.setTimeout(function () {
+              if (scanScheduled) return;
+              scanScheduled = true;
+              window.requestAnimationFrame(function () {
+                scanScheduled = false;
+                installStyle();
+                scan(document.body || document.documentElement);
+              });
+            }, delay);
+          }
+
+          function start() {
+            installStyle();
+            scan(document.body || document.documentElement);
+            document.addEventListener("input", keepCaretInsideEditor, true);
+            document.addEventListener("keyup", keepCaretInsideEditor, true);
+            [120, 400, 1000, 2500, 5000].forEach(scanSoon);
+            document.addEventListener("visibilitychange", function () { scanSoon(0); });
+            window.addEventListener("focus", function () { scanSoon(0); });
+            window.addEventListener("popstate", function () { scanSoon(0); });
+          }
+
+          if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+          else start();
+        })();
+        """
+    }
+
+    private static func workspaceFontFaceCSS() -> String {
+        guard let dataURL = workspaceDisplayFontDataURL() else { return "" }
+        return """
+        @font-face { font-family: "Epistemos Matrix Dots"; src: url("\(dataURL)") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+        """
+    }
+
+    private static func workspaceDisplayFontDataURL() -> String? {
+        let bundles = [Bundle.main, Bundle(for: JuneAgentSurfaceHolder.self)] + Bundle.allBundles + Bundle.allFrameworks
+        var seenBundlePaths = Set<String>()
+        for bundle in bundles {
+            guard seenBundlePaths.insert(bundle.bundleURL.path).inserted else { continue }
+            let directURL = bundle.url(forResource: "MatrixDotsDemoRegular", withExtension: "ttf")
+            let nestedURL = bundle.resourceURL?
+                .appendingPathComponent("Fonts", isDirectory: true)
+                .appendingPathComponent("MatrixDotsDemoRegular.ttf")
+            for url in [directURL, nestedURL].compactMap({ $0 }) {
+                guard let data = try? Data(contentsOf: url) else { continue }
+                return "data:font/ttf;base64,\(data.base64EncodedString())"
+            }
+        }
+        Self.log.warning("MatrixDotsDemoRegular.ttf not found for Workspace web overlay")
+        return nil
     }
 }
 
@@ -314,6 +565,8 @@ final class JuneAgentSurfaceHolder {
 @MainActor
 private final class JuneNavigationDelegate: NSObject, WKNavigationDelegate {
     static let shared = JuneNavigationDelegate()
+
+    private static let log = Logger(subsystem: "com.epistemos", category: "JuneAgentSurface")
 
     var onFirstPaint: (() -> Void)?
 
@@ -337,7 +590,24 @@ private final class JuneNavigationDelegate: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        Self.log.info("June surface navigation finished")
         onFirstPaint?()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        Self.log.error(
+            "June surface navigation failed: \(error.localizedDescription, privacy: .public)"
+        )
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        didFailProvisionalNavigation navigation: WKNavigation!,
+        withError error: Error
+    ) {
+        Self.log.error(
+            "June surface provisional navigation failed: \(error.localizedDescription, privacy: .public)"
+        )
     }
 }
 
@@ -407,6 +677,8 @@ enum JuneThemeBridge {
             "--sidebar-foreground": foreground,
             "--sidebar-accent": muted,
             "--sidebar-border": border,
+            "--epistemos-user-bubble-bg": cssColor(resolved.userBubbleBg, dark: dark),
+            "--epistemos-user-bubble-text": cssColor(resolved.userBubbleText, dark: dark),
         ]
         let object: [String: Any] = ["dark": dark, "vars": vars]
         guard let data = try? JSONSerialization.data(withJSONObject: object),
@@ -460,6 +732,7 @@ struct JuneAgentSurfaceView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = false
     @State private var failureMessage: String?
+    @State private var mountedWebView: WKWebView?
     @State private var retryAttempt = 0
 
     /// The live Epistemos theme canvas — identical to the bridged June
@@ -486,7 +759,7 @@ struct JuneAgentSurfaceView: View {
                         .buttonStyle(.bordered)
                 }
                 .accessibilityElement(children: .combine)
-            } else if let webView = JuneAgentSurfaceHolder.shared.webView {
+            } else if let webView = mountedWebView ?? JuneAgentSurfaceHolder.shared.webView {
                 JuneWebViewRepresentable(webView: webView)
                     .opacity(revealed ? 1 : 0)
                     .overlay { JuneAgentMascotOverlayHook() }
@@ -495,7 +768,7 @@ struct JuneAgentSurfaceView: View {
                 ProgressView()
                     .controlSize(.small)
                     .tint(.secondary)
-                    .accessibilityLabel("Loading the agent")
+                    .accessibilityLabel("Loading Workspace")
             }
         }
         .onChange(of: ui.theme) { _, newTheme in
@@ -506,9 +779,6 @@ struct JuneAgentSurfaceView: View {
             let mountedAt = Date()
             let holder = JuneAgentSurfaceHolder.shared
             let isColdOpen = holder.webView == nil
-            holder.ensureStarted(theme: ui.theme)
-            failureMessage = holder.failureMessage
-            guard failureMessage == nil else { return }
             JuneNavigationDelegate.shared.onFirstPaint = {
                 // Honor Reduce Motion like the rest of the app (LandingView) —
                 // reveal instantly instead of fading.
@@ -521,6 +791,10 @@ struct JuneAgentSurfaceView: View {
                     )
                 }
             }
+            holder.ensureStarted(theme: ui.theme)
+            failureMessage = holder.failureMessage
+            mountedWebView = holder.webView
+            guard failureMessage == nil else { return }
             holder.webView?.navigationDelegate = JuneNavigationDelegate.shared
             holder.webView?.uiDelegate = JuneNavigationDelegate.shared
             // Re-push the live theme on every mount: the seed script covers the

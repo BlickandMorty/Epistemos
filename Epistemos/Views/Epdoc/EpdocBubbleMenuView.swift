@@ -55,11 +55,9 @@ public struct EpdocBubbleMenuView: View {
             divider
             formatButton(symbol: "link",          isActive: false,
                          tip: "Insert link (⌘⇧K)", command: .runCommand(name: "setLink",         argsJSON: emptyArgs))
-            // TTS: read the SELECTION aloud (Kokoro). Only shown when the voice is installed
-            // (honest-gate) and there is a selection.
-            if EpistemosSpeechSynthesizer.isTextToSpeechAvailable(), !selectedText.isEmpty {
+            if !selectedText.isEmpty {
                 divider
-                speakSelectionButton
+                ReadAloudButton(text: selectedText, style: .icon)
             }
         }
         .padding(.horizontal, 6)
@@ -93,19 +91,6 @@ public struct EpdocBubbleMenuView: View {
                 .fill(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
         )
         .help(tip)
-    }
-
-    private var speakSelectionButton: some View {
-        Button {
-            _ = EpistemosSpeechSynthesizer.shared.speak(selectedText)
-        } label: {
-            Image(systemName: "speaker.wave.2")
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 22, height: 22)
-                .foregroundStyle(AnyShapeStyle(HierarchicalShapeStyle.primary))
-        }
-        .buttonStyle(.borderless)
-        .help("Read selection aloud")
     }
 
     @ViewBuilder

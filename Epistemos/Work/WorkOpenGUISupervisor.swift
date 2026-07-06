@@ -3,7 +3,7 @@ import Observation
 
 // PIVOT (2026-06-24, owner-confirmed: "OpenGUI is the harness/bridge thing"): the native Swift bridge to the
 // OpenGUI Runtime, which harnesses MULTIPLE engines (the owner's Work Chat engine picker: OpenCode, Claude Code,
-// Codex, Pi, … and later Goose/Hermes). Architecture proven end-to-end before this file existed:
+// Codex, Pi, and other donor runtimes). Architecture proven end-to-end before this file existed:
 //   • Runtime chain  — `createOpenGUI → diagnose → connect → sessions.create → onEvent → send → waitUntilIdle`
 //     drives the bundled `opencode serve` and streams (spike: epistemos-opengui-spike.mjs, SPIKE_OK).
 //   • NDJSON sidecar — `og-sidecar.mjs` wraps that chain behind line-delimited JSON on stdin/stdout, proven over

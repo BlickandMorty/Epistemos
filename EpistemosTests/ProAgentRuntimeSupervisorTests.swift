@@ -54,19 +54,16 @@ struct ProAgentRuntimeSupervisorTests {
         #expect(capped["PATH"]?.components(separatedBy: ":").count == ProAgentRuntimeSupervisor.maxSubprocessPathEntries)
     }
 
-    @Test("goosed env user tool path is bounded and deduped")
-    func withUserToolPathIsBoundedAndDeduped() {
-        let env = ProAgentRuntimeSupervisor.withUserToolPath([
-            "HOME": "/Users/me",
-            "PATH": "relative/bin:/usr/bin:/Users/me/.local/bin:/usr/bin",
-        ])
-        #expect(env["PATH"] == "/Users/me/.local/bin:/Users/me/bin:/usr/bin")
-
-        let invalidHome = ProAgentRuntimeSupervisor.withUserToolPath([
-            "HOME": "bad\0home",
-            "PATH": "/usr/bin",
-        ])
-        #expect(invalidHome["PATH"] == "/usr/bin")
+    @Test("runtime is OpenCode-only and does not spawn or proxy a secondary engine")
+    func runtimeIsOpenCodeOnly() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/ProAgent/ProAgentRuntimeSupervisor.swift")
+        #expect(source.contains(#"opencodeProc.arguments = ["serve", "--hostname", Self.loopbackHost, "--port", String(opencodePort)]"#))
+        #expect(source.contains(#"webEnv["OPENCODE_PORT"] = String(opencodePort)"#))
+        #expect(source.contains(#"webEnv["OPENCODE_SKIP_START"] = "true""#))
+        #expect(!source.lowercased().contains("goose"))
+        #expect(!source.contains("EPISTEMOS_GOOSE"))
+        #expect(!source.contains("goosedProcess"))
+        #expect(!source.contains("goosePort"))
     }
 }
 #endif

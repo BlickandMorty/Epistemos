@@ -45,6 +45,7 @@ nonisolated enum QuickChatEngineUnavailable: Error, Sendable, Equatable {
     case appleIntelligenceNotEnabled
     case modelNotReady
     case noLocalModelInstalled
+    case localModelBusy
     case insufficientMemory(requiredGB: Double, availableGB: Double)
 
     /// Honest user copy (strings match AppleIntelligenceService's wording so
@@ -59,6 +60,8 @@ nonisolated enum QuickChatEngineUnavailable: Error, Sendable, Equatable {
             return "The on-device model is still downloading. Please try again later."
         case .noLocalModelInstalled:
             return "No local model is installed yet. Download one to chat privately on this Mac."
+        case .localModelBusy:
+            return "The local model is already answering another request. Stop that reply or wait before starting another local turn."
         case .insufficientMemory(let required, let available):
             return String(
                 format: "This model needs about %.1f GB free memory; only %.1f GB is safely available.",

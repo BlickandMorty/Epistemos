@@ -466,23 +466,26 @@ Folded in as clean Plan-3 capabilities:
   partial/final transcript output capped to the capture pipeline envelope and finite/clamped download progress plus
   capped, domain/code-redacted status/error text for UI display, with raw status/domain strings bounded and
   control/whitespace-normalized before punctuation validation; status ellipsis stays inside the configured cap.
-  `EpistemosSpeechSynthesizer.speak()` refuses playback while the Kokoro gate is not ready; with a checked Pro
+  `EpistemosSpeechSynthesizer.speak()` refuses playback while the Kokoro gate is not ready; with a checked local
   `mattmireles/kokoro-coreml` package, the linked native
   Swift/CoreML `KokoroPipeline` path tokenizes supported raw vocabulary text, synthesizes 24 kHz PCM, and plays through
   `AVAudioEngine` with observable read-aloud progress derived from `AVAudioPlayerNode` render time.
   Read-aloud/Quick Capture/Settings controls surface TTS unavailable instead of silently falling back
   to AVSpeech when that gate is not ready.
-  `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is Pro-only
+  `VoiceInputButton` consumes the live facade and no longer points at the removed composer stub. Kokoro-82M is checked-package
   status-gated and rejects symlink-routed, hardlinked, non-regular, placeholder, oversized, invalid-manifest, or digest-mismatched
   model artifacts with integer declared package byte caps and bounded, control/whitespace-normalized model-relative
   status diagnostics with ellipsis inside configured caps and requires the complete manifest-declared duration/bucket
   CoreML package families plus exact runtime vocab/HNSF/starter-voice shapes before reporting ready. A checked package reports `packageReady` with manifest-derived package evidence
   (Core ML package count, voice count, runtime asset count, checked file count, declared bytes, and a bounded printable
   bundle profile) and flips
-  `isReady=true` only when the native playback path is linked. Developer ID builds now show a Pro-only Voice settings
-  status/runtime affordance labelled `TTS unavailable` / `Kokoro neural voice` plus a local checked-package
-  installer/remover; no Apple AVSpeech fallback, committed model asset, network downloader, Python, subprocess, or
-  MAS-visible Kokoro row enters the App Store path.
+  `isReady=true` only when the native playback path is linked. Voice settings now show a status/runtime affordance
+  labelled `TTS unavailable` / `Kokoro neural voice` plus a local checked-package
+  installer/remover and checked downloader tier picker for the upstream Starter, Standard, and Highest Quality
+  `KokoroRuntimeManifest.json` paths (Starter and Standard currently declare the same 0.48 GB package; Highest Quality
+  declares the full about-1 GB package); onboarding also offers the same optional Kokoro read-aloud setup without making
+  voice required for first launch. No Apple AVSpeech fallback, committed model asset, Python, subprocess, hidden
+  fallback, or unchecked Kokoro row enters the App Store path.
 - **Whole-app brand-logo coverage — SHIPPED:** the non-model `IntegrationBrand` registry and
   `IntegrationBrandMarkView` cover Plan 3 extensibility rows, skill rows, arXiv, Browser, browser-use diagnostics,
   Meeting, local Hugging Face skill/connector marks, settings sidebar marks for branded Plan 3 rows, and every Plan 3 landing feature button without runtime logo downloads or official-logo claims. Classifier input for arbitrary MCP/skill/connector names is raw-capped and
@@ -502,7 +505,7 @@ cluster · DeerFlow · kill-MoLoRA-Python + model-vault-staleness (moot without 
 4. **Apple-native · Landing buttons · arXiv pull** — shipped; continue focused regression coverage only.
 5. **Browser** — lite native WKWebView tab is shipped for MAS; browser-use Pro vendor code/payload exists, continue
    signed Pro UI/MCP hardening without touching MAS.
-6. **Meeting/STT note · Voice · whole-app logos** — shipped; continue recurring hardening passes, Pro Kokoro gating,
+6. **Meeting/STT note · Voice · whole-app logos** — shipped; continue recurring hardening passes, Kokoro gating,
    and logo utility/sidebar metadata slices.
 
 ## NOT in Plan 3 (so the three plans never blur)

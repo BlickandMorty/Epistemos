@@ -73,7 +73,7 @@ nonisolated enum KokoroVoiceGateStatus {
             let packageLabel = modelPackageCount == 1 ? "Core ML package" : "Core ML packages"
             let voiceLabel = voiceCount == 1 ? "voice" : "voices"
             let fileLabel = manifestFileCount == 1 ? "file" : "files"
-            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle, profile \(bundleProfile). Kokoro playback uses this native bundle when the Pro runtime is active."
+            return "\(manifestFileName): \(modelPackageCount) checked \(packageLabel), \(voiceCount) \(voiceLabel), \(runtimeAssetCount) runtime assets, \(manifestFileCount) checked \(fileLabel), \(declaredPackageBytes) declared bytes, \(runtimeIdentifier) native bundle, profile \(bundleProfile). Kokoro playback uses this native bundle when the local runtime is active."
         }
     }
 
@@ -159,8 +159,8 @@ nonisolated enum KokoroVoiceGateStatus {
                 ? "Kokoro voice: native CoreML playback ready"
                 : "Kokoro voice: CoreML runtime package ready, runtime not linked",
             detail: runtimeLinked
-                ? "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName). Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback."
-                : "The checked Pro \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName), but KokoroPipeline is not linked in this build. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
+                ? "The checked local \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName). Native Swift/CoreML Kokoro playback is available; Apple AVSpeech is not used as a fallback."
+                : "The checked local \(upstreamRepositoryID) runtime manifest, segmented CoreML packages, runtime assets, and starter voice digests match in \(modelDirectoryName), but KokoroPipeline is not linked in this build. Text-to-speech is unavailable; Apple AVSpeech is not used as a fallback.",
             packageEvidence: packageEvidence
         )
     }

@@ -74,7 +74,7 @@ fn runtime_router_keeps_residency_ceiling_from_current_app_lanes() {
     for snippet in [
         "request.residencyCeiling == .capabilityCeiling && capability.tier == .currentApp",
         "return .escalate(from: id, to: id, reason: .residencyTierExceeded)",
-        "tier: .capabilityCeiling",
+        "tier: agenticCloud ? .capabilityCeiling : .verifiedFloor",
     ] {
         assert!(
             RUNTIME_ROUTER_SOURCE.contains(snippet),

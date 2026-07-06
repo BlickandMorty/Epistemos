@@ -21,7 +21,9 @@ final class KokoroModelDownloadService {
     /// the upstream repo already ships; the app installs exactly what that
     /// manifest declares.
     enum Tier: String, CaseIterable, Sendable, Identifiable {
-        /// Starter bundle: all seven duration models + the single 15s bucket.
+        /// Starter SDK bundle: all seven duration models + the single 15s bucket.
+        case starter
+        /// Default hosted bundle; currently matches the upstream starter SDK manifest.
         case standard
         /// Full bundle: every audio-length bucket and the full voice set.
         case highestQuality
@@ -30,6 +32,7 @@ final class KokoroModelDownloadService {
 
         var title: String {
             switch self {
+            case .starter: return "Starter"
             case .standard: return "Standard"
             case .highestQuality: return "Highest quality"
             }
@@ -37,8 +40,10 @@ final class KokoroModelDownloadService {
 
         var detail: String {
             switch self {
+            case .starter:
+                return "Smallest upstream SDK manifest: seven voices and the 15-second decoder. About 0.48 GB."
             case .standard:
-                return "Faster download, all seven duration models and the 15-second decoder. About 0.5 GB."
+                return "Default upstream manifest; currently matches Starter with seven voices and the 15-second decoder. About 0.48 GB."
             case .highestQuality:
                 return "Every audio-length bucket and the full voice set for the best quality. About 1 GB."
             }
@@ -47,14 +52,15 @@ final class KokoroModelDownloadService {
         /// Approximate on-disk size, for the pre-download prompt only.
         var approximateByteCount: Int64 {
             switch self {
-            case .standard: return 500_000_000
-            case .highestQuality: return 1_050_000_000
+            case .starter, .standard: return 477_043_213
+            case .highestQuality: return 998_196_322
             }
         }
 
         /// Repo-relative path of the `KokoroRuntimeManifest.json` for this tier.
         var manifestRepositoryPath: String {
             switch self {
+            case .starter: return "sdk/starter/KokoroRuntimeManifest.json"
             case .standard: return "KokoroRuntimeManifest.json"
             case .highestQuality: return "sdk/full/KokoroRuntimeManifest.json"
             }

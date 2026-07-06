@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::agent_loop::{run_agent_loop, AgentConfig, AgentError, Effort, PermissionConfig};
 use crate::error::HttpStatusError;
@@ -390,12 +390,11 @@ impl AgentConfig {
             // tool-boundary canon). Declaring it on MAS builds also trips the
             // API's tool-type validation before any turn can stream.
             enable_computer_use: cfg!(feature = "pro-build"),
-            // Tunnel B.1 — discover URL-based MCP servers from
-            // ~/.config/mcp/url_servers.json (+ project override). Anthropic's
-            // API handles the connection remotely, so every tool those
-            // servers expose becomes available to the model with zero
-            // per-tool code on our side. Empty list → None so we don't emit
-            // an empty `mcp_servers` field.
+            // Tunnel B.1 — URL-based MCP servers. In Pro builds this may read
+            // the user/project URL-MCP config; MAS builds deliberately return
+            // an empty list until a fixed HTTPS allowlist is explicitly
+            // admitted, so arbitrary config files cannot expand June's tool
+            // surface.
             mcp_servers: {
                 let servers = crate::mcp::url_servers::discover_url_mcp_servers();
                 if servers.is_empty() {
@@ -481,8 +480,10 @@ fn resolve_provider_selection_preview(
 ) -> ProviderRoutePreviewFFI {
     let requested = provider_name.trim();
     match requested {
-        "claude_sonnet" | "claude_opus" | "claude_haiku"
-        | "openai" | "openai_gpt4o" | "openai_gpt4o_mini" | "openai_gpt54" | "openai_gpt54_mini"
+        "claude_sonnet" | "claude_opus" | "claude_haiku" | "openai" | "openai_gpt55"
+        | "openai_gpt54" | "openai_gpt54_mini" | "openai_gpt54_nano"
+        | "openai_gpt53_codex" | "openai_gpt53_codex_spark" | "openai_gpt52"
+        | "openai_gpt41" | "openai_gpt41_mini" | "openai_gpt4o" | "openai_gpt4o_mini"
         | "openai_o1" | "openai_o3_mini" => preview(
             requested,
             "forced",
@@ -518,8 +519,11 @@ fn resolve_provider_selection_preview(
                 let effective_provider = cloud_provider_name(fallback);
                 let supported = matches!(
                     fallback,
-                    CloudProvider::ClaudeHaiku | CloudProvider::ClaudeSonnet | CloudProvider::ClaudeOpus
-                        | CloudProvider::GeminiFlash | CloudProvider::GeminiPro
+                    CloudProvider::ClaudeHaiku
+                        | CloudProvider::ClaudeSonnet
+                        | CloudProvider::ClaudeOpus
+                        | CloudProvider::GeminiFlash
+                        | CloudProvider::GeminiPro
                 );
                 preview(
                     requested,
@@ -562,6 +566,7 @@ fn resolve_provider_selection_preview(
                     | "kimi_thinking"
                     | "kimi_coding"
                     | "deepseek"
+                    | "deepseek_reasoner"
                     | "minimax"
                     | "xai"
                     | "grok"
@@ -608,14 +613,23 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         // Perplexity (native API)
         "perplexity" => Ok(Arc::new(PerplexityProvider::sonar_pro())),
         // OpenAI (native API)
-        "openai" | "openai_gpt4o" | "openai_gpt54" => Ok(Arc::new(OpenAIProvider::gpt54())),
-        "openai_gpt4o_mini" | "openai_gpt54_mini" => {
-            Ok(Arc::new(OpenAIProvider::gpt54_mini()))
-        }
+        "openai" | "openai_gpt54" => Ok(Arc::new(OpenAIProvider::gpt54())),
+        "openai_gpt55" => Ok(Arc::new(OpenAIProvider::gpt55())),
+        "openai_gpt54_mini" => Ok(Arc::new(OpenAIProvider::gpt54_mini())),
+        "openai_gpt54_nano" => Ok(Arc::new(OpenAIProvider::gpt54_nano())),
+        "openai_gpt53_codex" => Ok(Arc::new(OpenAIProvider::gpt53_codex())),
+        "openai_gpt53_codex_spark" => Ok(Arc::new(OpenAIProvider::gpt53_codex_spark())),
+        "openai_gpt52" => Ok(Arc::new(OpenAIProvider::gpt52())),
+        "openai_gpt41" => Ok(Arc::new(OpenAIProvider::gpt41())),
+        "openai_gpt41_mini" => Ok(Arc::new(OpenAIProvider::gpt41_mini())),
+        "openai_gpt4o" => Ok(Arc::new(OpenAIProvider::gpt4o())),
+        "openai_gpt4o_mini" => Ok(Arc::new(OpenAIProvider::gpt4o_mini())),
         "openai_o1" => Ok(Arc::new(OpenAIProvider::o1())),
         "openai_o3_mini" => Ok(Arc::new(OpenAIProvider::o3_mini())),
         // OpenRouter (200+ models via universal gateway)
-        "openrouter" => Ok(Arc::new(OpenAICompatibleProvider::openrouter("anthropic/claude-sonnet-4"))),
+        "openrouter" => Ok(Arc::new(OpenAICompatibleProvider::openrouter(
+            "anthropic/claude-sonnet-4",
+        ))),
         // Local providers (no API key needed)
         "ollama" => Ok(Arc::new(OpenAICompatibleProvider::ollama("llama3.3"))),
         "llama_cpp" => Ok(Arc::new(OpenAICompatibleProvider::llama_cpp("default"))),
@@ -645,7 +659,13 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
             let mut gguf = crate::providers::gguf_cli::GgufCliProvider::new(model_path)
                 // 16 GB = the M2 Pro ship target; a live budget can refine this later.
                 .with_ctx_size(profile.gguf_runtime_ctx(16.0))
-                .with_stop(profile.stop_tokens().iter().map(|s| s.to_string()).collect());
+                .with_stop(
+                    profile
+                        .stop_tokens()
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                );
             if let Some(template) = profile.llama_cpp_template_name() {
                 gguf = gguf.with_chat_template(template);
             }
@@ -666,7 +686,12 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "kimi_thinking" | "kimi-k2-thinking" => {
             Ok(Arc::new(OpenAICompatibleProvider::kimi_thinking()))
         }
-        "deepseek" => Ok(Arc::new(OpenAICompatibleProvider::deepseek())),
+        "deepseek" | "deepseek_chat" | "deepseek-chat" => {
+            Ok(Arc::new(OpenAICompatibleProvider::deepseek()))
+        }
+        "deepseek_reasoner" | "deepseek-reasoner" => {
+            Ok(Arc::new(OpenAICompatibleProvider::deepseek_reasoner()))
+        }
         "minimax" => Ok(Arc::new(OpenAICompatibleProvider::minimax())),
         // Western AI providers
         "xai" | "grok" | "grok_latest" | "grok-4.3" => {
@@ -675,16 +700,23 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "mistral" => Ok(Arc::new(OpenAICompatibleProvider::mistral())),
         "groq" => Ok(Arc::new(OpenAICompatibleProvider::groq())),
         // Codestral (Mistral's code-specialised model at codestral.mistral.ai)
-        "codestral" => Ok(Arc::new(OpenAICompatibleProvider::codestral("codestral-latest"))),
+        "codestral" => Ok(Arc::new(OpenAICompatibleProvider::codestral(
+            "codestral-latest",
+        ))),
         // Together AI (open-model fast inference gateway)
         "together" | "together_latest" => Ok(Arc::new(OpenAICompatibleProvider::together_latest())),
         // HuggingFace (any model via Inference API)
-        "huggingface" | "hf" => Ok(Arc::new(OpenAICompatibleProvider::huggingface("meta-llama/Llama-3.3-70B-Instruct"))),
+        "huggingface" | "hf" => Ok(Arc::new(OpenAICompatibleProvider::huggingface(
+            "meta-llama/Llama-3.3-70B-Instruct",
+        ))),
         // Dynamic: provider_name/model format for OpenRouter + HuggingFace
         name if name.contains('/') => {
             // Auto-detect: openrouter/model or hf/model
             if name.starts_with("hf/") || name.starts_with("huggingface/") {
-                let model = name.split_once('/').map(|x| x.1).unwrap_or("meta-llama/Llama-3.3-70B-Instruct");
+                let model = name
+                    .split_once('/')
+                    .map(|x| x.1)
+                    .unwrap_or("meta-llama/Llama-3.3-70B-Instruct");
                 Ok(Arc::new(OpenAICompatibleProvider::huggingface(model)))
             } else {
                 // Default to OpenRouter for any provider/model format
@@ -692,7 +724,9 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
             }
         }
         _ => Err(AgentErrorFFI::AgentError {
-            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, kimi_k2, kimi_thinking, deepseek, minimax, xai, grok, mistral, groq, codestral, together, together_latest, huggingface, or any provider/model slug."),
+            message: format!(
+                "Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openai_gpt55, openai_gpt54, openai_gpt54_mini, openai_gpt54_nano, openai_gpt53_codex, openai_gpt53_codex_spark, openai_gpt52, openai_gpt41, openai_gpt41_mini, openai_gpt4o, openai_gpt4o_mini, openai_o1, openai_o3_mini, openrouter, ollama, llama_cpp, zai, kimi, kimi_k2, kimi_thinking, deepseek, deepseek_reasoner, minimax, xai, grok, mistral, groq, codestral, together, together_latest, huggingface, or any provider/model slug."
+            ),
         }),
     }
 }
@@ -1721,7 +1755,7 @@ pub async fn pty_execute(
         Ok(Err(e)) => {
             return Err(AgentErrorFFI::AgentError {
                 message: e.to_string(),
-            })
+            });
         }
         Err(join_error) => {
             let msg = if join_error.is_panic() {
@@ -2928,6 +2962,34 @@ pub fn record_skill_outcome(
 }
 
 #[uniffi::export]
+pub fn observe_composition(trace_json: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        const MAX_TRACE_JSON_BYTES: usize = 64 * 1024;
+        if trace_json.len() > MAX_TRACE_JSON_BYTES {
+            return Err(AgentErrorFFI::AgentError {
+                message: "composition trace payload too large".to_string(),
+            });
+        }
+        let trace: crate::skill_discovery::CompositionTrace = serde_json::from_str(&trace_json)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("invalid composition trace JSON: {error}"),
+            })?;
+        validate_composition_trace_for_ffi(&trace)?;
+        let mut discovery = open_hermes_skill_discovery()?;
+        let outcome = discovery
+            .observe(&trace)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("failed to observe composition trace: {error}"),
+            })?;
+        serde_json::to_string(&skill_discovery_outcome_payload(outcome)).map_err(|error| {
+            AgentErrorFFI::AgentError {
+                message: format!("failed to encode composition outcome: {error}"),
+            }
+        })
+    })
+}
+
+#[uniffi::export]
 pub fn recall_procedure(
     skill_name: String,
     context_hash: String,
@@ -3144,6 +3206,23 @@ fn open_hermes_procedural_memory(
     })
 }
 
+static HERMES_SKILL_DISCOVERY: OnceLock<Mutex<crate::skill_discovery::SkillDiscovery>> =
+    OnceLock::new();
+
+fn open_hermes_skill_discovery(
+) -> Result<std::sync::MutexGuard<'static, crate::skill_discovery::SkillDiscovery>, AgentErrorFFI> {
+    HERMES_SKILL_DISCOVERY
+        .get_or_init(|| {
+            Mutex::new(crate::skill_discovery::SkillDiscovery::new(
+                hermes_skill_discovery_data_dir(),
+            ))
+        })
+        .lock()
+        .map_err(|_| AgentErrorFFI::AgentError {
+            message: "skill discovery engine lock poisoned".to_string(),
+        })
+}
+
 fn hermes_procedural_memory_path() -> PathBuf {
     if let Ok(path) = std::env::var("EPISTEMOS_PROCEDURAL_MEMORY_DB") {
         return PathBuf::from(path);
@@ -3152,6 +3231,82 @@ fn hermes_procedural_memory_path() -> PathBuf {
     base.push(".epistemos");
     base.push("procedural_memory.sqlite");
     base
+}
+
+fn hermes_skill_discovery_data_dir() -> PathBuf {
+    crate::skill_discovery::default_skill_discovery_data_dir()
+}
+
+fn validate_composition_trace_for_ffi(
+    trace: &crate::skill_discovery::CompositionTrace,
+) -> Result<(), AgentErrorFFI> {
+    if trace.composition_id.trim().is_empty() || trace.composition_id.len() > 128 {
+        return Err(AgentErrorFFI::AgentError {
+            message: "composition_id must be 1..128 bytes".to_string(),
+        });
+    }
+    if trace.inferred_goal.len() > 256 {
+        return Err(AgentErrorFFI::AgentError {
+            message: "inferred_goal must be at most 256 bytes".to_string(),
+        });
+    }
+    if trace.tool_sequence.is_empty() || trace.tool_sequence.len() > 64 {
+        return Err(AgentErrorFFI::AgentError {
+            message: "tool_sequence must contain 1..64 tools".to_string(),
+        });
+    }
+    for tool in &trace.tool_sequence {
+        let trimmed = tool.trim();
+        if trimmed.is_empty() || trimmed.len() > 128 || trimmed.chars().any(|ch| ch.is_control()) {
+            return Err(AgentErrorFFI::AgentError {
+                message: "tool_sequence contains an invalid tool name".to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn skill_discovery_outcome_payload(
+    outcome: crate::skill_discovery::DiscoveryOutcome,
+) -> serde_json::Value {
+    match outcome {
+        crate::skill_discovery::DiscoveryOutcome::Drafted { path } => {
+            let file_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("proposal.skill.json");
+            serde_json::json!({
+                "status": "drafted",
+                "drafted": true,
+                "relative_path": format!("proposed_skills/{file_name}"),
+            })
+        }
+        crate::skill_discovery::DiscoveryOutcome::NotNovel => serde_json::json!({
+            "status": "not_novel",
+            "drafted": false,
+        }),
+        crate::skill_discovery::DiscoveryOutcome::OverBudget {
+            actual_ms,
+            budget_ms,
+        } => serde_json::json!({
+            "status": "over_budget",
+            "drafted": false,
+            "actual_ms": actual_ms,
+            "budget_ms": budget_ms,
+        }),
+        crate::skill_discovery::DiscoveryOutcome::UserRejected => serde_json::json!({
+            "status": "user_rejected",
+            "drafted": false,
+        }),
+        crate::skill_discovery::DiscoveryOutcome::BelowFrequencyThreshold { seen, threshold } => {
+            serde_json::json!({
+                "status": "below_frequency_threshold",
+                "drafted": false,
+                "seen": seen,
+                "threshold": threshold,
+            })
+        }
+    }
 }
 
 fn procedure_ffi_to_record(
@@ -3776,6 +3931,197 @@ pub fn produce_answer_packet_json(
         serde_json::to_string(&pkt).map_err(|err| AgentErrorFFI::AgentError {
             message: format!("AnswerPacket serialization failed: {err}"),
         })
+    })
+}
+
+fn replay_bundle_bridge_error(context: &str, err: impl std::fmt::Display) -> AgentErrorFFI {
+    AgentErrorFFI::AgentError {
+        message: format!("ReplayBundle {context} failed: {err}"),
+    }
+}
+
+fn bounded_replay_bundle_token(
+    label: &str,
+    value: String,
+    max_chars: usize,
+) -> Result<String, AgentErrorFFI> {
+    let sanitized = value
+        .chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect::<String>()
+        .trim()
+        .to_string();
+    if sanitized.is_empty() {
+        return Err(AgentErrorFFI::AgentError {
+            message: format!("ReplayBundle {label} is required"),
+        });
+    }
+    if sanitized.chars().count() > max_chars {
+        return Err(AgentErrorFFI::AgentError {
+            message: format!("ReplayBundle {label} exceeds {max_chars} characters"),
+        });
+    }
+    Ok(sanitized)
+}
+
+fn bounded_optional_replay_bundle_token(
+    label: &str,
+    value: String,
+    max_chars: usize,
+) -> Result<Option<String>, AgentErrorFFI> {
+    if value.trim().is_empty() {
+        return Ok(None);
+    }
+    bounded_replay_bundle_token(label, value, max_chars).map(Some)
+}
+
+fn bounded_context_compile_text(
+    label: &str,
+    value: String,
+    max_chars: usize,
+) -> Result<String, AgentErrorFFI> {
+    let trimmed = value.trim().to_string();
+    if trimmed.is_empty() {
+        return Err(AgentErrorFFI::AgentError {
+            message: format!("context compiler {label} is required"),
+        });
+    }
+    if trimmed.chars().count() > max_chars {
+        return Err(AgentErrorFFI::AgentError {
+            message: format!("context compiler {label} exceeds {max_chars} characters"),
+        });
+    }
+    Ok(trimmed)
+}
+
+fn bounded_context_compile_token(
+    label: &str,
+    value: String,
+    max_chars: usize,
+) -> Result<String, AgentErrorFFI> {
+    let sanitized = value
+        .chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect::<String>();
+    bounded_context_compile_text(label, sanitized, max_chars)
+}
+
+/// Compile a bounded, sectioned prompt from a local vault path.
+///
+/// This is the MAS-safe FFI seam for the deterministic `ContextCompiler`:
+/// Swift provides the already-authorized vault path, Rust assembles bounded
+/// context, and the returned JSON contains only prompt sections, relative RAG
+/// headings, cache breakpoints, and an assembled prompt. The payload does not
+/// echo the absolute vault path.
+#[uniffi::export]
+pub fn compile_context_prompt_json(
+    vault_path: String,
+    query: String,
+    model: String,
+    max_context_chars: u32,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let vault_path = bounded_context_compile_token("vault_path", vault_path, 4_096)?;
+        let query = bounded_context_compile_text("query", query, 200_000)?;
+        let model = bounded_context_compile_token("model", model, 160)?;
+        let vault_path = PathBuf::from(vault_path);
+        if !vault_path.is_absolute() {
+            return Err(AgentErrorFFI::AgentError {
+                message: "context compiler vault_path must be absolute".to_string(),
+            });
+        }
+        let max_context_chars = if max_context_chars == 0 {
+            24_000
+        } else {
+            max_context_chars.min(1_000_000) as usize
+        };
+
+        let compiled = crate::context_compiler::ContextCompiler::new(
+            crate::vault_registry::VaultIdentity::Personal,
+        )
+        .with_max_context_chars(max_context_chars)
+        .compile(&query, &model, &vault_path)
+        .map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("context compiler failed: {err}"),
+        })?;
+        let assembled_prompt = compiled.assembled_prompt();
+        let payload = serde_json::json!({
+            "source": "agent_core.context_compiler",
+            "vault_identity": "personal",
+            "bounded": true,
+            "max_context_chars": max_context_chars,
+            "assembled_prompt": assembled_prompt,
+            "system_prompt": compiled.system_prompt,
+            "tools": compiled.tools,
+            "skills": compiled.skills,
+            "memory": compiled.memory,
+            "few_shot_examples": compiled.few_shot_examples,
+            "rag_context": compiled.rag_context,
+            "conversation_history": compiled.conversation_history,
+            "current_user_message": compiled.current_user_message,
+            "cache_breakpoints": compiled.cache_breakpoints,
+        });
+        serde_json::to_string(&payload).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("context compiler serialize failed: {err}"),
+        })
+    })
+}
+
+/// Export a minimal canonical `.epbundle` for a completed June turn.
+///
+/// The bridge only returns bytes: Swift/UI code owns the user-selected save
+/// destination, and no verifier CLI/subprocess is invoked from MAS. The bundle
+/// contains one active claim ("this turn emitted AnswerPacket X") supported by
+/// one evidence source (`answer_packet:X`), so `ReplayBundle`'s non-empty
+/// guarantee stays honest without fabricating vault verification.
+#[uniffi::export]
+pub fn export_replay_bundle_epbundle_bytes(
+    bundle_id: String,
+    run_id: String,
+    answer_packet_id: String,
+    generated_at_ms: i64,
+) -> Result<Vec<u8>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::provenance::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId, ReplayBundle};
+
+        let answer_packet_id =
+            bounded_replay_bundle_token("answer_packet_id", answer_packet_id, 128)?;
+        let bundle_id = if bundle_id.trim().is_empty() {
+            format!("bundle-{answer_packet_id}")
+        } else {
+            bundle_id
+        };
+        let bundle_id = bounded_replay_bundle_token("bundle_id", bundle_id, 160)?;
+        let run_id = bounded_optional_replay_bundle_token("run_id", run_id, 160)?;
+        let generated_at_ms = generated_at_ms.max(0);
+
+        let evidence_id = EvidenceId::new(format!("evidence:{answer_packet_id}"));
+        let claim_id = ClaimId::new(format!("claim:{answer_packet_id}"));
+        let mut ledger = ClaimLedger::new();
+        ledger
+            .commit_evidence(Evidence::new(
+                evidence_id.clone(),
+                format!("answer_packet:{answer_packet_id}"),
+                generated_at_ms,
+            ))
+            .map_err(|err| replay_bundle_bridge_error("commit evidence", err))?;
+        ledger
+            .commit_claim(
+                Claim::new(
+                    claim_id,
+                    format!("Turn emitted AnswerPacket {answer_packet_id}"),
+                    generated_at_ms,
+                ),
+                Vec::new(),
+                vec![evidence_id],
+            )
+            .map_err(|err| replay_bundle_bridge_error("commit claim", err))?;
+
+        let bundle = ReplayBundle::build(bundle_id, run_id, generated_at_ms, &ledger, Vec::new())
+            .map_err(|err| replay_bundle_bridge_error("build", err))?;
+        bundle
+            .to_epbundle_bytes()
+            .map_err(|err| replay_bundle_bridge_error("serialize", err))
     })
 }
 
@@ -5261,11 +5607,14 @@ mod tests {
     use super::list_tools_for_tier;
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
+    use super::skill_discovery_outcome_payload;
     use super::substrate_health_unified_json;
     use super::vault_recall_trace_json;
     use crate::nightbrain::TaskOutcome;
+    use crate::skill_discovery::DiscoveryOutcome;
     use crate::storage::vault::VaultError;
     use serde_json::json;
+    use std::path::PathBuf;
 
     #[test]
     fn explicit_provider_override_stays_forced() {
@@ -5303,6 +5652,23 @@ mod tests {
         );
     }
 
+    #[test]
+    fn observe_composition_payload_redacts_drafted_absolute_path() {
+        let value = skill_discovery_outcome_payload(DiscoveryOutcome::Drafted {
+            path: PathBuf::from("/private/var/secret/proposed_skills/vault-flow.skill.json"),
+        });
+
+        assert_eq!(value["status"], "drafted");
+        assert_eq!(
+            value["relative_path"],
+            "proposed_skills/vault-flow.skill.json"
+        );
+        assert!(
+            !value.to_string().contains("/private/var/secret"),
+            "observe_composition must not return local absolute paths to Swift/UI callers"
+        );
+    }
+
     // SUBSTRATE Phase 5 (owner 2026-06-20) — recall honesty. The Settings → Vault recall
     // health row reports `productionWired` from the trace's backend tier (scaffold ⇒ orange,
     // real ⇒ green). That honesty rests entirely on the bridge scaffold NEVER tagging itself
@@ -5334,6 +5700,28 @@ mod tests {
         assert_eq!(preview.requested_provider, "openai_gpt54");
         assert_eq!(preview.resolution_kind, "forced");
         assert_eq!(preview.effective_provider, "openai_gpt54");
+        assert!(preview.supported);
+    }
+
+    #[test]
+    fn provider_native_thinking_explicit_openai_codex_override_is_supported() {
+        let preview =
+            resolve_provider_selection_preview("handle this with Codex", "openai_gpt53_codex");
+
+        assert_eq!(preview.requested_provider, "openai_gpt53_codex");
+        assert_eq!(preview.resolution_kind, "forced");
+        assert_eq!(preview.effective_provider, "openai_gpt53_codex");
+        assert!(preview.supported);
+    }
+
+    #[test]
+    fn provider_native_thinking_explicit_deepseek_reasoner_override_is_supported() {
+        let preview =
+            resolve_provider_selection_preview("handle this with DeepSeek", "deepseek_reasoner");
+
+        assert_eq!(preview.requested_provider, "deepseek_reasoner");
+        assert_eq!(preview.resolution_kind, "forced");
+        assert_eq!(preview.effective_provider, "deepseek_reasoner");
         assert!(preview.supported);
     }
 
@@ -5394,6 +5782,92 @@ mod tests {
             nightbrain_outcome_status(&TaskOutcome::preempted(0)),
             "preempted"
         );
+    }
+
+    #[test]
+    fn replay_bundle_export_ffi_mints_verifiable_epbundle_bytes() {
+        let bytes = super::export_replay_bundle_epbundle_bytes(
+            "bundle-june-turn-1".to_string(),
+            "session-1".to_string(),
+            "answer-packet-1".to_string(),
+            1_788_000_000_000,
+        )
+        .expect("ReplayBundle bytes");
+
+        let bundle =
+            crate::provenance::ReplayBundle::from_epbundle_bytes(&bytes).expect("epbundle parse");
+        bundle.verify_integrity().expect("epbundle integrity");
+        assert_eq!(bundle.bundle_id, "bundle-june-turn-1");
+        assert_eq!(bundle.run_id.as_deref(), Some("session-1"));
+        assert_eq!(bundle.ledger.claims.len(), 1);
+        assert_eq!(bundle.ledger.evidence.len(), 1);
+        assert_eq!(
+            bundle.ledger.claims[0].text,
+            "Turn emitted AnswerPacket answer-packet-1"
+        );
+        assert_eq!(
+            bundle.ledger.evidence[0].source,
+            "answer_packet:answer-packet-1"
+        );
+    }
+
+    #[test]
+    fn replay_bundle_export_ffi_rejects_missing_answer_packet_id() {
+        let err = super::export_replay_bundle_epbundle_bytes(
+            "bundle-june-turn-1".to_string(),
+            "".to_string(),
+            " \n\t ".to_string(),
+            1_788_000_000_000,
+        )
+        .expect_err("empty AnswerPacket id must fail");
+
+        assert!(
+            err.to_string().contains("answer_packet_id is required"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn compile_context_prompt_json_uses_bounded_context_compiler() {
+        let vault = tempfile::tempdir().unwrap();
+        std::fs::write(vault.path().join("SYSTEM.md"), "System rules").unwrap();
+        std::fs::write(
+            vault.path().join("topic.md"),
+            "Graph context belongs in a relative note citation.",
+        )
+        .unwrap();
+
+        let raw = super::compile_context_prompt_json(
+            vault.path().to_string_lossy().to_string(),
+            "graph context".to_string(),
+            "claude-sonnet".to_string(),
+            1_200,
+        )
+        .expect("context compiler JSON");
+        let value: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+        let assembled = value["assembled_prompt"]
+            .as_str()
+            .expect("assembled prompt string");
+
+        assert_eq!(value["source"], "agent_core.context_compiler");
+        assert_eq!(value["bounded"], true);
+        assert!(assembled.contains("## RAG Context"));
+        assert!(assembled.contains("## topic.md"));
+        assert!(!raw.contains(vault.path().to_string_lossy().as_ref()));
+        assert!(value["cache_breakpoints"].as_array().is_some());
+    }
+
+    #[test]
+    fn compile_context_prompt_json_rejects_relative_vault_path() {
+        let err = super::compile_context_prompt_json(
+            "relative/vault".to_string(),
+            "graph context".to_string(),
+            "claude-sonnet".to_string(),
+            24_000,
+        )
+        .expect_err("relative vault path must fail");
+
+        assert!(err.to_string().contains("vault_path must be absolute"));
     }
 
     #[test]

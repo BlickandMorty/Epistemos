@@ -40,6 +40,7 @@ public struct ReadAloudButton: View {
     public let style: Style
 
     @State private var synth = EpistemosSpeechSynthesizer.shared
+    @State private var prefs = VoicePreferences.shared
     @Environment(UIState.self) private var ui
 
     public init(
@@ -57,8 +58,11 @@ public struct ReadAloudButton: View {
     }
 
     public var body: some View {
-        nativeButton
-        .disabled(disabled)
+        HStack(spacing: style == .labeled ? 6 : 2) {
+            nativeButton
+                .disabled(disabled)
+            voiceEffectMenu
+        }
         .contextMenu { contextActions }
     }
 
@@ -106,6 +110,15 @@ public struct ReadAloudButton: View {
 
     @ViewBuilder
     private var contextActions: some View {
+        Button("Effect: \(prefs.readAloudEffect.label)", systemImage: prefs.readAloudEffect.systemImage) {}
+            .disabled(true)
+        ForEach(VoiceEffect.allCases) { effect in
+            Button(effect.label, systemImage: effect == prefs.readAloudEffect ? "checkmark" : effect.systemImage) {
+                prefs.readAloudEffect = effect
+            }
+        }
+        Divider()
+
         if !isTextToSpeechAvailable {
             Text(EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
         } else if !isTextToSpeechInputSupported {
@@ -122,9 +135,27 @@ public struct ReadAloudButton: View {
             }
         } else {
             Button("Speak", systemImage: "speaker.wave.2") {
-                synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch)
+                speakCurrentText()
             }
         }
+    }
+
+    private var voiceEffectMenu: some View {
+        Menu {
+            ForEach(VoiceEffect.allCases) { effect in
+                Button(effect.label, systemImage: effect == prefs.readAloudEffect ? "checkmark" : effect.systemImage) {
+                    prefs.readAloudEffect = effect
+                }
+            }
+        } label: {
+            Image(systemName: prefs.readAloudEffect.systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color)
+                .frame(width: 28, height: 28)
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .help("Read-aloud filter: \(prefs.readAloudEffect.label)")
+        .accessibilityLabel("Read-aloud filter: \(prefs.readAloudEffect.label)")
     }
 
     // MARK: - Derived
@@ -197,12 +228,16 @@ public struct ReadAloudButton: View {
         guard isTextToSpeechAvailable, isTextToSpeechInputSupported else { return }
         switch synth.state {
         case .idle:
-            synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch)
+            speakCurrentText()
         case .speaking:
             synth.pause()
         case .paused:
             synth.resume()
         }
+    }
+
+    private func speakCurrentText() {
+        synth.speak(text, voiceIdentifier: voiceIdentifier, rate: rate, pitch: pitch, effect: prefs.readAloudEffect)
     }
 }
 

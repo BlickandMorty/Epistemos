@@ -24,6 +24,8 @@
 //! without tracking whether it ran before.
 
 use std::collections::{HashMap, VecDeque};
+use std::fs;
+use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
@@ -31,7 +33,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use super::{
-    NightBrainScheduler, NightBrainTask, RegisteredTaskOutcome, Result, TaskCtx, TaskOutcome,
+    NightBrainError, NightBrainScheduler, NightBrainTask, RegisteredTaskOutcome, Result, TaskCtx,
+    TaskOutcome,
 };
 
 /// Process-global live scheduler. Held in a OnceLock so the singleton
@@ -60,12 +63,11 @@ static LIVE_SCHEDULER: OnceLock<Arc<Mutex<NightBrainScheduler>>> = OnceLock::new
 // honor cooperative preemption. So they share one struct
 // (`ObservationTask`) and one HashMap-keyed ring store (`LANE_RINGS`).
 //
-// The remaining 6 canonical task names need real work, not observation
+// Most remaining canonical task names need real work, not observation
 // (dedupe_artifacts, memory_distillation, cloud_knowledge_distillation,
-// session_graph_generation, skill_evolution_analysis, ssm_state_pruning).
-// They stay on `NoOpTask` until their real implementation slices land —
-// dressing them up as ObservationTask would be the "real body" anti-
-// pattern the project rules forbid.
+// session_graph_generation, ssm_state_pruning). They stay on `NoOpTask`
+// until their real implementation slices land. `skill_evolution_analysis`
+// now has a bounded review-queue body below.
 
 /// Maximum number of rows kept per observation lane. Past this cap the
 /// oldest entry is evicted on each append. Sized for ~1 week of
@@ -102,6 +104,32 @@ pub struct ObservationLogEntry {
 /// names continues to compile.
 pub type MaintenanceLogEntry = ObservationLogEntry;
 pub type SearchIndexCheckpointEntry = ObservationLogEntry;
+
+/// Maximum number of proposed skills included in one NightBrain review
+/// summary. The source directory can grow without letting an idle task
+/// retain or serialize an unbounded list on small machines.
+pub const SKILL_EVOLUTION_ANALYSIS_REPORT_LIMIT: usize = 64;
+const MAX_PROPOSED_SKILL_JSON_BYTES: u64 = 64 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct SkillEvolutionCandidate {
+    file_name: String,
+    name: String,
+    inferred_goal: String,
+    observed_count: u32,
+    status: String,
+    sequence_hash: String,
+    tool_sequence: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct SkillEvolutionAnalysisReport {
+    generated_at_ms: i64,
+    proposals_considered: usize,
+    proposals_included: usize,
+    proposals_skipped: usize,
+    candidates: Vec<SkillEvolutionCandidate>,
+}
 
 /// Lane key in `LANE_RINGS`. Must match a name in `CANONICAL_TASK_NAMES`
 /// to keep the audit trail joinable against the registered task set.
@@ -203,6 +231,164 @@ impl NightBrainTask for ObservationTask {
     }
 }
 
+/// Real body for `skill_evolution_analysis`: turn deterministic proposed
+/// skill drafts into a bounded review summary. The body does not promote,
+/// mutate, or execute skills. User review remains owned by the app-side
+/// SkillEvolution surface.
+struct SkillEvolutionAnalysisTask;
+
+#[async_trait]
+impl NightBrainTask for SkillEvolutionAnalysisTask {
+    fn name(&self) -> &str {
+        "skill_evolution_analysis"
+    }
+
+    async fn run(&self, ctx: &TaskCtx) -> Result<TaskOutcome> {
+        let data_dir = skill_evolution_analysis_data_dir();
+        run_skill_evolution_analysis(&data_dir, ctx).await
+    }
+}
+
+fn skill_evolution_analysis_data_dir() -> std::path::PathBuf {
+    #[cfg(test)]
+    {
+        return std::env::temp_dir().join("epistemos-nightbrain-skill-evolution-test");
+    }
+
+    #[cfg(not(test))]
+    {
+        crate::skill_discovery::default_skill_discovery_data_dir()
+    }
+}
+
+async fn run_skill_evolution_analysis(data_dir: &Path, ctx: &TaskCtx) -> Result<TaskOutcome> {
+    if ctx.is_cancelled() {
+        return Ok(TaskOutcome::preempted(0));
+    }
+
+    let proposed_dir = data_dir.join("proposed_skills");
+    let report_path = data_dir
+        .join("skill_evolution_analysis")
+        .join("latest.json");
+    let mut proposals_considered = 0usize;
+    let mut proposals_skipped = 0usize;
+    let mut candidates = Vec::new();
+
+    if proposed_dir.is_dir() {
+        let mut entries = fs::read_dir(&proposed_dir)
+            .map_err(skill_evolution_task_error)?
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| is_proposed_skill_json(&entry.path()))
+            .collect::<Vec<_>>();
+        entries.sort_by_key(|entry| entry.file_name());
+
+        for entry in entries {
+            if ctx.is_cancelled() {
+                return Ok(TaskOutcome::preempted(candidates.len()));
+            }
+            proposals_considered += 1;
+            if candidates.len() >= SKILL_EVOLUTION_ANALYSIS_REPORT_LIMIT {
+                proposals_skipped += 1;
+                continue;
+            }
+            match load_skill_evolution_candidate(&entry.path()) {
+                Some(candidate) => candidates.push(candidate),
+                None => proposals_skipped += 1,
+            }
+        }
+    }
+
+    let report = SkillEvolutionAnalysisReport {
+        generated_at_ms: chrono::Utc::now().timestamp_millis(),
+        proposals_considered,
+        proposals_included: candidates.len(),
+        proposals_skipped,
+        candidates,
+    };
+    crate::util::atomic_write_json(&report_path, &report).map_err(skill_evolution_task_error)?;
+    tokio::task::yield_now().await;
+    Ok(TaskOutcome {
+        items_processed: report.proposals_included,
+        items_skipped: report.proposals_skipped,
+        completed: true,
+    })
+}
+
+fn is_proposed_skill_json(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(".skill.json"))
+        .unwrap_or(false)
+}
+
+fn load_skill_evolution_candidate(path: &Path) -> Option<SkillEvolutionCandidate> {
+    if fs::metadata(path).ok()?.len() > MAX_PROPOSED_SKILL_JSON_BYTES {
+        return None;
+    }
+    let bytes = fs::read(path).ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    let file_name = path.file_name()?.to_str()?;
+
+    Some(SkillEvolutionCandidate {
+        file_name: bounded_report_string(file_name, 160),
+        name: bounded_report_string(value.get("name")?.as_str()?, 128),
+        inferred_goal: bounded_report_string(
+            value
+                .get("inferred_goal")
+                .and_then(|value| value.as_str())
+                .unwrap_or(""),
+            256,
+        ),
+        observed_count: value
+            .get("observed_count")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0)
+            .min(u32::MAX as u64) as u32,
+        status: bounded_report_string(
+            value
+                .get("status")
+                .and_then(|value| value.as_str())
+                .unwrap_or("proposed"),
+            64,
+        ),
+        sequence_hash: bounded_report_string(
+            value
+                .get("sequence_hash")
+                .and_then(|value| value.as_str())
+                .unwrap_or(""),
+            128,
+        ),
+        tool_sequence: bounded_tool_sequence(value.get("tool_sequence")),
+    })
+}
+
+fn bounded_tool_sequence(value: Option<&serde_json::Value>) -> Vec<String> {
+    value
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(|tool| bounded_report_string(tool, 128))
+                .filter(|tool| !tool.is_empty())
+                .take(64)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn bounded_report_string(value: &str, max_chars: usize) -> String {
+    value
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .take(max_chars)
+        .collect()
+}
+
+fn skill_evolution_task_error(error: impl std::fmt::Display) -> NightBrainError {
+    NightBrainError::TaskFailed(format!("skill_evolution_analysis failed: {error}"))
+}
+
 fn live_scheduler() -> Arc<Mutex<NightBrainScheduler>> {
     LIVE_SCHEDULER
         .get_or_init(|| Arc::new(Mutex::new(NightBrainScheduler::new())))
@@ -266,10 +452,10 @@ pub async fn register_canonical_tasks() -> Vec<String> {
         // task is the audit-trail join key) share `ObservationTask`.
         // Tasks that need real work (dedupe_artifacts,
         // memory_distillation, cloud_knowledge_distillation,
-        // session_graph_generation, skill_evolution_analysis,
-        // ssm_state_pruning) stay on NoOp until their slices land —
-        // dressing them up as ObservationTask is the "real body" anti-
-        // pattern the project rules forbid.
+        // session_graph_generation, ssm_state_pruning) stay on NoOp until
+        // their slices land. `skill_evolution_analysis` has a bounded
+        // review-queue body; dressing the rest up as ObservationTask would
+        // be the "real body" anti-pattern the project rules forbid.
         let is_observation_lane = matches!(
             *canonical_name,
             "maintenance_log"
@@ -277,7 +463,9 @@ pub async fn register_canonical_tasks() -> Vec<String> {
                 | "event_store_checkpoint_vacuum"
                 | "workspace_snapshot_compaction"
         );
-        let task: Arc<dyn NightBrainTask> = if is_observation_lane {
+        let task: Arc<dyn NightBrainTask> = if *canonical_name == "skill_evolution_analysis" {
+            Arc::new(SkillEvolutionAnalysisTask)
+        } else if is_observation_lane {
             Arc::new(ObservationTask { canonical_name })
         } else {
             Arc::new(NoOpTask { canonical_name })
@@ -326,10 +514,11 @@ pub async fn reset_live_scheduler() {
 
 #[cfg(test)]
 mod tests {
-    use super::super::canonical_task_names;
+    use super::super::{CancellationToken, TaskCtx, canonical_task_names};
     use super::*;
     use std::sync::OnceLock;
     use std::time::Duration;
+    use tempfile::TempDir;
     use tokio::sync::Mutex as AsyncMutex;
 
     /// Serializes tests that touch the process-global LIVE_SCHEDULER
@@ -382,14 +571,14 @@ mod tests {
         assert_eq!(outcomes.len(), canonical_task_names().len());
         for outcome in &outcomes {
             assert!(outcome.outcome.completed, "task must not stop the run loop");
-            let is_real_body = matches!(
+            let is_observation_body = matches!(
                 outcome.name.as_str(),
                 "maintenance_log"
                     | "search_index_passive_checkpoint"
                     | "event_store_checkpoint_vacuum"
                     | "workspace_snapshot_compaction"
             );
-            if is_real_body {
+            if is_observation_body {
                 // §B.9 real body — completed=true, processed=1.
                 assert_eq!(
                     outcome.outcome.items_processed, 1,
@@ -400,6 +589,11 @@ mod tests {
                     outcome.outcome.items_skipped, 0,
                     "{} real body must NOT report a skip",
                     outcome.name
+                );
+            } else if outcome.name == "skill_evolution_analysis" {
+                assert!(
+                    outcome.outcome.completed,
+                    "skill_evolution_analysis must be a real completed body, not a scheduler-stopping placeholder"
                 );
             } else {
                 // Remaining canonical names still NoOp placeholders.
@@ -468,6 +662,50 @@ mod tests {
             snapshot.len(),
             runs
         );
+    }
+
+    #[tokio::test]
+    async fn skill_evolution_analysis_summarizes_proposed_skills_without_absolute_paths() {
+        let tmp = TempDir::new().unwrap();
+        let proposed_dir = tmp.path().join("proposed_skills");
+        std::fs::create_dir_all(&proposed_dir).unwrap();
+        let proposal_path = proposed_dir.join("vault-flow.skill.json");
+        std::fs::write(
+            &proposal_path,
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "name": "vault-flow",
+                "inferred_goal": "summarize and write vault notes",
+                "tool_sequence": ["vault.search", "vault.read", "vault.write"],
+                "sequence_hash": "abc123",
+                "observed_count": 4,
+                "status": "proposed",
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let ctx = TaskCtx::new(CancellationToken::new());
+        let outcome = run_skill_evolution_analysis(tmp.path(), &ctx)
+            .await
+            .expect("analysis body should run");
+        assert_eq!(outcome.items_processed, 1);
+        assert_eq!(outcome.items_skipped, 0);
+        assert!(outcome.completed);
+
+        let report_path = tmp
+            .path()
+            .join("skill_evolution_analysis")
+            .join("latest.json");
+        let report = std::fs::read_to_string(&report_path).unwrap();
+        assert!(
+            !report.contains(tmp.path().to_string_lossy().as_ref()),
+            "skill evolution analysis report must not leak local absolute paths"
+        );
+        let value: serde_json::Value = serde_json::from_str(&report).unwrap();
+        assert_eq!(value["proposals_considered"], 1);
+        assert_eq!(value["proposals_included"], 1);
+        assert_eq!(value["candidates"][0]["file_name"], "vault-flow.skill.json");
+        assert_eq!(value["candidates"][0]["tool_sequence"][2], "vault.write");
     }
 
     #[tokio::test]
@@ -617,9 +855,10 @@ mod tests {
 
     #[tokio::test]
     async fn non_observation_lanes_remain_noop_skips() {
-        // The 6 canonical names that need real work (not just
+        // The 5 canonical names that still need real work (not just
         // observation) must keep reporting `skipped(1)` until their
-        // dedicated implementation slices land.
+        // dedicated implementation slices land. `skill_evolution_analysis`
+        // has its own bounded review-queue body and is asserted separately.
         let _guard = test_serializer().lock().await;
         register_canonical_tasks().await;
         reset_live_scheduler().await;
@@ -630,7 +869,6 @@ mod tests {
             "memory_distillation",
             "cloud_knowledge_distillation",
             "session_graph_generation",
-            "skill_evolution_analysis",
             "ssm_state_pruning",
         ] {
             let outcome = outcomes
@@ -654,6 +892,21 @@ mod tests {
                 "non-observation task ({name}) must NOT have written to a lane ring"
             );
         }
+
+        let skill_outcome = outcomes
+            .iter()
+            .find(|o| o.name == "skill_evolution_analysis")
+            .expect("skill_evolution_analysis must be registered");
+        assert!(
+            skill_outcome.outcome.completed,
+            "skill_evolution_analysis must be a real body, not a NoOp placeholder"
+        );
+        let ring_snapshot =
+            recent_lane_entries("skill_evolution_analysis", OBSERVATION_LANE_RING_CAPACITY).await;
+        assert!(
+            ring_snapshot.is_empty(),
+            "skill_evolution_analysis must write its review report, not masquerade as an observation lane"
+        );
     }
 
     /// Test helper: map a canonical name (`&str`) back to its

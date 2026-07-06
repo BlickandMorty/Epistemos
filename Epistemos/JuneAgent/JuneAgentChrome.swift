@@ -126,9 +126,9 @@ struct JuneAllChatsSheet: View {
                 if sessions.isEmpty {
                     if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                         ContentUnavailableView(
-                            "No sessions yet",
+                            "No chats yet",
                             systemImage: "bubble.left.and.bubble.right",
-                            description: Text("Start a chat in the Agent room and it will appear here.")
+                            description: Text("Start a chat in Workspace and it will appear here.")
                         )
                     } else {
                         ContentUnavailableView.search(text: searchText)
@@ -172,11 +172,11 @@ struct JuneAllChatsSheet: View {
                     }
                 }
             }
-            .navigationTitle("Agent sessions")
-            .searchable(text: $searchText, prompt: "Search sessions")
+            .navigationTitle("Workspace chats")
+            .searchable(text: $searchText, prompt: "Search chats")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("New session") {
+                    Button("New Chat") {
                         JuneAgentIntents.newSession()
                         dismiss()
                     }

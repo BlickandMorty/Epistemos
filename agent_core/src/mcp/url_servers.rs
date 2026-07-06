@@ -58,6 +58,10 @@ struct UrlMcpServerEntry {
 /// project list appends to the global list; duplicates are deduplicated
 /// by `name` with per-project winning.
 pub fn discover_url_mcp_servers() -> Vec<McpServerConfig> {
+    if !url_mcp_discovery_enabled() {
+        return Vec::new();
+    }
+
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut result: Vec<McpServerConfig> = Vec::new();
 
@@ -76,6 +80,10 @@ pub fn discover_url_mcp_servers() -> Vec<McpServerConfig> {
     }
 
     result
+}
+
+fn url_mcp_discovery_enabled() -> bool {
+    cfg!(feature = "pro-build")
 }
 
 fn project_config_path() -> Option<PathBuf> {
@@ -301,5 +309,12 @@ mod tests {
         for key in ["1TOKEN", "TOKEN NAME", "TOKEN-NAME", "TOKEN\nNAME", "TØKEN"] {
             assert!(!auth_env_key_allowed(key));
         }
+    }
+
+    #[cfg(not(feature = "pro-build"))]
+    #[test]
+    fn url_mcp_discovery_is_disabled_for_mas_builds() {
+        assert!(!url_mcp_discovery_enabled());
+        assert!(discover_url_mcp_servers().is_empty());
     }
 }

@@ -1,3 +1,8 @@
+---
+id: 12FCA87A-ABF3-4F2D-9EA8-1C8637F17EE9
+title: SS-CLEAN_ANTI_MUDDINESS_SELF_CORRECTION_2026_06_20
+---
+
 # SS-CLEAN — Anti-messiness / anti-muddiness self-correction discipline (2026-06-20)
 
 Owner: *"I don't want this [wikilink work] to be messy and muddy. I want those two things [the in-use feature + the

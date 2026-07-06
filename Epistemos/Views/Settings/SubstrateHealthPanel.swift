@@ -80,7 +80,7 @@ public struct SubstrateHealthPanel: View {
                 text: """
                 App-side IP that stays native: search, citation grounding, vault memory, \
                 tools/MCP, provenance, and verification. Generation engines live in \
-                Goose/OpenGUI/OpenCode-style surfaces.
+                OpenChamber, OpenGUI, and OpenCode-style surfaces.
                 """
             )
         }

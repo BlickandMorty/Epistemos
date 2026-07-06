@@ -446,24 +446,18 @@ public struct BackgroundIndexingHealthRow: View {
             case .paused:
                 return appendEtlDetail(to: error.map { "Paused - \($0)" } ?? "Paused")
             case .complete:
-                // RCA-P2-014 closure 2026-05-13: surface the index
-                // freshness + the standing watcher caveat so users
-                // know external edits since launch aren't auto-
-                // indexed yet. FSEvents wiring is deferred (W8.7.b);
-                // until it ships, the Shadow recall is only
-                // launch-fresh.
                 let basePath = shadowPath ?? ""
                 let stamp = relativeStamp(from: updatedAt)
                 let freshness: String
                 switch (basePath.isEmpty, stamp.isEmpty) {
                 case (true, true):
-                    freshness = "Complete — external edits since launch are not auto-indexed"
+                    freshness = "Complete — watching external edits"
                 case (true, false):
-                    freshness = "Complete \(stamp) — external edits since launch are not auto-indexed"
+                    freshness = "Complete \(stamp) — watching external edits"
                 case (false, true):
-                    freshness = "Complete — \(basePath) — external edits since launch are not auto-indexed"
+                    freshness = "Complete — \(basePath) — watching external edits"
                 case (false, false):
-                    freshness = "Complete \(stamp) — \(basePath) — external edits since launch are not auto-indexed"
+                    freshness = "Complete \(stamp) — \(basePath) — watching external edits"
                 }
                 return appendEtlDetail(to: freshness)
             case .failed:

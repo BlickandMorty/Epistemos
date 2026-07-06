@@ -7,7 +7,7 @@ import OSLog
 // Wave 9.1 - AVSpeech catalogue and preference compatibility.
 // Wave 9.1.b - premium-voice catalogue + interactive playback controls.
 // Plan 3 owner update 2026-06-30: shipped TTS is Kokoro-only. A checked
-// Pro Kokoro package renders through the native CoreML playback path; absent
+// local Kokoro package renders through the native CoreML playback path; absent
 // that package, speak() refuses playback instead of falling back to AVSpeech.
 //
 // Earlier W9 builds used AVSpeechSynthesizer for read-aloud. The helpers below
@@ -130,10 +130,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     nonisolated static let maxTextToSpeechInputCharacters = KokoroCoreMLSynthesizer.maxInputCharacters
 
     nonisolated static let kokoroOnlyUnavailableMessage =
-        "Kokoro text-to-speech requires a checked Pro Kokoro CoreML package. Apple AVSpeech is not used as a fallback."
-
-    nonisolated static let kokoroAppStoreUnavailableMessage =
-        "Read-aloud is unavailable in this App Store build. Apple AVSpeech is not used as a fallback."
+        "Kokoro text-to-speech requires a checked local Kokoro CoreML package. Apple AVSpeech is not used as a fallback."
 
     private nonisolated static var nativeKokoroSynthesisEngineLinked: Bool {
         KokoroCoreMLRuntimeLoader.isLinked
@@ -144,16 +141,12 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         modelRoot: URL? = KokoroVoiceGateStatus.defaultModelRoot(),
         fileManager: FileManager = .default
     ) -> Bool {
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        return false
-        #else
         nativeKokoroSynthesisEngineLinked
             && KokoroVoiceGateStatus.status(
                 environment: environment,
                 modelRoot: modelRoot,
                 fileManager: fileManager
             ).isReady
-        #endif
     }
 
     nonisolated static func textToSpeechStatusMessage(
@@ -167,21 +160,13 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             fileManager: fileManager
         )
         guard nativeKokoroSynthesisEngineLinked else {
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            return kokoroAppStoreUnavailableMessage
-            #else
             return kokoroOnlyUnavailableMessage
-            #endif
         }
         guard status.isReady else {
-            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            return kokoroAppStoreUnavailableMessage
-            #else
             // Engine is linked; only the voice model is missing. Point the user to the install flow
             // instead of the technical package message, so a disabled read-aloud button reads as
             // "install me" rather than "broken". (#52)
             return "Read-aloud needs the Kokoro voice \u{2014} install it in Settings \u{2192} Voice."
-            #endif
         }
         return status.headline
     }
@@ -265,7 +250,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         voiceIdentifier: String? = nil,
         rate: Float = AVSpeechUtteranceDefaultSpeechRate,
         pitch: Float = 1.0,
-        prosody: SpeechProsody? = nil
+        prosody: SpeechProsody? = nil,
+        effect: VoiceEffect? = nil
     ) -> String? {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return nil }
@@ -293,6 +279,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         // Voice SELECTION: passed to Kokoro (renderRawText loads the matching voice pack, or
         // falls back to the starter voice for nil/unknown). Was previously ignored.
         let selectedVoice = voiceIdentifier
+        let selectedEffect = effect ?? VoicePreferences.shared.readAloudEffect
         _ = pitch
         let utteranceID = UUID().uuidString
         activeKokoroUtteranceID = utteranceID
@@ -313,7 +300,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
                 try self.playKokoroAudio(
                     rendered,
                     utteranceID: utteranceID,
-                    charactersTotal: cleaned.count
+                    charactersTotal: cleaned.count,
+                    effect: selectedEffect
                 )
             } catch is CancellationError {
                 return
@@ -322,7 +310,7 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             }
         }
         Self.log.info(
-            "Kokoro TTS queued chars=\(cleaned.count, privacy: .public)"
+            "Kokoro TTS queued chars=\(cleaned.count, privacy: .public) effect=\(selectedEffect.rawValue, privacy: .public)"
         )
         return utteranceID
     }
@@ -383,10 +371,11 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
     private func playKokoroAudio(
         _ rendered: KokoroCoreMLSynthesizer.RenderedAudio,
         utteranceID: String,
-        charactersTotal: Int
+        charactersTotal: Int,
+        effect: VoiceEffect
     ) throws {
         guard activeKokoroUtteranceID == utteranceID else { return }
-        let buffer = try pcmBuffer(for: rendered)
+        let buffer = try pcmBuffer(for: rendered, effect: effect)
         if !kokoroEngine.isRunning {
             try kokoroEngine.start()
         }
@@ -410,7 +399,10 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         )
     }
 
-    private func pcmBuffer(for rendered: KokoroCoreMLSynthesizer.RenderedAudio) throws -> AVAudioPCMBuffer {
+    private func pcmBuffer(
+        for rendered: KokoroCoreMLSynthesizer.RenderedAudio,
+        effect: VoiceEffect
+    ) throws -> AVAudioPCMBuffer {
         guard !rendered.samples.isEmpty,
               rendered.samples.count <= Int(UInt32.max),
               let format = AVAudioFormat(
@@ -427,12 +419,36 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
             throw KokoroPlaybackError.bufferAllocationFailed
         }
         buffer.frameLength = frameCount
-        rendered.samples.withUnsafeBufferPointer { samples in
+        let samples = Self.applyVoiceEffect(effect, to: rendered)
+        samples.withUnsafeBufferPointer { samples in
             if let baseAddress = samples.baseAddress {
                 channel.update(from: baseAddress, count: samples.count)
             }
         }
         return buffer
+    }
+
+    private nonisolated static func applyVoiceEffect(
+        _ effect: VoiceEffect,
+        to rendered: KokoroCoreMLSynthesizer.RenderedAudio
+    ) -> [Float] {
+        guard effect != .clean else { return rendered.samples }
+        let bitDepth = effect.bitDepth
+        let hold = max(1, effect.sampleRateHold)
+        var filtered = Array(repeating: Float.zero, count: rendered.samples.count)
+        var heldSample = Float.zero
+        for index in rendered.samples.indices {
+            if index % hold == 0 {
+                heldSample = rendered.samples[index]
+            }
+            filtered[index] = Float(
+                AmbientFrequencyAudioGenerator.bitCrush(
+                    Double(heldSample),
+                    bitDepth: bitDepth
+                )
+            )
+        }
+        return filtered
     }
 
     private func failKokoroPlayback(utteranceID: String, error: Error) {

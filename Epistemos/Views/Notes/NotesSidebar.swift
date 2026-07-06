@@ -1774,8 +1774,11 @@ struct NotesSidebar: View {
     // (all rows check highlight state) that blocks the main thread before the
     // editor can appear.
 
-    private func openInEditor(_ pageId: String, initialMode: NoteWorkspaceMode = .edit) {
-        if initialMode == .edit, let onSelectPage {
+    private func openInEditor(_ pageId: String, initialMode: NoteWorkspaceMode = .document) {
+        // Owner 2026-07-05: Epdoc (.document) is the default note view. Both reading views
+        // (.edit prose + .document Epdoc) select in-place when a main pane is wired; other
+        // modes (.source) open a window. All toggles remain; only the default changed.
+        if initialMode == .edit || initialMode == .document, let onSelectPage {
             onSelectPage(pageId)
         } else {
             NoteWindowManager.shared.open(pageId: pageId, initialMode: initialMode)
