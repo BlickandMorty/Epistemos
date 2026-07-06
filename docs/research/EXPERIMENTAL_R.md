@@ -1246,3 +1246,13 @@ coverage when 5 were silently skipped. Now returns `capped`+`citationsFound`; th
 "implied full coverage" gap — exactly the kind of quiet over-claim the rail forbids. Deployed to the staged
 bundle alongside the Cycle-37 trustCache bound (both confirmed in tarball); running app untouched. Posture
 stays conservative after the Cycle-36/37 relaunch misstep: headless-verified fixes only, app left to the owner.
+
+---
+
+**Cycle 39 (2026-07-06) — edge-case robustness: verified + guarded the empty-vault / degenerate-input paths.**
+Owner active → headless-only. Booted the backend against an EMPTY vault (root exists, zero notes) + hit
+every endpoint: all degrade gracefully — noteExists→{false}, search→{hits:[]}, nearest→{null},
+skills.discover→{skills:[],runsScanned:0}, and a 1-char title→null (the ≥4-char token filter). No crash,
+backend stayed alive. Added two assertions to the witness (no-match search → empty; sub-4-char title →
+null) so the fresh-user/empty path stays regression-guarded (13/13). Pure hardening + coverage — no fork
+change, no deploy, running app untouched. Conservative posture holds.
