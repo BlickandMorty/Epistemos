@@ -1,6 +1,6 @@
 # DEEP-RESEARCH PROMPT — PLAN 2: EDITOR (lens model + Epdoc companion-edit layer + PDF)
 
-**ID:** `EPI-RP-02-LUMENLENS` · **Codename:** LUMENLENS · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+**ID:** `EPI-RP-02-LUMENLENS` · **Codename:** LUMENLENS · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
 > Paste everything below `─── BEGIN ───` into a top-tier deep-research model. Output = a
 > **build-ready dossier**. Same rigor as the agent-surface dossiers. Owner authored 2026-07-06.

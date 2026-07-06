@@ -56,6 +56,7 @@ scoring ≤3 until all axes are ≥4. A dossier with any axis <4 is not done.**
 | **Build-actionable** | an engineer could build from it: schemas, seams, phased order, done-bars | generic advice |
 | **No fabrication** | no invented APIs/features; unknowns flagged with fallback | confident hand-wave |
 | **Constraint-fidelity** | honors every hard constraint in the brief (build split, platform, safety) | ignores/softens constraints |
+| **Integration depth** | designs a deep plug-in to every relevant fabric contract (`INTEGRATION_FABRIC.md` F1–F6) | treats the feature as a silo |
 | **Depth/novelty** | goes past the obvious; names the 3–5 genuinely novel moves | surface survey |
 
 Also require a short **"self-critique" section**: the 3 weakest points of the dossier and what a
@@ -75,5 +76,16 @@ where each phase has a **witnessable "proven-done" bar** (a real behavior, not "
 
 ## 6. How each prompt references this
 Each `RESEARCH_PROMPT_PLAN_*.md` carries, in its header: its `EPI-RP-…` ID + codename, and the line
-"Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape." That keeps the six briefs
-consistent and upgradeable from one place.
+"Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric." That keeps the
+six briefs consistent and upgradeable from one place.
+
+## 7. Deep fabric integration is MANDATORY (not a silo)
+Epistemos is one living app, not a bundle of rooms. Every brief MUST include a headline **"Deep
+Fabric Integration"** section designing how the feature plugs into each relevant contract in
+[`INTEGRATION_FABRIC.md`](INTEGRATION_FABRIC.md): **F1 vault bus · F2 agent capability registry ·
+F3 companion presence · F4 knowledge graph · F5 provenance & citation · F6 state/event bus.** The
+bar is the ResearchHub worked example there: a room is not something you visit, it is a capability
+the agents drive, whose objects live in the vault, link in the graph, cite through the ledger, and
+light up the companion while it works. This is graded by the **Integration-depth** rubric axis (§3);
+a silo dossier fails. Scoped-doc anti-collision (§2) and deep product integration are orthogonal —
+keep the research scoped, design the integration deep.

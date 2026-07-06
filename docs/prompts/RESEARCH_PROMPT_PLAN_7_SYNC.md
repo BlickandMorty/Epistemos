@@ -1,6 +1,6 @@
 # DEEP-RESEARCH PROMPT — PLAN 7 (KEELSTONE): SYNC + BUILD-SCHEMA SOLIDIFICATION + DEEP HARDENING + v1 RELEASE
 
-**ID:** `EPI-RP-07-KEELSTONE` · **Codename:** KEELSTONE · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+**ID:** `EPI-RP-07-KEELSTONE` · **Codename:** KEELSTONE · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
 > authored 2026-07-06; scope expanded the same day to fold in **build-schema/config solidification +

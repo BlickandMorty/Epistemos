@@ -1,6 +1,6 @@
 # DEEP-RESEARCH PROMPT — PLAN 5: COMPANIONS (the living, editing, multi-surface agent)
 
-**ID:** `EPI-RP-05-KINDRED` · **Codename:** KINDRED · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+**ID:** `EPI-RP-05-KINDRED` · **Codename:** KINDRED · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
 > **How to use this file.** Paste everything below the `─── BEGIN ───` line into a top-tier
 > deep-research model (Claude / GPT / Gemini deep-research mode). It is a *research* brief,

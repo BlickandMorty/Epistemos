@@ -1,6 +1,6 @@
 # DEEP-RESEARCH PROMPT — PLAN 6: QUICK CAPTURE (robust unstructured capture + voice)
 
-**ID:** `EPI-RP-06-EMBERCATCH` · **Codename:** EMBERCATCH · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+**ID:** `EPI-RP-06-EMBERCATCH` · **Codename:** EMBERCATCH · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape + §7 fabric (deep integration is graded).
 
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
 > authored 2026-07-06. **Build split: both builds (MAS + 1Code).** MAS is the strict target — no
