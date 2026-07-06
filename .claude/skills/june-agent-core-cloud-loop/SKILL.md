@@ -1,3 +1,8 @@
+---
+name: june-agent-core-cloud-loop
+description: Use when connecting, auditing, hardening, or extending the MAS June cloud agent loop through in-process agent_core, June event frames, approval gating, selected-vault routing, honest local/cloud capability boundaries, and MAS App Store bundle/runtime cleanup checks.
+---
+
 # June Agent-Core Cloud Loop
 
 ## Description
@@ -61,6 +66,7 @@ Do not use this skill for `Epistemos/ExperimentalAgent/**`, Pro-only sidecars, T
 
 8. Verify in layers.
    - Source guard: no fake local tool caps, no `bootstrap.cloudLLMClient.stream` in June gateway, cloud exact routes call the agent-core stream, local fallback does not.
+   - Bundle guard: in App Store products, scan `Contents/Resources` for forbidden flattened runtime artifacts (`node`, `bun`, `opencode`, `omega_mcp_stdio`, `goose`, `goosed`, `.bun-*`, `.opencode-*`); `bundle-app-runtime-assets.sh` must remove them for MAS builds.
    - Build: `xcodebuild -scheme Epistemos-AppStore -configuration Debug -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` with isolated DerivedData if needed.
    - Rust: at least `cargo test --manifest-path agent_core/Cargo.toml --lib`; full cargo when repo source-guard includes are healthy.
    - Runtime: open the sandboxed MAS build, run a vault read/write task through June, approve the permission prompt, and retain transcript/screenshot/log evidence.
@@ -68,6 +74,7 @@ Do not use this skill for `Epistemos/ExperimentalAgent/**`, Pro-only sidecars, T
 ## Review Checklist
 
 - No subprocess, shell, stdio MCP, terminal, code execution, scheduler, imessage, AppleScript, or extension-installer tool is reachable from MAS June.
+- No Pro/runtime executable is packaged into the MAS app bundle as a flattened resource, even if direct-build resource folders exist in source.
 - No provider key, proxy token, raw receipt, or Keychain value crosses into JS.
 - No `.sync` is added to UniFFI callback paths.
 - Streams and pending states are bounded.

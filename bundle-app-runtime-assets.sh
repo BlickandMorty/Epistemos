@@ -232,6 +232,20 @@ bundle_june_web() {
     rsync -a --delete --exclude ".gitignore" "$JUNE_WEB_SOURCE_DIR/" "$JUNE_WEB_BUNDLE_DIR/"
 }
 
+remove_app_store_forbidden_runtime_artifacts() {
+    # Xcode's synchronized resource groups flatten runtime bin/ sentinels into
+    # Contents/Resources. MAS builds must not ship Pro-only process runtimes or
+    # stdio MCP binaries, even when their source folders exist for direct builds.
+    rm -f "$RESOURCES_DIR/goose"
+    rm -f "$RESOURCES_DIR/goosed"
+    rm -f "$RESOURCES_DIR/node"
+    rm -f "$RESOURCES_DIR/bun"
+    rm -f "$RESOURCES_DIR/opencode"
+    rm -f "$RESOURCES_DIR/omega_mcp_stdio"
+    rm -f "$RESOURCES_DIR"/.bun-*-bun-darwin-*
+    rm -f "$RESOURCES_DIR"/.opencode-*-opencode-darwin-*
+}
+
 bundle_editor_resources
 bundle_coreeditor_resources
 bundle_pyodide_resources
@@ -240,8 +254,7 @@ bundle_default_skills
 bundle_june_web
 
 if is_app_store_build; then
-    rm -f "$GOOSE_BINARY_DEST"
-    rm -f "$GOOSED_BINARY_DEST"
+    remove_app_store_forbidden_runtime_artifacts
 else
     bundle_goose_runtime_binary
 fi

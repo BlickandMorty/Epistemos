@@ -12,4 +12,4 @@ Use when connecting, auditing, hardening, or extending the MAS June cloud agent 
 
 Source: `.claude/skills/june-agent-core-cloud-loop/SKILL.md`
 
-Next required use: the next June cycle must use this skill to capture the missing running MAS proof: selected vault, cloud agent, approval prompt, vault read/write, transcript/screenshot/log evidence, and no fake local tools.
+Next required use: the next June cycle must use this skill to capture the missing running MAS proof: selected vault, cloud agent, approval prompt, vault read/write, transcript/screenshot/log evidence, no fake local tools, and a clean App Store bundle scan with no flattened Pro/runtime executables.
