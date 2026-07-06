@@ -116,3 +116,10 @@ onto MAS. Don't silently override Epdoc-as-default (validate, note trade-offs).
    through the robust popovers on Prose/Source; chat tabs are 1Code-only — degraded+exportable
    on MAS). Content mounts come from RECKONER (grid, second mount) and KINDRED (K6 minichat) —
    consume their seams by ID; do not build sheet/chat internals. L6 done-bar per the plan.
+12. **Block-embeds + navigation + enterprise-MD rules (plan §P-AMEND 12 — joins L6):** block-level
+   embeds join the outline/TOC (extend the existing `TOCItem` infra) with jump-between +
+   click-through; every reference = stable UUID + type + version; unknown types degrade to
+   Tier-C tombstones (byte-preserved, exportable) — never dropped; if the manifest lands in
+   frontmatter, edit it ONLY via a YAML-safe structured path (Fork B's verbatim rule binds the
+   markdown serializer, not deliberate app edits); manifest edits are minimal-diff; extend the
+   #440 fixtures to manifests + embed references.

@@ -205,7 +205,17 @@ honest:
   fenced Tier-B block vs per-tab reference syntax) — pick with evidence on round-trip stability,
   external-editor readability (vim shows legible reference lines), merge/conflict behavior under
   KEELSTONE reconcile, and Fork-B byte preservation. The note remains a valid, readable markdown
-  file everywhere.
+  file everywhere. **Enterprise-MD housing rules bind whichever fork wins** (LUMENLENS §P-AMEND
+  12): stable UUID + type + version per reference; unknown/newer types degrade to byte-preserved
+  tombstones (never dropped); if frontmatter wins, app edits go through a YAML-safe structured
+  path (Fork B's verbatim rule binds the markdown SERIALIZER, not deliberate app edits); manifest
+  edits are minimal-diff; the #440 corruption fixtures extend to manifests + references.
+- **Block-level embedded data is the same family, navigable:** dataset embeds (D4) and any future
+  rich block share ONE embed-node family and ONE navigator — embeds + tabs join the note
+  outline/TOC (LUMENLENS extends its existing `TOCItem` infra) with jump-between and
+  click-through. Specify what the navigator shows for a sheet (title, dims, staleness) and how
+  in-body embeds relate to tabs (an embed can be "promoted" to a tab? research the UX, don't
+  assume).
 - **Sheet tabs = the second mount of the same grid seam:** one dataset can be open as a workspace
   tab (D2) AND as an in-note tab — same GRDB truth, same IronCalc/Univer instance rules. Resolve:
   WebView economics for N in-note tabs (lazy-mount only the active tab?), what happens when the

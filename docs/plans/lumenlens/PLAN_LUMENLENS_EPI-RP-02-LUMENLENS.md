@@ -182,3 +182,28 @@ depth 4 · Depth/novelty 4. No axis < 4.
      with body + 2 sheet tabs + 1 chat tab round-trips byte-stable through every lens; external
      edit of the manifest reconciles; deleting a referenced dataset shows the tombstone tab;
      the same note on MAS renders body + sheet tabs and discloses the chat tab with export.
+12. **BLOCK-LEVEL EMBEDDED DATA + NAVIGATION, and the ENTERPRISE-MD housing rules (owner
+   directive 2026-07-06).** The hierarchy is two levels: note-level TABS (P-AMEND 11) and
+   BLOCK-level embeds inside the body (dataset embeds first; the same embed-node family carries
+   any future rich type). Both must be first-class and easily navigable:
+   - **Navigability:** embedded blocks join the note's outline/TOC (extend the EXISTING `TOCItem`
+     infrastructure in `NoteDetailWorkspaceView`) — jump-between-embeds (next/prev + outline
+     click), click-through to the source (dataset workspace tab / session), keyboard-reachable.
+     Tabs and block-embeds share one navigator model so the notebook never needs a second nav UI.
+   - **Enterprise-MD housing rules (how a plain `.md` robustly carries all of this):**
+     (a) every tab/embed reference carries a STABLE ID (UUID) + type + version — renames never
+     break references; (b) syntax is human-legible in raw markdown (vim shows meaningful lines);
+     (c) FORWARD-COMPAT: an unknown/newer reference type or version degrades to Tier-C behavior —
+     preserved byte-exact, shown as a tombstone with disclosure/export, NEVER dropped or
+     "corrected"; (d) the **frontmatter nuance**: Fork B's "frontmatter verbatim passthrough"
+     binds the MARKDOWN SERIALIZER — if the tab manifest lands in frontmatter (researcher fork,
+     RECKONER D10), the app edits it ONLY through a dedicated YAML-safe structured-edit path,
+     never by reserializing through the markdown engine; manifest edits are ordinary vault writes
+     (AtomicVaultWriter) and reconcile as ordinary markdown under KEELSTONE; (e) manifest/embed
+     changes are minimal-diff like everything else (a tab add = a few-line git diff); (f) the
+     #440 corruption fixtures extend to cover manifests + embed references (external tools must
+     never see them mangled).
+   - **Done-bar (joins L6):** outline navigation reaches every tab + embed; an unknown-type
+     reference survives a full edit/save/reload cycle byte-exact with a tombstone; a
+     manifest-in-frontmatter edit (if that fork is chosen) leaves all other frontmatter keys
+     byte-identical.
