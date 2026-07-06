@@ -1427,3 +1427,17 @@ assertion — enhance WITH a vault note ("Alpha Project") must weave `[[Alpha Pr
 set grounded=true. PASSES. So the flagship's KEY differentiator (retrieve vault → enhance → CITE) is now
 witness-proven end to end, not just "it upgraded". Witness = 25 checks. The whole substrate is
 regression-clean, real-vault-hardened, and its differentiator is guarded.
+
+---
+
+**Cycle 53 (2026-07-06) — END-TO-END integration proof: cite-check on a realistic multi-form-citation reply.**
+Tied the whole 8-cycle title-hardening arc together with one realistic test. A real agent reply cites four
+notes by FOUR DIFFERENT title forms + one hallucination:
+`[[Claim Ledger]]` (ordinal filename 04_CLAIM_LEDGER), `[[Design Doc]]` (front-matter title), `[[The
+Blueprint|the plan]]` (front-matter alias with display text), `[[Architecture Decision#Section 2]]` (H1
+with anchor), `[[Nonexistent Roadmap]]` (hallucination). extractCitations correctly parsed all five
+(stripping |display + #anchor, deduping); cite-check verified all FOUR real notes (each via a different
+title mechanism) and REJECTED the hallucination. So the accumulated fixes don't just pass in isolation —
+they compose into correct end-to-end behavior on the citation forms a real agent actually produces. The
+moat's trust surface (an agent's citations verified against YOUR vault, however you title notes) is proven
+whole. No code change — an integration verification confirming the arc delivers.
