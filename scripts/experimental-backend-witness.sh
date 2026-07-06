@@ -55,7 +55,7 @@ done
 
 FAIL=0
 q() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$1"; }
-call() { curl -fsS "http://127.0.0.1:$PORT/trpc/$1?input=$(q "$2")"; }
+call() { if [ -n "${2:-}" ]; then curl -fsS "http://127.0.0.1:$PORT/trpc/$1?input=$(q "$2")"; else curl -fsS "http://127.0.0.1:$PORT/trpc/$1"; fi; }
 jget() { python3 -c "import json,sys;d=json.load(sys.stdin);print(json.dumps(d.get('result',{}).get('data',{}).get('json')))"; }
 
 check() { # name  expected-substring  actual-json
@@ -105,6 +105,12 @@ check "grounding: shows the H1 TITLE, not the ordinal filename (08_DATA_LEDGER �
   '"title": "Data Ledger"' "$(call epistemosVault.search '{"json":{"query":"data ledger","limit":6}}' | jget)"
 check "graph: H1-style [[link]] resolves to a slug file ([[Sync Engine]] → 09_slug-notes)" \
   '"title": "Sync Engine"' "$(call epistemosVault.search '{"json":{"query":"data ledger","limit":6,"graph":true}}' | jget)"
+check "vault tree: returns folder/note hierarchy for the sidebar" \
+  '"kind": "folder"' "$(call epistemosVault.tree '' | jget)"
+check "vault read: returns a note's content by path" \
+  'Handles distributed networking' "$(call epistemosVault.read '{"json":{"path":"notes/Gamma Service.md"}}' | jget)"
+check "vault read: blocks path traversal (../../etc/passwd → null)" \
+  '"content": null' "$(call epistemosVault.read '{"json":{"path":"../../../../etc/passwd"}}' | jget)"
 check "graph: outlink neighbor surfaced" \
   'linked from Alpha Project' "$(call epistemosVault.search '{"json":{"query":"alpha","limit":8,"graph":true}}' | jget)"
 check "graph: backlink surfaced (references, no query-term match)" \
