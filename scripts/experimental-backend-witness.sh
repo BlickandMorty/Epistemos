@@ -27,6 +27,10 @@ printf '# Alpha Project\n\nDepends on [[Beta Module]] and [[Gamma Service]].\n' 
 printf '# Beta Module\n\nCore beta logic.\n'                                     > "$FX/Beta Module.md"
 printf '# Gamma Service\n\nHandles distributed networking and retries.\n'        > "$FX/Gamma Service.md"
 printf '# Omega Plan\n\nRollout schedule. See [[Gamma Service]].\n'              > "$FX/Omega Plan.md"
+# Two provenance notes sharing a tool workflow (for the Skills-discovery gate); one one-off.
+printf '# Provenance\n\n## Tool-call sequence\n1. **search_notes** — a\n2. **read_file** — b\n' > "$FX/Provenance--run-1.md"
+printf '# Provenance\n\n## Tool-call sequence\n1. **search_notes** — c\n2. **read_file** — d\n3. **Bash** — e\n' > "$FX/Provenance--run-2.md"
+printf '# Provenance\n\n## Tool-call sequence\n1. **WebFetch** — h\n2. **Write** — i\n' > "$FX/Provenance--run-3.md"
 
 echo "[witness] booting headless backend on :$PORT against fixture vault…"
 ( cd "$FORK" && EPISTEMOS_VAULT_ROOT="$TMP/vault" EPISTEMOS_ONECODE_PORT="$PORT" \
@@ -66,6 +70,10 @@ check "graph: outlink neighbor surfaced" \
   'linked from Alpha Project' "$(call epistemosVault.search '{"json":{"query":"alpha","limit":8,"graph":true}}' | jget)"
 check "graph: backlink surfaced (references, no query-term match)" \
   'references Gamma Service' "$(call epistemosVault.search '{"json":{"query":"networking","limit":8,"graph":true}}' | jget)"
+check "skills: recurring workflow discovered (search_notes → read_file, freq 2)" \
+  'read_file' "$(call epistemosSkills.discover '{"json":{"minRuns":2}}' | jget)"
+check "skills: one-off workflow WITHHELD (no WebFetch/Write in discovered)" \
+  '"runsScanned": 3' "$(call epistemosSkills.discover '{"json":{"minRuns":2}}' | jget)"
 
 # Optional: Prompt Forge enhance (real LLM call). Only when explicitly opted in.
 if [ "${WITNESS_FORGE:-0}" = "1" ] && [ -n "${EPISTEMOS_CLAUDE_BINARY:-}" ]; then

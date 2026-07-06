@@ -1031,3 +1031,17 @@ This RESOLVES the Finalization-Mandate #2 provenance items for THIS surface (don
 not the native ReplayBundle). Net: the surface has no remaining clean high-value pure-web frontier; the
 knowledge-substrate moat (retrieve/verify/write-back over vault+graph+provenance) is complete, reviewed,
 double-witnessed, and live-proven. Posture: verify-and-harden; only net-new on explicit owner direction.
+
+---
+
+**Cycle 24 (2026-07-06) — USER SKILLS LIBRARY (Finalization #3, the fourth moat axis: LEARNING).**
+Built cross-run skill discovery — the applicable half of Finalization #3 (the tool sequences come from
+the CLI agent, unlike the agent_core ReplayBundle #2 which doesn't apply here). A deterministic frequent-
+subsequence miner over the vault's `Provenance--*.md` notes: a workflow passes ONLY if it recurs across
+>= minRuns distinct runs; below the gate it is WITHHELD. Surfaced as "Learned workflows" in the Persona
+popover (no new button, hidden when none). PROVEN headless + added to the witness (8/8): 3 provenance
+notes → discovers `search_notes → read_file` (freq 2), withholds the `WebFetch → Write` one-off. Composes
+run-provenance + vault-context-assembly. CRYSTALLIZE: `experimental-cross-run-discovery` (the learning
+axis — retrieve IN / write OUT / verify TRUTH / DISCOVER what recurs). No standalone agent learns across
+sessions like this. **RAISED BAR:** promote a discovered workflow into a named, user-accepted macro
+(compose experimental-submission-enhance to draft its description) — the acceptance gate of Mandate #3.
