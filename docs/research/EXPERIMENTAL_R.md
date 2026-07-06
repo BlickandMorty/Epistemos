@@ -728,3 +728,29 @@ Zen models; thinking for all engines). FORGE composed the Cycle-2 vault-context-
 Library (composes experimental-submission-enhance again — the system-prompt layer); (c) cross-session
 memory via the graph (recall "what we decided last time" keyed by concept). The deterministic-headless-
 verify habit (catch silent-fallback bugs before the app build) is now standard.
+
+---
+
+**Cycle 8 (2026-07-06) — LIVE VERIFICATION PASS (the DoD proof the loop kept deferring).**
+Built the arm64-only checkpoint + discovered the fast web-UI iteration path (bun run build →
+build-experimental-web.sh → cp tarball into the app bundle → relaunch; the app unpacks to
+~/Library/Application Support/Epistemos/ExperimentalWeb keyed by a size-mtime stamp). Caught + fixed a
+duplicate-button regex-collision bug (two Forge, no Persona) by VERIFYING LIVE, not assuming. Then
+proved the whole stack in the RUNNING app (screenshots live4-live10):
+- **Prompt Forge — DoD-Foundation MET live.** "make the login better" → a structured upgrade (top 2-3
+  friction points; UX/security/performance dimensions) + a WHAT-CHANGED list + Accept/Retry/Revert popover.
+- **System Prompt Forge + Pattern Library — LIVE.** The Persona popover shows all 3 Epistemos-authored
+  Patterns (Vault Librarian / Careful Refactorer / Research Analyst) + the custom-system-prompt upgrade flow.
+- **Vault MCP — LIVE.** A transcript where the agent called `list_files` on the `epistemos-vault` MCP and
+  returned real vault note titles (FUGU_ORCHESTRATION…, GOOSE_MAS_BUILD_CANON…, APPLE_INTELLIGENCE…).
+- **Foundation confirmed live:** de-branded ("E Epistemos"), the one native "Home" pill, Epistemos theme
+  tokens (--epistemos-workspace-bg) in the CSS, cloud default (Opus 4.8), composer = Vault·Forge·Persona.
+- **Thinking Gap-B** committed (hide OpenCode's inert effort knob); all-Zen picker + thinking per-engine =
+  next live check.
+
+**THE RAISED BAR (next):** with the UI stack proven, wire the DETERMINISTIC SUBSTRATE (Finalization
+Mandate) — all native-heavy (agent_core FFI → Swift handlers), so batch into ONE Swift change: EML recall
+rerank flag (EPISTEMOS_EML_RERANK_RECALL_V0=1, read in EmlRecallRerank.swift) to upgrade vault:search-ranked
++ Prompt Forge grounding; RunEventLog capture of CLI tool-calls; the ReplayBundle export FFI (net-new,
+provenance/replay.rs:228 + a bridge.rs entry) → run.export-bundle. record_skill_outcome/recall_procedure
+FFIs already exist (bridge.rs:2911/2931); observe_composition is the one missing wire.
