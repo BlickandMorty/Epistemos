@@ -688,7 +688,31 @@ final class NoteWindowManager {
 
     /// Prefer the live editor body for an open note window, then fall back to the persisted body file.
     func currentBody(for pageId: String, mapped: Bool = false) -> String {
-        editorBody(for: pageId) ?? NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: !mapped)
+        if let editorBody = editorBody(for: pageId) {
+            return editorBody
+        }
+
+        guard let context = AppBootstrap.shared?.modelContainer.mainContext else {
+            return SDPage.legacyManagedOrInlineBody(pageId: pageId, mapped: mapped, fast: !mapped)
+        }
+        let targetId = pageId
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == targetId }
+        )
+        guard let page = try? context.fetch(descriptor).first else {
+            return SDPage.legacyManagedOrInlineBody(pageId: pageId, mapped: mapped, fast: !mapped)
+        }
+        if let filePath = page.filePath,
+           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let vaultBody = VaultIndexActor.decodedBodyFromReadableVaultFile(at: URL(fileURLWithPath: filePath)) {
+            return vaultBody
+        }
+        return SDPage.legacyManagedOrInlineBody(
+            pageId: pageId,
+            inlineBody: page.body,
+            mapped: mapped,
+            fast: !mapped
+        )
     }
 
     private static func findTextView(in view: NSView?) -> NSTextView? {
