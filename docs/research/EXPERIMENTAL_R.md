@@ -1045,3 +1045,18 @@ run-provenance + vault-context-assembly. CRYSTALLIZE: `experimental-cross-run-di
 axis — retrieve IN / write OUT / verify TRUTH / DISCOVER what recurs). No standalone agent learns across
 sessions like this. **RAISED BAR:** promote a discovered workflow into a named, user-accepted macro
 (compose experimental-submission-enhance to draft its description) — the acceptance gate of Mandate #3.
+
+---
+
+**Cycle 25 (2026-07-06) — Skills library ACCEPTANCE GATE (completes Finalization #3).**
+Added the promote-to-skill step: a discovered workflow → "keep" → backend `describe` (one-shot haiku via
+the SDK, COMPOSES experimental-submission-enhance incl. the binary-path lesson + honest fallback) drafts a
+name + when-to-use → user-accepted → persisted `keptSkillsAtom` → shown as "My skills". PROVEN headless:
+["search_notes","read_file"] → name "Search notes then read", when "…locate file references in notes and
+review their complete content." The full #3 flow now lives in the Persona popover (no new button):
+record (provenance) → discover (frequency gate, withhold one-offs) → describe (AI-drafted) → accept (user
+gate) → keep. Composes 3 prior skills. Deployed (UI + backend in tarball). NOT agent-invocable (that needs
+the native agent_core skills registry — honestly out of scope for the CLI-agent surface); it's a curated,
+named, described workflow library the user builds from their own runs — cross-session learning no
+standalone app has. **RAISED BAR:** live-verify the discover→keep flow once real provenance notes
+accumulate; otherwise the four-axis moat (retrieve/verify/write-back/learn) is complete + deployed.
