@@ -1256,3 +1256,17 @@ skills.discover→{skills:[],runsScanned:0}, and a 1-char title→null (the ≥4
 backend stayed alive. Added two assertions to the witness (no-match search → empty; sub-4-char title →
 null) so the fresh-user/empty path stays regression-guarded (13/13). Pure hardening + coverage — no fork
 change, no deploy, running app untouched. Conservative posture holds.
+
+---
+
+**Cycle 40 (2026-07-06) — RECOVERED the relaunch mess + features now LIVE (entry point found).** Found the
+Experimental-surface entry in code: LandingView.swift:191-193 — the "agent" launcher tile opens
+ExperimentalSurfaceView in the EPISTEMOS_EXPERIMENTAL build (it's June ONLY in the App Store build, so
+"agent" here is safe). Also diagnosed my Cycle-37 mess: a ⌘K Command Palette was stuck open (CGEvent KEY
+events don't reach this app reliably — CGEvent CLICKS do; `osascript System Events key code 53` DOES close
+it). Closed the stuck palette via System Events, then CGEvent-clicked "agent": the surface loaded HEALTHY
+(no white-screen), re-unpacked the latest tarball (stamp 174810626 = the current bundle), and now shows
+de-branded "E Epistemos" + the Vault/Forge/Persona composer buttons + the owner's persisted AETHERLINK
+chats. So the ~16 cycles of staged features (Skills library, ranking, cite-repair, VRM chip, cap-honesty)
+are now LIVE + the surface is proven to load them cleanly. Left the app in a BETTER state than Cycle 37
+(Experimental surface + owner context, vs Home + stuck palette). Input-quirk + entry-point recorded in memory.
