@@ -861,3 +861,14 @@ store isn't reachable. Composes `experimental-run-provenance` (extractor already
 noted in that skill (no trophy duplicate). Deployed (full 50s renderer rebuild, verified in tarball).
 **RAISED BAR unchanged:** the whole-run events now feed cleanly into either a live observability console
 or the agent_core ReplayBundle `.epbundle` export (run.export-bundle) when that FFI lands.
+
+---
+
+**Cycle 14 (2026-07-06) — GRAPH-AWARE context assembly (extends Cycle 2/10).** Grounding now expands the
+top vault hit with its `[[wikilink]]` outlink neighbors (resolved to real notes; dangling links skipped),
+tagged "(linked from X)". Backend-only (no new UI — the owner likes the current surface), read-only +
+bounded. The personal-concept-graph moat the field study says standalone apps structurally lack — done
+with zero graph engine (the graph IS the wikilinks). PROVEN headless on a fixture (alpha → Alpha + Beta +
+Gamma via graph). Technique noted in experimental-vault-context-assembly. Deployed (verified in tarball).
+**RAISED BAR:** backlinks (notes that link TO the hit) as a second graph signal; and multi-hop when the
+budget allows. The retrieval axis is now: shadow RRF → whole-vault fs → graph-neighbor expansion.
