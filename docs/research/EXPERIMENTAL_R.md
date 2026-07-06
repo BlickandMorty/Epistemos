@@ -1163,3 +1163,17 @@ rather than block. The rest reviewed clean: checkCitations bounded to 40 with in
 guard correct; grounding injects the user's OWN notes (trusted, not an external injection vector). Deployed
 (bound confirmed in tarball). The core path is now latency-bounded end to end (backend 300cand/24MB +
 occ-cap; renderer 2500ms send bound). Real hardening over manufactured surface.
+
+---
+
+**Cycle 33 (2026-07-06) — cite-check REPAIR (detect → "did you mean [[X]]?"), a genuine verification-axis
+deepening.** Turned cite-check from detect-only into detect+repair: for each UNVERIFIED [[citation]],
+`nearestNoteTitle` finds the closest real note by title-token overlap (≥4-char shared token) and surfaces
+"did you mean [[X]]?" — HIGH-CONFIDENCE ONLY, withholding when no significant token matches (a wrong
+suggestion is worse than none). Composes substrate-verification (the miss) + vault-context-assembly (the
+lookup). PROVEN headless + witness (11/11, incl. the WITHHOLD case): "Project Roadmap 2027"→[[Roadmap]],
+"Auth Design Spec"→[[Authentication Design]], "Quantum Teleportation"→null. CRYSTALLIZED as
+`experimental-substrate-repair` (the reusable detect→repair class — cite-check, broken wikilinks,
+wrong-tool suggestion). Deployed (UI + backend in tarball). No standalone agent can repair a citation
+against the user's real KB. **RAISED BAR:** the repair pattern now applies anywhere a substrate lookup can
+correct an agent miss; the withhold gate is the reusable discipline.
