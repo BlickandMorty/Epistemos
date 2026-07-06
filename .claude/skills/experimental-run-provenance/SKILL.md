@@ -32,6 +32,11 @@ No standalone app persists an auditable run to a personal knowledge base.
 
 ## Reuse targets (later cycles compose THIS)
 - `run.export-bundle`: the same events → a ReplayBundle `.epbundle` checkable by `epistemos-trace`.
+- Whole-run (not per-turn): the extractor takes a message ARRAY, so read the sub-chat's full
+  message list IMPERATIVELY from the global jotai store in the click handler (not hooks):
+  `appStore.get(messageIdsPerChatAtom(subChatId))` → map each id via
+  `appStore.get(messageAtomFamily(getPerChatMessageKey(subChatId, id)))`. Fall back to the single
+  message if the store isn't reachable. This is how a per-message button audits the entire session.
 - Provenance/observability console: render the events + running hash + costs in a web panel
   (whole-run: pass all messages, not just one — the extractor already takes an array).
 - Combine with `experimental-substrate-verification`: a run record whose citations are cite-checked.
