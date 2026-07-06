@@ -79,6 +79,35 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("CodeFileService source writes use AtomicVaultWriter for vault files")
+    func codeFileServiceSourceWritesUseAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/CodeFileService.swift")
+        let create = Self.sourceSection(
+            in: source,
+            startingAt: "public func createCodeFile",
+            endingBefore: "    // MARK: - Read"
+        )
+        let update = Self.sourceSection(
+            in: source,
+            startingAt: "public func updateCodeFile",
+            endingBefore: "    // MARK: - Delete"
+        )
+
+        #expect(
+            create?.contains("try AtomicVaultWriter.writeSynchronously(resolvedBody, to: fileURL.url)") == true,
+            "CodeFileService.createCodeFile writes a vault source file and must use the coordinated temp-replace spine."
+        )
+        #expect(
+            update?.contains("try AtomicVaultWriter.writeSynchronously(body, to: contained.url)") == true,
+            "CodeFileService.updateCodeFile writes a vault source file and must use the coordinated temp-replace spine."
+        )
+        #expect(
+            create?.contains("bodyData.write(to: fileURL.url") == false
+                && update?.contains("bodyData.write(to: contained.url") == false,
+            "CodeFileService source writes must not regress to direct Foundation Data.write APIs."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory

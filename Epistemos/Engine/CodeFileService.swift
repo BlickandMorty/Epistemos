@@ -162,7 +162,7 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         let resolvedBody = body ?? kind.newFileTemplate(name: validatedName)
         let bodyData = Data(resolvedBody.utf8)
         do {
-            try bodyData.write(to: fileURL.url, options: .atomic)
+            try AtomicVaultWriter.writeSynchronously(resolvedBody, to: fileURL.url)
             try verifySourceWrite(bodyData, at: fileURL.url)
         } catch let error as ServiceError {
             throw error
@@ -236,7 +236,7 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         }
         let bodyData = Data(body.utf8)
         do {
-            try bodyData.write(to: contained.url, options: .atomic)
+            try AtomicVaultWriter.writeSynchronously(body, to: contained.url)
             try verifySourceWrite(bodyData, at: contained.url)
         } catch let error as ServiceError {
             throw error

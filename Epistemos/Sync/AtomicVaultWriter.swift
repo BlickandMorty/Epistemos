@@ -23,10 +23,17 @@ actor AtomicVaultWriter {
     private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "AtomicVaultWriter")
 
     func write(_ content: String, to targetURL: URL) throws {
+        try Self.writeSynchronously(content, to: targetURL)
+    }
+
+    nonisolated static func writeSynchronously(_ content: String, to targetURL: URL) throws {
         guard let data = content.data(using: .utf8) else {
             throw AtomicVaultWriteError.encodingFailed
         }
+        try writeSynchronously(data, to: targetURL)
+    }
 
+    private nonisolated static func writeSynchronously(_ data: Data, to targetURL: URL) throws {
         let activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiated, .idleSystemSleepDisabled],
             reason: "Epistemos atomic vault write"
