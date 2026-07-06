@@ -25,6 +25,7 @@ Source-level KEELSTONE release gate guardrails:
   - exactly two application targets: Epistemos and Epistemos-AppStore
   - target-scoped EPISTEMOS_EXPERIMENTAL / EPISTEMOS_APP_STORE / KINDRED_ENABLED macros
   - no OpenChamber / ProAgent / PRO_BUILD / openchamber residue in sources, tests, scripts, or project.yml
+  - data-safety soak and first-run/upgrade witness tests remain wired
   - source entitlement plists match the approved direct and MAS posture
 
 If app paths are supplied, the script also validates effective codesign entitlements.
@@ -167,6 +168,22 @@ effective_entitlements() {
   return 1
 }
 
+require_file_contains() {
+  local relative_path="$1"
+  local needle="$2"
+  local label="$3"
+  local path="${ROOT_DIR}/${relative_path}"
+  if [[ ! -f "${path}" ]]; then
+    fail "${label} missing file ${relative_path}"
+    return
+  fi
+  if grep -Fq "${needle}" "${path}"; then
+    pass "${label}"
+  else
+    fail "${label} missing '${needle}' in ${relative_path}"
+  fi
+}
+
 echo "==> KEELSTONE §9.4 target and macro drift"
 app_targets=()
 while IFS= read -r target_name; do
@@ -232,6 +249,25 @@ require_plist_key "${appstore_entitlements}" "com.apple.security.files.bookmarks
 require_plist_no_key "${appstore_entitlements}" "com.apple.security.cs.allow-jit" "App Store entitlements"
 require_plist_no_key "${appstore_entitlements}" "com.apple.security.cs.disable-library-validation" "App Store entitlements"
 require_plist_no_key "${appstore_entitlements}" "com.apple.security.files.bookmarks.document-scope" "App Store entitlements"
+
+echo ""
+echo "==> KEELSTONE §9.1-§9.3 data-safety and upgrade witnesses"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func killNineDuringVaultReplacementNeverLeavesPartialNote()" "Data-safety soak witness: kill -9 during vault replacement"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneIncrementalReconcileEqualsFreshRebuild()" "Data-safety soak witness: incremental reconcile equals fresh rebuild"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func dirtyLiveEditorExternalEditCreatesConflictCopy()" "Data-safety soak witness: dirty external edit conflict-copy flow"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceSelfWriteWindowStillReconcilesEvents()" "Data-safety soak witness: sync-race/self-write event reconcile"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func iCloudMaterializerUsesAsyncMetadataQuery()" "Data-safety soak witness: async iCloud materialization"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneSearchIndexCorruptionQuarantinesAndRebuildsFromSnapshots()" "Data-safety soak witness: corrupt index quarantine and rebuild"
+require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func simulatedFirstRunEndToEnd()" "Upgrade matrix witness: fresh first-run empty vault"
+require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func partialScaffoldRecovers()" "Upgrade matrix witness: partial first-run scaffold recovery"
+require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func idempotentBootstrap()" "Upgrade matrix witness: relaunch/idempotent bootstrap"
+require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func startupBookmarkValidationRejectsStaleBookmarks()" "Upgrade matrix witness: stale bookmark blocks automatic restore"
+require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func masStartupBookmarkValidationRejectsPlainResolvedBookmarks()" "Upgrade matrix witness: MAS rejects non-security-scoped bookmark restore"
+require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func masPersistVaultSelectionRefusesPlainBookmarkFallback()" "Upgrade matrix witness: MAS refuses plain bookmark fallback"
+require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func switchingFromDisconnectedCacheClearsStaleNotesAndGraphBeforeImportingSelectedVault()" "Upgrade matrix witness: switching vaults clears disconnected stale cache"
+require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func securityScopedBookmarkRoundTripsAcrossWriteCycle()" "Upgrade matrix witness: bookmark survives write-cycle re-resolve"
+require_file_contains ".github/workflows/ci.yml" "./scripts/keelstone-release-gate.sh --appstore-app" "Release workflow witness: App Store built app participates in KEELSTONE gate"
+require_file_contains ".github/workflows/release.yml" "./scripts/keelstone-release-gate.sh --direct-app" "Release workflow witness: direct built app participates in KEELSTONE gate"
 
 if [[ -n "${DIRECT_APP}" || -n "${APPSTORE_APP}" ]]; then
   echo ""
