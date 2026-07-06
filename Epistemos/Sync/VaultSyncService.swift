@@ -4499,20 +4499,18 @@ final class VaultSyncService {
     private func removeVaultItem(at url: URL, label: String) {
         suppressFileWatcherForSelfOriginatedChange()
         do {
-            var trashedURL: NSURL?
-            try FileManager.default.trashItem(at: url, resultingItemURL: &trashedURL)
-            log.info("Moved \(label, privacy: .public) to Trash: \(url.path, privacy: .private)")
+            let result = try CoordinatedVaultFileMutation.trashOrRemoveItem(at: url)
+            switch result {
+            case .trashed:
+                log.info("Moved \(label, privacy: .public) to Trash: \(url.path, privacy: .private)")
+            case .removed:
+                log.info("Deleted \(label, privacy: .public): \(url.path, privacy: .private)")
+            }
             publishVaultMutation(.vaultChanged)
         } catch {
-            do {
-                try FileManager.default.removeItem(at: url)
-                log.info("Deleted \(label, privacy: .public): \(url.path, privacy: .private)")
-                publishVaultMutation(.vaultChanged)
-            } catch {
-                log.error(
-                    "Failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-            }
+            log.error(
+                "Failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -4604,7 +4602,7 @@ final class VaultSyncService {
             suppressFileWatcherForSelfOriginatedChange()
             try FileManager.default.createDirectory(
                 at: parentURL, withIntermediateDirectories: true)
-            try FileManager.default.moveItem(at: oldURL, to: newURL)
+            try CoordinatedVaultFileMutation.moveItem(at: oldURL, to: newURL)
             log.info(
                 "Renamed directory: \(oldRelativePath, privacy: .public) → \(newRelativePath, privacy: .public)"
             )
@@ -4670,7 +4668,7 @@ final class VaultSyncService {
                         suffix += 1
                     }
 
-                    try FileManager.default.moveItem(at: oldURL, to: newURL)
+                    try CoordinatedVaultFileMutation.moveItem(at: oldURL, to: newURL)
                     performedMove = (from: oldURL, to: newURL)
                 }
 
@@ -4690,7 +4688,7 @@ final class VaultSyncService {
                 // re-imports as a DUPLICATE page on the next launch (store still points
                 // at the old path; the file now sits at the new one).
                 if let move = performedMove {
-                    try? FileManager.default.moveItem(at: move.to, to: move.from)
+                    try? CoordinatedVaultFileMutation.moveItem(at: move.to, to: move.from)
                     page.filePath = move.from.path
                 }
                 throw error

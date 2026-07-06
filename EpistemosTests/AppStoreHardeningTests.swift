@@ -108,6 +108,64 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Vault rename move and delete mutations use NSFileCoordinator")
+    func vaultRenameMoveAndDeleteMutationsUseNSFileCoordinator() throws {
+        let helper = try loadMirroredSourceTextFile("Epistemos/Sync/CoordinatedVaultFileMutation.swift")
+        let service = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let actor = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        let serviceRemove = Self.sourceSection(
+            in: service,
+            startingAt: "private func removeVaultItem",
+            endingBefore: "    /// Delete the .md file for a page from the vault."
+        )
+        let serviceRenameDirectory = Self.sourceSection(
+            in: service,
+            startingAt: "func renameDirectory",
+            endingBefore: "    /// Move a page's markdown file"
+        )
+        let serviceMovePage = Self.sourceSection(
+            in: service,
+            startingAt: "func movePage",
+            endingBefore: "\n}\n\n@MainActor\nenum VaultConnectionActions"
+        )
+        let actorRename = Self.sourceSection(
+            in: actor,
+            startingAt: "func renamePageFile",
+            endingBefore: "    // MARK: - Handle Deletion"
+        )
+
+        #expect(
+            helper.contains("NSFileCoordinator(filePresenter: nil)")
+                && helper.contains("options: .forMoving")
+                && helper.contains("options: .forDeleting"),
+            "Vault move/delete mutations must coordinate with iCloud/FileProvider peers, not mutate user-selected vault files directly."
+        )
+        #expect(
+            serviceRemove?.contains("CoordinatedVaultFileMutation.trashOrRemoveItem") == true,
+            "VaultSyncService user deletes must use the coordinated delete/trash helper."
+        )
+        #expect(
+            serviceRenameDirectory?.contains("CoordinatedVaultFileMutation.moveItem") == true,
+            "VaultSyncService directory renames must use coordinated moves."
+        )
+        #expect(
+            serviceMovePage?.contains("CoordinatedVaultFileMutation.moveItem") == true,
+            "VaultSyncService page moves and rollback moves must use coordinated moves."
+        )
+        #expect(
+            actorRename?.contains("CoordinatedVaultFileMutation.moveItem") == true,
+            "VaultIndexActor page filename renames must use coordinated moves."
+        )
+        #expect(
+            serviceRemove?.contains("FileManager.default.removeItem") == false
+                && serviceRenameDirectory?.contains("FileManager.default.moveItem") == false
+                && serviceMovePage?.contains("FileManager.default.moveItem") == false
+                && actorRename?.contains("FileManager.default.moveItem") == false,
+            "Production vault mutation seams must not regress to raw FileManager move/remove calls."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory

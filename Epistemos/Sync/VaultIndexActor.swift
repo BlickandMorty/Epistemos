@@ -1291,7 +1291,7 @@ actor VaultIndexActor {
             // The authored body is safe — it still lives in the store / managed
             // body, and the next successful export rewrites the file.
             if isNewFile {
-                try? FileManager.default.removeItem(at: fileURL)
+                try? CoordinatedVaultFileMutation.removeItem(at: fileURL)
                 page.filePath = nil
             }
             throw error
@@ -1344,7 +1344,7 @@ actor VaultIndexActor {
 
         // Move the file
         guard FileManager.default.fileExists(atPath: oldURL.path) else { return nil }
-        try FileManager.default.moveItem(at: oldURL, to: newURL)
+        try CoordinatedVaultFileMutation.moveItem(at: oldURL, to: newURL)
         updateCodeSidecarAfterFileRename(oldURL: oldURL, newURL: newURL, vaultURL: vaultURL)
         page.filePath = newURL.path
         try saveContext("renamed page file")
@@ -2170,7 +2170,7 @@ actor VaultIndexActor {
             )
             try JSONEncoder.epdocCanonical.encode(migrated).write(to: newSidecarURL, options: .atomic)
             if oldSidecarURL.path != newSidecarURL.path {
-                try? FileManager.default.removeItem(at: oldSidecarURL)
+                try? CoordinatedVaultFileMutation.removeItem(at: oldSidecarURL)
             }
         } catch {
             log.warning("Failed to migrate code sidecar after rename: \(error.localizedDescription, privacy: .public)")
