@@ -66,6 +66,17 @@ nonisolated struct PerfBudgetsTests {
         // bash parser; pinning it here prevents accidental rename).
         #expect(observed["meta"]?["runtime_results_path"] != nil,
                 "[meta].runtime_results_path must be present (used by check-perf-budgets.sh)")
+        #expect(observed["meta"]?["keelstone_results_path"] == "build/perf-budgets-keelstone.json",
+                "[meta].keelstone_results_path must be present (used by the KEELSTONE perf gate)")
+
+        for (section, keys) in Self.keelstoneBudgetKeys {
+            for key in keys {
+                #expect(
+                    observed[section]?[key] != nil,
+                    "docs/perf-budgets.toml must declare [\(section)].\(key)"
+                )
+            }
+        }
     }
 
     // MARK: - check-perf-budgets.sh
@@ -94,6 +105,24 @@ nonisolated struct PerfBudgetsTests {
         ] {
             #expect(script.contains(key),
                     "scripts/check-perf-budgets.sh must reference [binary].\(key) — otherwise the budget is silently ignored")
+        }
+    }
+
+    @Test("check-perf-budgets.sh consumes every KEELSTONE budget and has a seeded regression path")
+    func parserScriptKnowsAllKeelstoneBudgets() throws {
+        let script = try Self.loadText("scripts/check-perf-budgets.sh")
+        #expect(script.contains("KEELSTONE_SEED_PERF_REGRESSION"),
+                "scripts/check-perf-budgets.sh must expose a seeded KEELSTONE regression path")
+        #expect(script.contains("keelstone_results_path"),
+                "scripts/check-perf-budgets.sh must consume [meta].keelstone_results_path")
+
+        for (section, keys) in Self.keelstoneBudgetKeys {
+            #expect(script.contains(section),
+                    "scripts/check-perf-budgets.sh must reference [\(section)]")
+            for key in keys {
+                #expect(script.contains(key),
+                        "scripts/check-perf-budgets.sh must reference [\(section)].\(key) — otherwise the KEELSTONE budget is silently ignored")
+            }
         }
     }
 
@@ -147,4 +176,44 @@ nonisolated struct PerfBudgetsTests {
         }
         return result
     }
+
+    private static let keelstoneBudgetKeys: [(String, [String])] = [
+        ("keelstone.reference", [
+            "hardware",
+            "vault_notes",
+        ]),
+        ("keelstone.launch", [
+            "cold_to_interactive_p50_ms",
+            "cold_to_interactive_p95_ms",
+            "warm_to_interactive_p50_ms",
+        ]),
+        ("keelstone.editor", [
+            "first_open_p50_ms",
+            "first_open_p95_ms",
+        ]),
+        ("keelstone.search", [
+            "first_search_ready_p50_ms",
+            "first_search_ready_p95_ms",
+        ]),
+        ("keelstone.reconcile", [
+            "after_1000_changes_max_ms",
+            "main_thread_fs_ops",
+        ]),
+        ("keelstone.memory", [
+            "idle_resident_mb_max",
+        ]),
+        ("keelstone.thermal", [
+            "no_escalation_under_soak_minutes",
+        ]),
+        ("keelstone.enterprise", [
+            "vault_notes",
+        ]),
+        ("keelstone.enterprise.budgets", [
+            "cold_to_interactive_p95_ms",
+            "first_search_ready_p95_ms",
+            "reconcile_20k_change_burst_max_ms",
+            "idle_resident_mb_max",
+            "wal_file_mb_max",
+        ]),
+    ]
 }

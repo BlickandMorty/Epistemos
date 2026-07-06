@@ -22,6 +22,11 @@
 #                enforces it via env EPISTEMOS_APPSTORE_BUNDLE_SIZE_LIMIT_MB.
 #                Logged here for one-document budget visibility.
 #
+#   [keelstone.*] — reads measurement JSON from [meta].keelstone_results_path.
+#                If absent, prints "no measurement yet" and does not fail.
+#                KEELSTONE_SEED_PERF_REGRESSION=1 writes an over-budget
+#                measurement to prove the CI gate fails on regression.
+#
 # Designed to run from the repo root with no toml dependency. Uses
 # awk for TOML parsing — keys live on individual `key = value` lines
 # inside `[section]` headers, no nested tables, no inline comments
@@ -85,6 +90,26 @@ toml_get() {
             }
         }
     ' "${BUDGETS_TOML}"
+}
+
+json_get_flat() {
+    local file="$1"
+    local key="$2"
+    awk -v k="${key}" '
+        {
+            gsub(/[{}",]/, " ")
+            for (i = 1; i <= NF; i++) {
+                if ($i == k ":" || $i == k) {
+                    for (j = i + 1; j <= NF; j++) {
+                        if ($j != ":" && $j != "") {
+                            print $j
+                            exit
+                        }
+                    }
+                }
+            }
+        }
+    ' "${file}"
 }
 
 # ---------------------------------------------------------------------------
@@ -179,22 +204,7 @@ else
             continue
         fi
         # Naive JSON read: expects flat object {"cold_start_ms_p99": 765.0, ...}
-        actual=$(awk -v k="${key}" '
-            {
-                gsub(/[{}",]/, " ")
-                for (i = 1; i <= NF; i++) {
-                    if ($i == k ":" || $i == k) {
-                        # next non-empty token is the value
-                        for (j = i + 1; j <= NF; j++) {
-                            if ($j != ":" && $j != "") {
-                                print $j
-                                exit
-                            }
-                        }
-                    }
-                }
-            }
-        ' "${runtime_results_full}")
+        actual="$(json_get_flat "${runtime_results_full}" "${key}")"
 
         if [[ -z "${actual}" ]]; then
             echo "::warning::Runtime measurement for ${key} not found in ${runtime_results_path}" >&2
@@ -210,6 +220,118 @@ else
             printf "  %-22s  %8s ≤ %s  OK\n" "${key}" "${actual}" "${budget}"
         fi
     done
+fi
+
+# ---------------------------------------------------------------------------
+# KEELSTONE budgets (release-blocking when measurements exist).
+# ---------------------------------------------------------------------------
+
+keelstone_results_path="$(toml_get meta keelstone_results_path)"
+keelstone_results_path="${keelstone_results_path:-build/perf-budgets-keelstone.json}"
+keelstone_results_full="${REPO_ROOT}/${keelstone_results_path}"
+keelstone_seeded_path=""
+
+declare -a KEELSTONE_KEYS=(
+    "keelstone.launch             | cold_to_interactive_p50_ms       | keelstone_launch_cold_to_interactive_p50_ms       | max"
+    "keelstone.launch             | cold_to_interactive_p95_ms       | keelstone_launch_cold_to_interactive_p95_ms       | max"
+    "keelstone.launch             | warm_to_interactive_p50_ms       | keelstone_launch_warm_to_interactive_p50_ms       | max"
+    "keelstone.editor             | first_open_p50_ms                | keelstone_editor_first_open_p50_ms                | max"
+    "keelstone.editor             | first_open_p95_ms                | keelstone_editor_first_open_p95_ms                | max"
+    "keelstone.search             | first_search_ready_p50_ms        | keelstone_search_first_search_ready_p50_ms        | max"
+    "keelstone.search             | first_search_ready_p95_ms        | keelstone_search_first_search_ready_p95_ms        | max"
+    "keelstone.reconcile          | after_1000_changes_max_ms        | keelstone_reconcile_after_1000_changes_max_ms     | max"
+    "keelstone.reconcile          | main_thread_fs_ops               | keelstone_reconcile_main_thread_fs_ops            | max"
+    "keelstone.memory             | idle_resident_mb_max             | keelstone_memory_idle_resident_mb                 | max"
+    "keelstone.thermal            | no_escalation_under_soak_minutes | keelstone_thermal_no_escalation_under_soak_minutes | min"
+    "keelstone.enterprise.budgets | cold_to_interactive_p95_ms       | keelstone_enterprise_cold_to_interactive_p95_ms   | max"
+    "keelstone.enterprise.budgets | first_search_ready_p95_ms        | keelstone_enterprise_first_search_ready_p95_ms    | max"
+    "keelstone.enterprise.budgets | reconcile_20k_change_burst_max_ms | keelstone_enterprise_reconcile_20k_change_burst_ms | max"
+    "keelstone.enterprise.budgets | idle_resident_mb_max             | keelstone_enterprise_idle_resident_mb             | max"
+    "keelstone.enterprise.budgets | wal_file_mb_max                  | keelstone_enterprise_wal_file_mb                  | max"
+)
+
+echo ""
+echo "==> [keelstone.*] budgets"
+keelstone_failures=0
+keelstone_missing=0
+keelstone_checked=0
+
+if [[ "${KEELSTONE_SEED_PERF_REGRESSION:-0}" == "1" ]]; then
+    keelstone_seeded_path="$(mktemp "${TMPDIR:-/tmp}/keelstone-perf-regression.XXXXXX.json")"
+    cat >"${keelstone_seeded_path}" <<'JSON'
+{
+  "keelstone_launch_cold_to_interactive_p50_ms": 999999,
+  "keelstone_launch_cold_to_interactive_p95_ms": 999999,
+  "keelstone_launch_warm_to_interactive_p50_ms": 999999,
+  "keelstone_editor_first_open_p50_ms": 999999,
+  "keelstone_editor_first_open_p95_ms": 999999,
+  "keelstone_search_first_search_ready_p50_ms": 999999,
+  "keelstone_search_first_search_ready_p95_ms": 999999,
+  "keelstone_reconcile_after_1000_changes_max_ms": 999999,
+  "keelstone_reconcile_main_thread_fs_ops": 1,
+  "keelstone_memory_idle_resident_mb": 999999,
+  "keelstone_thermal_no_escalation_under_soak_minutes": 0,
+  "keelstone_enterprise_cold_to_interactive_p95_ms": 999999,
+  "keelstone_enterprise_first_search_ready_p95_ms": 999999,
+  "keelstone_enterprise_reconcile_20k_change_burst_ms": 999999,
+  "keelstone_enterprise_idle_resident_mb": 999999,
+  "keelstone_enterprise_wal_file_mb": 999999
+}
+JSON
+    keelstone_results_full="${keelstone_seeded_path}"
+fi
+
+if [[ ! -f "${keelstone_results_full}" ]]; then
+    for entry in "${KEELSTONE_KEYS[@]}"; do
+        IFS='|' read -r raw_section raw_key _raw_metric _raw_direction <<< "${entry}"
+        section="$(echo "${raw_section}" | xargs)"
+        key="$(echo "${raw_key}" | xargs)"
+        budget="$(toml_get "${section}" "${key}")"
+        printf "  %-48s  budget %s  — no measurement yet (%s)\n" \
+            "${section}.${key}" "${budget}" "${keelstone_results_path}"
+    done
+else
+    for entry in "${KEELSTONE_KEYS[@]}"; do
+        IFS='|' read -r raw_section raw_key raw_metric raw_direction <<< "${entry}"
+        section="$(echo "${raw_section}" | xargs)"
+        key="$(echo "${raw_key}" | xargs)"
+        metric="$(echo "${raw_metric}" | xargs)"
+        direction="$(echo "${raw_direction}" | xargs)"
+
+        budget="$(toml_get "${section}" "${key}")"
+        if [[ -z "${budget}" ]]; then
+            echo "::error::perf-budgets.toml is missing [${section}].${key}" >&2
+            keelstone_failures=$((keelstone_failures + 1))
+            continue
+        fi
+
+        actual="$(json_get_flat "${keelstone_results_full}" "${metric}")"
+        if [[ -z "${actual}" ]]; then
+            echo "::error::KEELSTONE measurement ${metric} not found in ${keelstone_results_path}" >&2
+            keelstone_missing=$((keelstone_missing + 1))
+            continue
+        fi
+
+        keelstone_checked=$((keelstone_checked + 1))
+        if [[ "${direction}" == "min" ]]; then
+            cmp="$(awk -v a="${actual}" -v b="${budget}" 'BEGIN { print (a + 0 < b + 0) ? "1" : "0" }')"
+            symbol="≥"
+        else
+            cmp="$(awk -v a="${actual}" -v b="${budget}" 'BEGIN { print (a + 0 > b + 0) ? "1" : "0" }')"
+            symbol="≤"
+        fi
+
+        if [[ "${cmp}" == "1" ]]; then
+            echo "::error title=KEELSTONE perf budget exceeded::${metric}: ${actual} violates ${symbol} ${budget} ([${section}].${key} in docs/perf-budgets.toml)"
+            keelstone_failures=$((keelstone_failures + 1))
+        else
+            printf "  %-48s  %8s %s %s  OK\n" "${metric}" "${actual}" "${symbol}" "${budget}"
+        fi
+    done
+fi
+
+if [[ -n "${keelstone_seeded_path}" ]]; then
+    rm -f "${keelstone_seeded_path}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -230,11 +352,18 @@ echo ""
 echo "==> summary"
 echo "  binary:  ${binary_checked} checked, ${binary_skipped} skipped, ${binary_failures} failed"
 echo "  runtime: $([ -f "${runtime_results_full}" ] && echo "measured" || echo "no measurement file")"
+echo "  keelstone: ${keelstone_checked} checked, ${keelstone_missing} missing, ${keelstone_failures} failed"
 
 if (( binary_failures > 0 )); then
     exit 1
 fi
 if (( runtime_failures > 0 )); then
     exit 2
+fi
+if (( keelstone_missing > 0 )); then
+    exit 2
+fi
+if (( keelstone_failures > 0 )); then
+    exit 1
 fi
 exit 0

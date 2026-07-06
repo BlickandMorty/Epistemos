@@ -27,6 +27,7 @@
 libagent_core_mb_max     = 16   # actual 14.3
 libepistemos_core_mb_max = 6    # actual 3.8
 libomega_mcp_mb_max      = 4    # actual 2.3
+libomega_ax_mb_max       = 4
 
 # substrate-rt is the dpp-Sprint-4 carve-out (Wave 5). Until that crate
 # ships, this budget exists as a TARGET only — the parser must not fail
@@ -158,3 +159,7 @@ wal_file_mb_max = 512
 # write this file from the morning-session benchmark; until it exists
 # the runtime budgets are reported but not enforced.
 runtime_results_path = "build/perf-budgets-runtime.json"
+
+# Where the parser looks for KEELSTONE vault-sync durability/perf measurements.
+# CI can prove this gate with KEELSTONE_SEED_PERF_REGRESSION=1.
+keelstone_results_path = "build/perf-budgets-keelstone.json"
