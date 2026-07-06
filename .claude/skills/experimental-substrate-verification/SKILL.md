@@ -49,3 +49,6 @@ Prove live: a reply that cites a REAL note → "verified"; a reply citing a fabr
 ## Proven (Cycle 5)
 `CiteCheckButton` on assistant replies: extracts `[[citations]]`, verifies each via the RRF
 index, reports "N/M verified · not found: [[X]]". Never passes a citation without a real match.
+
+## Reuse (Cycle 33/VRM)
+- **Ambient trust chip:** surface the verdict as a per-reply Verified/Plausible/Speculative chip — but bound the cost (auto-run ONCE per item, cached; only on the freshly-completed item; render nothing when N/A). The discipline: an ambient verifier must never fan out backend calls across a scrolled history.

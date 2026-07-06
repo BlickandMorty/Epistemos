@@ -1177,3 +1177,19 @@ lookup). PROVEN headless + witness (11/11, incl. the WITHHOLD case): "Project Ro
 wrong-tool suggestion). Deployed (UI + backend in tarball). No standalone agent can repair a citation
 against the user's real KB. **RAISED BAR:** the repair pattern now applies anywhere a substrate lookup can
 correct an agent miss; the withhold gate is the reusable discipline.
+
+---
+
+**Cycle 34 (2026-07-06) — VRM trust chip (Verified/Plausible/Speculative) — Finalization #2's chip item,
+shipped honestly for the CLI surface.** Built the grounding-confidence chip that rides the REPLY (no
+AnswerPacket here): it reports how a reply's [[citations]] resolve vs the real vault — Verified (all resolve)
+/ Plausible (some) / Speculative (cites notes but NONE resolve = likely hallucination). The design solved
+my long-standing cost/clutter objection: renders NOTHING without [[citations]] (normal replies stay clean),
+auto-runs cite-check ONCE per message id (module cache) and ONLY for the freshly-completed last reply
+(autoRun = isLastMessage && !isStreaming) — scrolling old replies never fans out backend calls. Honest: on
+error it shows nothing, never a fake verdict. Composes substrate-verification (extended its skill with the
+ambient-chip cost discipline rather than forge a trophy). Deployed (chip in tarball). This closes the last
+pure-web-applicable Finalization-#2 item: cite-check ✓, EML-rerank essence ✓ (whole-vault ranking), VRM
+chip ✓; run.export-bundle/RunEventLog remain agent_core-runtime N/A (provenance covers them). **RAISED
+BAR:** the trust surface is now ambient, not just on-demand — the agent's grounding confidence is visible
+at a glance on every answer that makes vault claims.
