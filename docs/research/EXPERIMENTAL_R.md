@@ -1402,3 +1402,15 @@ metadata instead of note content. Added `contentBody` (strip leading front-matte
 vault-RETRIEVAL layer is now fully real-vault-hardened: every title form recognized (Cycles 43-49) AND
 grounded context is clean of metadata noise (Cycle 50). Six realistic-input improvements; the substrate
 now behaves correctly + cleanly on the vaults people actually keep.
+
+---
+
+**Cycle 51 (2026-07-06) — ranking boosts by the note's REAL title (completes title-consistency).** A gap
+introduced by the title work itself: searchVaultNotes now DISPLAYS the H1/front-matter title, but its
+relevance ranking computed the title-match boost from the FILENAME only — so a query matching a note's
+actual title got no boost on a slug/ordinal filename and ranked like a random content mention. Now the
+title-match string is filename + every real title (H1 + front-matter title + aliases, from content already
+read). PROVEN headless + witness (22/22): "product strategy" ranks the H1-titled slug note first; the
+dated-log ("Architecture Decision") ranks above a content mention. So the whole retrieval layer —
+cite-check, grounding display, graph link resolution, AND ranking — is now uniformly title-aware. Seven
+realistic-input passes; the substrate is title-consistent end to end.
