@@ -293,6 +293,46 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("VaultSyncService root unavailability preserves state and blocks writes")
+    func vaultSyncServiceRootUnavailableFreezesMountedVault() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let eventHandler = Self.sourceSection(
+            in: source,
+            startingAt: "fileprivate func handleVaultFileSystemEvents",
+            endingBefore: "nonisolated static func classifyVaultFileSystemEvent"
+        )
+        let unavailableHandler = Self.sourceSection(
+            in: source,
+            startingAt: "private func handleVaultVolumeUnavailable",
+            endingBefore: "nonisolated static func classifyVaultFileSystemEvent"
+        )
+        let fileFirstSave = Self.sourceSection(
+            in: source,
+            startingAt: "func savePageBodyFileFirst",
+            endingBefore: "    @discardableResult\n    func recoverDraftIfNewer"
+        )
+
+        #expect(
+            source.contains("signalsVaultRootAvailabilityChange"),
+            "RootChanged/Mount/Unmount FSEvents must be classified separately from ordinary note edits."
+        )
+        #expect(
+            eventHandler?.contains("!isReadableVaultURL(vaultURL)") == true
+                && eventHandler?.contains("handleVaultVolumeUnavailable(") == true,
+            "A root-change event for a missing/unreadable vault must enter the volume-unavailable branch before reconcile."
+        )
+        #expect(
+            unavailableHandler?.contains("currentVaultHealthSnapshot(restoreFailed: true)") == true
+                && unavailableHandler?.contains("stopWatching(preserveData: true)") == true
+                && unavailableHandler?.contains("recoveryIssue = VaultRecoveryIssue") == true,
+            "Volume-unavailable handling must preserve local state, stop active vault IO, and surface a recovery issue."
+        )
+        #expect(
+            fileFirstSave?.contains("guard let vaultURL else") == true,
+            "Once the unavailable handler clears the active vault URL, body saves must fail visibly instead of writing to a stale path."
+        )
+    }
+
     @Test("Experimental backend quit cleanup reaps process trees across 100 cycles")
     func experimentalBackendQuitReapsProcessTreeForHundredCycleSoak() throws {
         let supervisor = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalRuntimeSupervisor.swift")

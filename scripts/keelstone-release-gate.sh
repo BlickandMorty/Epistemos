@@ -298,6 +298,7 @@ require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "killNineVau
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultNoteEditorProductionSeamUsesCoordinatedVaultIO()" "Data-safety witness: agent note editor default seam uses coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneIncrementalReconcileEqualsFreshRebuild()" "Data-safety soak witness: incremental reconcile equals fresh rebuild"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceFSEventsClassificationIsExecutable()" "Data-safety witness: FSEvents escalation classifier is executable"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceRootUnavailableFreezesMountedVault()" "Data-safety witness: root unavailability freezes active vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func dirtyLiveEditorExternalEditCreatesConflictCopy()" "Data-safety soak witness: dirty external edit conflict-copy flow"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceSelfWriteWindowStillReconcilesEvents()" "Data-safety soak witness: sync-race/self-write event reconcile"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func iCloudMaterializerUsesAsyncMetadataQuery()" "Data-safety soak witness: async iCloud materialization"
@@ -311,6 +312,7 @@ require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func ma
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func masPersistVaultSelectionRefusesPlainBookmarkFallback()" "Upgrade matrix witness: MAS refuses plain bookmark fallback"
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func switchingFromDisconnectedCacheClearsStaleNotesAndGraphBeforeImportingSelectedVault()" "Upgrade matrix witness: switching vaults clears disconnected stale cache"
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func securityScopedBookmarkRoundTripsAcrossWriteCycle()" "Upgrade matrix witness: bookmark survives write-cycle re-resolve"
+require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func rootWatcherUnavailabilityFreezesWritesAndPreservesLocalState()" "Upgrade matrix witness: root watcher unavailability preserves state and blocks writes"
 require_file_contains ".github/workflows/ci.yml" "./scripts/keelstone-release-gate.sh --appstore-app" "Release workflow witness: App Store built app participates in KEELSTONE gate"
 require_file_contains ".github/workflows/release.yml" "./scripts/keelstone-release-gate.sh --direct-app" "Release workflow witness: direct built app participates in KEELSTONE gate"
 

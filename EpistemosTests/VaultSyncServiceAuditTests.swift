@@ -1437,6 +1437,41 @@ struct VaultSyncServiceAuditTests {
         #expect(pages.contains { $0.id == pageId })
     }
 
+    @Test("root watcher unavailability freezes vault writes and preserves local state")
+    func rootWatcherUnavailabilityFreezesWritesAndPreservesLocalState() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let defaults = makeIsolatedDefaults()
+        let service = VaultSyncService(modelContainer: container, userDefaults: defaults)
+        let vaultURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        defaults.set(Data("bookmark".utf8), forKey: vaultBookmarkKey)
+        let page = SDPage(title: "Unavailable Root")
+        context.insert(page)
+        try context.save()
+        let pageId = page.id
+
+        service.setVaultURLForTesting(vaultURL)
+        service.setInitialImportCompletedForTesting(true)
+        try FileManager.default.removeItem(at: vaultURL)
+
+        service.handleVaultVolumeUnavailableForTesting(
+            vaultURL: vaultURL,
+            reason: "test root unavailable"
+        )
+
+        #expect(service.vaultURL == nil)
+        #expect(!service.isWatching)
+        #expect(service.recoveryIssue?.reason == "test root unavailable")
+        #expect(defaults.data(forKey: vaultBookmarkKey) == Data("bookmark".utf8))
+        #expect(try context.fetch(FetchDescriptor<SDPage>()).count == 1)
+        #expect(await service.savePageBodyFileFirst(pageId: pageId, body: "edited") == false)
+    }
+
     @Test("disconnected local vault state triggers a prompted recovery issue")
     func disconnectedVaultStateTriggersRecoveryIssue() async throws {
         let container = try makeRecoveryContainer()

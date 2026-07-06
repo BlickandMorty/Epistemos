@@ -288,6 +288,12 @@ struct VaultFileSystemEvent: Sendable {
         contains(kFSEventStreamEventFlagItemRenamed)
     }
 
+    nonisolated var signalsVaultRootAvailabilityChange: Bool {
+        contains(kFSEventStreamEventFlagRootChanged)
+            || contains(kFSEventStreamEventFlagMount)
+            || contains(kFSEventStreamEventFlagUnmount)
+    }
+
     private nonisolated func contains(_ flag: Int) -> Bool {
         flags & FSEventStreamEventFlags(flag) != 0
     }
@@ -748,6 +754,10 @@ final class VaultSyncService {
 
     func setInitialImportCompletedForTesting(_ value: Bool) {
         initialImportCompleted = value
+    }
+
+    func handleVaultVolumeUnavailableForTesting(vaultURL: URL, reason: String) {
+        handleVaultVolumeUnavailable(vaultURL: vaultURL, reason: reason)
     }
 
     func clearPendingStartupRestoreForTesting() {
@@ -3969,6 +3979,14 @@ final class VaultSyncService {
                 fileWatcherState.pendingLastEventID = event.eventID
             }
 
+            if event.signalsVaultRootAvailabilityChange, !isReadableVaultURL(vaultURL) {
+                handleVaultVolumeUnavailable(
+                    vaultURL: vaultURL,
+                    reason: "Vault volume unavailable after a root file-system event; writes are paused until the vault is reattached."
+                )
+                return
+            }
+
             switch Self.classifyVaultFileSystemEvent(event, vaultURL: vaultURL) {
             case .fullRescan:
                 fileWatcherState.pendingFullRescan = true
@@ -3984,6 +4002,17 @@ final class VaultSyncService {
         }
 
         scheduleDebouncedVaultFileSystemRefresh()
+    }
+
+    private func handleVaultVolumeUnavailable(vaultURL: URL, reason: String) {
+        let snapshot = currentVaultHealthSnapshot(restoreFailed: true)
+        stopWatching(preserveData: true)
+        recoveryIssue = VaultRecoveryIssue(snapshot: snapshot, reason: reason)
+        vaultActivityMessage = nil
+        isIndexing = false
+        log.error(
+            "Vault volume unavailable at \(vaultURL.path, privacy: .private); watcher stopped and local state preserved."
+        )
     }
 
     nonisolated static func classifyVaultFileSystemEvent(
