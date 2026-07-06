@@ -1,0 +1,180 @@
+# Build Prompt — 1Code Experimental: The Embedded-Agent Frontier
+
+> A research-and-build assignment. Not a task list — a mandate. Read every word before you write a line.
+> This SUPERSEDES the native-SwiftUI direction of the earlier P2 prompt. **There is no more SwiftUI
+> chrome. You extend the 1Code web UI itself.** Everything else the owner asked for still holds.
+
+You own the **1Code Experimental surface** (`Epistemos/ExperimentalAgent/**` for the thin Swift host, and
+the vendored 1Code fork under `.research-clones/1code/**`). A separate agent owns MAS June — **do not
+touch `Epistemos/JuneAgent/**` or the June lane.** Your surface embeds 1Code's React renderer in a
+WKWebView over a headless Node backend. That embedding is built and works. Your job now is far larger
+than finishing it: **make it the best agent surface that exists** — more robust, more hardened, more
+deeply connected than Codex, than the Claude Desktop app, than opencode, goose, Cursor, or aider — by
+researching the field, auditing yourself to the bone, inventing the features only Epistemos can have,
+and hardening to a tier no standalone agent app can match.
+
+---
+
+## THE ONE RULE (why prior passes fell short)
+**"Build green" is not done. "It compiles" is not "it works." "The plumbing is wired" is not "it is
+better than Codex."** Done is defined only by the DoD below, each proven in the **running app** with a
+real transcript/screenshot, plus a thermonuclear review with zero open HIGHs. Do not stop on
+plumbing, do not declare done while any DoD is unmet, do not fake a capability to close a row.
+
+## THE PIVOT — no native SwiftUI; extend the web UI
+- **Do NOT build native AppKit/SwiftUI chrome, pickers, sidebars, or settings.** The prior "lift chrome
+  to native" direction is RETIRED. New user-facing features live **in the 1Code React renderer** (the
+  vendored fork's `src/renderer`, via overlay files + `PATCH_LEDGER.md` rows, rebuilt by
+  `build-experimental-web.sh`).
+- **Keep the thin Swift host** exactly as-is: the WKWebView, the supervisor, the script-message bridge,
+  the native NSOpenPanel/NSSavePanel the shim requires, the theme injection, Keychain. That is
+  infrastructure, not chrome — it stays. You add to the *web app*, and to the *backend fork*, not to
+  native SwiftUI views.
+- **§0 physics still holds:** the transcript, terminal, and agent loop stay in their existing lanes.
+  Never reload the WebView URL (it reboots the SPA and kills the live session) — drive the UI in-app.
+
+## THE FOUNDATION (must be true before the frontier; all web/backend-side, no SwiftUI)
+These were already required and remain non-negotiable prerequisites — verify or finish each:
+1. **It is Epistemos, not 1Code.** Zero `21st`/`1code`/`twentyfirst` reaching the screen (de-brand at
+   bundle time in `build-experimental-web.sh`; grep-gate the dist to 0 user-facing hits; keep
+   LICENSE/NOTICE).
+2. **It boots into your vault.** On launch: no folder picker — auto-load the app's chosen vault folder
+   (`AppBootstrap.shared.vaultSync.vaultURL`) as the active project, land in a ready chat.
+3. **All six engines are selectable and real** (Claude Code, Codex, Kimi, GLM, Gemini, OpenCode-free-Zen)
+   with the live model catalog (`models.dev` + per-provider `/models` + pinned fallback), per
+   `BUILD_PROMPT_EXPERIMENTAL_FINAL.md` §5. Keychain key-paste per provider.
+4. **The Epistemos theme is worn** (inject `:root` CSS custom-property tokens via a WKUserScript,
+   MutationObserver re-assert, live light/dark; reuse the `ProAgentThemeBridge` pattern; header font on
+   landmarks only, Monaco/xterm legible; kill the donor gradient).
+5. **The vault MCP is actually present to the engine** (router-level injection into the forked backend;
+   the agent can search/read/write the user's notes), not just an env var.
+
+---
+
+## §1 THE THESIS (this is why you can beat them — internalize it)
+Every standalone agent app — Codex, Claude Desktop, opencode, goose, Cursor, aider — is **an agent with
+no memory of the user.** It boots cold each session; its "context" is whatever it can grep in the
+current repo. It cannot cite your knowledge, write back to it, or reason over it, because it does not
+live inside a second brain.
+
+**The Experimental surface is different in kind: it is an agent embedded in a knowledge substrate** — the
+Epistemos vault (the user's notes), the graph (their links), the provenance ledger (what is true and
+why), and cross-session memory. That is a *structural* advantage no standalone app can replicate. So the
+mandate is **not** to clone Codex's UI. It is to build the agent that only makes sense inside Epistemos —
+one that grounds answers in the user's own notes with citations, writes its work back to the vault with
+provenance, remembers across sessions via the graph, and assembles context from knowledge, not just from
+`grep` — **while matching or beating the standalone apps on the baseline** (reliability, streaming, diff
+review, worktrees, tool approval, observability, cost, DX).
+
+You will be judged on three axes: **(1) Depth of embedding** (features with no equivalent in Codex /
+Claude Desktop), **(2) Baseline excellence** (the things the field does well, done at least as well),
+**(3) Hardening & trust** (the deepest tier; every action auditable, nothing silent, crash-safe, secure).
+
+---
+
+## PHASE A — DEEP RESEARCH (two fronts; this is the "studied for generations" part)
+Use the deepest research method you have. Two fronts, both producing committed corpora.
+
+**A1 — Research the field.** Clone the best open agent apps into `.research-clones/` (gitignored, NEVER
+committed, NEVER `git add`) and read their real source. At minimum: `openai/codex` (Codex CLI),
+`anthropics/anthropic-quickstarts` + the Claude Desktop / DXT extension patterns, `sst/opencode` (or the
+current opencode remote), `block/goose`, `zed-industries/zed` (ACP agent), `cline/cline`,
+`continuedev/continue`, `paul-gauthier/aider`. For each, extract with file:line: their agent loop, their
+tool-approval + sandbox model, their context-assembly strategy, their diff/review UX, their
+observability/cost surfaces, their reliability/error-recovery, and — critically — **what they
+structurally CANNOT do because they are not embedded in a knowledge base.** Deliverable:
+`docs/research/AGENT_APP_FIELD_STUDY.md` — a comparative map: what to match, what to beat, what only we
+can do. Cite everything; web-verify current capabilities where the repo lags the product.
+
+**A2 — Research your own code (thermonuclear self-audit).** A 7-layer audit of the whole Experimental
+stack — the Swift host, the shim, the headless backend fork, the renderer overlays, the provider lane,
+the MCP path, the theme, the boot flow. For every seam: what it's meant to do, what it actually does
+(file:line), verdict CONNECTED / HALF-WIRED / DISCONNECTED / DEAD, and the reliability/security/leak
+risk. Find every orphan, every silent no-op, every place a failure is swallowed. Deliverable:
+`docs/research/EXPERIMENTAL_DEEP_AUDIT.md`. Append to `EXPERIMENTAL_R.md`'s cycle log.
+
+## PHASE B — THERMONUCLEAR CODE REVIEW
+Run the deepest code review you can invoke (the `/code-review` skill at the highest effort / a multi-
+agent adversarial pass) over the entire diff of the Experimental surface + the backend fork + the
+renderer overlays. Triage every finding by the four lenses (correctness, security, memory/data-leak,
+robustness). **Fix every CONFIRMED HIGH before Phase C.** Re-review after fixing. A HIGH open = not done.
+
+## PHASE C — INVENT & INTEGRATE THE FRONTIER (in the web UI + backend, no SwiftUI)
+From the A1 field study and the §1 thesis, build two classes of feature, each as a real addition to the
+1Code renderer / backend fork (overlay files + PATCH_LEDGER rows):
+
+**C1 — The embedded-agent features (the unfair advantage; these are the point).** Invent and ship
+features that are only possible because the agent lives in Epistemos. Strong candidates — justify/refine
+each against the thesis, don't cargo-cult:
+- **Vault-grounded answers with citations** — the agent searches the user's notes mid-task and cites
+  them inline (built on the vault MCP).
+- **Provenance write-back** — every substantive agent action/edit can be written back to the vault as a
+  provenance-linked note (what changed, why, which sources), feeding the graph.
+- **Cross-session memory** — the agent recalls prior sessions/decisions via the graph, so it doesn't
+  start cold. Surface "what we decided last time" in-context.
+- **Graph-aware context assembly** — pull the *right* notes into the agent's context via the graph +
+  RRF fusion, not just repo grep. This is the feature Codex/Cursor cannot build.
+- **A provenance/observability console** for the agent's own actions (tool calls, costs, decisions) —
+  in the web UI.
+Every C1 feature must answer: "why can no standalone agent app do this?" If it has no good answer, it's a
+C2 feature, not C1.
+
+**C2 — Baseline excellence (match/beat the field).** From A1, take the best baseline patterns the field
+proved and ensure the Experimental surface has them at least as good: robust tool-approval + sandbox,
+first-class diff/review, worktree/parallel-run ergonomics, streaming fidelity (text + thinking),
+per-provider cost/rate tracking, crash-recovery, honest error surfaces. Close any gap the field study
+exposed.
+
+## PHASE D — CONNECT EVERYTHING (as connected as it theoretically can be)
+Wire every DISCONNECTED/HALF-WIRED item from A2. Fuse the surface into Epistemos as deeply as the
+architecture allows: the vault, the graph, provenance, RRF search, cross-surface state. The bar is
+literal — "as connected as it theoretically can be" — every seam the audit found open, closed; every
+Epistemos capability the agent could use, reachable. Nothing bolted-on; everything integrated.
+
+## PHASE E — DEEPEST HARDENING (the enterprise tier — a named deliverable)
+The four lenses over everything Phases C/D touched, reported thermonuclear (`N HIGH/MED/LOW`, file:line,
+FIXED/DEFERRED; a HIGH blocks the commit). Security: CSP locked to the custom scheme + localhost backend
++ active provider endpoints; every tool call passes an allow/deny policy with append-only NDJSON audit;
+secrets Keychain-only, never in JS; every `WKScriptMessageHandler` payload validated. Reliability:
+crash-safe session/state (SQLite WAL), process/worktree reaping, per-turn error boundaries + retry,
+runaway guards. Memory/energy: bounded streams, WebView teardown, heap ceilings, idle unload. Perf: the
+`[experimental_surface]` budgets hold. Zero test regressions.
+
+---
+
+## DEFINITION OF DONE (all — proven in the running app, not a compile)
+- **DoD-A** — `AGENT_APP_FIELD_STUDY.md` + `EXPERIMENTAL_DEEP_AUDIT.md` committed; every finding cited.
+- **DoD-B** — Thermonuclear review run; every CONFIRMED HIGH fixed; re-review clean.
+- **DoD-Foundation** — De-branded (grep-gated 0), boots into the vault (no picker), six engines
+  selectable + live catalog, Epistemos theme worn (light+dark), vault MCP live to the engine.
+  Screenshot each.
+- **DoD-C** — At least the C1 vault-grounded-citation feature AND provenance write-back work end to end:
+  a transcript where the agent searches the user's notes, cites them, and writes a provenance note back
+  to the vault. Plus the C2 gaps from the field study closed. Screenshots/transcripts.
+- **DoD-D** — Every DISCONNECTED item from A2 is CONNECTED (re-run the audit; it shows zero open).
+- **DoD-E** — Hardening report, zero open HIGHs; zero test regressions; perf budgets green.
+- **DoD-Thesis** — A short written argument (in `EXPERIMENTAL_R.md`) for *why this surface now exceeds
+  Codex and the Claude Desktop app*, grounded in the shipped features — not aspiration.
+
+## EXECUTION RULES (do not violate)
+1. **Research-first, always.** Read canonical source + the plan before editing; verify current
+   code/logs; web-verify current-API/model facts. Never pattern-match from memory.
+2. Phases A → B → C → D → E, in order. **Commit after every coherent change** (build green, arm64,
+   `CODE_SIGNING_ALLOWED=NO`; never two `xcodebuild`s at once). Verify in the RUNNING
+   `Epistemos-Experimental` build — a compile is not evidence of a feature.
+3. **Do not stop while any DoD is unmet.** Do not re-audit the shim as busywork. Do not add native
+   SwiftUI. Do not fake capability. If a scheduled/loop wrapper drives you with an older prompt, this
+   file supersedes it.
+4. Rails: the vendored 1Code fork + all study clones live in `.research-clones/` (gitignored, NEVER
+   committed, NEVER `git add -A`); every in-place fork edit gets a `PATCH_LEDGER.md` row; overlay in NEW
+   renderer/backend files where possible; provider keys stay in Keychain, never in webview JS; do not
+   touch the June lane or unrelated code; report honestly (no "done" without the DoD proof).
+
+---
+
+**The bar, restated so it cannot be missed:** the owner opens the Experimental surface and it is not
+"1Code with a theme." It is an agent that *knows their vault*, cites it, writes back to it with
+provenance, remembers across sessions, reasons over their graph, runs six engines, and is the most
+hardened, most observable, most reliable agent surface they have ever used — measurably better than
+Codex and the Claude Desktop app, because those apps cannot live where this one lives. Build that. Prove
+it. Leave a trail (the corpora, the audit, the review, the thesis) worth studying.
