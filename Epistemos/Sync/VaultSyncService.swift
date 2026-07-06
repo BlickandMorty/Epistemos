@@ -264,6 +264,8 @@ private struct VersionCaptureSnapshot: Sendable {
 fileprivate struct VaultFileSystemEvent: Sendable {
     let path: String
     let flags: FSEventStreamEventFlags
+    let inode: UInt64?
+    let eventID: FSEventStreamEventId
 
     var requiresFullRescan: Bool {
         contains(kFSEventStreamEventFlagMustScanSubDirs)
@@ -315,6 +317,7 @@ private final class VaultFileWatcherState {
     var pendingChangedPaths = Set<String>()
     var pendingDeletedPaths = Set<String>()
     var pendingFullRescan = false
+    var pendingLastEventID: FSEventStreamEventId?
     let clock = ContinuousClock()
     var ignoreUntil: ContinuousClock.Instant?
 }
@@ -339,6 +342,7 @@ final class VaultSyncService {
     typealias SecurityScopeAccessOperation = @Sendable (URL) -> Bool
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
+    fileprivate nonisolated static let vaultFSEventCheckpointPrefix = "keelstone.lastEventID."
     fileprivate nonisolated static let trustedSuspiciousVaultPathKey = "epistemos.confirmedSuspiciousVaultPath"
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
@@ -377,6 +381,16 @@ final class VaultSyncService {
         #else
         return false
         #endif
+    }
+
+    private nonisolated static func vaultCheckpointID(for vaultURL: URL) -> String {
+        let path = vaultURL.standardizedFileURL.path
+        let digest = SHA256.hash(data: Data(path.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private nonisolated static func vaultFSEventCheckpointKey(for vaultURL: URL) -> String {
+        "\(vaultFSEventCheckpointPrefix)\(vaultCheckpointID(for: vaultURL))"
     }
 
     nonisolated static func shouldRestoreVaultFromBookmark(
@@ -3682,9 +3696,15 @@ final class VaultSyncService {
             copyDescription: nil
         )
         let pathsToWatch = [url.path] as CFArray
+        let checkpointKey = Self.vaultFSEventCheckpointKey(for: url)
+        let since = defaults.string(forKey: checkpointKey)
+            .flatMap(UInt64.init)
+            .map { FSEventStreamEventId($0) }
+            ?? FSEventStreamEventId(kFSEventStreamEventIdSinceNow)
         let flags = FSEventStreamCreateFlags(
             kFSEventStreamCreateFlagFileEvents
-                | kFSEventStreamCreateFlagUseCFTypes
+                | kFSEventStreamCreateFlagUseExtendedData
+                | kFSEventStreamCreateFlagWatchRoot
                 | kFSEventStreamCreateFlagNoDefer
         )
 
@@ -3693,8 +3713,8 @@ final class VaultSyncService {
             Self.vaultFSEventsCallback,
             &context,
             pathsToWatch,
-            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            0.5,
+            since,
+            0.15,
             flags
         ) else {
             unmanagedBox.release()
@@ -3716,17 +3736,44 @@ final class VaultSyncService {
         return true
     }
 
+    private func persistVaultFSEventCheckpoint(
+        _ eventID: FSEventStreamEventId,
+        for vaultURL: URL
+    ) {
+        let key = Self.vaultFSEventCheckpointKey(for: vaultURL)
+        defaults.set(String(eventID), forKey: key)
+    }
+
     private nonisolated static var vaultFSEventsCallback: FSEventStreamCallback {
-        { _, info, eventCount, eventPaths, eventFlags, _ in
+        { _, info, eventCount, eventPaths, eventFlags, eventIDs in
             guard let info else { return }
             let box = Unmanaged<VaultFileWatcherCallbackBox>.fromOpaque(info).takeUnretainedValue()
-            let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] ?? []
+            let eventPayloads = unsafeBitCast(eventPaths, to: NSArray.self)
             var events: [VaultFileSystemEvent] = []
             events.reserveCapacity(eventCount)
 
             for index in 0..<eventCount {
-                guard index < paths.count else { continue }
-                events.append(VaultFileSystemEvent(path: paths[index], flags: eventFlags[index]))
+                guard index < eventPayloads.count else { continue }
+                let payload = eventPayloads[index]
+                let path: String?
+                let inode: UInt64?
+                if let dict = payload as? NSDictionary {
+                    path = dict[kFSEventStreamEventExtendedDataPathKey as String] as? String
+                    inode = (dict[kFSEventStreamEventExtendedFileIDKey as String] as? NSNumber)?
+                        .uint64Value
+                } else {
+                    path = payload as? String
+                    inode = nil
+                }
+                guard let path else { continue }
+                events.append(
+                    VaultFileSystemEvent(
+                        path: path,
+                        flags: eventFlags[index],
+                        inode: inode,
+                        eventID: eventIDs[index]
+                    )
+                )
             }
 
             guard !events.isEmpty else { return }
@@ -3811,6 +3858,12 @@ final class VaultSyncService {
     fileprivate func handleVaultFileSystemEvents(_ events: [VaultFileSystemEvent]) {
         guard let vaultURL else { return }
         for event in events {
+            if let pendingLastEventID = fileWatcherState.pendingLastEventID {
+                fileWatcherState.pendingLastEventID = max(pendingLastEventID, event.eventID)
+            } else {
+                fileWatcherState.pendingLastEventID = event.eventID
+            }
+
             if event.requiresFullRescan || event.itemIsDirectory {
                 fileWatcherState.pendingFullRescan = true
                 continue
@@ -3866,9 +3919,7 @@ final class VaultSyncService {
     private func scheduleDebouncedVaultFileSystemRefresh() {
         let shouldIgnore = shouldIgnoreFileWatcherChange()
         if shouldIgnore {
-            fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: true)
-            fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: true)
-            fileWatcherState.pendingFullRescan = false
+            log.debug("File watcher: self-originated event window active; reconciling anyway to avoid hiding external races")
         }
 
         fileWatcherState.debounceTask?.cancel()
@@ -3886,19 +3937,17 @@ final class VaultSyncService {
         let changedPaths = Array(fileWatcherState.pendingChangedPaths)
         let deletedPaths = Array(fileWatcherState.pendingDeletedPaths)
         let needsFullRescan = fileWatcherState.pendingFullRescan
+        let lastEventID = fileWatcherState.pendingLastEventID
         fileWatcherState.pendingChangedPaths.removeAll(keepingCapacity: true)
         fileWatcherState.pendingDeletedPaths.removeAll(keepingCapacity: true)
         fileWatcherState.pendingFullRescan = false
+        fileWatcherState.pendingLastEventID = nil
 
-        guard !shouldIgnore else {
-            log.info("File watcher: skipping self-originated vault change")
-            return
-        }
         guard let vaultURL, let actor = indexActor else { return }
         let searchService = self.searchService
 
-        Task.detached(priority: .utility) {
-            await Self.processExternalVaultFileSystemChanges(
+        Task.detached(priority: .utility) { [weak self] in
+            let didProcess = await Self.processExternalVaultFileSystemChanges(
                 actor: actor,
                 vaultURL: vaultURL,
                 changedPaths: changedPaths,
@@ -3906,6 +3955,10 @@ final class VaultSyncService {
                 needsFullRescan: needsFullRescan,
                 searchService: searchService
             )
+            guard didProcess, let lastEventID else { return }
+            await MainActor.run {
+                self?.persistVaultFSEventCheckpoint(lastEventID, for: vaultURL)
+            }
         }
     }
 
@@ -3916,7 +3969,7 @@ final class VaultSyncService {
         deletedPaths: [String],
         needsFullRescan: Bool,
         searchService: SearchIndexService?
-    ) async {
+    ) async -> Bool {
         let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
         var didMutate = false
         let importSnapshot: VaultImportProgressSnapshot?
@@ -3924,8 +3977,11 @@ final class VaultSyncService {
         do {
             if needsFullRescan {
                 log.info("File watcher: path detail unavailable — running guarded vault import")
-                importSnapshot = try await actor.importVault(from: vaultURL)
-                didMutate = (importSnapshot?.postImportMutationCount ?? 0) > 0
+                guard let snapshot = try await actor.importVault(from: vaultURL) else {
+                    return false
+                }
+                importSnapshot = snapshot
+                didMutate = snapshot.postImportMutationCount > 0
             } else {
                 importSnapshot = nil
                 for path in deletedPaths.sorted() {
@@ -3946,7 +4002,7 @@ final class VaultSyncService {
                 }
             }
 
-            guard didMutate else { return }
+            guard didMutate else { return true }
             if needsFullRescan {
                 scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
             } else {
@@ -3965,8 +4021,10 @@ final class VaultSyncService {
                 vaultSync?.publishVaultMutation(.vaultChanged)
                 AppBootstrap.shared?.refreshAmbientManifest()
             }
+            return true
         } catch {
             log.error("File watcher: external vault refresh failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

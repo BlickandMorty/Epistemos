@@ -1,4 +1,5 @@
 import CoreSpotlight
+import CryptoKit
 import Foundation
 import SwiftData
 import os
@@ -1268,12 +1269,10 @@ actor VaultIndexActor {
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        // LOW-4 (audit 2026-07-03): removed a redundant empty createFile() that ran
-        // BEFORE the atomic coordinatedWrite — a kill in that window left a 0-byte .md
-        // on disk. coordinatedWrite (NSFileCoordinator .forReplacing → temp-write +
-        // atomic rename) creates the file on its own, so the pre-creation is
-        // unnecessary and only adds a corruption window.
-        try coordinatedWrite(output, to: fileURL)
+        // KEELSTONE Phase 1: vault files are truth. Write the complete buffer
+        // through the coordinated same-volume temp -> replace spine; never write
+        // partial content directly into the vault file.
+        try await coordinatedWrite(output, to: fileURL)
 
         // Persist filePath back to the store so subsequent exports use the same path.
         // Without this save, the filePath only exists in the background actor's memory
@@ -1458,6 +1457,25 @@ actor VaultIndexActor {
         vaultURL: URL,
         existingPage knownExistingPage: SDPage? = nil
     ) async throws -> PageUpsertResult {
+        switch await iCloudMaterializer.shared.state(of: fileURL) {
+        case .downloading:
+            do {
+                try await iCloudMaterializer.shared.whenLocal(fileURL)
+            } catch {
+                log.warning(
+                    "Skipping iCloud placeholder still materializing: \(fileURL.lastPathComponent, privacy: .public)"
+                )
+                return .unchanged
+            }
+        case .failed(let error):
+            log.warning(
+                "Skipping iCloud placeholder that failed to materialize: \(fileURL.lastPathComponent, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
+            return .unchanged
+        case .notUbiquitous, .alreadyLocal:
+            break
+        }
+
         // Pre-flight check: verify the file is actually readable before attempting I/O.
         // Security-scoped access is process-wide (granted by VaultSyncService), but individual
         // files may be locked, in Trash, symlinked, or otherwise inaccessible.
@@ -1566,7 +1584,14 @@ actor VaultIndexActor {
             let currentBody = shouldPersistManagedBody || hasManagedBody
                 ? page.loadBody(mapped: false, fast: !shouldPersistManagedBody)
                 : ""
-            let preserveBody = hasManagedBody && noteBodyIsNewer && !currentBody.isEmpty
+            let pageID = page.id
+            let liveEditorBody = await MainActor.run {
+                NoteWindowManager.shared.editorBody(for: pageID)
+            }
+            let liveEditorIsDirty = liveEditorBody.map { $0 != currentBody } ?? false
+            let preserveBody =
+                liveEditorIsDirty
+                || (hasManagedBody && noteBodyIsNewer && !currentBody.isEmpty)
             let incomingBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
             let importedBodyChanged = shouldPersistManagedBody
                 ? currentBody != importedStorageBody
@@ -1584,7 +1609,7 @@ actor VaultIndexActor {
             {
                 let snapshot = UpdatedPageSnapshot(
                     pageId: page.id,
-                    body: currentBody,
+                    body: liveEditorBody ?? currentBody,
                     filePath: page.filePath,
                     wordCount: page.wordCount,
                     emoji: page.emoji,
@@ -1602,7 +1627,18 @@ actor VaultIndexActor {
                     journalDate: page.journalDate
                 )
                 if preserveBody {
-                    log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — note-body newer than vault .md")
+                    let conflictCopyURL = await writeExternalEditConflictCopy(
+                        originalURL: fileURL,
+                        diskContent: content
+                    )
+                    if let conflictCopyURL {
+                        Task { @MainActor in
+                            AppBootstrap.shared?.uiState.showToast(
+                                "External edit kept as conflict copy: \(conflictCopyURL.lastPathComponent)"
+                            )
+                        }
+                    }
+                    log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — dirty local body conflicts with vault .md")
                     page.needsVaultSync = true
                 } else {
                     if shouldPersistManagedBody {
@@ -1740,6 +1776,38 @@ actor VaultIndexActor {
             modelContext.insert(page)
             upsertSearchIndex(page: page, body: searchIndexBody(importedStorageBody, filePath: filePath))
             return .inserted(page)
+        }
+    }
+
+    private func writeExternalEditConflictCopy(
+        originalURL: URL,
+        diskContent: String
+    ) async -> URL? {
+        let directory = originalURL.deletingLastPathComponent()
+        let ext = originalURL.pathExtension
+        let baseName = originalURL.deletingPathExtension().lastPathComponent
+        let digest = SHA256.hash(data: Data(diskContent.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        let suffix = "external-conflict-\(digest.prefix(12))"
+        let fileName = ext.isEmpty
+            ? "\(baseName)-\(suffix)"
+            : "\(baseName)-\(suffix).\(ext)"
+        let candidate = directory.appendingPathComponent(fileName)
+
+        if let existing = try? String(contentsOf: candidate, encoding: .utf8),
+           existing == diskContent {
+            return candidate
+        }
+
+        do {
+            try await AtomicVaultWriter.shared.write(diskContent, to: candidate)
+            return candidate
+        } catch {
+            log.error(
+                "Failed to write external-edit conflict copy for \(originalURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
         }
     }
 
@@ -2740,28 +2808,9 @@ actor VaultIndexActor {
 
     // MARK: - Coordinated File Access
 
-    /// Write a file using NSFileCoordinator. Ensures the write is coordinated
-    /// with the active NSFilePresenter so it doesn't trigger a spurious re-index.
-    private func coordinatedWrite(_ content: String, to url: URL) throws {
-        var coordinatorError: NSError?
-        var writeError: Error?
-
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinatorError)
-        { newURL in
-            if !NoteFileStorage.writeTextAtomically(content, to: newURL, itemLabel: newURL.lastPathComponent) {
-                writeError = NSError(domain: "Epistemos", code: 1, userInfo: [
-                    NSLocalizedDescriptionKey: "Atomic write failed for \(newURL.lastPathComponent)"
-                ])
-            }
-        }
-
-        if let coordinatorError {
-            throw coordinatorError
-        }
-        if let writeError {
-            throw writeError
-        }
+    /// Write a vault file through the KEELSTONE durable-write spine.
+    private func coordinatedWrite(_ content: String, to url: URL) async throws {
+        try await AtomicVaultWriter.shared.write(content, to: url)
     }
 
     // MARK: - One-Time Migrations

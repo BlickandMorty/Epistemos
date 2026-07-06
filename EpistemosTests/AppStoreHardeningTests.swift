@@ -1,4 +1,6 @@
 import Foundation
+import Darwin
+import SwiftData
 import Testing
 @testable import Epistemos
 
@@ -29,6 +31,382 @@ struct AppStoreHardeningTests {
     /// Keep this list in lockstep with `agent_core_policy_profile`
     /// in agent_core/src/bridge.rs:239.
     private static let validProfiles: Set<String> = ["direct", "mas_sandbox"]
+
+    // MARK: - KEELSTONE vault durability regressions
+
+    @Test("VaultIndexActor export path uses AtomicVaultWriter for vault files")
+    func vaultIndexActorExportUsesAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        let writerSource = try loadMirroredSourceTextFile("Epistemos/Sync/AtomicVaultWriter.swift")
+        let coordinatedWrite = Self.sourceSection(
+            in: source,
+            startingAt: "private func coordinatedWrite",
+            endingBefore: "    // MARK: - One-Time Migrations"
+        )
+
+        #expect(
+            writerSource.contains("actor AtomicVaultWriter"),
+            "KEELSTONE Phase 1 requires the vault durable-write spine to live in Epistemos/Sync/AtomicVaultWriter.swift."
+        )
+        #expect(
+            writerSource.contains("func write(_ content: String, to targetURL: URL)"),
+            "AtomicVaultWriter's whole-buffer write signature is load-bearing for KEELSTONE and LUMENLENS."
+        )
+        #expect(
+            writerSource.contains("NSFileCoordinator(filePresenter: nil)"),
+            "AtomicVaultWriter must coordinate MAS vault writes instead of touching user-selected files directly."
+        )
+        #expect(
+            writerSource.contains(".itemReplacementDirectory"),
+            "AtomicVaultWriter must stage replacement data on the same volume before swapping the vault file."
+        )
+        #expect(
+            writerSource.contains("replaceItemAt") || writerSource.contains("Darwin.rename"),
+            "AtomicVaultWriter must atomically replace the vault file after the full temp buffer is synced."
+        )
+        #expect(
+            coordinatedWrite?.contains("try await AtomicVaultWriter.shared.write(content, to: url)") == true,
+            "VaultIndexActor.exportPage must route vault-file writeback through AtomicVaultWriter, not NoteFileStorage.writeTextAtomically or direct Data/String writes."
+        )
+        #expect(
+            coordinatedWrite?.contains("NoteFileStorage.writeTextAtomically") == false,
+            "VaultIndexActor's vault-file write path must not use NoteFileStorage.writeTextAtomically; managed sidecars are not vault truth."
+        )
+        #expect(
+            coordinatedWrite?.contains(".write(to:") == false,
+            "VaultIndexActor's vault-file write path must not use direct Data.write/String.write APIs."
+        )
+    }
+
+    @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
+    func atomicVaultWriterWritesWholeVaultBuffers() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AtomicVaultWriterTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let target = root.appendingPathComponent("note.md")
+        let oldBody = "# Old\n\n\(String(repeating: "old-body\n", count: 256))"
+        let newBody = "# New\n\n\(String(repeating: "new-body\n", count: 256))"
+
+        try await AtomicVaultWriter.shared.write(oldBody, to: target)
+        #expect(try String(contentsOf: target, encoding: .utf8) == oldBody)
+
+        try await AtomicVaultWriter.shared.write(newBody, to: target)
+        #expect(try String(contentsOf: target, encoding: .utf8) == newBody)
+    }
+
+    @Test("kill -9 during same-volume vault replacement never leaves a partial note")
+    func killNineDuringVaultReplacementNeverLeavesPartialNote() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VaultKillNineSoak-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let scriptURL = root.appendingPathComponent("writer.py")
+        try Self.writeKillNineHarness(to: scriptURL)
+
+        let stages = ["mid_temp_write", "pre_replace", "post_replace"]
+        for trial in 0..<18 {
+            let stage = stages[trial % stages.count]
+            let targetURL = root.appendingPathComponent("note-\(trial).md")
+            let markerURL = root.appendingPathComponent("marker-\(trial)")
+            let payloadURL = root.appendingPathComponent("payload-\(trial).txt")
+            let oldPayload = Self.killNinePayload(label: "OLD-\(trial)", lineCount: 2048)
+            let newPayload = Self.killNinePayload(label: "NEW-\(trial)", lineCount: 2048)
+            try await AtomicVaultWriter.shared.write(oldPayload, to: targetURL)
+            try Data(newPayload.utf8).write(to: payloadURL, options: [])
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = [
+                "python3",
+                scriptURL.path,
+                targetURL.path,
+                markerURL.path,
+                stage,
+                payloadURL.path,
+            ]
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+            try process.run()
+
+            try Self.waitForFile(markerURL, timeout: 2.0)
+            kill(process.processIdentifier, SIGKILL)
+            process.waitUntilExit()
+
+            let data = try Data(contentsOf: targetURL)
+            let oldData = Data(oldPayload.utf8)
+            let newData = Data(newPayload.utf8)
+            let message: Comment = "Trial \(trial) killed writer at \(stage); vault file must be exactly old or exactly new, never truncated or mixed. Observed \(data.count) bytes."
+            #expect(data == oldData || data == newData, message)
+        }
+    }
+
+    @Test("VaultSyncService FSEvents stream replays and escalates deterministically")
+    func vaultSyncServiceFSEventsUsesKeelstoneFlagsAndCheckpoint() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let watcher = Self.sourceSection(
+            in: source,
+            startingAt: "private func startFSEventsWatcher",
+            endingBefore: "private func persistVaultFSEventCheckpoint"
+        )
+        let callback = Self.sourceSection(
+            in: source,
+            startingAt: "private nonisolated static var vaultFSEventsCallback",
+            endingBefore: "private func startDirectoryDispatchSourceWatcher"
+        )
+
+        #expect(
+            source.contains("vaultFSEventCheckpointPrefix = \"keelstone.lastEventID.\""),
+            "KEELSTONE Phase 2 requires a persisted per-vault FSEvents checkpoint."
+        )
+        #expect(
+            source.contains("SHA256.hash(data: Data(path.utf8))"),
+            "The FSEvents checkpoint key must be per vault, not a single global event ID."
+        )
+        #expect(
+            watcher?.contains("kFSEventStreamCreateFlagUseExtendedData") == true,
+            "FSEvents must use extended data so path and fileID/inode are available for deterministic reconcile."
+        )
+        #expect(
+            watcher?.contains("kFSEventStreamCreateFlagWatchRoot") == true,
+            "FSEvents must watch the vault root so root moves/deletes escalate to a rescan/remount path."
+        )
+        #expect(
+            watcher?.contains("kFSEventStreamEventIdSinceNow") == true
+                && watcher?.contains("defaults.string(forKey: checkpointKey)") == true,
+            "The stream must resume from the persisted checkpoint and only fall back to since-now on first mount."
+        )
+        #expect(
+            callback?.contains("kFSEventStreamEventExtendedDataPathKey") == true
+                && callback?.contains("kFSEventStreamEventExtendedFileIDKey") == true,
+            "The callback must decode the real extended-data path and fileID keys; kFSEventStreamEventExtendedDataKeyInode is not real."
+        )
+    }
+
+    @Test("VaultSyncService does not hide external edits during self-write windows")
+    func vaultSyncServiceSelfWriteWindowStillReconcilesEvents() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let debounce = Self.sourceSection(
+            in: source,
+            startingAt: "private func scheduleDebouncedVaultFileSystemRefresh",
+            endingBefore: "private func drainAndProcessPendingVaultFileSystemChanges"
+        )
+        let drain = Self.sourceSection(
+            in: source,
+            startingAt: "private func drainAndProcessPendingVaultFileSystemChanges",
+            endingBefore: "private nonisolated static func processExternalVaultFileSystemChanges"
+        )
+
+        #expect(
+            debounce?.contains("removeAll(keepingCapacity: true)") == false,
+            "A self-originated save window must not clear pending watcher paths; external edits can race inside the same FSEvents batch."
+        )
+        #expect(
+            drain?.contains("guard !shouldIgnore") == false,
+            "Self-originated events must still run through deterministic reconcile instead of being dropped."
+        )
+        #expect(
+            drain?.contains("persistVaultFSEventCheckpoint(lastEventID, for: vaultURL)") == true,
+            "The FSEvents checkpoint should advance only after the reconcile task reports success."
+        )
+    }
+
+    @Test("iCloud materialization is async metadata-query based, never Thread.sleep polling")
+    func iCloudMaterializerUsesAsyncMetadataQuery() throws {
+        let materializer = try loadMirroredSourceTextFile("Epistemos/Sync/iCloudMaterializer.swift")
+        let actor = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        let upsert = Self.sourceSection(
+            in: actor,
+            startingAt: "private func upsertPage",
+            endingBefore: "private func updateImportedBodyDerivedState"
+        )
+
+        #expect(
+            materializer.contains("actor iCloudMaterializer"),
+            "iCloud materialization must run off-main behind an actor."
+        )
+        #expect(
+            materializer.contains("NSMetadataQueryAccessibleUbiquitousExternalDocumentsScope"),
+            "User-selected iCloud Drive vaults are external documents, not just the app's ubiquitous container."
+        )
+        #expect(
+            materializer.contains("NSMetadataQueryDidUpdate"),
+            "Hydration waits must be driven by NSMetadataQuery updates."
+        )
+        #expect(
+            !materializer.contains("Thread.sleep"),
+            "Do not poll iCloud downloads with Thread.sleep; that can block coordination and starve the sync daemon."
+        )
+        #expect(
+            upsert?.contains("iCloudMaterializer.shared.state(of: fileURL)") == true
+                && upsert?.contains("try await iCloudMaterializer.shared.whenLocal(fileURL)") == true,
+            "VaultIndexActor import/reindex must materialize dataless iCloud files before classifying them as unreadable or unchanged."
+        )
+        #expect(
+            !(upsert ?? "").contains("evictUbiquitousItem"),
+            "Vault import/reindex must not evict ubiquitous items while coordinating or reading vault files."
+        )
+    }
+
+    @Test("Dirty live editor external edits enter visible conflict-copy flow")
+    func dirtyLiveEditorExternalEditCreatesConflictCopy() throws {
+        let actor = try loadMirroredSourceTextFile("Epistemos/Sync/VaultIndexActor.swift")
+        let upsert = Self.sourceSection(
+            in: actor,
+            startingAt: "private func upsertPage",
+            endingBefore: "private func writeExternalEditConflictCopy"
+        )
+        let conflictCopy = Self.sourceSection(
+            in: actor,
+            startingAt: "private func writeExternalEditConflictCopy",
+            endingBefore: "private func updateImportedBodyDerivedState"
+        )
+
+        #expect(
+            upsert?.contains("NoteWindowManager.shared.editorBody(for: pageID)") == true,
+            "Phase 4 requires a thin active-editor seam so unsaved live text is checked before external vault imports overwrite the managed body."
+        )
+        #expect(
+            upsert?.contains("liveEditorIsDirty") == true
+                && upsert?.contains("writeExternalEditConflictCopy") == true,
+            "A dirty live editor changed on disk must enter a visible conflict-copy flow, not silently reload or clobber either side."
+        )
+        #expect(
+            conflictCopy?.contains("external-conflict-") == true,
+            "The conflict copy filename must be visible and recognizable in the vault."
+        )
+        #expect(
+            conflictCopy?.contains("AtomicVaultWriter.shared.write(diskContent, to: candidate)") == true,
+            "Conflict copies are vault files too; they must use the coordinated durable writer."
+        )
+        #expect(
+            !actor.contains("write-lease") && !actor.contains("LensSessionCoordinator"),
+            "KEELSTONE should keep only a thin editor seam; LUMENLENS owns the session machine/write lease."
+        )
+    }
+
+    @Test("KEELSTONE project.yml target-scoped surface and KINDRED macros cannot drift")
+    func keelstoneProjectSurfaceMacroGuardrails() throws {
+        let project = try loadMirroredSourceTextFile("project.yml")
+        let baseSettings = Self.sourceSection(
+            in: project,
+            startingAt: "settings:\n  base:",
+            endingBefore: "  configs:"
+        )
+        let targets = Self.sourceSection(
+            in: project,
+            startingAt: "targets:",
+            endingBefore: "schemes:"
+        ) ?? project
+        let epistemosTarget = Self.yamlTopLevelSection(
+            in: targets,
+            marker: "  Epistemos:"
+        )
+        let appStoreTarget = Self.yamlTopLevelSection(
+            in: targets,
+            marker: "  Epistemos-AppStore:"
+        )
+        let appTargetMarkers = targets.components(separatedBy: .newlines)
+            .filter { line in
+                line == "  Epistemos:" || line == "  Epistemos-AppStore:"
+            }
+
+        #expect(
+            appTargetMarkers == ["  Epistemos:", "  Epistemos-AppStore:"],
+            "KEELSTONE requires exactly two app targets: Epistemos and Epistemos-AppStore."
+        )
+        #expect(
+            baseSettings?.contains("EPISTEMOS_EXPERIMENTAL") == false
+                && baseSettings?.contains("EPISTEMOS_APP_STORE") == false
+                && baseSettings?.contains("KINDRED_ENABLED") == false,
+            "Surface and KINDRED macros must never live in shared/base settings; App Store inherits base via $(inherited)."
+        )
+        #expect(
+            epistemosTarget?.contains("EPISTEMOS_EXPERIMENTAL") == true
+                && epistemosTarget?.contains("KINDRED_ENABLED") == true
+                && epistemosTarget?.contains("EPISTEMOS_APP_STORE") == false,
+            "The Epistemos target must define only the Experimental surface plus KINDRED_ENABLED."
+        )
+        #expect(
+            appStoreTarget?.contains("EPISTEMOS_APP_STORE") == true
+                && appStoreTarget?.contains("MAS_SANDBOX") == true
+                && appStoreTarget?.contains("EPISTEMOS_EXPERIMENTAL") == false
+                && appStoreTarget?.contains("KINDRED_ENABLED") == false,
+            "The App Store target must define only the MAS surface and must not inherit KINDRED_ENABLED."
+        )
+    }
+
+    @Test("AppSurface makes a flagless or double-surface build fail at compile time")
+    func appSurfaceHasHardCompileGuards() throws {
+        let surface = try loadMirroredSourceTextFile("Epistemos/App/AppSurface.swift")
+
+        #expect(
+            surface.contains("#if EPISTEMOS_APP_STORE && EPISTEMOS_EXPERIMENTAL")
+                && surface.contains("#error("),
+            "AppSurface must #error when both surface macros are active."
+        )
+        #expect(
+            surface.contains("#if !EPISTEMOS_APP_STORE && !EPISTEMOS_EXPERIMENTAL")
+                && surface.contains("neither EPISTEMOS_APP_STORE nor EPISTEMOS_EXPERIMENTAL is defined"),
+            "A flagless build must fail to compile; there is no third surface."
+        )
+        #expect(
+            !surface.contains("PRO_BUILD"),
+            "Surface selection must use EPISTEMOS_EXPERIMENTAL/EPISTEMOS_APP_STORE, not a resurrected PRO_BUILD flag."
+        )
+    }
+
+    @Test("KEELSTONE reconcile convergence: incremental change set equals fresh rebuild")
+    @MainActor
+    func keelstoneIncrementalReconcileEqualsFreshRebuild() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KeelstoneConvergence-\(UUID().uuidString)", isDirectory: true)
+        let vaultURL = root.appendingPathComponent("Vault", isDirectory: true)
+        let bodiesURL = root.appendingPathComponent("Bodies", isDirectory: true)
+        try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let alphaURL = vaultURL.appendingPathComponent("Alpha.md")
+        let betaURL = vaultURL.appendingPathComponent("Beta.md")
+        let gammaURL = vaultURL.appendingPathComponent("Gamma.md")
+
+        try Self.writeExternalVaultText("# Alpha\n\nfirst body\n", to: alphaURL)
+        try Self.writeExternalVaultText("# Beta\n\nremove me\n", to: betaURL)
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodiesURL) {
+            let incrementalContainer = try Self.makeKeelstoneModelContainer()
+            let incrementalActor = VaultIndexActor(modelContainer: incrementalContainer)
+            try await incrementalActor.importVault(from: vaultURL)
+
+            try Self.writeExternalVaultText("# Alpha\n\nfirst body edited outside\n", to: alphaURL)
+            try FileManager.default.removeItem(at: betaURL)
+            try Self.writeExternalVaultText("# Gamma\n\nnew external note\n", to: gammaURL)
+
+            _ = try await incrementalActor.reindexFile(at: alphaURL, vaultURL: vaultURL)
+            try await incrementalActor.handleFileDeletion(at: betaURL)
+            _ = try await incrementalActor.reindexFile(at: gammaURL, vaultURL: vaultURL)
+
+            let incremental = try Self.keelstonePageSnapshot(
+                in: incrementalContainer,
+                vaultURL: vaultURL
+            )
+
+            let freshContainer = try Self.makeKeelstoneModelContainer()
+            let freshActor = VaultIndexActor(modelContainer: freshContainer)
+            try await freshActor.importVault(from: vaultURL)
+            let fresh = try Self.keelstonePageSnapshot(
+                in: freshContainer,
+                vaultURL: vaultURL
+            )
+
+            #expect(
+                incremental == fresh,
+                "Incremental reconcile must converge to the same page snapshot as a fresh rebuild from disk. incremental=\(incremental) fresh=\(fresh)"
+            )
+        }
+    }
 
     @Test("agentCorePolicyProfile returns a recognized value")
     func policyProfileReturnsRecognizedValue() {
@@ -508,6 +886,180 @@ struct AppStoreHardeningTests {
         let searchRange = startRange.upperBound..<source.endIndex
         let endIndex = source.range(of: endMarker, range: searchRange)?.lowerBound ?? source.endIndex
         return String(source[startRange.lowerBound..<endIndex])
+    }
+
+    private static func yamlTopLevelSection(in source: String, marker: String) -> String? {
+        guard let markerRange = source.range(of: marker) else { return nil }
+        let searchRange = markerRange.upperBound..<source.endIndex
+        let endIndex = source[searchRange].ranges(of: "\n  ")
+            .compactMap { range -> String.Index? in
+                let lineStart = source.index(after: range.lowerBound)
+                let rest = source[lineStart...]
+                guard rest.hasPrefix("  "), !rest.hasPrefix("    ") else { return nil }
+                return range.lowerBound
+            }
+            .first ?? source.endIndex
+        return String(source[markerRange.lowerBound..<endIndex])
+    }
+
+    private struct KeelstonePageSnapshot: Equatable, CustomStringConvertible {
+        let relativePath: String
+        let title: String
+        let body: String
+        let tags: [String]
+        let wordCount: Int
+        let lastSyncedBodyHash: String?
+
+        var description: String {
+            "(\(relativePath), title: \(title), words: \(wordCount), hash: \(lastSyncedBodyHash ?? "nil"))"
+        }
+    }
+
+    @MainActor
+    private static func makeKeelstoneModelContainer() throws -> ModelContainer {
+        let schema = Schema([
+            SDPage.self,
+            SDFolder.self,
+            SDPageVersion.self,
+            SDBlock.self,
+            SDNoteInsight.self,
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    @MainActor
+    private static func keelstonePageSnapshot(
+        in container: ModelContainer,
+        vaultURL: URL
+    ) throws -> [KeelstonePageSnapshot] {
+        let context = ModelContext(container)
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+        let rootPath = vaultURL.standardizedFileURL.path
+        return pages.compactMap { page in
+            guard let filePath = page.filePath else { return nil }
+            let standardizedPath = URL(fileURLWithPath: filePath).standardizedFileURL.path
+            guard standardizedPath.hasPrefix(rootPath + "/") else { return nil }
+            return KeelstonePageSnapshot(
+                relativePath: String(standardizedPath.dropFirst(rootPath.count + 1)),
+                title: page.title,
+                body: page.loadBody(mapped: false, fast: false),
+                tags: page.tags,
+                wordCount: page.wordCount,
+                lastSyncedBodyHash: page.lastSyncedBodyHash
+            )
+        }
+        .sorted { $0.relativePath < $1.relativePath }
+    }
+
+    private static func writeExternalVaultText(_ content: String, to url: URL) throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let fd = open(url.path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)
+        guard fd >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer { close(fd) }
+
+        let bytes = Array(content.utf8)
+        var offset = 0
+        while offset < bytes.count {
+            let written = bytes.withUnsafeBytes { buffer in
+                write(fd, buffer.baseAddress!.advanced(by: offset), bytes.count - offset)
+            }
+            guard written > 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+            offset += written
+        }
+        guard fsync(fd) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+    }
+
+    private static func killNinePayload(label: String, lineCount: Int) -> String {
+        (0..<lineCount)
+            .map { "\(label) line \($0) \(String(repeating: "x", count: 64))" }
+            .joined(separator: "\n") + "\n"
+    }
+
+    private static func writeKillNineHarness(to url: URL) throws {
+        let script = """
+        import os
+        import sys
+        import time
+
+        target_path = sys.argv[1]
+        marker_path = sys.argv[2]
+        stage = sys.argv[3]
+        payload_path = sys.argv[4]
+        with open(payload_path, "rb") as payload_file:
+            payload = payload_file.read()
+        directory = os.path.dirname(target_path)
+        temp_path = os.path.join(
+            directory,
+            "." + os.path.basename(target_path) + ".tmp." + str(os.getpid()),
+        )
+
+        def mark_ready():
+            marker_fd = os.open(marker_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(marker_fd, stage.encode("utf-8"))
+                os.fsync(marker_fd)
+            finally:
+                os.close(marker_fd)
+
+        temp_fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            if stage == "mid_temp_write":
+                midpoint = max(1, len(payload) // 2)
+                os.write(temp_fd, payload[:midpoint])
+                os.fsync(temp_fd)
+                mark_ready()
+                time.sleep(30)
+                os.write(temp_fd, payload[midpoint:])
+            else:
+                os.write(temp_fd, payload)
+            os.fsync(temp_fd)
+        finally:
+            os.close(temp_fd)
+
+        if stage == "pre_replace":
+            mark_ready()
+            time.sleep(30)
+
+        os.replace(temp_path, target_path)
+
+        if stage == "post_replace":
+            mark_ready()
+            time.sleep(30)
+
+        directory_fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+
+        while True:
+            time.sleep(1)
+        """
+        guard let data = script.data(using: .utf8) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        try data.write(to: url, options: [])
+    }
+
+    private static func waitForFile(_ url: URL, timeout: TimeInterval) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if FileManager.default.fileExists(atPath: url.path) {
+                return
+            }
+            usleep(10_000)
+        }
+        throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: url.path])
     }
 
     // MARK: - Per-file MAS-branch subprocess-launch regressions (Phase S.2)
