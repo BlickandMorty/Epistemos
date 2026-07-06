@@ -890,3 +890,18 @@ returns. The two genuinely-next frontiers both require stepping outside pure-web
 shared-desktop focus contention — do when the machine is quiet); (b) the **agent_core ReplayBundle FFI**
 for a signed `.epbundle` (run.export-bundle) — the one high-value NATIVE item, correctly deferred under
 the "build less / no risky Rust FFI mid-stream" discipline until an owner-sanctioned native checkpoint.
+
+---
+
+**Cycle 16 (2026-07-06) — TEMPER/consolidation: a re-runnable backend regression WITNESS.**
+15 cycles of endpoints deserve a durable proof. NEW `scripts/experimental-backend-witness.sh` boots the
+headless backend against a THROWAWAY fixture vault (never the user's) and asserts the load-bearing
+behaviors in one deterministic run: noteExists exact-match (incl. an explicit **H1 false-verify guard** —
+"Gamma Service Enterprise Edition 2027" must be rejected, so that critical fix can't silently regress),
+fabricated-note rejection, whole-vault search, graph OUTLINK + BACKLINK expansion. Optional live Prompt
+Forge enhance gated behind WITNESS_FORGE=1 + EPISTEMOS_CLAUDE_BINARY (default run stays offline+free).
+ALL 6 CHECKS PASS. Re-runnable after any change — robust, no flaky UI, no cross-lane contention.
+Chosen deliberately: app wasn't running + another lane (Codex) was frontmost, so a live UI pass would be
+high-cost/contention-prone, and pure-web feature refinement is at diminishing returns.
+**RAISED BAR unchanged:** live re-verify when the desktop is quiet; the native ReplayBundle FFI on an
+owner-sanctioned native checkpoint. The witness now backstops every future backend change.
