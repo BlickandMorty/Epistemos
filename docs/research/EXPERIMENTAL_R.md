@@ -1414,3 +1414,16 @@ read). PROVEN headless + witness (22/22): "product strategy" ranks the H1-titled
 dated-log ("Architecture Decision") ranks above a content mention. So the whole retrieval layer —
 cite-check, grounding display, graph link resolution, AND ranking — is now uniformly title-aware. Seven
 realistic-input passes; the substrate is title-consistent end to end.
+
+---
+
+**Cycle 52 (2026-07-06) — comprehensive full-witness verification + closed the grounding→cite coverage gap.**
+After 8 retrieval-hardening cycles (all touching vault-fs, which the forge grounding depends on), ran the
+FULL witness with WITNESS_FORGE=1: 24/24 including both live LLM enhances (Prompt Forge + System Prompt
+Forge) — the entire backend + flagships regression-clean end to end. Also confirmed provenance/skills tool
+names are already clean (kindOf strips "tool-"/uses ACP toolName — no gap; valid verification). Then closed
+a real witness coverage gap: the forge check only tested enhance-WITHOUT-grounding. Added a grounding→cite
+assertion — enhance WITH a vault note ("Alpha Project") must weave `[[Alpha Project]]` into the upgrade +
+set grounded=true. PASSES. So the flagship's KEY differentiator (retrieve vault → enhance → CITE) is now
+witness-proven end to end, not just "it upgraded". Witness = 25 checks. The whole substrate is
+regression-clean, real-vault-hardened, and its differentiator is guarded.
