@@ -31,6 +31,8 @@ printf '# Omega Plan\n\nRollout schedule. See [[Gamma Service]].\n'             
 printf '# Provenance\n\n## Tool-call sequence\n1. **search_notes** — a\n2. **read_file** — b\n' > "$FX/Provenance--run-1.md"
 printf '# Provenance\n\n## Tool-call sequence\n1. **search_notes** — c\n2. **read_file** — d\n3. **Bash** — e\n' > "$FX/Provenance--run-2.md"
 printf '# Provenance\n\n## Tool-call sequence\n1. **WebFetch** — h\n2. **Write** — i\n' > "$FX/Provenance--run-3.md"
+# Numbered/ordinal-prefixed note (common in organized vaults) — cite-check must verify it by TITLE.
+printf '# Rollout Plan\n\nThe rollout plan.\n' > "$FX/05_ROLLOUT_PLAN.md"
 
 echo "[witness] booting headless backend on :$PORT against fixture vault…"
 ( cd "$FORK" && EPISTEMOS_VAULT_ROOT="$TMP/vault" EPISTEMOS_ONECODE_PORT="$PORT" \
@@ -62,6 +64,10 @@ check "noteExists: real note verifies" \
 # H1 GUARD: a hallucinated superset of a real title must NOT verify (no substring false-positive).
 check "noteExists: H1 superset is rejected" \
   '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"Gamma Service Enterprise Edition 2027"}}' | jget)"
+check "noteExists: numbered note verifies by TITLE (05_ROLLOUT_PLAN → [[Rollout Plan]])" \
+  '"exists": true' "$(call epistemosVault.noteExists '{"json":{"title":"Rollout Plan"}}' | jget)"
+check "noteExists: partial of a numbered note still rejected (no substring verify)" \
+  '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"Rollout"}}' | jget)"
 check "noteExists: fabricated note is rejected" \
   '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"TOTALLY_FAKE_ZZZ"}}' | jget)"
 check "search: whole-vault content hit" \
