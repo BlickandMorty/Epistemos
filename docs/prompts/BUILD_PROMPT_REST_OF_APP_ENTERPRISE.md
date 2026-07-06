@@ -8,6 +8,13 @@
 5. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
 6. **Build Prompt Forge (§ Feature Mandate) — the CANONICAL shared submission-time prompt upgrader, vault-grounded.**
 
+## ❌ FAILURE MODES — worked anti-examples of "done wrong" (never do these)
+- **Skim-and-declare** (the #1 failure this project keeps hitting): read the ledger, skip the body, ship a shallow change, say "nothing left." → A DoD is unmet; re-read.
+- **Boundary breach** (the cardinal sin here): "one tiny edit" to a protected path — the data core, a sibling agent lane, engine/FFI, security, or the pbxproj. → Never; flag it.
+- **Bloat / plumbing-as-done:** add surface area or chrome the app doesn't need instead of connecting + hardening what exists. Minimalism is law.
+- **Fake capability:** ship a dead button or a faked state. → Gate it honestly.
+- **Trophy skill:** forge a SKILL.md nothing reuses, or run a cycle that ignores the library. → Under-compounded.
+
 > A research-and-build assignment for **two domains at once**: (1) the **Pro agent surface —
 > OpenChamber** (harden and deeply upgrade its agent, exactly as the other two agents upgrade theirs),
 > and (2) **the rest of Epistemos** — the onboarding, settings, navigation, voice, the app shell, the
@@ -136,6 +143,19 @@ upgraded diff, one-click Accept/Edit/Retry/Revert, never silent, fast (small mod
 changed. Build the shared service (Swift, in your scope) + wire the OpenChamber composer, and expose a
 clean API the other two surfaces adopt in their own lanes. Minimal + native + theme-correct (§0). Ships
 DoD-gated (a live "underspecified prompt → upgraded, vault-cited prompt" transcript), not a stub.
+
+## FEATURE MANDATE — System Prompt Forge + Pattern Library (companion to Prompt Forge; you build the core)
+Prompt Forge upgrades the USER prompt; this upgrades the SYSTEM-prompt / behavior layer. You own shared
+services → **build the canonical shared Pattern Library + System Prompt Forge service** the whole app
+reuses + the OpenChamber integration. Two parts: (1) a curated, composable **Pattern Library**
+(Fabric-model, markdown, task/persona-scoped) applied + composed per agent; (2) a system-prompt
+**upgrader** that meta-improves a custom system prompt into the layered frontier architecture — **identity
+→ capability-honesty → tool contract → refusal framing → output contract → priority budgeting → worked
+failure examples** — preserving intent/voice, with the diff UX. Vault-grounded via the vault's PUBLIC read
+API (read, never edit the core). Full spec + architecture lessons:
+`docs/research/SYSTEM_PROMPT_FIELD_STUDY.md`. **⚠️ IP: learn the PATTERNS, NEVER copy proprietary
+system-prompt TEXT.** Expose a clean API the other two surfaces adopt. Minimal + native (§0). Ships
+DoD-gated (a custom system prompt measurably upgraded + a Pattern applied), not a stub.
 
 ## PHASE A — DEEP AUDIT (research your own code, both domains)
 Two 7-layer audits. **A1 — OpenChamber:** map every seam of the Pro agent (supervision lifecycle,

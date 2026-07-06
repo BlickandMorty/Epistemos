@@ -7,6 +7,13 @@
 4. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
 5. **Ship Prompt Forge (§ Feature Mandate) — deeply upgrade the user's prompt at submission, vault-grounded.**
 
+## ❌ FAILURE MODES — worked anti-examples of "done wrong" (never do these)
+- **Skim-and-declare** (the #1 failure this project keeps hitting): read the ledger, skip the body, ship a shallow change, say "nothing left." → A DoD is unmet; re-read.
+- **Plumbing-as-done:** wire the backend/shim/env and call it done while the visible, vault-deep integration is missing. Build-green ≠ done.
+- **SwiftUI relapse / boundary breach:** add native chrome, or make "one tiny edit" to the June lane or the data core. → Forbidden; flag it.
+- **Fake capability:** ship a dead provider button or a faked state to close a row. → Gate it honestly.
+- **Trophy skill:** forge a SKILL.md nothing reuses, or run a cycle that ignores the library. → Under-compounded.
+
 > A research-and-build assignment. Not a task list — a mandate. Read every word before you write a line.
 > This SUPERSEDES the native-SwiftUI direction of the earlier P2 prompt. **There is no more SwiftUI
 > chrome. You extend the 1Code web UI itself.** Everything else the owner asked for still holds.
@@ -72,6 +79,19 @@ clarify-don't-guess (≤3 questions only on real ambiguity). UX: original→upgr
 Accept/Edit/Retry/Revert, never silent, fast (small model, streamed), show what changed. Build it in the
 renderer composer + a backend enhance step. **Ships as a real feature (a live "underspecified prompt →
 upgraded, vault-cited prompt" transcript), not a stub** — it's on the feature ledger + DoD-Foundation.
+
+## FEATURE MANDATE — System Prompt Forge + Pattern Library (companion to Prompt Forge; build this, DoD-gated)
+Prompt Forge upgrades the USER prompt; this upgrades the SYSTEM-prompt / behavior layer. Two parts: (1) a
+curated, composable **Pattern Library** (Fabric-model, markdown, task/persona-scoped) the user or app
+applies + composes per agent; (2) a system-prompt **upgrader** that meta-improves a custom system prompt
+into the layered frontier architecture — **identity → capability-honesty → tool contract → refusal
+framing → output contract → priority budgeting → worked failure examples** — preserving intent/voice,
+with the diff UX. Vault-grounded (personalize the agent's system prompt to how THIS user works). Full
+spec + the architecture lessons: `docs/research/SYSTEM_PROMPT_FIELD_STUDY.md`. **⚠️ IP: learn the
+PATTERNS from frontier/leaked prompts, NEVER copy proprietary system-prompt TEXT into the product.** Build
+it in renderer settings + backend; each of the six engines/personas can be Pattern-driven; keep per-engine
+system prompts honest. Ships DoD-gated (a custom system prompt measurably upgraded + a Pattern applied),
+not a stub.
 
 ---
 

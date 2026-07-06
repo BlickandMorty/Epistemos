@@ -8,6 +8,13 @@
 5. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
 6. **Ship Prompt Forge (§ Feature Mandate) — upgrade the user's prompt at submission, on-device + vault-grounded.**
 
+## ❌ FAILURE MODES — worked anti-examples of "done wrong" (never do these)
+- **Skim-and-declare** (the #1 failure this project keeps hitting): read the ledger, skip the body, ship a shallow change, say "nothing left." → A DoD is unmet; re-read.
+- **Chat-box-as-agent:** wire a chat turn and call it done while the agent_core agentic loop + vault tools aren't connected. Build-green ≠ done.
+- **Subprocess / fake-tool relapse:** spawn a sidecar, or advertise tools on a local model. → Forbidden; in-process + honest only.
+- **Boundary breach:** "one tiny edit" to the Experimental lane or the data core. → Forbidden; flag it.
+- **Trophy skill:** forge a SKILL.md nothing reuses, or run a cycle that ignores the library. → Under-compounded.
+
 **Read this whole file before touching anything. This is the parallel track to the 1Code Experimental
 build — you own the MAS June surface; do not touch `Epistemos/ExperimentalAgent/**` or the 1Code fork.**
 
@@ -91,6 +98,18 @@ UX: original→upgraded diff, one-click Accept/Edit/Retry/Revert, never silent, 
 when it's local vs cloud, never fabricate a citation, respect the §0.8 tool allowlist.** Build it in the
 June composer + gateway enhance step. Ships as a real feature (a live "underspecified prompt → upgraded,
 vault-cited prompt" transcript), not a stub.
+
+## FEATURE MANDATE — System Prompt Forge + Pattern Library (companion to Prompt Forge; build this, DoD-gated)
+Prompt Forge upgrades the USER prompt; this upgrades the SYSTEM-prompt / behavior layer. Two parts: (1) a
+curated, composable **Pattern Library** (Fabric-model, markdown, task/persona-scoped) the user or app
+applies + composes per agent; (2) a system-prompt **upgrader** that meta-improves a custom system prompt
+into the layered frontier architecture — **identity → capability-honesty → tool contract → refusal framing
+→ output contract → priority budgeting → worked failure examples** — preserving intent/voice, with the
+diff UX. Vault-grounded. Full spec + architecture lessons: `docs/research/SYSTEM_PROMPT_FIELD_STUDY.md`.
+**⚠️ IP: learn the PATTERNS from frontier/leaked prompts, NEVER copy proprietary system-prompt TEXT.**
+Build it in June settings + the gateway; **the local lane's system prompt MUST stay honest (chat-tier, no
+tools)**; run the upgrader on-device where possible. Ships DoD-gated (a custom system prompt measurably
+upgraded + a Pattern applied), not a stub.
 
 ## PHASE A — DEEP SELF-RESEARCH: the connection audit (the "research its own code" deliverable)
 Produce `docs/research/JUNE_MAS_CONNECTION_AUDIT.md` — a 7-layer audit that maps the surface honestly.
