@@ -264,3 +264,10 @@ Verified against the live repo before build-start. Full detail: `KEELSTONE_REVIE
 8. **Guard-2 blast radius.** `EpistemosWidgets` cherry-picks individual `Epistemos/` files —
    `AppSurface.swift` must never join a cherry-picking target unless that target defines a surface
    macro. `EpistemosTests` (@testable import, own sources) is unaffected.
+9. **Cross-plan coordination (post-LUMENLENS audit, 2026-07-06).** (a) The §15.1 macro-scoping
+   edit also places `KINDRED_ENABLED` on the `Epistemos` target (never AppStore/base) — LUMENLENS's
+   companion flag rides the same project.yml change, and §9.4 drift guardrails assert its
+   placement. (b) `ActiveEditorBridge` stays a thin protocol seam with a stub adapter; the real
+   implementation is LUMENLENS's `LensSessionCoordinator` (docs/plans/lumenlens/spine/). (c)
+   `AtomicVaultWriter.write(_ content:, to:)` keeps its whole-buffer contract — LUMENLENS
+   minimal-diff writeback composes buffers in memory and always writes full content atomically.

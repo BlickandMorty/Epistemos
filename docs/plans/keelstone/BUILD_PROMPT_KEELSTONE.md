@@ -81,3 +81,31 @@ These amend the plan per §15 and bind like the "do not" list:
    key, `.md`+`.json` indexed set). Use THESE copies, not the raw research wave.
 7. **Build discipline**: isolated DerivedData; BUILD SUCCEEDED on BOTH targets per phase; never two
    xcodebuilds at once; commit per green step with pathspec-scoped commits (`git commit --only -- <files>`).
+
+---
+
+## CROSS-PLAN COORDINATION UPDATE (2026-07-06, post-LUMENLENS audit — additive; nothing above is invalidated)
+
+Plan 2 (LUMENLENS, `docs/plans/lumenlens/`) was audited after you started. Three items now bind:
+
+1. **Add `KINDRED_ENABLED` while you're already scoping macros (§15.1).** In the same project.yml
+   edit where you add `EPISTEMOS_EXPERIMENTAL` to the `Epistemos` target's Debug/Release configs,
+   ALSO add `KINDRED_ENABLED` to that target's conditions (all its configs) — never on
+   `Epistemos-AppStore`, never in shared base. It is LUMENLENS's companion-edit feature flag,
+   subordinate to the surface macro (guards live in
+   `docs/plans/lumenlens/spine/CompanionEditGate.swift`, landed by the LUMENLENS agent — you only
+   place the flag). Include it in your `-showBuildSettings` verification, and extend the §9.4 CI
+   drift guardrails: assert `KINDRED_ENABLED` appears on the Epistemos target only. If you have
+   ALREADY passed the macro-scoping step: make this a small follow-up edit + `xcodegen generate`
+   at your next clean point — do not interrupt a mid-phase state.
+2. **Keep `ActiveEditorBridge` a THIN protocol seam — do not build the editor side.** Implement
+   only a minimal stub adapter over the current editor (enough to witness your Phase 4 conflict
+   done-bar: dirty-never-clobbered / clean-reload). The REAL implementation is LUMENLENS's
+   `LensSessionCoordinator` (its session state machine + write-lease), which will replace your
+   stub. Do not build a session machine, write-lease, or rich conflict UI into
+   NoteDetailWorkspaceView — that is LUMENLENS scope; a merge-review surface beyond the minimal
+   conflict-copy prompt is theirs too.
+3. **`AtomicVaultWriter` contract is now load-bearing for two plans — keep it stable.** LUMENLENS
+   minimal-diff writeback will pass pre-composed WHOLE-buffer contents (splice happens in memory;
+   the write is always full-buffer atomic). Keep the `write(_ content:, to:)` whole-content
+   signature; don't add partial/streaming write variants.
