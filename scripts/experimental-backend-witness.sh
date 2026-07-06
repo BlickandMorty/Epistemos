@@ -68,6 +68,10 @@ check "search: whole-vault content hit" \
   'Gamma Service' "$(call epistemosVault.search '{"json":{"query":"networking","limit":8}}' | jget)"
 check "search: RELEVANCE-ranked (title match ranks first)" \
   '"title": "Gamma Service"' "$(call epistemosVault.search '{"json":{"query":"gamma","limit":8}}' | jget)"
+check "cite-repair: hallucinated citation → nearest real note (did-you-mean)" \
+  '"title": "Gamma Service"' "$(call epistemosVault.nearest '{"json":{"title":"Gamma Servicing Plan"}}' | jget)"
+check "cite-repair: unrelated citation → NO false suggestion" \
+  '"suggestion": null' "$(call epistemosVault.nearest '{"json":{"title":"Quantum Teleportation Xyz"}}' | jget)"
 check "graph: outlink neighbor surfaced" \
   'linked from Alpha Project' "$(call epistemosVault.search '{"json":{"query":"alpha","limit":8,"graph":true}}' | jget)"
 check "graph: backlink surfaced (references, no query-term match)" \
