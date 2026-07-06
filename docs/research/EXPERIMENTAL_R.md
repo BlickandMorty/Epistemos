@@ -1270,3 +1270,15 @@ de-branded "E Epistemos" + the Vault/Forge/Persona composer buttons + the owner'
 chats. So the ~16 cycles of staged features (Skills library, ranking, cite-repair, VRM chip, cap-honesty)
 are now LIVE + the surface is proven to load them cleanly. Left the app in a BETTER state than Cycle 37
 (Experimental surface + owner context, vs Home + stuck palette). Input-quirk + entry-point recorded in memory.
+
+---
+
+**Cycle 41 (2026-07-06) — provenance note now timestamped + cross-feature regression verified.** Added an
+ISO capture timestamp to the provenance note header (an auditable run record should state WHEN it was
+captured); optional `capturedAtISO` param keeps it deterministic/testable. CRITICAL cross-feature check:
+the provenance format is CONSUMED by the Skills-discovery gate (parseProvenanceTools mines the tool
+sequence). Verified headless that the new timestamp header does NOT leak into the parse — discoverSkills
+still extracts exactly ['search_notes','read_file'] from a timestamped note (the regex only matches the
+numbered `**tool**` lines in the sequence section). Deployed to the staged bundle (timestamp confirmed in
+tarball). Also cleaned up a stray backend I briefly booted against real user-data while verifying (killed;
+only idempotent migrations ran). Owner active → headless-only, app untouched.
