@@ -1297,3 +1297,19 @@ flagship proven end-to-end LIVE (was headless + present-live). Also TEMPER-verif
 "use" macro's editor handle (AgentsMentionsEditorHandle) really has getValue/setValue/focus → not a silent
 no-op. A clean redemption of the Cycle-37 relaunch saga: the app IS drivable without a mess once the quirks
 are known.
+
+---
+
+**Cycle 43 (2026-07-06) — REAL BUG FOUND VIA LIVE VERIFICATION: whole-vault grounding failed for
+natural-language prompts.** The Cycle-42 live Prompt Forge upgrade wasn't vault-cited — investigated
+instead of shrugging. Root cause: `searchVaultNotes` (the whole-vault fallback under rankedVaultSearch,
+used by Prompt Forge grounding + auto-ground + the Vault button) matched the ENTIRE query as one
+substring (`indexOf(q)`). A real prompt ("help me make the aetherlink pitch more compelling") is never a
+verbatim substring of any note → ZERO grounding, silently. Rewrote it as a TERM-OVERLAP search: split
+into significant terms (≥3 chars minus a stopword set), match notes containing them, rank title-hits >
+distinct-terms > freq > position; raw-phrase fallback for tiny queries. Bounded as before. PROVEN headless
++ witness (14/14): the NL prompt now returns [AETHERLINK Pitch, Value Proposition]; single-term, no-match,
+ranking all still pass. Deployed (in tarball). This is the highest-value fix in many cycles — the flagship
+differentiator (VAULT-GROUNDED prompts) now actually fires for the prompts real users type, not just
+single keywords. Live verification earned its keep: it surfaced a silent correctness bug headless proofs
+(which used keyword fixtures) missed.
