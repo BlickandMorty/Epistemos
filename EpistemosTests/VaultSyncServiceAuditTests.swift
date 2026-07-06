@@ -241,6 +241,46 @@ struct VaultSyncServiceAuditTests {
         #expect(try context.fetch(FetchDescriptor<SDPage>()).isEmpty)
     }
 
+    @Test("file-first body save writes the vault markdown and leaves no durable sidecar body")
+    func fileFirstBodySaveWritesVaultMarkdownAndLeavesNoDurableSidecar() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let noteBodiesURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: noteBodiesURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL) { @MainActor in
+            service.setVaultURLForTesting(vaultURL)
+
+            let initialBody = "initial vault markdown body"
+            let editedBody = "edited vault markdown body\n\nFinder-visible immediately"
+            let pageId = try #require(await service.createPage(title: "File First Save", body: initialBody))
+            let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+            let page = try #require(try context.fetch(descriptor).first)
+            let filePath = try #require(page.filePath)
+            let fileURL = URL(fileURLWithPath: filePath)
+
+            #expect(FileManager.default.fileExists(atPath: fileURL.path))
+            #expect(NoteFileStorage.bodyExists(pageId: pageId) == false)
+
+            #expect(await service.savePageBodyFileFirst(pageId: pageId, body: editedBody))
+
+            let diskBody = try String(contentsOf: fileURL, encoding: .utf8)
+            #expect(diskBody.contains(editedBody))
+            #expect(!diskBody.contains(initialBody))
+            #expect(NoteFileStorage.bodyExists(pageId: pageId) == false)
+
+            let savedPage = try #require(try context.fetch(descriptor).first)
+            #expect(savedPage.needsVaultSync == false)
+            #expect(savedPage.lastSyncedBodyHash == SDPage.bodyHash(editedBody))
+        }
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(12),
         condition: @escaping @MainActor () async -> Bool
