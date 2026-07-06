@@ -39,3 +39,11 @@
 - Use for: Work context snapshots, Prompt Forge context rows, native MCP context tooling, and safe propagation of runtime-visible capabilities into agent prompts.
 - Cycle breakthrough: Work context snapshots now include bounded runtime skill identifiers, so Prompt Forge and the native context tool can ground prompts in the skills the running Work agent can actually see.
 - Next leverage: add confidence/availability rows for other already-proven runtime capabilities without importing protected graph/note/app state.
+
+## proshell-work-prompt-context-builder
+
+- Path: `.claude/skills/proshell-work-prompt-context-builder/SKILL.md`
+- Class: Extracting and testing Work prompt-context assembly outside large SwiftUI surfaces.
+- Use for: Work Prompt Forge context snippets, context-priority mapping, native MCP context reuse, or any prompt-context logic currently embedded in a large view.
+- Cycle breakthrough: Prompt Forge context snippet assembly moved from `WorkEngineSurfaceView` into `WorkPromptForgeContext`, making runtime-skill grounding pure and testable while shrinking the Work surface.
+- Next leverage: use the builder as the single route for Work prompt grounding before adding richer capability rows.

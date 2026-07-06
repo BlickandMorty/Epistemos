@@ -125,6 +125,7 @@ struct PromptForgeTests {
 
         #expect(surface.contains("pendingPromptForgeReview"))
         #expect(surface.contains("PromptForgeService.upgrade"))
+        #expect(surface.contains("WorkPromptForgeContext.snippets(from: appContext)"))
         #expect(surface.contains("beginPromptForgeReview"))
         #expect(surface.contains("acceptPromptForgeReview"))
         #expect(surface.contains("editPromptForgeReview"))
@@ -135,5 +136,42 @@ struct PromptForgeTests {
         #expect(review.contains("Edit upgraded prompt"))
         #expect(review.contains("Retry upgrade"))
         #expect(review.contains("Revert to original"))
+    }
+
+    @Test("Work Prompt Forge context builder maps runtime skills into grounded snippets")
+    func workPromptForgeContextIncludesRuntimeSkills() {
+        let snapshot = WorkAppContextSnapshot(
+            workspacePath: "/work",
+            vaultPath: "/vault",
+            managedSkillsCount: 3,
+            runtimeSkillNames: ["audit", "ship", "verify"],
+            nativeToolsAvailable: true,
+            selectedEngine: "opencode",
+            selectedModelID: "provider/model",
+            selectedAgent: "build",
+            currentSelectionPreview: "Selected note text")
+
+        let snippets = WorkPromptForgeContext.snippets(from: snapshot)
+        let ids = snippets.map(\.id)
+        let runtimeSkills = snippets.first { $0.id == "work-runtime-skills" }
+        let selection = snippets.first { $0.id == "work-selection" }
+
+        #expect(ids.contains("work-workspace"))
+        #expect(ids.contains("work-vault"))
+        #expect(runtimeSkills?.title == "runtime skills")
+        #expect(runtimeSkills?.excerpt == "audit, ship, verify")
+        #expect(runtimeSkills?.priority == 40)
+        #expect(selection?.priority == 80)
+    }
+
+    @Test("Work Prompt Forge context builder owns priority mapping outside the Work view")
+    func workPromptForgeContextPriorityMappingIsExtracted() throws {
+        let builder = try loadMirroredSourceTextFile("Epistemos/Work/WorkPromptForgeContext.swift")
+        let surface = try loadMirroredSourceTextFile("Epistemos/Work/WorkEngineSurfaceView.swift")
+
+        #expect(builder.contains("enum WorkPromptForgeContext"))
+        #expect(builder.contains("case \"engine\", \"model\", \"agent\", \"runtime-skills\""))
+        #expect(surface.contains("WorkPromptForgeContext.snippets(from: appContext)"))
+        #expect(!surface.contains("case \"engine\", \"model\", \"agent\", \"runtime-skills\""))
     }
 }

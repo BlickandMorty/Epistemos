@@ -658,25 +658,7 @@ struct WorkEngineSurfaceView: View {
     }
 
     private func promptForgeContextSnippets() -> [PromptForgeContextSnippet] {
-        appContext.rows(pathLimit: 120, textLimit: 220).map { row in
-            let priority: Int
-            switch row.id {
-            case "note", "note-path", "graph", "selection":
-                priority = 80
-            case "vault", "workspace":
-                priority = 60
-            case "engine", "model", "agent", "runtime-skills":
-                priority = 40
-            default:
-                priority = 20
-            }
-            return PromptForgeContextSnippet(
-                id: "work-\(row.id)",
-                title: row.label,
-                source: "Work context",
-                excerpt: row.value,
-                priority: priority)
-        }
+        WorkPromptForgeContext.snippets(from: appContext)
     }
 
     /// Tab stages a prompt without sending immediately. Enter remains the send-now action; queued rows keep their
