@@ -225,3 +225,12 @@ depth 4 · Depth/novelty 4. No axis < 4.
    restructuring tables; dry-run→confirm→undo for agent table restructuring follows the same D7
    gating (per-turn approval; revert-turn). KINDRED builds the pattern; Plan 9 consumes it as an
    external seam — do not build Data-tab UI here.
+10. **CHAT-AS-TAB seam (the Epdoc Notebook — owner directive 2026-07-06; LUMENLENS §P-AMEND 11).**
+   A minichat session can be MOUNTED AS A TAB inside a note (the Epdoc Notebook): the note's tab
+   manifest references the session by `sub_chats.sessionId`; opening the tab mounts the SAME K6
+   minichat with its full context — a past conversation lives inside the note it worked on,
+   navigable, never re-created. K6's parameterization therefore covers THREE mounts: sidebar
+   dock · dataTab · in-note tab (presence distinguishes them). Guard rails: mounting is
+   reference-only (session truth stays the 1Code store); no new chat system; 1Code-only — on MAS
+   the chat tab surfaces via LUMENLENS's robust disclosure (degraded + exportable markdown
+   transcript). LUMENLENS owns the tab container; you own the mounted chat content.

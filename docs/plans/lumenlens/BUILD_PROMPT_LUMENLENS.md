@@ -105,4 +105,14 @@ onto MAS. Don't silently override Epdoc-as-default (validate, note trade-offs).
    existing `showInfoPopover` in NoteDetailWorkspaceView) listing every degraded/invisible item
    with a rendered preview + jump-to-Epdoc. Quiet when empty. External types register via the
    same seam (RECKONER embeds first). L2 is not done until the disclosure bar passes on the
-   full-corpus doc.
+   full-corpus doc. **Popovers are ROBUST:** high-quality rendered previews + per-item
+   download/export actions (dataset → xlsx/CSV via IronCalc; chart → image; chat tab →
+   markdown transcript; quarantine → raw bytes) — working exports are part of the L2 bar.
+11. **The Epdoc Notebook (owner-mandated, plan §P-AMEND 11 — new phase L6):** a note hosts tabs
+   (body + RECKONER sheet tabs + KINDRED chat tabs + a "+ new tab" launcher pane). You own the
+   CONTAINER: the Tier-B tab manifest (references only — dataset/session ids; the `.md` stays
+   sole note truth per KEELSTONE 4.5; legible in vim; Fork-B byte-stable), the tab chrome, the
+   launcher, tombstone-tab UX for dangling references, and disclosure integration (tabs surface
+   through the robust popovers on Prose/Source; chat tabs are 1Code-only — degraded+exportable
+   on MAS). Content mounts come from RECKONER (grid, second mount) and KINDRED (K6 minichat) —
+   consume their seams by ID; do not build sheet/chat internals. L6 done-bar per the plan.

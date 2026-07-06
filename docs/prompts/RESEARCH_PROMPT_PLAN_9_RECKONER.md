@@ -73,10 +73,23 @@ structural change attributed and revertible. Harden that loop until it is boring
    (wikilink/embed/graph), NEVER row duplication into markdown.
 3b. **Nothing lost, nothing hidden (owner directive 2026-07-06):** Epdoc is the richest lens; when
    the user switches to Prose or Source, any content those lenses cannot render — INCLUDING
-   dataset embeds — must surface through LUMENLENS's **Lens-Fidelity Disclosure** affordance
-   (`docs/plans/lumenlens/` §P-AMEND 10): an info toggle listing every not-renderable-here item
-   with a rendered preview + jump-to-Epdoc. RECKONER embeds REGISTER into that mechanism (a
-   preview provider per embed); RECKONER does not build its own disclosure UI.
+   dataset embeds and notebook tabs (3c) — must surface through LUMENLENS's **Lens-Fidelity
+   Disclosure** affordance (`docs/plans/lumenlens/` §P-AMEND 10): an info toggle listing every
+   not-renderable-here item with a rendered preview + jump-to-Epdoc. The popovers are ROBUST:
+   high-quality previews (real rendered snapshots, not placeholders) plus per-item actions —
+   **download / export** (dataset → xlsx via IronCalc's verified `save_to_xlsx` / CSV; chart →
+   image; chat tab → markdown transcript) — so complex content is fully usable from ANY lens.
+   RECKONER embeds/tabs REGISTER preview+export providers; RECKONER does not build its own
+   disclosure UI.
+3c. **The Epdoc Notebook (owner directive 2026-07-06):** a single note file, opened in Epdoc, can
+   host EMBEDDED TABS — the markdown body plus sheet tabs (RECKONER datasets) and chat tabs
+   (KINDRED minichat sessions with their context). The `.md` file stays the SOLE note truth
+   (KEELSTONE Phase 4.5): tabs are persisted as REFERENCES in the markdown (a Tier-B tab
+   manifest), never embedded blobs — dataset truth stays GRDB, chat truth stays the 1Code
+   session store. Seam ownership: LUMENLENS owns the tab container + manifest + round-trip;
+   RECKONER owns the sheet-tab content (same grid seam as D2/D3, second mount point); KINDRED
+   owns the chat-tab content (K6 minichat mounted in-note; 1Code-only — on MAS chat tabs appear
+   via disclosure as degraded, sheet tabs render fully).
 4. Every structural/bulk agent op: dry_run → schema-diff preview → confirm → apply → undo, with
    attribution through the LUMENLENS provenance schema (its span metadata is payload-agnostic BY
    DESIGN for this reason — `docs/plans/lumenlens/` §P-AMEND 9).
@@ -183,6 +196,39 @@ structural change attributed and revertible. Harden that loop until it is boring
   provenance. End with the 3-5 moves that make RECKONER genuinely novel (leading candidate: the
   attributed, revertible, conversation-driven schema lifecycle — validate or beat it).
 
+### D10 — The Epdoc Notebook junction ★ (new owner directive — research it hard)
+A note becomes a NOTEBOOK: the markdown body + in-note tabs holding sheets and chats, navigable
+inside Epdoc, with a "+ new tab" launcher page (add a sheet · start a chat · what else earns a
+place?). This is the triad physically converging inside one document — design it so it stays
+honest:
+- **The tab manifest in markdown:** how tabs persist inside the `.md` (frontmatter manifest vs a
+  fenced Tier-B block vs per-tab reference syntax) — pick with evidence on round-trip stability,
+  external-editor readability (vim shows legible reference lines), merge/conflict behavior under
+  KEELSTONE reconcile, and Fork-B byte preservation. The note remains a valid, readable markdown
+  file everywhere.
+- **Sheet tabs = the second mount of the same grid seam:** one dataset can be open as a workspace
+  tab (D2) AND as an in-note tab — same GRDB truth, same IronCalc/Univer instance rules. Resolve:
+  WebView economics for N in-note tabs (lazy-mount only the active tab?), what happens when the
+  same dataset is mounted twice, and how in-note sheet state (active view, scroll) is or isn't
+  persisted in the manifest.
+- **Chat tabs (1Code-only):** a KINDRED minichat session mounted as a tab — the SAME session
+  store (`sub_chats.sessionId` reference in the manifest), full context preserved, presence-aware
+  (`Location.surface` distinguishes in-note chat vs dataTab). NO new chat system; on MAS, chat
+  tabs surface via disclosure (degraded, exportable transcript) since companions are 1Code-only.
+- **The "+ new tab" launcher:** an in-note landing pane (add sheet — new or existing dataset;
+  start a chat; candidates from research below). Scope guard: it is a launcher INSIDE the note,
+  not a room; quiet, native-feeling, no navigation weight.
+- **What else earns a tab? (research, don't assume):** survey the best container-doc systems —
+  Quip (docs + embedded spreadsheets + per-doc chat — the closest ancestor), Coda (docs as apps),
+  Notion inline databases, Jupyter notebooks, Craft, OneNote sections, Airtable interfaces —
+  and recommend at most 1–2 additional v1-worthy tab types (chart tab? PDF tab? none?) with
+  rejection rationale for the rest. Bloat is the enemy; every tab type must round-trip.
+- **Failure modes:** dangling references (dataset/session deleted → tombstone tab UX), manifest
+  merge conflicts, tab-order preservation, a note shared to a machine without the dataset,
+  export-from-disclosure as the universal escape hatch.
+- **Cross-lens:** the whole notebook obeys 3b — Prose/Source show the body normally and the tabs
+  through the ROBUST disclosure popovers (preview + download/export per tab).
+
 ### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
 - **F1 vault:** records are first-class vault objects via references; embeds live in notes;
   datasets never duplicate into markdown. **F2 capability:** RECKONER is the exemplar F2 citizen —
@@ -206,12 +252,14 @@ version-gated capabilities carry fallbacks.
 (D1 — longest). 3. Tab-document model + lease verdict (D2). 4. Grid seam at scale + failure
 modes (D3). 5. Embed spec + liveness verdict (D4). 6. Dataset-aware chat parameterization (D5).
 7. **Storage-placement verdict** (D6 — the hard call, with the KEELSTONE gate extensions).
-8. Ingest (D7). 9. Budgets + failure table (D8). 10. Competitive + novel moves (D9). 11. Deep
-Fabric section (D★). 12. **Phased build order** (data core → native IronCalc/UniFFI → grid seam →
-tab documents → F2 tools + dry-run loop → embeds → dataset-aware chat → ingest), each phase with
-a WITNESSABLE done-bar; flag dependencies (KEELSTONE 0-4; LUMENLENS L1/L5; KINDRED K6).
-13. Open questions preserved (not silently resolved). 14. Self-critique + rubric scores (§3 of
-the standard; iterate any axis <4).
+8. Ingest (D7). 9. Budgets + failure table (D8). 10. Competitive + novel moves (D9).
+11. **The Epdoc Notebook** (D10 — headline: manifest verdict, second-mount rules, chat-tab seam,
+launcher scope, the earn-a-tab survey, failure modes). 12. Deep Fabric section (D★).
+13. **Phased build order** (data core → native IronCalc/UniFFI → grid seam → tab documents →
+F2 tools + dry-run loop → embeds → notebook tabs + launcher → dataset-aware chat → ingest), each
+phase with a WITNESSABLE done-bar; flag dependencies (KEELSTONE 0-4; LUMENLENS L1/L5 + the tab
+container; KINDRED K6). 14. Open questions preserved (not silently resolved). 15. Self-critique +
+rubric scores (§3 of the standard; iterate any axis <4).
 
 ## 8. Anti-patterns (do NOT do)
 Do not resurrect the room, the docked chat panel, or five-views-v1. Do not re-litigate the
@@ -219,6 +267,10 @@ clone-verified engine keystones without new file:line evidence. No dual-compute 
 engine stays OFF). No Univer Pro, no Teable code, no server, no subprocess on MAS. No second chat
 system on any build. No silent agent restructuring — every structural op previews and is
 revertible. Do not absorb LUMENLENS/KINDRED scope; name their seams by ID. Do not leave the
-storage-placement fork unresolved — it gets a verdict with evidence.
+storage-placement fork unresolved — it gets a verdict with evidence. Notebook tabs are REFERENCES
+in the markdown, never embedded blobs (the `.md` stays sole note truth and stays readable
+everywhere); chat tabs mount EXISTING minichat sessions, never a new chat; the "+ new tab"
+launcher stays inside the note — it is not a room; do not add tab types the earn-a-tab survey
+can't defend.
 
 ─── END RESEARCH BRIEF ───

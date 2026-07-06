@@ -148,7 +148,37 @@ depth 4 · Depth/novelty 4. No axis < 4.
      jump-to-in-Epdoc. Zero-item docs show nothing (quiet by default).
    - External content types register through the same seam — RECKONER embeds are the first
      (`EPI-RP-09` provides its preview provider; LUMENLENS owns the registry + UI).
-   - **Done-bar (folds into L2):** on a corpus doc containing every Tier B type + a quarantined
-     block + a dataset embed, switching to Prose and to Source each shows an accurate disclosure
-     list with previews; nothing renderable-in-Epdoc is silently invisible; bytes untouched
-     (Fork B unaffected). Native UI only — no js-editor bundle implications for MAS gating.
+   - **ROBUST popovers (owner upgrade 2026-07-06):** disclosure previews are HIGH-QUALITY rendered
+     snapshots (not placeholders), and every item carries actions — **download / export** (dataset
+     tab/embed → xlsx via IronCalc `save_to_xlsx` / CSV; chart → image; chat tab → markdown
+     transcript; quarantined block → raw bytes) + jump-to-Epdoc. The popover is the universal
+     escape hatch: complex content is fully USABLE from any lens, never just acknowledged.
+   - **Done-bar (folds into L2, re-verified at L6):** at L2 — on a corpus doc containing every
+     Tier B type + a quarantined block + a dataset embed, switching to Prose and to Source each
+     shows an accurate disclosure list with working previews AND working exports; nothing
+     renderable-in-Epdoc is silently invisible; bytes untouched (Fork B unaffected). At L6 —
+     the same check re-runs with notebook tabs added to the corpus doc (tabs disclose + export
+     like everything else). Native UI only — no js-editor bundle implications for MAS gating.
+11. **THE EPDOC NOTEBOOK — embedded tabs in a single note (owner directive 2026-07-06).**
+   A note opened in Epdoc can host TABS: the markdown body + sheet tabs (RECKONER datasets) +
+   chat tabs (KINDRED minichat sessions with their context) + a "+ new tab" launcher pane (add a
+   sheet · start a chat). LUMENLENS owns the CONTAINER:
+   - **Truth rule (KEELSTONE Phase 4.5 unbroken):** the `.md` stays the sole note truth. Tabs
+     persist as a Tier-B TAB MANIFEST of references (dataset ids, session ids, order, titles) —
+     never embedded blobs. Dataset truth stays GRDB (RECKONER); chat truth stays the 1Code
+     session store (KINDRED). In vim/external editors the manifest reads as legible reference
+     lines; Fork B round-trips it byte-stable; KEELSTONE reconcile/merge treats it as ordinary
+     markdown.
+   - **Seam ownership:** LUMENLENS = tab chrome, manifest syntax + round-trip, launcher pane,
+     lens-fidelity integration (tabs disclose via the robust popovers on Prose/Source).
+     RECKONER = sheet-tab content (its grid seam, second mount; `EPI-RP-09` D10 resolves the
+     WebView economics + double-mount rules). KINDRED = chat-tab content (K6 minichat mounted
+     in-note, same session; 1Code-only — on MAS chat tabs appear via disclosure as degraded +
+     exportable transcript; sheet tabs render fully on both builds).
+   - **Guard rails:** no new chat system; the launcher is a pane inside the note, not a room;
+     dangling references (deleted dataset/session) get a tombstone-tab UX, never silent loss;
+     tab types beyond body/sheet/chat require the RECKONER D10 earn-a-tab survey's verdict.
+   - **Done-bar (new phase L6 — after L2 and the RECKONER/KINDRED content seams exist):** a note
+     with body + 2 sheet tabs + 1 chat tab round-trips byte-stable through every lens; external
+     edit of the manifest reconciles; deleting a referenced dataset shows the tombstone tab;
+     the same note on MAS renders body + sheet tabs and discloses the chat tab with export.

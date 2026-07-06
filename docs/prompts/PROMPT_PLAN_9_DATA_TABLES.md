@@ -337,7 +337,11 @@ The doors re-weight:
    capability is June-driven. Data is something the agent DOES for you, not a place you go.
 2. **Datasets open as TABS in the note workspace** — reuse the existing native note/doc tab group
    (precedent: EpdocDocument windows already join `NoteWindowManager.noteTabbingIdentifier`,
-   guard-tested). Same chrome as notes; zero new navigation surface.
+   guard-tested). Same chrome as notes; zero new navigation surface. **Second mount (owner
+   2026-07-06): sheets can ALSO be in-note tabs inside the Epdoc Notebook** (LUMENLENS §P-AMEND
+   11) — same GRDB truth, same grid seam, mounted inside a note beside chat tabs; the note's
+   `.md` holds only references (tab manifest). `RESEARCH_PROMPT_PLAN_9_RECKONER.md` D10 resolves
+   the double-mount + WebView-economics rules.
 3. **Inline note embeds** — unchanged (the vault-integration moat, §6).
 4. **The dedicated top-level Data room/tab: CUT.** No room chrome. The native view system
    (kanban/gallery/calendar/form) is DEFERRED to a later phase — grid first.
