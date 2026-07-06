@@ -261,6 +261,20 @@ private struct ExperimentalWebView: NSViewRepresentable {
             if kind == "dialog:save-file" {
                 return await handleSaveFile(payload: body["payload"])
             }
+            // EPISTEMOS Cycle-2 frontier: ranked vault retrieval. Runs the app's REAL
+            // RRF fused search (tantivy BM25 + usearch HNSW, epistemos-shadow) — the
+            // context-assembly axis no standalone agent app can match — and returns
+            // ranked {title, snippet, score, source} for grounded context. Async
+            // because the search is async; reply() is sync, so intercept here.
+            if kind == "vault:search-ranked" {
+                return await handleRankedVaultSearch(payload: body["payload"])
+            }
+            // EPISTEMOS (owner-requested deep connection): a note/`.md` link clicked in the chat
+            // opens IN the app's Notes editor instead of the external browser. Async because it
+            // touches AppKit document opening; reply() is sync, so intercept here.
+            if kind == "epistemos:open-note" {
+                return await handleOpenNote(payload: body["payload"])
+            }
             return reply(to: kind, payload: body["payload"])
         }
 
@@ -283,6 +297,68 @@ private struct ExperimentalWebView: NSViewRepresentable {
                   let text = body["text"] as? String,
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
             _ = synth.speak(String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
+        }
+
+        // Open a vault note (.md) in the app's Notes editor when its link is clicked in the chat.
+        // Vault-CONTAINED (no traversal outside the vault root) + .md-only + must exist; anything else
+        // returns {handled:false} so the web caller falls back to its normal openExternal.
+        @MainActor
+        private func handleOpenNote(payload: Any?) async -> (Any?, String?) {
+            let obj = payload as? [String: Any]
+            guard let raw = (obj?["ref"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !raw.isEmpty else {
+                return (["handled": false], nil)
+            }
+            let ref = raw.removingPercentEncoding ?? raw
+            guard ref.lowercased().hasSuffix(".md") else {
+                return (["handled": false], nil) // only route markdown notes
+            }
+            guard let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL else {
+                return (["handled": false], nil)
+            }
+            let root = vaultURL.standardizedFileURL
+            let target = root.appendingPathComponent(ref).standardizedFileURL
+            // Containment: the resolved note must live inside the vault (blocks ../ traversal).
+            guard target.path == root.path || target.path.hasPrefix(root.path + "/") else {
+                return (["handled": false], nil)
+            }
+            guard FileManager.default.fileExists(atPath: target.path) else {
+                return (["handled": false], nil) // not a real vault note → caller falls back
+            }
+            NSDocumentController.shared.openDocument(withContentsOf: target, display: true) { _, _, _ in }
+            return (["handled": true], nil)
+        }
+
+        // Ranked vault retrieval (Cycle-2): the app's RRF fused index (BM25+HNSW),
+        // reachable from the embedded agent surface via the same round-trip as
+        // vault:create-note. Returns {hits:[{title,snippet,score,source}]}.
+        @MainActor
+        private func handleRankedVaultSearch(payload: Any?) async -> (Any?, String?) {
+            let obj = payload as? [String: Any]
+            let query = ((obj?["query"] as? String) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard query.count >= 2 else {
+                return (["hits": [[String: Any]]()], nil)
+            }
+            let limit = min(max((obj?["limit"] as? Int) ?? 6, 1), 20)
+            guard let search = AppBootstrap.shared?.contextualShadowsState.haloSearchService else {
+                // Recall not live (no vault / index not built) — honest empty, not an error.
+                return (["hits": [[String: Any]](), "unavailable": true], nil)
+            }
+            let hits = await search.search(
+                text: String(query.prefix(500)), domain: .notes, limit: limit)
+            let payloadHits: [[String: Any]] = hits.map { hit in
+                [
+                    "title": hit.title,
+                    // Strip the FTS highlight markup for clean injection into the prompt.
+                    "snippet": hit.snippet
+                        .replacingOccurrences(of: "<b>", with: "")
+                        .replacingOccurrences(of: "</b>", with: ""),
+                    "score": Double(hit.score),
+                    "source": hit.source,
+                ]
+            }
+            return (["hits": payloadHits], nil)
         }
 
         // Write an assistant reply into <vault>/notes/ as a titled markdown note.
