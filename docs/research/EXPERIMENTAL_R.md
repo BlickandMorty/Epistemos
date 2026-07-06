@@ -1365,3 +1365,15 @@ switched to PATH-based (robust vs the old mixed title-basis); (d) backlinks matc
 and filename (link-style agnostic). PROVEN headless + witness (19/19): grounding title = "Data Ledger"
 (H1); H1-link resolves to `09_slug-notes`; outlink/backlink/search all still pass. The whole vault-title
 layer (cite-check, grounding, graph) now speaks the user's TITLES, not filenames — coherent end to end.
+
+---
+
+**Cycle 48 (2026-07-06) — CRYSTALLIZE the realistic-input methodology + apply it (unicode confirmed robust).**
+Four silent bugs in four cycles came from one discipline: test substrate-matching code with the input
+SHAPES that actually occur (NL prompts, ordinal/slug filenames, H1≠filename, wikilink variants), not tidy
+keyword fixtures. Forged that as `experimental-realistic-input-verification` (skill #9) with the checklist
++ the "add BOTH positive and guard to the witness" rule. Then APPLIED it to the next checklist items:
+unicode cite-check `[[Café Notes]]` → verifies; unicode NL search "notes about the café project" → finds
+"Café Notes". Both robust — a valid verification result (not every probe is a bug; confirming robustness
+is the point). No code change → no deploy. The vault-title layer is now realistic-input-hardened AND the
+methodology is captured for any future substrate-matching code.
