@@ -3,6 +3,11 @@
 > A research-and-build assignment. Not a task list — a mandate. Read every word before you write a line.
 > This SUPERSEDES the native-SwiftUI direction of the earlier P2 prompt. **There is no more SwiftUI
 > chrome. You extend the 1Code web UI itself.** Everything else the owner asked for still holds.
+>
+> **This is a FOREVER LOOP.** It does not finish — it compounds. Every cycle you scout the deepest
+> frontier, forge it, temper it, and **crystallize the breakthrough into a new reusable skill**, then
+> raise your own bar. The five phases below are **Cycle 1**. Then you loop, forever, godlier each turn.
+> See §∞.
 
 You own the **1Code Experimental surface** (`Epistemos/ExperimentalAgent/**` for the thin Swift host, and
 the vendored 1Code fork under `.research-clones/1code/**`). A separate agent owns MAS June — **do not
@@ -142,7 +147,40 @@ runaway guards. Memory/energy: bounded streams, WebView teardown, heap ceilings,
 
 ---
 
-## DEFINITION OF DONE (all — proven in the running app, not a compile)
+## §∞ THE FOREVER LOOP — the self-evolving engine (this is the heart; it never ends)
+This is not a project with an end state. It is a **compounding loop** that makes the surface strictly
+more profound every cycle and **crystallizes each breakthrough into a reusable skill**, so intelligence
+accretes instead of evaporating. Phases A–E above are **Cycle 1**. Then you loop — forever — each cycle
+a new frontier and a new skill, each cycle a higher bar than the last. Five movements per cycle:
+
+1. **SCOUT — find the highest-leverage frontier.** Re-scan your own code, the field (the open agent
+   apps), and the substrate (vault / graph / provenance / RRF). Ask the one question that decides
+   everything: *what single integration, built this cycle, would most make the frontier apps look like
+   demos?* Web-verify. Name the crux. One frontier per cycle — the deepest, not the easiest.
+2. **FORGE — build it deeply.** Implement it to enterprise depth, wired into the substrate, connected
+   as far as the architecture theoretically allows. In the web UI + backend fork; never native SwiftUI.
+3. **TEMPER — harden + thermonuclear review.** The four lenses + the deepest `/code-review` you can
+   invoke. Zero open HIGH. Zero test regressions. Verified in the running app, not a compile.
+4. **CRYSTALLIZE — forge a skill (the compounding step; NEVER skip it).** Distill the cycle's
+   breakthrough into a NEW, reusable `SKILL.md` under `.claude/skills/experimental-<slug>/` — a named,
+   described, invocable capability **plus the methodology to reproduce that whole CLASS of integration**.
+   Where the breakthrough is a user-facing agent capability, ALSO write the product skill the embedded
+   agent itself can invoke. Update `.claude/skills/EXPERIMENTAL_SKILLS_INDEX.md`. **A cycle that ships a
+   feature but forges no skill has FAILED the cycle.** This is how the system gets godlier each loop
+   instead of merely bigger — each skill makes the next cycle's godly upgrade cheaper to reach.
+5. **ASCEND — raise your own bar.** In `EXPERIMENTAL_R.md`'s cycle log, record what this cycle made
+   possible and — harder — *what it now makes possible next*. Define the next cycle's bar ABOVE this
+   one's. Commit. Loop.
+
+**Invariants across all cycles (never violated):** strictly additive (never regress a prior cycle's
+feature or skill); honest capability (never fake); the DoD below gates EVERY cycle; the skill library is
+sacred — only extended, never broken; verify in the running app every cycle. By cycle N, the surface
+should do things no agent app on earth does, and `.claude/skills/experimental-*` should read like a
+grimoire of profound integrations — each a capability the frontier apps cannot match, each reusable.
+
+## DEFINITION OF DONE — per cycle (all — proven in the running app, not a compile)
+- **DoD-∞** — Every cycle forges ≥1 new `SKILL.md`, updates the skills index, and raises the bar in the
+  cycle log. The skill library grows monotonically; no cycle closes without it.
 - **DoD-A** — `AGENT_APP_FIELD_STUDY.md` + `EXPERIMENTAL_DEEP_AUDIT.md` committed; every finding cited.
 - **DoD-B** — Thermonuclear review run; every CONFIRMED HIGH fixed; re-review clean.
 - **DoD-Foundation** — De-branded (grep-gated 0), boots into the vault (no picker), six engines

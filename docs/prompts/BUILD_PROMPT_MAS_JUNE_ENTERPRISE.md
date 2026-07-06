@@ -9,6 +9,10 @@ disconnected parts** so it becomes genuinely agentic and useful — not just a c
 it to the deepest enterprise grade in the codebase.** The canonical plan you extend (do not contradict)
 is `docs/prompts/PROMPT_PLAN_1_MAS_JUNE.md` — read it in full first.
 
+**This is a FOREVER LOOP.** It does not finish — it compounds. Every cycle you scout the deepest
+frontier, forge it, temper it, and **crystallize the breakthrough into a new reusable skill**, then
+raise your own bar. Phases A–C below are **Cycle 1**. Then you loop, forever, godlier each turn — see §∞.
+
 ## THE ONE RULE (why past passes fell short)
 **"Build green" is not done, and "it compiles" is not "it works."** Done is defined only by the DoD
 below — each verified in the **running MAS (sandboxed) build** with a real end-to-end task, plus a
@@ -52,6 +56,20 @@ From the project canon (`CLAUDE.md`). A violation is a HIGH that blocks the comm
   llama.cpp — chat tier) and **cloud** (`JuneCloudEngine.swift`, provider stack). Durable session
   store (`store.allSessions`, `autoTitleIfPlaceholder`, persisted).
 - **Everything is `#if EPISTEMOS_APP_STORE`.** Build/verify under the `Epistemos-AppStore` scheme.
+
+## §1.5 THE THESIS — June's unfair advantage (internalize it; this is why you can beat them)
+Every cloud agent app — Codex, the Claude Desktop app, Cursor, opencode — sends the user's work to a
+server and remembers nothing of *who they are*. June is different in kind on **two axes at once**: it
+runs **fully on-device** (Apple Foundation Models / embedded llama.cpp, in-process, no subprocess —
+nothing leaves the Mac on the local lane) AND it lives **inside the user's knowledge substrate** (the
+vault, the graph, the provenance ledger). No frontier app is both private-by-architecture and
+embedded-in-a-second-brain. That is June's structural moat: a **trustworthy, on-device, vault-native
+agent** that reasons over the user's own knowledge, cites it, writes back to it with provenance, and
+remembers across sessions — without a byte leaving the machine unless the user chooses the paid cloud
+lane. The mandate is not to imitate Codex; it is to build the agent Codex *cannot* be: private, local,
+and one with the vault. You are judged on: **(1) depth of embedding** (features only a vault-native agent
+can have), **(2) on-device excellence** (local-lane quality that rivals cloud), **(3) hardening & trust**
+(the deepest tier — private, auditable, crash-safe, sandbox-pure).
 
 ## PHASE A — DEEP SELF-RESEARCH: the connection audit (the "research its own code" deliverable)
 Produce `docs/research/JUNE_MAS_CONNECTION_AUDIT.md` — a 7-layer audit that maps the surface honestly.
@@ -118,7 +136,43 @@ doctrines the plan names (`AGENT_SURFACE_HARDENING_DOCTRINE_2026_07_03.md`,
   tabs); first-token + cold-open within the `[agent_surface]`/June budgets in `docs/perf-budgets.toml`.
 This is DoD-4.
 
-## DEFINITION OF DONE (all five — verified in the running MAS build, not a compile)
+## §∞ THE FOREVER LOOP — the self-evolving engine (this is the heart; it never ends)
+June is not a project with an end state. It is a **compounding loop** that makes the surface strictly
+more profound every cycle and **crystallizes each breakthrough into a reusable skill**, so intelligence
+accretes instead of evaporating. Phases A–C above are **Cycle 1**. Then you loop — forever — each cycle
+a new frontier and a new skill, each a higher bar than the last. Five movements per cycle:
+
+1. **SCOUT — find the highest-leverage frontier.** Re-scan your own code, the field (how cloud agent
+   apps work — and what they can't do on-device / in a vault), and the substrate (vault / graph /
+   provenance / on-device models). Ask: *what single integration, built this cycle, would most make the
+   frontier apps look like demos — using June's private, on-device, vault-native moat?* Web-verify
+   (current FoundationModels / StoreKit / sandbox facts). Name the crux. One frontier per cycle — the
+   deepest, not the easiest. Never at the cost of a §0 non-negotiable.
+2. **FORGE — build it deeply.** Implement to enterprise depth, wired into the substrate, connected as
+   far as the sandbox architecture theoretically allows. In-process only; honest capability always.
+3. **TEMPER — harden + thermonuclear review.** The four lenses + the deepest `/code-review` you can
+   invoke. Zero open HIGH. **Zero test regressions** (`swift test` + `cargo test`). Verified in the
+   running sandboxed build, not a compile.
+4. **CRYSTALLIZE — forge a skill (the compounding step; NEVER skip it).** Distill the cycle's
+   breakthrough into a NEW, reusable `SKILL.md` under `.claude/skills/june-<slug>/` — a named,
+   described, invocable capability **plus the methodology to reproduce that whole CLASS of integration**.
+   Where the breakthrough is a user-facing, MAS-legal agent capability, ALSO write the product skill the
+   in-process engine can invoke (SKILL.md format, `~/.claude/skills`) — respecting the tool allowlist
+   (§0.8). Update `.claude/skills/JUNE_SKILLS_INDEX.md`. **A cycle that ships a feature but forges no
+   skill has FAILED the cycle.** This is how June gets godlier each loop instead of merely bigger.
+5. **ASCEND — raise your own bar.** In the cycle log, record what this cycle made possible and — harder
+   — *what it now makes possible next*. Define the next cycle's bar ABOVE this one's. Commit. Loop.
+
+**Invariants across all cycles (never violated):** strictly additive (never regress a prior feature or
+skill); honest capability (never fake tools on local); every §0 non-negotiable holds every cycle; the
+skill library is sacred — only extended, never broken; verify in the running MAS build every cycle. By
+cycle N, June should be the most trustworthy, most vault-native agent in existence, and
+`.claude/skills/june-*` should read like a grimoire of profound on-device integrations no cloud app can
+match.
+
+## DEFINITION OF DONE — per cycle (verified in the running MAS build, not a compile)
+- **DoD-∞** — Every cycle forges ≥1 new `SKILL.md`, updates the skills index, and raises the bar in the
+  cycle log. The skill library grows monotonically; no cycle closes without it.
 - **DoD-1** — `JUNE_MAS_CONNECTION_AUDIT.md` committed: every seam mapped, every disconnected/orphaned
   part listed file:line with a CONNECTED/HALF-WIRED/DISCONNECTED/DEAD verdict.
 - **DoD-2** — June's cloud lane is a **real agent**: a task that requires tools + the vault runs end to
