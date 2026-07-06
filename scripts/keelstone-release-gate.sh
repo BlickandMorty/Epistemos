@@ -3,6 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_YML="${ROOT_DIR}/project.yml"
+HARDENING_FINDINGS_PATH="${KEELSTONE_HARDENING_FINDINGS:-${ROOT_DIR}/build/keelstone-hardening-findings.jsonl}"
+if [[ "${HARDENING_FINDINGS_PATH}" != /* ]]; then
+  HARDENING_FINDINGS_PATH="${ROOT_DIR}/${HARDENING_FINDINGS_PATH}"
+fi
+SEED_HIGH_FINDING="${KEELSTONE_SEED_HIGH_FINDING:-0}"
 
 DIRECT_APP=""
 APPSTORE_APP=""
@@ -26,9 +31,14 @@ Source-level KEELSTONE release gate guardrails:
   - target-scoped EPISTEMOS_EXPERIMENTAL / EPISTEMOS_APP_STORE / KINDRED_ENABLED macros
   - no OpenChamber / ProAgent / PRO_BUILD / openchamber residue in sources, tests, scripts, or project.yml
   - data-safety soak and first-run/upgrade witness tests remain wired
+  - HIGH/CRITICAL hardening findings block release
   - source entitlement plists match the approved direct and MAS posture
 
 If app paths are supplied, the script also validates effective codesign entitlements.
+
+Optional environment:
+  KEELSTONE_HARDENING_FINDINGS=/path/findings.jsonl
+  KEELSTONE_SEED_HIGH_FINDING=1
 USAGE
       exit 0
       ;;
@@ -184,6 +194,37 @@ require_file_contains() {
   fi
 }
 
+check_hardening_findings() {
+  local findings_path="$1"
+  local seeded_path=""
+  local high_report="${ROOT_DIR}/build/keelstone-high-hardening-findings.txt"
+
+  mkdir -p "$(dirname "${high_report}")"
+
+  if [[ "${SEED_HIGH_FINDING}" == "1" ]]; then
+    seeded_path="$(mktemp "${TMPDIR:-/tmp}/keelstone-high-finding.XXXXXX")"
+    printf '{"severity":"HIGH","category":"seed","message":"seeded KEELSTONE hardening finding"}\n' >"${seeded_path}"
+    findings_path="${seeded_path}"
+  elif [[ ! -f "${findings_path}" ]]; then
+    : >"${high_report}"
+    pass "No hardening findings file present (${findings_path})"
+    return
+  fi
+
+  if rg -n '"severity"[[:space:]]*:[[:space:]]*"(HIGH|CRITICAL)"|severity[[:space:]]*=[[:space:]]*(HIGH|CRITICAL)|(^|[[:space:]])(HIGH|CRITICAL)[[:space:]]+finding' \
+    "${findings_path}" >"${high_report}"; then
+    fail "HIGH/CRITICAL hardening finding blocks release; see ${high_report}"
+    sed -n '1,80p' "${high_report}" >&2
+  else
+    : >"${high_report}"
+    pass "No HIGH/CRITICAL hardening findings"
+  fi
+
+  if [[ -n "${seeded_path}" ]]; then
+    rm -f "${seeded_path}"
+  fi
+}
+
 echo "==> KEELSTONE §9.4 target and macro drift"
 app_targets=()
 while IFS= read -r target_name; do
@@ -268,6 +309,10 @@ require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func sw
 require_file_contains "EpistemosTests/VaultSyncServiceAuditTests.swift" "func securityScopedBookmarkRoundTripsAcrossWriteCycle()" "Upgrade matrix witness: bookmark survives write-cycle re-resolve"
 require_file_contains ".github/workflows/ci.yml" "./scripts/keelstone-release-gate.sh --appstore-app" "Release workflow witness: App Store built app participates in KEELSTONE gate"
 require_file_contains ".github/workflows/release.yml" "./scripts/keelstone-release-gate.sh --direct-app" "Release workflow witness: direct built app participates in KEELSTONE gate"
+
+echo ""
+echo "==> KEELSTONE §7 hardening finding gate"
+check_hardening_findings "${HARDENING_FINDINGS_PATH}"
 
 if [[ -n "${DIRECT_APP}" || -n "${APPSTORE_APP}" ]]; then
   echo ""
