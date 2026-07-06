@@ -322,3 +322,25 @@ Plan 9 is now registered as **RECKONER (`EPI-RP-09-RECKONER`)** in `RESEARCH_PRO
    editor-side; Data-room datasets are RECKONER's; notes reference datasets via wikilink/embed
    (graph-linked). Agent table-restructuring reuses the LUMENLENS suggestion/provenance schema
    (dry-run→confirm→undo, ledger-attributed).
+
+---
+
+## RESHAPE (owner + review, 2026-07-06 — BINDING; re-weights §0.2's four doors, core unchanged)
+
+**Verdict: KEEP the data core; CUT the standalone room.** RECKONER is the THIRD piece of the
+LUMENLENS+KINDRED cluster, not a fourth destination. §0–§2 (GRDB single truth · IronCalc sole calc
+authority · silent-Univer grid in WKWebView · dual-zone formulas/defined names) are unchanged.
+The doors re-weight:
+1. **PRIMARY door = the agents.** Datasets are created/restructured through the F2 capability from
+   the 1Code main agent, the KINDRED companion, and the Epdoc minichat ("track X", "make this
+   note's table real", "chart this") with dry-run→confirm→undo, ledger-attributed. On MAS the same
+   capability is June-driven. Data is something the agent DOES for you, not a place you go.
+2. **Datasets open as TABS in the note workspace** — reuse the existing native note/doc tab group
+   (precedent: EpdocDocument windows already join `NoteWindowManager.noteTabbingIdentifier`,
+   guard-tested). Same chrome as notes; zero new navigation surface.
+3. **Inline note embeds** — unchanged (the vault-integration moat, §6).
+4. **The dedicated top-level Data room/tab: CUT.** No room chrome. The native view system
+   (kanban/gallery/calendar/form) is DEFERRED to a later phase — grid first.
+**No new chat of any kind**: the minichat/companion (Experimental) and June (MAS) are the chat,
+dataset-aware via presence (`Location.surface = dataTab`). Stage 0–1 (data core + engine spikes)
+remains startable early; everything agent-facing still lands after KINDRED K6.
