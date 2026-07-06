@@ -96,6 +96,31 @@ struct AppStoreHardeningTests {
         #expect(try String(contentsOf: target, encoding: .utf8) == newBody)
     }
 
+    @Test("VaultNoteEditor production seam uses coordinated vault IO")
+    func vaultNoteEditorProductionSeamUsesCoordinatedVaultIO() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/VaultNoteEditor.swift")
+        let fileSystem = Self.sourceSection(
+            in: source,
+            startingAt: "static func fileSystem()",
+            endingBefore: "    /// Apply `edits` atomically"
+        )
+
+        #expect(
+            fileSystem?.contains("try Self.coordinatedRead(url)") == true
+                && source.contains("NSFileCoordinator(filePresenter: nil)"),
+            "VaultNoteEditor.fileSystem() must coordinate reads from user-selected vault files."
+        )
+        #expect(
+            fileSystem?.contains("AtomicVaultWriter.shared.write(content, to: url)") == true,
+            "VaultNoteEditor.fileSystem() must write vault files through AtomicVaultWriter, not String.write/Data.write."
+        )
+        #expect(
+            fileSystem?.contains("String(contentsOf:") == false
+                && fileSystem?.contains(".write(to: url") == false,
+            "VaultNoteEditor.fileSystem() must not directly read/write vault files with Foundation convenience APIs."
+        )
+    }
+
     @Test("kill -9 during same-volume vault replacement never leaves a partial note")
     func killNineDuringVaultReplacementNeverLeavesPartialNote() async throws {
         let root = FileManager.default.temporaryDirectory

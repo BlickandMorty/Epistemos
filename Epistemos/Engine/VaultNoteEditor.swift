@@ -19,26 +19,32 @@ enum VaultNoteEditError: Error, Equatable {
 /// anchor throws `editDidNotApply` and writes NOTHING — the agent never persists a partial/corrupted note.
 /// `read`/`write` are injectable so the core is unit-testable without touching the filesystem.
 struct VaultNoteEditor: Sendable {
-    let read: @Sendable (URL) throws -> String
-    let write: @Sendable (URL, String) throws -> Void
+    let read: @Sendable (URL) async throws -> String
+    let write: @Sendable (URL, String) async throws -> Void
 
-    /// FileManager-backed editor (UTF-8). The production path.
+    /// Coordinated vault-file editor (UTF-8). The production path.
     static func fileSystem() -> VaultNoteEditor {
         VaultNoteEditor(
-            read: { url in try String(contentsOf: url, encoding: .utf8) },
-            write: { url, content in try content.write(to: url, atomically: true, encoding: .utf8) }
+            read: { url in
+                try await Task.detached(priority: .utility) {
+                    try Self.coordinatedRead(url)
+                }.value
+            },
+            write: { url, content in
+                try await AtomicVaultWriter.shared.write(content, to: url)
+            }
         )
     }
 
     /// Apply `edits` atomically to the note at `url`, returning the new content. Throws if read/write fails
     /// OR if the batch can't apply (missing anchor) — in which case NOTHING is written.
     @discardableResult
-    func applyEdits(_ edits: [AgentNoteEdit], to url: URL) throws -> String {
-        let content = try read(url)
+    func applyEdits(_ edits: [AgentNoteEdit], to url: URL) async throws -> String {
+        let content = try await read(url)
         guard let updated = AgentNoteEdit.apply(edits, to: content) else {
             throw VaultNoteEditError.editDidNotApply
         }
-        try write(url, updated)
+        try await write(url, updated)
         return updated
     }
 
@@ -59,12 +65,12 @@ struct VaultNoteEditor: Sendable {
         recordEnvelope: (MutationEnvelope, String?) -> Bool = { envelope, traceID in
             EventStore.shared?.saveMutationEnvelope(envelope, traceId: traceID) ?? false
         }
-    ) throws -> String {
-        let before = try read(url)
+    ) async throws -> String {
+        let before = try await read(url)
         guard let updated = AgentNoteEdit.apply(edits, to: before) else {
             throw VaultNoteEditError.editDidNotApply
         }
-        try write(url, updated)
+        try await write(url, updated)
 
         let envelope = AgentNoteEditProvenance.envelope(
             context: context,
@@ -76,5 +82,27 @@ struct VaultNoteEditor: Sendable {
             throw VaultNoteEditError.provenanceNotRecorded
         }
         return updated
+    }
+
+    private nonisolated static func coordinatedRead(_ url: URL) throws -> String {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinatorError: NSError?
+        var readResult: Result<String, Error>?
+        coordinator.coordinate(readingItemAt: url, options: [], error: &coordinatorError) { coordinatedURL in
+            readResult = Result {
+                let data = try Data(contentsOf: coordinatedURL)
+                guard let text = String(data: data, encoding: .utf8) else {
+                    throw CocoaError(.fileReadInapplicableStringEncoding)
+                }
+                return text
+            }
+        }
+        if let coordinatorError {
+            throw coordinatorError
+        }
+        guard let readResult else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return try readResult.get()
     }
 }

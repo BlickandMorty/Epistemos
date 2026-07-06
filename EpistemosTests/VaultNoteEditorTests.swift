@@ -23,30 +23,33 @@ struct VaultNoteEditorTests {
     private let url = URL(fileURLWithPath: "/tmp/note.md")
 
     @Test("successful batch writes the new content once")
-    func successWrites() throws {
+    func successWrites() async throws {
         let box = Box("foo")
-        let result = try editor(box).applyEdits([.replaceFirst(find: "foo", with: "bar"), .append("end")], to: url)
+        let result = try await editor(box).applyEdits([.replaceFirst(find: "foo", with: "bar"), .append("end")], to: url)
         #expect(result == "bar\nend")
         #expect(box.stored == "bar\nend")
         #expect(box.writeCount == 1)
     }
 
     @Test("a failing batch throws editDidNotApply and writes NOTHING (no partial corruption)")
-    func atomicFailureWritesNothing() {
+    func atomicFailureWritesNothing() async {
         let box = Box("note")
-        #expect(throws: VaultNoteEditError.editDidNotApply) {
-            try editor(box).applyEdits([.append("ok"), .replaceFirst(find: "absent", with: "x")], to: url)
+        await expectVaultNoteEditError(.editDidNotApply) {
+            try await editor(box).applyEdits([.append("ok"), .replaceFirst(find: "absent", with: "x")], to: url)
         }
         #expect(box.stored == "note")   // unchanged
         #expect(box.writeCount == 0)    // never wrote
     }
 
     @Test("read errors propagate (nothing written)")
-    func readErrorPropagates() {
+    func readErrorPropagates() async {
         struct E: Error {}
         let box = Box("x")
-        #expect(throws: (any Error).self) {
-            try editor(box, readError: E()).applyEdits([.append("y")], to: url)
+        do {
+            _ = try await editor(box, readError: E()).applyEdits([.append("y")], to: url)
+            Issue.record("Expected read error to propagate")
+        } catch {
+            // expected
         }
         #expect(box.writeCount == 0)
     }
@@ -77,10 +80,10 @@ struct VaultNoteEditorTests {
     }
 
     @Test("a successful edit writes the body AND records the envelope once")
-    func recordsEnvelopeOnSuccess() throws {
+    func recordsEnvelopeOnSuccess() async throws {
         let box = Box("foo")
         let captured = Box("")  // reuse Box as a capture cell (stores the recorded artifact id)
-        let result = try editor(box).applyEdits(
+        let result = try await editor(box).applyEdits(
             [.replaceFirst(find: "foo", with: "bar")], to: url,
             provenance: context, now: { 1_700_000_000_000 },
             recordEnvelope: { envelope, _ in
@@ -96,11 +99,11 @@ struct VaultNoteEditorTests {
     }
 
     @Test("a missing anchor records NOTHING and writes NOTHING (honest atomic with provenance)")
-    func noProvenanceOnFailedEdit() {
+    func noProvenanceOnFailedEdit() async {
         let box = Box("note")
         let captured = Box("")
-        #expect(throws: VaultNoteEditError.editDidNotApply) {
-            try editor(box).applyEdits(
+        await expectVaultNoteEditError(.editDidNotApply) {
+            try await editor(box).applyEdits(
                 [.replaceFirst(find: "absent", with: "x")], to: url,
                 provenance: context,
                 recordEnvelope: { _, _ in captured.writeCount += 1; return true })
@@ -110,14 +113,28 @@ struct VaultNoteEditorTests {
     }
 
     @Test("a failed envelope save throws provenanceNotRecorded — but the body IS already written")
-    func provenanceFailureIsReported() {
+    func provenanceFailureIsReported() async {
         let box = Box("foo")
-        #expect(throws: VaultNoteEditError.provenanceNotRecorded) {
-            try editor(box).applyEdits(
+        await expectVaultNoteEditError(.provenanceNotRecorded) {
+            try await editor(box).applyEdits(
                 [.append("bar")], to: url, provenance: context,
                 recordEnvelope: { _, _ in false })  // EventStore unavailable
         }
         #expect(box.stored == "foo\nbar")  // body persisted (the edit is the truth)
         #expect(box.writeCount == 1)
+    }
+
+    private func expectVaultNoteEditError(
+        _ expected: VaultNoteEditError,
+        operation: () async throws -> Void
+    ) async {
+        do {
+            try await operation()
+            Issue.record("Expected \(expected), but operation succeeded")
+        } catch let error as VaultNoteEditError {
+            #expect(error == expected)
+        } catch {
+            Issue.record("Expected \(expected), got \(error)")
+        }
     }
 }
