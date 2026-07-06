@@ -33,6 +33,8 @@ printf '# Provenance\n\n## Tool-call sequence\n1. **search_notes** — c\n2. **r
 printf '# Provenance\n\n## Tool-call sequence\n1. **WebFetch** — h\n2. **Write** — i\n' > "$FX/Provenance--run-3.md"
 # Numbered/ordinal-prefixed note (common in organized vaults) — cite-check must verify it by TITLE.
 printf '# Rollout Schedule\n\nThe rollout schedule.\n' > "$FX/05_ROLLOUT_SCHEDULE.md"
+# Slug/dated filename whose H1 is the real title — cite-check must verify by the H1, not the filename.
+printf '# Architecture Decision\n\nThe ADR body.\n' > "$FX/dated-log-2024.md"
 
 echo "[witness] booting headless backend on :$PORT against fixture vault…"
 ( cd "$FORK" && EPISTEMOS_VAULT_ROOT="$TMP/vault" EPISTEMOS_ONECODE_PORT="$PORT" \
@@ -68,6 +70,8 @@ check "noteExists: numbered note verifies by TITLE (05_ROLLOUT_SCHEDULE → [[Ro
   '"exists": true' "$(call epistemosVault.noteExists '{"json":{"title":"Rollout Schedule"}}' | jget)"
 check "noteExists: partial of a numbered note still rejected (no substring verify)" \
   '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"Rollout"}}' | jget)"
+check "noteExists: slug-filename note verifies by its H1 (dated-log-2024 → [[Architecture Decision]])" \
+  '"exists": true' "$(call epistemosVault.noteExists '{"json":{"title":"Architecture Decision"}}' | jget)"
 check "noteExists: fabricated note is rejected" \
   '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"TOTALLY_FAKE_ZZZ"}}' | jget)"
 check "search: whole-vault content hit" \
