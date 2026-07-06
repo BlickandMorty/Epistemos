@@ -243,6 +243,9 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: KEELSTONE release gate drift guardrails
+        run: ./scripts/keelstone-release-gate.sh
+
       - name: Resolve SPM dependencies
         run: |
           ./scripts/xcodebuild_epistemos.sh -resolvePackageDependencies \

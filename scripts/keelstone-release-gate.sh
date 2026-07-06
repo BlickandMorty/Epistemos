@@ -1,0 +1,268 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_YML="${ROOT_DIR}/project.yml"
+
+DIRECT_APP=""
+APPSTORE_APP=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --direct-app)
+      DIRECT_APP="${2:?--direct-app requires a path}"
+      shift 2
+      ;;
+    --appstore-app)
+      APPSTORE_APP="${2:?--appstore-app requires a path}"
+      shift 2
+      ;;
+    -h|--help)
+      cat <<'USAGE'
+Usage: scripts/keelstone-release-gate.sh [--direct-app /path/Epistemos.app] [--appstore-app /path/Epistemos.app]
+
+Source-level KEELSTONE release gate guardrails:
+  - exactly two application targets: Epistemos and Epistemos-AppStore
+  - target-scoped EPISTEMOS_EXPERIMENTAL / EPISTEMOS_APP_STORE / KINDRED_ENABLED macros
+  - no OpenChamber / ProAgent / PRO_BUILD / openchamber residue in sources, tests, scripts, or project.yml
+  - source entitlement plists match the approved direct and MAS posture
+
+If app paths are supplied, the script also validates effective codesign entitlements.
+USAGE
+      exit 0
+      ;;
+    *)
+      echo "::error::Unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+failures=0
+
+pass() {
+  printf 'PASS: %s\n' "$1"
+}
+
+fail() {
+  printf '::error::%s\n' "$1" >&2
+  failures=$((failures + 1))
+}
+
+section_project_base_settings() {
+  awk '
+    /^settings:$/ { in_settings = 1; next }
+    in_settings && /^targets:$/ { exit }
+    in_settings && /^  base:$/ { in_base = 1; next }
+    in_base && /^  configs:$/ { exit }
+    in_base { print }
+  ' "${PROJECT_YML}"
+}
+
+target_section() {
+  local target="$1"
+  awk -v marker="  ${target}:" '
+    /^targets:$/ { in_targets = 1; next }
+    /^packages:$/ || /^schemes:$/ { exit }
+    in_targets && $0 == marker { in_target = 1; print; next }
+    in_target && /^  [A-Za-z0-9_-]+:$/ { exit }
+    in_target { print }
+  ' "${PROJECT_YML}"
+}
+
+application_targets() {
+  awk '
+    /^targets:$/ { in_targets = 1; next }
+    /^packages:$/ || /^schemes:$/ { exit }
+    in_targets && /^  [A-Za-z0-9_-]+:$/ {
+      current = $0
+      sub(/^  /, "", current)
+      sub(/:$/, "", current)
+      next
+    }
+    in_targets && current != "" && /^    type: application$/ {
+      print current
+    }
+  ' "${PROJECT_YML}"
+}
+
+count_token() {
+  local token="$1"
+  grep -o "${token}" | wc -l | tr -d ' '
+}
+
+swift_compilation_conditions() {
+  grep -F "SWIFT_ACTIVE_COMPILATION_CONDITIONS:" || true
+}
+
+require_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+  if printf '%s' "${haystack}" | grep -Fq "${needle}"; then
+    pass "${label}"
+  else
+    fail "${label} missing ${needle}"
+  fi
+}
+
+require_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+  if printf '%s' "${haystack}" | grep -Fq "${needle}"; then
+    fail "${label} must not contain ${needle}"
+  else
+    pass "${label}"
+  fi
+}
+
+require_token_count() {
+  local haystack="$1"
+  local token="$2"
+  local expected="$3"
+  local label="$4"
+  local actual
+  actual="$(printf '%s' "${haystack}" | count_token "${token}")"
+  if [[ "${actual}" == "${expected}" ]]; then
+    pass "${label}: ${token} count ${actual}"
+  else
+    fail "${label}: expected ${expected} ${token} occurrence(s), found ${actual}"
+  fi
+}
+
+require_plist_key() {
+  local plist="$1"
+  local key="$2"
+  local label="$3"
+  if /usr/libexec/PlistBuddy -c "Print :${key}" "${plist}" >/dev/null 2>&1; then
+    pass "${label} has ${key}"
+  else
+    fail "${label} missing ${key}"
+  fi
+}
+
+require_plist_no_key() {
+  local plist="$1"
+  local key="$2"
+  local label="$3"
+  if /usr/libexec/PlistBuddy -c "Print :${key}" "${plist}" >/dev/null 2>&1; then
+    fail "${label} must not contain ${key}"
+  else
+    pass "${label} omits ${key}"
+  fi
+}
+
+effective_entitlements() {
+  local app_path="$1"
+  local output_path="$2"
+  if [[ ! -d "${app_path}" ]]; then
+    fail "Built app not found: ${app_path}"
+    return 1
+  fi
+  if codesign -d --entitlements :- "${app_path}" >"${output_path}" 2>/dev/null; then
+    return 0
+  fi
+  fail "Could not read effective codesign entitlements from ${app_path}"
+  return 1
+}
+
+echo "==> KEELSTONE §9.4 target and macro drift"
+app_targets=()
+while IFS= read -r target_name; do
+  app_targets+=("${target_name}")
+done < <(application_targets)
+if [[ "${#app_targets[@]}" -eq 2 && "${app_targets[0]}" == "Epistemos" && "${app_targets[1]}" == "Epistemos-AppStore" ]]; then
+  pass "Exactly two application targets: Epistemos, Epistemos-AppStore"
+else
+  fail "Expected exactly two application targets [Epistemos, Epistemos-AppStore], found [${app_targets[*]}]"
+fi
+
+base_settings="$(section_project_base_settings)"
+require_not_contains "${base_settings}" "EPISTEMOS_EXPERIMENTAL" "Shared/base build settings"
+require_not_contains "${base_settings}" "EPISTEMOS_APP_STORE" "Shared/base build settings"
+require_not_contains "${base_settings}" "KINDRED_ENABLED" "Shared/base build settings"
+
+epistemos_target="$(target_section "Epistemos")"
+appstore_target="$(target_section "Epistemos-AppStore")"
+epistemos_conditions="$(printf '%s' "${epistemos_target}" | swift_compilation_conditions)"
+appstore_conditions="$(printf '%s' "${appstore_target}" | swift_compilation_conditions)"
+require_token_count "${epistemos_conditions}" "EPISTEMOS_EXPERIMENTAL" "3" "Epistemos target Swift conditions"
+require_token_count "${epistemos_conditions}" "KINDRED_ENABLED" "3" "Epistemos target Swift conditions"
+require_not_contains "${epistemos_target}" "EPISTEMOS_APP_STORE" "Epistemos target"
+require_not_contains "${epistemos_target}" "MAS_SANDBOX" "Epistemos target"
+require_token_count "${appstore_conditions}" "EPISTEMOS_APP_STORE" "2" "Epistemos-AppStore target Swift conditions"
+require_token_count "${appstore_conditions}" "MAS_SANDBOX" "2" "Epistemos-AppStore target Swift conditions"
+require_not_contains "${appstore_target}" "EPISTEMOS_EXPERIMENTAL" "Epistemos-AppStore target"
+require_not_contains "${appstore_target}" "KINDRED_ENABLED" "Epistemos-AppStore target"
+
+echo ""
+echo "==> KEELSTONE §9.4 OpenChamber/ProAgent drift"
+residue_report="${ROOT_DIR}/build/keelstone-release-gate-openchamber-proagent.txt"
+mkdir -p "$(dirname "${residue_report}")"
+if rg -n "OpenChamber|ProAgent|PRO_BUILD|openchamber" \
+  "${ROOT_DIR}/Epistemos" \
+  "${ROOT_DIR}/EpistemosTests" \
+  "${ROOT_DIR}/project.yml" \
+  "${ROOT_DIR}/scripts" \
+  --glob '!Build/**' \
+  --glob '!scripts/keelstone-release-gate.sh' \
+  >"${residue_report}"; then
+  fail "OpenChamber/ProAgent residue remains; see ${residue_report}"
+  sed -n '1,80p' "${residue_report}" >&2
+else
+  : >"${residue_report}"
+  pass "No OpenChamber/ProAgent/PRO_BUILD/openchamber residue in guarded source paths"
+fi
+
+echo ""
+echo "==> KEELSTONE §9.4 source entitlement posture"
+direct_entitlements="${ROOT_DIR}/Epistemos/Epistemos.entitlements"
+appstore_entitlements="${ROOT_DIR}/Epistemos/Epistemos-AppStore.entitlements"
+
+require_plist_no_key "${direct_entitlements}" "com.apple.security.app-sandbox" "Direct entitlements"
+require_plist_key "${direct_entitlements}" "com.apple.security.cs.allow-jit" "Direct entitlements"
+require_plist_key "${direct_entitlements}" "com.apple.security.cs.disable-library-validation" "Direct entitlements"
+require_plist_key "${direct_entitlements}" "com.apple.security.files.user-selected.read-write" "Direct entitlements"
+require_plist_key "${direct_entitlements}" "com.apple.security.files.bookmarks.app-scope" "Direct entitlements"
+
+require_plist_key "${appstore_entitlements}" "com.apple.security.app-sandbox" "App Store entitlements"
+require_plist_key "${appstore_entitlements}" "com.apple.security.files.user-selected.read-write" "App Store entitlements"
+require_plist_key "${appstore_entitlements}" "com.apple.security.files.bookmarks.app-scope" "App Store entitlements"
+require_plist_no_key "${appstore_entitlements}" "com.apple.security.cs.allow-jit" "App Store entitlements"
+require_plist_no_key "${appstore_entitlements}" "com.apple.security.cs.disable-library-validation" "App Store entitlements"
+require_plist_no_key "${appstore_entitlements}" "com.apple.security.files.bookmarks.document-scope" "App Store entitlements"
+
+if [[ -n "${DIRECT_APP}" || -n "${APPSTORE_APP}" ]]; then
+  echo ""
+  echo "==> KEELSTONE §9.4 effective built entitlements"
+fi
+
+if [[ -n "${DIRECT_APP}" ]]; then
+  direct_effective="$(mktemp)"
+  if effective_entitlements "${DIRECT_APP}" "${direct_effective}"; then
+    require_plist_no_key "${direct_effective}" "com.apple.security.app-sandbox" "Built direct app entitlements"
+    require_plist_key "${direct_effective}" "com.apple.security.files.user-selected.read-write" "Built direct app entitlements"
+  fi
+  rm -f "${direct_effective}"
+fi
+
+if [[ -n "${APPSTORE_APP}" ]]; then
+  appstore_effective="$(mktemp)"
+  if effective_entitlements "${APPSTORE_APP}" "${appstore_effective}"; then
+    require_plist_key "${appstore_effective}" "com.apple.security.app-sandbox" "Built App Store entitlements"
+    require_plist_key "${appstore_effective}" "com.apple.security.files.user-selected.read-write" "Built App Store entitlements"
+    require_plist_key "${appstore_effective}" "com.apple.security.files.bookmarks.app-scope" "Built App Store entitlements"
+    require_plist_no_key "${appstore_effective}" "com.apple.security.cs.allow-jit" "Built App Store entitlements"
+    require_plist_no_key "${appstore_effective}" "com.apple.security.cs.disable-library-validation" "Built App Store entitlements"
+  fi
+  rm -f "${appstore_effective}"
+fi
+
+echo ""
+if [[ "${failures}" -gt 0 ]]; then
+  echo "::error::KEELSTONE release gate failed with ${failures} finding(s)"
+  exit 1
+fi
+
+echo "KEELSTONE release gate passed"
