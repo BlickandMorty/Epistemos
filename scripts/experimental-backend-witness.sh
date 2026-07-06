@@ -127,6 +127,17 @@ if [ "${WITNESS_FORGE:-0}" = "1" ] && [ -n "${EPISTEMOS_CLAUDE_BINARY:-}" ]; the
     echo "  FAIL  promptForge: returned original (SDK/binary path?)  $RES"; FAIL=1
   fi
 
+  # Grounding→cite: enhance WITH a vault note in grounding must weave a [[citation]] into the upgrade.
+  echo "[witness] asserting Prompt Forge GROUNDING (cites the supplied vault note)…"
+  GRES="$(curl -fsS -X POST "http://127.0.0.1:$PORT/trpc/epistemosPromptForge.enhance" \
+      -H 'Content-Type: application/json' \
+      -d '{"json":{"original":"summarize the alpha project and its dependencies","grounding":[{"title":"Alpha Project","snippet":"Alpha Project depends on Beta Module and Gamma Service."}]}}' | jget)"
+  if printf '%s' "$GRES" | python3 -c "import json,sys;d=json.load(sys.stdin);print('OK' if '[[Alpha Project]]' in d.get('upgraded','') and d.get('grounded') else 'NO')" | grep -q OK; then
+    echo "  PASS  promptForge: grounded upgrade cites [[Alpha Project]]"
+  else
+    echo "  FAIL  promptForge: grounding not cited  $GRES"; FAIL=1
+  fi
+
   echo "[witness] asserting System Prompt Forge upgrade (live small-model call)…"
   SRES="$(curl -fsS -X POST "http://127.0.0.1:$PORT/trpc/epistemosSystemPromptForge.upgrade" \
       -H 'Content-Type: application/json' \
