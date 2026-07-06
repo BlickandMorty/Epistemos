@@ -1325,3 +1325,16 @@ re-open within the same process. So the fix needs an app RELAUNCH to go live, wh
 and staged in the bundle; it goes live on the owner's next app restart. Left the app on the Experimental
 surface (clean composer), not disrupted. Honest: no new code this cycle — a blocked live-confirm + an
 operational correction. The fix itself (Cycle 43) stands as the real deliverable.
+
+---
+
+**Cycle 45 (2026-07-06) — REAL BUG #2 via realistic-input testing: cite-check false-negative on numbered
+notes.** Applied the Cycle-43 lesson again. The AETHERLINK vault uses ordinal filenames (`04_CLAIM_LEDGER.md`
+with H1 "# Claim Ledger"), and cite-check's noteTitleExists matched the FILENAME exactly — so an agent
+citing a note by its TITLE `[[Claim Ledger]]` (the natural thing, from the H1) was silently marked "not
+found in vault", a false-negative that would wrongly flag real citations as hallucinations. Fixed:
+noteTitleExists now ALSO matches the filename with a leading ordering prefix stripped (`04_` → ""), still
+EXACT after the strip. Anti-hallucination guard PROVEN intact: `[[Project Roadmap 2027]]`→Roadmap.md still
+False, partial `[[Ledger]]`→False, H1-superset still rejected. Witness 16/16 (the new fixture even caught a
+`nearest` tie — renamed to avoid it). Deployed (in tarball). Two real cite-integrity bugs in two cycles,
+both invisible to keyword fixtures — realistic-input testing is now the sharpest tool in the box.
