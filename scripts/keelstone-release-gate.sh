@@ -299,6 +299,7 @@ require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func dirtyL
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceSelfWriteWindowStillReconcilesEvents()" "Data-safety soak witness: sync-race/self-write event reconcile"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func iCloudMaterializerUsesAsyncMetadataQuery()" "Data-safety soak witness: async iCloud materialization"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneSearchIndexCorruptionQuarantinesAndRebuildsFromSnapshots()" "Data-safety soak witness: corrupt index quarantine and rebuild"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func experimentalBackendQuitReapsProcessTreeForHundredCycleSoak()" "Hardening soak witness: Experimental child process cleanup across 100 quit cycles"
 require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func simulatedFirstRunEndToEnd()" "Upgrade matrix witness: fresh first-run empty vault"
 require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func partialScaffoldRecovers()" "Upgrade matrix witness: partial first-run scaffold recovery"
 require_file_contains "EpistemosTests/FirstRunBootstrapTests.swift" "func idempotentBootstrap()" "Upgrade matrix witness: relaunch/idempotent bootstrap"

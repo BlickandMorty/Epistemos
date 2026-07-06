@@ -127,10 +127,8 @@ final class ExperimentalRuntimeSupervisor {
         outputTask = nil
         hostBridge?.disconnect()
         hostBridge = nil
-        if let process = backendProcess, process.isRunning {
-            process.terminationHandler = nil
-            process.terminate()
-            AgentSurfaceChildLedger.forget(pid: process.processIdentifier)
+        if let process = backendProcess {
+            terminateTrackedProcess(process)
         }
         backendProcess = nil
         status = .stopped
@@ -226,6 +224,9 @@ final class ExperimentalRuntimeSupervisor {
         }
 
         backendProcess = process
+        #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
+        AppBootstrap.shared?.orphanCleanup.track(process)
+        #endif
         AgentSurfaceChildLedger.record(pid: process.processIdentifier, name: "experimental-backend")
         installTerminationHandler(on: process)
         beginOutputCapture(outputPipe)
@@ -272,7 +273,7 @@ final class ExperimentalRuntimeSupervisor {
             let pid = exited.processIdentifier
             Task { @MainActor in
                 guard let self, self.backendProcess === exited else { return }
-                AgentSurfaceChildLedger.forget(pid: pid)
+                self.untrack(exited)
                 self.backendProcess = nil
                 self.hostBridge?.disconnect()
                 self.hostBridge = nil
@@ -280,6 +281,25 @@ final class ExperimentalRuntimeSupervisor {
                 self.status = .failed("Backend exited unexpectedly (code \(code)).")
             }
         }
+    }
+
+    private func terminateTrackedProcess(_ process: Process) {
+        process.terminationHandler = nil
+        let pid = pid_t(process.processIdentifier)
+        if pid > 0 {
+            AppBootstrap.shared?.orphanCleanup.cleanupProcessTree(rootPID: pid)
+        }
+        if process.isRunning {
+            process.terminate()
+        }
+        untrack(process)
+    }
+
+    private func untrack(_ process: Process) {
+        let pid = pid_t(process.processIdentifier)
+        guard pid > 0 else { return }
+        AppBootstrap.shared?.orphanCleanup.untrack(pid)
+        AgentSurfaceChildLedger.forget(pid: pid)
     }
 
     private func beginOutputCapture(_ pipe: Pipe) {

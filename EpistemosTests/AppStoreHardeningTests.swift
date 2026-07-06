@@ -213,6 +213,63 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Experimental backend quit cleanup reaps process trees across 100 cycles")
+    func experimentalBackendQuitReapsProcessTreeForHundredCycleSoak() throws {
+        let supervisor = try loadMirroredSourceTextFile("Epistemos/ExperimentalAgent/ExperimentalRuntimeSupervisor.swift")
+        let appDelegate = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(
+            supervisor.contains("AppBootstrap.shared?.orphanCleanup.track(process)"),
+            "Experimental backend processes must be registered with OrphanSubprocessCleanup so app termination owns their process tree."
+        )
+        #expect(
+            supervisor.contains("cleanupProcessTree(rootPID: pid)"),
+            "ExperimentalRuntimeSupervisor.stop() must terminate the backend process tree, not only the root Process object."
+        )
+        #expect(
+            supervisor.contains("AgentSurfaceChildLedger.forget(pid: pid)"),
+            "Experimental backend cleanup must clear the crash-orphan ledger when the process exits or is deliberately stopped."
+        )
+        #expect(
+            appDelegate.contains("ExperimentalRuntimeSupervisor.shared.stop()"),
+            "EpistemosAppDelegate.performTeardown must stop the Experimental backend during app quit."
+        )
+
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return
+        #else
+        let cleanup = OrphanSubprocessCleanup()
+        for cycle in 0..<100 {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", "sleep 60 & wait"]
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+            try process.run()
+            let rootPID = pid_t(process.processIdentifier)
+            cleanup.track(process)
+            defer {
+                cleanup.cleanupProcessTree(rootPID: rootPID)
+                cleanup.untrack(rootPID)
+            }
+
+            let childPIDs = try Self.waitForChildPIDs(of: rootPID, timeout: 1.0)
+            cleanup.cleanupProcessTree(rootPID: rootPID)
+            if process.isRunning {
+                process.terminate()
+            }
+            process.waitUntilExit()
+            cleanup.untrack(rootPID)
+
+            try Self.waitForPIDExit(rootPID, timeout: 1.0)
+            for childPID in childPIDs {
+                let message: Comment = "Cycle \(cycle): child PID \(childPID) survived Experimental quit cleanup."
+                #expect(try Self.waitForPIDExit(childPID, timeout: 1.0), message)
+            }
+        }
+        #endif
+    }
+
     @Test("iCloud materialization is async metadata-query based, never Thread.sleep polling")
     func iCloudMaterializerUsesAsyncMetadataQuery() throws {
         let materializer = try loadMirroredSourceTextFile("Epistemos/Sync/iCloudMaterializer.swift")
@@ -1210,6 +1267,50 @@ struct AppStoreHardeningTests {
             usleep(10_000)
         }
         throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: url.path])
+    }
+
+    private static func waitForChildPIDs(of rootPID: pid_t, timeout: TimeInterval) throws -> [pid_t] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let pids = childPIDs(of: rootPID)
+            if !pids.isEmpty {
+                return pids
+            }
+            usleep(10_000)
+        }
+        throw POSIXError(.ECHILD)
+    }
+
+    @discardableResult
+    private static func waitForPIDExit(_ pid: pid_t, timeout: TimeInterval) throws -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if !pidIsAlive(pid) {
+                return true
+            }
+            usleep(10_000)
+        }
+        return !pidIsAlive(pid)
+    }
+
+    private static func pidIsAlive(_ pid: pid_t) -> Bool {
+        guard pid > 0 else { return false }
+        if kill(pid, 0) == 0 { return true }
+        return errno == EPERM
+    }
+
+    private static func childPIDs(of parentPID: pid_t) -> [pid_t] {
+        var capacity = 8
+        while true {
+            var buffer = Array(repeating: pid_t(0), count: capacity)
+            let bufferSize = buffer.count * MemoryLayout<pid_t>.stride
+            let childCount = Int(proc_listchildpids(parentPID, &buffer, Int32(bufferSize)))
+            guard childCount > 0 else { return [] }
+            if childCount < capacity {
+                return Array(buffer.prefix(childCount))
+            }
+            capacity *= 2
+        }
     }
 
     // MARK: - Per-file MAS-branch subprocess-launch regressions (Phase S.2)
