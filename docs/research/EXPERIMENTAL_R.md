@@ -827,3 +827,26 @@ when the agent_core RunEventLog/ReplayBundle FFI lands (`provenance/replay.rs` +
 swap the SHA chain for BLAKE3 + export a verifiable `.epbundle` → `run.export-bundle` (Finalization #2),
 same shape, stronger guarantee. Also still open: live re-verify of whole-vault cite-check (blocked by
 desktop focus contention, not code); Persona for Codex/OpenCode (ACP transport).
+
+---
+
+**Cycle 12 (2026-07-06) — TEMPER: adversarial multi-agent review of the whole overlay stack.**
+Ran a focused adversarial reviewer over all 12 Experimental overlays (backend + renderer) for the four
+lenses. Verdict: path-traversal + secret-leak + prompt-injection-escalation surfaces CLEAN (the backend
+forge calls use allowedTools:[]/maxTurns:1; the vault-fs never joins user strings onto paths; symlinks
+not followed; tRPC inputs zod-bounded; no secrets returned/logged). Found + FIXED **1 HIGH + 2 MED**:
+- **HIGH (correctness, self-inflicted):** `noteTitleExists` used substring containment
+  (`want.includes(base) || base.includes(want)`) → a hallucinated `[[Project Roadmap 2027]]`
+  false-verified against a real `Roadmap.md`, silently defeating cite-check's ENTIRE anti-hallucination
+  purpose. Fixed to EXACT normalized-title equality. PROVEN: "MANIFEST DELUXE EDITION 2027" (superset of
+  real MANIFEST) now rejected; exact real notes still verify.
+- **MED:** run-audit hash now JSON-encodes the event tuple (delimiter-collision resistant; re-verified
+  reorder→diff + deterministic) + honest "integrity hash" wording (was overclaiming "tamper-evident
+  guarantee"); cite-check caps at 40 citations (no serial-call fan-out).
+Zero open HIGH. Deployed. This is why TEMPER exists: a fast feature pass introduced a false-verify in the
+very feature meant to catch fakes; an adversarial review caught it.
+
+**THE RAISED BAR (next):** the stack is now reviewed-clean. Resume feature frontier — whole-run
+observability console (the run-audit extractor already takes a message ARRAY) OR the agent_core
+RunEventLog/ReplayBundle FFI for a signed `.epbundle` (run.export-bundle). Also standing: live re-verify
+(desktop-contention-permitting) + Persona for Codex/OpenCode (ACP prompt-preamble, fiddly).
