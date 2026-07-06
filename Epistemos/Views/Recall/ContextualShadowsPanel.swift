@@ -481,15 +481,7 @@ struct ContextualShadowsPanel: View {
             let body: String
             switch hit.kind {
             case .note:
-                // RECALL-1 (audit 2026-07-03): NoteWindowManager.currentBody is @MainActor and,
-                // for a note not currently open in an editor (the common recall case), falls
-                // through to a synchronous NoteFileStorage.readBody disk read — blocking the main
-                // thread on every preview. readBody is `nonisolated static`, so read it off-main
-                // and hop the result back. Tradeoff: a note open in an editor with unsaved edits
-                // previews its last-saved content (acceptable for a recall preview; mapped:true
-                // keeps the same body transform).
-                let pageID = hit.id
-                body = await Task.detached { NoteFileStorage.readBody(pageId: pageID, mapped: true) }.value
+                body = NoteWindowManager.shared.currentBody(for: hit.id, mapped: true)
             case .chat:
                 body = hit.snippet
             }

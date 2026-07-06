@@ -659,11 +659,14 @@ struct RuntimeValidationTests {
     @Test("note window current body fallback reads vault markdown before legacy storage")
     func noteWindowCurrentBodyFallbackReadsVaultMarkdownFirst() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
+        let recallPanel = try loadRepoTextFile("Epistemos/Views/Recall/ContextualShadowsPanel.swift")
 
         #expect(source.contains("func currentBody(for pageId: String, mapped: Bool = false) -> String"))
         #expect(source.contains("VaultIndexActor.decodedBodyFromReadableVaultFile"))
         #expect(source.contains("SDPage.legacyManagedOrInlineBody"))
         #expect(!source.contains("NoteFileStorage.readBody"))
+        #expect(recallPanel.contains("NoteWindowManager.shared.currentBody(for: hit.id, mapped: true)"))
+        #expect(!recallPanel.contains("NoteFileStorage.readBody"))
     }
 
     @Test("main scene disables macOS window restoration so bad saved state cannot trap launch")
