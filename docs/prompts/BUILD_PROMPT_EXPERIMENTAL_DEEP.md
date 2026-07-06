@@ -6,6 +6,7 @@
 3. **"Build green" ≠ done — verify in the RUNNING app; never stop while a DoD is unmet; never fake capability.**
 4. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
 5. **Ship Prompt Forge (§ Feature Mandate) — deeply upgrade the user's prompt at submission, vault-grounded.**
+6. **CLOUD engines FIRST (local second); WIRE the PROVEN deterministic substrate + a user Skills library — see § Finalization Mandate + `docs/research/DETERMINISTIC_SUBSTRATE_INFUSION.md`.**
 
 ## ❌ FAILURE MODES — worked anti-examples of "done wrong" (never do these)
 - **Skim-and-declare** (the #1 failure this project keeps hitting): read the ledger, skip the body, ship a shallow change, say "nothing left." → A DoD is unmet; re-read.
@@ -92,6 +93,28 @@ PATTERNS from frontier/leaked prompts, NEVER copy proprietary system-prompt TEXT
 it in renderer settings + backend; each of the six engines/personas can be Pattern-driven; keep per-engine
 system prompts honest. Ships DoD-gated (a custom system prompt measurably upgraded + a Pattern applied),
 not a stub.
+
+## FINALIZATION MANDATE — cloud-first · substrate-as-capabilities · a user skill library
+Backed by `docs/research/DETERMINISTIC_SUBSTRATE_INFUSION.md` (the determinism is BUILT + tested +
+FFI-exposed, just under-wired; ~90% of this is wiring proven `agent_core` code, not rebuilding).
+1. **CLOUD FIRST, local second.** Default the composer to a **cloud provider** (Claude Code / Codex /
+   Kimi / GLM / Gemini) at full agentic capability; local/Ollama is the secondary/offline lane. Never
+   default to local; never fake agentic capability on local.
+2. **Substrate-as-capabilities — wire the proven primitives as web-side tools/schemas** over the
+   `epistemos` reply channel: `run.export-bundle` (ReplayBundle → a verifiable `.epbundle` checkable by
+   `epistemos-trace`), `vault.cite-check` (Eidos closed-citation), a RunEventLog capture of the opaque CLI
+   tool-calls, EML-reranked `vault:search-ranked` (`EPISTEMOS_EML_RERANK_RECALL_V0=1`), and the
+   ACS-anchored VRM "Verified/Plausible/Speculative" chip (rides the AnswerPacket JSON — no native chrome).
+   Grounding floor: RRF → EML → confidence-floor → (VariantLadder) → ACS anchor. **NEVER ship research-only
+   layers (sketch / mutations / neocortex-gist / neural-substrate) as green.**
+3. **User skill library — promote only the good ones (kernel is BUILT).** Record each CLI-agent turn's
+   tool sequence over the `epistemos` channel → `record_skill_outcome` / `observe_composition`; the
+   deterministic gates (`skill_discovery` novelty + frequency≥4× + acceptance; `mutation_proposer`
+   size≤15KB + cosine>0.80; `self_evolution` repetition) draft it; user-review via `SkillEvolutionService`;
+   a **Skills browser** in the web UI shows/invokes ONLY gate-passed skills. Land the two missing wires if
+   absent (`observe_composition` FFI + the nightbrain `skill_evolution_analysis` body).
+**DoD additions:** the cloud provider is the running default; ≥1 proven substrate primitive shipped as a
+tool/schema; the Skills browser shows a gate-passed skill AND withholds an unproven one.
 
 ---
 

@@ -7,6 +7,7 @@
 4. **"Build green" ≠ done — verify in the RUNNING MAS build; never stop while a DoD is unmet; zero test regressions.**
 5. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
 6. **Ship Prompt Forge (§ Feature Mandate) — upgrade the user's prompt at submission, on-device + vault-grounded.**
+7. **CLOUD engines FIRST (on-device local second); WIRE the PROVEN deterministic substrate + a user Skills library — see § Finalization Mandate + `docs/research/DETERMINISTIC_SUBSTRATE_INFUSION.md`.**
 
 ## ❌ FAILURE MODES — worked anti-examples of "done wrong" (never do these)
 - **Skim-and-declare** (the #1 failure this project keeps hitting): read the ledger, skip the body, ship a shallow change, say "nothing left." → A DoD is unmet; re-read.
@@ -110,6 +111,29 @@ diff UX. Vault-grounded. Full spec + architecture lessons: `docs/research/SYSTEM
 Build it in June settings + the gateway; **the local lane's system prompt MUST stay honest (chat-tier, no
 tools)**; run the upgrader on-device where possible. Ships DoD-gated (a custom system prompt measurably
 upgraded + a Pattern applied), not a stub.
+
+## FINALIZATION MANDATE — cloud-first · substrate-as-capabilities · a user skill library
+Backed by `docs/research/DETERMINISTIC_SUBSTRATE_INFUSION.md` (the determinism is BUILT + tested +
+FFI-exposed, just under-wired; ~90% wiring proven `agent_core` code, not rebuilding).
+1. **CLOUD FIRST, on-device local second.** Default June to the **cloud lane** (full agentic capability);
+   on-device local is the secondary privacy/offline lane. Honest capability holds (local = chat unless the
+   grammar mask is on) — but the default and primary experience is cloud.
+2. **Substrate-as-capabilities — wire the proven determinism (don't rebuild):** flip the grammar
+   `LogitProcessor` flag → **guaranteed-valid on-device tool calls**; `EPISTEMOS_EML_RERANK_V1` on for
+   grounding; the confidence-floor honest "no confident answer in your vault" gate; **materialize
+   `Epistemos/LocalAgent/RuntimeRouter.swift`** (the cloud/local `RouteVerdict` — 4 Rust source-guards are
+   red until it lands); emit the AnswerPacket VRM chip (reuse `AnswerPacketEmitter`) with the ACS anchor;
+   flip `EPISTEMOS_SCHEMA_GATE_V1` on; route vault mutations through the reversible `effect` system;
+   `context_compiler` for context assembly; a `ReplayBundle` "export `.epbundle`" action. Floor: RRF → EML
+   → confidence-floor → VariantLadder → ACS. **NEVER ship research-only layers (sketch / mutations /
+   neocortex-gist / neural-substrate / FUlp oracle) as green.**
+3. **User skill library — promote only the good ones (kernel is BUILT).** `JuneAgentBridge` records each
+   turn's outcome on-device (the honest, sandbox-safe learning lane) → `record_skill_outcome`; the
+   deterministic gates draft it (`skill_discovery` / `mutation_proposer` / `self_evolution`); user-review
+   via `SkillEvolutionService`; a **Skills tab** shows/invokes ONLY gate-passed skills. Land the two
+   missing wires (`observe_composition` FFI + the nightbrain `skill_evolution_analysis` body).
+**DoD additions:** the cloud lane is the running default; the grammar mask is verified on a real local
+tool call; the Skills tab shows a gate-passed skill AND withholds an unproven one; zero test regressions.
 
 ## PHASE A — DEEP SELF-RESEARCH: the connection audit (the "research its own code" deliverable)
 Produce `docs/research/JUNE_MAS_CONNECTION_AUDIT.md` — a 7-layer audit that maps the surface honestly.

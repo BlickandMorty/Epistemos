@@ -7,6 +7,7 @@
 4. **Minimalism is law: add polish / hardening / connectedness, never bloat.**
 5. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
 6. **Build Prompt Forge (§ Feature Mandate) — the CANONICAL shared submission-time prompt upgrader, vault-grounded.**
+7. **CLOUD engines FIRST (local second); build the shared deterministic-substrate services + the shared user Skills library — see § Finalization Mandate + `docs/research/DETERMINISTIC_SUBSTRATE_INFUSION.md`.**
 
 ## ❌ FAILURE MODES — worked anti-examples of "done wrong" (never do these)
 - **Skim-and-declare** (the #1 failure this project keeps hitting): read the ledger, skip the body, ship a shallow change, say "nothing left." → A DoD is unmet; re-read.
@@ -156,6 +157,28 @@ API (read, never edit the core). Full spec + architecture lessons:
 `docs/research/SYSTEM_PROMPT_FIELD_STUDY.md`. **⚠️ IP: learn the PATTERNS, NEVER copy proprietary
 system-prompt TEXT.** Expose a clean API the other two surfaces adopt. Minimal + native (§0). Ships
 DoD-gated (a custom system prompt measurably upgraded + a Pattern applied), not a stub.
+
+## FINALIZATION MANDATE — cloud-first · substrate-as-capabilities · a user skill library (you build the shared core)
+Backed by `docs/research/DETERMINISTIC_SUBSTRATE_INFUSION.md` (the determinism is BUILT + tested +
+FFI-exposed, just under-wired; ~90% wiring proven `agent_core` code, not rebuilding).
+1. **CLOUD FIRST, local second** across OpenChamber + the shared shell defaults (full agentic capability
+   on cloud; local is the secondary/offline lane). Never default to local; never fake agentic on local.
+2. **Substrate-as-capabilities — build the SHARED services the other two surfaces consume:** the
+   `GenUIPayload` cross-runtime render contract (one Rust Codable emitter → all three render agent output
+   through one typed dispatcher); the `ReplayBundle` export FFI (→ "Export `.epbundle`" everywhere, verified
+   by `epistemos-trace`); a `RankedContextService` (RRF → EML → confidence-floor → MMR → `RetrievalTrace`)
+   + a shared `ConfidenceGate`; macaroon **`put_edge` caveat enforcement** (uncircumventable authorization);
+   `tirith` on every Work/Goose shell command before exec; the reversible `effect` mutation path;
+   `circuit_breaker` provider back-off in the nav bar. **NEVER ship research-only layers (sketch /
+   mutations / neocortex-gist / neural-substrate / GooseWorkBackend-honest-refuse) as green.**
+3. **User skill library — the CANONICAL shared browser + promotion pipeline (kernel is BUILT).** Goose
+   already reads `skill_router` via ACP — extend it to inject matched skill bodies + record cross-surface
+   repetition (`record_skill_outcome`); the deterministic gates draft; user-review via
+   `SkillEvolutionService`; build the **shared Skills browser** component (adopted by June + Experimental)
+   that shows/invokes ONLY gate-passed skills. Land the two missing wires (`observe_composition` FFI + the
+   nightbrain `skill_evolution_analysis` body); all three surfaces register into the ONE nightbrain scheduler.
+**DoD additions:** cloud is the running default; ≥1 shared substrate service shipped AND consumed by
+another surface; the shared Skills browser shows a gate-passed skill AND withholds an unproven one.
 
 ## PHASE A — DEEP AUDIT (research your own code, both domains)
 Two 7-layer audits. **A1 — OpenChamber:** map every seam of the Pro agent (supervision lifecycle,
