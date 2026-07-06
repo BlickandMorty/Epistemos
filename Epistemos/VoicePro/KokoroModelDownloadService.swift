@@ -20,7 +20,7 @@ final class KokoroModelDownloadService {
     /// Installable quality tiers. Each maps to a `KokoroRuntimeManifest.json`
     /// the upstream repo already ships; the app installs exactly what that
     /// manifest declares.
-    enum Tier: String, CaseIterable, Sendable, Identifiable {
+    nonisolated enum Tier: String, CaseIterable, Sendable, Identifiable {
         /// Starter SDK bundle: all seven duration models + the single 15s bucket.
         case starter
         /// Default hosted bundle; currently matches the upstream starter SDK manifest.
@@ -41,11 +41,11 @@ final class KokoroModelDownloadService {
         var detail: String {
             switch self {
             case .starter:
-                return "Smallest upstream SDK manifest: seven voices and the 15-second decoder. About 0.48 GB."
+                return "Smallest upstream SDK manifest: seven voices and the 15-second decoder. \(approximateSizeLabel)."
             case .standard:
-                return "Default upstream manifest; currently matches Starter with seven voices and the 15-second decoder. About 0.48 GB."
+                return "Default upstream manifest; currently matches Starter with seven voices and the 15-second decoder. \(approximateSizeLabel)."
             case .highestQuality:
-                return "Every audio-length bucket and the full voice set for the best quality. About 1 GB."
+                return "Every audio-length bucket and the full voice set for the best quality. \(approximateSizeLabel)."
             }
         }
 
@@ -55,6 +55,10 @@ final class KokoroModelDownloadService {
             case .starter, .standard: return 477_043_213
             case .highestQuality: return 998_196_322
             }
+        }
+
+        var approximateSizeLabel: String {
+            "About \(ByteCountFormatter.string(fromByteCount: approximateByteCount, countStyle: .file))"
         }
 
         /// Repo-relative path of the `KokoroRuntimeManifest.json` for this tier.

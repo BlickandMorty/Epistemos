@@ -4,7 +4,7 @@ import Foundation
 //
 // This intentionally stores only plain values. The app-wide graph/chat/note surfaces can populate richer fields after
 // the current deletion/refactor isolation lifts, but Work should not import those UI/state types directly.
-struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
+nonisolated struct WorkAppContextSnapshot: Codable, Equatable, Sendable {
     struct Row: Identifiable, Equatable, Sendable {
         let id: String
         let label: String

@@ -1,6 +1,6 @@
 import Foundation
 
-struct PromptForgeContextSnippet: Identifiable, Equatable, Sendable {
+nonisolated struct PromptForgeContextSnippet: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let source: String
