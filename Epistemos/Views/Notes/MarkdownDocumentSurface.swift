@@ -35,6 +35,9 @@ struct MarkdownDocumentSurface: View {
             .onAppear {
                 configureCoordinator()
             }
+            .onChange(of: markdown) { _, _ in
+                configureCoordinator()
+            }
             .onChange(of: title) { _, newTitle in
                 coordinator.updateTitle(newTitle)
             }
@@ -87,6 +90,18 @@ private final class MarkdownDocumentSurfaceCoordinator {
 
         guard configuredPageId != pageId else {
             updateTitle(title)
+            guard markdown != latestMarkdown,
+                  latestMarkdown == lastFlushedMarkdown,
+                  !controller.toolbarModel.isDirty else {
+                return
+            }
+            latestMarkdown = markdown
+            lastFlushedMarkdown = markdown
+            controller.loadInitialContent(
+                Self.emptyDocumentJSON,
+                title: title,
+                markdownSource: markdown
+            )
             return
         }
 

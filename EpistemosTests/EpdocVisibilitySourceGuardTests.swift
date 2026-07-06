@@ -87,6 +87,11 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "The Markdown Document surface should reuse the existing Epdoc editor chrome.")
         #expect(surface.contains("markdownSource: markdown"),
                 "The Document surface must seed from the current Markdown body, not empty package JSON.")
+        #expect(surface.contains(".onChange(of: markdown)"),
+                "The default Document surface must reload when the real note body arrives after first render.")
+        #expect(surface.contains("latestMarkdown == lastFlushedMarkdown")
+                && surface.contains("!controller.toolbarModel.isDirty"),
+                "Late body reloads must be clean-only so a dirty open note is never silently clobbered.")
     }
 
     @Test("Epdoc chrome exposes projection info in the toolbar")
