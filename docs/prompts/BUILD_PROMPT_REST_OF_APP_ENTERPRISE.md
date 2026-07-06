@@ -1,5 +1,13 @@
 # Build Prompt — Pro (OpenChamber) + the Rest of Epistemos: Make the Whole App Stellar
 
+## ⚡ READ-FIRST PRIORITY LEDGER (if you skim nothing else, obey these)
+1. **THE BOUNDARY IS ABSOLUTE: your diff touches ZERO protected paths (data core, the two sibling agent lanes, engine/FFI, security, build system). If in doubt, it's protected — flag it.**
+2. **Two domains only: OpenChamber (Pro agent) + the shared rest-of-app. NEVER hand-edit the pbxproj.**
+3. **"Build green" ≠ done — verify in the RUNNING app; never stop while a DoD is unmet.**
+4. **Minimalism is law: add polish / hardening / connectedness, never bloat.**
+5. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
+6. **Build Prompt Forge (§ Feature Mandate) — the CANONICAL shared submission-time prompt upgrader, vault-grounded.**
+
 > A research-and-build assignment for **two domains at once**: (1) the **Pro agent surface —
 > OpenChamber** (harden and deeply upgrade its agent, exactly as the other two agents upgrade theirs),
 > and (2) **the rest of Epistemos** — the onboarding, settings, navigation, voice, the app shell, the
@@ -114,6 +122,20 @@ ones whose Pro surface is bulletproof AND whose connective tissue is invisible b
 Because the shared shell serves **every build**, one stellar upgrade here lifts MAS, Pro, and Experimental
 at once. Judged on: **(1) OpenChamber robustness & connectedness**, **(2) coherence & flow of the shared
 app**, **(3) minimal-native excellence + hardening across both.**
+
+## FEATURE MANDATE — Prompt Forge (the CANONICAL shared prompt upgrader; you build the core)
+You own shared shell services, so **you build the canonical `PromptForge` service the whole app reuses**
++ its OpenChamber composer integration. When a user submits a prompt in ANY surface, Prompt Forge deeply
+upgrades it before it reaches the model — more robust/useful/effective — preserving intent and voice.
+Full spec: `docs/research/PROMPT_UPGRADING_FIELD_STUDY.md` Part 3. Pipeline: intent+gaps → clarity+
+structure (keep the user's nouns/constraints/voice) → task-matched technique injection (never
+over-applied) → **vault-grounding** (retrieve relevant notes/graph via the vault's PUBLIC read API — you
+READ, never edit the protected core; inject the highest-priority context that fits the model's window,
+cite) → budget-aware assembly → clarify-don't-guess (≤3 questions on real ambiguity). UX: original→
+upgraded diff, one-click Accept/Edit/Retry/Revert, never silent, fast (small model, streamed), show what
+changed. Build the shared service (Swift, in your scope) + wire the OpenChamber composer, and expose a
+clean API the other two surfaces adopt in their own lanes. Minimal + native + theme-correct (§0). Ships
+DoD-gated (a live "underspecified prompt → upgraded, vault-cited prompt" transcript), not a stub.
 
 ## PHASE A — DEEP AUDIT (research your own code, both domains)
 Two 7-layer audits. **A1 — OpenChamber:** map every seam of the Pro agent (supervision lifecycle,

@@ -1,5 +1,12 @@
 # Build Prompt — 1Code Experimental: The Embedded-Agent Frontier
 
+## ⚡ READ-FIRST PRIORITY LEDGER (if you skim nothing else, obey these)
+1. **No native SwiftUI — extend the 1Code web UI + backend fork only.**
+2. **Never touch the MAS-June lane or the data/knowledge core (vault / graph / notes).**
+3. **"Build green" ≠ done — verify in the RUNNING app; never stop while a DoD is unmet; never fake capability.**
+4. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
+5. **Ship Prompt Forge (§ Feature Mandate) — deeply upgrade the user's prompt at submission, vault-grounded.**
+
 > A research-and-build assignment. Not a task list — a mandate. Read every word before you write a line.
 > This SUPERSEDES the native-SwiftUI direction of the earlier P2 prompt. **There is no more SwiftUI
 > chrome. You extend the 1Code web UI itself.** Everything else the owner asked for still holds.
@@ -53,6 +60,18 @@ These were already required and remain non-negotiable prerequisites — verify o
    landmarks only, Monaco/xterm legible; kill the donor gradient).
 5. **The vault MCP is actually present to the engine** (router-level injection into the forked backend;
    the agent can search/read/write the user's notes), not just an env var.
+
+## FEATURE MANDATE — Prompt Forge (submission-time prompt upgrader; build this, DoD-gated)
+A first-class feature: when the user submits a prompt in the Experimental composer, **deeply upgrade it
+before it reaches the engine** — more robust/useful/effective — while preserving their intent and voice.
+Full spec: `docs/research/PROMPT_UPGRADING_FIELD_STUDY.md` Part 3. Pipeline: intent+gaps → clarity+
+structure (keep the user's nouns/constraints/voice) → task-matched technique injection (CoT/decomposition/
+output-format — never over-applied) → **vault-grounding** (retrieve relevant notes/graph via the vault
+MCP, inject the highest-priority context that fits the engine's window, cite) → budget-aware assembly →
+clarify-don't-guess (≤3 questions only on real ambiguity). UX: original→upgraded diff, one-click
+Accept/Edit/Retry/Revert, never silent, fast (small model, streamed), show what changed. Build it in the
+renderer composer + a backend enhance step. **Ships as a real feature (a live "underspecified prompt →
+upgraded, vault-cited prompt" transcript), not a stub** — it's on the feature ledger + DoD-Foundation.
 
 ---
 
@@ -196,8 +215,8 @@ load-bearing integrations the frontier apps cannot match.
 - **DoD-A** — `AGENT_APP_FIELD_STUDY.md` + `EXPERIMENTAL_DEEP_AUDIT.md` committed; every finding cited.
 - **DoD-B** — Thermonuclear review run; every CONFIRMED HIGH fixed; re-review clean.
 - **DoD-Foundation** — De-branded (grep-gated 0), boots into the vault (no picker), six engines
-  selectable + live catalog, Epistemos theme worn (light+dark), vault MCP live to the engine.
-  Screenshot each.
+  selectable + live catalog, Epistemos theme worn (light+dark), vault MCP live to the engine, **Prompt
+  Forge upgrades a submitted prompt (diff shown + intent preserved + vault-cited)**. Screenshot each.
 - **DoD-C** — At least the C1 vault-grounded-citation feature AND provenance write-back work end to end:
   a transcript where the agent searches the user's notes, cites them, and writes a provenance note back
   to the vault. Plus the C2 gaps from the field study closed. Screenshots/transcripts.

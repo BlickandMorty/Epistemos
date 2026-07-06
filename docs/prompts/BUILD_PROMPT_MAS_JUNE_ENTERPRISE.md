@@ -1,5 +1,13 @@
 # Build Prompt — MAS "June" Agent Surface: Deep Audit, Connect, and Harden to Enterprise Grade
 
+## ⚡ READ-FIRST PRIORITY LEDGER (if you skim nothing else, obey these)
+1. **In-process ONLY (no subprocess/sidecar); honest capability (local = chat, never fake tools on local).**
+2. **Preserve thinking blocks; stream everything; secrets in Keychain; MCP over the HTTP allowlist, never stdio.**
+3. **Never touch the 1Code-Experimental lane or the data/knowledge core (vault / graph / notes).**
+4. **"Build green" ≠ done — verify in the RUNNING MAS build; never stop while a DoD is unmet; zero test regressions.**
+5. **Every cycle (from Cycle 2): USE ≥1 prior skill, SHIP a profound build, FORGE a new reusable skill.**
+6. **Ship Prompt Forge (§ Feature Mandate) — upgrade the user's prompt at submission, on-device + vault-grounded.**
+
 **Read this whole file before touching anything. This is the parallel track to the 1Code Experimental
 build — you own the MAS June surface; do not touch `Epistemos/ExperimentalAgent/**` or the 1Code fork.**
 
@@ -70,6 +78,19 @@ lane. The mandate is not to imitate Codex; it is to build the agent Codex *canno
 and one with the vault. You are judged on: **(1) depth of embedding** (features only a vault-native agent
 can have), **(2) on-device excellence** (local-lane quality that rivals cloud), **(3) hardening & trust**
 (the deepest tier — private, auditable, crash-safe, sandbox-pure).
+
+## FEATURE MANDATE — Prompt Forge (submission-time prompt upgrader; build this, DoD-gated)
+When the user submits a prompt in the June composer, **deeply upgrade it before it reaches the engine** —
+more robust/useful/effective — preserving their intent and voice. Full spec:
+`docs/research/PROMPT_UPGRADING_FIELD_STUDY.md` Part 3. Pipeline: intent+gaps → clarity+structure (keep
+the user's nouns/constraints/voice) → task-matched technique injection (never over-applied) →
+**vault-grounding** (retrieve relevant notes/graph, inject the highest-priority context that fits the
+engine's window, cite) → budget-aware assembly → clarify-don't-guess (≤3 questions on real ambiguity).
+UX: original→upgraded diff, one-click Accept/Edit/Retry/Revert, never silent, fast, show what changed.
+**MAS honesty: run the enhance itself ON-DEVICE (local model) for privacy where possible — say plainly
+when it's local vs cloud, never fabricate a citation, respect the §0.8 tool allowlist.** Build it in the
+June composer + gateway enhance step. Ships as a real feature (a live "underspecified prompt → upgraded,
+vault-cited prompt" transcript), not a stub.
 
 ## PHASE A — DEEP SELF-RESEARCH: the connection audit (the "research its own code" deliverable)
 Produce `docs/research/JUNE_MAS_CONNECTION_AUDIT.md` — a 7-layer audit that maps the surface honestly.
@@ -189,7 +210,8 @@ reads like a grimoire of profound, load-bearing on-device integrations no cloud 
   part listed file:line with a CONNECTED/HALF-WIRED/DISCONNECTED/DEAD verdict.
 - **DoD-2** — June's cloud lane is a **real agent**: a task that requires tools + the vault runs end to
   end (streamed text + thinking, a tool call, a permission prompt, a vault read/write) in the sandboxed
-  build. Screenshot/transcript proof.
+  build. Screenshot/transcript proof. **Plus: Prompt Forge upgrades a submitted prompt (diff shown,
+  intent preserved, vault-grounded, on-device-vs-cloud stated honestly).**
 - **DoD-3** — Capability truth intact: local = chat (no faked tools), cloud = agentic; the picker/gating
   is honest; `cloudNotConfigured` guides, never fails silently.
 - **DoD-4** — Hardening report across the four lenses with **zero open HIGHs**; all §0 non-negotiables
