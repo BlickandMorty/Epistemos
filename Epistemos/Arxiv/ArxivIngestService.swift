@@ -336,8 +336,8 @@ enum ArxivIngestService {
             // until relaunch. Index it directly now (saveBody wrote the body sync).
             if let searchService = AppBootstrap.shared?.vaultSync.searchService {
                 // ARX-IDX-1 (audit 2026-07-04): use the markdown already in hand instead of a
-                // synchronous NoteFileStorage.readBody disk read here (this runs on @MainActor, and
-                // the body was written to disk milliseconds ago — the read is redundant); and log on
+                // synchronous body-file disk read here (this runs on @MainActor, and the body was
+                // written to disk milliseconds ago — the read is redundant); and log on
                 // failure instead of swallowing it with try? (a silent failure re-opens the GAP-1
                 // symptom — the paper is unfindable in content search until relaunch/reindex).
                 do {

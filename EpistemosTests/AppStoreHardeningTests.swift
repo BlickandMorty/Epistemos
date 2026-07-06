@@ -721,9 +721,28 @@ struct AppStoreHardeningTests {
             }
         }
 
+        let forbiddenReadCalls = [
+            "NoteFileStorage.readBody(",
+            "NoteFileStorage.readBodyData(",
+            "NoteFileStorage.bodyExists(",
+        ]
+        let allowedLegacyReadFiles: Set<String> = [
+            "Epistemos/App/AppBootstrap.swift",
+            "Epistemos/Models/SDPage.swift",
+            "Epistemos/Sync/NoteFileStorage.swift",
+        ]
+        for url in productionSources {
+            let relativePath = Self.relativeMirroredSourcePath(for: url)
+            guard !allowedLegacyReadFiles.contains(relativePath) else { continue }
+            let source = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            for forbiddenCall in forbiddenReadCalls where source.contains(forbiddenCall) {
+                violations.append("\(relativePath): \(forbiddenCall)")
+            }
+        }
+
         #expect(
             violations.isEmpty,
-            "KEELSTONE Phase 4.5 retires durable note-bodies as truth; production code must route body persistence through VaultSyncService.savePageBodyFileFirst / AtomicVaultWriter. Violations: \(violations)"
+            "KEELSTONE Phase 4.5 retires durable note-bodies as truth; production code must route body persistence through VaultSyncService.savePageBodyFileFirst / AtomicVaultWriter and body reads through vault-file-first loaders. Violations: \(violations)"
         )
 
         let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
