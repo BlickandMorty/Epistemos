@@ -197,6 +197,33 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("Skill vault file writes use AtomicVaultWriter for vault files")
+    func skillVaultFileWritesUseAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/SkillVaultFileIO.swift")
+        let writeText = Self.sourceSection(
+            in: source,
+            startingAt: "static func writeText",
+            endingBefore: "    private static func skillManifestURL"
+        )
+
+        #expect(
+            writeText?.contains("directoryExists(url.deletingLastPathComponent())") == true
+                && writeText?.contains("(status.st_mode & S_IFMT) == S_IFREG") == true
+                && writeText?.contains("status.st_nlink == 1") == true,
+            "SkillVaultFileIO must preserve parent-directory and regular single-link validation before writing vault skill files."
+        )
+        #expect(
+            writeText?.contains("try AtomicVaultWriter.writeSynchronously(text, to: url)") == true,
+            "SkillVaultFileIO writes vault skill files and must use the coordinated temp-replace spine."
+        )
+        #expect(
+            writeText?.contains("rename(") == false
+                && writeText?.contains("open(path, O_WRONLY") == false
+                && writeText?.contains(".write(to:") == false,
+            "SkillVaultFileIO must not bypass NSFileCoordinator with POSIX temp+rename or direct Foundation write APIs."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory

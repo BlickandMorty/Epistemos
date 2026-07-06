@@ -68,7 +68,19 @@ nonisolated enum SkillVaultFileIO {
     }
 
     static func writeText(_ text: String, to url: URL) throws {
-        try writeData(Data(text.utf8), to: url)
+        let data = Data(text.utf8)
+        guard data.count <= maxSkillFileBytes,
+              directoryExists(url.deletingLastPathComponent()) else {
+            throw SkillVaultFileIOError.invalidPath
+        }
+        if let status = fileStatus(url) {
+            guard (status.st_mode & S_IFMT) == S_IFREG,
+                  status.st_nlink == 1 else {
+                throw SkillVaultFileIOError.invalidPath
+            }
+        }
+
+        try AtomicVaultWriter.writeSynchronously(text, to: url)
     }
 
     private static func skillManifestURL(vaultPath: String, skillName: String) -> URL? {
@@ -136,49 +148,6 @@ nonisolated enum SkillVaultFileIO {
             guard data.count <= maxSkillFileBytes else { return nil }
         }
         return String(data: data, encoding: .utf8)
-    }
-
-    private static func writeData(_ data: Data, to url: URL) throws {
-        guard data.count <= maxSkillFileBytes,
-              directoryExists(url.deletingLastPathComponent()) else {
-            throw SkillVaultFileIOError.invalidPath
-        }
-        if let status = fileStatus(url) {
-            guard (status.st_mode & S_IFMT) == S_IFREG,
-                  status.st_nlink == 1 else {
-                throw SkillVaultFileIOError.invalidPath
-            }
-        }
-
-        let tempURL = url
-            .deletingLastPathComponent()
-            .appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).tmp", isDirectory: false)
-        var didRename = false
-        defer {
-            if !didRename {
-                try? FileManager.default.removeItem(at: tempURL)
-            }
-        }
-
-        let fd = tempURL.path.withCString { path in
-            open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
-        }
-        guard fd >= 0 else { throw SkillVaultFileIOError.invalidPath }
-        defer { _ = close(fd) }
-
-        try data.withUnsafeBytes { rawBuffer in
-            guard let baseAddress = rawBuffer.baseAddress else { return }
-            var offset = 0
-            while offset < rawBuffer.count {
-                let written = write(fd, baseAddress.advanced(by: offset), rawBuffer.count - offset)
-                guard written > 0 else { throw SkillVaultFileIOError.invalidPath }
-                offset += written
-            }
-        }
-        guard rename(tempURL.path, url.path) == 0 else {
-            throw SkillVaultFileIOError.invalidPath
-        }
-        didRename = true
     }
 
     private static func ensureDirectoryExists(_ url: URL) throws {
