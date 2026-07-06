@@ -116,7 +116,7 @@ public enum FirstRunBootstrap {
                 embeddingModelPin: nil,
                 routerModelPin: nil
             )
-            try writeAtomicJSON(m, to: metadataURL, fileManager: fileManager)
+            try writeAtomicJSON(m, to: metadataURL)
             metadata = m
             Self.log.info("Bootstrapped fresh vault at \(vaultURL.path, privacy: .public)")
         } else {
@@ -145,28 +145,17 @@ public enum FirstRunBootstrap {
 
     private static func writeAtomicJSON<T: Encodable>(
         _ value: T,
-        to url: URL,
-        fileManager: FileManager
+        to url: URL
     ) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let bytes = try encoder.encode(value)
 
-        guard let parent = url.deletingLastPathComponent() as URL?,
-              parent.path != "/" else {
+        guard url.deletingLastPathComponent().path != "/" else {
             throw BootstrapError.noParentDirectory(url)
         }
-        let tmpName = ".tmp.\(ProcessInfo.processInfo.processIdentifier).\(UUID().uuidString)"
-        let tmpURL = parent.appendingPathComponent(tmpName)
-        try bytes.write(to: tmpURL, options: .atomic)
-        // Atomic rename: tmp → final. If final already existed (idempotent
-        // re-run path doesn't reach here, but be defensive) replaceItem swaps it.
-        if fileManager.fileExists(atPath: url.path) {
-            _ = try fileManager.replaceItemAt(url, withItemAt: tmpURL)
-        } else {
-            try fileManager.moveItem(at: tmpURL, to: url)
-        }
+        try AtomicVaultWriter.writeSynchronously(String(decoding: bytes, as: UTF8.self), to: url)
     }
 
     fileprivate static let log = Logger(subsystem: "com.epistemos", category: "FirstRunBootstrap")

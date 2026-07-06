@@ -300,6 +300,7 @@ require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func codeFi
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultRenameMoveAndDeleteMutationsUseNSFileCoordinator()" "Data-safety witness: vault move/delete mutations use coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultChatMutatorVerifiedWriterUsesAtomicVaultWriter()" "Data-safety witness: approved agent vault writes use coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func skillVaultFileWritesUseAtomicVaultWriter()" "Data-safety witness: skill vault writes use coordinated vault IO"
+require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func firstRunBootstrapMetadataUsesAtomicVaultWriter()" "Data-safety witness: first-run vault metadata uses coordinated vault IO"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func keelstoneIncrementalReconcileEqualsFreshRebuild()" "Data-safety soak witness: incremental reconcile equals fresh rebuild"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceFSEventsClassificationIsExecutable()" "Data-safety witness: FSEvents escalation classifier is executable"
 require_file_contains "EpistemosTests/AppStoreHardeningTests.swift" "func vaultSyncServiceRootUnavailableFreezesMountedVault()" "Data-safety witness: root unavailability freezes active vault IO"

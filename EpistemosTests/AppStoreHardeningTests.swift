@@ -224,6 +224,32 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("First-run vault metadata writes use AtomicVaultWriter")
+    func firstRunBootstrapMetadataUsesAtomicVaultWriter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/FirstRunBootstrap.swift")
+        let writeAtomicJSON = Self.sourceSection(
+            in: source,
+            startingAt: "private static func writeAtomicJSON",
+            endingBefore: "    fileprivate static let log"
+        )
+
+        #expect(
+            writeAtomicJSON?.contains("JSONEncoder()") == true
+                && writeAtomicJSON?.contains("encoder.outputFormatting = [.prettyPrinted, .sortedKeys]") == true,
+            "FirstRunBootstrap must keep deterministic JSON metadata encoding for .epistemos/vault.json."
+        )
+        #expect(
+            writeAtomicJSON?.contains("try AtomicVaultWriter.writeSynchronously(String(decoding: bytes, as: UTF8.self), to: url)") == true,
+            "FirstRunBootstrap writes vault metadata and must use the coordinated temp-replace spine."
+        )
+        #expect(
+            writeAtomicJSON?.contains("bytes.write(to:") == false
+                && writeAtomicJSON?.contains("replaceItemAt") == false
+                && writeAtomicJSON?.contains("moveItem(at:") == false,
+            "FirstRunBootstrap vault metadata writes must not use direct Data.write or raw FileManager replacement."
+        )
+    }
+
     @Test("AtomicVaultWriter writes whole vault buffers through the coordinated durable path")
     func atomicVaultWriterWritesWholeVaultBuffers() async throws {
         let root = FileManager.default.temporaryDirectory
