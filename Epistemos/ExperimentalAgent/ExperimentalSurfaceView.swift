@@ -285,6 +285,50 @@ private struct ExperimentalWebView: NSViewRepresentable {
             _ = synth.speak(String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
         }
 
+        // Write an assistant reply into <vault>/notes/ as a titled markdown note.
+        // Returns {success, path} to the web caller (which toasts on success).
+        @MainActor
+        private func handleCreateVaultNote(payload: Any?) -> (Any?, String?) {
+            guard let obj = payload as? [String: Any] else {
+                return (["success": false, "error": "bad payload"], nil)
+            }
+            let rawBody = (obj["body"] as? String) ?? ""
+            let body = String(rawBody.prefix(200_000)) // sane cap; agent replies aren't huge
+            guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return (["success": false, "error": "empty body"], nil)
+            }
+            guard let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL else {
+                return (["success": false, "error": "no vault configured"], nil)
+            }
+            let rawTitle = (obj["title"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let title = rawTitle.isEmpty ? "Agent note" : String(rawTitle.prefix(120))
+
+            // Slug from the title; keep it filesystem-safe + collision-resistant.
+            let allowed = CharacterSet(charactersIn:
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ ")
+            let slugBase = String(title.unicodeScalars.filter { allowed.contains($0) })
+                .replacingOccurrences(of: " ", with: "-")
+                .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            let slug = slugBase.isEmpty ? "agent-note" : String(slugBase.prefix(60))
+            let suffix = String(UUID().uuidString.prefix(8))
+
+            let notesDir = vaultURL.appendingPathComponent("notes", isDirectory: true)
+            let fileURL = notesDir.appendingPathComponent("\(slug)-\(suffix).md")
+
+            // Minimal note: a heading + a source line + the reply. The vault MCP + Shadow index
+            // both treat this as an ordinary markdown note.
+            let noteText = "# \(title)\n\n_Saved from the Experimental agent._\n\n\(body)\n"
+            do {
+                try FileManager.default.createDirectory(
+                    at: notesDir, withIntermediateDirectories: true)
+                try noteText.write(to: fileURL, atomically: true, encoding: .utf8)
+                return (["success": true, "path": fileURL.path], nil)
+            } catch {
+                return (["success": false, "error": String(describing: error)], nil)
+            }
+        }
+
         @MainActor
         private func handleSaveFile(payload: Any?) async -> (Any?, String?) {
             guard let obj = payload as? [String: Any],
@@ -411,6 +455,12 @@ private struct ExperimentalWebView: NSViewRepresentable {
                     }
                 }
                 return (nil, nil)
+            case "vault:create-note":
+                // EPISTEMOS fusion (deeply connect features): one-click "Save to vault" from the
+                // transcript writes an assistant reply into the SAME Epistemos vault the agent's
+                // MCP already reads/writes — so a good answer becomes a real, indexed note. Scoped
+                // to <vault>/notes/ (the ShadowVaultBootstrapper crawl path → auto-reindexed).
+                return handleCreateVaultNote(payload: payload)
             case "window:set-traffic-light-visibility",
                  "window:toggle-devtools", "window:unlock-devtools",
                  "app:set-badge-icon":
