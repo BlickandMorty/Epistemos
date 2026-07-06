@@ -216,10 +216,12 @@ depth 4 · Depth/novelty 4. No axis < 4.
 8. **Order:** KEELSTONE 0-4 → LUMENLENS L0-L5 → K4/K5. K0-residual + K1-K3 may run parallel to
    LUMENLENS. Landing/handoff (D5) needs the owner's call before K7.
 9. **RECKONER seam (Plan 9 Data tab, `EPI-RP-09-RECKONER`) — the fifth place the companion works.**
-   Plan 9's canon (`docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md`) specifies an **in-tab agent chat**:
-   that chat IS this companion — reuse the K6 minichat pattern (same shared-backend WKWebView,
-   same `sub_chats.sessionId` continuity, same presence bus), NEVER a third chat system. The
-   presence contract extends naturally: `Location.surface` gains a `dataTab` case; the mascot pins
-   on the Data room while restructuring tables; dry-run→confirm→undo for agent table restructuring
-   follows the same D7 gating (per-turn approval; revert-turn). KINDRED builds the pattern; Plan 9
-   consumes it as an external seam — do not build Data-tab UI here.
+   Plan 9's canon (`docs/prompts/PROMPT_PLAN_9_DATA_TABLES.md`) specifies an **in-tab agent chat**
+   on BOTH builds. On Experimental that chat IS this companion — reuse the K6 minichat pattern
+   (same shared-backend WKWebView, same `sub_chats.sessionId` continuity, same presence bus),
+   NEVER a third chat system. On MAS the same door is answered by June via the F2 capability seam
+   (same tools, no companion chrome — companions stay 1Code-only). The presence contract extends
+   naturally: `Location.surface` gains a `dataTab` case; the mascot pins on the Data room while
+   restructuring tables; dry-run→confirm→undo for agent table restructuring follows the same D7
+   gating (per-turn approval; revert-turn). KINDRED builds the pattern; Plan 9 consumes it as an
+   external seam — do not build Data-tab UI here.

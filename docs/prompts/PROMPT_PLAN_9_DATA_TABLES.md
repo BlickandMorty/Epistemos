@@ -313,9 +313,11 @@ robustness/fluidity) per phase, thermonuclear-shape; a HIGH blocks the phase com
 ## Cross-plan note (2026-07-06 — additive; this plan's canon is unchanged)
 Plan 9 is now registered as **RECKONER (`EPI-RP-09-RECKONER`)** in `RESEARCH_PROMPT_STANDARD.md`
 (anti-collision registry). Two seams bind when the agent builds land:
-1. **The in-tab agent chat IS the KINDRED companion** (`docs/plans/kindred/` — reuse the K6
-   minichat pattern: shared supervisor backend, `sub_chats.sessionId` continuity, presence bus,
-   `Location.surface = dataTab`). Never a third chat system.
+1. **The in-tab agent chat door exists on BOTH builds; who answers differs.** On
+   1Code/Experimental it IS the KINDRED companion (`docs/plans/kindred/` — reuse the K6 minichat
+   pattern: shared supervisor backend, `sub_chats.sessionId` continuity, presence bus,
+   `Location.surface = dataTab`, mascot pins on the room). On MAS it is June through the same F2
+   capability seam — same tools, no companion chrome. Never a third chat system on either build.
 2. **Editor boundary (LUMENLENS, `docs/plans/lumenlens/`):** note tables (markdown) stay
    editor-side; Data-room datasets are RECKONER's; notes reference datasets via wikilink/embed
    (graph-linked). Agent table-restructuring reuses the LUMENLENS suggestion/provenance schema
