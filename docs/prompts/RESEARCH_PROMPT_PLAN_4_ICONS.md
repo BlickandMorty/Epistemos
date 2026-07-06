@@ -1,5 +1,7 @@
 # DEEP-RESEARCH PROMPT — PLAN 4: ICONOGRAPHY (app + engine + feature + mascot marks)
 
+**ID:** `EPI-RP-04-SIGILRY` · **Codename:** SIGILRY · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
 > authored 2026-07-06. **Build split: both builds (MAS + 1Code)** — but the *mascot* body-parts +
 > accessories + emote badges this system produces are consumed most heavily by the 1Code-only

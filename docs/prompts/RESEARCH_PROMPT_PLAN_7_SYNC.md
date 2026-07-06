@@ -1,8 +1,17 @@
-# DEEP-RESEARCH PROMPT — PLAN 7: SYNC + v1 RELEASE QUALITY GATE
+# DEEP-RESEARCH PROMPT — PLAN 7 (KEELSTONE): SYNC + BUILD-SCHEMA SOLIDIFICATION + DEEP HARDENING + v1 RELEASE
+
+**ID:** `EPI-RP-07-KEELSTONE` · **Codename:** KEELSTONE · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
 
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
-> authored 2026-07-06. **Build split: both builds (MAS + 1Code).** MAS is the strict constraint
+> authored 2026-07-06; scope expanded the same day to fold in **build-schema/config solidification +
+> deep performance-optimization/hardening + release-readiness** — this plan is the app's structural
+> *keel*. **Build split: both builds (MAS + 1Code/Experimental).** MAS is the strict constraint
 > surface (sandbox + file coordination).
+>
+> **Surfaces today = MAS/June + 1Code/Experimental ONLY. There is no live "Pro" surface — but the
+> flag-less base build config still mounts the deprecated OpenChamber/ProAgent surface
+> (`LandingView` `#else` branch). Resolving that (retire OpenChamber/ProAgent + collapse to two
+> configs + make Experimental the base) is explicitly IN SCOPE here.**
 
 ─── BEGIN RESEARCH BRIEF ───
 
@@ -24,8 +33,11 @@ own file-sync + keeping the derived index consistent, not building a server.
 
 ## 2. Thesis
 **The vault on disk is truth; Epistemos coexists safely with external edits and third-party file
-sync, keeps its derived index perfectly consistent, never loses or corrupts a note — and the v1
-quality gate proves that before release.** Robustness and honest release-readiness over features.
+sync, keeps its derived index perfectly consistent, never loses or corrupts a note — sits on a
+solidified two-config build schema (MAS + Experimental, no vestigial third surface), is hardened and
+performance-optimized to a shippable floor, and passes a v1 release gate that proves all of it.**
+Robustness, structural clarity, and honest release-readiness over features — this is the keel the
+other plans rest on.
 
 ## 3. Hard constraints
 1. **Files are truth; the index is derived** — never let the index become authoritative or diverge
@@ -84,22 +96,63 @@ quality gate proves that before release.** Robustness and honest release-readine
   manual sign-off items. Include a data-safety soak test (external-edit storm, sync race, kill-9
   during write) and a first-run/upgrade matrix.
 
-### D6 — Competitive synthesis
+### D6 — Build-schema / config solidification + the base-app question ★ (owner-asked)
+Ground truth to design against: Epistemos builds via **compile flags** — `EPISTEMOS_APP_STORE`
+(→ June, MAS) and `EPISTEMOS_EXPERIMENTAL` (→ 1Code, Developer-ID). `xcodegen` `project.yml` is the
+source of truth (two app targets: `Epistemos` (Dev-ID) + `Epistemos-AppStore` (MAS); configs
+Debug/Release/Experimental). A hard `#error` forbids `EXPERIMENTAL && APP_STORE`. Today the
+**flag-less base config still mounts the deprecated OpenChamber/ProAgent surface** via
+`LandingView`'s `#else` branch. `PRO_BUILD` is dead (3 comment-only refs).
+- **Answer the owner's question explicitly: is a flag-less "base app" needed, or just two configs?**
+  Research the cleanest end-state: collapse to exactly **two shipping configurations** —
+  **Experimental (Developer-ID, base default)** and **MAS (App Store)** — and eliminate the vestigial
+  flag-less/OpenChamber path. Detail the safest migration: retire `Epistemos/ProAgent/*`, the
+  `.research-clones/openchamber` clone + `build-openchamber-web.sh` preBuild step, collapse
+  `LandingView`'s `#if APP_STORE / #elseif EXPERIMENTAL / #else OpenChamber` to a clean two-way, and
+  make Experimental the base — WITHOUT tripping the `#error` (never add EXPERIMENTAL to the shared
+  base config the App Store target inherits via `$(inherited)`; scope it to the `Epistemos` target).
+- **Solidify the schema:** one authoritative table of {config → flags → surface → signing/entitlements
+  → distribution}. Guardrails (a lint/`#error` matrix) so the two configs can never drift or a third
+  reappear. Cite xcodegen + Xcode build-setting inheritance reality.
+- Sequence + risk for the OpenChamber retirement (it's wired into `LandingView`, `UIState`,
+  `SubstrateHealthPanel`, tests) — do it like a clean excision, verified BUILD SUCCEEDED per step.
+
+### D7 — Deep performance optimization + hardening (shippable floor) ★
+Fold the owner's perf/hardening doctrine into the release keel. Research + specify a **hardening &
+performance floor** both configs must clear before v1:
+- **Performance:** the "instant open" budget (agent surface, editor, landing), memory/energy floors
+  (the app already does memory-pressure relief, bounded caches, lazy-init, WebView pooling — extend
+  to a measured budget in `perf-budgets.toml`), cold-start, large-vault (10k+ notes) behavior,
+  thermal. Define the metrics + how they're gated in CI. Cite Instruments/os_signpost/MetricKit.
+- **Hardening:** the four audit lenses + robustness patterns already in canon (FFI truth boundary,
+  supervision-not-polling, ring-buffer circuit breaker, thermal↔breaker, loopback-origin pinning,
+  agent-destructive-op safety, untrusted-ingest, data-core integrity, subprocess hardening on the
+  Dev-ID lane). Turn them into a **per-release gate** where a HIGH finding blocks ship like a broken
+  build. Include the embedded-1Code-backend supervision (child-process ledger, clean reap on quit).
+- MAS specifics: sandbox, hardened runtime, entitlements minimalism, notarization; Experimental
+  (Dev-ID) subprocess hardening. Cite Apple's hardened-runtime/notarization + App Sandbox docs.
+
+### D8 — Competitive synthesis
 - How Obsidian (no server, file truth, Sync add-on), iCloud-based apps (Bear/Apple Notes), and
   Logseq handle file truth + external edits + conflict. What to copy/avoid; the novel edge (honest
-  file-truth coexistence + a real release gate).
+  file-truth coexistence + a real release gate). Plus: how mature two-config (free/pro, or
+  sandboxed/direct) macOS apps keep build schemas clean + hardened.
 
 ## 6. Primary-source discipline
 Cite NSFileCoordinator/NSFilePresenter/FSEvents/FileProvider, GRDB/SQLite durability, App Store
 review + notarization docs. Flag sandbox-gated behaviors. Distinguish observed vs inferred.
 
 ## 7. Deliverable
-1. Executive thesis. 2. **External-change detection + reconciliation** (D1 — headline). 3. Conflict
-+ durability model (D2). 4. Index consistency + self-heal (D3). 5. Vault lifecycle/bookmark harden
-(D4). 6. **The v1 release quality gate** (D5 — headline: checklist + automated harness + soak/upgrade
-matrix). 7. Competitive table + novel edge (D6). 8. Phased build order (durable write core → external
-detection → reconciliation → conflict UX → index self-heal → release gate), each with a witnessable
-proven-done bar; flag Plan 6 (Capture writes) dependency. 9. Open questions.
+1. Executive thesis. 2. **External-change detection + reconciliation** (D1 — headline). 3. Conflict +
+durability model (D2). 4. Index consistency + self-heal (D3). 5. Vault lifecycle/bookmark harden (D4).
+6. **The v1 release quality gate** (D5 — headline: checklist + automated harness + soak/upgrade
+matrix). 7. **Build-schema solidification** (D6 — headline: the definitive {config → flag → surface →
+signing → distribution} table + the base-app answer + the OpenChamber/ProAgent retirement + drift
+guardrails). 8. **Performance + hardening floor** (D7 — headline: budgets + the per-release hardening
+gate where a HIGH blocks ship). 9. Competitive table + novel edge (D8). 10. **Phased build order**
+(durable write core → external detection → reconciliation → conflict UX → index self-heal → schema
+collapse + OpenChamber retirement → perf/hardening floor → release gate), each with a witnessable
+proven-done bar; flag Plan 6 (Capture writes) dependency. 11. Open questions.
 
 ## 8. Anti-patterns
 No proprietary sync server. No design where the index can silently become authoritative. No silent

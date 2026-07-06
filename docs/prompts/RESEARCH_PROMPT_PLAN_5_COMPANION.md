@@ -1,10 +1,13 @@
 # DEEP-RESEARCH PROMPT — PLAN 5: COMPANIONS (the living, editing, multi-surface agent)
 
+**ID:** `EPI-RP-05-KINDRED` · **Codename:** KINDRED · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+
 > **How to use this file.** Paste everything below the `─── BEGIN ───` line into a top-tier
 > deep-research model (Claude / GPT / Gemini deep-research mode). It is a *research* brief,
 > not a build brief: its job is to return a single **build-ready dossier** that a later
 > coding agent (with repo access) grounds in Epistemos's code. Calibrated to the same rigor
-> as the agent-surface dossiers (OpenChamber / 1Code / MAS-June). Owner authored 2026-07-06.
+> as the prior agent-surface research dossiers. Owner authored 2026-07-06.
+> **Surfaces today = MAS/June + 1Code/Experimental only; no live "Pro"/OpenChamber surface.**
 >
 > **Scope lock:** Companions + the Epdoc sidebar minichat are **1Code-Experimental ONLY**
 > (hidden on MAS/June). This supersedes the 2026-07-02 canon in `PROMPT_PLAN_5_COMPANION.md`

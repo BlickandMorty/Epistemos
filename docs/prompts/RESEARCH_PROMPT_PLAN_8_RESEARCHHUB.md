@@ -1,5 +1,7 @@
 # DEEP-RESEARCH PROMPT — PLAN 8: RESEARCHHUB (multi-source research feed + agent capability)
 
+**ID:** `EPI-RP-08-LODESTAR` · **Codename:** LODESTAR · Obey `RESEARCH_PROMPT_STANDARD.md` §3 rubric + §4 sources + §5 shape.
+
 > Paste below `─── BEGIN ───` into a deep-research model. Output = build-ready dossier. Owner
 > authored 2026-07-06. **Build split: both builds (MAS + 1Code).** A prior source dossier exists
 > (`docs/research/RESEARCHHUB_SOURCE_DOSSIER_2026_07_03.md`) — this brief re-researches to a
