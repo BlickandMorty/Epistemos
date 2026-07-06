@@ -38,6 +38,8 @@ printf '# Architecture Decision\n\nThe ADR body.\n' > "$FX/dated-log-2024.md"
 # Prefixed file linking a slug file by its H1 — grounding must SHOW the H1 title; the H1 [[link]] must resolve.
 printf '# Data Ledger\n\nThe data ledger. See [[Sync Engine]].\n' > "$FX/08_DATA_LEDGER.md"
 printf '# Sync Engine\n\nThe sync engine.\n' > "$FX/09_slug-notes.md"
+# Obsidian-style YAML front-matter title + alias — cite-check must verify by BOTH (not just the filename/H1).
+printf -- '---\ntitle: Design Doc\naliases: [The Blueprint]\n---\n\n# Overview\n\nThe design.\n' > "$FX/fm-slug-11.md"
 
 echo "[witness] booting headless backend on :$PORT against fixture vault…"
 ( cd "$FORK" && EPISTEMOS_VAULT_ROOT="$TMP/vault" EPISTEMOS_ONECODE_PORT="$PORT" \
@@ -75,6 +77,10 @@ check "noteExists: partial of a numbered note still rejected (no substring verif
   '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"Rollout"}}' | jget)"
 check "noteExists: slug-filename note verifies by its H1 (dated-log-2024 → [[Architecture Decision]])" \
   '"exists": true' "$(call epistemosVault.noteExists '{"json":{"title":"Architecture Decision"}}' | jget)"
+check "noteExists: front-matter TITLE verifies (fm-slug-11 title: → [[Design Doc]])" \
+  '"exists": true' "$(call epistemosVault.noteExists '{"json":{"title":"Design Doc"}}' | jget)"
+check "noteExists: front-matter ALIAS verifies ([[The Blueprint]])" \
+  '"exists": true' "$(call epistemosVault.noteExists '{"json":{"title":"The Blueprint"}}' | jget)"
 check "noteExists: fabricated note is rejected" \
   '"exists": false' "$(call epistemosVault.noteExists '{"json":{"title":"TOTALLY_FAKE_ZZZ"}}' | jget)"
 check "search: whole-vault content hit" \
