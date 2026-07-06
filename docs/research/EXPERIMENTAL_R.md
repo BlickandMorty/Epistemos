@@ -1468,3 +1468,15 @@ grounded-context block ("> From your vault — [[Title]]: …", clipped 4000) in
 handle. Composes vault-context-assembly + the editor-handle. A "Notes" button in the composer toggles it
 (fixed right sidebar); host-gated. Typechecks + renderer builds + in tarball. NEXT: wire "Notes" into the
 existing-chat composer (chat-input-area) + the vault @-mentions half. LIVE-verify pending an owner relaunch.
+
+---
+
+**Cycle 56 (2026-07-06) — vault note-browser sidebar completed in BOTH composers.** Wired the "Notes"
+button + VaultNoteBrowser into the existing-chat composer (chat-input-area), matching new-chat-form — so
+the searchable, expand/collapse vault sidebar is there whether you're starting a new chat or in an active
+one. Typechecks + renderer builds + deployed. On the @-mentions half: deliberately NOT rushing it — the
+true @-mention inserts a mention NODE with send-time content resolution, which touches the core
+mention-serialization path, can't be verified live, and would risk breaking the composer if the
+serialization is wrong. The sidebar already delivers the core value (search any note → insert as context)
+safely; the @-mention is a fluidity nicety I'll build as a careful, contained pass (insert-as-text, not a
+mention node, to avoid the serialization risk). Honest scoping over a risky blind change to the composer.
