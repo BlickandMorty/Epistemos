@@ -45,11 +45,11 @@ struct ExperimentalSurfaceView: View {
             // the web sidebar's wordmark below.
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
+                    Spacer(minLength: 0)
                     backToEpistemosPill
                     Spacer(minLength: 0)
                 }
                 .padding(.top, 8)
-                .padding(.leading, 92)
                 Spacer(minLength: 0)
             }
             .ignoresSafeArea()
@@ -101,7 +101,9 @@ struct ExperimentalSurfaceView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(theme.textPrimary.opacity(0.92))
-        .glassEffect(.regular.interactive(), in: Capsule())
+        // June-pill parity (owner: match the pills, not a boxy glass slab): a clean
+        // subtle capsule fill — the exact JuneAgentNavBar treatment.
+        .background(theme.textPrimary.opacity(theme.resolved.isDark ? 0.07 : 0.045), in: Capsule())
         .help("Back to Epistemos")
         .accessibilityLabel("Back to Epistemos home")
     }

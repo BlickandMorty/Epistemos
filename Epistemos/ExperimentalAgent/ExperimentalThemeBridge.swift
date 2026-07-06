@@ -166,13 +166,19 @@ enum ExperimentalThemeBridge {
 
     private static func overrideCSS() -> String {
         let fontFace = displayFontFaceCSS()
+        let matrixFace = matrixFontFaceCSS()
         return """
         /* Donor brand gradient (.chroma-text, hardcoded indigo/violet) → plain text. */
         .chroma-text { background-image: none !important; -webkit-text-fill-color: currentColor !important; color: inherit !important; }
         .chroma-text-animate { animation: none !important; }
         \(fontFace)
+        \(matrixFace)
         /* Epistemos display font on tagged landmarks ONLY (§7: never dense chat/editor body). */
         .epistemos-landmark, [data-epistemos-landmark] { font-family: "Epistemos Display", -apple-system, system-ui, sans-serif !important; letter-spacing: 0.01em; }
+        /* Owner 2026-07-05: the landing greeting (h1 landmark) + the chat title wear the platinum
+           landing face — Matrix Type. Scoped to those two landmarks ONLY; NEVER body/sidebar/
+           composer/editor text (the webview typography boundary). */
+        h1.epistemos-landmark, .epistemos-chat-title { font-family: "Epistemos Matrix", "Epistemos Display", -apple-system, system-ui, sans-serif !important; letter-spacing: 0.01em; }
         """
     }
 
@@ -196,6 +202,34 @@ enum ExperimentalThemeBridge {
         let nested = Bundle.main.resourceURL?
             .appendingPathComponent("Fonts", isDirectory: true)
             .appendingPathComponent("ChonkyPixels.ttf")
+        for url in [direct, nested].compactMap({ $0 }) {
+            guard let data = try? Data(contentsOf: url) else { continue }
+            return "data:font/ttf;base64,\(data.base64EncodedString())"
+        }
+        return nil
+    }
+
+    /// Matrix Type Display as a data: URL @font-face — the platinum-theme landing
+    /// face (owner request), scoped in overrideCSS() to the landing greeting + chat
+    /// title landmarks ONLY (never body/sidebar/composer — typography boundary).
+    private static var cachedMatrixFaceCSS: String?
+    private static func matrixFontFaceCSS() -> String {
+        if let cachedMatrixFaceCSS { return cachedMatrixFaceCSS }
+        var css = ""
+        if let dataURL = matrixFontDataURL() {
+            css = """
+            @font-face { font-family: "Epistemos Matrix"; src: url("\(dataURL)") format("truetype"); font-weight: 400 700; font-style: normal; font-display: swap; }
+            """
+        }
+        cachedMatrixFaceCSS = css
+        return css
+    }
+
+    private static func matrixFontDataURL() -> String? {
+        let direct = Bundle.main.url(forResource: "MatrixtypeDisplay-9MyE5", withExtension: "ttf")
+        let nested = Bundle.main.resourceURL?
+            .appendingPathComponent("Fonts", isDirectory: true)
+            .appendingPathComponent("MatrixtypeDisplay-9MyE5.ttf")
         for url in [direct, nested].compactMap({ $0 }) {
             guard let data = try? Data(contentsOf: url) else { continue }
             return "data:font/ttf;base64,\(data.base64EncodedString())"
