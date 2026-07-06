@@ -94,6 +94,9 @@ jobs:
       - name: Extract .app from archive
         run: cp -R build/Epistemos.xcarchive/Products/Applications/Epistemos.app build/
 
+      - name: KEELSTONE direct built entitlement gate
+        run: ./scripts/keelstone-release-gate.sh --direct-app build/Epistemos.app
+
       - name: Codesign App
         if: ${{ secrets.DEVELOPER_ID_APPLICATION != '' }}
         env:

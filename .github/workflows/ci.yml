@@ -299,6 +299,16 @@ jobs:
             -clonedSourcePackagesDirPath .spm-cache \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: KEELSTONE App Store built entitlement gate
+        run: |
+          set -euo pipefail
+          app_path=$(find .derived-data-ci-appstore/Build/Products -type d -name "Epistemos.app" -path "*Release*" -print -quit || true)
+          if [ -z "${app_path}" ]; then
+            echo "::error::KEELSTONE built entitlement gate could not locate Release Epistemos.app under .derived-data-ci-appstore/Build/Products"
+            exit 1
+          fi
+          ./scripts/keelstone-release-gate.sh --appstore-app "${app_path}"
+
       # Drop 12/13: the App Store target must be proven from the final .app,
       # not only from source guards. This gate fails on MAS-visible subprocess
       # source findings and scans the produced bundle strings, linked symbols,
