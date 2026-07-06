@@ -23,6 +23,18 @@ enum SearchIndexError: Error {
     case noAppSupportDirectory
     case integrityCheckFailed(String)
     case journalModeRejected(String)
+    case recoveryReopenFailed(String)
+}
+
+nonisolated struct SearchIndexIntegrityDiagnostics: Sendable, Equatable {
+    let databasePath: String
+    let quickCheck: String
+    let integrityCheck: String
+    let manifest: [String: String]
+
+    var isHealthy: Bool {
+        quickCheck == "ok" && integrityCheck == "ok"
+    }
 }
 
 actor SearchIndexService {
@@ -126,6 +138,16 @@ actor SearchIndexService {
         }
     }
 
+    private struct PreparedDatabase: Sendable {
+        let databaseURL: URL
+        let dbPool: DatabasePool
+        let features: SearchIndexFeatures
+        let quarantinedFiles: [URL]
+    }
+
+    private nonisolated static let staticLog = Logger(subsystem: "com.epistemos", category: "SearchIndex")
+    private nonisolated static let bulkCheckpointThreshold = 512
+    private nonisolated static let manifestMigrationKey = "v4_keelstone_index_manifest"
     private let log = Logger(subsystem: "com.epistemos", category: "SearchIndex")
     nonisolated private let databaseURL: URL
     nonisolated private let dbPool: DatabasePool
@@ -149,24 +171,15 @@ actor SearchIndexService {
         agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder = AgentToolProvenanceSyncRecorder()
     ) throws {
         let resolvedDatabaseURL: URL
-        let dbPool: DatabasePool
         if let providedURL = providedDatabaseURL {
             let parent = providedURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
             resolvedDatabaseURL = providedURL
-            dbPool = try DatabasePool(
-                path: resolvedDatabaseURL.path,
-                configuration: Self.databaseConfiguration()
-            )
         } else {
             let appSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: .default)
                 .appendingPathComponent("Epistemos", isDirectory: true)
             try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
             resolvedDatabaseURL = appSupport.appendingPathComponent("search.sqlite")
-            dbPool = try DatabasePool(
-                path: resolvedDatabaseURL.path,
-                configuration: Self.databaseConfiguration()
-            )
         }
         let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .userInitiated)
         let queryQueue = DispatchQueue(
@@ -174,23 +187,26 @@ actor SearchIndexService {
             qos: .userInitiated,
             attributes: .concurrent
         )
-        try Self.setupSchema(dbPool)
-        try Self.refreshDatabaseFileProtections(resolvedDatabaseURL)
-        let features = try Self.detectFeatures(dbPool)
+        let prepared = try Self.openPreparedDatabaseWithRecovery(at: resolvedDatabaseURL)
 
         self.databaseURL = resolvedDatabaseURL
-        self.dbPool = dbPool
+        self.dbPool = prepared.dbPool
         self.workQueue = workQueue
         self.queryQueue = queryQueue
-        supportsPageFTS5 = features.pageFTS5
-        supportsBlockFTS5 = features.blockFTS5
-        supportsReadableBlocksFTS5 = features.readableBlocksFTS5
+        supportsPageFTS5 = prepared.features.pageFTS5
+        supportsBlockFTS5 = prepared.features.blockFTS5
+        supportsReadableBlocksFTS5 = prepared.features.readableBlocksFTS5
         self.agentProvenanceRecorder = agentProvenanceRecorder
         self.agentProvenanceSyncRecorder = agentProvenanceSyncRecorder
 
         log.info(
-            "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5) fts5_readable_blocks=\(features.readableBlocksFTS5)"
+            "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(prepared.features.pageFTS5) fts5_blocks=\(prepared.features.blockFTS5) fts5_readable_blocks=\(prepared.features.readableBlocksFTS5)"
         )
+        if !prepared.quarantinedFiles.isEmpty {
+            log.warning(
+                "SearchIndexService recovered by quarantining \(prepared.quarantinedFiles.count, privacy: .public) derived database file(s); vault files remain source of truth"
+            )
+        }
     }
 
     // MARK: - Schema Migration
@@ -199,6 +215,80 @@ actor SearchIndexService {
         let pageFTS5: Bool
         let blockFTS5: Bool
         let readableBlocksFTS5: Bool
+    }
+
+    private nonisolated static func openPreparedDatabaseWithRecovery(at databaseURL: URL) throws -> PreparedDatabase {
+        do {
+            let prepared = try openPreparedDatabase(at: databaseURL)
+            return PreparedDatabase(
+                databaseURL: prepared.databaseURL,
+                dbPool: prepared.dbPool,
+                features: prepared.features,
+                quarantinedFiles: []
+            )
+        } catch {
+            staticLog.error(
+                "SearchIndexService open/migrate/check failed for \(databaseURL.path, privacy: .public): \(String(describing: error), privacy: .public). Quarantining derived index and rebuilding from vault cache."
+            )
+            let quarantinedFiles = try quarantineDerivedDatabaseFiles(at: databaseURL, reason: error)
+            do {
+                let prepared = try openPreparedDatabase(at: databaseURL)
+                return PreparedDatabase(
+                    databaseURL: prepared.databaseURL,
+                    dbPool: prepared.dbPool,
+                    features: prepared.features,
+                    quarantinedFiles: quarantinedFiles
+                )
+            } catch {
+                throw SearchIndexError.recoveryReopenFailed(String(describing: error))
+            }
+        }
+    }
+
+    private nonisolated static func openPreparedDatabase(at databaseURL: URL) throws -> PreparedDatabase {
+        let dbPool = try DatabasePool(
+            path: databaseURL.path,
+            configuration: Self.databaseConfiguration()
+        )
+        try setupSchema(dbPool)
+        try refreshDatabaseFileProtections(databaseURL)
+        let features = try detectFeatures(dbPool)
+        return PreparedDatabase(
+            databaseURL: databaseURL,
+            dbPool: dbPool,
+            features: features,
+            quarantinedFiles: []
+        )
+    }
+
+    @discardableResult
+    private nonisolated static func quarantineDerivedDatabaseFiles(
+        at databaseURL: URL,
+        reason: Error,
+        fileManager: FileManager = .default
+    ) throws -> [URL] {
+        let parent = databaseURL.deletingLastPathComponent()
+        let quarantineDirectory = parent.appendingPathComponent("search-index-quarantine", isDirectory: true)
+        try fileManager.createDirectory(at: quarantineDirectory, withIntermediateDirectories: true)
+
+        let stamp = "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)"
+        let liveFiles = [
+            databaseURL,
+            URL(fileURLWithPath: databaseURL.path + "-wal"),
+            URL(fileURLWithPath: databaseURL.path + "-shm"),
+        ]
+        var moved: [URL] = []
+        for fileURL in liveFiles where fileManager.fileExists(atPath: fileURL.path) {
+            let targetName = "\(databaseURL.lastPathComponent).\(stamp).\(fileURL.lastPathComponent)"
+            let targetURL = quarantineDirectory.appendingPathComponent(targetName)
+            try fileManager.moveItem(at: fileURL, to: targetURL)
+            moved.append(targetURL)
+        }
+
+        staticLog.warning(
+            "Quarantined \(moved.count, privacy: .public) derived search-index file(s) after \(String(describing: reason), privacy: .public)"
+        )
+        return moved
     }
 
     private nonisolated static func databaseConfiguration() -> Configuration {
@@ -340,6 +430,48 @@ actor SearchIndexService {
         }
     }
 
+    nonisolated func quickCheckForDiagnostics() throws -> String {
+        try dbPool.read { db in
+            try String.fetchOne(db, sql: "PRAGMA quick_check") ?? "unknown"
+        }
+    }
+
+    nonisolated func integrityCheckForDiagnostics() throws -> String {
+        try dbPool.read { db in
+            try String.fetchOne(db, sql: "PRAGMA integrity_check") ?? "unknown"
+        }
+    }
+
+    nonisolated func supportDiagnostics() throws -> SearchIndexIntegrityDiagnostics {
+        let snapshot = try dbPool.read { db -> SearchIndexIntegrityDiagnostics in
+            let quickCheck = try String.fetchOne(db, sql: "PRAGMA quick_check") ?? "unknown"
+            let integrityCheck = try String.fetchOne(db, sql: "PRAGMA integrity_check") ?? "unknown"
+            let manifest: [String: String]
+            if try Self.tableExists("derived_index_manifest", db: db) {
+                let rows = try Row.fetchAll(
+                    db,
+                    sql: "SELECT key, value FROM derived_index_manifest ORDER BY key"
+                )
+                manifest = Dictionary(
+                    uniqueKeysWithValues: rows.map { row in
+                        let key: String = row["key"]
+                        let value: String = row["value"]
+                        return (key, value)
+                    }
+                )
+            } else {
+                manifest = [:]
+            }
+            return SearchIndexIntegrityDiagnostics(
+                databasePath: databaseURL.path,
+                quickCheck: quickCheck,
+                integrityCheck: integrityCheck,
+                manifest: manifest
+            )
+        }
+        return snapshot
+    }
+
     private nonisolated static func setupSchema(_ db: DatabasePool) throws {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
@@ -375,6 +507,16 @@ actor SearchIndexService {
         // `ReadableBlocksIndex.migrationKey`); idempotent across
         // process restarts.
         ReadableBlocksIndex.registerMigration(&migrator)
+
+        migrator.registerMigration(manifestMigrationKey) { db in
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS derived_index_manifest (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+            """)
+        }
 
         try migrator.migrate(db)
     }
@@ -1854,6 +1996,20 @@ actor SearchIndexService {
         )
     }
 
+    nonisolated func truncateCheckpoint() throws {
+        let stats = try dbPool.barrierWriteWithoutTransaction { db in
+            try Self.recordManifestValue(
+                db,
+                key: "last_truncate_checkpoint_at",
+                value: String(Date().timeIntervalSinceReferenceDate)
+            )
+            return try db.checkpoint(.truncate)
+        }
+        log.info(
+            "SearchIndexService truncate checkpoint completed walFrames=\(stats.walFrameCount) checkpointed=\(stats.checkpointedFrameCount)"
+        )
+    }
+
     // MARK: - Change Notification
 
     /// Post searchIndexDidUpdate on the main actor with the affected index domains.
@@ -1891,7 +2047,18 @@ actor SearchIndexService {
                     ]
                 )
             }
+            try Self.recordManifestValue(
+                db,
+                key: "last_full_rebuild_page_count",
+                value: String(pages.count)
+            )
+            try Self.recordManifestValue(
+                db,
+                key: "last_full_rebuild_at",
+                value: String(Date().timeIntervalSinceReferenceDate)
+            )
         }
+        try truncateCheckpoint()
         log.info("Rebuilt search index with \(pages.count) pages")
         Self.mirrorPagesToEidosIfOpen(pages)
         Self.notifyIndexChanged([.searchPages])
@@ -2001,6 +2168,10 @@ actor SearchIndexService {
             Self.notifyIndexChanged([.searchPages])
         }
 
+        if pagesToUpsert.count + toDelete.count >= Self.bulkCheckpointThreshold {
+            try truncateCheckpoint()
+        }
+
         log.info("Diff sync complete: \(pagesToUpsert.count) upserted, \(toDelete.count) deleted")
     }
 
@@ -2030,6 +2201,23 @@ actor SearchIndexService {
                 try stmt.execute()
             }
         }
+    }
+
+    private nonisolated static func recordManifestValue(
+        _ db: Database,
+        key: String,
+        value: String
+    ) throws {
+        try db.execute(
+            sql: """
+                INSERT INTO derived_index_manifest (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+            """,
+            arguments: [key, value, Date().timeIntervalSinceReferenceDate]
+        )
     }
 
     // MARK: - FTS5 Query Sanitization

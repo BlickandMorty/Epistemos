@@ -2449,6 +2449,16 @@ final class AppBootstrap {
         )
     }
 
+    /// On-demand support bundle probe for the derived search index. The
+    /// SQLite index is a recoverable cache, so this reports health only; it
+    /// never makes the index authoritative over vault files.
+    func searchIndexSupportDiagnostics() async -> SearchIndexIntegrityDiagnostics? {
+        guard let searchService = vaultSync.searchService else { return nil }
+        return await Task.detached(priority: .utility) {
+            try? searchService.supportDiagnostics()
+        }.value
+    }
+
     /// Helper for ForceIdleUnload diagnostics. Mirrors the existing
     /// `EpistemosApp.currentMemoryUsageMB()` private helper so the
     /// before/after measurements use the same accounting basis as

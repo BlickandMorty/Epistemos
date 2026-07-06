@@ -408,6 +408,86 @@ struct AppStoreHardeningTests {
         }
     }
 
+    @Test("KEELSTONE derived search index corruption quarantines and rebuilds from page snapshots")
+    func keelstoneSearchIndexCorruptionQuarantinesAndRebuildsFromSnapshots() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KeelstoneSearchIndexRecovery-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let databaseURL = root.appendingPathComponent("search.sqlite")
+        try Data("not a sqlite database".utf8).write(to: databaseURL, options: [])
+
+        let service = try SearchIndexService(databaseURL: databaseURL)
+        let quarantineDirectory = root.appendingPathComponent("search-index-quarantine", isDirectory: true)
+        let quarantinedFiles = try FileManager.default.contentsOfDirectory(
+            at: quarantineDirectory,
+            includingPropertiesForKeys: nil
+        )
+        #expect(
+            quarantinedFiles.contains { $0.lastPathComponent.contains("search.sqlite") },
+            "A corrupt derived search.sqlite must be quarantined, not erased in place or treated as source of truth."
+        )
+
+        try await service.rebuildFromSwiftDataAsync([
+            (
+                id: "keelstone-note",
+                title: "Keelstone",
+                body: "Vault files remain truth after a derived-index quarantine.",
+                tags: "durability",
+                updatedAt: Date()
+            ),
+        ])
+        let diagnostics = try service.supportDiagnostics()
+        #expect(diagnostics.quickCheck == "ok")
+        #expect(diagnostics.integrityCheck == "ok")
+        #expect(diagnostics.manifest["last_full_rebuild_page_count"] == "1")
+        #expect(diagnostics.manifest["last_truncate_checkpoint_at"] != nil)
+    }
+
+    @Test("KEELSTONE derived search index self-heal and diagnostics cannot drift")
+    func keelstoneSearchIndexSelfHealSourceGuardrails() throws {
+        let searchIndex = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(
+            searchIndex.contains("openPreparedDatabaseWithRecovery(at:")
+                && searchIndex.contains("quarantineDerivedDatabaseFiles(at:")
+                && searchIndex.contains("search-index-quarantine"),
+            "SearchIndexService must quarantine and reopen the derived SQLite cache when open/migrate/check fails."
+        )
+        #expect(
+            searchIndex.contains("try setupSchema(dbPool)")
+                && searchIndex.contains("try detectFeatures(dbPool)")
+                && searchIndex.contains("throw SearchIndexError.recoveryReopenFailed"),
+            "Migration/open failures must flow through the same quarantine recovery path as quick_check failures."
+        )
+        #expect(
+            !searchIndex.contains("eraseDatabaseOnSchemaChange"),
+            "Shipping GRDB code must never enable eraseDatabaseOnSchemaChange."
+        )
+        #expect(
+            searchIndex.contains("CREATE TABLE IF NOT EXISTS derived_index_manifest")
+                && searchIndex.contains("last_full_rebuild_page_count")
+                && searchIndex.contains("last_truncate_checkpoint_at"),
+            "The existing GRDB file needs KEELSTONE manifest rows for rebuild/checkpoint telemetry."
+        )
+        #expect(
+            searchIndex.contains("func quickCheckForDiagnostics()")
+                && searchIndex.contains("PRAGMA quick_check")
+                && searchIndex.contains("func integrityCheckForDiagnostics()")
+                && searchIndex.contains("PRAGMA integrity_check")
+                && bootstrap.contains("func searchIndexSupportDiagnostics() async -> SearchIndexIntegrityDiagnostics?"),
+            "quick_check and integrity_check must be reachable from support diagnostics, not only comments."
+        )
+        #expect(
+            searchIndex.contains("func truncateCheckpoint() throws")
+                && searchIndex.contains("db.checkpoint(.truncate)")
+                && searchIndex.contains("pagesToUpsert.count + toDelete.count >= Self.bulkCheckpointThreshold"),
+            "Bulk rebuild/reconcile must bound WAL growth with an explicit truncate checkpoint."
+        )
+    }
+
     @Test("agentCorePolicyProfile returns a recognized value")
     func policyProfileReturnsRecognizedValue() {
         let profile = agentCorePolicyProfile()
