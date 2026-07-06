@@ -754,3 +754,32 @@ rerank flag (EPISTEMOS_EML_RERANK_RECALL_V0=1, read in EmlRecallRerank.swift) to
 + Prompt Forge grounding; RunEventLog capture of CLI tool-calls; the ReplayBundle export FFI (net-new,
 provenance/replay.rs:228 + a bridge.rs entry) → run.export-bundle. record_skill_outcome/recall_procedure
 FFIs already exist (bridge.rs:2911/2931); observe_composition is the one missing wire.
+
+---
+
+**Cycle 9 (2026-07-06) — vault CITE-CHECK shipped + live, and a REAL runtime bug found.**
+FORGE (composing Cycles 1+2): a `CiteCheckButton` on assistant replies verifies each `[[wiki]]` citation
+against the user's real vault via the native RRF handler; honest verdict, never a fake pass. Skill
+`experimental-substrate-verification` crystallized (the trust axis: verify agent OUTPUT vs substrate).
+Deployed via the fast tarball path; PROVEN live.
+
+- **Cite-check LIVE.** Asked the agent to cite real goose notes as [[wikilinks]] (it did — and twice
+  REFUSED to fabricate a fake `[[NONEXISTENT_TEST_NOTE_ZZZ]]`, a nice honest-capability demo). Clicked
+  cite-check → toast "0/7 citations verified. Not found in vault: [[GOOSE_FULL_CLONE_INTEGRATION_COST…]]…".
+  The feature RAN correctly (extract → query → honest report, no fake pass).
+- **⚠️ REAL BUG (the crux for next cycle).** Those 7 notes ARE real, yet cite-check + the agent's own
+  MCP search both got ZERO hits — the agent's reply: "Content search is down (search_notes/file_search
+  returned connection errors, graph full-text index returned zero hits), so I searched by directory
+  listing instead." So the SHADOW/RRF vault SEARCH (haloSearchService, which vault:search-ranked +
+  Prompt-Forge grounding + Vault button + cite-check all depend on) is returning empty this session.
+  Vault ACCESS works (list_files returned real notes in Cycle 8); vault SEARCH is degraded. This is
+  invisible to a compile/headless test — only live verification caught it.
+
+**THE RAISED BAR (next crux — SCOUT it first):** why does the shadow/RRF search return zero for this
+vault? Candidates: the shadow index (`<vault>/.epcache/shadow`) isn't built/opened for this vault
+session, OR `ContextualShadowsState.haloSearchService` isn't installed (recall not live), OR
+`omega_mcp_stdio` search_notes hit a connection error. This is the FOUNDATION of the whole retrieval
+moat — every vault-grounded feature silently degrades to empty when it's down. Diagnose live
+(ShadowSearchDiagnostics / the unpack + index-build path), fix, and re-run cite-check → expect N/N
+verified. Until then, the vault-search features are HONEST-BUT-EMPTY, not broken-faking — which is the
+right failure mode, but not the DoD bar.
