@@ -1480,3 +1480,18 @@ mention-serialization path, can't be verified live, and would risk breaking the 
 serialization is wrong. The sidebar already delivers the core value (search any note → insert as context)
 safely; the @-mention is a fluidity nicety I'll build as a careful, contained pass (insert-as-text, not a
 mention node, to avoid the serialization risk). Honest scoping over a risky blind change to the composer.
+
+---
+
+**Cycle 57 (2026-07-06) — chat .md links → app Notes editor: CODE-COMPLETE + Swift-validated; app build
+BLOCKED by the Work/ lane (not mine).** Owner deep-connection: clicking a note/`.md` link in the chat
+routes to the native `epistemos:open-note` bridge → opens IN the app's Notes editor (NSDocumentController,
+vault-contained/traversal-guarded), instead of the external browser. Web: link-router + both anchor
+handlers (falls back to openExternal for URLs/misses; 1500ms race so it can't hang) — typechecks + builds.
+Swift: handleOpenNote added to ExperimentalSurfaceView — compiled with ZERO errors (build reached + passed
+my file). BUT the checkpoint app build FAILED entirely on `Epistemos/Work/**` (WorkSkillsProvisioner ×2,
+WorkPromptForgeContext ×2, WorkEnginesPanelView ×1 — another lane's main-actor-isolation + arg-order
+errors). The recurring "concurrent lane breaks the shared target" situation. I did NOT deploy the web
+router into a built app (build failed) → the running app is UNAFFECTED, no regression. Feature activates
+when Work/ compiles + the app builds + relaunches. Also: sidebar search debounced (180ms). Web-URL→in-app
+browser is the follow-on. Honest: my part is done + compiler-validated; activation is externally blocked.
