@@ -703,6 +703,7 @@ struct AppStoreHardeningTests {
             "NoteFileStorage.writeBodyAsync(",
             "NoteFileStorage.writePreparedImportedVaultBodyAsync(",
             "NoteFileStorage.scheduleWriteBody(",
+            "NoteFileStorage.flushPendingBodyToDisk(",
             ".saveBody(",
         ]
         let allowedDefinitionFiles: Set<String> = [

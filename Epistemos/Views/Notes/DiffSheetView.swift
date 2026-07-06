@@ -91,7 +91,7 @@ struct DiffSheetView: View {
         }
         .background {
             // Hidden keyboard shortcuts
-            Button("") { undoRestore() }
+            Button("") { Task { await undoRestore() } }
                 .keyboardShortcut("z", modifiers: .command)
                 .hidden()
             Button("") { goToNextChunk() }
@@ -441,6 +441,22 @@ struct DiffSheetView: View {
             return
         }
 
+        guard await writeRestoredBodyToVault(pageId: page.id, body: version.body) else {
+            modelContext.delete(snapshot)
+            do {
+                try Self.persistRestoredBody(
+                    currentBody,
+                    to: page,
+                    modelContext: modelContext,
+                    graphState: AppBootstrap.shared?.graphState
+                )
+            } catch {
+                Log.db.error("DiffSheetView: failed to roll back restored body after vault write failure for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+            Log.db.error("DiffSheetView: vault file-first write failed after version restore for page \(pageId.prefix(8), privacy: .public)")
+            return
+        }
+
         // Store for Cmd+Z undo
         preRestoreBody = currentBody
 
@@ -459,7 +475,7 @@ struct DiffSheetView: View {
         }
     }
 
-    private func undoRestore() {
+    private func undoRestore() async {
         guard let oldBody = preRestoreBody else { return }
 
         let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
@@ -487,12 +503,25 @@ struct DiffSheetView: View {
             return
         }
 
+        guard await writeRestoredBodyToVault(pageId: page.id, body: oldBody) else {
+            Log.db.error("DiffSheetView: vault file-first write failed during undo restore for page \(pageId.prefix(8), privacy: .public)")
+            return
+        }
+
         liveBody = oldBody
         preRestoreBody = nil
         loadVersions()
 
         // Notify open editor to reload from disk
         NoteFileStorage.notifyBodyChanged(pageId: pageId)
+    }
+
+    private func writeRestoredBodyToVault(pageId: String, body: String) async -> Bool {
+        guard let vaultSync = AppBootstrap.shared?.vaultSync else {
+            Log.db.error("DiffSheetView: cannot persist restored body without VaultSyncService")
+            return false
+        }
+        return await vaultSync.savePageBodyFileFirst(pageId: pageId, body: body)
     }
 
     // MARK: - Actions
@@ -516,7 +545,7 @@ struct DiffSheetView: View {
         struct RestorePersistenceFailure: Error {}
 
         let pageId = page.id
-        let originalBody = NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
+        let originalBody = page.loadBody(mapped: false, fast: true)
         let originalInlineBody = page.body
         let originalBlockReferences = page.blockReferences
         let originalWordCount = page.wordCount
@@ -541,10 +570,6 @@ struct DiffSheetView: View {
             page.needsVaultSync = originalNeedsVaultSync
             _ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: originalBody)
             throw error
-        }
-
-        Task {
-            await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
         }
         if let modelContainer = AppBootstrap.shared?.modelContainer {
             Task {

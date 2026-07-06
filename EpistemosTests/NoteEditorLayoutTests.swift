@@ -1066,7 +1066,8 @@ struct NoteEditorLayoutTests {
         #expect(!inspectorSource.contains("NoteFileStorage.writeBody(pageId: pageId, content: editorText)"))
 
         #expect(diffSource.contains("NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body)"))
-        #expect(diffSource.contains("await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
+        #expect(diffSource.contains("await vaultSync.savePageBodyFileFirst(pageId: pageId, body: body)"))
+        #expect(!diffSource.contains("await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
         #expect(!diffSource.contains("await NoteFileStorage.writeBodyAsync("))
         #expect(!diffSource.contains("page.saveBody(body)"))
         #expect(!diffSource.contains("BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)"))

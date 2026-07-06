@@ -3287,10 +3287,13 @@ struct RuntimeValidationTests {
 
         #expect(undoRestore.contains("return"))
         let undoSaveCall = try #require(undoRestore.range(of: "try Self.persistRestoredBody("))
+        let undoVaultWrite = try #require(undoRestore.range(of: "await writeRestoredBodyToVault("))
         let undoLiveBody = try #require(undoRestore.range(of: "liveBody = oldBody"))
-        #expect(undoSaveCall.lowerBound < undoLiveBody.lowerBound)
+        #expect(undoSaveCall.lowerBound < undoVaultWrite.lowerBound)
+        #expect(undoVaultWrite.lowerBound < undoLiveBody.lowerBound)
 
-        #expect(persistRestoredBody.contains("let originalBody = NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(restoreVersion.contains("await writeRestoredBodyToVault(pageId: page.id, body: version.body)"))
+        #expect(persistRestoredBody.contains("let originalBody = page.loadBody(mapped: false, fast: true)"))
         #expect(persistRestoredBody.contains("let originalWordCount = page.wordCount"))
         #expect(persistRestoredBody.contains("let originalUpdatedAt = page.updatedAt"))
         #expect(persistRestoredBody.contains("let originalNeedsVaultSync = page.needsVaultSync"))
@@ -3304,10 +3307,9 @@ struct RuntimeValidationTests {
         #expect(persistRestoredBody.contains("_ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: originalBody)"))
 
         let persistSaveCall = try #require(persistRestoredBody.range(of: "try modelContext.save()"))
-        let persistFlushCall = try #require(persistRestoredBody.range(of: "await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
         let persistSyncCall = try #require(persistRestoredBody.range(of: "await BlockMirrorSyncCoordinator.shared.scheduleSync("))
-        #expect(persistSaveCall.lowerBound < persistFlushCall.lowerBound)
         #expect(persistSaveCall.lowerBound < persistSyncCall.lowerBound)
+        #expect(!persistRestoredBody.contains("flushPendingBodyToDisk"))
 
         #expect(deleteSelectedVersion.contains("modelContext.insert(version)"))
     }
