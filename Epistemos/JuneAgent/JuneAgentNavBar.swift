@@ -4,22 +4,25 @@ import SwiftUI
 
 /// The MAS Agent-room toolbar pill (Plan 1-MAS §7): Home / New Chat /
 /// All Chats wrapping the vendored June surface. Mirrors the Pro track's
-/// ProAgentNavBar metrics so both builds' chrome reads identically. Drives
+/// Agent-surface navbar metrics so both builds' chrome reads identically. Drives
 /// June via intent events (JuneAgentIntents), never URL reloads; the
 /// all-chats sheet presents from here so RootView stays a one-branch mount.
 struct JuneAgentNavBar: View {
     let theme: EpistemosTheme
     let onReturnHome: () -> Void
 
+    @Environment(UIState.self) private var ui
     @State private var showingAllChats = false
     @State private var showingNotes = false
     // Observed so the button flips speaker⇄stop as playback starts/ends. We
     // CONSUME the shared synthesizer (owned by the app-wide voice agent); the
     // June surface never synthesizes or plays audio itself.
     @State private var speech = EpistemosSpeechSynthesizer.shared
+    @State private var kokoroDownloader = KokoroModelDownloadService.shared
+    @State private var showingKokoroInstallPrompt = false
 
-    /// Kokoro-ready gate (no AVSpeech fallback): disables the button honestly
-    /// when TTS isn't available, per the read-aloud contract.
+    /// Kokoro-ready gate (no AVSpeech fallback): opens the installer when TTS
+    /// is not ready, per the read-aloud contract.
     private var ttsAvailable: Bool { EpistemosSpeechSynthesizer.isTextToSpeechAvailable() }
 
     private enum Metrics {
@@ -104,25 +107,74 @@ struct JuneAgentNavBar: View {
             Button {
                 if speech.isSpeaking {
                     speech.stop()
+                } else if !ttsAvailable {
+                    showingKokoroInstallPrompt = true
                 } else if let text = JuneAgentSurfaceHolder.shared.bridge?.gateway.latestAssistantReply() {
                     // voiceIdentifier defaults to the user's ModelVoicePickerSection
                     // pick (Kokoro on MAS) — never hardcoded here. Audio is
                     // synthesized native-side by the shared engine.
-                    _ = speech.speak(text)
+                    _ = EpistemosAgentReadAloud.speak(text, synthesizer: speech)
                 }
             } label: {
-                Image(systemName: speech.isSpeaking ? "stop.fill" : "speaker.wave.2")
+                Image(systemName: readAloudSystemImage)
                     .font(.system(size: Metrics.iconSize, weight: .semibold))
                     .frame(width: Metrics.navSlotHeight, height: Metrics.navSlotHeight)
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .foregroundStyle(theme.textPrimary.opacity((ttsAvailable || speech.isSpeaking) ? 0.92 : 0.32))
+            .foregroundStyle(theme.textPrimary.opacity(0.92))
             .background(theme.textPrimary.opacity(theme.isDark ? 0.07 : 0.045), in: Capsule())
-            .disabled(!ttsAvailable && !speech.isSpeaking)
-            .help(ttsAvailable ? "Read the latest reply aloud" : EpistemosSpeechSynthesizer.textToSpeechStatusMessage())
-            .accessibilityLabel(speech.isSpeaking ? "Stop reading aloud" : "Read the latest reply aloud")
+            .help(readAloudHelpText)
+            .accessibilityLabel(readAloudAccessibilityLabel)
+            .sheet(isPresented: $showingKokoroInstallPrompt) {
+                KokoroVoiceInstallPrompt()
+                    .environment(ui)
+            }
+            .onChange(of: kokoroDownloader.phase) { _, newPhase in
+                if case .installed = newPhase {
+                    refreshReadAloudAvailability()
+                    if ttsAvailable {
+                        showingKokoroInstallPrompt = false
+                    }
+                }
+            }
         }
+    }
+
+    private var readAloudSystemImage: String {
+        if speech.isSpeaking {
+            return "stop.fill"
+        }
+        return ttsAvailable ? "speaker.wave.2" : KokoroVoiceInstallPresentation.installSystemImage
+    }
+
+    private var readAloudHelpText: String {
+        if speech.isSpeaking {
+            return "Stop reading aloud"
+        }
+        if ttsAvailable {
+            return "Read the latest reply aloud"
+        }
+        return KokoroVoiceInstallPresentation.installHelp(
+            statusMessage: EpistemosSpeechSynthesizer.textToSpeechStatusMessage()
+        )
+    }
+
+    private var readAloudAccessibilityLabel: String {
+        if speech.isSpeaking {
+            return "Stop reading aloud"
+        }
+        return ttsAvailable
+            ? "Read the latest reply aloud"
+            : KokoroVoiceInstallPresentation.unavailableAccessibilityLabel
+    }
+
+    private func refreshReadAloudAvailability() {
+        let available = EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+        JuneAgentSurfaceHolder.shared.bridge?.runJS?(
+            "window.__EPISTEMOS_TTS_AVAILABLE__ = \(available ? "true" : "false"); "
+                + "window.__EPISTEMOS_READALOUD_REFRESH__ && window.__EPISTEMOS_READALOUD_REFRESH__();"
+        )
     }
 }
 

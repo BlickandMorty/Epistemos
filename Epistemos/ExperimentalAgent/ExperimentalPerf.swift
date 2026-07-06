@@ -6,7 +6,7 @@ import os.signpost
 extension Sig {
     /// Experimental-surface perf channel (§16): cold_open / spa_ready / warm_reopen
     /// intervals, filterable in Instruments alongside the io.epistemos.core categories.
-    /// Mirrors `Sig.agentSurface` (ProAgentPerf).
+    /// Mirrors `Sig.agentSurface`.
     nonisolated public static let experimentalSurface = OSSignposter(
         subsystem: "io.epistemos.core", category: "experimental_surface")
 }

@@ -7,21 +7,21 @@ struct PromptForgeTests {
     @Test("upgrades preserve original intent and cite supplied context")
     func promptForgePreservesIntentAndCitesContext() {
         let result = PromptForgeService.upgrade(PromptForgeRequest(
-            originalPrompt: "Make OpenChamber startup safer",
+            originalPrompt: "Make embedded agent startup safer",
             surface: "work",
             taskHint: "code",
             contextSnippets: [
                 PromptForgeContextSnippet(
                     id: "audit",
-                    title: "OpenChamber audit",
+                    title: "Embedded agent audit",
                     source: "Vault note",
                     excerpt: "Startup must avoid orphaned child processes.",
                     priority: 100)
             ]
         ))
 
-        #expect(result.upgradedPrompt.contains("Make OpenChamber startup safer"))
-        #expect(result.upgradedPrompt.contains("[PF1] OpenChamber audit"))
+        #expect(result.upgradedPrompt.contains("Make embedded agent startup safer"))
+        #expect(result.upgradedPrompt.contains("[PF1] Embedded agent audit"))
         #expect(result.citations.first?.source == "Vault note")
         #expect(result.clarifyingQuestions.count <= PromptForgeService.maxClarifyingQuestions)
         #expect(result.changes.contains { $0.label == "context" })
@@ -61,17 +61,17 @@ struct PromptForgeTests {
     func contextFallbackIDsAreDeterministic() {
         let first = PromptForgeContextSnippet(
             id: "",
-            title: "OpenChamber audit",
+            title: "Embedded agent audit",
             source: "Vault note",
             excerpt: "Startup must avoid orphaned child processes.")
         let second = PromptForgeContextSnippet(
             id: "",
-            title: "OpenChamber audit",
+            title: "Embedded agent audit",
             source: "Vault note",
             excerpt: "Startup must avoid orphaned child processes.")
 
         #expect(first.id == second.id)
-        #expect(first.id == "openchamber-audit-vault-note-startup-must-avoid-orphaned-child-processes")
+        #expect(first.id == "embedded-agent-audit-vault-note-startup-must-avoid-orphaned-child-processes")
     }
 
     @Test("tagged retry variant escapes user and context text")

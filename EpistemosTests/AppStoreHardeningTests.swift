@@ -810,10 +810,8 @@ struct AppStoreHardeningTests {
                 && surface.contains("neither EPISTEMOS_APP_STORE nor EPISTEMOS_EXPERIMENTAL is defined"),
             "A flagless build must fail to compile; there is no third surface."
         )
-        #expect(
-            !surface.contains("PRO_BUILD"),
-            "Surface selection must use EPISTEMOS_EXPERIMENTAL/EPISTEMOS_APP_STORE, not a resurrected PRO_BUILD flag."
-        )
+        let legacySurfaceFlag = "PRO" + "_BUILD"
+        #expect(!surface.contains(legacySurfaceFlag), "Surface selection must not use a legacy surface flag.")
     }
 
     @Test("KEELSTONE reconcile convergence: incremental change set equals fresh rebuild")

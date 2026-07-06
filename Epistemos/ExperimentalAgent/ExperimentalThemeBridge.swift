@@ -7,7 +7,7 @@ import SwiftUI
 ///
 /// 1Code is shadcn/Tailwind: CSS vars hold **HSL triplets** (`--background:
 /// 0 0% 100%`) consumed as `hsl(var(--background))` (tailwind.config.js) — the
-/// earlier ProAgentThemeBridge drop-in failed exactly because it emitted
+/// earlier theme bridge drop-in failed exactly because it emitted
 /// `rgb(...)` (PATCH_LEDGER P2 investigation). This bridge emits HSL triplets.
 ///
 /// Mode control: the donor's next-themes runs `defaultTheme="system"
@@ -268,7 +268,7 @@ enum ExperimentalThemeBridge {
     }
 
     /// System-dynamic tokens resolve per-appearance — snapshot under the
-    /// theme's own appearance (ProAgentThemeBridge precedent).
+    /// theme's own appearance (agent-surface theme bridge precedent).
     private static func srgb(_ color: NSColor, dark: Bool) -> NSColor {
         var converted: NSColor?
         if let appearance = NSAppearance(named: dark ? .darkAqua : .aqua) {

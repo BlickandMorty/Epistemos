@@ -15,7 +15,7 @@ import Foundation
 // - Tests against the mock ✓ (test file)
 // - PrivateFrameworkANEBackend (does the dlopen of private
 //   MLNeuralEngineModel) — DEFERRED to V3.2 second slice. Will be
-//   `#if PRO_BUILD`-gated so MAS builds never compile it.
+//   compile-flag-gated so MAS builds never compile it.
 //
 // **Doctrine alignment (cognitive DAG doctrine §6):**
 // Companions own their model lineage via `Deforms` edges. When a
@@ -65,7 +65,7 @@ nonisolated public enum ANEBackendError: Error, Sendable, Equatable, CustomStrin
     /// signature.
     case inferenceShapeMismatch(detail: String)
     /// The private MLNeuralEngineModel framework symbol could not
-    /// be loaded at runtime. PRO_BUILD only — mock + protocol surface
+    /// be loaded at runtime. Experimental-only — mock + protocol surface
     /// never throw this.
     case privateFrameworkLoadFailed(detail: String)
     /// The backend is being torn down; in-flight inferences are

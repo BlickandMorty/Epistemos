@@ -14,7 +14,7 @@ extension Sig {
 /// Measurement producer for docs/perf-budgets.toml [agent_surface] on the MAS
 /// build (June-in-WKWebView + in-process engines). Milliseconds of the most
 /// recent occurrence; nil = not yet exercised this process (honest, never
-/// faked). Mirrors ProAgentPerfMetrics' shape.
+/// faked). Mirrors the shared agent-surface metric shape.
 @MainActor
 @Observable
 final class JuneAgentPerfMetrics {
@@ -75,7 +75,7 @@ struct JuneAgentHealthRow: View {
 #else
 import SwiftUI
 
-/// Pro builds get the ProAgentHealthRow instead; this symbol exists so the
+/// Experimental builds get their own diagnostics instead; this symbol exists so the
 /// shared Settings panel compiles on both targets.
 struct JuneAgentHealthRow: View {
     var body: some View { EmptyView() }

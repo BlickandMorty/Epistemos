@@ -327,7 +327,7 @@ struct ToolSchemaGrammarTests {
     }
 
     @Test("Omega Core App Store planning prompt hides Pro agent groups")
-    func omegaCoreAppStorePlanningPromptHidesProAgentGroups() {
+    func omegaCoreAppStorePlanningPromptHidesExperimentalAgentGroups() {
         let block = OmegaToolRegistry.planningPromptBlock(distribution: .coreAppStore)
 
         #expect(block.contains("- file.read:"))

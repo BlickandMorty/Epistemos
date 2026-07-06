@@ -4,6 +4,11 @@ import SwiftUI
 import UserNotifications
 import WebKit
 
+private extension Notification.Name {
+    static let epistemosExperimentalKokoroInstallRequested =
+        Notification.Name("EpistemosExperimentalKokoroInstallRequested")
+}
+
 /// SwiftUI host for the Experimental agent surface. Boots the supervised
 /// headless 1Code backend and shows its SPA in a WKWebView. The `epistemos`
 /// script-message handler services the "native Swift" desktopApi bucket
@@ -12,6 +17,8 @@ import WebKit
 /// terminal stay web (§0 rule).
 struct ExperimentalSurfaceView: View {
     @State private var supervisor = ExperimentalRuntimeSupervisor.shared
+    @State private var kokoroDownloader = KokoroModelDownloadService.shared
+    @State private var showingKokoroInstallPrompt = false
     // Owner 2026-07-05: a native "back to Epistemos" pill like the other agent surfaces have.
     @Environment(UIState.self) private var ui
     // Task 2 (DoD-2): the LIVE Epistemos theme projected onto the SPA.
@@ -29,7 +36,7 @@ struct ExperimentalSurfaceView: View {
                     // Pin prefers-color-scheme to the THEME's darkness (not the OS
                     // setting) so the donor's next-themes — and with it Tailwind
                     // dark: utilities, xterm, Monaco — follows the app theme
-                    // (ProAgent precedent; the ledger's next-themes blocker
+                    // (agent-surface precedent; the ledger's next-themes blocker
                     // dissolves at the appearance seam).
                     .colorScheme(theme.resolved.isDark ? .dark : .light)
             case .failed(let message), .unavailable(let message):
@@ -59,14 +66,22 @@ struct ExperimentalSurfaceView: View {
             if case .idle = supervisor.status { supervisor.start() }
         }
         .onAppear {
-            // Re-push live TTS availability whenever the surface reappears, so
-            // read-aloud (the transcript speaker button + the selection popover)
-            // lights up the moment the user installs the voice in Settings — no
-            // relaunch (June parity; the flag was otherwise set once at boot).
-            let available = EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
-            ExperimentalStateBridge.shared.webView?.evaluateJavaScript(
-                "window.__EPISTEMOS_TTS_AVAILABLE__ = \(available ? "true" : "false");"
-            )
+            refreshReadAloudAvailability()
+        }
+        .onChange(of: kokoroDownloader.phase) { _, newPhase in
+            if case .installed = newPhase {
+                refreshReadAloudAvailability()
+                if EpistemosSpeechSynthesizer.isTextToSpeechAvailable() {
+                    showingKokoroInstallPrompt = false
+                }
+            }
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .epistemosExperimentalKokoroInstallRequested)
+                .receive(on: RunLoop.main)
+        ) { _ in
+            showingKokoroInstallPrompt = true
         }
         .onChange(of: theme.resolved) { _, _ in
             // Live theme switch: re-project the palette onto the loaded SPA —
@@ -75,12 +90,24 @@ struct ExperimentalSurfaceView: View {
             webView.underPageBackgroundColor = ExperimentalThemeBridge.underPageColor(for: theme)
             webView.evaluateJavaScript(ExperimentalThemeBridge.applyScript(for: theme))
         }
+        .sheet(isPresented: $showingKokoroInstallPrompt) {
+            KokoroVoiceInstallPrompt()
+                .environment(ui)
+        }
     }
 
     private func returnHome() {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
             ui.homeContent = .greeting
         }
+    }
+
+    private func refreshReadAloudAvailability() {
+        let available = EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+        ExperimentalStateBridge.shared.webView?.evaluateJavaScript(
+            "window.__EPISTEMOS_TTS_AVAILABLE__ = \(available ? "true" : "false"); "
+                + "window.__EPISTEMOS_READALOUD_REFRESH__ && window.__EPISTEMOS_READALOUD_REFRESH__();"
+        )
     }
 
     /// The ONE SwiftUI element on this surface (owner directive): a "Home"
@@ -153,9 +180,11 @@ private struct ExperimentalWebView: NSViewRepresentable {
         ))
         // Epistemos read-aloud fusion (app-wide TTS canon): the donor transcript's
         // speaker button routes through the app's on-device voice when available
-        // (honest gate — false keeps the donor path; June/ProAgent precedent).
+        // (honest gate: unavailable speak/install attempts open the native installer).
         controller.addUserScript(WKUserScript(
-            source: "window.__EPISTEMOS_TTS_AVAILABLE__ = \(EpistemosSpeechSynthesizer.isTextToSpeechAvailable() ? "true" : "false");",
+            source: Self.readAloudUserScript(
+                isAvailable: EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+            ),
             injectionTime: .atDocumentStart, forMainFrameOnly: true
         ))
         controller.add(context.coordinator, name: "epistemosSpeak")
@@ -177,6 +206,83 @@ private struct ExperimentalWebView: NSViewRepresentable {
         context.coordinator.loadStart = ContinuousClock.now
         webView.load(URLRequest(url: uiBaseURL))
         return webView
+    }
+
+    private static func readAloudUserScript(isAvailable: Bool) -> String {
+        """
+        (function () {
+          window.__EPISTEMOS_TTS_AVAILABLE__ = \(isAvailable ? "true" : "false");
+          function ttsReady() { return window.__EPISTEMOS_TTS_AVAILABLE__ === true; }
+          function post(action, text) {
+            try {
+              window.webkit.messageHandlers.epistemosSpeak.postMessage({ action: action, text: text || "" });
+            } catch (e) {}
+          }
+          var pill = null;
+          function ensurePill() {
+            if (pill) return pill;
+            pill = document.createElement("button");
+            pill.type = "button";
+            pill.className = "epistemos-experimental-read-selection";
+            pill.style.cssText = "position:fixed;z-index:2147483647;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:0.5px solid rgba(255,255,255,0.18);background:rgba(30,30,32,0.94);color:#fff;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.28);";
+            pill.addEventListener("mousedown", function (e) { e.preventDefault(); });
+            pill.addEventListener("click", function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              var sel = window.getSelection();
+              var text = sel ? sel.toString().trim() : "";
+              if (ttsReady()) {
+                if (text) post("speak", text);
+              } else {
+                post("install", "");
+              }
+              hidePill();
+            });
+            document.documentElement.appendChild(pill);
+            return pill;
+          }
+          function updatePillCopy() {
+            if (!pill) return;
+            pill.title = ttsReady() ? "Read aloud" : "Install Kokoro voice";
+            pill.setAttribute("aria-label", pill.title);
+            pill.innerHTML = ttsReady()
+              ? '<span>Read aloud</span>'
+              : '<span>Install voice</span>';
+          }
+          function hidePill() { if (pill) pill.style.display = "none"; }
+          function showSelectionPill() {
+            var sel = window.getSelection();
+            var text = sel && sel.rangeCount ? sel.toString().trim() : "";
+            if (!text) { hidePill(); return; }
+            var rect = sel.getRangeAt(0).getBoundingClientRect();
+            if (!rect || (!rect.width && !rect.height)) { hidePill(); return; }
+            var p = ensurePill();
+            updatePillCopy();
+            p.style.display = "inline-flex";
+            var top = rect.top - 38;
+            if (top < 6) top = rect.bottom + 8;
+            p.style.top = top + "px";
+            p.style.left = Math.max(6, Math.min(rect.left, window.innerWidth - 130)) + "px";
+          }
+          function start() {
+            document.addEventListener("mouseup", function () { setTimeout(showSelectionPill, 10); });
+            document.addEventListener("scroll", hidePill, true);
+            document.addEventListener("mousedown", function (e) {
+              if (pill && e.target !== pill && !pill.contains(e.target)) hidePill();
+            });
+            document.addEventListener("selectionchange", function () {
+              var s = window.getSelection();
+              if (!s || !s.toString().trim()) hidePill();
+            });
+          }
+          window.__EPISTEMOS_READALOUD_REFRESH__ = function () {
+            updatePillCopy();
+            showSelectionPill();
+          };
+          if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+          else start();
+        })();
+        """
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
@@ -214,7 +320,7 @@ private struct ExperimentalWebView: NSViewRepresentable {
         }
 
         // Only the surface's own loopback origin may load in the WebView; outbound
-        // links open in the user's browser (mirrors ProAgent H1 posture).
+        // links open in the user's browser (same H1 posture as the other agent surfaces).
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
@@ -287,7 +393,7 @@ private struct ExperimentalWebView: NSViewRepresentable {
 
         // Read-aloud (fire-and-forget, non-reply channel): {action:"speak"|"stop",
         // text} → the shared on-device voice. Mirrors JuneAgentBridge's shape
-        // validation + length cap; speak() itself refuses when Kokoro isn't ready.
+        // validation; the agent helper caps length and applies user voice + filter.
         func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
@@ -300,10 +406,18 @@ private struct ExperimentalWebView: NSViewRepresentable {
                 synth.stop()
                 return
             }
+            if action == "install" {
+                NotificationCenter.default.post(name: .epistemosExperimentalKokoroInstallRequested, object: nil)
+                return
+            }
             guard action == "speak",
                   let text = body["text"] as? String,
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            _ = synth.speak(String(text.prefix(EpistemosSpeechSynthesizer.maxTextToSpeechInputCharacters)))
+            guard EpistemosSpeechSynthesizer.isTextToSpeechAvailable() else {
+                NotificationCenter.default.post(name: .epistemosExperimentalKokoroInstallRequested, object: nil)
+                return
+            }
+            _ = EpistemosAgentReadAloud.speak(text, synthesizer: synth)
         }
 
         // Open a vault note (.md) in the app's Notes editor when its link is clicked in the chat.

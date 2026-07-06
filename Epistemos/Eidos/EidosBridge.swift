@@ -30,7 +30,7 @@
 //
 // **W-row advance:** W-46.1 (real vault binding), W-47 (citation gate).
 //
-// **Tier:** Tier 1 (MAS-shippable). No `#if PRO_BUILD` guard.
+// **Tier:** Tier 1 (MAS-shippable). No legacy surface-flag guard.
 
 import Foundation
 import os

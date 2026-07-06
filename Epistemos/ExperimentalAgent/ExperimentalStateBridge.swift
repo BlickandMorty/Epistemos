@@ -12,7 +12,7 @@ import WebKit
 ///
 /// Escaping discipline: every argument is serialized through JSONSerialization
 /// (`.fragmentsAllowed`) and then U+2028/U+2029-escaped, so injected content can
-/// never break out of the script context (mirrors the ProAgent bridge rules).
+/// never break out of the script context (mirrors the agent bridge rules).
 @MainActor
 final class ExperimentalStateBridge {
     static let shared = ExperimentalStateBridge()
