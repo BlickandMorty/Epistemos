@@ -35,6 +35,9 @@ printf '# Provenance\n\n## Tool-call sequence\n1. **WebFetch** — h\n2. **Write
 printf '# Rollout Schedule\n\nThe rollout schedule.\n' > "$FX/05_ROLLOUT_SCHEDULE.md"
 # Slug/dated filename whose H1 is the real title — cite-check must verify by the H1, not the filename.
 printf '# Architecture Decision\n\nThe ADR body.\n' > "$FX/dated-log-2024.md"
+# Prefixed file linking a slug file by its H1 — grounding must SHOW the H1 title; the H1 [[link]] must resolve.
+printf '# Data Ledger\n\nThe data ledger. See [[Sync Engine]].\n' > "$FX/08_DATA_LEDGER.md"
+printf '# Sync Engine\n\nThe sync engine.\n' > "$FX/09_slug-notes.md"
 
 echo "[witness] booting headless backend on :$PORT against fixture vault…"
 ( cd "$FORK" && EPISTEMOS_VAULT_ROOT="$TMP/vault" EPISTEMOS_ONECODE_PORT="$PORT" \
@@ -89,6 +92,10 @@ check "edge: no-match search returns empty (no crash)" \
   '"hits": \[\]' "$(call epistemosVault.search '{"json":{"query":"zzznomatchzzz","limit":5,"graph":true}}' | jget)"
 check "edge: sub-4-char-token title → no suggestion (token filter)" \
   '"suggestion": null' "$(call epistemosVault.nearest '{"json":{"title":"a b c"}}' | jget)"
+check "grounding: shows the H1 TITLE, not the ordinal filename (08_DATA_LEDGER → 'Data Ledger')" \
+  '"title": "Data Ledger"' "$(call epistemosVault.search '{"json":{"query":"data ledger","limit":6}}' | jget)"
+check "graph: H1-style [[link]] resolves to a slug file ([[Sync Engine]] → 09_slug-notes)" \
+  '"title": "Sync Engine"' "$(call epistemosVault.search '{"json":{"query":"data ledger","limit":6,"graph":true}}' | jget)"
 check "graph: outlink neighbor surfaced" \
   'linked from Alpha Project' "$(call epistemosVault.search '{"json":{"query":"alpha","limit":8,"graph":true}}' | jget)"
 check "graph: backlink surfaced (references, no query-term match)" \
