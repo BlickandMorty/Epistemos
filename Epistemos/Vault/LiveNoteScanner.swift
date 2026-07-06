@@ -31,7 +31,6 @@ private struct LiveNotePageSnapshot: Sendable {
     let filePath: String?
     let subfolder: String?
     let inlineBody: String
-    let hasManagedBody: Bool
 }
 
 private struct LiveNoteScanResult: Sendable {
@@ -116,8 +115,7 @@ final class LiveNoteScanner {
             title: page.title,
             filePath: page.filePath,
             subfolder: page.subfolder,
-            inlineBody: page.body,
-            hasManagedBody: NoteFileStorage.bodyExists(pageId: page.id)
+            inlineBody: page.body
         )
     }
 
@@ -164,13 +162,6 @@ final class LiveNoteScanner {
     }
 
     private nonisolated static func loadBody(for page: LiveNotePageSnapshot) -> String {
-        let diskBody = NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)
-        if !diskBody.isEmpty || page.hasManagedBody {
-            return diskBody
-        }
-        if !page.inlineBody.isEmpty {
-            return page.inlineBody
-        }
         if let filePath = page.filePath,
            !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let fileURL = URL(fileURLWithPath: filePath)
@@ -178,7 +169,12 @@ final class LiveNoteScanner {
                 return readableVaultBody
             }
         }
-        return ""
+        return SDPage.legacyManagedOrInlineBody(
+            pageId: page.id,
+            inlineBody: page.inlineBody,
+            mapped: true,
+            fast: true
+        )
     }
 
     private nonisolated static func loadBodyAsync(for page: LiveNotePageSnapshot) async -> String {

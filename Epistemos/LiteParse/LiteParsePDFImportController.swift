@@ -109,7 +109,7 @@ enum LiteParsePDFImportController {
                 try? searchService.upsert(
                     id: page.id,
                     title: page.title,
-                    body: NoteFileStorage.readBody(pageId: page.id),
+                    body: files.markdown,
                     tags: page.tags.joined(separator: " "),
                     updatedAt: page.updatedAt
                 )

@@ -971,6 +971,7 @@ final class AppBootstrap {
 
     private struct InstantRecallSeed: Sendable {
         let id: String
+        let filePath: String?
         let inlineBody: String
         let liveBody: String?
     }
@@ -2549,6 +2550,7 @@ final class AppBootstrap {
         return pages.map {
             InstantRecallSeed(
                 id: $0.id,
+                filePath: $0.filePath,
                 inlineBody: $0.body,
                 liveBody: NoteWindowManager.shared.editorBody(for: $0.id)
             )
@@ -2557,8 +2559,19 @@ final class AppBootstrap {
 
     private func snapshotInstantRecallNotes() -> [(id: String, text: String)] {
         snapshotInstantRecallSeeds().map { seed in
-            let diskBody = NoteFileStorage.readBody(pageId: seed.id, mapped: true)
-            let text = seed.liveBody ?? (diskBody.isEmpty ? seed.inlineBody : diskBody)
+            let vaultBody: String? = {
+                guard let filePath = seed.filePath,
+                      !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    return nil
+                }
+                return VaultIndexActor.decodedBodyFromReadableVaultFile(at: URL(fileURLWithPath: filePath))
+            }()
+            let text = seed.liveBody ?? vaultBody ?? SDPage.legacyManagedOrInlineBody(
+                pageId: seed.id,
+                inlineBody: seed.inlineBody,
+                mapped: true,
+                fast: true
+            )
             return (id: seed.id, text: text)
         }
     }
