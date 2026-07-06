@@ -39,6 +39,7 @@ printf '# Architecture Decision\n\nThe ADR body.\n' > "$FX/dated-log-2024.md"
 printf '# Data Ledger\n\nThe data ledger. See [[Sync Engine]].\n' > "$FX/08_DATA_LEDGER.md"
 printf '# Sync Engine\n\nThe sync engine.\n' > "$FX/09_slug-notes.md"
 # Obsidian-style YAML front-matter title + alias — cite-check must verify by BOTH (not just the filename/H1).
+printf 'note\n\nWe made an architecture decision offhand and moved on.\n' > "$FX/zzz-mention.md"
 printf -- '---\ntitle: Design Doc\naliases: [The Blueprint]\n---\n\n# Overview\n\nThe design.\n' > "$FX/fm-slug-11.md"
 
 echo "[witness] booting headless backend on :$PORT against fixture vault…"
@@ -89,6 +90,8 @@ check "search: RELEVANCE-ranked (title match ranks first)" \
   '"title": "Gamma Service"' "$(call epistemosVault.search '{"json":{"query":"gamma","limit":8}}' | jget)"
 check "search: NATURAL-LANGUAGE query grounds via term overlap (not full-phrase)" \
   '"title": "Alpha Project"' "$(call epistemosVault.search '{"json":{"query":"help me understand the alpha project design","limit":8}}' | jget)"
+check "search: TITLE match ranks first even on a slug filename (H1 'Architecture Decision' > content mention)" \
+  '"title": "Architecture Decision"' "$(call epistemosVault.search '{"json":{"query":"architecture decision","limit":5}}' | jget | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d[\"hits\"][0]) if d.get(\"hits\") else \"{}\")")"
 check "cite-repair: hallucinated citation → nearest real note (did-you-mean)" \
   '"title": "Gamma Service"' "$(call epistemosVault.nearest '{"json":{"title":"Gamma Servicing Plan"}}' | jget)"
 check "cite-repair: unrelated citation → NO false suggestion" \
