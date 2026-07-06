@@ -211,6 +211,60 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("VaultSyncService classifies FSEvents escalation and path events deterministically")
+    func vaultSyncServiceFSEventsClassificationIsExecutable() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory
+            .appendingPathComponent("keelstone-fsevents-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let note = root.appendingPathComponent("Note.md")
+        try Data("body".utf8).write(to: note)
+        let missing = root.appendingPathComponent("Missing.md")
+        let hidden = root.appendingPathComponent(".staging", isDirectory: true)
+            .appendingPathComponent("Skip.md")
+        let outside = fm.temporaryDirectory.appendingPathComponent("Outside.md")
+
+        func event(_ url: URL, flags: Int, id: UInt64 = 1) -> VaultFileSystemEvent {
+            VaultFileSystemEvent(
+                path: url.path,
+                flags: FSEventStreamEventFlags(flags),
+                inode: 42,
+                eventID: FSEventStreamEventId(id)
+            )
+        }
+        func classify(_ event: VaultFileSystemEvent) -> VaultFileSystemEventClassification {
+            VaultSyncService.classifyVaultFileSystemEvent(event, vaultURL: root)
+        }
+
+        #expect(classify(event(note, flags: 0)) == .changed(note.standardizedFileURL.path))
+        #expect(
+            classify(event(note, flags: kFSEventStreamEventFlagMustScanSubDirs)) == .fullRescan,
+            "Dropped/coalesced FSEvents must escalate to a deterministic rescan."
+        )
+        #expect(
+            classify(event(root, flags: kFSEventStreamEventFlagRootChanged)) == .fullRescan,
+            "Root moves/deletes must not be treated as ordinary note edits."
+        )
+        #expect(
+            classify(event(root, flags: kFSEventStreamEventFlagItemIsDir)) == .fullRescan,
+            "Directory-level events are too coarse for path-only reconcile and must rescan."
+        )
+        #expect(
+            classify(event(note, flags: kFSEventStreamEventFlagItemRemoved)) == .deleted(note.standardizedFileURL.path)
+        )
+        #expect(
+            classify(event(missing, flags: kFSEventStreamEventFlagItemRenamed)) == .deleted(missing.standardizedFileURL.path)
+        )
+        #expect(
+            classify(event(note, flags: kFSEventStreamEventFlagItemRenamed)) == .changed(note.standardizedFileURL.path)
+        )
+        #expect(classify(event(missing, flags: 0)) == .deleted(missing.standardizedFileURL.path))
+        #expect(classify(event(hidden, flags: 0)) == .ignored)
+        #expect(classify(event(outside, flags: 0)) == .ignored)
+    }
+
     @Test("VaultSyncService does not hide external edits during self-write windows")
     func vaultSyncServiceSelfWriteWindowStillReconcilesEvents() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")

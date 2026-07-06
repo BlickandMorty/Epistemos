@@ -261,13 +261,13 @@ private struct VersionCaptureSnapshot: Sendable {
     let wordCount: Int
 }
 
-fileprivate struct VaultFileSystemEvent: Sendable {
+struct VaultFileSystemEvent: Sendable {
     let path: String
     let flags: FSEventStreamEventFlags
     let inode: UInt64?
     let eventID: FSEventStreamEventId
 
-    var requiresFullRescan: Bool {
+    nonisolated var requiresFullRescan: Bool {
         contains(kFSEventStreamEventFlagMustScanSubDirs)
             || contains(kFSEventStreamEventFlagUserDropped)
             || contains(kFSEventStreamEventFlagKernelDropped)
@@ -276,21 +276,28 @@ fileprivate struct VaultFileSystemEvent: Sendable {
             || contains(kFSEventStreamEventFlagUnmount)
     }
 
-    var itemIsDirectory: Bool {
+    nonisolated var itemIsDirectory: Bool {
         contains(kFSEventStreamEventFlagItemIsDir)
     }
 
-    var itemWasRemoved: Bool {
+    nonisolated var itemWasRemoved: Bool {
         contains(kFSEventStreamEventFlagItemRemoved)
     }
 
-    var itemWasRenamed: Bool {
+    nonisolated var itemWasRenamed: Bool {
         contains(kFSEventStreamEventFlagItemRenamed)
     }
 
-    private func contains(_ flag: Int) -> Bool {
+    private nonisolated func contains(_ flag: Int) -> Bool {
         flags & FSEventStreamEventFlags(flag) != 0
     }
+}
+
+enum VaultFileSystemEventClassification: Equatable, Sendable {
+    case fullRescan
+    case changed(String)
+    case deleted(String)
+    case ignored
 }
 
 fileprivate final class VaultFileWatcherCallbackBox {
@@ -3962,26 +3969,41 @@ final class VaultSyncService {
                 fileWatcherState.pendingLastEventID = event.eventID
             }
 
-            if event.requiresFullRescan || event.itemIsDirectory {
+            switch Self.classifyVaultFileSystemEvent(event, vaultURL: vaultURL) {
+            case .fullRescan:
                 fileWatcherState.pendingFullRescan = true
+            case .changed(let path):
+                fileWatcherState.pendingDeletedPaths.remove(path)
+                fileWatcherState.pendingChangedPaths.insert(path)
+            case .deleted(let path):
+                fileWatcherState.pendingChangedPaths.remove(path)
+                fileWatcherState.pendingDeletedPaths.insert(path)
+            case .ignored:
                 continue
-            }
-
-            guard let fileURL = Self.importableVaultEventFileURL(from: event.path, vaultURL: vaultURL) else {
-                continue
-            }
-
-            let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
-            if event.itemWasRemoved || (event.itemWasRenamed && !fileExists) || !fileExists {
-                fileWatcherState.pendingChangedPaths.remove(fileURL.path)
-                fileWatcherState.pendingDeletedPaths.insert(fileURL.path)
-            } else {
-                fileWatcherState.pendingDeletedPaths.remove(fileURL.path)
-                fileWatcherState.pendingChangedPaths.insert(fileURL.path)
             }
         }
 
         scheduleDebouncedVaultFileSystemRefresh()
+    }
+
+    nonisolated static func classifyVaultFileSystemEvent(
+        _ event: VaultFileSystemEvent,
+        vaultURL: URL,
+        fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+    ) -> VaultFileSystemEventClassification {
+        if event.requiresFullRescan || event.itemIsDirectory {
+            return .fullRescan
+        }
+
+        guard let fileURL = importableVaultEventFileURL(from: event.path, vaultURL: vaultURL) else {
+            return .ignored
+        }
+
+        let exists = fileExists(fileURL)
+        if event.itemWasRemoved || (event.itemWasRenamed && !exists) || !exists {
+            return .deleted(fileURL.path)
+        }
+        return .changed(fileURL.path)
     }
 
     private nonisolated static func importableVaultEventFileURL(from path: String, vaultURL: URL) -> URL? {
