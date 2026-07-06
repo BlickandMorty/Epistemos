@@ -58,6 +58,16 @@ struct ExperimentalSurfaceView: View {
         .task {
             if case .idle = supervisor.status { supervisor.start() }
         }
+        .onAppear {
+            // Re-push live TTS availability whenever the surface reappears, so
+            // read-aloud (the transcript speaker button + the selection popover)
+            // lights up the moment the user installs the voice in Settings — no
+            // relaunch (June parity; the flag was otherwise set once at boot).
+            let available = EpistemosSpeechSynthesizer.isTextToSpeechAvailable()
+            ExperimentalStateBridge.shared.webView?.evaluateJavaScript(
+                "window.__EPISTEMOS_TTS_AVAILABLE__ = \(available ? "true" : "false");"
+            )
+        }
         .onChange(of: theme.resolved) { _, _ in
             // Live theme switch: re-project the palette onto the loaded SPA —
             // never reload (a reload reboots the SPA and kills the session, §7).
