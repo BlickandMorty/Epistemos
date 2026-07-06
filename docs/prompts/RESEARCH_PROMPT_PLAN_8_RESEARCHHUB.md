@@ -101,6 +101,19 @@ that requires ToS violation to be useful should be included as default.
   Zotero. Columns: sources, OA retrieval, save-to-KB, agent use, graph links, legality. Copy/avoid +
   the novel edge (agent-native + graph-linked + honest OA).
 
+### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
+ResearchHub is the fabric's showcase — "not a room you visit, a capability the agents drive":
+- **F1 vault:** a saved item becomes a real vault note (source provenance in frontmatter).
+- **F2 capability:** the agent searches/pulls/summarizes/saves/watches via a ResearchHub tool — the
+  exemplar capability. Define its schema + honest gating (rate limits, BYO-credentials, MAS-safe).
+- **F3 presence:** the companion mascot sits on the ResearchHub button while reading; roster shows
+  "currently reading arXiv."
+- **F4 graph:** saved papers link to related notes/entities via the graph public API.
+- **F5 provenance:** a note (and an agent answer that used it) CITES its source through the ledger.
+- **F6 state bus:** streaming-feed + pull state publishes on the bus.
+Hit every contract to the depth in `INTEGRATION_FABRIC.md`'s worked example. These six briefs form a
+**single integrated product built one plan at a time**, not six apps.
+
 ## 6. Primary-source discipline
 Cite each provider's **official API docs + ToS** (this is mandatory here), Unpaywall/OpenAlex/Crossref
 docs. Where a source's API is paid/restricted (Reddit, X), say so honestly with the real tiers. No

@@ -102,6 +102,15 @@ promotion path from raw capture → structured Epdoc note.** Frictionless first;
   Superwhisper. Columns: entry speed, voice, unstructured inbox, promotion, robustness, on-device.
   What to copy, avoid, and the novel edge.
 
+### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
+- **F1 vault:** captures land in the Quick Capture vault folder as first-class notes.
+- **F2 capability:** "capture this" / "capture + route to note X" are agent capabilities (June + 1Code).
+- **F3 presence:** the companion shows when an agent processes/enriches/promotes a capture.
+- **F4 graph:** captures link into the graph (auto link-candidates on promotion).
+- **F5 provenance:** capture origin (typed/voice/dropped, source audio) is recorded + citable.
+- **F6 state bus:** capture + transcription events publish on the bus.
+These six briefs form a **single integrated product built one plan at a time**, not six apps.
+
 ## 6. Primary-source discipline
 Cite Apple Speech/SpeechAnalyzer, AVFoundation, NSFileCoordinator, App Intents, Kokoro. Flag
 macOS-version-gated speech APIs + fallbacks. Distinguish observed vs inferred.

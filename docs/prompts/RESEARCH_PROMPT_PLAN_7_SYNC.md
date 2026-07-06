@@ -138,6 +138,17 @@ performance floor** both configs must clear before v1:
   file-truth coexistence + a real release gate). Plus: how mature two-config (free/pro, or
   sandboxed/direct) macOS apps keep build schemas clean + hardened.
 
+### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
+KEELSTONE is the fabric's structural integrity — it hardens the contracts everyone plugs into:
+- **F1 vault:** external-change reconciliation IS the vault bus's integrity — never lose or desync a
+  note any feature wrote.
+- **F2 capability:** the release gate verifies every capability's honest gating; the two-config schema
+  defines exactly which surfaces host the capability registry (June/MAS + 1Code/Experimental).
+- **F3/F4/F5/F6:** the hardening floor covers presence, graph, provenance-ledger, and state-bus
+  robustness (supervision-not-polling, circuit breakers, data-core integrity) so the fabric holds
+  under load/failure. Schema-solidification guarantees exactly TWO consistent fabric hosts.
+These six briefs form a **single integrated product built one plan at a time**, not six apps.
+
 ## 6. Primary-source discipline
 Cite NSFileCoordinator/NSFilePresenter/FSEvents/FileProvider, GRDB/SQLite durability, App Store
 review + notarization docs. Flag sandbox-gated behaviors. Distinguish observed vs inferred.

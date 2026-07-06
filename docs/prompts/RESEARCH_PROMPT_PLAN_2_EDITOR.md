@@ -122,6 +122,18 @@ while the user watches — the revived, superseded "Tolaria" editing experience.
   Composer, iA Writer/Ulysses (prose lenses), Craft, Typora (WYSIWYG md). Columns: md fidelity,
   multi-lens, agent editing, diff/provenance, performance. What to copy, avoid, and the novel edge.
 
+### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
+The editor is where several fabric contracts meet — design them, don't stub:
+- **F1 vault:** every lens edits the one vault markdown file; changes reflect app-wide.
+- **F2 capability:** "edit / restructure / summarize / cite into this note" are agent capabilities
+  that drive the editor (June + 1Code companion), honestly gated. Define the tool schema.
+- **F3 presence:** the companion mascot appears in Epdoc and (D2 embodied seam) follows the words.
+- **F4 graph:** typed wikilinks/edits update graph nodes/edges via the public API.
+- **F5 provenance:** agent edits are attributed, citable, and revertible through the ledger.
+- **F6 state bus:** streamed edits + live edit-position publish on the bus (feeds F3 word-following).
+State exactly which side (native / agent_core / 1Code / Tiptap JS) owns each seam. These six briefs
+form a **single integrated product built one plan at a time**, not six apps.
+
 ## 6. Primary-source discipline
 Cite ProseMirror/Tiptap/CodeMirror/PDFKit APIs and real product material. Flag version-gated or
 uncertain capabilities with a fallback. Distinguish observed vs inferred.

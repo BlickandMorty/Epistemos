@@ -307,6 +307,18 @@ This is the owner's signature idea and the emotional core — research it hardes
   runtime data. Extract the transferable mechanics, cited; give a build-real recommendation with a
   graceful fallback (e.g. sidebar-bubble presence) if full word-following proves too costly.
 
+### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
+The companion IS the fabric made visible — it must touch all six; this is the whole point of the app:
+- **F1 vault:** its edits/notes are vault files; its memory of "what I did for you" reads the vault.
+- **F2 capability:** the 1Code companion is the agent that DRIVES every other capability (it invokes
+  ResearchHub/Capture/Editor tools) — the capability registry's primary caller.
+- **F3 presence:** the companion DEFINES presence; every other feature lights it up. Own this contract.
+- **F4 graph:** it links what it touches into the knowledge graph.
+- **F5 provenance:** its edits/actions are attributed; "press it → see what it did" spans features.
+- **F6 state bus:** its emotes + word-following bind to the real state bus across native + WebView.
+Design the companion as the connective tissue that makes the app feel like ONE living thing — and
+remember these six briefs form a **single integrated product built one plan at a time**, not six apps.
+
 ## 6. Primary-source discipline
 - Cite every external claim (product docs, library docs/source, papers, credible analyses). Prefer
   official docs and source over blog hearsay. For ProseMirror/Tiptap/Yjs, cite the actual API.

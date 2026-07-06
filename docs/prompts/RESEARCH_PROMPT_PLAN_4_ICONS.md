@@ -92,6 +92,16 @@ current mascots look like a demo.**
   a lint that catches hardcoded color / missing size / bad contrast). Automate parity + theming
   checks so a mark can't regress silently.
 
+### D★ — Deep Fabric Integration (F1–F6) — MANDATORY (`INTEGRATION_FABRIC.md`)
+Icons are the visual language of the fabric — design them as integration, not decoration:
+- **F3 presence:** you PRODUCE how presence renders — the companion emote badges/poses/accessories
+  that light up wherever an agent works. This mark set is the visible half of F3.
+- **F2 capability:** each agent capability/feature gets a legible mark so the agent's actions are
+  readable across surfaces (chip, button, roster).
+- **Shared token language:** the theme tokens every mark reads (native + WebView, incl. custom
+  palette) ARE an integration contract — one visual identity across all surfaces. Define it.
+These six briefs form a **single integrated product built one plan at a time**, not six apps.
+
 ## 6. Primary-source discipline
 Cite Apple HIG, SF Symbols docs, current app-icon size specs, Lottie/Rive docs. Flag version-gated
 macOS icon features. No invented tooling capabilities.

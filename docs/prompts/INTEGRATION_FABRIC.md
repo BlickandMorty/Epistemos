@@ -70,6 +70,8 @@ both agent surfaces. Every plan should hit its relevant fabric contracts to *thi
 The fabric is the **spine**: the agent capability registry (F2), vault bus (F1), companion presence
 (F3), graph API (F4), provenance ledger (F5), and state bus (F6) are shared dependencies. Define/
 harden the fabric contracts first (much already exists in `agent_core` + the graph + the ledger +
-Plan 5 presence); then each room plugs in. Rooms can be built in parallel **because** they share one
-fabric — as long as the fabric's contracts are stable before they plug in. Integration is not the
-last step; it's the substrate.
+Plan 5 presence); then each feature plugs in. **Owner preference (2026-07-06): build these ONE PLAN
+AT A TIME** — not in parallel — so the whole coheres into a single, deeply-integrated piece of work
+rather than six modules that merely coexist. Each plan, as it lands, must plug fully into the
+fabric before the next begins. Integration is not the last step; it's the substrate, and cohesion
+is worth more than throughput here.
