@@ -1509,3 +1509,21 @@ rebuilds it shows an honest toast; attach + multi-select work fully now. Confirm
 the old handler's reply() default returns {__unhandled:true} synchronously → the link router falls back to
 openExternal instantly (no hang/delay). Running app was not disrupted (owner active in Claude Code; app not
 running).
+
+---
+
+**Cycle 59 (2026-07-06) — FINALIZATION + owner-directed Work/Goose cleanup + loop stop.** Owner asked to
+delete the standalone Work + Goose surfaces (kept discovering they thought were deprecated), finish the
+features, and stop the loop. Did it surgically + safely: (1) full-tree checkpoint tag `pre-cleanup-2026-07-06`;
+(2) precise dependency mapping (3 independent analyses converged) proved Work/Goose are NOT deprecated —
+they hold shared infra (WorkOpenCodeRuntime/WorkNativeMCPServer used by VaultMCP/ProAgent/Experimental;
+GooseInProcessACPServer/GooseMASAgentCoreCatalog used by June/AgentWorkspace; GooseACP* by HTMLWorkspace);
+(3) deleted the 44-file Work surface + 5 Goose orphans + 3 Work Settings-UI files, kept the 8-file Work
+substrate + 7-file Goose MAS/ACP core, fixed WorkSkillsProvisioner isolation, restored WorkServerDiagnostics
+(interpolation-hidden dep the build caught). Epistemos-Experimental BUILD SUCCEEDED. (4) Finished the two
+remaining features: note links → app Notes editor (open-note) + URL links → in-app Browser (open-url), both
+Swift handlers now compiled in a building app. (5) Deleted 17 dead surface tests. FEATURES COMPLETE: vault
+grounding, Prompt/System-Prompt Forge, Persona, provenance write-back, cite-check, notes sidebar
+(attach/open/multi-select), chat-link routing. Loop stopped per owner. Remaining (documented, non-blocking):
+~20 mixed test files need a trim pass (app unaffected — tests aren't in the app scheme); live-verify the
+Swift handlers on next relaunch.
