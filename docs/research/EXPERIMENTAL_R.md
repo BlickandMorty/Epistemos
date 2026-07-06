@@ -1089,3 +1089,14 @@ note. This closes DoD-Foundation's "six engines + live catalog" LIVE (was headle
 Cycles 19-20 (provenance/cite-check/vaultMCP/thinking-toggle live), the DoD-Foundation is now fully
 live-confirmed. Incidentally the file-finder also showed real vault files (04_CLAIM_LEDGER.md etc.),
 re-confirming vault access. No code this cycle — a pure live-verification closure.
+
+---
+
+**Cycle 28 (2026-07-06) — TEMPER: reviewed the newest overlays; bounded the ranking occ-count.**
+The adversarial review (Cycle 12) predated skill-discovery/describe/ranking, so I self-reviewed those
+three (four lenses). Clean except one real robustness bound: the Cycle-26 relevance ranking counted ALL
+query occurrences per file though the score caps at min(occ,20) — a pathological 512KB file (query every
+few chars) could spin ~100k+ indexOf iterations for no ranking gain. Fixed (cap the count loop at 20).
+Discovery (bounded scan, correct subsumption) + describe (SDK w/ binary-path + retry + honest fallback,
+no injection) clean. Witness still 9/9. Deploys with the next batch (backend perf bound only). The
+four-axis moat remains complete, live-verified, and now the newest code is reviewed too.
