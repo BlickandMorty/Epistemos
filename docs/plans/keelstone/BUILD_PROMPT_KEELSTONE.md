@@ -68,9 +68,12 @@ These amend the plan per §15 and bind like the "do not" list:
    (`SearchIndexService`/`ReadableBlocksIndex`) with manifest/heal/checkpoint; hook the Rust
    shadow index (`RustShadowFFIClient`) into the same rebuild path. No parallel DB, no second
    stream.
-4. **Body truth**: converge to vault-`.md`-only per plan §15.5 — `SDPage` metadata-only,
-   `NoteFileStorage` note-bodies retired-or-journal. Do this as its own phase step with the
-   convergence test green before and after.
+4. **Body truth — OWNER-MANDATED PHASE 4.5 (plan §15.5), not optional**: converge to
+   vault-`.md`-only — `SDPage` metadata-only, `NoteFileStorage` note-bodies retired-or-journal.
+   It sits in the §8 tracker between Phases 4 and 5 with a four-leg witnessable bar (file-first
+   writes proven by grep; external-edit reflects in-app; in-app edit reflects in Finder/vim;
+   convergence green before/after + zero-loss legacy migration). KEELSTONE is not done without
+   this box checked.
 5. **Budgets**: merge `spine/perf-budgets-keelstone.toml` into `docs/perf-budgets.toml` as
    `[keelstone.*]` sections.
 6. **Spine fixes are already applied** in `docs/plans/keelstone/spine/` (SHA-256 hash, FSEvents

@@ -235,12 +235,25 @@ Verified against the live repo before build-start. Full detail: `KEELSTONE_REVIE
    `epistemos-shadow` (tantivy/usearch) + SwiftData `SDPage` + Spotlight are ALL derived. The
    manifest/heal/checkpoint work extends the EXISTING GRDB DB; the shadow index joins the same
    rebuild hook. No second GRDB file.
-5. **Body-truth end-state (answers the owner's md-truth question).** Today there are THREE body
-   locations: vault `.md` (`page.filePath`), `Application Support/Epistemos/note-bodies/`
-   (`NoteFileStorage`, pageId-keyed), and legacy `SDPage.body` (being cleared). End-state: the
-   vault `.md` is the SOLE body truth; all writes go file-first through `AtomicVaultWriter` to the
-   vault path; `SDPage` is metadata-only; `note-bodies/` is retired or reduced to the Phase-1
-   write-staging journal. `SDPageVersion` snapshots (history) are exempt.
+5. **Body-truth end-state (answers the owner's md-truth question) — OWNER-MANDATED; a REAL PHASE,
+   not commentary.** Today there are THREE body locations: vault `.md` (`page.filePath`),
+   `Application Support/Epistemos/note-bodies/` (`NoteFileStorage`, pageId-keyed), and legacy
+   `SDPage.body` (being cleared). End-state: the vault `.md` is the SOLE body truth; all writes go
+   file-first through `AtomicVaultWriter` to the vault path; `SDPage` is metadata-only;
+   `note-bodies/` is retired or reduced to the Phase-1 write-staging journal. `SDPageVersion`
+   snapshots (history) are exempt.
+
+   **This inserts into the §8 tracker as its own checkbox, between Phase 4 and Phase 5:**
+
+   - [ ] **Phase 4.5 — Body-truth collapse (owner-mandated).** The vault `.md` becomes the sole
+     live body truth. Witnessable bar — all four legs required: (a) every note save writes the
+     vault `.md` file-first via `AtomicVaultWriter`; grep proves no production path persists a
+     body to `NoteFileStorage`/`SDPage.body` as truth. (b) An external edit to a vault `.md`
+     appears in the open app (clean editor auto-reloads; dirty editor → conflict flow). (c) An
+     in-app edit is visible in the `.md` via Finder/vim immediately after save. (d) The
+     convergence-equality test is green BEFORE and AFTER the collapse, and a pre-migration vault
+     (populated `note-bodies/` + legacy `SDPage.body` rows) opens with zero body loss — legacy
+     locations migrate forward once, never dual-write again.
 6. **Spine code fixes applied** (see spine headers): Swift `while let … where` removed; missing
    `await` on the materializer actor; `String.hashValue` → CryptoKit SHA-256 (hashValue is
    per-launch randomized — persisted manifests would thrash); FSEvents extended-data keys corrected
