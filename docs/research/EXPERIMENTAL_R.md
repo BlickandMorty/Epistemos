@@ -1455,3 +1455,16 @@ of the agent's OWN write-backs actually function (save now → cite/retrieve by 
 substrate loop — retrieve → verify → write-back → retrieve-again — is proven consistent end to end. Also
 confirmed provenance tool-names render clean (kindOf). No code change: two integration verifications + a
 load-bearing insight, no gaps found (the layer is done).
+
+---
+
+**Cycle 55 (2026-07-06) — VAULT NOTE-BROWSER sidebar (owner-requested "like my old chat").** Owner asked
+for BOTH a Vault button → note-browser sidebar AND vault @-mentions. Delivered the sidebar this cycle
+(clearer + lower-risk, isolated component). Backend (deterministic-first): `epistemosVault.tree`
+(folder/note hierarchy, folders-first alphabetical) + `read` (content + H1 title by path,
+TRAVERSAL-GUARDED) — witness 25/25. UI: `VaultNoteBrowser` — a search box (epistemosVault.search, ≥2
+chars) over an expand/collapse folder tree (epistemosVault.tree); clicking a note reads it and inserts a
+grounded-context block ("> From your vault — [[Title]]: …", clipped 4000) into the composer via the editor
+handle. Composes vault-context-assembly + the editor-handle. A "Notes" button in the composer toggles it
+(fixed right sidebar); host-gated. Typechecks + renderer builds + in tarball. NEXT: wire "Notes" into the
+existing-chat composer (chat-input-area) + the vault @-mentions half. LIVE-verify pending an owner relaunch.
