@@ -1338,3 +1338,17 @@ EXACT after the strip. Anti-hallucination guard PROVEN intact: `[[Project Roadma
 False, partial `[[Ledger]]`→False, H1-superset still rejected. Witness 16/16 (the new fixture even caught a
 `nearest` tie — renamed to avoid it). Deployed (in tarball). Two real cite-integrity bugs in two cycles,
 both invisible to keyword fixtures — realistic-input testing is now the sharpest tool in the box.
+
+---
+
+**Cycle 46 (2026-07-06) — cite-check now verifies by the note's H1 title (3rd realistic-input bug).**
+The Cycle-45 prefix-strip handled ordinal filenames, but a slug/dated filename (`weekly-2024-notes.md`)
+whose H1 is the real title ("# Product Strategy") still failed: citing `[[Product Strategy]]` — the
+visible title an agent reads — was silently "not found", because cite-check matched only the filename.
+Built a cached TITLE INDEX (normalized title → path) keyed by filename + ordering-prefix-stripped + the
+note's H1 (first 512 bytes, bounded 6000 reads/15s TTL). Bonus: noteTitleExists is now an O(1) Map lookup
+(was an O(N) scan per citation × up to 40 per check). EXACT keys → the anti-hallucination guard is intact
+(proven: `[[Project Roadmap 2027]]`→False, partial `[[Strategy]]`→False, H1-superset rejected). Witness
+17/17, deployed. THREE real cite-integrity bugs (NL grounding, ordinal filenames, H1 titles) in three
+cycles — all invisible to keyword fixtures, all found by feeding the backend the titles/prompts that
+actually occur in a real vault. The cite-check trust surface is now genuinely robust to real vault layouts.
