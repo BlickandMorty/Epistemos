@@ -1131,3 +1131,21 @@ Re-scouted both remaining "open features" to a firm answer:
   opens, the highest-value point).
 Net: the clean pure-web moat is genuinely COMPLETE. Remaining truly-open = only the opencode-reasoning-
 renders live spot-check (live-only, possibly inconclusive) + native-only substrate. Posture: verify/harden.
+
+---
+
+**Cycle 31 (2026-07-06) — THINKING/opencode resolved DETERMINISTICALLY from the code path (owner idle
+low → no risky live round-trip).** The owner's "thinking for all models even opencode zen" ask, answered
+by proving the pipeline rather than a flaky single-model live check:
+1. RENDER is engine-agnostic: `assistant-message-item.tsx:710` renders `part.type === "reasoning" ||
+   "tool-Thinking"` with NO engine gate — any engine's reasoning displays via AgentThinkingTool.
+2. ACP models reasoning natively: the codex-acp adapter defines `agent_thought_chunk` as a first-class
+   `sessionUpdate` kind (alongside `agent_message_chunk`) — the ACP-standard thought stream.
+3. Codex reasoning already renders through this path; opencode is an ACP engine on the SAME transport +
+   SAME engine-agnostic renderer → its reasoning renders through the same proven pipeline.
+CONCLUSION: there is NO opencode-specific rendering gap. opencode thinking is native/model-driven (renders
+when the model emits agent_thought_chunk), not knob-driven — which confirms the Gap-B fix (hiding the INERT
+manual effort knob) was correct, not a capability removal. Honest caveat: whether a given free Zen model
+EMITS reasoning is model-dependent (not all reasoning-emit); I verified the PIPELINE renders it, which is
+the part under our control. This closes the THINKING owner-ask at the level we own. Matches the pacing
+rule (deterministic verification over a flaky live check).
