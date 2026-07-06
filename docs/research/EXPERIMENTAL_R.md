@@ -1001,3 +1001,18 @@ outlink+backlink, AND the flagship LLM enhance — is regression-clean end-to-en
 cycle by choice: the pure-web moat is complete + live-verified (Cycles 19-20), and the two real remaining
 frontiers are owner-gated (native ReplayBundle FFI for .epbundle; Persona-for-ACP preamble). Verification
 over padding.
+
+---
+
+**Cycle 22 (2026-07-06) — witness coverage + run.export-bundle feasibility scout.**
+(a) Closed a witness coverage gap: added a System Prompt Forge live-upgrade check — the witness now guards
+BOTH flagship enhances + all vault/graph endpoints (8/8 pass with WITNESS_FORGE=1). (b) Scouted whether
+`run.export-bundle` (the mandate's #1 substrate item) could ship WITHOUT a native FFI: NO. The `.epbundle`
+is a serde-JSON `ReplayBundle` struct (many nested snapshots: LedgerSnapshot/DagSnapshot/ClaimDerivation…)
+whose `integrity_hash` is BLAKE3 over the canonical JSON (with the hash field blanked). Replicating that
+exact declaration-ordered schema + BLAKE3 in backend TS would be fragile and could emit INVALID bundles
+`epistemos_trace verify` rejects — i.e. fake capability. So a REAL, verifiable .epbundle genuinely requires
+the agent_core FFI (`provenance/replay.rs::to_epbundle_bytes` → Swift @_silgen_name → epistemos channel →
+web "Export .epbundle" button + a full app checkpoint build). That is a sanctioned NATIVE checkpoint,
+deferred until owner green-light per the pacing rule — NOT skipped, and NOT to be faked in TS.
+**RAISED BAR:** on owner "do the epbundle FFI", the path is now fully scouted end-to-end.
