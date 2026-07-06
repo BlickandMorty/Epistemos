@@ -1,3 +1,11 @@
+// ═══ AUDIT AMENDMENT (2026-07-06, repo-juxtaposed — BINDING; overrides body where they conflict) ═══
+// STATUS UPDATE (2026-07-06): the flag placement this file demanded HAS LANDED (KEELSTONE commit
+// 8a1ca87d1) — KINDRED_ENABLED + EPISTEMOS_EXPERIMENTAL are on all Epistemos-target configs
+// (project.yml :117/:124/:135), absent from AppStore (:250/:255), and AppSurface.swift ships both
+// surface #error guards. What REMAINS from this file: the KINDRED-specific guard pair below
+// (KINDRED && APP_STORE #error; KINDRED && !EXPERIMENTAL #error) + CompanionEditCapabilities —
+// land them as part of K0 alongside the file-wrapping sweep.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
 //
 //  CompanionEditGate.swift
 //  Epistemos — LUMENLENS spine (authored from Spine S1 + amendment L1)

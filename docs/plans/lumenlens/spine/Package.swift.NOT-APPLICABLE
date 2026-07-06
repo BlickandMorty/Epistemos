@@ -1,0 +1,48 @@
+// ═══ AUDIT AMENDMENT (2026-07-06, repo-juxtaposed — BINDING; overrides body where they conflict) ═══
+// NOT APPLICABLE TO THIS REPO — kept as reference only. There is NO root Package.swift; the app is
+// two xcodegen application targets (project.yml). SwiftPM package traits cannot gate them. The real
+// mechanism ALREADY LANDED (commit 8a1ca87d1): KINDRED_ENABLED + EPISTEMOS_EXPERIMENTAL are in the
+// Epistemos target's Debug/Release/Experimental SWIFT_ACTIVE_COMPILATION_CONDITIONS (project.yml
+// :117/:124/:135), absent from Epistemos-AppStore (:250/:255), and Epistemos/App/AppSurface.swift
+// carries both #error guards. Plan OQ3 (trait syntax) is CLOSED as moot.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// swift-tools-version: 6.0
+//  Package.swift — EPI-RP-02-LUMENLENS · gating seam (BINDING)
+//
+//  Compile-time gate: the KINDRED companion layer is a SwiftPM target behind a package
+//  TRAIT, so on MAS it is not compiled or linked — no dead companion code path is reachable.
+//  Runtime `Capabilities` (elsewhere) is derived from this flag for UI only, never the truth.
+//
+//  NOTE: SwiftPM package traits are recent (Swift 6.1+). If the trait-condition API below
+//  differs in your toolchain, the fallback is a plain SWIFT_ACTIVE_COMPILATION_CONDITIONS
+//  build setting per target + a separate companion target excluded from the MAS product.
+//  (Confirm the exact `.when(traits:)` syntax against your Swift release — flagged open Q.)
+
+import PackageDescription
+
+let package = Package(
+    name: "Epistemos",
+    traits: [
+        // Default set is EMPTY -> the MAS build has no KINDRED.
+        .default(enabledTraits: []),
+        "KINDRED",
+    ],
+    targets: [
+        .target(name: "EpistemosCore"),
+
+        // Editor spine — shipped in BOTH builds.
+        .target(
+            name: "EpistemosEditor",
+            dependencies: ["EpistemosCore"]
+        ),
+
+        // Companion layer — gated to the KINDRED trait (1Code/Experimental only).
+        .target(
+            name: "KindredCompanions",
+            dependencies: ["EpistemosCore", "EpistemosEditor"]
+            // TODO: exclude from the default product; include only when KINDRED trait is on.
+            // Guard rail in source: `#if !KINDRED_ENABLED` around any companion symbol +
+            //   `#error("Companion must be compiled out of MAS")` to fail loudly on leak.
+        ),
+    ]
+)

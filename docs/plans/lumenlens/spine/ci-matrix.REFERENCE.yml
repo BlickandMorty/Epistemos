@@ -1,0 +1,43 @@
+# ═══ AUDIT AMENDMENT (2026-07-06, repo-juxtaposed — BINDING) ═══
+# REFERENCE ONLY — the repo has REAL CI already (.github/workflows/: ci.yml, lint.yml, release.yml,
+# drift-detection.yml, ci-parallel-branches.yml; ci.yml runs macos-15). Implement the matrix as JOBS
+# in that existing CI, re-mapped for the two-target xcodegen reality (no `swift build --traits`):
+#   row A (MAS)        = xcodebuild Epistemos-AppStore + nm/strings scan asserting ZERO companion
+#                        symbols in the binary (the leak detector — the PROOF, not the intent)
+#   row B (Experimental)= xcodebuild Epistemos (KINDRED on by default on all its configs) — anti-rot
+#   row C (guards)     = compile-time #error pair already enforces no-flagless/no-both (AppSurface).
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+name: epistemos-ci
+# EPI-RP-02-LUMENLENS · gating proof (BINDING).
+# Three rows. Row B is the LEAK DETECTOR — it is the proof, not the intent.
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: defaults              # MAS-like: KINDRED OFF
+            flags: ""
+            expect_companion_symbols: "false"
+          - name: leak-detector         # prove the shared core compiles with KINDRED off
+            flags: "--disable-default-traits"
+            expect_companion_symbols: "false"
+          - name: kindred-anti-rot      # prove the 1Code path never bit-rots
+            flags: "--traits KINDRED"
+            expect_companion_symbols: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build ${{ matrix.flags }}
+      - name: Leak detector
+        if: matrix.expect_companion_symbols == 'false'
+        run: |
+          # TODO: nm/strings the built product; FAIL if any Companion/Kindred symbol is present.
+          echo "assert no companion symbols in $(pwd)"
+      - name: '#error guard'
+        run: |
+          # TODO: assert that compiling a KINDRED source file WITHOUT the trait #errors.
+          echo "assert KINDRED code #errors when trait absent"
