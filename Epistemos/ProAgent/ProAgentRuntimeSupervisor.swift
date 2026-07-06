@@ -24,30 +24,6 @@ private struct ProAgentSpawnBox: @unchecked Sendable {
     let process: Process
 }
 
-/// Resumes a `CheckedContinuation` exactly ONCE across a race, from `@Sendable`
-/// contexts. `CheckedContinuation` is not `Sendable`, so it can't be captured
-/// directly in a detached task under Swift 6 strict concurrency — this box
-/// (`@unchecked Sendable`, guarded by an `NSLock`) wraps it and swallows every
-/// resume after the first (the losers of the race).
-private nonisolated final class ProAgentContinuationBox<T: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<T, Never>?
-    init(_ continuation: CheckedContinuation<T, Never>) {
-        self.continuation = continuation
-    }
-    /// Resume with `value` if this is the first call; no-op otherwise.
-    /// Returns true iff this call won the race (actually resumed).
-    @discardableResult
-    func resolve(_ value: T) -> Bool {
-        lock.lock()
-        let cont = continuation
-        continuation = nil
-        lock.unlock()
-        cont?.resume(returning: value)
-        return cont != nil
-    }
-}
-
 private enum ProAgentProcessDiagnostics {
     nonisolated static let maxBufferedLineBytes = 16 * 1024
     nonisolated static let maxStoredDiagnosticCharacters = 4_096
@@ -128,15 +104,15 @@ final class ProAgentRuntimeSupervisor {
 
     static let shared = ProAgentRuntimeSupervisor()
 
-    nonisolated static let loopbackHost = "127.0.0.1"
+    nonisolated static let loopbackHost = AgentSurfaceRuntimeSupport.loopbackHost
     /// Ports are allocated from the ephemeral range ONLY. Two hard-won reasons:
     /// dynamic allocation avoids the occupied-port class entirely, and the range
     /// sits above the WHATWG fetch bad-port blocklist — the web server's own
     /// undici `fetch` REFUSES bad-listed ports (verified 2026-07-03: opencode on
     /// 4190/"sieve" made every SSE proxy hop die with `cause: bad port` while
     /// curl worked fine).
-    nonisolated static let ephemeralPortRange: ClosedRange<Int> = 49_300...64_900
-    nonisolated static let portAllocationAttempts = 48
+    nonisolated static let ephemeralPortRange = AgentSurfaceRuntimeSupport.ephemeralPortRange
+    nonisolated static let portAllocationAttempts = AgentSurfaceRuntimeSupport.portAllocationAttempts
     nonisolated static let readinessTimeout: Duration = .seconds(40)
     nonisolated static let healthProbeTimeout: TimeInterval = 5
     nonisolated static let maxStatusMessageCharacters = 512
@@ -152,11 +128,8 @@ final class ProAgentRuntimeSupervisor {
     /// (Plan 1-PRO §4.5 — keys live in Keychain, never in the binary or
     /// webview JS; the env crosses exactly one process boundary). Resolution
     /// rides the canonical AppBootstrap envVar->keychainKey mapping.
-    nonisolated static let bridgedProviderEnvironmentKeys: [String] = [
-        "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "PERPLEXITY_API_KEY",
-        "OPENROUTER_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
-        "DEEPSEEK_API_KEY", "HF_TOKEN",
-    ]
+    nonisolated static let bridgedProviderEnvironmentKeys =
+        AgentSurfaceRuntimeSupport.bridgedProviderEnvironmentKeys
     private(set) var status: Status = .idle
     private(set) var lastDiagnostic: String?
 
@@ -584,24 +557,13 @@ final class ProAgentRuntimeSupervisor {
     }
 
     nonisolated static func baseURL(port: Int) -> URL? {
-        var components = URLComponents()
-        components.scheme = "http"
-        components.host = loopbackHost
-        components.port = port
-        return components.url
+        AgentSurfaceRuntimeSupport.baseURL(port: port)
     }
 
     // MARK: - Port allocation
 
     nonisolated static func allocateLoopbackPort(excluding: Set<Int> = []) -> Int? {
-        for _ in 0..<portAllocationAttempts {
-            let candidate = Int.random(in: ephemeralPortRange)
-            guard !excluding.contains(candidate) else { continue }
-            if Self.isLoopbackTCPPortAvailable(candidate) {
-                return candidate
-            }
-        }
-        return nil
+        AgentSurfaceRuntimeSupport.allocateLoopbackPort(excluding: excluding)
     }
 
     // MARK: - Binary / bundle resolution
@@ -613,26 +575,14 @@ final class ProAgentRuntimeSupervisor {
         binaryDirectories: [URL],
         base: [String: String] = ProcessInfo.processInfo.environment
     ) -> [String: String] {
-        ProAgentSubprocessEnvironment.childEnvironment(binaryDirectories: binaryDirectories, base: base)
+        AgentSurfaceRuntimeSupport.childEnvironment(binaryDirectories: binaryDirectories, base: base)
     }
 
     /// Node runtime resolution. Release builds resolve ONLY trusted bundled
     /// locations; DEBUG adds developer-machine fallbacks. Never resolve an
     /// executable from cwd-influenced paths in a shipped build.
     nonisolated static func resolvedNodeBinary(bundle: Bundle = .main) -> URL? {
-        var candidates: [URL] = []
-        if let resources = bundle.resourceURL {
-            candidates.append(resources.appendingPathComponent("openchamber-runtime/bin/node"))
-            candidates.append(resources.appendingPathComponent("node"))
-        }
-        #if DEBUG
-        if let override = ProcessInfo.processInfo.environment["EPISTEMOS_NODE_BINARY"], !override.isEmpty {
-            candidates.append(URL(fileURLWithPath: override))
-        }
-        candidates.append(URL(fileURLWithPath: "/opt/homebrew/bin/node"))
-        candidates.append(URL(fileURLWithPath: "/usr/local/bin/node"))
-        #endif
-        return firstExecutable(in: candidates)
+        AgentSurfaceRuntimeSupport.resolvedNodeBinary(bundle: bundle)
     }
 
     /// The vendored OpenChamber web package root (contains server/, dist/,
@@ -696,11 +646,7 @@ final class ProAgentRuntimeSupervisor {
     }
 
     nonisolated private static func firstExecutable(in candidates: [URL]) -> URL? {
-        let fileManager = FileManager.default
-        for candidate in candidates where fileManager.isExecutableFile(atPath: candidate.path) {
-            return candidate
-        }
-        return nil
+        AgentSurfaceRuntimeSupport.firstExecutable(in: candidates)
     }
 
     nonisolated static func boundedStatusMessage(
@@ -714,35 +660,11 @@ final class ProAgentRuntimeSupervisor {
     }
 
     nonisolated static func randomSecretKey() -> String {
-        var bytes = [UInt8](repeating: 0, count: 32)
-        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess {
-            return Data(bytes).base64EncodedString()
-        }
-        return (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "")
+        AgentSurfaceRuntimeSupport.randomSecretKey()
     }
 
     nonisolated static func isLoopbackTCPPortAvailable(_ port: Int) -> Bool {
-        let descriptor = socket(AF_INET, SOCK_STREAM, 0)
-        guard descriptor >= 0 else { return false }
-        defer { close(descriptor) }
-
-        var reuse = Int32(1)
-        _ = setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
-
-        var address = sockaddr_in()
-        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-        address.sin_family = sa_family_t(AF_INET)
-        address.sin_port = in_port_t(port).bigEndian
-        address.sin_addr = in_addr(s_addr: inet_addr(loopbackHost))
-
-        // SAFETY: `address` is a stack-local sockaddr_in valid for the closure.
-        // Rebinding to sockaddr is the layout-compatible form required by bind()
-        // for AF_INET, and the pointer does not escape.
-        return withUnsafePointer(to: &address) { pointer in
-            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
-                bind(descriptor, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
-            }
-        }
+        AgentSurfaceRuntimeSupport.isLoopbackTCPPortAvailable(port)
     }
 
     // MARK: - Bundled web tarball unpack (packaging)
@@ -824,15 +746,7 @@ final class ProAgentRuntimeSupervisor {
     nonisolated static func bridgedProviderEnvironment(
         keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
     ) -> [String: String] {
-        var env: [String: String] = [:]
-        for envVar in bridgedProviderEnvironmentKeys {
-            guard let keychainKey = AppBootstrap.agentCoreKeychainKey(forEnvironmentKey: envVar),
-                  let raw = keychainLoad(keychainKey) else { continue }
-            let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, value.utf8.count <= 4_096, !value.utf8.contains(0) else { continue }
-            env[envVar] = value
-        }
-        return env
+        AgentSurfaceRuntimeSupport.bridgedProviderEnvironment(keychainLoad: keychainLoad)
     }
 
     /// Time-bounded provider-env bridge. `bridgedProviderEnvironment` performs a
@@ -854,18 +768,7 @@ final class ProAgentRuntimeSupervisor {
         timeout: Duration,
         onTimeout: @escaping @Sendable () -> Void
     ) async -> [String: String] {
-        return await withCheckedContinuation { (continuation: CheckedContinuation<[String: String], Never>) in
-            let box = ProAgentContinuationBox(continuation)
-            Task.detached(priority: .userInitiated) {
-                box.resolve(bridgedProviderEnvironment())
-            }
-            Task.detached {
-                try? await Task.sleep(for: timeout)
-                // Only announce the timeout if WE won the race (the keychain
-                // read hadn't already resolved the continuation).
-                if box.resolve([:]) { onTimeout() }
-            }
-        }
+        await AgentSurfaceRuntimeSupport.bridgedProviderEnvironment(timeout: timeout, onTimeout: onTimeout)
     }
 }
 #endif

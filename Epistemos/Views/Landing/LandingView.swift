@@ -99,8 +99,8 @@ struct LandingView: View {
     // Surface A quick chat (Plan 1-MAS §2): transcript state lives at the
     // landing level so closing the stage keeps the conversation; the GGUF
     // engine itself is app-lifetime (LocalGGUFQuickChatBackend.shared).
-    // MAS-ONLY (owner 2026-07-04): Pro has exactly ONE agent surface — the
-    // OpenChamber room on HomeContent.agent.
+    // MAS-ONLY (owner 2026-07-04): Experimental routes agent work through
+    // HomeContent.agent.
     #if EPISTEMOS_APP_STORE
     @State private var quickChatController = QuickChatController()
     @State private var quickChatDownloads = QuickChatModelDownloadManager()
@@ -116,6 +116,24 @@ struct LandingView: View {
     }
     private var landingStageMinHeight: CGFloat {
         return activeLandingInlineCommand?.minStageHeight ?? 220
+    }
+
+    @ViewBuilder
+    private var agentSurface: some View {
+        switch AppSurface.current {
+        case .appStore:
+            #if EPISTEMOS_APP_STORE
+            JuneAgentSurfaceView()
+            #else
+            EmptyView()
+            #endif
+        case .experimental:
+            #if EPISTEMOS_EXPERIMENTAL
+            ExperimentalSurfaceView(theme: theme)
+            #else
+            EmptyView()
+            #endif
+        }
     }
 
     // MARK: - Body
@@ -186,15 +204,7 @@ struct LandingView: View {
                     .transition(Self.homePageTransition).zIndex(1)
             case .agent:
                 HomeEmbeddedPage(title: "Agent") {
-                    #if EPISTEMOS_APP_STORE
-                    // MAS Agent room: the vendored June surface (Plan 1-MAS).
-                    JuneAgentSurfaceView()
-                    #elseif EPISTEMOS_EXPERIMENTAL
-                    // Experimental Agent room: the embedded 1Code surface (Developer-ID lane).
-                    ExperimentalSurfaceView(theme: theme)
-                    #else
-                    ProAgentSurfaceView(theme: theme)
-                    #endif
+                    agentSurface
                 }
                 .transition(Self.homePageTransition).zIndex(1)
             }
@@ -616,8 +626,8 @@ struct LandingView: View {
             columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
             spacing: 8
         ) {
-            // MAS-ONLY (owner 2026-07-04): QuickChat "ask" tile. Pro routes all
-            // agent work to the single OpenChamber room (HomeContent.agent).
+            // MAS-ONLY (owner 2026-07-04): QuickChat "ask" tile. Experimental
+            // routes agent work through HomeContent.agent.
             #if EPISTEMOS_APP_STORE
             PixelLandingCommandTile(
                 title: "ask",

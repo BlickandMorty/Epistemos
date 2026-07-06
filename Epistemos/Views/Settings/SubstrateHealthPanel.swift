@@ -47,11 +47,7 @@ public struct SubstrateHealthPanel: View {
                 }
 
                 foundationSection("Tools and Surface Bridge") {
-                    // Plan 1-PRO agent surface diagnostics (Pro-only; renders
-                    // nothing on MAS).
-                    ProAgentHealthRow()
-                    // Plan 1-MAS June surface diagnostics (MAS-only; renders
-                    // nothing on Pro).
+                    // Plan 1-MAS June surface diagnostics (MAS-only).
                     JuneAgentHealthRow()
                     LiteParseImportHealthRow()
                     LiteParseSettingsImportRow()
@@ -78,7 +74,7 @@ public struct SubstrateHealthPanel: View {
                 text: """
                 App-side IP that stays native: search, citation grounding, vault memory, \
                 tools/MCP, provenance, and verification. Generation engines live in \
-                OpenChamber, OpenGUI, and OpenCode-style surfaces.
+                surface-specific bridges such as June, Experimental, and OpenCode-style tools.
                 """
             )
         }

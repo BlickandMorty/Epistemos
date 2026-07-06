@@ -29,24 +29,22 @@ struct ExperimentalWebRoot: Equatable, Sendable {
 // SAFETY: immutable carrier used to hand a freshly-created Process across a
 // concurrency boundary exactly once (spawn off-main); the Process is not
 // mutated concurrently. proc.run() blocks on OS code-signature validation of
-// notarized binaries for hundreds of ms–seconds — never spawn on @MainActor
-// (ProAgent hang-trace 2026-07-01).
+// notarized binaries for hundreds of ms-seconds; never spawn on @MainActor.
 private struct ExperimentalSpawnBox: @unchecked Sendable {
     let process: Process
 }
 
 /// Supervises the Experimental surface's headless 1Code backend (one Node
-/// child; node-pty/git/engine CLIs are ITS children). Modeled on
-/// `ProAgentRuntimeSupervisor` and reusing its proven statics directly:
-/// port allocation (49300–64900, above the WHATWG fetch bad-port blocklist),
-/// env allowlist, the time-bounded Keychain→env bridge, and the shared pinned
-/// Node resolution (`openchamber-runtime/bin/node` — one binary, two surfaces).
+/// child; node-pty/git/engine CLIs are its children). Uses shared
+/// `AgentSurfaceRuntimeSupport` plumbing for port allocation (49300-64900,
+/// above the WHATWG fetch bad-port blocklist), env allowlist, time-bounded
+/// Keychain-to-env bridge, and shared pinned Node resolution.
 ///
-/// APP-SCOPED KEEP-ALIVE: survives tab switches — reloading the SPA kills the
+/// APP-SCOPED KEEP-ALIVE: survives tab switches - reloading the SPA kills the
 /// live agent session (§0 rule), so the backend keeps running while the app is
 /// open; the child ledger + termination handlers reap it at quit/crash.
-/// One-shot latch to race a (cancellation-immune) Keychain read against a deadline —
-/// mirrors ProAgent's private ProAgentContinuationBox. Resolves the continuation exactly
+/// One-shot latch to race a (cancellation-immune) Keychain read against a deadline.
+/// Resolves the continuation exactly
 /// once; later callers no-op.
 private nonisolated final class ExperimentalContinuationBox<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
@@ -79,13 +77,13 @@ final class ExperimentalRuntimeSupervisor {
 
     nonisolated static let readinessTimeout: Duration = .seconds(40)
     nonisolated static let healthProbeTimeout: TimeInterval = 5
-    /// §16: upstream launches with --max-old-space-size=8192 — oversized beside
+    /// §16: upstream launches with --max-old-space-size=8192 - oversized beside
     /// Epistemos + engine children on 16 GB. Start mid-band; tune under soak.
     nonisolated static let backendHeapMB = 3_072
 
     private(set) var status: Status = .idle
     private(set) var lastDiagnostic: String?
-    /// The resolved onecode-shim.js path for the running backend — the surface
+    /// The resolved onecode-shim.js path for the running backend - the surface
     /// view reads it to inject the WKUserScript @documentStart.
     private(set) var currentShimScript: URL?
 
@@ -95,7 +93,7 @@ final class ExperimentalRuntimeSupervisor {
     private var coldOpenStart: ContinuousClock.Instant?
     private var outputTask: Task<Void, Never>?
     /// The /host ws bridge servicing native dialogs for the backend (rows 7-8
-    /// of the fork's PATCH_LEDGER — the folder pickers' native path).
+    /// of the fork's PATCH_LEDGER - the folder pickers' native path).
     private var hostBridge: ExperimentalHostBridge?
 
     func start() {
@@ -105,11 +103,11 @@ final class ExperimentalRuntimeSupervisor {
         default:
             break
         }
-        guard let nodeBinary = ProAgentRuntimeSupervisor.resolvedNodeBinary() else {
+        guard let nodeBinary = AgentSurfaceRuntimeSupport.resolvedNodeBinary() else {
             status = .unavailable("Shared Node runtime is not bundled or staged for this build.")
             return
         }
-        guard let uiPort = ProAgentRuntimeSupervisor.allocateLoopbackPort() else {
+        guard let uiPort = AgentSurfaceRuntimeSupport.allocateLoopbackPort() else {
             status = .failed("No free loopback port available for the Experimental surface.")
             return
         }
@@ -132,14 +130,14 @@ final class ExperimentalRuntimeSupervisor {
         if let process = backendProcess, process.isRunning {
             process.terminationHandler = nil
             process.terminate()
-            ProAgentChildLedger.forget(pid: process.processIdentifier)
+            AgentSurfaceChildLedger.forget(pid: process.processIdentifier)
         }
         backendProcess = nil
         status = .stopped
     }
 
     private func run(nodeBinary: URL, uiPort: Int) async {
-        await ProAgentChildLedger.sweepStaleChildren { [weak self] line in
+        await AgentSurfaceChildLedger.sweepStaleChildren { [weak self] line in
             Task { @MainActor in self?.recordDiagnostic(line) }
         }
 
@@ -151,28 +149,28 @@ final class ExperimentalRuntimeSupervisor {
         }
         currentShimScript = webRoot.shimScript
 
-        var environment = ProAgentRuntimeSupervisor.childEnvironment(
+        var environment = AgentSurfaceRuntimeSupport.childEnvironment(
             binaryDirectories: [nodeBinary.deletingLastPathComponent()]
         )
-        // Keychain reads can hang forever on a first-launch ACL prompt — race
-        // them (4s) and spawn without keys on timeout (ProAgent doctrine).
-        let bridged = await ProAgentRuntimeSupervisor.bridgedProviderEnvironment(
+        // Keychain reads can hang forever on a first-launch ACL prompt - race
+        // them (4s) and spawn without keys on timeout.
+        let bridged = await AgentSurfaceRuntimeSupport.bridgedProviderEnvironment(
             timeout: .seconds(4)
         ) { [weak self] in
             Task { @MainActor in
-                self?.recordDiagnostic("[keychain] provider-env bridge timed out — starting without bridged keys")
+                self?.recordDiagnostic("[keychain] provider-env bridge timed out - starting without bridged keys")
             }
         }
         environment.merge(bridged) { _, new in new }
         // rows 10-11: inject any user-pasted provider keys (Keychain-stored via the onboarding
-        // UI) into the backend env — the manual API-key fallback. Time-bounded; no-op when
+        // UI) into the backend env - the manual API-key fallback. Time-bounded; no-op when
         // none are stored. Layered AFTER `bridged` so an explicit Experimental paste wins.
         let pastedKeys = await Self.bridgedExperimentalProviderKeys(timeout: .seconds(4))
         if !pastedKeys.isEmpty {
             environment.merge(pastedKeys) { _, new in new }
             recordDiagnostic("[keychain] injected \(pastedKeys.count) pasted provider key(s)")
         }
-        // P1 (§8): prefer the user's own `claude` CLI (with their OAuth) — probe absolute
+        // P1 (§8): prefer the user's own `claude` CLI (with their OAuth) - probe absolute
         // locations (GUI apps get only the launchd PATH). The backend resolver honors this
         // and falls back to the bundled binary when unset.
         if let claudeBinary = Self.resolveSystemClaudeBinary() {
@@ -184,7 +182,7 @@ final class ExperimentalRuntimeSupervisor {
         // search + cite the user's notes. The backend's resolveVault() reads these three
         // vars and appends the server at the exact point of use. Best-effort: no active
         // vault OR missing bundled omega_mcp_stdio ⇒ inject nothing (honest no-op).
-        // Reuses the proven Work-lane server resolver + AppBootstrap vault URL (as ProAgent).
+        // Reuses the proven Work-lane server resolver + AppBootstrap vault URL.
         if let vaultURL = AppBootstrap.shared?.vaultSync.vaultURL,
            let serverURL = WorkOpenCodeRuntime.bundledMcpServerURL(),
            let envJSON = Self.jsonEnvString(["EPISTEMOS_VAULT_ROOT": vaultURL.path]) {
@@ -228,11 +226,11 @@ final class ExperimentalRuntimeSupervisor {
         }
 
         backendProcess = process
-        ProAgentChildLedger.record(pid: process.processIdentifier, name: "experimental-backend")
+        AgentSurfaceChildLedger.record(pid: process.processIdentifier, name: "experimental-backend")
         installTerminationHandler(on: process)
         beginOutputCapture(outputPipe)
 
-        guard let uiBaseURL = ProAgentRuntimeSupervisor.baseURL(port: uiPort) else {
+        guard let uiBaseURL = AgentSurfaceRuntimeSupport.baseURL(port: uiPort) else {
             status = .failed("Could not form the surface base URL.")
             stop()
             return
@@ -274,7 +272,7 @@ final class ExperimentalRuntimeSupervisor {
             let pid = exited.processIdentifier
             Task { @MainActor in
                 guard let self, self.backendProcess === exited else { return }
-                ProAgentChildLedger.forget(pid: pid)
+                AgentSurfaceChildLedger.forget(pid: pid)
                 self.backendProcess = nil
                 self.hostBridge?.disconnect()
                 self.hostBridge = nil
@@ -319,7 +317,7 @@ final class ExperimentalRuntimeSupervisor {
 
     /// §8 CLI detect: first existing+executable `claude` in the canonical install
     /// locations (a GUI app inherits only the launchd PATH, so probe absolute paths).
-    /// Returns nil when none is installed → the backend uses its bundled binary.
+    /// Returns nil when none is installed; the backend uses its bundled binary.
     nonisolated static func resolveSystemClaudeBinary() -> String? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates = [
@@ -335,13 +333,13 @@ final class ExperimentalRuntimeSupervisor {
 
     // MARK: - rows 10-11: user-pasted provider keys (manual fallback, Keychain-stored)
     //
-    // §14 guardrail: "provider keys stay in Keychain, bridged to the child env only — never
-    // into webview JS." The onboarding UI pastes a key → the Coordinator writes it to a
+    // §14 guardrail: "provider keys stay in Keychain, bridged to the child env only - never
+    // into webview JS." The onboarding UI pastes a key; the Coordinator writes it to a
     // per-provider Keychain slot (never localStorage). At spawn, the supervisor reads those
     // slots and injects the backend env var each provider expects; the backend then resolves
     // it (harnessTokenFromEnv for Kimi/GLM; ANTHROPIC_/OPENAI_/GEMINI_ for the rest).
 
-    /// Provider → the backend env var a pasted key populates. (Kimi/GLM use the harness token
+    /// Provider to backend env var a pasted key populates. (Kimi/GLM use the harness token
     /// vars the backend's harnessTokenFromEnv already reads; claude/codex/gemini use the
     /// standard provider keys.)
     nonisolated static let providerKeychainEnvMap: [String: String] = [
@@ -357,10 +355,9 @@ final class ExperimentalRuntimeSupervisor {
         "epistemos.experimental.provider.\(provider)"
     }
 
-    /// Time-bounded read of the pasted-key Keychain slots → backend env. A synchronous
+    /// Time-bounded read of the pasted-key Keychain slots to backend env. A synchronous
     /// Keychain read can hang on a first-launch ACL prompt, so race it against a deadline and
-    /// return whatever resolved (empty on timeout) — the spawn must never wedge (ProAgent
-    /// doctrine, mirrors bridgedProviderEnvironment).
+    /// return whatever resolved (empty on timeout); the spawn must never wedge.
     nonisolated static func bridgedExperimentalProviderKeys(timeout: Duration) async -> [String: String] {
         await withCheckedContinuation { (continuation: CheckedContinuation<[String: String], Never>) in
             let box = ExperimentalContinuationBox(continuation)
@@ -410,9 +407,9 @@ final class ExperimentalRuntimeSupervisor {
         return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    /// Unpacks the bundled tarball to Application Support (size+mtime stamped —
+    /// Unpacks the bundled tarball to Application Support (size+mtime stamped -
     /// each staged version unpacks exactly once), or falls back to the DEBUG
-    /// fork checkout for instant dev boots. Mirrors the ProAgent unpack recipe.
+    /// fork checkout for instant dev boots.
     nonisolated static func resolveWebRootUnpackingIfNeeded(
         bundle: Bundle = .main,
         diagnostics: @escaping @Sendable (String) -> Void = { _ in }

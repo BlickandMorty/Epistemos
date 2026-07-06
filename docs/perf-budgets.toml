@@ -112,6 +112,47 @@ transcript_frame_ms_p99     = 8.3    # streaming/scroll ~120fps; no full-transcr
 # --- backend memory (§16: cap the heap; upstream ships 8192, oversized on 16 GB) ---
 backend_heap_mb_max         = 4096   # --max-old-space-size ceiling for the headless node backend (supervisor sets 3072)
 
+[keelstone.reference]
+# KEELSTONE performance floor. Reference hardware: Apple silicon M2 Pro class.
+# Reference vault: 10k notes. These are release-blocking once the CI measurement
+# producer is wired.
+hardware = "M2 Pro"
+vault_notes = 10000
+
+[keelstone.launch]
+cold_to_interactive_p50_ms = 1500
+cold_to_interactive_p95_ms = 2500
+warm_to_interactive_p50_ms = 800
+
+[keelstone.editor]
+first_open_p50_ms = 150
+first_open_p95_ms = 400
+
+[keelstone.search]
+first_search_ready_p50_ms = 2000
+first_search_ready_p95_ms = 5000
+
+[keelstone.reconcile]
+# Incremental reconcile after an external change burst, no UI stall.
+after_1000_changes_max_ms = 10000
+main_thread_fs_ops = 0
+
+[keelstone.memory]
+idle_resident_mb_max = 500
+
+[keelstone.thermal]
+no_escalation_under_soak_minutes = 15
+
+[keelstone.enterprise]
+vault_notes = 100000
+
+[keelstone.enterprise.budgets]
+cold_to_interactive_p95_ms = 6000
+first_search_ready_p95_ms = 20000
+reconcile_20k_change_burst_max_ms = 60000
+idle_resident_mb_max = 1200
+wal_file_mb_max = 512
+
 [meta]
 # Where the parser looks for runtime measurement output. Wave 2.6 will
 # write this file from the morning-session benchmark; until it exists

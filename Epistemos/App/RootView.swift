@@ -233,17 +233,7 @@ struct RootView: View {
         embeddedHomeGraphCanvasVisible
     }
 
-    /// Pro agent surface pill (Plan 1-PRO §5 owner signature).
-    private var showProAgentToolbarControls: Bool {
-        #if EPISTEMOS_APP_STORE
-        return false
-        #else
-        return ui.homeTab == .home && ui.homeContent == .agent
-        #endif
-    }
-
-    /// MAS Agent-room pill (Plan 1-MAS §7) — the App Store complement of the
-    /// Pro pill above; same visibility rule, mutually exclusive gates.
+    /// MAS Agent-room pill (Plan 1-MAS §7).
     private var showJuneAgentToolbarControls: Bool {
         #if EPISTEMOS_APP_STORE
         return ui.homeTab == .home && ui.homeContent == .agent
@@ -465,28 +455,6 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
-            #if !EPISTEMOS_APP_STORE
-            if showProAgentToolbarControls {
-                ProAgentNavBar(
-                    theme: ui.theme,
-                    onReturnHome: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                            ui.homeContent = .greeting
-                        }
-                    },
-                    onNewChat: {
-                        NotificationCenter.default.post(
-                            name: .epistemosProAgentChromeIntent,
-                            object: nil,
-                            userInfo: ["type": ProAgentChromeIntent.newChat]
-                        )
-                    },
-                    onAllChats: {
-                        NotificationCenter.default.post(name: .epistemosProAgentAllChats, object: nil)
-                    }
-                )
-            }
-            #endif
             #if EPISTEMOS_APP_STORE
             if showJuneAgentToolbarControls {
                 JuneAgentNavBar(
