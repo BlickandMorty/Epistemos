@@ -344,3 +344,18 @@ The doors re-weight:
 **No new chat of any kind**: the minichat/companion (Experimental) and June (MAS) are the chat,
 dataset-aware via presence (`Location.surface = dataTab`). Stage 0–1 (data core + engine spikes)
 remains startable early; everything agent-facing still lands after KINDRED K6.
+
+**Exact §0 supersession map (this reshape is the new evidence §0 demands):**
+- §0.1 "dedicated Data tab/room" → SUPERSEDED: datasets open as tabs in the existing note/doc
+  tab group; records stay first-class vault objects (wikilinks/graph nodes — unchanged).
+- §0.2 "grid + kanban + gallery + calendar + form all ship in v1" → SUPERSEDED: grid ships v1;
+  the other views + record-detail are DEFERRED phases.
+- §0.7 "native, dedicated AGENT CHAT PANEL docked in the Data tab" → SUPERSEDED: no docked
+  panel, no new chat — the KINDRED minichat (Experimental) / June (MAS) serve dataset tabs
+  through the same F2 tools. §0.7's native frame/toolbar/inspector ceiling otherwise stands
+  for the dataset-tab chrome; Swift Charts stands.
+- §0.8 "Pro = OpenChamber/goose/OpenCode via app-hosted MCP" → STALE post-pivot: the surfaces
+  are June/MAS (in-process agent_core) + 1Code/Experimental (Node backend); one tool surface
+  + dry_run→confirm→apply→undo + the mascot hook all stand as written.
+- Everything else in §0 (silent-Univer, IronCalc sole authority, WASM placement, GRDB truth,
+  dual-zone/defined-names, xlsx via IronCalc, never Univer Pro, licensing) is UNCHANGED.
