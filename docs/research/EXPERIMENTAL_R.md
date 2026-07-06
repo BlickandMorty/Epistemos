@@ -624,3 +624,45 @@ Design (full text in the build prompt §16 / Plan 10 §14):
 `PROMPT_PLAN_10_EXPERIMENTAL.md` (robust standalone plan) ·
 `docs/prompts/BUILD_PROMPT_EXPERIMENTAL_FINAL.md` (the agent-facing ultimate prompt — self-contained;
 agents need not read this corpus). Remaining runtime-checks live in the prompt's §15 trust ledger.
+
+---
+
+**Cycle 5 (2026-07-05, agent-run) — THE EMBEDDED-AGENT FRONTIER, Cycle 1 of the forever-loop.**
+New owner directive: no native SwiftUI; extend the 1Code web renderer + backend fork; make the
+surface the best agent app that exists by embedding it in the Epistemos knowledge substrate.
+
+- **Phase A — DEEP RESEARCH (committed).** `docs/research/AGENT_APP_FIELD_STUDY.md` (3 parallel agents
+  read Codex/opencode/goose/zed/cline/aider/continue/Claude-Desktop at HEAD, cited file:line +
+  web-verified) and `docs/research/EXPERIMENTAL_DEEP_AUDIT.md` (7-layer self-audit, verdict per seam).
+  **The decisive finding:** exhaustive negative grep across all eight frontier apps — NONE has semantic
+  retrieval from a personal knowledge base, a concept graph, or provenance write-back; all are
+  session-cold and repo-scoped. Their "memory" features prove the gap (goose flat-text dump; Cline's
+  in-repo markdown Memory Bank; Zed's manual @mention recall; Codex distills its own rollouts). The
+  moat is structural, not a backlog item.
+- **Phase C1 — provenance write-back + vault-grounded citation SHIPPED.** The "Save to vault" button
+  (`SaveToVaultButton` on the assistant action bar → native `vault:create-note` → `<vault>/notes/*.md`)
+  and the earlier read-aloud/selection fusions. **DoD-C citation half PROVEN LIVE** (screenshot): the
+  agent ran the vault MCP (4 steps) and cited the user's real notes — `AETHERLINK_MASTER_PACKET.md`,
+  `GRAND_UNIFICATION_SWEEP_2026_06_22.md` — grounding the answer in the user's own knowledge. The
+  write-back button renders + handler committed/compiled; the file-write click was blocked by a
+  machine-wide macOS Keychain-prompt storm (below), not a defect.
+- **CRYSTALLIZE.** New skill `.claude/skills/experimental-provenance-writeback/` — the reusable CLASS:
+  web-UI → native reply-capable `epistemos` handler → Epistemos substrate (no SwiftUI, no shim edit).
+  Indexed in `EXPERIMENTAL_SKILLS_INDEX.md`.
+- **Hardening findings for Phase E:** (1) a **Keychain-prompt storm** — `app.epistemos` reads fire one
+  modal per provider slot without an always-allow ACL, intercepting UI clicks (machine-wide across
+  lanes today); set the ACL / batch reads. (2) Codex tool-policy `deny` is audit-only. (3) The
+  two-`xcodebuild` DB-lock collision corrupts intermediates + the Rust dylib (rebuild `build-agent-core.sh`).
+
+**THE RAISED BAR (Cycle 2 crux):** the agent's vault search is naive substring grep
+(`omega_mcp_stdio` `vault.rs:854`) while Epistemos owns a BM25+HNSW **RRF index**
+(`epistemos-shadow`/`RRFFusionQuery`) the agent cannot reach. Expose **RRF-ranked graph/vault
+retrieval** to the agent's context assembly — the context axis the field study proves no standalone
+app can build — composing the Cycle-1 write-back round-trip skill to reach the Shadow index.
+
+**Thesis (why this now exceeds Codex / Claude Desktop, grounded in shipped features):** those apps
+boot cold and grep a repo; this one boots into the user's vault, runs six engines, injects the vault
+MCP into the engine, and — proven live — grounds its answers in the user's own notes with citations,
+with a one-click path to write results back as durable notes. The citation + write-back loop is
+*structurally impossible* for a standalone agent because it has no knowledge base to cite or write to.
+Cycle 2 widens the lead on the context-assembly axis (RRF retrieval), which the field cannot follow.
