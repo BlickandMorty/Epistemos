@@ -79,6 +79,16 @@ if [ "${WITNESS_FORGE:-0}" = "1" ] && [ -n "${EPISTEMOS_CLAUDE_BINARY:-}" ]; the
   else
     echo "  FAIL  promptForge: returned original (SDK/binary path?)  $RES"; FAIL=1
   fi
+
+  echo "[witness] asserting System Prompt Forge upgrade (live small-model call)…"
+  SRES="$(curl -fsS -X POST "http://127.0.0.1:$PORT/trpc/epistemosSystemPromptForge.upgrade" \
+      -H 'Content-Type: application/json' \
+      -d '{"json":{"original":"You are a helpful coding assistant. Answer questions and write code."}}' | jget)"
+  if printf '%s' "$SRES" | python3 -c "import json,sys;d=json.load(sys.stdin);u=d.get('upgraded','');print('OK' if u and len(u)>120 and u.strip()!='You are a helpful coding assistant. Answer questions and write code.' else 'NO')" | grep -q OK; then
+    echo "  PASS  systemPromptForge: upgraded into the layered architecture"
+  else
+    echo "  FAIL  systemPromptForge: returned original / too short  $SRES"; FAIL=1
+  fi
 fi
 
 echo ""
