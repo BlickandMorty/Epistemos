@@ -1495,3 +1495,17 @@ errors). The recurring "concurrent lane breaks the shared target" situation. I d
 router into a built app (build failed) → the running app is UNAFFECTED, no regression. Feature activates
 when Work/ compiles + the app builds + relaunches. Also: sidebar search debounced (180ms). Web-URL→in-app
 browser is the follow-on. Honest: my part is done + compiler-validated; activation is externally blocked.
+
+---
+
+**Cycle 58 (2026-07-06) — vault sidebar refined to the owner's exact spec + deployed (web-only, live on
+relaunch).** Owner clarified the notes-browser UX: (1) single-CLICK a note → attach as context; (2) a
+per-note "Open" button → open in the app Notes editor; (3) a "Select" mode → multi-select + "Attach N
+notes". Built all three (Cycle 57) + this cycle made the Open button ALWAYS visible (owner: "a button next
+to it", was hover-only) and hidden it in Select mode. All web-only (isolated component) → deployed to the
+bundle, live on the owner's next relaunch. The "Open→Notes editor" native half rides the epistemos:open-note
+bridge whose Swift handler is BUILD-BLOCKED by the Work/ lane (not mine; compiled clean) — until the app
+rebuilds it shows an honest toast; attach + multi-select work fully now. Confirmed safe to deploy the web:
+the old handler's reply() default returns {__unhandled:true} synchronously → the link router falls back to
+openExternal instantly (no hang/delay). Running app was not disrupted (owner active in Claude Code; app not
+running).
