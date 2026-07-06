@@ -1100,3 +1100,17 @@ few chars) could spin ~100k+ indexOf iterations for no ranking gain. Fixed (cap 
 Discovery (bounded scan, correct subsumption) + describe (SDK w/ binary-path + retry + honest fallback,
 no injection) clean. Witness still 9/9. Deploys with the next batch (backend perf bound only). The
 four-axis moat remains complete, live-verified, and now the newest code is reviewed too.
+
+---
+
+**Cycle 29 (2026-07-06) — kept skills are USABLE (completes the Skills-library loop).**
+Added the final step: each "My skills" entry now has a "use" button that inserts the workflow as a
+composer prompt-macro ("Run my '<name>' workflow — <whenToUse> (typical steps: <sequence>).") via the
+editor handle (PersonaButton now takes editorRef, wired in both composers). So Finalization #3 is now a
+complete honest loop: RECORD (run provenance) → DISCOVER (frequency gate, withhold one-offs) → DESCRIBE
+(AI-drafted name/when) → ACCEPT (user keep) → USE (insert macro). Deployed together with last cycle's
+occ-cap ranking bound (both confirmed in tarball). Kept skills are a curated, named, described, USABLE
+workflow library the user builds from their own runs — honestly NOT agent-auto-invocable (that needs the
+native skills registry). Composes editor-handle + submission-enhance + cross-run-discovery + provenance.
+**State:** four-axis moat complete + live-verified; Skills library end-to-end; all overlays reviewed;
+witness 9/9. Remaining genuinely-open: opencode-reasoning-renders live spot-check + native-only items.
